@@ -33,7 +33,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="styio machine-info handshake fields and compile-plan advertisement stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.1 `styio --machine-info=json`",
                     "`active_integration_phase`",
@@ -67,7 +67,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="styio compile-plan consumer behavior stays aligned for spio and view",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.3 `styio --compile-plan <path>`",
                     "`build/check/run/test` 都走同一条 compile-plan resolved-request 入口",
@@ -100,7 +100,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="styio source-build metadata stays aligned for spio build",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.4 `styio --source-build-info=json`",
                     "`https://github.com/eBioRing/Styio.git`",
@@ -127,7 +127,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="spio machine-info advertised contract lines stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.1 `spio machine-info --json`",
                     "`supported_contracts.project_graph:[package-workspace-shape]`",
@@ -159,7 +159,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="spio project graph payload keys stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.2 `spio project-graph --manifest-path <path> --json`",
                     "`project_graph package-workspace-shape`",
@@ -192,7 +192,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="spio toolchain state payload stays aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.3 `spio tool status --manifest-path <path> --json`",
                     "`toolchain_state compiler-toolchain-shape`",
@@ -227,7 +227,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="spio build/run/test success payloads stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.4 `spio --json build/run/test`",
                     "`workflow_success_payloads execution-result-shape`",
@@ -263,7 +263,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="supporting spio JSON success commands stay aligned for source/deploy/toolchain flows",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.5 `spio --json fetch/vendor/pack/publish`",
                     "### 3.6 `spio --json tool install/use/pin`",

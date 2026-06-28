@@ -119,6 +119,10 @@ STYIO_IDE_INTERNAL_ACCESS:
   void schedule_semantic_diagnostics(const std::shared_ptr<const DocumentSnapshot>& snapshot);
   RuntimeDropReason drop_reason_for(const ForegroundRequestTicket& ticket);
   void record_latency(RuntimeLatencyStats& stats, std::uint64_t elapsed_microseconds);
+  std::optional<std::string> background_index_path_for(const std::string& path) const;
+  bool enqueue_background_index_path(
+    const std::string& path,
+    const std::unordered_set<std::string>& open_paths);
 
 public:
   IdeService();
@@ -135,6 +139,7 @@ public:
   void cancel_request(std::uint64_t request_id);
   std::vector<DiagnosticPublication> drain_semantic_diagnostics(std::size_t max_documents = static_cast<std::size_t>(-1));
   void schedule_background_index_refresh();
+  std::size_t schedule_background_index_refresh_for_paths(const std::vector<std::string>& paths);
   std::size_t run_background_tasks(std::size_t budget = 1);
   RuntimeIdleResult run_idle_tasks(
     std::size_t background_budget = 1,

@@ -52,6 +52,7 @@ public:
   void set_async_scheduler_stats(
     std::int64_t enabled,
     std::int64_t worker_count,
+    std::int64_t ready_queue_kind,
     std::int64_t active_tasks,
     std::int64_t ready_tasks,
     std::int64_t spawned_tasks,
@@ -95,6 +96,7 @@ private:
     bool present = false;
     std::int64_t enabled = 0;
     std::int64_t worker_count = 0;
+    std::int64_t ready_queue_kind = 0;
     std::int64_t active_tasks = 0;
     std::int64_t ready_tasks = 0;
     std::int64_t spawned_tasks = 0;

@@ -4,7 +4,10 @@
 #include <cctype>
 #include <cstdint>
 #include <exception>
+#include <unordered_set>
 #include <sstream>
+#include <string_view>
+#include <utility>
 
 #include "StyioServices/DiagnosticContract.hpp"
 
@@ -127,6 +130,13 @@ range_from_lsp_range(const styio::ide::TextBuffer& buffer, const llvm::json::Obj
   return styio::ide::TextRange{*start_offset, *end_offset};
 }
 
+llvm::json::Object
+position_to_lsp_object(const styio::ide::Position& position) {
+  return llvm::json::Object{
+    {"line", static_cast<std::int64_t>(position.line)},
+    {"character", static_cast<std::int64_t>(position.character)}};
+}
+
 styio::ide::Position
 position_at_lsp_offset(const styio::ide::TextBuffer& buffer, std::size_t offset) {
   const styio::ide::Position byte_position = buffer.position_at(offset);
@@ -143,6 +153,298 @@ to_lsp_range(const styio::ide::TextBuffer& buffer, styio::ide::TextRange range) 
   return llvm::json::Object{
     {"start", llvm::json::Object{{"line", static_cast<std::int64_t>(start.line)}, {"character", static_cast<std::int64_t>(start.character)}}},
     {"end", llvm::json::Object{{"line", static_cast<std::int64_t>(end.line)}, {"character", static_cast<std::int64_t>(end.character)}}}};
+}
+
+llvm::json::Object
+inlay_hint_at_offset(const styio::ide::TextBuffer& buffer, std::size_t offset, const std::string& label) {
+  return llvm::json::Object{
+    {"position", position_to_lsp_object(position_at_lsp_offset(buffer, offset))},
+    {"label", label},
+    {"kind", static_cast<std::int64_t>(2)},
+    {"paddingRight", true}};
+}
+
+std::vector<llvm::json::Object>
+parameter_inlay_hints_for_range(
+  styio::ide::IdeService& service,
+  const std::string& uri,
+  const styio::ide::TextRange& request_range
+) {
+  std::vector<llvm::json::Object> hints;
+  const auto snapshot = service.snapshot_for_uri(uri);
+  styio::ide::SyntaxParser syntax_parser;
+  const styio::ide::SyntaxSnapshot syntax = syntax_parser.parse(*snapshot);
+
+  auto add_hint_for_offset = [&](std::size_t offset)
+  {
+    if (offset < request_range.start || offset >= request_range.end) {
+      return;
+    }
+    const auto context = service.completion_context(uri, snapshot->buffer.position_at(offset));
+    if (context.expected_param_name.empty()) {
+      return;
+    }
+    hints.push_back(inlay_hint_at_offset(snapshot->buffer, offset, context.expected_param_name + ":"));
+  };
+
+  for (std::size_t i = 0; i < syntax.tokens.size(); ++i) {
+    const auto& token = syntax.tokens[i];
+    if (token.type != StyioTokenType::TOK_LPAREN) {
+      continue;
+    }
+
+    const auto matching = syntax.matching_tokens.find(i);
+    if (matching == syntax.matching_tokens.end() || matching->second <= i) {
+      continue;
+    }
+
+    const auto callee_index = syntax.previous_non_trivia_index(token.range.start);
+    if (!callee_index.has_value() || syntax.tokens[*callee_index].type != StyioTokenType::NAME) {
+      continue;
+    }
+
+    const std::size_t call_end_index = matching->second;
+    std::size_t segment_start = i + 1;
+    std::size_t depth = 0;
+
+    auto flush_segment = [&](std::size_t segment_end)
+    {
+      if (segment_start >= segment_end) {
+        return;
+      }
+      for (std::size_t j = segment_start; j < segment_end; ++j) {
+        const auto& segment_token = syntax.tokens[j];
+        if (segment_token.is_trivia() || segment_token.type == StyioTokenType::TOK_EOF) {
+          continue;
+        }
+        add_hint_for_offset(segment_token.range.start);
+        break;
+      }
+    };
+
+    for (std::size_t j = i + 1; j < call_end_index; ++j) {
+      const StyioTokenType type = syntax.tokens[j].type;
+      if (type == StyioTokenType::TOK_LPAREN
+          || type == StyioTokenType::TOK_LBOXBRAC
+          || type == StyioTokenType::TOK_LCURBRAC) {
+        depth += 1;
+        continue;
+      }
+      if ((type == StyioTokenType::TOK_RPAREN
+           || type == StyioTokenType::TOK_RBOXBRAC
+           || type == StyioTokenType::TOK_RCURBRAC)
+          && depth > 0) {
+        depth -= 1;
+        continue;
+      }
+      if (type == StyioTokenType::TOK_COMMA && depth == 0) {
+        flush_segment(j);
+        segment_start = j + 1;
+      }
+    }
+
+    flush_segment(call_end_index);
+  }
+
+  return hints;
+}
+
+struct RenameEdit
+{
+  std::string uri;
+  styio::ide::TextRange range;
+  llvm::json::Object edit;
+};
+
+llvm::json::Object
+to_lsp_diagnostic_object(
+  const styio::ide::TextBuffer& buffer,
+  const styio::ide::Diagnostic& diagnostic
+) {
+  llvm::json::Object item{
+    {"range", to_lsp_range(buffer, diagnostic.range)},
+    {"severity", static_cast<std::int64_t>(diagnostic.severity)},
+    {"source", diagnostic.source},
+    {"message", diagnostic.message}};
+  if (!diagnostic.code.empty()) {
+    item["code"] = diagnostic.code;
+  }
+  std::string phase = diagnostic.phase;
+  if (phase.empty() && diagnostic.code.rfind("STYIO_", 0) == 0) {
+    phase = styio::services::diagnostics::diagnostic_phase_for_code(diagnostic.code);
+  }
+  if (!phase.empty()) {
+    item["data"] = llvm::json::Object{{"phase", std::move(phase)}};
+  }
+  return item;
+}
+
+std::optional<llvm::json::Object>
+make_code_action_for_diagnostic(
+  const styio::ide::TextBuffer& buffer,
+  const std::string& uri,
+  const styio::ide::Diagnostic& diagnostic
+) {
+  if (diagnostic.code != styio::services::diagnostics::kServiceEditorSyntax) {
+    return std::nullopt;
+  }
+  llvm::json::Array diagnostics;
+  auto diagnostic_json = to_lsp_diagnostic_object(buffer, diagnostic);
+  diagnostics.push_back(llvm::json::Value(std::move(diagnostic_json)));
+  if (diagnostic.message == "unterminated block comment"
+      && diagnostic.range.end <= buffer.size()) {
+    llvm::json::Array edits;
+    edits.push_back(llvm::json::Object{
+      {"range", to_lsp_range(buffer, styio::ide::TextRange{diagnostic.range.end, diagnostic.range.end})},
+      {"newText", " */"}});
+    llvm::json::Object changes;
+    changes[uri] = std::move(edits);
+    return llvm::json::Object{
+      {"title", "Close block comment"},
+      {"kind", "quickfix"},
+      {"diagnostics", std::move(diagnostics)},
+      {"edit", llvm::json::Object{{"changes", std::move(changes)}}}};
+  }
+  if (diagnostic.message == "unterminated string literal"
+      && diagnostic.range.end <= buffer.size()) {
+    const auto& text = buffer.text();
+    const bool at_line_boundary = diagnostic.range.end == text.size()
+      || text[diagnostic.range.end] == '\n'
+      || text[diagnostic.range.end] == '\r';
+    if (at_line_boundary) {
+      llvm::json::Array edits;
+      edits.push_back(llvm::json::Object{
+        {"range", to_lsp_range(buffer, styio::ide::TextRange{diagnostic.range.end, diagnostic.range.end})},
+        {"newText", "\""}});
+      llvm::json::Object changes;
+      changes[uri] = std::move(edits);
+      return llvm::json::Object{
+        {"title", "Close string literal"},
+        {"kind", "quickfix"},
+        {"diagnostics", std::move(diagnostics)},
+        {"edit", llvm::json::Object{{"changes", std::move(changes)}}}};
+    }
+  }
+  const std::string unmatched_closing_prefix = "unmatched closing token ";
+  if (diagnostic.message.rfind(unmatched_closing_prefix, 0) == 0
+      && diagnostic.range.start < diagnostic.range.end
+      && diagnostic.range.end <= buffer.size()) {
+    const std::string token = diagnostic.message.substr(unmatched_closing_prefix.size());
+    const auto& text = buffer.text();
+    const std::string range_text = text.substr(
+      diagnostic.range.start,
+      diagnostic.range.end - diagnostic.range.start);
+    if (!token.empty() && range_text == token) {
+      llvm::json::Array edits;
+      edits.push_back(llvm::json::Object{
+        {"range", to_lsp_range(buffer, diagnostic.range)},
+        {"newText", ""}});
+      llvm::json::Object changes;
+      changes[uri] = std::move(edits);
+      return llvm::json::Object{
+        {"title", "Remove unmatched closing token"},
+        {"kind", "quickfix"},
+        {"diagnostics", std::move(diagnostics)},
+        {"edit", llvm::json::Object{{"changes", std::move(changes)}}}};
+    }
+  }
+  return llvm::json::Object{
+    {"title", "No automatic fix available"},
+    {"kind", "quickfix"},
+    {"diagnostics", std::move(diagnostics)},
+    {"disabled", llvm::json::Object{
+      {"reason", "Editor-syntax diagnostics are intentionally not auto-fixable yet."}}}};
+}
+
+bool
+text_ranges_intersect(
+  const styio::ide::TextRange& lhs,
+  const styio::ide::TextRange& rhs
+) {
+  return lhs.start < rhs.end && rhs.start < lhs.end;
+}
+
+std::optional<llvm::json::Object>
+workspace_edit_for_rename(
+  styio::ide::IdeService& service,
+  std::vector<styio::ide::Location> locations,
+  const std::string& new_name
+) {
+  if (new_name.empty()) {
+    return std::nullopt;
+  }
+
+  std::unordered_set<std::string> seen_locations;
+  std::vector<RenameEdit> edits;
+  edits.reserve(locations.size());
+  std::optional<std::string> original_text;
+
+  for (const auto& location : locations) {
+    if (location.range.end <= location.range.start) {
+      return std::nullopt;
+    }
+
+    const std::string location_key = location.path + ":" + std::to_string(location.range.start) + ":" + std::to_string(location.range.end);
+    if (!seen_locations.insert(location_key).second) {
+      continue;
+    }
+
+    const std::string uri = styio::ide::uri_from_path(location.path);
+    const auto snapshot = service.snapshot_for_uri(uri);
+    if (location.range.end > snapshot->buffer.size()) {
+      return std::nullopt;
+    }
+
+    const std::string location_text = snapshot->buffer.text().substr(location.range.start, location.range.length());
+    if (location_text.empty()) {
+      return std::nullopt;
+    }
+    if (!original_text.has_value()) {
+      original_text = location_text;
+    } else if (*original_text != location_text) {
+      return std::nullopt;
+    }
+
+    edits.push_back(RenameEdit{
+      uri,
+      location.range,
+      llvm::json::Object{
+        {"range", to_lsp_range(snapshot->buffer, location.range)},
+        {"newText", new_name}}});
+  }
+
+  if (edits.empty()) {
+    return std::nullopt;
+  }
+
+  std::sort(
+    edits.begin(),
+    edits.end(),
+    [](const RenameEdit& lhs, const RenameEdit& rhs)
+    {
+      if (lhs.uri != rhs.uri) {
+        return lhs.uri < rhs.uri;
+      }
+      if (lhs.range.start != rhs.range.start) {
+        return lhs.range.start > rhs.range.start;
+      }
+      return lhs.range.end > rhs.range.end;
+    });
+
+  llvm::json::Object changes;
+  for (const auto& edit : edits) {
+    auto& uri_edits = changes[edit.uri];
+    if (uri_edits.getAsArray() == nullptr) {
+      uri_edits = llvm::json::Array{};
+    }
+    auto* array = uri_edits.getAsArray();
+    if (array == nullptr) {
+      return std::nullopt;
+    }
+    array->push_back(llvm::json::Value(llvm::json::Object(edit.edit)));
+  }
+
+  return llvm::json::Object{{"changes", std::move(changes)}};
 }
 
 styio::ide::Position
@@ -269,6 +571,21 @@ discard_bytes(std::istream& input, std::size_t count) {
   return true;
 }
 
+bool
+ascii_starts_with_case_insensitive(std::string_view value, std::string_view prefix) {
+  if (value.size() < prefix.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < prefix.size(); ++i) {
+    const unsigned char lhs = static_cast<unsigned char>(value[i]);
+    const unsigned char rhs = static_cast<unsigned char>(prefix[i]);
+    if (std::tolower(lhs) != std::tolower(rhs)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 MessageReadResult
 read_message_body(std::istream& input) {
   std::string line;
@@ -283,7 +600,7 @@ read_message_body(std::istream& input) {
       break;
     }
     constexpr const char* k_header = "Content-Length:";
-    if (line.rfind(k_header, 0) == 0) {
+    if (ascii_starts_with_case_insensitive(line, k_header)) {
       std::string value = line.substr(std::char_traits<char>::length(k_header));
       value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char ch) { return std::isspace(ch) != 0; }), value.end());
       if (value.empty() || !std::all_of(value.begin(), value.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
@@ -340,6 +657,86 @@ request_id_from_json(const llvm::json::Value& value) {
   return std::nullopt;
 }
 
+std::optional<std::vector<std::string>>
+watched_file_paths_from_params(const llvm::json::Object* params) {
+  if (params == nullptr) {
+    return std::nullopt;
+  }
+
+  const auto* changes = params->getArray("changes");
+  if (changes == nullptr) {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> paths;
+  std::unordered_set<std::string> seen_paths;
+  for (const auto& change_value : *changes) {
+    const auto* change = change_value.getAsObject();
+    if (change == nullptr) {
+      continue;
+    }
+    const std::string uri = std::string(change->getString("uri").value_or(""));
+    if (uri.empty()) {
+      continue;
+    }
+    const std::string path = styio::ide::path_from_uri(uri);
+    if (seen_paths.insert(path).second) {
+      paths.push_back(path);
+    }
+  }
+  return paths;
+}
+
+std::vector<std::string>
+workspace_folders_from_initialize_params(const llvm::json::Object* params) {
+  std::vector<std::string> workspace_folders;
+  if (params == nullptr) {
+    return workspace_folders;
+  }
+
+  const auto* folders = params->getArray("workspaceFolders");
+  if (folders == nullptr) {
+    return workspace_folders;
+  }
+
+  for (const auto& folder_value : *folders) {
+    const auto* folder = folder_value.getAsObject();
+    if (folder == nullptr) {
+      continue;
+    }
+    const std::string uri = std::string(folder->getString("uri").value_or(""));
+    if (!uri.empty()) {
+      workspace_folders.push_back(uri);
+    }
+  }
+
+  return workspace_folders;
+}
+
+std::vector<std::string>
+workspace_folders_ignored_for_selected_root(
+  const std::vector<std::string>& workspace_folders,
+  const std::string& selected_root_uri
+) {
+  std::vector<std::string> ignored;
+  for (const auto& workspace_folder : workspace_folders) {
+    if (!selected_root_uri.empty() && workspace_folder == selected_root_uri) {
+      continue;
+    }
+    ignored.push_back(workspace_folder);
+  }
+  return ignored;
+}
+
+llvm::json::Array
+strings_to_json_array(const std::vector<std::string>& values) {
+  llvm::json::Array result;
+  for (const auto& value : values) {
+    result.push_back(value);
+  }
+  return result;
+}
+
 }  // namespace
 
 llvm::json::Object
@@ -350,28 +747,23 @@ Server::make_diagnostic_notification(
 ) {
   llvm::json::Array items;
   for (const auto& diagnostic : diagnostics) {
-    llvm::json::Object item{
-      {"range", to_lsp_range(buffer, diagnostic.range)},
-      {"severity", static_cast<std::int64_t>(diagnostic.severity)},
-      {"source", diagnostic.source},
-      {"message", diagnostic.message}};
-    if (!diagnostic.code.empty()) {
-      item["code"] = diagnostic.code;
-    }
-    std::string phase = diagnostic.phase;
-    if (phase.empty() && diagnostic.code.rfind("STYIO_", 0) == 0) {
-      phase = styio::services::diagnostics::diagnostic_phase_for_code(diagnostic.code);
-    }
-    if (!phase.empty()) {
-      item["data"] = llvm::json::Object{{"phase", std::move(phase)}};
-    }
-    items.push_back(std::move(item));
+    items.push_back(to_lsp_diagnostic_object(buffer, diagnostic));
   }
 
   return llvm::json::Object{
     {"jsonrpc", "2.0"},
     {"method", "textDocument/publishDiagnostics"},
     {"params", llvm::json::Object{{"uri", uri}, {"diagnostics", std::move(items)}}}};
+}
+
+llvm::json::Object
+Server::make_initialize_workspace_state() const {
+  return llvm::json::Object{
+    {"mode", "single"},
+    {"requestedRootUri", initialize_requested_root_uri_},
+    {"selectedRootUri", initialize_selected_root_uri_},
+    {"workspaceFolders", strings_to_json_array(initialize_workspace_folders_)},
+    {"ignoredWorkspaceFolders", strings_to_json_array(initialize_ignored_workspace_folders_)}};
 }
 
 std::vector<OutboundMessage>
@@ -396,27 +788,62 @@ Server::handle(llvm::json::Object request) {
   };
 
   if (method == "initialize") {
+    initialize_requested_root_uri_.clear();
+    initialize_selected_root_uri_.clear();
+    initialize_workspace_folders_.clear();
+    initialize_ignored_workspace_folders_.clear();
+
     if (params != nullptr) {
-      service_.initialize(std::string(params->getString("rootUri").value_or("")));
+      initialize_requested_root_uri_ = std::string(params->getString("rootUri").value_or(""));
+      initialize_workspace_folders_ = workspace_folders_from_initialize_params(params);
+      initialize_selected_root_uri_ = !initialize_requested_root_uri_.empty()
+        ? initialize_requested_root_uri_
+        : (initialize_workspace_folders_.empty() ? std::string{} : initialize_workspace_folders_.front());
+      initialize_ignored_workspace_folders_ = workspace_folders_ignored_for_selected_root(
+        initialize_workspace_folders_,
+        initialize_selected_root_uri_);
     }
+
+    service_.initialize(initialize_selected_root_uri_);
 
     llvm::json::Array semantic_token_types{
       "namespace", "type", "class", "enum", "interface", "struct", "typeParameter", "parameter",
       "variable", "property", "enumMember", "event", "function", "method", "macro", "keyword",
       "modifier", "comment", "string", "number", "operator"};
 
-    respond(llvm::json::Object{
-      {"capabilities", llvm::json::Object{
-         {"textDocumentSync", llvm::json::Object{{"openClose", true}, {"change", 2}}},
-         {"completionProvider", llvm::json::Object{}},
-         {"hoverProvider", true},
-         {"definitionProvider", true},
-         {"referencesProvider", true},
-         {"documentSymbolProvider", true},
-         {"workspaceSymbolProvider", true},
-         {"semanticTokensProvider", llvm::json::Object{
-            {"legend", llvm::json::Object{{"tokenTypes", std::move(semantic_token_types)}, {"tokenModifiers", llvm::json::Array{}}}},
-            {"full", true}}}}}});
+    llvm::json::Object capabilities{
+      {"textDocumentSync", llvm::json::Object{{"openClose", true}, {"change", 2}}},
+      {"completionProvider", llvm::json::Object{}},
+      {"hoverProvider", true},
+      {"codeActionProvider", true},
+      {"definitionProvider", true},
+      {"referencesProvider", true},
+      {"renameProvider", true},
+      {"inlayHintProvider", true},
+      {"documentSymbolProvider", true},
+      {"workspaceSymbolProvider", true},
+      {"workspace", llvm::json::Object{
+        {"workspaceFolders", llvm::json::Object{{"supported", false}}}}},
+      {"semanticTokensProvider", llvm::json::Object{
+        {"legend", llvm::json::Object{
+          {"tokenTypes", std::move(semantic_token_types)},
+          {"tokenModifiers", llvm::json::Array{}}}},
+        {"full", true}}}};
+
+    llvm::json::Object result{
+      {"capabilities", std::move(capabilities)},
+      {"experimental", llvm::json::Object{
+        {"styio", llvm::json::Object{
+          {"workspaceState", make_initialize_workspace_state()}}}}}};
+
+    if (id != nullptr) {
+      output.push_back(OutboundMessage{
+        llvm::json::Object{
+          {"jsonrpc", "2.0"},
+          {"id", *id},
+          {"result", std::move(result)}},
+        false});
+    }
     return output;
   }
 
@@ -433,7 +860,10 @@ Server::handle(llvm::json::Object request) {
   }
 
   if (method == "workspace/didChangeWatchedFiles") {
-    service_.schedule_background_index_refresh();
+    const auto watched_paths = watched_file_paths_from_params(params);
+    if (watched_paths.has_value()) {
+      service_.schedule_background_index_refresh_for_paths(*watched_paths);
+    }
     return output;
   }
 
@@ -451,6 +881,7 @@ Server::handle(llvm::json::Object request) {
         uri,
         text,
         static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0)));
+      diagnostics_cache_[uri] = diagnostics;
       const auto snapshot = service_.snapshot_for_uri(uri);
       output.push_back(OutboundMessage{make_diagnostic_notification(uri, snapshot->buffer, diagnostics), true});
     }
@@ -468,6 +899,7 @@ Server::handle(llvm::json::Object request) {
         uri,
         delta,
         static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0)));
+      diagnostics_cache_[uri] = diagnostics;
       const auto snapshot = service_.snapshot_for_uri(uri);
       output.push_back(OutboundMessage{make_diagnostic_notification(uri, snapshot->buffer, diagnostics), true});
     }
@@ -477,8 +909,51 @@ Server::handle(llvm::json::Object request) {
   if (method == "textDocument/didClose") {
     const auto* text_document = params->getObject("textDocument");
     if (text_document != nullptr) {
-      service_.did_close(std::string(text_document->getString("uri").value_or("")));
+      const std::string uri = std::string(text_document->getString("uri").value_or(""));
+      service_.did_close(uri);
+      diagnostics_cache_.erase(uri);
     }
+    return output;
+  }
+
+  if (method == "textDocument/codeAction") {
+    if (service_.pending_semantic_diagnostic_count() != 0 || service_.pending_background_task_count() != 0) {
+      respond(llvm::json::Array{});
+      return output;
+    }
+
+    const auto* text_document = params->getObject("textDocument");
+    const auto* range = params->getObject("range");
+    llvm::json::Array actions;
+    llvm::json::Array disabled_actions;
+    if (text_document != nullptr && range != nullptr) {
+      const std::string uri = std::string(text_document->getString("uri").value_or(""));
+      const auto snapshot = service_.snapshot_for_uri(uri);
+      if (snapshot->is_open) {
+        const auto request_range = range_from_lsp_range(snapshot->buffer, *range);
+        if (request_range.has_value()) {
+          const auto it = diagnostics_cache_.find(uri);
+          if (it != diagnostics_cache_.end()) {
+            for (const auto& diagnostic : it->second) {
+              if (!text_ranges_intersect(diagnostic.range, *request_range)) {
+                continue;
+              }
+              if (auto action = make_code_action_for_diagnostic(snapshot->buffer, uri, diagnostic)) {
+                llvm::json::Array& target_actions =
+                  (action->getObject("edit") != nullptr || action->getObject("command") != nullptr)
+                  ? actions
+                  : disabled_actions;
+                target_actions.push_back(llvm::json::Value(std::move(*action)));
+              }
+            }
+          }
+        }
+      }
+    }
+    for (auto& action : disabled_actions) {
+      actions.push_back(std::move(action));
+    }
+    respond(std::move(actions));
     return output;
   }
 
@@ -568,6 +1043,64 @@ Server::handle(llvm::json::Object request) {
     return output;
   }
 
+  if (method == "textDocument/rename") {
+    if (service_.pending_semantic_diagnostic_count() != 0 || service_.pending_background_task_count() != 0) {
+      respond(llvm::json::Value(nullptr));
+      return output;
+    }
+
+    const auto* text_document = params->getObject("textDocument");
+    const auto* position = params->getObject("position");
+    const std::string new_name = std::string(params->getString("newName").value_or(""));
+    if (text_document != nullptr && position != nullptr && !new_name.empty()) {
+      const std::string uri = std::string(text_document->getString("uri").value_or(""));
+      const auto snapshot = service_.snapshot_for_uri(uri);
+      const styio::ide::Position pos = internal_position_from_lsp_position(snapshot->buffer, *position);
+      const auto ticket = numeric_id.has_value()
+        ? service_.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Definition, *numeric_id)
+        : service_.begin_foreground_request(uri, styio::ide::RuntimeRequestKind::Definition);
+      std::vector<styio::ide::Location> locations = service_.definition(ticket, pos);
+      if (locations.empty()) {
+        respond(llvm::json::Value(nullptr));
+        return output;
+      }
+      const auto references = service_.references(ticket, pos);
+      locations.insert(locations.end(), references.begin(), references.end());
+      auto workspace_edit = workspace_edit_for_rename(service_, std::move(locations), new_name);
+      if (workspace_edit.has_value()) {
+        respond(llvm::json::Value(std::move(*workspace_edit)));
+      } else {
+        respond(llvm::json::Value(nullptr));
+      }
+    } else {
+      respond(llvm::json::Value(nullptr));
+    }
+    return output;
+  }
+
+  if (method == "textDocument/inlayHint") {
+    if (service_.pending_semantic_diagnostic_count() != 0 || service_.pending_background_task_count() != 0) {
+      respond(llvm::json::Array{});
+      return output;
+    }
+
+    const auto* text_document = params->getObject("textDocument");
+    const auto* range = params->getObject("range");
+    llvm::json::Array hints;
+    if (text_document != nullptr && range != nullptr) {
+      const std::string uri = std::string(text_document->getString("uri").value_or(""));
+      const auto snapshot = service_.snapshot_for_uri(uri);
+      const auto request_range = range_from_lsp_range(snapshot->buffer, *range);
+      if (request_range.has_value()) {
+        for (auto& hint : parameter_inlay_hints_for_range(service_, uri, *request_range)) {
+          hints.push_back(std::move(hint));
+        }
+      }
+    }
+    respond(std::move(hints));
+    return output;
+  }
+
   if (method == "textDocument/documentSymbol") {
     const auto* text_document = params->getObject("textDocument");
     llvm::json::Array symbols;
@@ -631,9 +1164,11 @@ Server::drain_runtime(std::size_t max_documents) {
     if (publication.snapshot == nullptr) {
       continue;
     }
+    const std::string uri = styio::ide::uri_from_path(publication.snapshot->path);
+    diagnostics_cache_[uri] = publication.diagnostics;
     output.push_back(OutboundMessage{
       make_diagnostic_notification(
-        styio::ide::uri_from_path(publication.snapshot->path),
+        uri,
         publication.snapshot->buffer,
         publication.diagnostics),
       true});

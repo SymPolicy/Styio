@@ -1200,6 +1200,132 @@ styio_make_file_executable_latest(const std::filesystem::path& path) {
 }
 
 static bool
+styio_process_command_has_path_separator_latest(const std::string& command) {
+  return command.find('/') != std::string::npos || command.find('\\') != std::string::npos;
+}
+
+static bool
+styio_process_candidate_is_executable_latest(const std::filesystem::path& path) {
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(path, ec) || ec) {
+    return false;
+  }
+#if defined(_WIN32)
+  return true;
+#else
+  const auto perms = std::filesystem::status(path, ec).permissions();
+  if (ec) {
+    return false;
+  }
+  return (perms & std::filesystem::perms::owner_exec) != std::filesystem::perms::none
+    || (perms & std::filesystem::perms::group_exec) != std::filesystem::perms::none
+    || (perms & std::filesystem::perms::others_exec) != std::filesystem::perms::none;
+#endif
+}
+
+static std::vector<std::string>
+styio_split_process_path_env_latest(const std::string& path_env) {
+  std::vector<std::string> parts;
+#if defined(_WIN32)
+  const char separator = ';';
+#else
+  const char separator = ':';
+#endif
+  std::size_t start = 0;
+  while (start <= path_env.size()) {
+    const std::size_t end = path_env.find(separator, start);
+    parts.push_back(path_env.substr(start, end == std::string::npos ? std::string::npos : end - start));
+    if (end == std::string::npos) {
+      break;
+    }
+    start = end + 1;
+  }
+  return parts;
+}
+
+static std::vector<std::string>
+styio_process_extensions_latest(const std::filesystem::path& command) {
+#if defined(_WIN32)
+  if (!command.extension().empty()) {
+    return {""};
+  }
+  const char* pathext = std::getenv("PATHEXT");
+  std::string raw = pathext != nullptr && pathext[0] != '\0'
+                      ? std::string(pathext)
+                      : std::string(".COM;.EXE;.BAT;.CMD");
+  std::vector<std::string> extensions;
+  for (std::string ext : styio_split_process_path_env_latest(raw)) {
+    if (ext.empty()) {
+      continue;
+    }
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+    extensions.push_back(ext);
+  }
+  extensions.push_back("");
+  return extensions;
+#else
+  (void)command;
+  return {""};
+#endif
+}
+
+static bool
+styio_resolve_process_tool_latest(
+  const std::string& command,
+  std::string& out_command
+) {
+  if (command.empty()) {
+    return false;
+  }
+
+  const std::filesystem::path command_path(command);
+  if (styio_process_command_has_path_separator_latest(command)) {
+    const std::filesystem::path resolved = styio_absolute_path_latest(command_path);
+    if (styio_process_candidate_is_executable_latest(resolved)) {
+      out_command = resolved.string();
+      return true;
+    }
+    return false;
+  }
+
+  const char* path_env = std::getenv("PATH");
+  if (path_env == nullptr || path_env[0] == '\0') {
+    return false;
+  }
+  for (const std::string& dir : styio_split_process_path_env_latest(path_env)) {
+    if (dir.empty()) {
+      continue;
+    }
+    for (const std::string& extension : styio_process_extensions_latest(command_path)) {
+      std::filesystem::path candidate = std::filesystem::path(dir) / command_path;
+      if (!extension.empty()) {
+        candidate += extension;
+      }
+      if (styio_process_candidate_is_executable_latest(candidate)) {
+        out_command = styio_absolute_path_latest(candidate).string();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static std::vector<std::string>
+styio_resolved_process_argv_latest(const std::vector<std::string>& argv) {
+  if (argv.empty()) {
+    return argv;
+  }
+  std::vector<std::string> resolved = argv;
+  std::string resolved_command;
+  if (styio_resolve_process_tool_latest(argv.front(), resolved_command)) {
+    resolved.front() = resolved_command;
+  }
+  return resolved;
+}
+
+static bool
 styio_run_process_latest(
   const std::vector<std::string>& argv,
   const std::string& purpose,
@@ -1673,7 +1799,8 @@ styio_run_process_latest(
   std::string& error_message
 ) {
   const std::filesystem::path log_path = styio_process_log_path_latest(purpose);
-  const auto result = styio::native::run_native_command_to_log(argv, log_path, true);
+  const std::vector<std::string> resolved_argv = styio_resolved_process_argv_latest(argv);
+  const auto result = styio::native::run_native_command_to_log(resolved_argv, log_path, true);
   if (result.ok()) {
     std::error_code cleanup_ec;
     std::filesystem::remove(log_path, cleanup_ec);
@@ -1687,8 +1814,8 @@ styio_run_process_latest(
   std::filesystem::remove(log_path, cleanup_ec);
 
   error_message = purpose + " failed";
-  if (!argv.empty()) {
-    error_message += " with command `" + styio::native::native_command_display(argv) + "`";
+  if (!resolved_argv.empty()) {
+    error_message += " with command `" + styio::native::native_command_display(resolved_argv) + "`";
   }
   if (!result.launch_error.empty()) {
     error_message += "\n" + result.launch_error;
@@ -1706,7 +1833,8 @@ styio_read_first_process_token_latest(
 ) {
   const std::filesystem::path stdout_path = styio_process_log_path_latest("stdout");
   const std::filesystem::path stderr_path = styio_process_log_path_latest("stderr");
-  const auto result = styio::native::run_native_command_to_logs(argv, stdout_path, stderr_path);
+  const std::vector<std::string> resolved_argv = styio_resolved_process_argv_latest(argv);
+  const auto result = styio::native::run_native_command_to_logs(resolved_argv, stdout_path, stderr_path);
   if (!result.ok()) {
     std::error_code cleanup_ec;
     std::filesystem::remove(stdout_path, cleanup_ec);
@@ -1727,6 +1855,44 @@ styio_read_first_process_token_latest(
   std::istringstream in(output);
   in >> out_token;
   return !out_token.empty();
+}
+
+static bool
+styio_run_process_capture_stdout_latest(
+  const std::vector<std::string>& argv,
+  const std::string& purpose,
+  std::string& out_text,
+  std::string& error_message
+) {
+  const std::filesystem::path stdout_path = styio_process_log_path_latest("stdout");
+  const std::filesystem::path stderr_path = styio_process_log_path_latest("stderr");
+  const std::vector<std::string> resolved_argv = styio_resolved_process_argv_latest(argv);
+  const auto result = styio::native::run_native_command_to_logs(resolved_argv, stdout_path, stderr_path);
+  std::string stdout_text;
+  std::string stderr_text;
+  std::string read_error;
+  (void)styio_read_text_file_latest(stdout_path, stdout_text, read_error);
+  (void)styio_read_text_file_latest(stderr_path, stderr_text, read_error);
+
+  std::error_code cleanup_ec;
+  std::filesystem::remove(stdout_path, cleanup_ec);
+  std::filesystem::remove(stderr_path, cleanup_ec);
+  if (result.ok()) {
+    out_text = std::move(stdout_text);
+    return true;
+  }
+
+  error_message = purpose + " failed";
+  if (!resolved_argv.empty()) {
+    error_message += " with command `" + styio::native::native_command_display(resolved_argv) + "`";
+  }
+  if (!result.launch_error.empty()) {
+    error_message += "\n" + result.launch_error;
+  }
+  if (!stderr_text.empty()) {
+    error_message += "\n" + stderr_text;
+  }
+  return false;
 }
 
 static bool
@@ -2047,11 +2213,34 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioSession/SymbolInterner.cpp",
     "src/StyioSession/TypeTable.cpp",
     "src/StyioUtil/SourceMap.cpp",
+    "share/styio/prelude/resources.styio",
   };
   if (include_pipeline_check) {
     sources.push_back("src/StyioTesting/PipelineCheck.cpp");
   }
   return sources;
+}
+
+static bool
+styio_path_is_within_tree_latest(
+  const std::filesystem::path& root,
+  const std::filesystem::path& candidate
+) {
+  const std::filesystem::path normalized_root = styio_absolute_path_latest(root);
+  const std::filesystem::path normalized_candidate = styio_absolute_path_latest(candidate);
+  const std::filesystem::path rel = normalized_candidate.lexically_relative(normalized_root);
+  if (rel.empty()) {
+    return normalized_candidate == normalized_root;
+  }
+  if (rel.is_absolute()) {
+    return false;
+  }
+  for (const auto& part : rel) {
+    if (part == "..") {
+      return false;
+    }
+  }
+  return true;
 }
 
 static bool
@@ -2073,14 +2262,12 @@ styio_resolve_local_include_relpath_latest(
     if (!std::filesystem::exists(candidate, ec) || ec) {
       continue;
     }
-    std::filesystem::path normalized = candidate.lexically_normal();
-    std::filesystem::path normalized_root = source_root.lexically_normal();
-    const auto normalized_string = normalized.generic_string();
-    const auto root_string = normalized_root.generic_string();
-    if (normalized_string.rfind(root_string, 0) != 0) {
+    const std::filesystem::path normalized_root = styio_absolute_path_latest(source_root);
+    const std::filesystem::path normalized = styio_absolute_path_latest(candidate);
+    if (!styio_path_is_within_tree_latest(normalized_root, normalized)) {
       continue;
     }
-    std::filesystem::path rel = normalized.lexically_relative(source_root);
+    std::filesystem::path rel = normalized.lexically_relative(normalized_root);
     if (!rel.empty()) {
       out_relpath = rel.generic_string();
       return true;
@@ -2469,6 +2656,117 @@ styio_copy_directory_contents_latest(
       copy_ec);
     if (copy_ec) {
       error_message = "failed to copy package content into " + dest_dir.string() + ": " + copy_ec.message();
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool
+styio_tar_entry_path_is_safe_latest(std::string entry) {
+  while (!entry.empty() && (entry.back() == '\r' || entry.back() == '\n')) {
+    entry.pop_back();
+  }
+  if (entry.empty()) {
+    return false;
+  }
+  if (entry.find('\\') != std::string::npos) {
+    return false;
+  }
+  if (entry.front() == '/') {
+    return false;
+  }
+  if (entry.size() >= 2U && std::isalpha(static_cast<unsigned char>(entry[0])) && entry[1] == ':') {
+    return false;
+  }
+
+  const std::filesystem::path path(entry);
+  if (path.is_absolute() || path.has_root_name() || path.has_root_directory()) {
+    return false;
+  }
+  for (const auto& component : path) {
+    const std::string text = component.string();
+    if (text == "..") {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool
+styio_validate_tar_listing_text_latest(
+  const std::string& listing,
+  std::string& error_message
+) {
+  std::istringstream in(listing);
+  std::string entry;
+  while (std::getline(in, entry)) {
+    if (!styio_tar_entry_path_is_safe_latest(entry)) {
+      error_message = "unsafe nano package archive entry: " + entry;
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool
+styio_validate_tar_archive_latest(
+  const std::filesystem::path& tar_path,
+  std::string& error_message
+) {
+  std::string listing;
+  if (!styio_run_process_capture_stdout_latest(
+        {"tar", "-tf", tar_path.string()},
+        "styio-nano blob listing",
+        listing,
+        error_message)) {
+    return false;
+  }
+  return styio_validate_tar_listing_text_latest(listing, error_message);
+}
+
+static bool
+styio_validate_nano_package_tree_latest(
+  const std::filesystem::path& package_root,
+  std::string& error_message
+) {
+  std::error_code ec;
+  if (!std::filesystem::is_directory(package_root, ec) || ec) {
+    error_message = "nano package directory is not a directory: " + package_root.string();
+    return false;
+  }
+
+  std::filesystem::recursive_directory_iterator it(
+    package_root,
+    std::filesystem::directory_options::skip_permission_denied,
+    ec);
+  if (ec) {
+    error_message = "failed to scan nano package directory: " + package_root.string() + ": " + ec.message();
+    return false;
+  }
+
+  const std::filesystem::recursive_directory_iterator end;
+  while (it != end) {
+    const std::filesystem::path path = it->path();
+    if (!styio_path_is_within_tree_latest(package_root, path)) {
+      error_message = "nano package path escapes package root: " + path.string();
+      return false;
+    }
+
+    std::error_code status_ec;
+    const auto status = it->symlink_status(status_ec);
+    if (status_ec) {
+      error_message = "failed to inspect nano package path: " + path.string() + ": " + status_ec.message();
+      return false;
+    }
+    if (std::filesystem::is_symlink(status)) {
+      error_message = "nano package archive contains symbolic link: " + path.string();
+      return false;
+    }
+
+    it.increment(ec);
+    if (ec) {
+      error_message = "failed to scan nano package directory: " + package_root.string() + ": " + ec.message();
       return false;
     }
   }
@@ -3022,10 +3320,21 @@ styio_materialize_cloud_nano_package_latest(
     const std::filesystem::path extract_root =
       std::filesystem::temp_directory_path() / ("styio-nano-extract-" + styio_now_token_latest());
     std::filesystem::create_directories(extract_root, cleanup_ec);
+    if (!styio_validate_tar_archive_latest(blob_path, error_message)) {
+      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(extract_root, cleanup_ec);
+      return false;
+    }
     if (!styio_run_process_latest(
           {"tar", "-xf", blob_path.string(), "-C", extract_root.string()},
           "styio-nano blob extraction",
           error_message)) {
+      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(extract_root, cleanup_ec);
+      return false;
+    }
+
+    if (!styio_validate_nano_package_tree_latest(extract_root, error_message)) {
       std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
@@ -3152,6 +3461,9 @@ styio_publish_nano_package_latest(
   }
 
   const std::filesystem::path package_dir = styio_absolute_path_latest(selection.package_dir);
+  if (!styio_validate_nano_package_tree_latest(package_dir, error_message)) {
+    return false;
+  }
   const std::filesystem::path tar_path =
     std::filesystem::temp_directory_path() / ("styio-nano-publish-" + styio_now_token_latest() + ".tar");
   if (!styio_run_process_latest(
@@ -5299,6 +5611,7 @@ main(
     frontend_profiler.set_async_scheduler_stats(
       snapshot.enabled,
       snapshot.worker_count,
+      snapshot.ready_queue_kind,
       snapshot.active_tasks,
       snapshot.ready_tasks,
       snapshot.spawned_tasks,
@@ -5739,6 +6052,7 @@ main(
   }
 
   AstToStyioIRLowerer analyzer = AstToStyioIRLowerer();
+  analyzer.attach_type_table(session.types(), session.symbols());
   try {
     {
       auto profile_phase = frontend_profiler.phase("type_infer");

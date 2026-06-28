@@ -1,0 +1,31 @@
+[
+  {
+    "id": "c3f5e93a-2624-499d-b737-14725d0af7e4",
+    "status": "in_progress",
+    "prerequisites": [],
+    "platform": "windows",
+    "difficulty": "medium",
+    "goal": "Maintain the common-foundation route for shared substrate changes.",
+    "description": "Use docs/plan/Styio-Common-Foundation-Plan.md before feature work when shared workflow, docs gate, tool/skill registry, test harness, service contract, source layout, CMake, or platform substrate changes are required.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "Any feature plan that discovers shared substrate work lists this plan in its prerequisites before implementation starts."
+      },
+      {
+        "checked": false,
+        "text": "The owning workflow, runbook, registry, generated index, and at least one regression gate are updated in the same checkpoint as the foundation change."
+      },
+      {
+        "checked": false,
+        "text": "python scripts/docs-audit.py, python scripts/workflow-scheduler.py check, and python scripts/tool-skill-registry-gate.py pass for foundation changes."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): route shared foundation changes",
+      "target": "styio-nightly"
+    },
+    "next": []
+  }
+]

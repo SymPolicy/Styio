@@ -1,5 +1,5 @@
 /*
-  styio_core_bench — in-repo C++ benchmark binary.
+  styio_core_bench - in-repo C++ benchmark binary.
   Uses std::chrono::steady_clock, outputs JSON to stdout or file.
   No third-party dependencies beyond the compiler itself.
 */
@@ -22,6 +22,7 @@
 // [Styio]
 #include "StyioAST/AST.hpp"
 #include "StyioException/Exception.hpp"
+#include "StyioIR/StyioIR.hpp"
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioLowering/AstToStyioIRStage.hpp"
 #include "StyioParser/Parser.hpp"
@@ -29,6 +30,7 @@
 #include "StyioResourceTopology/ResourceTopology.hpp"
 #include "StyioSema/SemanticAnalysis.hpp"
 #include "StyioSession/CompilationSession.hpp"
+#include "StyioExtern/ExternLib.hpp"
 
 namespace {
 
@@ -80,12 +82,10 @@ std::string gen_many_names(int count) {
   std::ostringstream os;
   for (int i = 0; i < count; ++i)
     os << "n_" << i << " := " << i << ";\n";
-  os << "sum := ";
+  os << "sum : i64 := 0;\n";
   for (int i = 0; i < count; ++i) {
-    if (i > 0) os << " + ";
-    os << "n_" << i;
+    os << "sum := sum + n_" << i << ";\n";
   }
-  os << ";\n";
   return os.str();
 }
 
@@ -125,6 +125,15 @@ std::string gen_error_source(int count) {
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
+
+class BenchmarkIrNode final : public StyioIR
+{
+public:
+  std::string toString(StyioRepr*, int = 0) override { return "benchmark-ir-node"; }
+  llvm::Type* toLLVMType(StyioToLLVM*) override { return nullptr; }
+  llvm::Value* toLLVMIR(StyioToLLVM*) override { return nullptr; }
+  bool is_active() const override { return true; }
+};
 
 int bench_iters(const char* env_name, int default_val) {
   const char* v = std::getenv(env_name);
@@ -201,6 +210,44 @@ styio::bench::BenchmarkSample capture_route_cache_sample(
   return s;
 }
 
+/// Helper: copy IR allocation statistics into a BenchmarkSample.
+void capture_ir_allocation_stats(
+    styio::bench::BenchmarkSample& sample,
+    const styio::session_alloc::SessionAllocationStats& stats) {
+  sample.ir_arena_allocations = static_cast<int64_t>(stats.arena_allocations);
+  sample.ir_raw_allocations = static_cast<int64_t>(stats.raw_allocations);
+  sample.ir_bytes_allocated = static_cast<int64_t>(stats.bytes_allocated);
+  sample.ir_node_count = static_cast<int64_t>(stats.node_count);
+  sample.ir_max_node_count = static_cast<int64_t>(stats.max_node_count);
+  sample.ir_destructor_calls = static_cast<int64_t>(stats.destructor_calls);
+}
+
+styio::bench::BenchmarkSample capture_ir_allocation_sample(const std::string& label) {
+  styio::session_alloc::SessionAllocationStats stats;
+  auto* previous_stats = styio::session_alloc::set_current_ir_stats(&stats);
+  auto* node = styio::session_alloc::make_ir<BenchmarkIrNode>();
+  delete node;
+  styio::session_alloc::set_current_ir_stats(previous_stats);
+
+  styio::bench::BenchmarkSample sample;
+  sample.phase = "ir_alloc";
+  sample.label = label;
+  capture_ir_allocation_stats(sample, stats);
+  return sample;
+}
+
+styio::bench::BenchmarkSample capture_scheduler_queue_sample() {
+  StyioTaskSchedulerProfileSnapshot snapshot{};
+  styio_task_scheduler_profile_snapshot(&snapshot);
+
+  styio::bench::BenchmarkSample sample;
+  sample.phase = "scheduler";
+  sample.label = "task_queue_mode";
+  sample.task_scheduler_queue_kind = snapshot.ready_queue_kind;
+  sample.task_scheduler_worker_count = snapshot.worker_count;
+  return sample;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -256,6 +303,7 @@ int main(int argc, char** argv) {
   // --- 4. name_resolution ---
   {
     std::string code = gen_many_names(5000);
+    styio::session_alloc::SessionAllocationStats ir_stats;
     result.samples.push_back(run_benchmark("sema", "name_resolution_5k", warmup, measured, [&]() {
       CompilationSession session;
       auto tokens = StyioTokenizer::tokenize(code);
@@ -269,12 +317,15 @@ int main(int argc, char** argv) {
       try { styio::sema::require_semantic_analysis(ast, &lowerer); }
       catch (const StyioBaseException&) {}
       session.mark_type_checked();
+      ir_stats = session.ir_allocation_stats();
     }));
+    capture_ir_allocation_stats(result.samples.back(), ir_stats);
   }
 
   // --- 5. type_check_many_bindings ---
   {
     std::string code = gen_typed_bindings(1000);
+    styio::session_alloc::SessionAllocationStats ir_stats;
     result.samples.push_back(run_benchmark("type", "typed_bindings_1k", warmup, measured, [&]() {
       CompilationSession session;
       auto tokens = StyioTokenizer::tokenize(code);
@@ -288,7 +339,9 @@ int main(int argc, char** argv) {
       try { styio::sema::require_semantic_analysis(ast, &lowerer); }
       catch (const StyioBaseException&) {}
       session.mark_type_checked();
+      ir_stats = session.ir_allocation_stats();
     }));
+    capture_ir_allocation_stats(result.samples.back(), ir_stats);
   }
 
   // --- 6. topology_large_dag ---
@@ -354,6 +407,16 @@ int main(int argc, char** argv) {
     capture_route_cache_for("name_resolution_5k", gen_many_names(5000));
     capture_route_cache_for("typed_bindings_1k", gen_typed_bindings(1000));
     capture_route_cache_for("resource_dag_200", gen_resource_ops(200));
+  }
+
+  // --- 10. IR allocation stats (single-run capture, not timed) ---
+  {
+    result.samples.push_back(capture_ir_allocation_sample("factory_smoke"));
+  }
+
+  // --- 11. Scheduler queue metadata (single-run capture, not timed) ---
+  {
+    result.samples.push_back(capture_scheduler_queue_sample());
   }
 
   // --- Output ---

@@ -80,6 +80,17 @@ type_convert_source_fallback_type(NumPromoTy promo_type) {
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
+bool
+sema_types_equal(
+  StyioSemaContext* an,
+  const StyioDataType& lhs,
+  const StyioDataType& rhs
+) {
+  return an != nullptr
+    ? an->types_equal(lhs, rhs)
+    : lhs.equals(rhs);
+}
+
 std::string
 resource_family_for_type(const StyioDataType& type);
 
@@ -186,7 +197,7 @@ bind_resource_method_preface_type_latest(StyioSemaContext* an, StyioAST* stmt) {
   }
   StyioDataType type = resource_method_preface_bind_type_latest(an, stmt);
   if (!type.isUndefined()) {
-    an->local_binding_types[var->getNameAsStr()] = type;
+    an->record_local_binding_type(var->getNameAsStr(), var->getName()->getSymbolId(), type);
   }
 }
 
@@ -249,10 +260,12 @@ resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) 
   }
   if (auto* block = dynamic_cast<BlockAST*>(body)) {
     auto saved_types = an->local_binding_types;
+    auto saved_types_by_sid = an->local_binding_types_by_sid;
     try {
       for (std::size_t i = 0; i + 1 < block->stmts.size(); ++i) {
         if (!resource_method_value_preface_supported_latest(an, block->stmts[i])) {
           an->local_binding_types = saved_types;
+          an->local_binding_types_by_sid = saved_types_by_sid;
           return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
         }
         bind_resource_method_preface_type_latest(an, block->stmts[i]);
@@ -260,10 +273,12 @@ resource_method_simple_result_type_latest(StyioSemaContext* an, StyioAST* body) 
       ret->getExpr()->typeInfer(an);
       StyioDataType result_type = infer_expr_type(an, ret->getExpr());
       an->local_binding_types = saved_types;
+      an->local_binding_types_by_sid = saved_types_by_sid;
       return result_type;
     }
     catch (...) {
       an->local_binding_types = saved_types;
+      an->local_binding_types_by_sid = saved_types_by_sid;
       throw;
     }
   }
@@ -293,7 +308,7 @@ infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
     if (next_type.isUndefined()) {
       continue;
     }
-    if (!next_type.equals(elem_type)) {
+    if (!sema_types_equal(an, next_type, elem_type)) {
       elem_type = kI64Type;
       break;
     }
@@ -322,6 +337,30 @@ declared_function_return_type_latest(StyioAST* def) {
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
+void
+maybe_intern_function_signature_types(
+  StyioSemaContext* an,
+  const std::vector<ParamAST*>& params,
+  const std::variant<TypeAST*, TypeTupleAST*>& ret_type
+) {
+  if (an == nullptr) {
+    return;
+  }
+  for (auto* param : params) {
+    if (param == nullptr || param->getDType() == nullptr) {
+      continue;
+    }
+    an->maybe_intern_type(param->getDType()->getDataType());
+  }
+  if (ret_type.valueless_by_exception() || !std::holds_alternative<TypeAST*>(ret_type)) {
+    return;
+  }
+  TypeAST* return_type = std::get<TypeAST*>(ret_type);
+  if (return_type != nullptr) {
+    an->maybe_intern_type(return_type->getDataType());
+  }
+}
+
 struct MatrixLiteralInfo
 {
   StyioDataType elem_type{StyioDataTypeOption::Integer, "i64", 64};
@@ -337,7 +376,11 @@ type_is_numeric_family(const StyioDataType& type) {
 }
 
 StyioDataType
-merge_matrix_elem_types(StyioDataType current, StyioDataType next) {
+merge_matrix_elem_types(
+  StyioDataType current,
+  StyioDataType next,
+  StyioSemaContext* an = nullptr
+) {
   if (current.isUndefined()) {
     return next;
   }
@@ -347,7 +390,7 @@ merge_matrix_elem_types(StyioDataType current, StyioDataType next) {
   if (!type_is_numeric_family(current) || !type_is_numeric_family(next)) {
     throw StyioTypeError("matrix elements must be numeric scalar values");
   }
-  if (current.equals(next)) {
+  if (sema_types_equal(an, current, next)) {
     return current;
   }
   if (current.option == StyioDataTypeOption::Float
@@ -394,7 +437,7 @@ infer_matrix_literal_info(StyioSemaContext* an, StyioAST* expr) {
       if (cell_type.isUndefined()) {
         cell_type = kI64Type;
       }
-      elem_type = merge_matrix_elem_types(elem_type, cell_type);
+      elem_type = merge_matrix_elem_types(elem_type, cell_type, an);
     }
   }
 
@@ -406,7 +449,11 @@ infer_matrix_literal_info(StyioSemaContext* an, StyioAST* expr) {
 }
 
 bool
-container_value_assignable(const StyioDataType& target, const StyioDataType& actual);
+container_value_assignable(
+  const StyioDataType& target,
+  const StyioDataType& actual,
+  StyioSemaContext* an = nullptr
+);
 
 bool
 is_matrix_intrinsic_name(const std::string& name) {
@@ -673,7 +720,7 @@ infer_matrix_intrinsic_type(StyioSemaContext* an, FuncCallAST* call) {
     require_matrix_arg(name, args[0]);
     require_integer_arg(name, args[1]);
     require_integer_arg(name, args[2]);
-    if (!container_value_assignable(matrix_elem_type(args[0]), args[3])) {
+    if (!container_value_assignable(matrix_elem_type(args[0]), args[3], an)) {
       throw StyioTypeError("mat_set value does not match matrix element type");
     }
     return kI64Type;
@@ -752,7 +799,8 @@ StyioDataType
 merge_cond_flow_branch_type(
   const StyioDataType& then_type,
   const StyioDataType& else_type,
-  const StyioDataType& saved_type
+  const StyioDataType& saved_type,
+  StyioSemaContext* an = nullptr
 ) {
   if (then_type.isUndefined() && else_type.isUndefined()) {
     return saved_type.isUndefined()
@@ -765,7 +813,7 @@ merge_cond_flow_branch_type(
   if (else_type.isUndefined()) {
     return then_type;
   }
-  if (then_type.equals(else_type)) {
+  if (sema_types_equal(an, then_type, else_type)) {
     return then_type;
   }
   if (type_is_numeric_family(then_type) && type_is_numeric_family(else_type)) {
@@ -775,11 +823,18 @@ merge_cond_flow_branch_type(
 }
 
 StyioDataType
-merge_match_value_type(const StyioDataType& current, const StyioDataType& next) {
+merge_match_value_type(
+  const StyioDataType& current,
+  const StyioDataType& next,
+  StyioSemaContext* an = nullptr
+) {
   if (current.isUndefined()) {
     return next;
   }
   if (next.isUndefined()) {
+    return current;
+  }
+  if (sema_types_equal(an, current, next)) {
     return current;
   }
   StyioValueFamily current_family = styio_value_family_for_type(current);
@@ -789,9 +844,6 @@ merge_match_value_type(const StyioDataType& current, const StyioDataType& next) 
   }
   if (type_is_numeric_family(current) && type_is_numeric_family(next)) {
     return getMaxType(current, next);
-  }
-  if (current.equals(next)) {
-    return current;
   }
   if ((current_family == StyioValueFamily::Bool || current_family == StyioValueFamily::Char)
       && (next_family == StyioValueFamily::Bool || next_family == StyioValueFamily::Char)) {
@@ -931,14 +983,18 @@ type_is_runtime_dict_value(const StyioDataType& type) {
 }
 
 StyioDataType
-merge_dict_value_types(StyioDataType current, StyioDataType next) {
+merge_dict_value_types(
+  StyioDataType current,
+  StyioDataType next,
+  StyioSemaContext* an = nullptr
+) {
   if (current.isUndefined()) {
     return next;
   }
   if (next.isUndefined()) {
     return current;
   }
-  if (current.equals(next)) {
+  if (sema_types_equal(an, current, next)) {
     return current;
   }
 
@@ -958,8 +1014,15 @@ merge_dict_value_types(StyioDataType current, StyioDataType next) {
 }
 
 bool
-container_value_assignable(const StyioDataType& target, const StyioDataType& actual) {
+container_value_assignable(
+  const StyioDataType& target,
+  const StyioDataType& actual,
+  StyioSemaContext* an
+) {
   if (actual.isUndefined()) {
+    return true;
+  }
+  if (sema_types_equal(an, target, actual)) {
     return true;
   }
   StyioValueFamily target_family = styio_value_family_for_type(target);
@@ -1025,11 +1088,15 @@ infer_predefined_string_operation_type(StyioSemaContext* an, FuncCallAST* call) 
 }
 
 bool
-func_param_accepts_arg(const StyioDataType& param_type, const StyioDataType& arg_type) {
+func_param_accepts_arg(
+  const StyioDataType& param_type,
+  const StyioDataType& arg_type,
+  StyioSemaContext* an = nullptr
+) {
   if (param_type.isUndefined() || arg_type.isUndefined()) {
     return true;
   }
-  if (param_type.equals(arg_type)) {
+  if (sema_types_equal(an, param_type, arg_type)) {
     return true;
   }
 
@@ -1058,7 +1125,9 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
         StyioDataType dt = ty->getDataType();
         if (!dt.isUndefined()) {
           if (styio_is_matrix_type(dt)) {
-            StyioDataType inferred_return = an->inferred_function_return_type(f->getNameAsStr());
+            StyioDataType inferred_return = an->inferred_function_return_type(
+              f->func_name->getSymbolId(),
+              f->getNameAsStr());
             if (styio_is_matrix_type(inferred_return)) {
               return inferred_return;
             }
@@ -1067,7 +1136,9 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
         }
       }
     }
-    StyioDataType inferred_return = an->inferred_function_return_type(f->getNameAsStr());
+    StyioDataType inferred_return = an->inferred_function_return_type(
+      f->func_name->getSymbolId(),
+      f->getNameAsStr());
     if (!inferred_return.isUndefined()) {
       return inferred_return;
     }
@@ -1084,7 +1155,9 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
         StyioDataType dt = ty->getDataType();
         if (!dt.isUndefined()) {
           if (styio_is_matrix_type(dt)) {
-            StyioDataType inferred_return = an->inferred_function_return_type(f->func_name->getAsStr());
+            StyioDataType inferred_return = an->inferred_function_return_type(
+              f->func_name->getSymbolId(),
+              f->func_name->getAsStr());
             if (styio_is_matrix_type(inferred_return)) {
               return inferred_return;
             }
@@ -1093,7 +1166,9 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
         }
       }
     }
-    StyioDataType inferred_return = an->inferred_function_return_type(f->func_name->getAsStr());
+    StyioDataType inferred_return = an->inferred_function_return_type(
+      f->func_name->getSymbolId(),
+      f->func_name->getAsStr());
     if (!inferred_return.isUndefined()) {
       return inferred_return;
     }
@@ -1137,7 +1212,7 @@ infer_dict_literal_type(StyioSemaContext* an, DictAST* dict) {
         "dict values must have a runtime scalar or string type in this slice"
       );
     }
-    value_type = merge_dict_value_types(value_type, next_type);
+    value_type = merge_dict_value_types(value_type, next_type, an);
   }
 
   return styio_make_dict_type("string", value_type.name);
@@ -1262,14 +1337,15 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       return merge_cond_flow_branch_type(
         infer_expr_type(an, wave->getTrueVal()),
         infer_expr_type(an, wave->getFalseVal()),
-        StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+        StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0},
+        an
       );
     }
     case StyioNodeType::Id: {
       auto* nm = static_cast<NameAST*>(expr);
-      auto it = an->local_binding_types.find(nm->getAsStr());
-      if (it != an->local_binding_types.end()) {
-        return it->second;
+      if (const StyioDataType* type =
+            an->find_local_binding_type(nm->getSymbolId(), nm->getAsStr())) {
+        return *type;
       }
       return expr->getDataType();
     }
@@ -1287,9 +1363,11 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       if (!builtin_type.isUndefined()) {
         return builtin_type;
       }
-      auto it = an->func_defs.find(call->getNameAsStr());
-      if (it != an->func_defs.end()) {
-        return func_ret_type_of_def(an, it->second);
+      if (StyioAST* def = an->find_function_def(
+            call->func_name->getSymbolId(),
+            call->getNameAsStr()
+          )) {
+        return func_ret_type_of_def(an, def);
       }
       if (call->func_callee != nullptr) {
         const std::string family = resource_family_for_expr(an, call->func_callee);
@@ -1299,9 +1377,11 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
           return method->result_type;
         }
       }
-      auto native_it = an->native_func_defs.find(call->getNameAsStr());
-      if (native_it != an->native_func_defs.end()) {
-        return native_it->second.return_type;
+      if (const auto* native = an->find_native_function_def(
+            call->func_name->getSymbolId(),
+            call->getNameAsStr()
+          )) {
+        return native->return_type;
       }
       return expr->getDataType();
     }
@@ -1389,9 +1469,9 @@ resource_family_for_expr(StyioSemaContext* an, StyioAST* expr) {
     return "resource";
   }
   if (auto* name = dynamic_cast<NameAST*>(expr)) {
-    auto it = an->local_binding_types.find(name->getAsStr());
-    if (it != an->local_binding_types.end()) {
-      return resource_family_for_type(it->second);
+    if (const StyioDataType* type =
+          an->find_local_binding_type(name->getSymbolId(), name->getAsStr())) {
+      return resource_family_for_type(*type);
     }
   }
   return resource_family_for_type(infer_expr_type(an, expr));
@@ -1643,13 +1723,28 @@ infer_numeric_string_coercion(StyioSemaContext* an, BinOpAST* ast, StyioAST* lhs
 
 void
 StyioSemaContext::push_active_function_body(const std::string& name) {
+  push_active_function_body(name, styio::session::kInvalidSymbolId);
+}
+
+void
+StyioSemaContext::push_active_function_body(
+  const std::string& name,
+  styio::session::SymbolId sid
+) {
+  if (sid == styio::session::kInvalidSymbolId) {
+    sid = intern_semantic_symbol(name);
+  }
   active_function_body_stack_.push_back(name);
+  active_function_body_sid_stack_.push_back(sid);
 }
 
 void
 StyioSemaContext::pop_active_function_body() {
   if (!active_function_body_stack_.empty()) {
     active_function_body_stack_.pop_back();
+  }
+  if (!active_function_body_sid_stack_.empty()) {
+    active_function_body_sid_stack_.pop_back();
   }
 }
 
@@ -1658,21 +1753,59 @@ StyioSemaContext::record_inferred_function_return_type(const StyioDataType& type
   if (type.isUndefined() || active_function_body_stack_.empty()) {
     return;
   }
+  maybe_intern_type(type);
   const std::string& name = active_function_body_stack_.back();
-  auto it = inferred_function_return_types_.find(name);
+  auto it = inferred_function_return_types_.find(std::string(name));
   if (it == inferred_function_return_types_.end()) {
     inferred_function_return_types_[name] = type;
+  }
+  else {
+    StyioDataType merged = merge_match_value_type(it->second, type, this);
+    if (!merged.isUndefined()) {
+      it->second = merged;
+    }
+  }
+
+  styio::session::SymbolId sid = active_function_body_sid_stack_.empty()
+                                   ? styio::session::kInvalidSymbolId
+                                   : active_function_body_sid_stack_.back();
+  if (sid == styio::session::kInvalidSymbolId) {
+    sid = lookup_semantic_symbol(name);
+  }
+  if (sid == styio::session::kInvalidSymbolId) {
     return;
   }
-  StyioDataType merged = merge_match_value_type(it->second, type);
-  if (!merged.isUndefined()) {
-    it->second = merged;
+  auto sid_it = inferred_function_return_types_by_sid_.find(sid);
+  if (sid_it == inferred_function_return_types_by_sid_.end()) {
+    inferred_function_return_types_by_sid_[sid] = type;
+    return;
+  }
+  StyioDataType sid_merged = merge_match_value_type(sid_it->second, type, this);
+  if (!sid_merged.isUndefined()) {
+    sid_it->second = sid_merged;
   }
 }
 
 StyioDataType
 StyioSemaContext::inferred_function_return_type(const std::string& name) const {
-  auto it = inferred_function_return_types_.find(name);
+  return inferred_function_return_type(styio::session::kInvalidSymbolId, name);
+}
+
+StyioDataType
+StyioSemaContext::inferred_function_return_type(
+  styio::session::SymbolId sid,
+  std::string_view name
+) const {
+  if (sid == styio::session::kInvalidSymbolId) {
+    sid = lookup_semantic_symbol(name);
+  }
+  if (sid != styio::session::kInvalidSymbolId) {
+    auto sid_it = inferred_function_return_types_by_sid_.find(sid);
+    if (sid_it != inferred_function_return_types_by_sid_.end()) {
+      return sid_it->second;
+    }
+  }
+  auto it = inferred_function_return_types_.find(std::string(name));
   if (it == inferred_function_return_types_.end()) {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
@@ -1693,7 +1826,7 @@ StyioSemaContext::typeInfer(EmptyAST* ast) {
 
 void
 StyioSemaContext::typeInfer(NameAST* ast) {
-  if (consumed_resource_names_.count(ast->getAsStr()) != 0) {
+  if (is_consumed_resource_name(ast->getSymbolId(), ast->getAsStr())) {
     throw StyioTypeError("use-after-destroy: resource `" + ast->getAsStr() + "` was already destroyed");
   }
 }
@@ -1773,7 +1906,8 @@ StyioSemaContext::typeInfer(OptKwArgAST* ast) {
 void
 StyioSemaContext::typeInfer(FlexBindAST* ast) {
   const std::string& bound_name = ast->getNameAsStr();
-  if (fixed_assignment_names_.count(bound_name) != 0) {
+  const auto bound_sid = ast->getVar()->getName()->getSymbolId();
+  if (is_fixed_assignment_name(bound_sid, bound_name)) {
     throw StyioSyntaxError(
       "variable `" + bound_name +
       "` was defined with `:=` (fixed assignment); "
@@ -1795,8 +1929,8 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
     if (src == nullptr) {
       return;
     }
-    auto it = binding_info_.find(src->getAsStr());
-    if (it != binding_info_.end() && it->second.resource_value) {
+    const BindingInfo* info = find_binding_info(src->getSymbolId(), src->getAsStr());
+    if (info != nullptr && info->resource_value) {
       throw StyioTypeError(
         "resource `" + src->getAsStr()
         + "` cannot be copied with `=`; use `<<` to clone it"
@@ -1813,9 +1947,9 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
       return BindingValueKind::DictHandle;
     }
     if (auto* nm = dynamic_cast<NameAST*>(expr)) {
-      auto bit = binding_info_.find(nm->getAsStr());
-      if (bit != binding_info_.end()) {
-        return bit->second.value_kind;
+      const BindingInfo* bit = find_binding_info(nm->getSymbolId(), nm->getAsStr());
+      if (bit != nullptr) {
+        return bit->value_kind;
       }
     }
 
@@ -1946,12 +2080,15 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
     kind = BindingValueKind::MatrixHandle;
   }
 
-  local_binding_types[ast->getNameAsStr()] = concrete_type;
+  record_local_binding_type(
+    ast->getNameAsStr(),
+    ast->getVar()->getName()->getSymbolId(),
+    concrete_type);
+  maybe_intern_type(concrete_type);
 
   BindingInfo info;
-  auto prev = binding_info_.find(bound_name);
-  if (prev != binding_info_.end()) {
-    info = prev->second;
+  if (const BindingInfo* prev = find_binding_info(bound_sid, bound_name)) {
+    info = *prev;
   }
   info.final_slot = false;
   info.dynamic_slot = info.dynamic_slot
@@ -1972,12 +2109,12 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   info.declared_type = (info.dynamic_slot && !external_resource_value)
                          ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
                          : concrete_type;
-  binding_info_[bound_name] = info;
+  record_binding_info(bound_name, bound_sid, info);
   if (info.resource_value) {
-    owned_resource_names_.insert(bound_name);
+    record_owned_resource_name(bound_name, bound_sid);
   }
   if (external_resource_value && direct_resource_construct) {
-    consumed_resource_names_.erase(bound_name);
+    erase_consumed_resource_name(bound_name, bound_sid);
   }
 }
 
@@ -1993,8 +2130,8 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
   }
   auto* rhs_name = dynamic_cast<NameAST*>(ast->getValue());
   if (rhs_name != nullptr) {
-    auto it = binding_info_.find(rhs_name->getAsStr());
-    if (it != binding_info_.end() && it->second.resource_value) {
+    const BindingInfo* it = find_binding_info(rhs_name->getSymbolId(), rhs_name->getAsStr());
+    if (it != nullptr && it->resource_value) {
       throw StyioTypeError(
         "resource `" + rhs_name->getAsStr()
         + "` cannot be copied with `:=`; use `<<` to clone it"
@@ -2039,12 +2176,18 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     vt = ast->getValue()->getDataType();
     ast->getVar()->setDataType(vt);
   }
-  local_binding_types[ast->getVar()->getNameAsStr()] = vt;
-  fixed_assignment_names_.insert(ast->getVar()->getNameAsStr());
+  record_local_binding_type(
+    ast->getVar()->getNameAsStr(),
+    ast->getVar()->getName()->getSymbolId(),
+    vt);
+  maybe_intern_type(vt);
+  record_fixed_assignment_name(
+    ast->getVar()->getNameAsStr(),
+    ast->getVar()->getName()->getSymbolId());
 
-  auto rhs_info = rhs_name == nullptr
-                    ? binding_info_.end()
-                    : binding_info_.find(rhs_name->getAsStr());
+  const BindingInfo* rhs_info = rhs_name == nullptr
+                                  ? nullptr
+                                  : find_binding_info(rhs_name->getSymbolId(), rhs_name->getAsStr());
   BindingValueKind rhs_kind = binding_value_kind_for_type(infer_expr_type(this, ast->getValue()));
   if (ast->getValue()->getNodeType() == StyioNodeType::TaskBlock) {
     rhs_kind = BindingValueKind::TaskHandle;
@@ -2062,7 +2205,7 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     || rhs_kind == BindingValueKind::TaskHandle
     || styio_type_is_resource_handle(vt)
     || styio_is_topology_resource_type(vt)
-    || (rhs_info != binding_info_.end() && (rhs_info->second.value_kind == BindingValueKind::ListHandle || rhs_info->second.value_kind == BindingValueKind::DictHandle || rhs_info->second.value_kind == BindingValueKind::MatrixHandle || rhs_info->second.value_kind == BindingValueKind::TaskHandle));
+    || (rhs_info != nullptr && (rhs_info->value_kind == BindingValueKind::ListHandle || rhs_info->value_kind == BindingValueKind::DictHandle || rhs_info->value_kind == BindingValueKind::MatrixHandle || rhs_info->value_kind == BindingValueKind::TaskHandle));
   info.dynamic_slot = runtime_resource;
   info.resource_value = runtime_resource;
   if (ast->getValue()->getNodeType() == StyioNodeType::Dict) {
@@ -2070,7 +2213,7 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
   }
   else if (runtime_resource) {
     info.value_kind =
-      rhs_info != binding_info_.end() ? rhs_info->second.value_kind : rhs_kind;
+      rhs_info != nullptr ? rhs_info->value_kind : rhs_kind;
     if (styio_is_matrix_type(vt)) {
       info.value_kind = BindingValueKind::MatrixHandle;
     }
@@ -2091,9 +2234,12 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     info.value_kind = BindingValueKind::Unknown;
   }
   info.declared_type = vt;
-  binding_info_[ast->getVar()->getNameAsStr()] = info;
+  record_binding_info(
+    ast->getVar()->getNameAsStr(),
+    ast->getVar()->getName()->getSymbolId(),
+    info);
   if (info.resource_value) {
-    owned_resource_names_.insert(ast->getVar()->getNameAsStr());
+    record_owned_resource_name(ast->getVar()->getNameAsStr(), ast->getVar()->getName()->getSymbolId());
   }
 }
 
@@ -2105,8 +2251,8 @@ StyioSemaContext::typeInfer(ParallelAssignAST* ast) {
 
   for (auto* rhs : ast->getRHS()) {
     if (auto* rhs_name = dynamic_cast<NameAST*>(rhs)) {
-      auto it = binding_info_.find(rhs_name->getAsStr());
-      if (it != binding_info_.end() && it->second.resource_value) {
+      const BindingInfo* it = find_binding_info(rhs_name->getSymbolId(), rhs_name->getAsStr());
+      if (it != nullptr && it->resource_value) {
         throw StyioTypeError(
           "resource `" + rhs_name->getAsStr()
           + "` cannot be copied with `=`; use `<<` to clone it"
@@ -2119,19 +2265,20 @@ StyioSemaContext::typeInfer(ParallelAssignAST* ast) {
   for (size_t i = 0; i < ast->getLHS().size(); ++i) {
     StyioAST* lhs = ast->getLHS()[i];
     if (auto* nm = dynamic_cast<NameAST*>(lhs)) {
-      auto it = binding_info_.find(nm->getAsStr());
-      if ((it != binding_info_.end() && it->second.final_slot)
-          || fixed_assignment_names_.count(nm->getAsStr()) != 0) {
+      BindingInfo* it = find_mutable_binding_info(nm->getSymbolId(), nm->getAsStr());
+      if ((it != nullptr && it->final_slot)
+          || is_fixed_assignment_name(nm->getSymbolId(), nm->getAsStr())) {
         throw StyioTypeError("parallel assignment cannot rebind final slot `" + nm->getAsStr() + "`");
       }
-      if (it != binding_info_.end() && it->second.dynamic_slot) {
+      if (it != nullptr && it->dynamic_slot) {
         if (auto* rhs_name = dynamic_cast<NameAST*>(ast->getRHS()[i])) {
-          auto rit = binding_info_.find(rhs_name->getAsStr());
-          if (rit != binding_info_.end()) {
-            it->second.value_kind = rit->second.value_kind;
-            it->second.resource_value = rit->second.resource_value;
-            local_binding_types[nm->getAsStr()] = rit->second.declared_type;
-            binding_info_[nm->getAsStr()] = it->second;
+          const BindingInfo* rit = find_binding_info(rhs_name->getSymbolId(), rhs_name->getAsStr());
+          if (rit != nullptr) {
+            BindingInfo updated = *it;
+            updated.value_kind = rit->value_kind;
+            updated.resource_value = rit->resource_value;
+            record_local_binding_type(nm->getAsStr(), nm->getSymbolId(), rit->declared_type);
+            record_binding_info(nm->getAsStr(), nm->getSymbolId(), updated);
           }
         }
       }
@@ -2148,7 +2295,7 @@ StyioSemaContext::typeInfer(ParallelAssignAST* ast) {
     if (styio_is_dict_type(base_type)) {
       StyioDataType target_type =
         styio_data_type_from_name(styio_dict_value_type_name(base_type));
-      if (!container_value_assignable(target_type, rhs_type)) {
+      if (!container_value_assignable(target_type, rhs_type, this)) {
         throw StyioTypeError(
           "indexed assignment RHS does not match dict value type `"
           + target_type.name + "`"
@@ -2167,7 +2314,7 @@ StyioSemaContext::typeInfer(ParallelAssignAST* ast) {
         "indexed assignment in this slice supports runtime list element families only"
       );
     }
-    if (!container_value_assignable(elem_type, rhs_type)) {
+    if (!container_value_assignable(elem_type, rhs_type, this)) {
       throw StyioTypeError(
         "indexed assignment RHS does not match list element type `"
         + elem_type.name + "`"
@@ -2189,12 +2336,17 @@ StyioSemaContext::typeInfer(TupleAST* ast) {
   /* if no element against the consistency, the tuple will have a type. */
   auto elements = ast->getElements();
 
-  bool is_consistent = true;
+  if (elements.empty()) {
+    return;
+  }
+
   StyioDataType aggregated_type = elements[0]->getDataType();
-  if (aggregated_type.isUndefined()) {
+  bool is_consistent = !aggregated_type.isUndefined();
+  if (is_consistent) {
     for (size_t i = 1; i < elements.size(); i += 1) {
-      if (not(elements[i]->getDataType()).equals(aggregated_type)) {
+      if (!sema_types_equal(this, elements[i]->getDataType(), aggregated_type)) {
         is_consistent = false;
+        break;
       }
     }
   }
@@ -2240,6 +2392,7 @@ StyioSemaContext::typeInfer(ListAST* ast) {
   }
   ast->setConsistency(true);
   ast->setDataType(infer_list_literal_type(this, ast));
+  maybe_intern_type(ast->getDataType());
 }
 
 void
@@ -2252,6 +2405,7 @@ StyioSemaContext::typeInfer(DictAST* ast) {
   StyioDataType dict_type = infer_dict_literal_type(this, ast);
   ast->setConsistency(true);
   ast->setDataType(dict_type);
+  maybe_intern_type(ast->getDataType());
 }
 
 void
@@ -2394,42 +2548,47 @@ StyioSemaContext::typeInfer(StdStreamAST* ast) {
 void
 StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
   const std::string name = ast->getVar()->getNameAsStr();
+  const auto target_sid = ast->getVar() != nullptr && ast->getVar()->getName() != nullptr
+                            ? ast->getVar()->getName()->getSymbolId()
+                            : styio::session::kInvalidSymbolId;
+  const StyioDataType* existing_target_type = find_local_binding_type(target_sid, name);
+  const BindingInfo* existing_target_info = find_binding_info(target_sid, name);
   if (auto* task_name = dynamic_cast<NameAST*>(ast->getResource())) {
     StyioDataType source_type = infer_expr_type(this, task_name);
     if (source_type.handle_family == StyioHandleFamily::Task) {
-      if (local_binding_types.count(name) == 0 && binding_info_.count(name) == 0) {
+      if (existing_target_type == nullptr && existing_target_info == nullptr) {
         throw StyioTypeError("task pull target `" + name + "` must be declared before use");
       }
-      if (fixed_assignment_names_.count(name) != 0) {
+      if (is_fixed_assignment_name(target_sid, name)) {
         throw StyioTypeError("task pull target `" + name + "` is final and cannot be reassigned");
       }
-      if (consumed_task_names_.count(task_name->getAsStr()) != 0) {
+      if (is_consumed_task_name(task_name->getSymbolId(), task_name->getAsStr())) {
         throw StyioTypeError("task `" + task_name->getAsStr() + "` was already pulled");
       }
       StyioDataType result_type = task_result_type_from_task_type(source_type);
-      StyioDataType target_type = local_binding_types.count(name) != 0
-                                    ? local_binding_types[name]
-                                    : binding_info_[name].declared_type;
-      if (!target_type.isUndefined() && !container_value_assignable(target_type, result_type)) {
+      StyioDataType target_type = existing_target_type != nullptr
+                                    ? *existing_target_type
+                                    : existing_target_info->declared_type;
+      if (!target_type.isUndefined() && !container_value_assignable(target_type, result_type, this)) {
         throw StyioTypeError(
           "task pull target `" + name + "` expects " + target_type.name
           + ", got " + result_type.name
         );
       }
-      consumed_task_names_.insert(task_name->getAsStr());
+      record_consumed_task_name(task_name->getAsStr(), task_name->getSymbolId());
       return;
     }
   }
-  if (!ast->isFlexBind() && local_binding_types.count(name) != 0) {
+  if (!ast->isFlexBind() && existing_target_type != nullptr) {
     throw StyioTypeError("final resource bind cannot redefine `" + name + "`");
   }
-  if (ast->isFlexBind() && fixed_assignment_names_.count(name) != 0) {
+  if (ast->isFlexBind() && is_fixed_assignment_name(target_sid, name)) {
     throw StyioTypeError("resource clone cannot rebind final slot `" + name + "`");
   }
 
   ast->getResource()->typeInfer(this);
   if (auto* ref = dynamic_cast<ResourceRefAST*>(ast->getResource());
-      ref != nullptr && ref->isWholeResource()) {
+      ast->isFlexBind() && ref != nullptr && ref->isWholeResource()) {
     throw StyioTypeError(
       "resource clone source `" + ref->getNameStr()
       + "` is a topology resource and cannot be cloned as a whole with `<<`; "
@@ -2444,14 +2603,15 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
   info.value_kind = BindingValueKind::I64;
 
   if (auto* src = dynamic_cast<NameAST*>(ast->getResource())) {
-    auto it = binding_info_.find(src->getAsStr());
+    const BindingInfo* it = find_binding_info(src->getSymbolId(), src->getAsStr());
     StyioDataType source_type =
-      (it != binding_info_.end()) ? it->second.declared_type
-                                  : StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+      (it != nullptr) ? it->declared_type
+                      : StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
     if (source_type.isUndefined()) {
-      auto tit = local_binding_types.find(src->getAsStr());
-      if (tit != local_binding_types.end()) {
-        source_type = tit->second;
+      const StyioDataType* source_local_type =
+        find_local_binding_type(src->getSymbolId(), src->getAsStr());
+      if (source_local_type != nullptr) {
+        source_type = *source_local_type;
       }
     }
     std::optional<StdStreamKind> stream_kind;
@@ -2468,7 +2628,7 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
       info.value_kind = BindingValueKind::ListHandle;
       info.resource_value = true;
       info.declared_type = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-      local_binding_types[name] = collected_type;
+      record_local_binding_type(name, target_sid, collected_type);
       collect_bind_handle_acquires_.insert(ast);
       collect_bind_handle_acquire_types_[ast] = collected_type;
     }
@@ -2490,7 +2650,7 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
           "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
         );
       }
-      if (it == binding_info_.end() || !it->second.resource_value
+      if (it == nullptr || !it->resource_value
           || !styio_type_is_cloneable(source_type)) {
         throw StyioTypeError(
           "resource clone source `" + src->getAsStr() + "` is not a cloneable resource"
@@ -2502,10 +2662,10 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
           + "` must use `<<`; `<-` only acquires external resources or pulls task handles"
         );
       }
-      info.value_kind = it->second.value_kind;
-      info.resource_value = it->second.resource_value;
+      info.value_kind = it->value_kind;
+      info.resource_value = it->resource_value;
       info.declared_type = source_type;
-      local_binding_types[name] = source_type;
+      record_local_binding_type(name, target_sid, source_type);
       if (!ast->isFlexBind()) {
         ast->getVar()->setDataType(source_type);
       }
@@ -2513,18 +2673,21 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
   }
   else {
     if (auto* resource_ref = dynamic_cast<ResourceRefAST*>(ast->getResource())) {
-      auto resource_ref_type_it = resource_binding_types_.find(resource_ref->getNameStr());
-      if (resource_ref_type_it != resource_binding_types_.end()) {
-        const auto& ref_type = resource_ref_type_it->second;
-        if (styio_is_topology_resource_type(ref_type)) {
+      const auto* resource_ref_type_ptr = find_resource_binding_type(
+        resource_ref->getName()->getSymbolId(),
+        resource_ref->getNameStr());
+      if (resource_ref_type_ptr != nullptr) {
+        const auto& ref_type = *resource_ref_type_ptr;
+        if (ast->isFlexBind() && styio_is_topology_resource_type(ref_type)) {
           throw StyioTypeError(
             "resource clone source `" + resource_ref->getNameStr()
             + "` is a topology resource and cannot be cloned as a whole with `<<`; "
             + "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
           );
         }
-        if (ref_type.handle_family == StyioHandleFamily::File
-            || ref_type.handle_family == StyioHandleFamily::Stream) {
+        if (ast->isFlexBind()
+            && (ref_type.handle_family == StyioHandleFamily::File
+                || ref_type.handle_family == StyioHandleFamily::Stream)) {
           throw StyioTypeError(
             "resource clone source `" + resource_ref->getNameStr()
             + "` is a file/stream handle and cannot be cloned with `<<`; "
@@ -2533,14 +2696,15 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
         }
       }
     }
-    if (styio_is_topology_resource_type(info.declared_type)) {
+    if (ast->isFlexBind() && styio_is_topology_resource_type(info.declared_type)) {
       throw StyioTypeError(
         "resource clone source is a topology resource and cannot be cloned as a whole with `<<`; "
         "copy snapshots with `<< <resource>[...]` or `<< <resource>[-n..]` instead"
       );
     }
-    if (info.declared_type.handle_family == StyioHandleFamily::File
-        || info.declared_type.handle_family == StyioHandleFamily::Stream) {
+    if (ast->isFlexBind()
+        && (info.declared_type.handle_family == StyioHandleFamily::File
+            || info.declared_type.handle_family == StyioHandleFamily::Stream)) {
       throw StyioTypeError(
         "resource clone source is a file/stream handle and cannot be cloned with `<<`; "
         "use `<-` to acquire or operate the handle directly"
@@ -2550,21 +2714,21 @@ StyioSemaContext::typeInfer(HandleAcquireAST* ast) {
       throw StyioTypeError("handle acquire needs a typed resource source");
     }
     info.resource_value = styio_type_is_resource_handle(info.declared_type);
-    local_binding_types[name] = info.declared_type;
+    record_local_binding_type(name, target_sid, info.declared_type);
     if (!ast->isFlexBind()) {
       ast->getVar()->setDataType(info.declared_type);
     }
   }
 
   if (!ast->isFlexBind()) {
-    fixed_assignment_names_.insert(name);
+    record_fixed_assignment_name(name, target_sid);
   }
-  binding_info_[name] = info;
+  record_binding_info(name, target_sid, info);
   if (info.resource_value) {
-    owned_resource_names_.insert(name);
+    record_owned_resource_name(name, target_sid);
   }
   if (ast->isFlexBind()) {
-    consumed_resource_names_.erase(name);
+    erase_consumed_resource_name(name, target_sid);
   }
 }
 
@@ -2603,8 +2767,8 @@ StyioSemaContext::typeInfer(ResourceWriteAST* ast) {
   auto* target_name = dynamic_cast<NameAST*>(ast->getData());
   StyioDataType resource_type = infer_expr_type(this, ast->getResource());
   if (target_name != nullptr
-      && local_binding_types.count(target_name->getAsStr()) == 0
-      && binding_info_.count(target_name->getAsStr()) == 0
+      && find_local_binding_type(target_name->getSymbolId(), target_name->getAsStr()) == nullptr
+      && find_binding_info(target_name->getSymbolId(), target_name->getAsStr()) == nullptr
       && resource_type.handle_family == StyioHandleFamily::Stream
       && resource_type.has_std_stream_kind
       && static_cast<StdStreamKind>(resource_type.std_stream_kind) == StdStreamKind::Stdin) {
@@ -2615,8 +2779,8 @@ StyioSemaContext::typeInfer(ResourceWriteAST* ast) {
     info.value_kind = BindingValueKind::ListHandle;
     info.declared_type = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
     StyioDataType collected_type = styio_make_list_type("string");
-    local_binding_types[target_name->getAsStr()] = collected_type;
-    binding_info_[target_name->getAsStr()] = info;
+    record_local_binding_type(target_name->getAsStr(), target_name->getSymbolId(), collected_type);
+    record_binding_info(target_name->getAsStr(), target_name->getSymbolId(), info);
     collect_bind_resource_writes_.insert(ast);
     collect_bind_resource_write_types_[ast] = collected_type;
     return;
@@ -2645,18 +2809,17 @@ StyioSemaContext::typeInfer(ResourceRedirectAST* ast) {
   if (dynamic_cast<EmptyResourceAST*>(ast->getResource()) != nullptr) {
     if (auto* name = dynamic_cast<NameAST*>(ast->getData())) {
       const std::string resource_name = name->getAsStr();
-      auto it = binding_info_.find(resource_name);
-      if (it == binding_info_.end() || !it->second.resource_value) {
+      const BindingInfo* it = find_binding_info(name->getSymbolId(), resource_name);
+      if (it == nullptr || !it->resource_value) {
         throw StyioTypeError("@() destroy source must be a resource");
       }
-      if (!task_outer_resource_names_stack_.empty()
-          && task_outer_resource_names_stack_.back().count(resource_name) != 0) {
+      if (is_task_outer_resource_name(name->getSymbolId(), resource_name)) {
         throw StyioTypeError("task cannot consume outer resource `" + resource_name + "`");
       }
-      if (consumed_resource_names_.count(resource_name) != 0) {
+      if (is_consumed_resource_name(name->getSymbolId(), resource_name)) {
         throw StyioTypeError("double destroy: resource `" + resource_name + "` was already destroyed");
       }
-      consumed_resource_names_.insert(resource_name);
+      record_consumed_resource_name(resource_name, name->getSymbolId());
       return;
     }
     StyioDataType data_type = infer_expr_type(this, ast->getData());
@@ -2704,7 +2867,7 @@ StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
       StyioDataType handler_type = infer_expr_type(this, handler.body);
       if (!operation_type.isUndefined()
           && !handler_type.isUndefined()
-          && !container_value_assignable(operation_type, handler_type)) {
+          && !container_value_assignable(operation_type, handler_type, this)) {
         throw StyioTypeError(
           "resource-effect handler `" + handler.effect_name + "` expects "
           + operation_type.name + ", got " + handler_type.name
@@ -2733,7 +2896,7 @@ StyioSemaContext::typeInfer(ResourceEffectAST* ast) {
     StyioDataType fallback_type = infer_expr_type(this, ast->getFallback());
     if (!operation_type.isUndefined()
         && !fallback_type.isUndefined()
-        && !container_value_assignable(operation_type, fallback_type)) {
+        && !container_value_assignable(operation_type, fallback_type, this)) {
       throw StyioTypeError(
         "resource-effect fallback expects " + operation_type.name
         + ", got " + fallback_type.name
@@ -2771,9 +2934,10 @@ StyioSemaContext::typeInfer(BinOpAST* ast) {
     rhs->typeInfer(this);
     if (lhs->getNodeType() == StyioNodeType::Id) {
       auto* nm = static_cast<NameAST*>(lhs);
-      auto it = local_binding_types.find(nm->getAsStr());
-      if (it != local_binding_types.end()) {
-        ast->setDType(it->second);
+      const StyioDataType* local_type =
+        find_local_binding_type(nm->getSymbolId(), nm->getAsStr());
+      if (local_type != nullptr) {
+        ast->setDType(*local_type);
       }
       else {
         ast->setDType(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
@@ -2919,11 +3083,12 @@ StyioSemaContext::typeInfer(BinOpAST* ast) {
 
       case StyioNodeType::Id: {
         auto* lid = static_cast<NameAST*>(lhs);
-        auto lt_it = local_binding_types.find(lid->getAsStr());
-        if (lt_it == local_binding_types.end()) {
+        const StyioDataType* lhs_local_type =
+          find_local_binding_type(lid->getSymbolId(), lid->getAsStr());
+        if (lhs_local_type == nullptr) {
           break;
         }
-        StyioDataType lt = lt_it->second;
+        StyioDataType lt = *lhs_local_type;
 
         switch (rhs_hint) {
           case StyioNodeType::Integer: {
@@ -2952,13 +3117,14 @@ StyioSemaContext::typeInfer(BinOpAST* ast) {
 
           case StyioNodeType::Id: {
             auto* rid = static_cast<NameAST*>(rhs);
-            auto rt_it = local_binding_types.find(rid->getAsStr());
-            if (rt_it == local_binding_types.end()) {
+            const StyioDataType* rhs_local_type =
+              find_local_binding_type(rid->getSymbolId(), rid->getAsStr());
+            if (rhs_local_type == nullptr) {
               break;
             }
             if (op == StyioOpType::Binary_Add || op == StyioOpType::Binary_Sub || op == StyioOpType::Binary_Mul
                 || op == StyioOpType::Binary_Div || op == StyioOpType::Binary_Mod || op == StyioOpType::Binary_Pow) {
-              ast->setDType(getMaxType(lt, rt_it->second));
+              ast->setDType(getMaxType(lt, *rhs_local_type));
             }
           } break;
 
@@ -3049,7 +3215,9 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
       continue;
     }
     info.param_names.push_back(param->getNameAsStr());
-    info.param_types.push_back(param->getDType()->getDataType());
+    StyioDataType param_type = param->getDType()->getDataType();
+    maybe_intern_type(param_type);
+    info.param_types.push_back(param_type);
   }
   info.consuming = !ast->isProperty()
                    && body_consumes_receiver(this, ast->getBody(), ast->getFamilyName());
@@ -3057,42 +3225,61 @@ StyioSemaContext::typeInfer(ResourceMethodDefAST* ast) {
 
   const std::string saved_receiver = active_resource_receiver_family_;
   const auto saved_types = local_binding_types;
+  const auto saved_types_by_sid = local_binding_types_by_sid;
   const auto saved_fixed = fixed_assignment_names_;
+  const auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
   const auto saved_bind = binding_info_;
+  const auto saved_bind_by_sid = binding_info_by_sid_;
   const auto saved_consumed_tasks = consumed_task_names_;
+  const auto saved_consumed_tasks_by_sid = consumed_task_names_by_sid_;
   const auto saved_consumed_resources = consumed_resource_names_;
+  const auto saved_consumed_resources_by_sid = consumed_resource_names_by_sid_;
   const auto saved_owned_resources = owned_resource_names_;
+  const auto saved_owned_resources_by_sid = owned_resource_names_by_sid_;
   const auto saved_snapshot_names = snapshot_var_names_;
+  const auto saved_snapshot_names_by_sid = snapshot_var_names_by_sid_;
   auto restore_resource_method_scope = [&]()
   {
     active_resource_receiver_family_ = saved_receiver;
     local_binding_types = saved_types;
+    local_binding_types_by_sid = saved_types_by_sid;
     fixed_assignment_names_ = saved_fixed;
+    fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
     binding_info_ = saved_bind;
+    binding_info_by_sid_ = saved_bind_by_sid;
     consumed_task_names_ = saved_consumed_tasks;
+    consumed_task_names_by_sid_ = saved_consumed_tasks_by_sid;
     consumed_resource_names_ = saved_consumed_resources;
+    consumed_resource_names_by_sid_ = saved_consumed_resources_by_sid;
     owned_resource_names_ = saved_owned_resources;
+    owned_resource_names_by_sid_ = saved_owned_resources_by_sid;
     snapshot_var_names_ = saved_snapshot_names;
+    snapshot_var_names_by_sid_ = saved_snapshot_names_by_sid;
   };
 
   try {
     active_resource_receiver_family_ = ast->getFamilyName();
     local_binding_types.clear();
+    local_binding_types_by_sid.clear();
     fixed_assignment_names_.clear();
+    fixed_assignment_names_by_sid_.clear();
     binding_info_.clear();
-    consumed_task_names_.clear();
-    consumed_resource_names_.clear();
-    owned_resource_names_.clear();
+    binding_info_by_sid_.clear();
+    clear_consumed_task_names();
+    clear_consumed_resource_names();
+    clear_owned_resource_names();
     snapshot_var_names_.clear();
+    snapshot_var_names_by_sid_.clear();
     for (std::size_t i = 0; i < info.param_names.size(); ++i) {
       if (!info.param_names[i].empty() && !info.param_types[i].isUndefined()) {
-        local_binding_types[info.param_names[i]] = info.param_types[i];
+        record_local_binding_type(info.param_names[i], styio::session::kInvalidSymbolId, info.param_types[i]);
       }
     }
     if (ast->getBody() != nullptr) {
       ast->getBody()->typeInfer(this);
     }
     info.result_type = resource_method_simple_result_type_latest(this, ast->getBody());
+    maybe_intern_type(info.result_type);
     if (resource_method_body_contains_return_latest(ast->getBody()) && info.result_type.isUndefined()) {
       throw StyioTypeError(
         "resource method return currently requires a single `<| expr` body"
@@ -3122,11 +3309,12 @@ void
 StyioSemaContext::typeInfer(ResourceDeclAST* ast) {
   for (const auto& slot : ast->getSlots()) {
     const std::string name = slot.name->getAsStr();
+    const auto decl_sid = slot.name->getSymbolId();
     StyioDataType declared = styio_normalize_resource_decl_type(slot.type->getDataType());
-    if (resource_binding_types_.count(name) != 0) {
+    if (find_resource_binding_type(decl_sid, name) != nullptr) {
       throw StyioTypeError("resource `" + name + "` is already declared");
     }
-    resource_binding_types_[name] = declared;
+    record_resource_binding_type(name, decl_sid, declared);
   }
   if (ast->getDriver() != nullptr) {
     ast->getDriver()->typeInfer(this);
@@ -3135,11 +3323,13 @@ StyioSemaContext::typeInfer(ResourceDeclAST* ast) {
 
 void
 StyioSemaContext::typeInfer(ResourceRefAST* ast) {
-  auto it = resource_binding_types_.find(ast->getNameStr());
-  if (it == resource_binding_types_.end()) {
+  const auto* it = find_resource_binding_type(
+    ast->getName()->getSymbolId(),
+    ast->getNameStr());
+  if (it == nullptr) {
     throw StyioTypeError("unknown resource `" + ast->getNameStr() + "`");
   }
-  StyioDataType resource_type = it->second;
+  StyioDataType resource_type = *it;
   if (ast->isWholeResource()) {
     ast->setDataType(resource_type);
     return;
@@ -3299,7 +3489,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         throw StyioTypeError("list.push(value) requires exactly one argument");
       }
       StyioDataType value_type = infer_expr_type(this, ast->getArgList()[0]);
-      if (!container_value_assignable(elem_type, value_type)) {
+      if (!container_value_assignable(elem_type, value_type, this)) {
         throw StyioTypeError(
           "list.push(value) expects `" + elem_type.name + "`, got `" + value_type.name + "`"
         );
@@ -3316,7 +3506,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         throw StyioTypeError("list.insert(index, value) requires an integer index");
       }
       StyioDataType value_type = infer_expr_type(this, ast->getArgList()[1]);
-      if (!container_value_assignable(elem_type, value_type)) {
+      if (!container_value_assignable(elem_type, value_type, this)) {
         throw StyioTypeError(
           "list.insert(index, value) expects `" + elem_type.name + "`, got `"
           + value_type.name + "`"
@@ -3379,7 +3569,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         if (declared_type.isUndefined()) {
           continue;
         }
-        if (!func_param_accepts_arg(declared_type, arg_types[i])) {
+        if (!func_param_accepts_arg(declared_type, arg_types[i], this)) {
           std::string param_name = i < method.param_names.size() && !method.param_names[i].empty()
                                      ? method.param_names[i]
                                      : std::to_string(i);
@@ -3392,14 +3582,13 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       if (method.consuming) {
         if (auto* receiver_name = dynamic_cast<NameAST*>(ast->func_callee)) {
           const std::string resource_name = receiver_name->getAsStr();
-          if (!task_outer_resource_names_stack_.empty()
-              && task_outer_resource_names_stack_.back().count(resource_name) != 0) {
+          if (is_task_outer_resource_name(receiver_name->getSymbolId(), resource_name)) {
             throw StyioTypeError("task cannot consume outer resource `" + resource_name + "`");
           }
-          if (consumed_resource_names_.count(resource_name) != 0) {
+          if (is_consumed_resource_name(receiver_name->getSymbolId(), resource_name)) {
             throw StyioTypeError("double destroy: resource `" + resource_name + "` was already destroyed");
           }
-          consumed_resource_names_.insert(resource_name);
+          record_consumed_resource_name(resource_name, receiver_name->getSymbolId());
         }
       }
       return;
@@ -3421,7 +3610,10 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     return;
   }
 
-  auto def_it = func_defs.find(ast->getNameAsStr());
+  StyioAST* func_def = find_function_def(
+    ast->func_name->getSymbolId(),
+    ast->getNameAsStr()
+  );
   vector<StyioDataType> arg_types;
 
   for (auto arg : ast->getArgList()) {
@@ -3429,24 +3621,26 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     arg_types.push_back(infer_expr_type(this, arg));
   }
 
-  if (def_it == func_defs.end()) {
-    auto native_it = native_func_defs.find(ast->getNameAsStr());
-    if (native_it == native_func_defs.end()) {
+  if (func_def == nullptr) {
+    const auto* native = find_native_function_def(
+      ast->func_name->getSymbolId(),
+      ast->getNameAsStr()
+    );
+    if (native == nullptr) {
       throw StyioTypeError("unknown function `" + ast->getNameAsStr() + "`");
     }
-    const auto& native = native_it->second;
-    if (arg_types.size() != native.arg_types.size()) {
+    if (arg_types.size() != native->arg_types.size()) {
       throw StyioTypeError(
         "function `" + ast->getNameAsStr() + "` expects "
-        + std::to_string(native.arg_types.size()) + " argument(s), got "
+        + std::to_string(native->arg_types.size()) + " argument(s), got "
         + std::to_string(arg_types.size())
       );
     }
-    for (size_t i = 0; i < native.arg_types.size(); ++i) {
-      if (!func_param_accepts_arg(native.arg_types[i], arg_types[i])) {
+    for (size_t i = 0; i < native->arg_types.size(); ++i) {
+      if (!func_param_accepts_arg(native->arg_types[i], arg_types[i], this)) {
         throw StyioTypeError(
           "function argument type mismatch for native parameter "
-          + std::to_string(i) + ": expected " + native.arg_types[i].name
+          + std::to_string(i) + ": expected " + native->arg_types[i].name
           + ", got " + arg_types[i].name
         );
       }
@@ -3454,7 +3648,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     return;
   }
 
-  auto func_args = params_of_func_def(def_it->second);
+  auto func_args = params_of_func_def(func_def);
 
   if (arg_types.size() != func_args.size()) {
     throw StyioTypeError(
@@ -3470,7 +3664,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       func_args[i]->setDataType(arg_types[i]);
       continue;
     }
-    if (!func_param_accepts_arg(declared_type, arg_types[i])) {
+    if (!func_param_accepts_arg(declared_type, arg_types[i], this)) {
       throw StyioTypeError(
         "function argument type mismatch for parameter '" + func_args[i]->getNameAsStr()
         + "': expected " + declared_type.name + ", got " + arg_types[i].name
@@ -3479,31 +3673,64 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
   }
 
   const std::string function_name = ast->getNameAsStr();
+  auto function_sid = ast->func_name->getSymbolId();
+  if (function_sid == styio::session::kInvalidSymbolId) {
+    function_sid = lookup_semantic_symbol(function_name);
+  }
   const StyioDataType declared_return =
-    declared_function_return_type_latest(def_it->second);
-  if (active_function_body_inference_.insert(function_name).second) {
+    declared_function_return_type_latest(func_def);
+  const bool function_body_active =
+    active_function_body_inference_.count(function_name) != 0
+    || (function_sid != styio::session::kInvalidSymbolId
+        && active_function_body_inference_by_sid_.count(function_sid) != 0);
+  if (!function_body_active) {
+    active_function_body_inference_.insert(function_name);
+    if (function_sid != styio::session::kInvalidSymbolId) {
+      active_function_body_inference_by_sid_.insert(function_sid);
+    }
     const auto saved_types = local_binding_types;
+    const auto saved_types_by_sid = local_binding_types_by_sid;
     const auto saved_funcs = func_defs;
+    const auto saved_funcs_by_sid = func_defs_by_sid;
     const auto saved_fixed = fixed_assignment_names_;
+    const auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
     const auto saved_bind = binding_info_;
+    const auto saved_bind_by_sid = binding_info_by_sid_;
     const auto saved_consumed_tasks = consumed_task_names_;
+    const auto saved_consumed_tasks_by_sid = consumed_task_names_by_sid_;
     const auto saved_consumed_resources = consumed_resource_names_;
+    const auto saved_consumed_resources_by_sid = consumed_resource_names_by_sid_;
     const auto saved_owned_resources = owned_resource_names_;
+    const auto saved_owned_resources_by_sid = owned_resource_names_by_sid_;
     const auto saved_snapshot_names = snapshot_var_names_;
+    const auto saved_snapshot_names_by_sid = snapshot_var_names_by_sid_;
     const auto saved_function_stack = active_function_body_stack_;
+    const auto saved_function_sid_stack = active_function_body_sid_stack_;
 
     auto restore_function_scope = [&]()
     {
       local_binding_types = saved_types;
+      local_binding_types_by_sid = saved_types_by_sid;
       func_defs = saved_funcs;
+      func_defs_by_sid = saved_funcs_by_sid;
       fixed_assignment_names_ = saved_fixed;
+      fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
       binding_info_ = saved_bind;
+      binding_info_by_sid_ = saved_bind_by_sid;
       consumed_task_names_ = saved_consumed_tasks;
+      consumed_task_names_by_sid_ = saved_consumed_tasks_by_sid;
       consumed_resource_names_ = saved_consumed_resources;
+      consumed_resource_names_by_sid_ = saved_consumed_resources_by_sid;
       owned_resource_names_ = saved_owned_resources;
+      owned_resource_names_by_sid_ = saved_owned_resources_by_sid;
       snapshot_var_names_ = saved_snapshot_names;
+      snapshot_var_names_by_sid_ = saved_snapshot_names_by_sid;
       active_function_body_stack_ = saved_function_stack;
+      active_function_body_sid_stack_ = saved_function_sid_stack;
       active_function_body_inference_.erase(function_name);
+      if (function_sid != styio::session::kInvalidSymbolId) {
+        active_function_body_inference_by_sid_.erase(function_sid);
+      }
     };
 
     try {
@@ -3512,11 +3739,15 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         if (param_type.isUndefined() && i < arg_types.size()) {
           param_type = arg_types[i];
         }
-        local_binding_types[func_args[i]->getNameAsStr()] = param_type;
+        record_local_binding_type(
+          func_args[i]->getNameAsStr(),
+          styio::session::kInvalidSymbolId,
+          param_type);
+        maybe_intern_type(param_type);
       }
 
-      push_active_function_body(function_name);
-      if (auto* f = dynamic_cast<FunctionAST*>(def_it->second)) {
+      push_active_function_body(function_name, function_sid);
+      if (auto* f = dynamic_cast<FunctionAST*>(func_def)) {
         if (f->func_body != nullptr) {
           apply_matrix_literal_context(this, f->func_body, declared_return);
           f->func_body->typeInfer(this);
@@ -3525,7 +3756,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
           record_inferred_function_return_type(return_type);
         }
       }
-      else if (auto* sf = dynamic_cast<SimpleFuncAST*>(def_it->second)) {
+      else if (auto* sf = dynamic_cast<SimpleFuncAST*>(func_def)) {
         if (sf->ret_expr != nullptr) {
           apply_matrix_literal_context(this, sf->ret_expr, declared_return);
           sf->ret_expr->typeInfer(this);
@@ -3566,7 +3797,7 @@ StyioSemaContext::typeInfer(AttrAST* ast) {
     std::string pressure_family = family;
     if (pressure_family.empty()) {
       if (auto* name = dynamic_cast<NameAST*>(ast->body)) {
-        if (resource_binding_types_.find(name->getAsStr()) != resource_binding_types_.end()) {
+        if (find_resource_binding_type(name->getSymbolId(), name->getAsStr()) != nullptr) {
           pressure_family = "resource";
         }
       }
@@ -3625,16 +3856,22 @@ void
 StyioSemaContext::typeInfer(CondFlowAST* ast) {
   ast->getCond()->typeInfer(this);
   auto saved = local_binding_types;
+  auto saved_by_sid = local_binding_types_by_sid;
   auto saved_fixed = fixed_assignment_names_;
+  auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
   auto saved_bind = binding_info_;
+  auto saved_bind_by_sid = binding_info_by_sid_;
 
   ast->getThen()->typeInfer(this);
   auto then_types = local_binding_types;
   auto then_bind = binding_info_;
 
   local_binding_types = saved;
+  local_binding_types_by_sid = saved_by_sid;
   fixed_assignment_names_ = saved_fixed;
+  fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
   binding_info_ = saved_bind;
+  binding_info_by_sid_ = saved_bind_by_sid;
 
   if (ast->getElse() != nullptr) {
     ast->getElse()->typeInfer(this);
@@ -3642,8 +3879,11 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
     auto else_bind = binding_info_;
 
     local_binding_types = saved;
+    local_binding_types_by_sid = saved_by_sid;
     fixed_assignment_names_ = saved_fixed;
+    fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
     binding_info_ = saved_bind;
+    binding_info_by_sid_ = saved_bind_by_sid;
 
     for (auto const& entry : then_bind) {
       auto eit = else_bind.find(entry.first);
@@ -3658,7 +3898,7 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
         merged.value_kind = BindingValueKind::Unknown;
         merged.declared_type = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
       }
-      binding_info_[entry.first] = merged;
+      record_binding_info(entry.first, styio::session::kInvalidSymbolId, merged);
 
       auto tit = then_types.find(entry.first);
       auto eit_ty = else_types.find(entry.first);
@@ -3672,15 +3912,19 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
       const StyioDataType saved_type = sit != saved.end()
                                          ? sit->second
                                          : StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
-      local_binding_types[entry.first] =
-        merge_cond_flow_branch_type(then_type, else_type, saved_type);
+      const StyioDataType merged_type =
+        merge_cond_flow_branch_type(then_type, else_type, saved_type, this);
+      record_local_binding_type(entry.first, styio::session::kInvalidSymbolId, merged_type);
     }
     return;
   }
 
   local_binding_types = saved;
+  local_binding_types_by_sid = saved_by_sid;
   fixed_assignment_names_ = saved_fixed;
+  fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
   binding_info_ = saved_bind;
+  binding_info_by_sid_ = saved_bind_by_sid;
 }
 
 void
@@ -3694,7 +3938,8 @@ StyioSemaContext::typeInfer(FunctionAST* ast) {
       "tuple function return annotations require tuple value IR; tuple returns are not implemented"
     );
   }
-  func_defs[ast->getNameAsStr()] = ast;
+  maybe_intern_function_signature_types(this, ast->params, ast->ret_type);
+  record_function_def(ast->getNameAsStr(), ast->func_name->getSymbolId(), ast);
 }
 
 void
@@ -3704,7 +3949,8 @@ StyioSemaContext::typeInfer(SimpleFuncAST* ast) {
       "tuple function return annotations require tuple value IR; tuple returns are not implemented"
     );
   }
-  func_defs[ast->func_name->getAsStr()] = ast;
+  maybe_intern_function_signature_types(this, ast->params, ast->ret_type);
+  record_function_def(ast->func_name->getAsStr(), ast->func_name->getSymbolId(), ast);
 }
 
 void
@@ -3716,8 +3962,11 @@ StyioSemaContext::typeInfer(IteratorAST* ast) {
   }
 
   auto saved = local_binding_types;
+  auto saved_by_sid = local_binding_types_by_sid;
   auto saved_fixed = fixed_assignment_names_;
+  auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
   auto saved_bind = binding_info_;
+  auto saved_bind_by_sid = binding_info_by_sid_;
   ast->collection->typeInfer(this);
   StyioDataType collection_type = infer_expr_type(this, ast->collection);
   if (!styio_type_is_iterable(collection_type)) {
@@ -3725,21 +3974,27 @@ StyioSemaContext::typeInfer(IteratorAST* ast) {
   }
   StyioDataType et = infer_collection_elem_type(this, ast->collection);
   if (!ast->params.empty()) {
-    local_binding_types[ast->params[0]->getNameAsStr()] = et;
+    record_local_binding_type(ast->params[0]->getNameAsStr(), styio::session::kInvalidSymbolId, et);
   }
   for (auto* f : ast->following) {
     f->typeInfer(this);
   }
   local_binding_types = std::move(saved);
+  local_binding_types_by_sid = std::move(saved_by_sid);
   fixed_assignment_names_ = std::move(saved_fixed);
+  fixed_assignment_names_by_sid_ = std::move(saved_fixed_by_sid);
   binding_info_ = std::move(saved_bind);
+  binding_info_by_sid_ = std::move(saved_bind_by_sid);
 }
 
 void
 StyioSemaContext::typeInfer(StreamZipAST* ast) {
   auto saved = local_binding_types;
+  auto saved_by_sid = local_binding_types_by_sid;
   auto saved_fixed = fixed_assignment_names_;
+  auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
   auto saved_bind = binding_info_;
+  auto saved_bind_by_sid = binding_info_by_sid_;
   auto is_direct_stdin = [](StyioAST* expr) {
     auto* stream = dynamic_cast<StdStreamAST*>(expr);
     return stream != nullptr && stream->getStreamKind() == StdStreamKind::Stdin;
@@ -3769,24 +4024,29 @@ StyioSemaContext::typeInfer(StreamZipAST* ast) {
   StyioDataType ea = infer_collection_elem_type(this, ast->getCollectionA());
   StyioDataType eb = infer_collection_elem_type(this, ast->getCollectionB());
   if (!ast->getParamsA().empty()) {
-    local_binding_types[ast->getParamsA()[0]->getNameAsStr()] = ea;
+    record_local_binding_type(ast->getParamsA()[0]->getNameAsStr(), styio::session::kInvalidSymbolId, ea);
   }
   if (!ast->getParamsB().empty()) {
-    local_binding_types[ast->getParamsB()[0]->getNameAsStr()] = eb;
+    record_local_binding_type(ast->getParamsB()[0]->getNameAsStr(), styio::session::kInvalidSymbolId, eb);
   }
   for (auto* f : ast->getFollowing()) {
     f->typeInfer(this);
   }
   local_binding_types = std::move(saved);
+  local_binding_types_by_sid = std::move(saved_by_sid);
   fixed_assignment_names_ = std::move(saved_fixed);
+  fixed_assignment_names_by_sid_ = std::move(saved_fixed_by_sid);
   binding_info_ = std::move(saved_bind);
+  binding_info_by_sid_ = std::move(saved_bind_by_sid);
 }
 
 void
 StyioSemaContext::typeInfer(SnapshotDeclAST* ast) {
-  snapshot_var_names_.insert(ast->getVar()->getAsStr());
-  local_binding_types[ast->getVar()->getAsStr()] =
-    StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
+  record_snapshot_var_name(ast->getVar()->getAsStr(), ast->getVar()->getSymbolId());
+  record_local_binding_type(
+    ast->getVar()->getAsStr(),
+    ast->getVar()->getSymbolId(),
+    StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
   ast->getResource()->typeInfer(this);
 }
 
@@ -3816,24 +4076,61 @@ StyioSemaContext::typeInfer(InstantPullAST* ast) {
 void
 StyioSemaContext::typeInfer(TaskBlockAST* ast) {
   auto saved_types = local_binding_types;
+  auto saved_types_by_sid = local_binding_types_by_sid;
   auto saved_fixed = fixed_assignment_names_;
+  auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
   auto saved_bind = binding_info_;
+  auto saved_bind_by_sid = binding_info_by_sid_;
   auto saved_consumed = consumed_task_names_;
+  auto saved_consumed_by_sid = consumed_task_names_by_sid_;
   auto saved_consumed_resources = consumed_resource_names_;
+  auto saved_consumed_resources_by_sid = consumed_resource_names_by_sid_;
   auto saved_owned_resources = owned_resource_names_;
+  auto saved_owned_resources_by_sid = owned_resource_names_by_sid_;
+
+  auto restore_task_scope = [&]()
+  {
+    local_binding_types = std::move(saved_types);
+    local_binding_types_by_sid = std::move(saved_types_by_sid);
+    fixed_assignment_names_ = std::move(saved_fixed);
+    fixed_assignment_names_by_sid_ = std::move(saved_fixed_by_sid);
+    binding_info_ = std::move(saved_bind);
+    binding_info_by_sid_ = std::move(saved_bind_by_sid);
+    consumed_task_names_ = std::move(saved_consumed);
+    consumed_task_names_by_sid_ = std::move(saved_consumed_by_sid);
+    consumed_resource_names_ = std::move(saved_consumed_resources);
+    consumed_resource_names_by_sid_ = std::move(saved_consumed_resources_by_sid);
+    owned_resource_names_ = std::move(saved_owned_resources);
+    owned_resource_names_by_sid_ = std::move(saved_owned_resources_by_sid);
+  };
+
+  bool pushed_task_outer_resources = false;
+  auto pop_task_outer_resources = [&]()
+  {
+    if (!pushed_task_outer_resources) {
+      return;
+    }
+    task_outer_resource_names_stack_.pop_back();
+    task_outer_resource_names_by_sid_stack_.pop_back();
+    pushed_task_outer_resources = false;
+  };
 
   task_outer_resource_names_stack_.push_back(owned_resource_names_);
-  ast->getBody()->typeInfer(this);
-  StyioDataType result_type = infer_task_block_result_type(this, ast->getBody());
-  ast->setResultType(result_type);
-  task_outer_resource_names_stack_.pop_back();
+  task_outer_resource_names_by_sid_stack_.push_back(owned_resource_names_by_sid_);
+  pushed_task_outer_resources = true;
+  try {
+    ast->getBody()->typeInfer(this);
+    StyioDataType result_type = infer_task_block_result_type(this, ast->getBody());
+    ast->setResultType(result_type);
+    pop_task_outer_resources();
+  }
+  catch (...) {
+    pop_task_outer_resources();
+    restore_task_scope();
+    throw;
+  }
 
-  local_binding_types = std::move(saved_types);
-  fixed_assignment_names_ = std::move(saved_fixed);
-  binding_info_ = std::move(saved_bind);
-  consumed_task_names_ = std::move(saved_consumed);
-  consumed_resource_names_ = std::move(saved_consumed_resources);
-  owned_resource_names_ = std::move(saved_owned_resources);
+  restore_task_scope();
 }
 
 void
@@ -3859,15 +4156,20 @@ StyioSemaContext::typeInfer(FlowBindAST* ast) {
     ast->getFallback()->typeInfer(this);
   }
   const std::string target = ast->getTargetNameAsStr();
+  const auto target_sid = ast->getTarget() != nullptr && ast->getTarget()->getName() != nullptr
+                            ? ast->getTarget()->getName()->getSymbolId()
+                            : styio::session::kInvalidSymbolId;
+  const StyioDataType* existing_target_type = find_local_binding_type(target_sid, target);
+  const BindingInfo* existing_target_info = find_binding_info(target_sid, target);
   const bool target_exists =
-    local_binding_types.count(target) != 0 || binding_info_.count(target) != 0;
+    existing_target_type != nullptr || existing_target_info != nullptr;
   if (ast->declaresTarget() && target_exists) {
     throw StyioTypeError("await target `" + target + "` is already declared");
   }
   if (!ast->declaresTarget() && !target_exists) {
     throw StyioTypeError("flow bind target `" + target + "` must be declared before use");
   }
-  if (!ast->declaresTarget() && fixed_assignment_names_.count(target) != 0) {
+  if (!ast->declaresTarget() && is_fixed_assignment_name(target_sid, target)) {
     throw StyioTypeError("flow bind target `" + target + "` is final and cannot be reassigned");
   }
 
@@ -3878,24 +4180,24 @@ StyioSemaContext::typeInfer(FlowBindAST* ast) {
   }
   if (source_type.handle_family == StyioHandleFamily::Task) {
     if (auto* task_name = dynamic_cast<NameAST*>(ast->getSource())) {
-      if (consumed_task_names_.count(task_name->getAsStr()) != 0) {
+      if (is_consumed_task_name(task_name->getSymbolId(), task_name->getAsStr())) {
         throw StyioTypeError("task `" + task_name->getAsStr() + "` was already pulled");
       }
-      consumed_task_names_.insert(task_name->getAsStr());
+      record_consumed_task_name(task_name->getAsStr(), task_name->getSymbolId());
     }
     result_type = task_result_type_from_task_type(source_type);
   }
 
   StyioDataType target_type = ast->declaresTarget()
                                 ? ast->getTarget()->getDType()->type
-                                : (local_binding_types.count(target) != 0
-                                     ? local_binding_types[target]
-                                     : binding_info_[target].declared_type);
+                                : (existing_target_type != nullptr
+                                     ? *existing_target_type
+                                     : existing_target_info->declared_type);
   if (target_type.isUndefined()) {
     target_type = result_type;
     ast->getTarget()->setDataType(target_type);
   }
-  if (!target_type.isUndefined() && !container_value_assignable(target_type, result_type)) {
+  if (!target_type.isUndefined() && !container_value_assignable(target_type, result_type, this)) {
     throw StyioTypeError(
       "flow bind target `" + target + "` expects " + target_type.name
       + ", got " + result_type.name
@@ -3903,7 +4205,7 @@ StyioSemaContext::typeInfer(FlowBindAST* ast) {
   }
   if (ast->hasFallback()) {
     StyioDataType fallback_type = infer_expr_type(this, ast->getFallback());
-    if (!target_type.isUndefined() && !container_value_assignable(target_type, fallback_type)) {
+    if (!target_type.isUndefined() && !container_value_assignable(target_type, fallback_type, this)) {
       throw StyioTypeError(
         "await fallback for `" + target + "` expects " + target_type.name
         + ", got " + fallback_type.name
@@ -3913,7 +4215,8 @@ StyioSemaContext::typeInfer(FlowBindAST* ast) {
   ast->setResultType(target_type.isUndefined() ? result_type : target_type);
 
   if (ast->declaresTarget()) {
-    local_binding_types[target] = ast->getResultType();
+    record_local_binding_type(target, target_sid, ast->getResultType());
+    maybe_intern_type(ast->getResultType());
 
     BindingInfo info;
     info.final_slot = false;
@@ -3921,7 +4224,7 @@ StyioSemaContext::typeInfer(FlowBindAST* ast) {
     info.resource_value = false;
     info.value_kind = binding_value_kind_for_type(ast->getResultType());
     info.declared_type = ast->getResultType();
-    binding_info_[target] = info;
+    record_binding_info(target, target_sid, info);
   }
 }
 
@@ -3979,24 +4282,38 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
     scrutinee_name_ast != nullptr ? &scrutinee_name_ast->getAsStr() : nullptr;
 
   const auto saved_types = local_binding_types;
+  const auto saved_types_by_sid = local_binding_types_by_sid;
   const auto saved_funcs = func_defs;
   const auto saved_fixed = fixed_assignment_names_;
+  const auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
   const auto saved_bind = binding_info_;
+  const auto saved_bind_by_sid = binding_info_by_sid_;
   const auto saved_consumed_tasks = consumed_task_names_;
+  const auto saved_consumed_tasks_by_sid = consumed_task_names_by_sid_;
   const auto saved_consumed_resources = consumed_resource_names_;
+  const auto saved_consumed_resources_by_sid = consumed_resource_names_by_sid_;
   const auto saved_owned_resources = owned_resource_names_;
+  const auto saved_owned_resources_by_sid = owned_resource_names_by_sid_;
   const auto saved_snapshot_names = snapshot_var_names_;
+  const auto saved_snapshot_names_by_sid = snapshot_var_names_by_sid_;
 
   auto restore_branch_scope = [&]()
   {
     local_binding_types = saved_types;
+    local_binding_types_by_sid = saved_types_by_sid;
     func_defs = saved_funcs;
     fixed_assignment_names_ = saved_fixed;
+    fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
     binding_info_ = saved_bind;
+    binding_info_by_sid_ = saved_bind_by_sid;
     consumed_task_names_ = saved_consumed_tasks;
+    consumed_task_names_by_sid_ = saved_consumed_tasks_by_sid;
     consumed_resource_names_ = saved_consumed_resources;
+    consumed_resource_names_by_sid_ = saved_consumed_resources_by_sid;
     owned_resource_names_ = saved_owned_resources;
+    owned_resource_names_by_sid_ = saved_owned_resources_by_sid;
     snapshot_var_names_ = saved_snapshot_names;
+    snapshot_var_names_by_sid_ = saved_snapshot_names_by_sid;
   };
 
   auto infer_branch = [&](StyioAST* branch) -> StyioDataType
@@ -4031,7 +4348,7 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
     if (!match_result_type_supported(branch_type)) {
       throw StyioTypeError("match branch values support scalar and string results in this slice");
     }
-    result_type = merge_match_value_type(result_type, branch_type);
+    result_type = merge_match_value_type(result_type, branch_type, this);
     ast->setDataType(result_type);
     record_inferred_function_return_type(result_type);
   }
@@ -4041,7 +4358,7 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
     if (!match_result_type_supported(branch_type)) {
       throw StyioTypeError("match branch values support scalar and string results in this slice");
     }
-    result_type = merge_match_value_type(result_type, branch_type);
+    result_type = merge_match_value_type(result_type, branch_type, this);
     ast->setDataType(result_type);
     record_inferred_function_return_type(result_type);
   }
@@ -4091,11 +4408,17 @@ StyioSemaContext::typeInfer(SeriesIntrinsicAST* ast) {
 void
 StyioSemaContext::typeInfer(MainBlockAST* ast) {
   snapshot_var_names_.clear();
+  snapshot_var_names_by_sid_.clear();
   func_defs.clear();
+  func_defs_by_sid.clear();
   native_func_defs.clear();
+  native_func_defs_by_sid.clear();
   local_binding_types.clear();
+  local_binding_types_by_sid.clear();
   fixed_assignment_names_.clear();
+  fixed_assignment_names_by_sid_.clear();
   binding_info_.clear();
+  binding_info_by_sid_.clear();
   resource_method_defs_.clear();
   for (const auto& method : styio_builtin_resource_methods_latest()) {
     ResourceMethodInfo info;
@@ -4109,15 +4432,20 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
     resource_method_defs_[method.family][method.method] = info;
   }
   resource_binding_types_.clear();
+  resource_binding_types_by_sid_.clear();
   collect_bind_resource_writes_.clear();
   collect_bind_handle_acquires_.clear();
   collect_bind_resource_write_types_.clear();
   collect_bind_handle_acquire_types_.clear();
-  consumed_task_names_.clear();
-  consumed_resource_names_.clear();
-  owned_resource_names_.clear();
+  clear_consumed_task_names();
+  clear_consumed_resource_names();
+  clear_owned_resource_names();
   task_outer_resource_names_stack_.clear();
+  task_outer_resource_names_by_sid_stack_.clear();
   active_function_body_inference_.clear();
+  active_function_body_inference_by_sid_.clear();
+  active_function_body_stack_.clear();
+  active_function_body_sid_stack_.clear();
   active_resource_receiver_family_.clear();
   auto stmts = ast->getStmts();
   std::vector<std::string> exported_symbols;
@@ -4129,11 +4457,11 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   }
   for (auto const& s : stmts) {
     if (auto* f = dynamic_cast<FunctionAST*>(s)) {
-      func_defs[f->getNameAsStr()] = f;
+      record_function_def(f->getNameAsStr(), f->func_name->getSymbolId(), f);
       continue;
     }
     if (auto* sf = dynamic_cast<SimpleFuncAST*>(s)) {
-      func_defs[sf->func_name->getAsStr()] = sf;
+      record_function_def(sf->func_name->getAsStr(), sf->func_name->getSymbolId(), sf);
       continue;
     }
     if (auto* ex = dynamic_cast<ExternBlockAST*>(s)) {
@@ -4156,7 +4484,7 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
         for (const auto& param : sig.params) {
           native_type.arg_types.push_back(styio::native::styio_data_type_for_c_type(param.type));
         }
-        native_func_defs[sig.name] = std::move(native_type);
+        record_native_function_def(sig.name, styio::session::kInvalidSymbolId, native_type);
         registered_block_symbols.insert(sig.name);
       }
       for (const auto& symbol : block_symbols) {

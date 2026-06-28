@@ -1,0 +1,60 @@
+[
+  {
+    "id": "d12cb58a-8a38-405c-8190-2c26172982d6",
+    "status": "completed",
+    "prerequisites": [],
+    "platform": "windows",
+    "difficulty": "medium",
+    "goal": "Establish the repository Better Plan workspace and current plan inventory.",
+    "description": "Create docs/plan/README.md, docs/plan/Manifest.json, and per-plan Checkpoints.json files so active plans, migration plans, rollups, and report evidence have one validated index.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "docs/plan/README.md defines the boundary between active plans, rollups, report evidence, and Better Plan state."
+      },
+      {
+        "checked": true,
+        "text": "docs/plan/Manifest.json lists every current plan group identified from docs/plan, docs/plan/reports, and docs/rollups."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): establish unified plan workspace",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "d0287f2c-e3a2-41a4-b0c8-71bf369fb46b"
+    ]
+  },
+  {
+    "id": "d0287f2c-e3a2-41a4-b0c8-71bf369fb46b",
+    "status": "completed",
+    "prerequisites": [
+      "d12cb58a-8a38-405c-8190-2c26172982d6"
+    ],
+    "platform": "windows",
+    "difficulty": "medium",
+    "goal": "Keep plan documents and generated indexes consistent after planning changes.",
+    "description": "Run manifest validation, docs index generation, docs audit, and lifecycle checks after plan-document changes; update the owning rollup or runbook when a plan status changes.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "python scripts/manifest_tool.py validate docs/plan passes after every Better Plan edit."
+      },
+      {
+        "checked": true,
+        "text": "python scripts/docs-index.py --write is run when docs/plan or generated documentation inventories change."
+      },
+      {
+        "checked": true,
+        "text": "python scripts/docs-audit.py and python scripts/docs-lifecycle.py validate pass before plan governance changes are accepted."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): validate plan governance state",
+      "target": "styio-nightly"
+    },
+    "next": []
+  }
+]

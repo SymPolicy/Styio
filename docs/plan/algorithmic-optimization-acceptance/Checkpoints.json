@@ -1,0 +1,148 @@
+[
+  {
+    "id": "8f0f1694-96be-46f7-8e0d-9cd2fd50a189",
+    "status": "completed",
+    "prerequisites": [],
+    "platform": "windows",
+    "difficulty": "high",
+    "goal": "Record local algorithm closeout evidence that is already implemented.",
+    "description": "Local evidence covers SourceMap UB repair, ConstantFoldPass activation, route-cache counters, IR allocation stats, benchmark JSON fields, ResourceTopology cycle-path diagnostics, partial SymbolInterner/TypeTable semantic routes, and ReadyQueue routing through the production scheduler.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "docs/plan/reports/ALGORITHM_CLOSEOUT_FINAL_REPORT.md lists local focused test evidence for SourceMap, TypeTable/Sema hooks, IR allocation ownership guard, ResourceTopology cycle path, and benchmark evidence."
+      },
+      {
+        "checked": true,
+        "text": "Current code contains route-cache counters, benchmark evidence fields, ReadyQueue integration, and ResourceTopology cycle detection paths referenced by the reports."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): record local algorithm closeout evidence",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "fc702b34-91ac-4e3c-a0e3-94b80100506f",
+      "b852eae3-aaf9-49b4-9b59-f2a7ea02ba9d",
+      "d60dc6c6-59bb-45fb-90de-2f6a6dd704ce",
+      "6ec6c285-da4a-427f-9736-79b9daa73abc"
+    ]
+  },
+  {
+    "id": "fc702b34-91ac-4e3c-a0e3-94b80100506f",
+    "status": "in_progress",
+    "prerequisites": [
+      "8f0f1694-96be-46f7-8e0d-9cd2fd50a189"
+    ],
+    "platform": "windows",
+    "difficulty": "medium",
+    "goal": "Capture compatible benchmark baseline and prove or reject algorithmic speedup claims.",
+    "description": "Produce a compatible baseline.json from styio-benchmark or another accepted archive, compare it with benchmark/results/current.json, and keep route-cache, IR-allocation, and scheduler metrics as evidence fields rather than speedup proof by themselves.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "benchmark/results/baseline.json exists or an accepted external baseline artifact is linked."
+      },
+      {
+        "checked": false,
+        "text": "python scripts/benchmark-compare.py auto benchmark/results/current.json --baseline-dir benchmark/results --route-cache --ir-alloc --scheduler reports a real baseline/current comparison."
+      },
+      {
+        "checked": false,
+        "text": "The plan records which original speedup claims are proven, unproven, or rejected by the comparison."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "perf(plan): capture algorithm benchmark baseline",
+      "target": "styio-nightly"
+    },
+    "next": []
+  },
+  {
+    "id": "b852eae3-aaf9-49b4-9b59-f2a7ea02ba9d",
+    "status": "pending",
+    "prerequisites": [
+      "8f0f1694-96be-46f7-8e0d-9cd2fd50a189"
+    ],
+    "platform": "windows",
+    "difficulty": "high",
+    "goal": "Decide and implement the global SymbolInterner and TypeTable contract if that remains the target.",
+    "description": "Current evidence is partial: selected function, local binding, native, resource, ownership, and TypeInfer comparison paths use SymbolId/TypeTable support, but import, diagnostic, global-name, and full TypeId equality paths remain open.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "Maintainers decide whether full TypeId equality and global SymbolId lookup are required for the current optimization target."
+      },
+      {
+        "checked": false,
+        "text": "If accepted, implementation replaces remaining string/global-name paths with one current semantic route and focused tests."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "sema(plan): decide symbol and type table closure",
+      "target": "styio-nightly"
+    },
+    "next": []
+  },
+  {
+    "id": "d60dc6c6-59bb-45fb-90de-2f6a6dd704ce",
+    "status": "pending",
+    "prerequisites": [
+      "8f0f1694-96be-46f7-8e0d-9cd2fd50a189"
+    ],
+    "platform": "windows",
+    "difficulty": "medium",
+    "goal": "Prove ReadyQueue contention behavior and sanitizer cleanliness before performance claims.",
+    "description": "The scheduler routes through IReadyQueue and exposes queue kind, but contention reduction and thread-safety claims still need benchmark/profiler and TSan evidence.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "A contention benchmark or profiler report compares MutexDequeReadyQueue and BoundedMPMCReadyQueue on accepted workloads."
+      },
+      {
+        "checked": false,
+        "text": "TSan or an accepted concurrency-safety gate passes for the ReadyQueue scheduler path."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "runtime(plan): prove ready queue contention behavior",
+      "target": "styio-nightly"
+    },
+    "next": []
+  },
+  {
+    "id": "6ec6c285-da4a-427f-9736-79b9daa73abc",
+    "status": "blocked",
+    "prerequisites": [
+      "8f0f1694-96be-46f7-8e0d-9cd2fd50a189"
+    ],
+    "platform": "windows",
+    "difficulty": "medium",
+    "goal": "Run remote CI and audit validation before declaring algorithm acceptance nightly-ready.",
+    "description": "The local reports state the fix branch can be pushed for remote validation, but nightly readiness remains blocked until PR or merge-path CI/audit, compatible benchmark evidence, and sanitizer evidence are available.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "A PR or merge path triggers remote CI and styio-audit for the algorithm acceptance branch."
+      },
+      {
+        "checked": false,
+        "text": "Remote CI/audit results are linked, passed, or have new failures routed to explicit follow-up checkpoints."
+      },
+      {
+        "checked": false,
+        "text": "ASan/UBSan and TSan evidence is recorded or explicitly scoped as pending release-lane work."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "ci(plan): validate algorithm acceptance remotely",
+      "target": "remote CI and audit"
+    },
+    "next": []
+  }
+]

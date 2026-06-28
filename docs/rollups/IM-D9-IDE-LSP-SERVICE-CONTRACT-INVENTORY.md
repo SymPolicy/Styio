@@ -2,7 +2,7 @@
 
 **Purpose:** Record the IDE, LSP, first-party adapter, and service-fact boundary decisions for IM-D9 after reviewing the current Vityo architecture and implementation shape.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-28
 
 ## Scope
 
@@ -78,6 +78,13 @@ Capability state is part of the contract. A host must be able to distinguish a f
 | refactor | rename plan | safe delete, inline variable, introduce variable, extract function, change signature, surround | Refactors must return previewable edit plans, conflict data, and capability state. Public LSP exposes them only after service tests exist. |
 | workspace | workspace root, config path, open-file state, background index state | persistent cache state | Multi-workspace behavior must be explicit; tools must not infer cross-workspace truth from process-global state. |
 
+## Implemented Workspace Cache Edges
+
+| Edge | Contract | Evidence |
+|------|----------|----------|
+| Stable project cache roots | `Project::set_root(...)` derives cache directories from the normalized root path as `root-<hex-path>`, so persistent IDE state no longer depends on process-local `std::hash<std::string>` values. | `StyioIdeProject.EnvironmentFallbacksAndWorkspaceSkipsStayExplicit`; `StyioLspServer.WorkspaceSymbolMapsPersistentParameterAndBuiltinKinds` now seeds persistent indexes through `Project::cache_root()`. |
+| Workspace scan failure handling | `Project::scan_workspace()` uses `std::filesystem` error-code traversal with `skip_permission_denied`, records `workspace_scan_error_count()`, and keeps missing or unreadable roots fail-closed with an empty file set instead of throwing. | `StyioIdeProject.EnvironmentFallbacksAndWorkspaceSkipsStayExplicit` covers missing-root fail-closed behavior, stable cache-root shape, generated-directory skips, and zero-error happy-path scanning. |
+
 ## First-Party Adapter Rule
 
 Vityo and Spio are first-party projects, so they may have convenience adapters that are more direct than the generic external surface.
@@ -114,12 +121,12 @@ Public LSP may advertise a capability only when:
 
 IM-D9 design decisions are fixed by this inventory. Remaining work is implementation and contract hardening:
 
-1. Extend StyioServices host-facing envelopes so first-party adapters can consume the same service facts Vityo already models.
+1. Extend StyioServices host-facing envelopes so first-party adapters can consume the same service facts Vityo already models. Current LSP envelope hardening records initialize-time workspace selection, avoids responding to notification-style initialize messages without an id, and accepts ASCII case variants of inbound `Content-Length` while keeping canonical outbound frames.
 2. Document capability states and payload shapes in `src/StyioServices/MANIFEST.md` and module READMEs when each service becomes available.
-3. Add tests before expanding public `styio_lspd` capability advertisements for `rename`, `codeAction`, `inlayHint`, or broader refactor methods.
+3. Keep conservative `textDocument/rename`, call-argument `textDocument/inlayHint`, and narrowly edit-producing `textDocument/codeAction` behavior covered by LSP tests before broadening their edit/action surface, and add tests before expanding public `styio_lspd` capability advertisements for broader refactor methods.
 4. Keep `styio check --syntax --json --file` as the syntax-validity path for IDEs and validation pipelines.
 5. Preserve strict fallback-disable behavior for hosts that want compiler/service facts only.
-6. Make multi-workspace state explicit through document id, revision, root/config identity, toolchain identity, cache freshness, and capability state.
+6. Make multi-workspace state explicit through document id, revision, root/config identity, toolchain identity, stable cache-root identity, cache freshness, capability state, and initialize-time workspace selection.
 
 ## Stop Condition
 
@@ -136,7 +143,7 @@ IM-D9 can close only when:
 
 ## Decision Closure
 
-No IM-D9 design decision remains open in this inventory. The remaining work is implementation: fill the service envelopes, capability tests, public LSP method coverage, first-party adapter payload docs, and multi-workspace service-state behavior without moving authority out of the compiler-owned StyioServices fact layer.
+No IM-D9 design decision remains open in this inventory. The remaining work is implementation: fill the service envelopes, capability tests, public LSP method coverage, first-party adapter payload docs, and any true multi-workspace service-state behavior beyond the explicit single-root initialization path without moving authority out of the compiler-owned StyioServices fact layer.
 
 ## Source Documents
 

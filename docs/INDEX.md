@@ -10,14 +10,14 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `adr/` | [ADR Index](./adr/INDEX.md) | Define the minimal current-tree ADR policy: implemented decisions are compressed, active rules live in owning SSOTs, and exact old decision text is recovered from Git history. |
+| `adr/` | [ADR Index](./adr/INDEX.md) | Define the minimal current-tree ADR policy: implemented decisions are compressed as current implementation snapshots, active rules live in owning SSOTs, and exact old decision text is recovered from Git history. |
 | `archive/` | [Archive Index](./archive/INDEX.md) | Define the remaining archive lifecycle shell under docs/archive/; historical prose and retired syntax snapshots live in Git history, while the current tree keeps active docs and minimal provenance metadata. |
 | `assets/` | [Assets Index](./assets/INDEX.md) | Define the scope of reusable documentation assets under docs/assets/; the generated inventory lives in INDEX.md. |
 | `audit/` | [Audit Index](./audit/INDEX.md) | Define the repository-local audit queue for security, correctness, and design defects discovered before they are converted into normal tracked work; closed audit reports are not retained as long-form current-tree documents. |
 | `design/` | [Design Index](./design/INDEX.md) | Define the scope and naming rules for docs/design/; the generated file inventory lives in INDEX.md. |
 | `external/` | [External Docs Index](./external/INDEX.md) | Define the scope and naming rules for external-facing service and handoff docs consumed by tools, editors, IDEs, package managers, and sibling Styio repositories. |
 | `history/` | [History Index](./history/INDEX.md) | Define the recovery usage of docs/history/; current repository state does not retain raw dated checkpoint logs by default. |
-| `plans/` | [Plans Index](./plans/INDEX.md) | Define the scope and naming rules for the small set of active implementation plans under docs/plans/; absorbed plans are removed from the current tree after durable rules move into active docs, and the generated file inventory lives in INDEX.md. |
+| `plan/` | [Plan Index](./plan/INDEX.md) | Define the unified docs/plan/ workspace for active implementation plans, plan evidence reports, and Better Plan state; absorbed plans are removed from the current tree after durable rules move into active docs, and generated inventories live in INDEX.md. |
 | `review/` | [Review Index](./review/INDEX.md) | Define the minimal current-tree review policy: keep only still-active review findings, move durable rules into owning SSOTs, and recover old review prose from Git history. |
 | `rollups/` | [Rollups Index](./rollups/INDEX.md) | Define the scope of compressed active summaries under docs/rollups/; these files are the first stop for active repository state, while history and archive stay optional provenance only. |
 | `specs/` | [Specs Index](./specs/INDEX.md) | Define the scope and naming rules for docs/specs/; the generated file inventory lives in INDEX.md. |

@@ -18,7 +18,7 @@ For standard-library, prelude, or compiler-intrinsic issues, include the active
 surface and evidence path in the report:
 
 - `library/manifest.json` module name when a standard-library module is involved
-- `src/StyioPrelude/resources.styio` when standard resources are involved
+- `share/styio/prelude/resources.styio` when standard resources are involved
 - the intrinsic family and maintaining tests when compiler-owned helper behavior is involved
 
 Do not report planned `std.*` modules or deferred intrinsics as exploitable

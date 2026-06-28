@@ -1,6 +1,6 @@
 # Implemented Decisions Summary
 
-**Purpose:** Compress implemented architecture and workflow decisions that no longer need one file per decision in the current tree; exact previous ADR wording is available from Git history when needed.
+**Purpose:** Compress currently implemented architecture and workflow decisions that no longer need one file per decision in the current tree; this file must stay aligned with the latest code and owning docs, while exact previous ADR wording is available from Git history when needed.
 
 **Last updated:** 2026-06-28
 
@@ -8,8 +8,10 @@
 
 1. This file is provenance, not an active planning queue.
 2. Active rules live in the owning design, spec, workflow, team, test, or rollup document.
-3. Add a new ADR file only while a decision still needs direct review as a decision record; after implementation and SSOT absorption, compress it here or remove it.
-4. Update an existing ADR or owning SSOT before creating a new ADR; the current tree should not accumulate one ADR per small implementation change.
+3. Treat every row as a current implementation snapshot: if the code, tests, or owning SSOT changes, rewrite, merge, or remove the row in the same maintenance pass so it describes the latest implementation rather than old baggage.
+4. Do not keep decisions here when their implementation has been replaced, deleted, or retained only as historical compatibility context; use Git history for those older states.
+5. Add a new ADR file only while a decision still needs direct review as a decision record; after implementation and SSOT absorption, compress it here or remove it.
+6. Update an existing ADR or owning SSOT before creating a new ADR; the current tree should not accumulate one ADR per small implementation change.
 
 ## Compressed Decision Groups
 
@@ -24,4 +26,4 @@
 | Resource topology | Resource topology uses compact source syntax backed by compiler-owned resource metadata, move/consume tracking, committed snapshot reads, `@()` as the destroy sink, and resource-method rules in the active topology design. | [resource topology](../design/Styio-Resource-Topology.md), [active syntax](../design/syntax/ACTIVE-SYNTAX.md), [next-stage ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md) |
 | IDE and LSP | IDE work uses stable identity, semantic database/query caches, incremental edits, workspace index discipline, LSP capability boundaries, and explicit latency/perf gates. | [IDE external docs](../external/for-ide/INDEX.md), [IDE/LSP runbook](../teams/IDE-LSP-RUNBOOK.md), [perf runbook](../teams/PERF-STABILITY-RUNBOOK.md) |
 | Native extern and JIT | Native extern/JIT interop uses explicit compiler/runtime contracts and tests instead of undocumented host calls. | [agent spec](../specs/AGENT-SPEC.md), [codegen/runtime runbook](../teams/CODEGEN-RUNTIME-RUNBOOK.md) |
-| Package handoff | `styio` owns compiler-side nano and compile-plan producer contracts; package-manager UX and registry lifecycle stay outside this repository. | [repository map](../specs/REPOSITORY-MAP.md), [Spio handoff](../external/for-spio/Styio-Nano-Spio-Coordination.md), [CLI contract matrix](../plans/Styio-Ecosystem-CLI-Contract-Matrix.md) |
+| Package handoff | `styio` owns compiler-side nano and compile-plan producer contracts; package-manager UX and registry lifecycle stay outside this repository. | [repository map](../specs/REPOSITORY-MAP.md), [Spio handoff](../external/for-spio/Styio-Nano-Spio-Coordination.md), [CLI contract matrix](../plan/Styio-Ecosystem-CLI-Contract-Matrix.md) |

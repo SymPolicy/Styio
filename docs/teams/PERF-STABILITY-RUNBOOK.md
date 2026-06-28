@@ -33,14 +33,14 @@ High-value docs:
 ## Daily Workflow
 
 1. Decide whether the question is compile-stage, micro hotspot, full-stack wall time, error-path, or soak stability.
-2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots. Use `scripts/benchmark-compare.py` for repository-local JSON regression comparisons, and add `--route-cache` when the evidence needs parser route-cache scan/hit/miss/disabled counters.
+2. Use structured outputs under `styio-benchmark/reports/<run-id>/`; compare `results.json` or `benchmarks.csv`, not screenshots. Use `scripts/benchmark-compare.py` for repository-local JSON regression comparisons, and add `--route-cache`, `--ir-alloc`, or `--scheduler` when the evidence needs parser route-cache counters, IR allocation counters, or task scheduler queue metadata.
 3. Keep benchmark workloads representative and tied to `styio-benchmark/docs/COVERAGE-MATRIX.md`.
 4. Keep `benchmark/core/manifest.json` tiny, deterministic, and backed by existing repository behavior coverage. It is release evidence for executable workloads and timing schema, not cross-runtime comparison or historical baseline evidence.
 5. Minimize soak failures before handing them to implementation owners.
 6. Keep deep routes out of routine PR gates unless they protect an active high-risk change.
 7. When native `@extern` performance changes, measure both first-run compile cost and cached repeated-run cost. Cache results are only comparable when `STYIO_NATIVE_CACHE_DIR`, compiler command, and source hash inputs are controlled.
-8. Task scheduler changes need a wall-clock concurrency proof. Keep `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` green and record the sequential/concurrent ratio when changing `styio_task_*_spawn`, worker-count selection, blocking pull, or task handle release.
-9. For Styio-language attribution, run `styio --profile-frontend --profile-out <report.json> --file <case.styio>` first. The report is `styio-profiler` JSON scoped to source read, tokenize, parser context creation, parse, type inference, Styio IR lowering, runtime/JIT initialization, LLVM IR generation, and execution, plus token histogram, parser-route counters, and async scheduler counters.
+8. Task scheduler changes need a wall-clock concurrency proof. Keep `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` green and record the sequential/concurrent ratio when changing `styio_task_*_spawn`, worker-count selection, blocking pull, or task handle release. The repository-local `styio_runtime_scheduler_test` now also includes `BoundedMPMCReadyQueue.MultiProducerMultiConsumerNoLossNoDupes`, a conservative correctness smoke for multi producer / multi consumer no-loss and no-duplicate behavior. Repository-local `styio_core_bench` also emits `scheduler/task_queue_mode` metadata with `task_scheduler_queue_kind` (`0` mutex deque, `1` bounded MPMC) and worker count, and `scripts/benchmark-compare.py --scheduler` reports those fields; this proves selected queue-mode evidence is reportable, not that the MPMC path is faster or sanitizer-clean.
+9. For Styio-language attribution, run `styio --profile-frontend --profile-out <report.json> --file <case.styio>` first. The report is `styio-profiler` JSON scoped to source read, tokenize, parser context creation, parse, type inference, Styio IR lowering, runtime/JIT initialization, LLVM IR generation, and execution, plus token histogram, parser-route counters, and async scheduler counters/queue metadata.
 10. For native executable run-only attribution, set `STYIO_NATIVE_PROFILE_OUT=<report.json>` while running a `styio build <file> -o <artifact>` output. The generated executable writes `styio-native-profiler` JSON with `runtime_init`, `execute`, and `runtime_check` phases; collect it during validation or a separate diagnostic run, not during measured repeats.
 11. Use LLVM XRay when benchmark deltas need C++ function-level attribution and `perf` is unavailable. Build an instrumented profile with `-fxray-instrument -fxray-instruction-threshold=1`, run with `XRAY_OPTIONS='patch_premain=true xray_mode=xray-basic xray_logfile_base=/tmp/styio-xray'`, then inspect with `llvm-xray account -instr_map=<instrumented-styio> -sort=sum -sortorder=dsc -top=30`. Treat XRay output as native profiler evidence, not Styio frontend attribution or release latency, because instrumentation inflates wall time.
 12. Keep benchmark phase names aligned with the compiler middle-layer split: type inference maps to `StyioSemaContext`, and StyioIR lowering maps to `AstToStyioIRLowerer`.
@@ -50,6 +50,7 @@ High-value docs:
 16. Native C++ comparisons must run from `styio-benchmark/native-cpp/` across the three standard routes: `full-cli`, `cached-jit`, and `runtime-only`. Use one generated input per workload and report both raw throughput and normalized relative performance. The per-route normalization baseline is `1.00x`; routes without a real implementation must be marked `unsupported`, not approximated by another route.
 17. Soak workloads that exercise state-like behavior must use resource topology resource declarations, `expr -> @name` writes, and `@name[-1]` selectors. Retired state-resource spellings belong only in negative parser/security tests, not performance baselines.
 18. Benchmark and stability helpers must stay native-Windows buildable when they are part of default targets. Prefer C++ standard library, `_popen`/`_pclose` guarded probes, CMake, or Python over POSIX-only shell commands so Windows CI can build `all` before running CTest without adding MSYS/Git Bash as a dependency.
+19. Repository-local benchmark evidence tests may prove JSON serialization and compare-script handling for route-cache counters, IR-allocation counters, or scheduler queue metadata without presenting runtime improvement as established. Full speedup, allocation-reduction, or concurrency-safety statements still require stable benchmark JSON plus baseline/current comparison and the relevant sanitizer/profiler evidence.
 
 ## Change Classes
 
@@ -76,12 +77,20 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
   ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 
 python3 scripts/benchmark-compare.py \
-  --baseline benchmark/results/current.json \
-  --current benchmark/results/current.json \
+  auto benchmark/results/current.json \
+  --baseline-dir benchmark/results \
+  --route-cache \
+  --ir-alloc \
+  --scheduler \
   --threshold 5 \
-  --markdown benchmark/results/current-route-cache-report.md \
-  --route-cache
+  --markdown benchmark/results/current-route-cache-report.md
 ```
+
+For a real before/after comparison, place a compatible `baseline.json` beside
+`benchmark/results/current.json` or point `--baseline-dir` at the directory that
+contains it. The Styio repository can validate the artifact workflow and report
+counter deltas locally, but it cannot manufacture a `6e59b68` speedup proof on
+its own because that commit predates the in-repo benchmark target.
 
 Async runtime comparison:
 

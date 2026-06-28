@@ -191,11 +191,6 @@ first_text_diff(const std::string& got, const std::string& exp, const char* arti
 
 void
 normalize_llvm_module_text(std::string& s) {
-  static const std::regex printf_i64(
-    R"(^\s*(?:%\d+\s*=\s*)?call i32 \(ptr, \.\.\.\) @printf\(ptr @styio_fmt_i64, i64 (.+)\)$)");
-  static const std::regex printf_str(
-    R"(^\s*(?:%\d+\s*=\s*)?call i32 \(ptr, \.\.\.\) @printf\(ptr @styio_fmt_str, ptr (.+)\)$)");
-  static const std::regex puts_at(R"(^\s*(?:%\d+\s*=\s*)?call i32 @puts\(ptr @styio_print_at\)$)");
   static const std::regex i64_to_cstr(R"(^\s*(%\d+)\s*=\s*call ptr @styio_i64_dec_cstr\(i64 (.+)\)$)");
   static const std::regex f64_to_cstr(R"(^\s*(%\d+)\s*=\s*call ptr @styio_f64_dec_cstr\(double (.+)\)$)");
   static const std::regex stdout_write(R"(^\s*call void @styio_stdout_write_cstr\(ptr (.+)\)$)");
@@ -227,35 +222,11 @@ normalize_llvm_module_text(std::string& s) {
     if (trimmed.empty()) {
       continue;
     }
-    if (line.find("@styio_fmt_i64 =") != std::string::npos) {
-      continue;
-    }
-    if (line.find("@styio_fmt_str =") != std::string::npos) {
-      continue;
-    }
     if (trimmed.rfind("declare ", 0) == 0) {
       continue;
     }
 
     std::smatch match;
-    if (std::regex_match(line, match, printf_i64)) {
-      out += std::regex_replace(
-        "  ; STYIO_STDOUT_I64 " + trim(match[1].str()) + "\n",
-        ssa_temp,
-        "%tmp");
-      continue;
-    }
-    if (std::regex_match(line, match, printf_str)) {
-      out += std::regex_replace(
-        "  ; STYIO_STDOUT_CSTR " + trim(match[1].str()) + "\n",
-        ssa_temp,
-        "%tmp");
-      continue;
-    }
-    if (std::regex_match(line, match, puts_at)) {
-      out += "  ; STYIO_STDOUT_AT\n";
-      continue;
-    }
     if (std::regex_match(line, match, i64_to_cstr)) {
       pending_stdout_canonical[match[1].str()] = std::regex_replace(
         "  ; STYIO_STDOUT_I64 " + trim(match[2].str()) + "\n",

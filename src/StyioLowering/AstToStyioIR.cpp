@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -198,7 +199,7 @@ ast_can_be_implicit_tail_value(StyioAST* ast) {
     return false;
   }
   if (auto* blk = dynamic_cast<BlockAST*>(ast)) {
-    return !blk->stmts.empty() && ast_has_tail_value(blk->stmts.back());
+    return blk->followings.empty() && !blk->stmts.empty() && ast_has_tail_value(blk->stmts.back());
   }
   if (auto* m = dynamic_cast<MatchCasesAST*>(ast)) {
     CasesAST* c = m->getCases();
@@ -223,13 +224,19 @@ ast_has_tail_value(StyioAST* ast) {
   return ast_can_be_implicit_tail_value(ast);
 }
 
+static constexpr const char* kMissingFunctionTailMessage =
+  "function body requires a return value; add <| expr or a final value expression";
+
 SGBlock*
 lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false);
 
 StyioIR*
 lower_tail_stmt(AstToStyioIRLowerer* an, StyioAST* stmt) {
-  if (!stmt || stmt->getNodeType() == StyioNodeType::Return) {
-    return stmt ? stmt->toStyioIR(an) : SGConstInt::Create(0);
+  if (!stmt) {
+    throw StyioTypeError(kMissingFunctionTailMessage);
+  }
+  if (stmt->getNodeType() == StyioNodeType::Return) {
+    return stmt->toStyioIR(an);
   }
   if (auto* blk = dynamic_cast<BlockAST*>(stmt)) {
     return lower_func_body(an, blk, true);
@@ -243,9 +250,16 @@ lower_tail_stmt(AstToStyioIRLowerer* an, StyioAST* stmt) {
 SGBlock*
 lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value) {
   if (!body) {
+    if (implicit_tail_value) {
+      throw StyioTypeError(kMissingFunctionTailMessage);
+    }
     return SGBlock::Create({});
   }
   if (auto* blk = dynamic_cast<BlockAST*>(body)) {
+    if (implicit_tail_value
+        && (blk->stmts.empty() || !blk->followings.empty() || !ast_has_tail_value(blk->stmts.back()))) {
+      throw StyioTypeError(kMissingFunctionTailMessage);
+    }
     std::vector<StyioIR*> stmts;
     stmts.reserve(blk->stmts.size() + blk->followings.size());
     for (size_t i = 0; i < blk->stmts.size(); ++i) {
@@ -270,11 +284,11 @@ register_direct_local_function_defs(AstToStyioIRLowerer* an, StyioAST* body) {
   }
   for (auto* stmt : blk->stmts) {
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
-      an->func_defs[f->getNameAsStr()] = f;
+      an->record_function_def(f->getNameAsStr(), f->func_name->getSymbolId(), f);
       continue;
     }
     if (auto* sf = dynamic_cast<SimpleFuncAST*>(stmt)) {
-      an->func_defs[sf->func_name->getAsStr()] = sf;
+      an->record_function_def(sf->func_name->getAsStr(), sf->func_name->getSymbolId(), sf);
     }
   }
 }
@@ -282,9 +296,11 @@ register_direct_local_function_defs(AstToStyioIRLowerer* an, StyioAST* body) {
 SGBlock*
 lower_func_body_with_local_defs(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false) {
   auto saved_defs = an->func_defs;
+  auto saved_defs_by_sid = an->func_defs_by_sid;
   register_direct_local_function_defs(an, body);
   SGBlock* lowered = lower_func_body(an, body, implicit_tail_value);
   an->func_defs = std::move(saved_defs);
+  an->func_defs_by_sid = std::move(saved_defs_by_sid);
   return lowered;
 }
 
@@ -386,11 +402,12 @@ bound_type_of(AstToStyioIRLowerer* an, StyioAST* expr) {
   if (nm == nullptr) {
     return std::nullopt;
   }
-  auto it = an->local_binding_types.find(nm->getAsStr());
-  if (it == an->local_binding_types.end()) {
+  const StyioDataType* bound_type =
+    an->find_local_binding_type(nm->getSymbolId(), nm->getAsStr());
+  if (bound_type == nullptr) {
     return std::nullopt;
   }
-  return it->second;
+  return *bound_type;
 }
 
 StyioDataType
@@ -1083,17 +1100,20 @@ stmt_may_contain_pulse_state(AstToStyioIRLowerer* an, StyioAST* s) {
     return true;
   }
   if (auto* fc = dynamic_cast<FuncCallAST*>(s)) {
-    auto it = an->func_defs.find(fc->getNameAsStr());
-    if (it == an->func_defs.end()) {
+    StyioAST* def = an->find_function_def(
+      fc->func_name->getSymbolId(),
+      fc->getNameAsStr()
+    );
+    if (def == nullptr) {
       return false;
     }
-    if (auto* sf = dynamic_cast<SimpleFuncAST*>(it->second)) {
+    if (auto* sf = dynamic_cast<SimpleFuncAST*>(def)) {
       StateDeclAST* sd = nullptr;
       if (simple_func_returns_single_state_decl(sf, sd)) {
         return true;
       }
     }
-    if (auto* fn = dynamic_cast<FunctionAST*>(it->second)) {
+    if (auto* fn = dynamic_cast<FunctionAST*>(def)) {
       StateDeclAST* sd = nullptr;
       if (function_ast_returns_single_state_decl(fn, sd)) {
         return true;
@@ -1121,11 +1141,14 @@ series_intrinsic_helper_body(AstToStyioIRLowerer* an, FuncCallAST* fc) {
   if (!an || !fc || fc->getArgList().empty()) {
     return nullptr;
   }
-  auto it = an->func_defs.find(fc->getNameAsStr());
-  if (it == an->func_defs.end()) {
+  StyioAST* def = an->find_function_def(
+    fc->func_name->getSymbolId(),
+    fc->getNameAsStr()
+  );
+  if (def == nullptr) {
     return nullptr;
   }
-  auto* sf = dynamic_cast<SimpleFuncAST*>(it->second);
+  auto* sf = dynamic_cast<SimpleFuncAST*>(def);
   if (!sf || sf->params.size() != fc->getArgList().size()) {
     return nullptr;
   }
@@ -1285,6 +1308,7 @@ class StateExprCloneVisitor
   std::string pname_;
   StyioAST* repl_;
   std::unordered_map<std::string, StyioAST*> named_repls_;
+  std::unordered_set<std::string> local_repl_names_;
   std::string receiver_family_;
   StyioAST* receiver_repl_ = nullptr;
   std::vector<std::unique_ptr<StyioAST>> generated_repl_owners_;
@@ -1310,6 +1334,35 @@ class StateExprCloneVisitor
       return clone_without_subst(named->second);
     }
     return NameAST::Clone(expr);
+  }
+
+  StyioAST* clone_assignment_target(StyioAST* expr) {
+    if (auto* name = dynamic_cast<NameAST*>(expr)) {
+      auto named = named_repls_.find(name->getAsStr());
+      if (local_repl_names_.count(name->getAsStr()) != 0
+          && named != named_repls_.end()
+          && named->second != nullptr) {
+        return clone_without_subst(named->second);
+      }
+      return NameAST::Clone(name);
+    }
+    if (auto* index = dynamic_cast<ListOpAST*>(expr)) {
+      if (index->getSlot1() != nullptr && index->getSlot2() != nullptr) {
+        return new ListOpAST(
+          index->getOp(),
+          clone_assignment_target(index->getList()),
+          clone(index->getSlot1()),
+          clone(index->getSlot2()));
+      }
+      if (index->getSlot1() != nullptr) {
+        return new ListOpAST(
+          index->getOp(),
+          clone_assignment_target(index->getList()),
+          clone(index->getSlot1()));
+      }
+      return new ListOpAST(index->getOp(), clone_assignment_target(index->getList()));
+    }
+    return clone(expr);
   }
 
   StyioAST* clone(CommentAST* expr) {
@@ -1380,6 +1433,22 @@ class StateExprCloneVisitor
     return CondAST::Create(expr->getSign(), clone(expr->getValue()));
   }
 
+  StyioAST* clone(CondFlowAST* expr) {
+    if (expr->getElse() != nullptr) {
+      return new CondFlowAST(
+        expr->getNodeType(),
+        static_cast<CondAST*>(clone(expr->getCond())),
+        clone(expr->getThen()),
+        clone(expr->getElse())
+      );
+    }
+    return new CondFlowAST(
+      expr->getNodeType(),
+      static_cast<CondAST*>(clone(expr->getCond())),
+      clone(expr->getThen())
+    );
+  }
+
   StyioAST* clone(WaveMergeAST* expr) {
     return WaveMergeAST::Create(
       clone(expr->getCond()),
@@ -1416,8 +1485,45 @@ class StateExprCloneVisitor
     return new RangeAST(clone(expr->getStart()), clone(expr->getEnd()), clone(expr->getStep()));
   }
 
+  StyioAST* clone(SizeOfAST* expr) {
+    auto* cloned = new SizeOfAST(clone(expr->getValue()));
+    cloned->setDataType(expr->getDataType());
+    return cloned;
+  }
+
   StyioAST* clone(TypeConvertAST* expr) {
     return TypeConvertAST::Create(clone(expr->getValue()), expr->getPromoTy());
+  }
+
+  TypeAST* clone_type_ast(TypeAST* expr) {
+    if (expr == nullptr) {
+      return TypeAST::Create();
+    }
+    return TypeAST::Create(expr->getDataType());
+  }
+
+  TypeTupleAST* clone_type_tuple_ast(TypeTupleAST* expr) {
+    if (expr == nullptr) {
+      return TypeTupleAST::Create();
+    }
+    std::vector<TypeAST*> cloned_types;
+    cloned_types.reserve(expr->type_list.size());
+    for (auto* type : expr->type_list) {
+      cloned_types.push_back(clone_type_ast(type));
+    }
+    return TypeTupleAST::Create(std::move(cloned_types));
+  }
+
+  std::variant<TypeAST*, TypeTupleAST*> clone_ret_type(
+    const std::variant<TypeAST*, TypeTupleAST*>& ret_type
+  ) {
+    if (ret_type.valueless_by_exception()) {
+      return TypeAST::Create();
+    }
+    if (std::holds_alternative<TypeAST*>(ret_type)) {
+      return clone_type_ast(std::get<TypeAST*>(ret_type));
+    }
+    return clone_type_tuple_ast(std::get<TypeTupleAST*>(ret_type));
   }
 
   StyioAST* clone(HandleAcquireAST* expr) {
@@ -1432,6 +1538,7 @@ class StateExprCloneVisitor
     auto* repl_name = NameAST::Create(local_name);
     generated_repl_owners_.emplace_back(repl_name);
     named_repls_[original_name] = repl_name;
+    local_repl_names_.insert(original_name);
     return HandleAcquireAST::Create(local_var, resource, expr->getBindMode());
   }
 
@@ -1547,6 +1654,74 @@ class StateExprCloneVisitor
     return SeriesIntrinsicAST::Create(clone(expr->getBase()), expr->getOp(), clone(expr->getWindow()));
   }
 
+  StyioAST* clone(FunctionAST* expr) {
+    std::vector<ParamAST*> params;
+    params.reserve(expr->params.size());
+    for (auto* param : expr->params) {
+      params.push_back(clone_param_ast(param));
+    }
+
+    auto saved_repls = named_repls_;
+    auto saved_local_repls = local_repl_names_;
+    if (expr->func_name != nullptr) {
+      named_repls_.erase(expr->func_name->getAsStr());
+      local_repl_names_.erase(expr->func_name->getAsStr());
+    }
+    for (auto* param : params) {
+      if (param != nullptr) {
+        named_repls_.erase(param->getNameAsStr());
+        local_repl_names_.erase(param->getNameAsStr());
+      }
+    }
+
+    StyioAST* body = clone(expr->func_body);
+    named_repls_ = std::move(saved_repls);
+    local_repl_names_ = std::move(saved_local_repls);
+
+    auto* cloned = FunctionAST::Create(
+      NameAST::Clone(expr->func_name),
+      expr->is_unique,
+      std::move(params),
+      clone_ret_type(expr->ret_type),
+      body
+    );
+    cloned->is_self_completed = expr->is_self_completed;
+    return cloned;
+  }
+
+  StyioAST* clone(SimpleFuncAST* expr) {
+    std::vector<ParamAST*> params;
+    params.reserve(expr->params.size());
+    for (auto* param : expr->params) {
+      params.push_back(clone_param_ast(param));
+    }
+
+    auto saved_repls = named_repls_;
+    auto saved_local_repls = local_repl_names_;
+    if (expr->func_name != nullptr) {
+      named_repls_.erase(expr->func_name->getAsStr());
+      local_repl_names_.erase(expr->func_name->getAsStr());
+    }
+    for (auto* param : params) {
+      if (param != nullptr) {
+        named_repls_.erase(param->getNameAsStr());
+        local_repl_names_.erase(param->getNameAsStr());
+      }
+    }
+
+    StyioAST* ret_expr = clone(expr->ret_expr);
+    named_repls_ = std::move(saved_repls);
+    local_repl_names_ = std::move(saved_local_repls);
+
+    return SimpleFuncAST::Create(
+      NameAST::Clone(expr->func_name),
+      expr->is_unique,
+      std::move(params),
+      clone_ret_type(expr->ret_type),
+      ret_expr
+    );
+  }
+
   StyioAST* clone(ReturnAST* expr) {
     return ReturnAST::Create(clone(expr->getExpr()));
   }
@@ -1563,6 +1738,7 @@ class StateExprCloneVisitor
     auto* repl_name = NameAST::Create(local_name);
     generated_repl_owners_.emplace_back(repl_name);
     named_repls_[original_name] = repl_name;
+    local_repl_names_.insert(original_name);
     return FlexBindAST::Create(local_var, value);
   }
 
@@ -1578,7 +1754,19 @@ class StateExprCloneVisitor
     auto* repl_name = NameAST::Create(local_name);
     generated_repl_owners_.emplace_back(repl_name);
     named_repls_[original_name] = repl_name;
+    local_repl_names_.insert(original_name);
     return FinalBindAST::Create(local_var, value);
+  }
+
+  StyioAST* clone(ParallelAssignAST* expr) {
+    std::vector<StyioAST*> rhs = clone_child_list(expr->getRHS());
+
+    std::vector<StyioAST*> lhs;
+    lhs.reserve(expr->getLHS().size());
+    for (auto* target : expr->getLHS()) {
+      lhs.push_back(clone_assignment_target(target));
+    }
+    return ParallelAssignAST::Create(std::move(lhs), std::move(rhs));
   }
 
   StyioAST* clone(PrintAST* expr) {
@@ -1594,14 +1782,63 @@ class StateExprCloneVisitor
     }
 
     auto saved_repls = named_repls_;
+    auto saved_local_repls = local_repl_names_;
     for (auto* param : params) {
       if (param != nullptr) {
         named_repls_.erase(param->getNameAsStr());
+        local_repl_names_.erase(param->getNameAsStr());
       }
     }
     std::vector<StyioAST*> following = clone_child_list(expr->following);
     named_repls_ = std::move(saved_repls);
+    local_repl_names_ = std::move(saved_local_repls);
     return IteratorAST::Create(collection, std::move(params), std::move(following));
+  }
+
+  StyioAST* clone(StreamZipAST* expr) {
+    StyioAST* collection_a = clone(expr->getCollectionA());
+    StyioAST* collection_b = clone(expr->getCollectionB());
+    std::vector<ParamAST*> params_a;
+    std::vector<ParamAST*> params_b;
+    params_a.reserve(expr->getParamsA().size());
+    params_b.reserve(expr->getParamsB().size());
+    for (auto* param : expr->getParamsA()) {
+      params_a.push_back(clone_param_ast(param));
+    }
+    for (auto* param : expr->getParamsB()) {
+      params_b.push_back(clone_param_ast(param));
+    }
+
+    auto saved_repls = named_repls_;
+    auto saved_local_repls = local_repl_names_;
+    for (auto* param : params_a) {
+      if (param != nullptr) {
+        named_repls_.erase(param->getNameAsStr());
+        local_repl_names_.erase(param->getNameAsStr());
+      }
+    }
+    for (auto* param : params_b) {
+      if (param != nullptr) {
+        named_repls_.erase(param->getNameAsStr());
+        local_repl_names_.erase(param->getNameAsStr());
+      }
+    }
+
+    StyioAST* body = PassAST::Create();
+    if (expr->getFollowing().size() == 1) {
+      body = clone(expr->getFollowing()[0]);
+    }
+    else if (expr->getFollowing().size() > 1) {
+      body = BlockAST::Create(clone_child_list(expr->getFollowing()));
+    }
+    named_repls_ = std::move(saved_repls);
+    local_repl_names_ = std::move(saved_local_repls);
+    return StreamZipAST::Create(
+      collection_a,
+      std::move(params_a),
+      collection_b,
+      std::move(params_b),
+      body);
   }
 
   StyioAST* clone(CasesAST* expr) {
@@ -1645,6 +1882,7 @@ class StateExprCloneVisitor
 
   StyioAST* clone(BlockAST* expr) {
     auto saved_repls = named_repls_;
+    auto saved_local_repls = local_repl_names_;
     std::vector<StyioAST*> stmts;
     stmts.reserve(expr->stmts.size());
     for (auto* stmt : expr->stmts) {
@@ -1652,6 +1890,7 @@ class StateExprCloneVisitor
     }
     std::vector<StyioAST*> followings = clone_child_list(expr->followings);
     named_repls_ = std::move(saved_repls);
+    local_repl_names_ = std::move(saved_local_repls);
     auto* cloned_blk = BlockAST::Create(std::move(stmts));
     cloned_blk->set_followings(std::move(followings));
     return cloned_blk;
@@ -1722,6 +1961,10 @@ public:
         return clone(static_cast<WaveMergeAST*>(expr));
       case StyioNodeType::WaveDispatch:
         return clone(static_cast<WaveDispatchAST*>(expr));
+      case StyioNodeType::CondFlow_True:
+      case StyioNodeType::CondFlow_False:
+      case StyioNodeType::CondFlow_Both:
+        return clone(static_cast<CondFlowAST*>(expr));
       case StyioNodeType::Fallback:
         return clone(static_cast<FallbackAST*>(expr));
       case StyioNodeType::FmtStr:
@@ -1732,6 +1975,8 @@ public:
         return clone(static_cast<EqProbeAST*>(expr));
       case StyioNodeType::Range:
         return clone(static_cast<RangeAST*>(expr));
+      case StyioNodeType::SizeOf:
+        return clone(static_cast<SizeOfAST*>(expr));
       case StyioNodeType::NumConvert:
         return clone(static_cast<TypeConvertAST*>(expr));
       case StyioNodeType::HandleAcquire:
@@ -1784,16 +2029,24 @@ public:
         return clone(static_cast<StateRefAST*>(expr));
       case StyioNodeType::SeriesIntrinsic:
         return clone(static_cast<SeriesIntrinsicAST*>(expr));
+      case StyioNodeType::Func:
+        return clone(static_cast<FunctionAST*>(expr));
+      case StyioNodeType::SimpleFunc:
+        return clone(static_cast<SimpleFuncAST*>(expr));
       case StyioNodeType::Return:
         return clone(static_cast<ReturnAST*>(expr));
       case StyioNodeType::MutBind:
         return clone(static_cast<FlexBindAST*>(expr));
       case StyioNodeType::FinalBind:
         return clone(static_cast<FinalBindAST*>(expr));
+      case StyioNodeType::ParallelAssign:
+        return clone(static_cast<ParallelAssignAST*>(expr));
       case StyioNodeType::Print:
         return clone(static_cast<PrintAST*>(expr));
       case StyioNodeType::Iterator:
         return clone(static_cast<IteratorAST*>(expr));
+      case StyioNodeType::StreamZip:
+        return clone(static_cast<StreamZipAST*>(expr));
       case StyioNodeType::Cases:
         return clone(static_cast<CasesAST*>(expr));
       case StyioNodeType::MatchCases:
@@ -1912,10 +2165,13 @@ resource_method_preface_bind_type_latest(AstToStyioIRLowerer* an, StyioAST* stmt
 
 StyioDataType
 bind_slot_type_latest(AstToStyioIRLowerer* an, const std::string& name, VarAST* var) {
-  (void)var;
-  auto local_it = an->resource_method_dynamic_local_binding_types.find(name);
-  if (local_it != an->resource_method_dynamic_local_binding_types.end()) {
-    return local_it->second;
+  const auto sid = var != nullptr && var->getName() != nullptr
+                     ? var->getName()->getSymbolId()
+                     : styio::session::kInvalidSymbolId;
+  const StyioDataType* local_type =
+    an->find_resource_method_dynamic_local_binding_type(sid, name);
+  if (local_type != nullptr) {
+    return *local_type;
   }
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
@@ -1963,9 +2219,13 @@ bind_resource_method_preface_local_latest(AstToStyioIRLowerer* an, StyioAST* stm
   if (type.isUndefined()) {
     return;
   }
-  an->local_binding_types[var->getNameAsStr()] = type;
+  an->record_local_binding_type(var->getNameAsStr(), var->getName()->getSymbolId(), type);
   if (resource_method_local_container_type_supported_latest(type)) {
-    an->resource_method_dynamic_local_binding_types[var->getNameAsStr()] = type;
+    an->record_resource_method_dynamic_local_binding_type(
+      var->getNameAsStr(),
+      var->getName()->getSymbolId(),
+      type
+    );
   }
 }
 
@@ -1987,11 +2247,17 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
   }
 
   auto saved_local_types = an->local_binding_types;
+  auto saved_local_types_by_sid = an->local_binding_types_by_sid;
   auto saved_dynamic_local_types = an->resource_method_dynamic_local_binding_types;
+  auto saved_dynamic_local_types_by_sid =
+    an->resource_method_dynamic_local_binding_types_by_sid;
   auto restore_local_types = [&]()
   {
     an->local_binding_types = saved_local_types;
+    an->local_binding_types_by_sid = saved_local_types_by_sid;
     an->resource_method_dynamic_local_binding_types = saved_dynamic_local_types;
+    an->resource_method_dynamic_local_binding_types_by_sid =
+      saved_dynamic_local_types_by_sid;
   };
   std::vector<StyioIR*> stmts;
   stmts.reserve(block->stmts.size());
@@ -2028,19 +2294,22 @@ resolve_state_decl_impl(AstToStyioIRLowerer* an, StyioAST* stmt, PulseScratch* s
   if (!fc) {
     return nullptr;
   }
-  auto it = an->func_defs.find(fc->getNameAsStr());
-  if (it == an->func_defs.end()) {
+  StyioAST* def = an->find_function_def(
+    fc->func_name->getSymbolId(),
+    fc->getNameAsStr()
+  );
+  if (def == nullptr) {
     throw StyioTypeError("unknown function in pulse body");
   }
 
   const std::vector<ParamAST*>* params = nullptr;
   StyioAST* body = nullptr;
 
-  if (auto* sf = dynamic_cast<SimpleFuncAST*>(it->second)) {
+  if (auto* sf = dynamic_cast<SimpleFuncAST*>(def)) {
     params = &sf->params;
     body = sf->ret_expr;
   }
-  else if (auto* fn = dynamic_cast<FunctionAST*>(it->second)) {
+  else if (auto* fn = dynamic_cast<FunctionAST*>(def)) {
     params = &fn->params;
     body = fn->func_body;
   }
@@ -2227,10 +2496,10 @@ AstToStyioIRLowerer::toStyioIR(EmptyAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
-  auto it = binding_info_.find(ast->getAsStr());
-  if (it != binding_info_.end()
-      && (it->second.dynamic_slot || it->second.value_kind == BindingValueKind::ListHandle || it->second.value_kind == BindingValueKind::DictHandle || it->second.value_kind == BindingValueKind::MatrixHandle || it->second.value_kind == BindingValueKind::TaskHandle)) {
-    switch (it->second.value_kind) {
+  const BindingInfo* binding = find_binding_info(ast->getSymbolId(), ast->getAsStr());
+  if (binding != nullptr
+      && (binding->dynamic_slot || binding->value_kind == BindingValueKind::ListHandle || binding->value_kind == BindingValueKind::DictHandle || binding->value_kind == BindingValueKind::MatrixHandle || binding->value_kind == BindingValueKind::TaskHandle)) {
+    switch (binding->value_kind) {
       case BindingValueKind::Bool:
         return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::Bool);
       case BindingValueKind::I64:
@@ -2251,15 +2520,16 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
         throw StyioTypeError("cannot lower dynamic slot `" + ast->getAsStr() + "` with unknown runtime kind");
     }
   }
-  auto local_it = resource_method_dynamic_local_binding_types.find(ast->getAsStr());
-  if (local_it != resource_method_dynamic_local_binding_types.end()) {
-    if (styio_is_list_type(local_it->second)) {
+  const StyioDataType* local_type =
+    find_resource_method_dynamic_local_binding_type(ast->getSymbolId(), ast->getAsStr());
+  if (local_type != nullptr) {
+    if (styio_is_list_type(*local_type)) {
       return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::ListHandle);
     }
-    if (styio_is_dict_type(local_it->second)) {
+    if (styio_is_dict_type(*local_type)) {
       return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::DictHandle);
     }
-    if (styio_is_matrix_type(local_it->second)) {
+    if (styio_is_matrix_type(*local_type)) {
       return SGDynLoad::Create(ast->getAsStr(), SGDynLoadKind::MatrixHandle);
     }
   }
@@ -2392,15 +2662,18 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
     return SGNoOp::Create();
   }
   auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
-  auto it = binding_info_.find(ast->getNameAsStr());
-  if (it != binding_info_.end()) {
-    var->is_dynamic_slot = it->second.dynamic_slot
-                           || it->second.value_kind == BindingValueKind::ListHandle
-                           || it->second.value_kind == BindingValueKind::DictHandle
-                           || it->second.value_kind == BindingValueKind::MatrixHandle
-                           || it->second.value_kind == BindingValueKind::TaskHandle;
-    var->is_list_slot = !it->second.dynamic_slot
-                        && it->second.value_kind == BindingValueKind::ListHandle;
+  const BindingInfo* binding = find_binding_info(
+    ast->getVar()->getName()->getSymbolId(),
+    ast->getNameAsStr()
+  );
+  if (binding != nullptr) {
+    var->is_dynamic_slot = binding->dynamic_slot
+                           || binding->value_kind == BindingValueKind::ListHandle
+                           || binding->value_kind == BindingValueKind::DictHandle
+                           || binding->value_kind == BindingValueKind::MatrixHandle
+                           || binding->value_kind == BindingValueKind::TaskHandle;
+    var->is_list_slot = !binding->dynamic_slot
+                        && binding->value_kind == BindingValueKind::ListHandle;
   }
   StyioDataType var_type = bind_slot_type_latest(this, ast->getNameAsStr(), ast->getVar());
   if (styio_is_list_type(var_type)
@@ -2425,15 +2698,18 @@ AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
     return SGNoOp::Create();
   }
   auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
-  auto it = binding_info_.find(ast->getVar()->getNameAsStr());
-  if (it != binding_info_.end()) {
-    var->is_dynamic_slot = it->second.dynamic_slot
-                           || it->second.value_kind == BindingValueKind::ListHandle
-                           || it->second.value_kind == BindingValueKind::DictHandle
-                           || it->second.value_kind == BindingValueKind::MatrixHandle
-                           || it->second.value_kind == BindingValueKind::TaskHandle;
-    var->is_list_slot = !it->second.dynamic_slot
-                        && it->second.value_kind == BindingValueKind::ListHandle;
+  const BindingInfo* binding = find_binding_info(
+    ast->getVar()->getName()->getSymbolId(),
+    ast->getVar()->getNameAsStr()
+  );
+  if (binding != nullptr) {
+    var->is_dynamic_slot = binding->dynamic_slot
+                           || binding->value_kind == BindingValueKind::ListHandle
+                           || binding->value_kind == BindingValueKind::DictHandle
+                           || binding->value_kind == BindingValueKind::MatrixHandle
+                           || binding->value_kind == BindingValueKind::TaskHandle;
+    var->is_list_slot = !binding->dynamic_slot
+                        && binding->value_kind == BindingValueKind::ListHandle;
   }
   StyioDataType var_type = bind_slot_type_latest(this, ast->getName(), ast->getVar());
   if (styio_is_list_type(var_type)
@@ -2463,15 +2739,15 @@ AstToStyioIRLowerer::toStyioIR(ParallelAssignAST* ast) {
     if (auto* nm = dynamic_cast<NameAST*>(ast->getLHS()[i])) {
       std::unique_ptr<VarAST> lhs_var(VarAST::Create(NameAST::Clone(nm)));
       auto* sg_var = static_cast<SGVar*>(lhs_var->toStyioIR(this));
-      auto it = binding_info_.find(nm->getAsStr());
-      if (it != binding_info_.end()) {
-        sg_var->is_dynamic_slot = it->second.dynamic_slot
-                                  || it->second.value_kind == BindingValueKind::ListHandle
-                                  || it->second.value_kind == BindingValueKind::DictHandle
-                                  || it->second.value_kind == BindingValueKind::MatrixHandle
-                                  || it->second.value_kind == BindingValueKind::TaskHandle;
-        sg_var->is_list_slot = !it->second.dynamic_slot
-                               && it->second.value_kind == BindingValueKind::ListHandle;
+      const BindingInfo* binding = find_binding_info(nm->getSymbolId(), nm->getAsStr());
+      if (binding != nullptr) {
+        sg_var->is_dynamic_slot = binding->dynamic_slot
+                                  || binding->value_kind == BindingValueKind::ListHandle
+                                  || binding->value_kind == BindingValueKind::DictHandle
+                                  || binding->value_kind == BindingValueKind::MatrixHandle
+                                  || binding->value_kind == BindingValueKind::TaskHandle;
+        sg_var->is_list_slot = !binding->dynamic_slot
+                               && binding->value_kind == BindingValueKind::ListHandle;
       }
       stmts.push_back(SGFlexBind::Create(sg_var, rhs_val));
       continue;
@@ -2874,16 +3150,18 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
     if (type.isUndefined()) {
       return;
     }
-    local_binding_types[name] = type;
+    const auto sid = ast->getVar()->getName()->getSymbolId();
+    record_local_binding_type(name, sid, type);
     BindingInfo info;
     info.final_slot = !ast->isFlexBind();
     info.dynamic_slot = ast->isFlexBind();
     info.resource_value = resource_value;
     info.value_kind = kind;
     info.declared_type = type;
-    binding_info_[name] = info;
+    record_binding_info(name, sid, info);
   };
   const std::string target_name = ast->getVar()->getNameAsStr();
+  const auto target_sid = ast->getVar()->getName()->getSymbolId();
   if (auto* task_name = dynamic_cast<NameAST*>(ast->getResource())) {
     auto source_type = bound_type_of(this, task_name);
     if (source_type.has_value() && source_type->handle_family == StyioHandleFamily::Task) {
@@ -2921,12 +3199,12 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
       SGResId::Create(target_name),
       SGType::Create(collected_type)
     );
-    auto bit = binding_info_.find(target_name);
-    if (bit != binding_info_.end()) {
-      var->is_dynamic_slot = bit->second.dynamic_slot
-                             || bit->second.value_kind == BindingValueKind::ListHandle;
-      var->is_list_slot = !bit->second.dynamic_slot
-                          && bit->second.value_kind == BindingValueKind::ListHandle;
+    const BindingInfo* binding = find_binding_info(target_sid, target_name);
+    if (binding != nullptr) {
+      var->is_dynamic_slot = binding->dynamic_slot
+                             || binding->value_kind == BindingValueKind::ListHandle;
+      var->is_list_slot = !binding->dynamic_slot
+                          && binding->value_kind == BindingValueKind::ListHandle;
     }
     return SGFlexBind::Create(
       var,
@@ -2935,14 +3213,14 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
   }
   if (dynamic_cast<NameAST*>(ast->getResource())) {
     auto* var = static_cast<SGVar*>(ast->getVar()->toStyioIR(this));
-    auto it = binding_info_.find(target_name);
-    if (it != binding_info_.end()) {
-      var->is_dynamic_slot = it->second.dynamic_slot
-                             || it->second.value_kind == BindingValueKind::ListHandle
-                             || it->second.value_kind == BindingValueKind::DictHandle
-                             || it->second.value_kind == BindingValueKind::MatrixHandle;
-      var->is_list_slot = !it->second.dynamic_slot
-                          && it->second.value_kind == BindingValueKind::ListHandle;
+    const BindingInfo* binding = find_binding_info(target_sid, target_name);
+    if (binding != nullptr) {
+      var->is_dynamic_slot = binding->dynamic_slot
+                             || binding->value_kind == BindingValueKind::ListHandle
+                             || binding->value_kind == BindingValueKind::DictHandle
+                             || binding->value_kind == BindingValueKind::MatrixHandle;
+      var->is_list_slot = !binding->dynamic_slot
+                          && binding->value_kind == BindingValueKind::ListHandle;
     }
 
     StyioIR* rhs = nullptr;
@@ -2979,8 +3257,8 @@ AstToStyioIRLowerer::toStyioIR(HandleAcquireAST* ast) {
       register_bound_name(
         target_name,
         *src_type,
-        it != binding_info_.end() ? it->second.resource_value : styio_type_is_resource_handle(*src_type),
-        it != binding_info_.end() ? it->second.value_kind : binding_value_kind_for_type_latest(*src_type)
+        binding != nullptr ? binding->resource_value : styio_type_is_resource_handle(*src_type),
+        binding != nullptr ? binding->value_kind : binding_value_kind_for_type_latest(*src_type)
       );
     }
 
@@ -3039,7 +3317,13 @@ AstToStyioIRLowerer::lowerResourceSinkWriteLatest(
 
   if (auto* logical = dynamic_cast<ResourceRefAST*>(resource)) {
     StyioIR* data_ir = data->toStyioIR(this);
-    StyioDataType resource_type = resource_binding_types_[logical->getNameStr()];
+    const auto* resource_type_ptr = find_resource_binding_type(
+      logical->getName()->getSymbolId(),
+      logical->getNameStr());
+    if (resource_type_ptr == nullptr) {
+      throw StyioTypeError("unknown resource `" + logical->getNameStr() + "`");
+    }
+    StyioDataType resource_type = *resource_type_ptr;
     StyioDataType storage_type = resource_storage_type_latest(resource_type);
     return SGFlexBind::Create(
       SGVar::Create(SGResId::Create(logical->getNameStr()), SGType::Create(storage_type)),
@@ -3105,12 +3389,15 @@ AstToStyioIRLowerer::toStyioIR(ResourceWriteAST* ast) {
       SGResId::Create(target_name->getAsStr()),
       SGType::Create(collected_type)
     );
-    auto bit = binding_info_.find(target_name->getAsStr());
-    if (bit != binding_info_.end()) {
-      var->is_dynamic_slot = bit->second.dynamic_slot
-                             || bit->second.value_kind == BindingValueKind::ListHandle;
-      var->is_list_slot = !bit->second.dynamic_slot
-                          && bit->second.value_kind == BindingValueKind::ListHandle;
+    const BindingInfo* binding = find_binding_info(
+      target_name->getSymbolId(),
+      target_name->getAsStr()
+    );
+    if (binding != nullptr) {
+      var->is_dynamic_slot = binding->dynamic_slot
+                             || binding->value_kind == BindingValueKind::ListHandle;
+      var->is_list_slot = !binding->dynamic_slot
+                          && binding->value_kind == BindingValueKind::ListHandle;
     }
     return SGFlexBind::Create(
       var,
@@ -3360,9 +3647,9 @@ AstToStyioIRLowerer::toStyioIR(ResourceDeclAST* ast) {
   for (const auto& slot : ast->getSlots()) {
     const std::string name = slot.name->getAsStr();
     StyioDataType resource_type = styio_normalize_resource_decl_type(slot.type->getDataType());
-    auto it = resource_binding_types_.find(name);
-    if (it != resource_binding_types_.end()) {
-      resource_type = it->second;
+    const auto* recorded_resource_type = find_resource_binding_type(slot.name->getSymbolId(), name);
+    if (recorded_resource_type != nullptr) {
+      resource_type = *recorded_resource_type;
     }
     StyioDataType storage_type = resource_storage_type_latest(resource_type);
     auto* var = SGVar::Create(SGResId::Create(name), SGType::Create(storage_type));
@@ -3381,11 +3668,13 @@ AstToStyioIRLowerer::toStyioIR(ResourceRefAST* ast) {
   }
   if (ast->getSelectorKind() == ResourceSelectorKind::SliceFrom
       || ast->getSelectorKind() == ResourceSelectorKind::SnapshotAll) {
-    auto it = resource_binding_types_.find(ast->getNameStr());
-    if (it == resource_binding_types_.end()) {
+    const auto* resource_type = find_resource_binding_type(
+      ast->getName()->getSymbolId(),
+      ast->getNameStr());
+    if (resource_type == nullptr) {
       throw StyioTypeError("unknown resource `" + ast->getNameStr() + "`");
     }
-    return lower_resource_selector_snapshot_latest(ast, it->second);
+    return lower_resource_selector_snapshot_latest(ast, *resource_type);
   }
   return SGResId::Create(ast->getNameStr());
 }
@@ -3608,9 +3897,12 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
     }
   }
 
-  auto def_it = func_defs.find(ast->getNameAsStr());
-  if (def_it == func_defs.end()) {
-    if (native_func_defs.find(ast->getNameAsStr()) != native_func_defs.end()) {
+  StyioAST* func_def = find_function_def(
+    ast->func_name->getSymbolId(),
+    ast->getNameAsStr()
+  );
+  if (func_def == nullptr) {
+    if (find_native_function_def(ast->func_name->getSymbolId(), ast->getNameAsStr()) != nullptr) {
       std::vector<StyioIR*> args;
       for (auto* a : ast->getArgList()) {
         args.push_back(a->toStyioIR(this));
@@ -3622,7 +3914,7 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
     }
     throw StyioTypeError("unknown function `" + ast->getNameAsStr() + "`");
   }
-  auto params = params_of_func_def(def_it->second);
+  auto params = params_of_func_def(func_def);
   if (params.size() != ast->getArgList().size()) {
     throw StyioTypeError(
       "function `" + ast->getNameAsStr() + "` expects "
@@ -3803,9 +4095,10 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   SGPulsePlan* saved_hist_p = post_pulse_hist_plan_;
   set_post_pulse_hist_context(-1, nullptr);
   auto saved_local_types = local_binding_types;
+  auto saved_local_types_by_sid = local_binding_types_by_sid;
   std::vector<SGFuncArg*> fargs;
   for (auto* p : ast->params) {
-    local_binding_types[p->getName()] = param_data_type(p);
+    record_local_binding_type(p->getName(), p->var_name->getSymbolId(), param_data_type(p));
     fargs.push_back(param_to_sgarg(p, this));
   }
   SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
@@ -3856,10 +4149,12 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   }
   catch (...) {
     local_binding_types = std::move(saved_local_types);
+    local_binding_types_by_sid = std::move(saved_local_types_by_sid);
     set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
     throw;
   }
   local_binding_types = std::move(saved_local_types);
+  local_binding_types_by_sid = std::move(saved_local_types_by_sid);
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(ast->getNameAsStr()),
@@ -3876,9 +4171,10 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   SGPulsePlan* saved_hist_p = post_pulse_hist_plan_;
   set_post_pulse_hist_context(-1, nullptr);
   auto saved_local_types = local_binding_types;
+  auto saved_local_types_by_sid = local_binding_types_by_sid;
   std::vector<SGFuncArg*> fargs;
   for (auto* p : ast->params) {
-    local_binding_types[p->getName()] = param_data_type(p);
+    record_local_binding_type(p->getName(), p->var_name->getSymbolId(), param_data_type(p));
     fargs.push_back(param_to_sgarg(p, this));
   }
   SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
@@ -3913,10 +4209,12 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   }
   catch (...) {
     local_binding_types = std::move(saved_local_types);
+    local_binding_types_by_sid = std::move(saved_local_types_by_sid);
     set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
     throw;
   }
   local_binding_types = std::move(saved_local_types);
+  local_binding_types_by_sid = std::move(saved_local_types_by_sid);
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(ast->func_name->getAsStr()),
@@ -3941,10 +4239,12 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
   }
   auto bind_iter_param = [&](const std::string& name, const StyioDataType& type)
   {
-    local_binding_types[name] = type;
+    record_local_binding_type(name, ast->params[0]->var_name->getSymbolId(), type);
   };
   auto saved_locals = local_binding_types;
+  auto saved_locals_by_sid = local_binding_types_by_sid;
   auto saved_bind = binding_info_;
+  auto saved_bind_by_sid = binding_info_by_sid_;
   if (!ast->params.empty()) {
     bind_iter_param(
       vname,
@@ -3968,7 +4268,9 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
     }
   }
   local_binding_types = std::move(saved_locals);
+  local_binding_types_by_sid = std::move(saved_locals_by_sid);
   binding_info_ = std::move(saved_bind);
+  binding_info_by_sid_ = std::move(saved_bind_by_sid);
   if (ast->collection->getNodeType() == StyioNodeType::Range) {
     auto* rg = static_cast<RangeAST*>(ast->collection);
     return SGRangeFor::Create(
@@ -4019,9 +4321,10 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
   }
   if (ast->collection->getNodeType() == StyioNodeType::Id) {
     auto* nm = static_cast<NameAST*>(ast->collection);
-    auto it = local_binding_types.find(nm->getAsStr());
-    if (it != local_binding_types.end()) {
-      if (auto kind = std_stream_kind_of(it->second)) {
+    const StyioDataType* collection_type =
+      find_local_binding_type(nm->getSymbolId(), nm->getAsStr());
+    if (collection_type != nullptr) {
+      if (auto kind = std_stream_kind_of(*collection_type)) {
         if (*kind == StdStreamKind::Stdout) {
           throw StyioTypeError("@stdout is a write-only stream; cannot iterate over it");
         }
@@ -4038,7 +4341,7 @@ AstToStyioIRLowerer::toStyioIR(IteratorAST* ast) {
         }
         return sl;
       }
-      if (it->second.handle_family == StyioHandleFamily::File) {
+      if (collection_type->handle_family == StyioHandleFamily::File) {
         auto* fl = SIOFileLineIter::CreateFromHandle(
           nm->getAsStr(),
           std::move(vname),
@@ -4083,9 +4386,10 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
   }
   auto bind_zip_param = [&](const std::string& name, const StyioDataType& type)
   {
-    local_binding_types[name] = type;
+    record_local_binding_type(name, styio::session::kInvalidSymbolId, type);
   };
   auto saved_locals = local_binding_types;
+  auto saved_locals_by_sid = local_binding_types_by_sid;
   auto saved_bind = binding_info_;
   if (!ast->getParamsA().empty()) {
     bind_zip_param(
@@ -4118,6 +4422,7 @@ AstToStyioIRLowerer::toStyioIR(StreamZipAST* ast) {
     }
   }
   local_binding_types = std::move(saved_locals);
+  local_binding_types_by_sid = std::move(saved_locals_by_sid);
   binding_info_ = std::move(saved_bind);
   StyioAST* ca = ast->getCollectionA();
   StyioAST* cb = ast->getCollectionB();
@@ -4390,16 +4695,17 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   SGPulsePlan* pending_plan = nullptr;
 
   func_defs.clear();
+  func_defs_by_sid.clear();
   file_resource_bindings_.clear();
   resource_method_body_defs_.clear();
   resource_receiver_expr_bindings_.clear();
   for (auto* stmt : ast->getStmts()) {
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
-      func_defs[f->getNameAsStr()] = f;
+      record_function_def(f->getNameAsStr(), f->func_name->getSymbolId(), f);
       continue;
     }
     if (auto* sf = dynamic_cast<SimpleFuncAST*>(stmt)) {
-      func_defs[sf->func_name->getAsStr()] = sf;
+      record_function_def(sf->func_name->getAsStr(), sf->func_name->getSymbolId(), sf);
       continue;
     }
     if (auto* method = dynamic_cast<ResourceMethodDefAST*>(stmt)) {

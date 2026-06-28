@@ -62,7 +62,7 @@
       "name": "std.resource",
       "status": "active",
       "directory": "library/resource",
-      "source": "src/StyioPrelude/resources.styio",
+      "source": "share/styio/prelude/resources.styio",
       "schema_marker": "STYIO_STDLIB_RESOURCE_V1",
       "contract": "Compatibility manifest entry for the current standard resource prelude declarations.",
       "version_status": "compat-prelude",

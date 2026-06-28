@@ -862,14 +862,14 @@ def section_body(text: str, heading: str) -> str:
 
 
 def check_plan_docs(errors: List[str]) -> None:
-    plans_dir = DOCS / "plans"
+    plans_dir = DOCS / "plan"
     if not plans_dir.exists():
         return
 
     readme = plans_dir / "README.md"
     readme_text = readme.read_text(encoding="utf-8") if readme.exists() else ""
     if "## 通用基座计划索引" not in readme_text:
-        errors.append("docs/plans/README.md is missing required section: ## 通用基座计划索引")
+        errors.append("docs/plan/README.md is missing required section: ## 通用基座计划索引")
 
     foundation_keys: Dict[str, Path] = {}
     for path in sorted(plans_dir.glob("*.md")):
@@ -911,7 +911,7 @@ def check_plan_docs(errors: List[str]) -> None:
     for key, path in sorted(foundation_keys.items()):
         if key not in readme_text or path.name not in readme_text:
             errors.append(
-                "docs/plans/README.md foundation index must list "
+                "docs/plan/README.md foundation index must list "
                 f"{key} -> {path.relative_to(ROOT)}"
             )
 

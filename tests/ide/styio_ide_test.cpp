@@ -2,6 +2,7 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -104,6 +105,11 @@ lsp_range(int start_line, int start_character, int end_line, int end_character) 
     {"end", lsp_position(end_line, end_character)}};
 }
 
+llvm::json::Object
+lsp_workspace_folder(const std::string& uri, const std::string& name) {
+  return llvm::json::Object{{"uri", uri}, {"name", name}};
+}
+
 std::string
 lsp_frame(const llvm::json::Object& object) {
   llvm::json::Object value = object;
@@ -173,6 +179,43 @@ has_location(
     [&](const styio::ide::Location& location)
     {
       return location.path == path && location.range.start == start;
+    });
+}
+
+struct DecodedSemanticToken
+{
+  std::size_t line = 0;
+  std::size_t character = 0;
+  std::size_t length = 0;
+};
+
+std::vector<DecodedSemanticToken>
+decode_semantic_tokens(const std::vector<std::uint32_t>& data) {
+  std::vector<DecodedSemanticToken> decoded;
+  std::size_t line = 0;
+  std::size_t character = 0;
+
+  for (std::size_t i = 0; i + 4 < data.size(); i += 5) {
+    line += data[i];
+    character = data[i] == 0 ? character + data[i + 1] : data[i + 1];
+    decoded.push_back(DecodedSemanticToken{line, character, data[i + 2]});
+  }
+  return decoded;
+}
+
+bool
+has_semantic_token_at(
+  const std::vector<DecodedSemanticToken>& tokens,
+  std::size_t line,
+  std::size_t character,
+  std::size_t length
+) {
+  return std::any_of(
+    tokens.begin(),
+    tokens.end(),
+    [&](const DecodedSemanticToken& token)
+    {
+      return token.line == line && token.character == character && token.length == length;
     });
 }
 
@@ -562,6 +605,19 @@ TEST(StyioIDECommon, TextBufferUriAndEnumHelpersCoverEdgeCases) {
   EXPECT_EQ(buffer.offset_at(styio::ide::Position{99, 99}), buffer.text().size());
   EXPECT_EQ(buffer.offset_at(styio::ide::Position{0, 99}), 6U);
 
+  const std::string emoji = "\xF0\x9F\x98\x80";
+  const std::string cjk = "\xE4\xB8\xAD";
+  styio::ide::TextBuffer unicode_buffer("a" + emoji + "b\n" + cjk + "x");
+  const std::size_t b_offset = unicode_buffer.text().find("b");
+  ASSERT_NE(b_offset, std::string::npos);
+  EXPECT_EQ(unicode_buffer.position_at(b_offset).character, 5U);
+  EXPECT_EQ(unicode_buffer.utf16_position_at(b_offset).character, 3U);
+  EXPECT_EQ(unicode_buffer.utf16_length(styio::ide::TextRange{1, b_offset}), 2U);
+  const std::size_t x_offset = unicode_buffer.text().find("x");
+  ASSERT_NE(x_offset, std::string::npos);
+  EXPECT_EQ(unicode_buffer.utf16_position_at(x_offset).line, 1U);
+  EXPECT_EQ(unicode_buffer.utf16_position_at(x_offset).character, 1U);
+
   const auto line_seps = buffer.build_line_seps();
   ASSERT_EQ(line_seps.size(), 2U);
   const auto first_line = std::make_pair<std::size_t, std::size_t>(0, 5);
@@ -788,8 +844,21 @@ TEST(StyioIdeProject, EnvironmentFallbacksAndWorkspaceSkipsStayExplicit) {
   project.set_root(root.string());
   EXPECT_EQ(project.project_id(), 1u);
   EXPECT_NE(project.cache_root().find((cache / "styio" / "ide").string()), std::string::npos);
+  const std::string cache_leaf = std::filesystem::path(project.cache_root()).filename().string();
+  EXPECT_EQ(cache_leaf.rfind("root-", 0), 0u);
+  EXPECT_EQ(cache_leaf.find_first_not_of("root-0123456789abcdef"), std::string::npos);
+  EXPECT_EQ(project.workspace_scan_error_count(), 0u);
   ASSERT_EQ(project.workspace_files().size(), 1u);
   EXPECT_EQ(std::filesystem::path(project.workspace_files()[0]).filename(), "main.styio");
+
+  styio::ide::Project same_root;
+  same_root.set_root(root.string());
+  EXPECT_EQ(same_root.cache_root(), project.cache_root());
+
+  styio::ide::Project missing_root;
+  EXPECT_NO_THROW(missing_root.set_root((root / "missing").string()));
+  EXPECT_TRUE(missing_root.workspace_files().empty());
+  EXPECT_GT(missing_root.workspace_scan_error_count(), 0u);
 
   xdg_cache_home.unset();
   home.unset();
@@ -824,6 +893,47 @@ TEST(StyioIdeService, RuntimeSchedulingEdgesStayExplicit) {
   service.did_close(lib_uri);
   EXPECT_TRUE(service.completion(ticket, styio::ide::Position{0, 0}).empty());
   EXPECT_EQ(service.runtime_counters().stale_request_drops, 1u);
+}
+
+TEST(StyioIdeService, WatchFileRefreshFiltersAndCoalescesChangedPaths) {
+  const std::filesystem::path root = make_temp_project_dir("ide-service-watch-filter");
+  const std::filesystem::path watched_path = root / "watched.styio";
+  const std::filesystem::path deleted_path = root / "deleted.styio";
+  const std::filesystem::path open_path = root / "open.styio";
+  const std::filesystem::path ignored_text_path = root / "ignored.txt";
+  const std::filesystem::path outside_path = std::filesystem::path(make_temp_dir()) / "outside_watch.styio";
+  write_text_file(watched_path.string(), "# watched := (x: i32) => x\n");
+  write_text_file(deleted_path.string(), "# stale_deleted := (x: i32) => x\n");
+  write_text_file(open_path.string(), "# open_file := (x: i32) => x\n");
+  write_text_file(ignored_text_path.string(), "ignored\n");
+  write_text_file(outside_path.string(), "# outside_watch := (x: i32) => x\n");
+
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root.string()));
+  ASSERT_TRUE(has_indexed_symbol(service.workspace_symbols("stale_deleted"), "stale_deleted", deleted_path.string()));
+
+  const std::string open_uri = styio::ide::uri_from_path(open_path.string());
+  service.did_open(open_uri, "# open_file := (x: i32) => x\nopen_result: i32 := open_file(1)\n", 1);
+  service.drain_semantic_diagnostics();
+  std::filesystem::remove(deleted_path);
+  service.reset_runtime_counters();
+
+  const std::vector<std::string> changed_paths{
+    watched_path.string(),
+    watched_path.string(),
+    deleted_path.string(),
+    ignored_text_path.string(),
+    outside_path.string(),
+    open_path.string()};
+  EXPECT_EQ(service.schedule_background_index_refresh_for_paths(changed_paths), 2u);
+  EXPECT_EQ(service.pending_background_task_count(), 2u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 2u);
+  EXPECT_EQ(service.schedule_background_index_refresh_for_paths(changed_paths), 0u);
+  EXPECT_EQ(service.pending_background_task_count(), 2u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 2u);
+
+  EXPECT_EQ(service.run_background_tasks(10), 2u);
+  EXPECT_FALSE(has_indexed_symbol(service.workspace_symbols("stale_deleted"), "stale_deleted", deleted_path.string()));
 }
 
 TEST(StyioIdeService, WhiteBoxSemanticQueueStateEdgesStayExplicit) {
@@ -3093,6 +3203,34 @@ TEST(StyioSemanticDb, ReusesFileQueriesWithinSnapshot) {
   EXPECT_EQ(after_second_tokens.hir_module.misses, after_first_tokens.hir_module.misses);
 }
 
+TEST(StyioSemanticDb, SemanticTokensUseUtf16PositionsAndLengths) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_utf16_tokens.styio";
+  const std::string emoji = "\xF0\x9F\x98\x80";
+  const std::string source = "emoji = \"" + emoji + "\" value = 1\n";
+  vfs.open(path, source, 1);
+
+  const std::vector<DecodedSemanticToken> tokens = decode_semantic_tokens(semdb.semantic_tokens_for(path));
+  ASSERT_FALSE(tokens.empty());
+
+  const styio::ide::TextBuffer buffer(source);
+  const std::size_t value_offset = source.find("value");
+  ASSERT_NE(value_offset, std::string::npos);
+  const styio::ide::Position value_byte_pos = buffer.position_at(value_offset);
+  const styio::ide::Position value_utf16_pos = buffer.utf16_position_at(value_offset);
+  EXPECT_EQ(value_utf16_pos.line, 0U);
+  EXPECT_GT(value_byte_pos.character, value_utf16_pos.character);
+  EXPECT_TRUE(has_semantic_token_at(tokens, value_utf16_pos.line, value_utf16_pos.character, 5U));
+  EXPECT_FALSE(has_semantic_token_at(tokens, value_byte_pos.line, value_byte_pos.character, 5U));
+
+  const std::size_t string_offset = source.find('"');
+  ASSERT_NE(string_offset, std::string::npos);
+  const styio::ide::Position string_pos = buffer.utf16_position_at(string_offset);
+  EXPECT_TRUE(has_semantic_token_at(tokens, string_pos.line, string_pos.character, 4U));
+}
+
 TEST(StyioSemanticDb, ReusesOffsetQueriesWithinSnapshot) {
   styio::ide::VirtualFileSystem vfs;
   styio::ide::Project project;
@@ -3442,6 +3580,130 @@ TEST(StyioLspServer, PublishDiagnosticsCarriesStyioCodeAndPhase) {
   EXPECT_EQ(data->getString("phase").value_or(""), "service");
 }
 
+TEST(StyioLspServer, InitializeRecordsSingleWorkspaceStateAndIgnoresExtras) {
+  styio::lsp::Server server;
+  const std::string primary_root = make_temp_project_dir("ide_workspace_initialize_primary");
+  const std::string extra_root = make_temp_project_dir("ide_workspace_initialize_extra");
+  const std::string primary_uri = styio::ide::uri_from_path(primary_root);
+  const std::string extra_uri = styio::ide::uri_from_path(extra_root);
+  const std::string uri = styio::ide::uri_from_path(
+    (std::filesystem::path(primary_root) / "server_workspace_state_sample.styio").string());
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{
+      {"rootUri", primary_uri},
+      {"workspaceFolders", llvm::json::Array{
+        lsp_workspace_folder(primary_uri, "primary"),
+        lsp_workspace_folder(extra_uri, "extra")}}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  const auto* init_result = init_messages[0].payload.getObject("result");
+  ASSERT_NE(init_result, nullptr);
+  const auto* capabilities = init_result->getObject("capabilities");
+  ASSERT_NE(capabilities, nullptr);
+  const auto* workspace = capabilities->getObject("workspace");
+  ASSERT_NE(workspace, nullptr);
+  const auto* workspace_folders = workspace->getObject("workspaceFolders");
+  ASSERT_NE(workspace_folders, nullptr);
+  EXPECT_FALSE(workspace_folders->getBoolean("supported").value_or(true));
+
+  const auto* experimental = init_result->getObject("experimental");
+  ASSERT_NE(experimental, nullptr);
+  const auto* styio = experimental->getObject("styio");
+  ASSERT_NE(styio, nullptr);
+  const auto* workspace_state = styio->getObject("workspaceState");
+  ASSERT_NE(workspace_state, nullptr);
+  EXPECT_EQ(workspace_state->getString("mode").value_or(""), "single");
+  EXPECT_EQ(workspace_state->getString("requestedRootUri").value_or(""), primary_uri);
+  EXPECT_EQ(workspace_state->getString("selectedRootUri").value_or(""), primary_uri);
+
+  const auto* requested_folders = workspace_state->getArray("workspaceFolders");
+  ASSERT_NE(requested_folders, nullptr);
+  ASSERT_EQ(requested_folders->size(), 2u);
+  EXPECT_EQ((*requested_folders)[0].getAsString().value_or(""), primary_uri);
+  EXPECT_EQ((*requested_folders)[1].getAsString().value_or(""), extra_uri);
+
+  const auto* ignored_folders = workspace_state->getArray("ignoredWorkspaceFolders");
+  ASSERT_NE(ignored_folders, nullptr);
+  ASSERT_EQ(ignored_folders->size(), 1u);
+  EXPECT_EQ((*ignored_folders)[0].getAsString().value_or(""), extra_uri);
+
+  write_text_file(
+    styio::ide::path_from_uri(uri),
+    "# add := (a: i32, b: i32) => a + b\n"
+    "result: i32 := ad\n");
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{
+        {"uri", uri},
+        {"version", 1},
+        {"text", "# add := (a: i32, b: i32) => a + b\nresult: i32 := ad\n"}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+
+  const auto runtime_messages = server.drain_runtime();
+  ASSERT_EQ(runtime_messages.size(), 1u);
+  EXPECT_EQ(runtime_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+  const auto* runtime_params = runtime_messages[0].payload.getObject("params");
+  ASSERT_NE(runtime_params, nullptr);
+  const auto* runtime_diagnostics = runtime_params->getArray("diagnostics");
+  ASSERT_NE(runtime_diagnostics, nullptr);
+  EXPECT_TRUE(runtime_diagnostics->empty());
+
+  auto completion_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/completion"},
+    {"params", llvm::json::Object{
+      {"textDocument", llvm::json::Object{{"uri", uri}}},
+      {"position", lsp_position(1, 16)}}}});
+  ASSERT_EQ(completion_messages.size(), 1u);
+  const auto* completion = completion_messages[0].payload.getArray("result");
+  ASSERT_NE(completion, nullptr);
+  bool found_add = false;
+  for (const auto& item : *completion) {
+    const auto* object = item.getAsObject();
+    if (object != nullptr && object->getString("label").value_or("") == "add") {
+      found_add = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_add);
+}
+
+TEST(StyioLspServer, InitializeNotificationUpdatesWorkspaceWithoutResponse) {
+  styio::lsp::Server server;
+  const std::string primary_root = make_temp_project_dir("ide_workspace_initialize_notification_primary");
+  const std::string extra_root = make_temp_project_dir("ide_workspace_initialize_notification_extra");
+  const std::string primary_uri = styio::ide::uri_from_path(primary_root);
+  const std::string extra_uri = styio::ide::uri_from_path(extra_root);
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{
+      {"rootUri", primary_uri},
+      {"workspaceFolders", llvm::json::Array{
+        lsp_workspace_folder(primary_uri, "primary"),
+        lsp_workspace_folder(extra_uri, "extra")}}}}});
+  EXPECT_TRUE(init_messages.empty());
+
+  const auto workspace_state = server.make_initialize_workspace_state();
+  EXPECT_EQ(workspace_state.getString("mode").value_or(""), "single");
+  EXPECT_EQ(workspace_state.getString("requestedRootUri").value_or(""), primary_uri);
+  EXPECT_EQ(workspace_state.getString("selectedRootUri").value_or(""), primary_uri);
+  const auto* ignored_folders = workspace_state.getArray("ignoredWorkspaceFolders");
+  ASSERT_NE(ignored_folders, nullptr);
+  ASSERT_EQ(ignored_folders->size(), 1u);
+  EXPECT_EQ((*ignored_folders)[0].getAsString().value_or(""), extra_uri);
+}
+
 TEST(StyioLspServer, DiagnosticPhaseFallsBackFromStyioCode) {
   styio::lsp::Server server;
   const styio::ide::TextBuffer buffer("value\n");
@@ -3518,6 +3780,746 @@ TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
     }
   }
   EXPECT_TRUE(found_add);
+}
+
+TEST(StyioLspServer, RenameIsCapabilityGatedAndUsesResolvedSymbolIdentity) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_rename_sample.styio");
+  const std::string source =
+    "# add := (a: i32, b: i32) => a + b\n"
+    "value: i32 := add(1, 2)\n"
+    "other: i32 := add(3, 4)\n"
+    "label := \"add\"\n";
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+  const auto* init_result = init_messages[0].payload.getObject("result");
+  ASSERT_NE(init_result, nullptr);
+  const auto* capabilities = init_result->getObject("capabilities");
+  ASSERT_NE(capabilities, nullptr);
+  EXPECT_TRUE(capabilities->getBoolean("renameProvider").value_or(false));
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+
+  EXPECT_FALSE(server.drain_runtime().empty());
+
+  auto rename_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/rename"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(0, 2)},
+       {"newName", "sum"}}}});
+  ASSERT_EQ(rename_messages.size(), 1u);
+  const auto* rename_result = rename_messages[0].payload.getObject("result");
+  ASSERT_NE(rename_result, nullptr);
+  const auto* changes = rename_result->getObject("changes");
+  ASSERT_NE(changes, nullptr);
+  const auto* uri_edits = changes->getArray(uri);
+  ASSERT_NE(uri_edits, nullptr);
+  ASSERT_EQ(uri_edits->size(), 3u);
+  for (const auto& edit : *uri_edits) {
+    const auto* object = edit.getAsObject();
+    ASSERT_NE(object, nullptr);
+    EXPECT_EQ(object->getString("newText").value_or(""), "sum");
+  }
+
+  auto string_rename_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 3},
+    {"method", "textDocument/rename"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"position", lsp_position(3, 11)},
+       {"newName", "title"}}}});
+  ASSERT_EQ(string_rename_messages.size(), 1u);
+  const auto* string_result = string_rename_messages[0].payload.get("result");
+  ASSERT_NE(string_result, nullptr);
+  EXPECT_TRUE(string_result->getAsNull().has_value());
+}
+
+TEST(StyioLspServer, CodeActionIsCapabilityAdvertised) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+
+  const auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  const auto* init_result = init_messages[0].payload.getObject("result");
+  ASSERT_NE(init_result, nullptr);
+  const auto* capabilities = init_result->getObject("capabilities");
+  ASSERT_NE(capabilities, nullptr);
+  EXPECT_TRUE(capabilities->getBoolean("codeActionProvider").value_or(false));
+}
+
+TEST(StyioLspServer, CodeActionReturnsEmptyArrayWhenNoDiagnosticOrNoOpenDocument) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_code_action_no_diags.styio");
+  const std::string source = "# add := (a: i32, b: i32) => a + b\nresult: i32 := add(1, 2)\n";
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+
+  auto empty_actions_for_open_valid_file = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/codeAction"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"range", lsp_range(0, 0, 0, 4)}}}});
+  ASSERT_EQ(empty_actions_for_open_valid_file.size(), 1u);
+  const auto* no_diag_actions = empty_actions_for_open_valid_file[0].payload.getArray("result");
+  ASSERT_NE(no_diag_actions, nullptr);
+  EXPECT_TRUE(no_diag_actions->empty());
+
+  auto empty_actions_for_closed_file = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 3},
+    {"method", "textDocument/codeAction"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", temp_uri("server_code_action_closed.styio")}}},
+       {"range", lsp_range(0, 0, 0, 4)}}}});
+  ASSERT_EQ(empty_actions_for_closed_file.size(), 1u);
+  const auto* no_open_actions = empty_actions_for_closed_file[0].payload.getArray("result");
+  ASSERT_NE(no_open_actions, nullptr);
+  EXPECT_TRUE(no_open_actions->empty());
+}
+
+TEST(StyioLspServer, CodeActionEmitsDisabledQuickFixForUnsupportedEditorSyntaxDiagnostic) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_code_action_disabled_sample.styio");
+  const std::string source = "{\n";
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  const auto* notification_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(notification_params, nullptr);
+  const auto* notifications = notification_params->getArray("diagnostics");
+  ASSERT_NE(notifications, nullptr);
+  ASSERT_FALSE(notifications->empty());
+  const llvm::json::Object* selected_notification = nullptr;
+  for (const auto& notification_value : *notifications) {
+    const auto* notification = notification_value.getAsObject();
+    if (notification == nullptr) {
+      continue;
+    }
+    if (notification->getString("message").value_or("").find("unclosed opening token") != std::string::npos) {
+      selected_notification = notification;
+      break;
+    }
+  }
+  ASSERT_NE(selected_notification, nullptr);
+  const auto* notification_range = selected_notification->getObject("range");
+  ASSERT_NE(notification_range, nullptr);
+
+  (void)server.drain_runtime();
+
+  auto range_for_action = llvm::json::Object(*notification_range);
+  llvm::json::Object code_action_params;
+  code_action_params["textDocument"] = llvm::json::Object{{"uri", uri}};
+  code_action_params["range"] = llvm::json::Value(std::move(range_for_action));
+  auto action_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/codeAction"},
+    {"params", std::move(code_action_params)}});
+  ASSERT_EQ(action_messages.size(), 1u);
+  const auto* actions = action_messages[0].payload.getArray("result");
+  ASSERT_NE(actions, nullptr);
+  ASSERT_FALSE(actions->empty());
+
+  const auto* action = (*actions)[0].getAsObject();
+  ASSERT_NE(action, nullptr);
+  EXPECT_EQ(action->getString("kind").value_or(""), "quickfix");
+  EXPECT_EQ(action->getString("title").value_or(""), "No automatic fix available");
+  EXPECT_FALSE(action->getObject("edit"));
+  EXPECT_FALSE(action->getObject("command"));
+
+  const auto* disabled = action->getObject("disabled");
+  ASSERT_NE(disabled, nullptr);
+  EXPECT_NE(disabled->getString("reason").value_or(""), "");
+  const auto* action_diagnostics = action->getArray("diagnostics");
+  ASSERT_NE(action_diagnostics, nullptr);
+  ASSERT_FALSE(action_diagnostics->empty());
+  const auto* action_diagnostic = (*action_diagnostics)[0].getAsObject();
+  ASSERT_NE(action_diagnostic, nullptr);
+  EXPECT_EQ(action_diagnostic->getString("code").value_or(""), "STYIO_SERVICE_EDITOR_SYNTAX");
+}
+
+TEST(StyioLspServer, CodeActionAddsEditForUnterminatedStringLiteral) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_code_action_string_literal_sample.styio");
+  const std::string source = "value := \"unterminated\n";
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  const auto* notification_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(notification_params, nullptr);
+  const auto* notifications = notification_params->getArray("diagnostics");
+  ASSERT_NE(notifications, nullptr);
+  ASSERT_FALSE(notifications->empty());
+  const llvm::json::Object* selected_notification = nullptr;
+  for (const auto& notification_value : *notifications) {
+    const auto* notification = notification_value.getAsObject();
+    if (notification == nullptr) {
+      continue;
+    }
+    if (notification->getString("message").value_or("") == "unterminated string literal") {
+      selected_notification = notification;
+      break;
+    }
+  }
+  ASSERT_NE(selected_notification, nullptr);
+  const auto* notification_range = selected_notification->getObject("range");
+  ASSERT_NE(notification_range, nullptr);
+
+  (void)server.drain_runtime();
+
+  auto range_for_action = llvm::json::Object(*notification_range);
+  llvm::json::Object code_action_params;
+  code_action_params["textDocument"] = llvm::json::Object{{"uri", uri}};
+  code_action_params["range"] = llvm::json::Value(std::move(range_for_action));
+  auto action_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/codeAction"},
+    {"params", std::move(code_action_params)}});
+  ASSERT_EQ(action_messages.size(), 1u);
+  const auto* actions = action_messages[0].payload.getArray("result");
+  ASSERT_NE(actions, nullptr);
+  ASSERT_FALSE(actions->empty());
+
+  const auto* action = (*actions)[0].getAsObject();
+  ASSERT_NE(action, nullptr);
+  EXPECT_EQ(action->getString("kind").value_or(""), "quickfix");
+  EXPECT_EQ(action->getString("title").value_or(""), "Close string literal");
+  EXPECT_FALSE(action->getObject("disabled"));
+  EXPECT_FALSE(action->getObject("command"));
+
+  const auto* edit = action->getObject("edit");
+  ASSERT_NE(edit, nullptr);
+  const auto* changes = edit->getObject("changes");
+  ASSERT_NE(changes, nullptr);
+  const auto* uri_edits = changes->getArray(uri);
+  ASSERT_NE(uri_edits, nullptr);
+  ASSERT_EQ(uri_edits->size(), 1u);
+  const auto* text_edit = (*uri_edits)[0].getAsObject();
+  ASSERT_NE(text_edit, nullptr);
+  EXPECT_EQ(text_edit->getString("newText").value_or(""), "\"");
+  const auto* edit_range = text_edit->getObject("range");
+  ASSERT_NE(edit_range, nullptr);
+  const auto* edit_range_start = edit_range->getObject("start");
+  const auto* edit_range_end = edit_range->getObject("end");
+  ASSERT_NE(edit_range_start, nullptr);
+  ASSERT_NE(edit_range_end, nullptr);
+  const auto* diagnostic_range_end = notification_range->getObject("end");
+  ASSERT_NE(diagnostic_range_end, nullptr);
+  EXPECT_EQ(edit_range_start->getInteger("line").value_or(-1), edit_range_end->getInteger("line").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("character").value_or(-1), edit_range_end->getInteger("character").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("line").value_or(-1), diagnostic_range_end->getInteger("line").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("character").value_or(-1), diagnostic_range_end->getInteger("character").value_or(-2));
+
+  const auto* action_diagnostics = action->getArray("diagnostics");
+  ASSERT_NE(action_diagnostics, nullptr);
+  ASSERT_FALSE(action_diagnostics->empty());
+  const auto* action_diagnostic = (*action_diagnostics)[0].getAsObject();
+  ASSERT_NE(action_diagnostic, nullptr);
+  EXPECT_EQ(action_diagnostic->getString("code").value_or(""), "STYIO_SERVICE_EDITOR_SYNTAX");
+}
+
+TEST(StyioLspServer, CodeActionDeletesUnmatchedClosingToken) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_code_action_unmatched_closing_sample.styio");
+  const std::string source = ")\n";
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  const auto* notification_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(notification_params, nullptr);
+  const auto* notifications = notification_params->getArray("diagnostics");
+  ASSERT_NE(notifications, nullptr);
+  ASSERT_FALSE(notifications->empty());
+  const llvm::json::Object* selected_notification = nullptr;
+  for (const auto& notification_value : *notifications) {
+    const auto* notification = notification_value.getAsObject();
+    if (notification == nullptr) {
+      continue;
+    }
+    if (notification->getString("message").value_or("").find("unmatched closing token") != std::string::npos) {
+      selected_notification = notification;
+      break;
+    }
+  }
+  ASSERT_NE(selected_notification, nullptr);
+  const auto* notification_range = selected_notification->getObject("range");
+  ASSERT_NE(notification_range, nullptr);
+
+  (void)server.drain_runtime();
+
+  auto range_for_action = llvm::json::Object(*notification_range);
+  llvm::json::Object code_action_params;
+  code_action_params["textDocument"] = llvm::json::Object{{"uri", uri}};
+  code_action_params["range"] = llvm::json::Value(std::move(range_for_action));
+  auto action_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/codeAction"},
+    {"params", std::move(code_action_params)}});
+  ASSERT_EQ(action_messages.size(), 1u);
+  const auto* actions = action_messages[0].payload.getArray("result");
+  ASSERT_NE(actions, nullptr);
+  ASSERT_FALSE(actions->empty());
+
+  const auto* action = (*actions)[0].getAsObject();
+  ASSERT_NE(action, nullptr);
+  EXPECT_EQ(action->getString("kind").value_or(""), "quickfix");
+  EXPECT_EQ(action->getString("title").value_or(""), "Remove unmatched closing token");
+  EXPECT_FALSE(action->getObject("disabled"));
+  EXPECT_FALSE(action->getObject("command"));
+
+  const auto* edit = action->getObject("edit");
+  ASSERT_NE(edit, nullptr);
+  const auto* changes = edit->getObject("changes");
+  ASSERT_NE(changes, nullptr);
+  const auto* uri_edits = changes->getArray(uri);
+  ASSERT_NE(uri_edits, nullptr);
+  ASSERT_EQ(uri_edits->size(), 1u);
+  const auto* text_edit = (*uri_edits)[0].getAsObject();
+  ASSERT_NE(text_edit, nullptr);
+  EXPECT_EQ(text_edit->getString("newText").value_or("not-empty"), "");
+  const auto* edit_range = text_edit->getObject("range");
+  ASSERT_NE(edit_range, nullptr);
+  const auto* edit_range_start = edit_range->getObject("start");
+  const auto* edit_range_end = edit_range->getObject("end");
+  const auto* diagnostic_range_start = notification_range->getObject("start");
+  const auto* diagnostic_range_end = notification_range->getObject("end");
+  ASSERT_NE(edit_range_start, nullptr);
+  ASSERT_NE(edit_range_end, nullptr);
+  ASSERT_NE(diagnostic_range_start, nullptr);
+  ASSERT_NE(diagnostic_range_end, nullptr);
+  EXPECT_EQ(edit_range_start->getInteger("line").value_or(-1), diagnostic_range_start->getInteger("line").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("character").value_or(-1), diagnostic_range_start->getInteger("character").value_or(-2));
+  EXPECT_EQ(edit_range_end->getInteger("line").value_or(-1), diagnostic_range_end->getInteger("line").value_or(-2));
+  EXPECT_EQ(edit_range_end->getInteger("character").value_or(-1), diagnostic_range_end->getInteger("character").value_or(-2));
+
+  const auto* action_diagnostics = action->getArray("diagnostics");
+  ASSERT_NE(action_diagnostics, nullptr);
+  ASSERT_FALSE(action_diagnostics->empty());
+  const auto* action_diagnostic = (*action_diagnostics)[0].getAsObject();
+  ASSERT_NE(action_diagnostic, nullptr);
+  EXPECT_EQ(action_diagnostic->getString("code").value_or(""), "STYIO_SERVICE_EDITOR_SYNTAX");
+}
+
+TEST(StyioLspServer, CodeActionAddsEditForUnterminatedBlockComment) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_code_action_block_comment_sample.styio");
+  const std::string source = "/* unterminated\n";
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  const auto* notification_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(notification_params, nullptr);
+  const auto* notifications = notification_params->getArray("diagnostics");
+  ASSERT_NE(notifications, nullptr);
+  ASSERT_FALSE(notifications->empty());
+  const auto* first_notification = (*notifications)[0].getAsObject();
+  ASSERT_NE(first_notification, nullptr);
+  const auto* notification_range = first_notification->getObject("range");
+  ASSERT_NE(notification_range, nullptr);
+
+  (void)server.drain_runtime();
+
+  auto range_for_action = llvm::json::Object(*notification_range);
+  llvm::json::Object code_action_params;
+  code_action_params["textDocument"] = llvm::json::Object{{"uri", uri}};
+  code_action_params["range"] = llvm::json::Value(std::move(range_for_action));
+  auto action_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/codeAction"},
+    {"params", std::move(code_action_params)}});
+  ASSERT_EQ(action_messages.size(), 1u);
+  const auto* actions = action_messages[0].payload.getArray("result");
+  ASSERT_NE(actions, nullptr);
+  ASSERT_FALSE(actions->empty());
+
+  const auto* action = (*actions)[0].getAsObject();
+  ASSERT_NE(action, nullptr);
+  EXPECT_EQ(action->getString("kind").value_or(""), "quickfix");
+  EXPECT_EQ(action->getString("title").value_or(""), "Close block comment");
+  EXPECT_FALSE(action->getObject("disabled"));
+  EXPECT_FALSE(action->getObject("command"));
+
+  const auto* edit = action->getObject("edit");
+  ASSERT_NE(edit, nullptr);
+  const auto* changes = edit->getObject("changes");
+  ASSERT_NE(changes, nullptr);
+  const auto* uri_edits = changes->getArray(uri);
+  ASSERT_NE(uri_edits, nullptr);
+  ASSERT_EQ(uri_edits->size(), 1u);
+  const auto* text_edit = (*uri_edits)[0].getAsObject();
+  ASSERT_NE(text_edit, nullptr);
+  EXPECT_EQ(text_edit->getString("newText").value_or(""), " */");
+  const auto* edit_range = text_edit->getObject("range");
+  ASSERT_NE(edit_range, nullptr);
+  const auto* edit_range_start = edit_range->getObject("start");
+  const auto* edit_range_end = edit_range->getObject("end");
+  ASSERT_NE(edit_range_start, nullptr);
+  ASSERT_NE(edit_range_end, nullptr);
+  const auto* diagnostic_range_end = notification_range->getObject("end");
+  ASSERT_NE(diagnostic_range_end, nullptr);
+  EXPECT_EQ(edit_range_start->getInteger("line").value_or(-1), edit_range_end->getInteger("line").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("character").value_or(-1), edit_range_end->getInteger("character").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("line").value_or(-1), diagnostic_range_end->getInteger("line").value_or(-2));
+  EXPECT_EQ(edit_range_start->getInteger("character").value_or(-1), diagnostic_range_end->getInteger("character").value_or(-2));
+
+  const auto* action_diagnostics = action->getArray("diagnostics");
+  ASSERT_NE(action_diagnostics, nullptr);
+  ASSERT_FALSE(action_diagnostics->empty());
+  const auto* action_diagnostic = (*action_diagnostics)[0].getAsObject();
+  ASSERT_NE(action_diagnostic, nullptr);
+  EXPECT_EQ(action_diagnostic->getString("code").value_or(""), "STYIO_SERVICE_EDITOR_SYNTAX");
+
+  const auto* range_end = notification_range->getObject("end");
+  ASSERT_NE(range_end, nullptr);
+  llvm::json::Object adjacent_params;
+  adjacent_params["textDocument"] = llvm::json::Object{{"uri", uri}};
+  adjacent_params["range"] = llvm::json::Object{
+    {"start", llvm::json::Object(*range_end)},
+    {"end", llvm::json::Object(*range_end)}};
+  auto adjacent_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 3},
+    {"method", "textDocument/codeAction"},
+    {"params", std::move(adjacent_params)}});
+  ASSERT_EQ(adjacent_messages.size(), 1u);
+  const auto* adjacent_actions = adjacent_messages[0].payload.getArray("result");
+  ASSERT_NE(adjacent_actions, nullptr);
+  EXPECT_TRUE(adjacent_actions->empty());
+}
+
+TEST(StyioLspServer, InlayHintUsesResolvedCallsiteParameterNamesAndFailsClosed) {
+  styio::lsp::Server server;
+  const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+  const std::string uri = temp_uri("server_inlay_hint_sample.styio");
+  const std::string source =
+    "# add := (a: i32, b: i32) => a + b\n"
+    "value := add(1, 2)\n";
+  styio::ide::TextBuffer buffer(source);
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+  const auto* init_result = init_messages[0].payload.getObject("result");
+  ASSERT_NE(init_result, nullptr);
+  const auto* capabilities = init_result->getObject("capabilities");
+  ASSERT_NE(capabilities, nullptr);
+  EXPECT_TRUE(capabilities->getBoolean("inlayHintProvider").value_or(false));
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+  EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+
+  (void)server.drain_runtime();
+
+  const std::size_t call_offset = source.find("add(1, 2)");
+  ASSERT_NE(call_offset, std::string::npos);
+  const std::size_t first_arg_offset = call_offset + std::string("add(").size();
+  const std::size_t second_arg_offset = call_offset + std::string("add(1, ").size();
+
+  const auto end_position = buffer.position_at(source.size());
+  auto hint_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/inlayHint"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"range", llvm::json::Object{
+          {"start", lsp_position(0, 0)},
+          {"end", lsp_position(
+             static_cast<int>(end_position.line),
+             static_cast<int>(end_position.character))}}}}}});
+  ASSERT_EQ(hint_messages.size(), 1u);
+  const auto* hint_result = hint_messages[0].payload.getArray("result");
+  ASSERT_NE(hint_result, nullptr);
+  ASSERT_EQ(hint_result->size(), 2u);
+
+  const auto* first_hint = (*hint_result)[0].getAsObject();
+  ASSERT_NE(first_hint, nullptr);
+  EXPECT_EQ(first_hint->getString("label").value_or(""), "a:");
+  EXPECT_EQ(first_hint->getInteger("kind").value_or(0), 2);
+  const auto* first_position = first_hint->getObject("position");
+  ASSERT_NE(first_position, nullptr);
+  EXPECT_EQ(first_position->getInteger("line").value_or(-1), static_cast<int>(buffer.position_at(first_arg_offset).line));
+  EXPECT_EQ(first_position->getInteger("character").value_or(-1), static_cast<int>(buffer.position_at(first_arg_offset).character));
+
+  const auto* second_hint = (*hint_result)[1].getAsObject();
+  ASSERT_NE(second_hint, nullptr);
+  EXPECT_EQ(second_hint->getString("label").value_or(""), "b:");
+  EXPECT_EQ(second_hint->getInteger("kind").value_or(0), 2);
+  const auto* second_position = second_hint->getObject("position");
+  ASSERT_NE(second_position, nullptr);
+  EXPECT_EQ(second_position->getInteger("line").value_or(-1), static_cast<int>(buffer.position_at(second_arg_offset).line));
+  EXPECT_EQ(second_position->getInteger("character").value_or(-1), static_cast<int>(buffer.position_at(second_arg_offset).character));
+
+  const std::string missing_uri = temp_uri("server_inlay_hint_missing.styio");
+  const std::string missing_source = "value := missing(1, 2)\n";
+  const styio::ide::TextBuffer missing_buffer(missing_source);
+  auto missing_open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", missing_uri},
+          {"version", 1},
+          {"text", missing_source}}}}}});
+  ASSERT_EQ(missing_open_messages.size(), 1u);
+  EXPECT_EQ(missing_open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+
+  (void)server.drain_runtime();
+
+  const std::size_t missing_call_offset = missing_source.find("missing(1, 2)");
+  ASSERT_NE(missing_call_offset, std::string::npos);
+  const auto missing_end_position = missing_buffer.position_at(missing_source.size());
+  auto missing_hint_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 3},
+    {"method", "textDocument/inlayHint"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", missing_uri}}},
+       {"range", llvm::json::Object{
+          {"start", lsp_position(0, 0)},
+          {"end", lsp_position(
+             static_cast<int>(missing_end_position.line),
+             static_cast<int>(missing_end_position.character))}}}}}});
+  ASSERT_EQ(missing_hint_messages.size(), 1u);
+  const auto* missing_hint_result = missing_hint_messages[0].payload.getArray("result");
+  ASSERT_NE(missing_hint_result, nullptr);
+  EXPECT_TRUE(missing_hint_result->empty());
+}
+
+TEST(StyioLspServer, InlayHintReturnsEmptyWhileBackgroundRefreshIsPending) {
+  styio::lsp::Server server;
+  const std::string root = make_temp_project_dir("server_inlay_hint_background_pending");
+  const std::string background_path = (std::filesystem::path(root) / "background_pending.styio").string();
+  write_text_file(background_path, "# background_pending := (x: i32) => x\n");
+  const std::string root_uri = styio::ide::uri_from_path(root);
+  const std::string uri = styio::ide::uri_from_path(
+    (std::filesystem::path(root) / "server_inlay_hint_background_pending.styio").string());
+  const std::string source =
+    "# add := (a: i32, b: i32) => a + b\n"
+    "value := add(1, 2)\n";
+  styio::ide::TextBuffer buffer(source);
+
+  auto init_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 1},
+    {"method", "initialize"},
+    {"params", llvm::json::Object{{"rootUri", root_uri}}}});
+  ASSERT_EQ(init_messages.size(), 1u);
+
+  auto open_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "textDocument/didOpen"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{
+          {"uri", uri},
+          {"version", 1},
+          {"text", source}}}}}});
+  ASSERT_EQ(open_messages.size(), 1u);
+
+  (void)server.drain_runtime();
+
+  auto background_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", llvm::json::Array{
+      llvm::json::Object{{"uri", styio::ide::uri_from_path(background_path)}, {"type", 2}}}}}}});
+  EXPECT_TRUE(background_messages.empty());
+  ASSERT_GT(server.runtime_counters().background_tasks_enqueued, 0u);
+
+  const auto end_position = buffer.position_at(source.size());
+  auto hint_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"id", 2},
+    {"method", "textDocument/inlayHint"},
+    {"params", llvm::json::Object{
+       {"textDocument", llvm::json::Object{{"uri", uri}}},
+       {"range", llvm::json::Object{
+          {"start", lsp_position(0, 0)},
+          {"end", lsp_position(
+             static_cast<int>(end_position.line),
+             static_cast<int>(end_position.character))}}}}}});
+  ASSERT_EQ(hint_messages.size(), 1u);
+  const auto* hint_result = hint_messages[0].payload.getArray("result");
+  ASSERT_NE(hint_result, nullptr);
+  EXPECT_TRUE(hint_result->empty());
+}
+
+TEST(StyioLspServer, WatchFileChangesFilterAndCoalesceBackgroundRefresh) {
+  styio::lsp::Server server;
+  const std::string root = make_temp_project_dir("server_watch_filter");
+  const std::string watched_path = (std::filesystem::path(root) / "watched.styio").string();
+  const std::string open_path = (std::filesystem::path(root) / "open.styio").string();
+  const std::string ignored_text_path = (std::filesystem::path(root) / "ignored.txt").string();
+  const std::string outside_path = (std::filesystem::path(make_temp_dir()) / "outside_lsp_watch.styio").string();
+  write_text_file(watched_path, "# watched := (x: i32) => x\n");
+  write_text_file(open_path, "# open_file := (x: i32) => x\n");
+  write_text_file(ignored_text_path, "ignored\n");
+  write_text_file(outside_path, "# outside_lsp_watch := (x: i32) => x\n");
+
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", styio::ide::uri_from_path(root)}}}}).size(),
+    1u);
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didOpen"},
+      {"params", llvm::json::Object{
+        {"textDocument", llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(open_path)},
+          {"version", 1},
+          {"text", "# open_file := (x: i32) => x\nopen_result: i32 := open_file(1)\n"}}}}}}).size(),
+    1u);
+  (void)server.drain_runtime();
+
+  auto watched_changes = [&]() -> llvm::json::Array
+  {
+    return llvm::json::Array{
+      llvm::json::Object{{"uri", styio::ide::uri_from_path(watched_path)}, {"type", 2}},
+      llvm::json::Object{{"uri", styio::ide::uri_from_path(watched_path)}, {"type", 2}},
+      llvm::json::Object{{"uri", styio::ide::uri_from_path(open_path)}, {"type", 2}},
+      llvm::json::Object{{"uri", styio::ide::uri_from_path(ignored_text_path)}, {"type", 2}},
+      llvm::json::Object{{"uri", styio::ide::uri_from_path(outside_path)}, {"type", 2}}};
+  };
+  auto background_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", watched_changes()}}}});
+  EXPECT_TRUE(background_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  auto duplicate_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", watched_changes()}}}});
+  EXPECT_TRUE(duplicate_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  auto empty_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}});
+  EXPECT_TRUE(empty_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
 }
 
 TEST(StyioLspServer, MemberAccessCompletionUsesPropertyKind) {
@@ -3925,8 +4927,9 @@ TEST(StyioLspServer, WorkspaceSymbolMapsPersistentParameterAndBuiltinKinds) {
   ASSERT_NE(builtin_start, std::string::npos);
   ASSERT_NE(param_start, std::string::npos);
 
-  const std::filesystem::path cache_root =
-    cache_home / "styio" / "ide" / std::to_string(std::hash<std::string>{}(root.lexically_normal().string()));
+  styio::ide::Project cache_project;
+  cache_project.set_root(root.string());
+  const std::filesystem::path cache_root = cache_project.cache_root();
   styio::ide::PersistentIndex(cache_root.string()).save_symbols({
     styio::ide::IndexedSymbol{
       target_path.string(),
@@ -4024,6 +5027,22 @@ TEST(StyioLspServer, CoversTransportReaderAndMalformedRequestEdges) {
       {"params", llvm::json::Object{{"rootUri", styio::ide::uri_from_path(make_temp_dir())}}}});
 
     std::istringstream input(transport_input);
+    std::ostringstream output;
+    server.run(input, output);
+    EXPECT_NE(output.str().find("\"capabilities\""), std::string::npos);
+  }
+
+  {
+    styio::lsp::Server server;
+    const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());
+    const llvm::json::Object request{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{{"rootUri", root_uri}}}};
+    llvm::json::Object request_copy = request;
+    const std::string body = llvm::formatv("{0}", llvm::json::Value(std::move(request_copy))).str();
+    std::istringstream input("content-length: " + std::to_string(body.size()) + "\r\n\r\n" + body);
     std::ostringstream output;
     server.run(input, output);
     EXPECT_NE(output.str().find("\"capabilities\""), std::string::npos);
@@ -4416,8 +5435,10 @@ TEST(StyioLspServer, RunDrainsRuntimeDiagnostics) {
 TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
   styio::lsp::Server server;
   const std::string root = make_temp_project_dir("ide_request_driven_background");
-  write_text_file((std::filesystem::path(root) / "lib_bg.styio").string(), "# lib_bg := (x: i32) => x\n");
-  write_text_file((std::filesystem::path(root) / "other_bg.styio").string(), "# other_bg := (x: i32) => x\n");
+  const std::string lib_bg_path = (std::filesystem::path(root) / "lib_bg.styio").string();
+  const std::string other_bg_path = (std::filesystem::path(root) / "other_bg.styio").string();
+  write_text_file(lib_bg_path, "# lib_bg := (x: i32) => x\n");
+  write_text_file(other_bg_path, "# other_bg := (x: i32) => x\n");
 
   const std::string uri = temp_uri("runtime_request_driven_fallback.styio");
   const std::vector<llvm::json::Object> requests = {
@@ -4437,7 +5458,9 @@ TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
     llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"method", "workspace/didChangeWatchedFiles"},
-      {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}},
+      {"params", llvm::json::Object{{"changes", llvm::json::Array{
+        llvm::json::Object{{"uri", styio::ide::uri_from_path(lib_bg_path)}, {"type", 2}},
+        llvm::json::Object{{"uri", styio::ide::uri_from_path(other_bg_path)}, {"type", 2}}}}}}},
     llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"id", 2},

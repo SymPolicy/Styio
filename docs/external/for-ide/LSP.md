@@ -8,10 +8,8 @@
 
 1. Binary: `build/default/bin/styio_lspd`
 2. Protocol: LSP 3.17 over stdio
-3. Lifetime: one long-lived local daemon per workspace root
-4. Windows stdio must remain byte-exact. `styio_lspd` sets stdin/stdout to
-   binary mode before entering the LSP loop so `Content-Length: N\r\n\r\n`
-   headers are not expanded to `\r\r\n\r\r\n` by the C runtime. See
+3. Lifetime: one long-lived local daemon per selected workspace root
+4. Windows stdio must remain byte-exact. `styio_lspd` sets stdin/stdout to binary mode before entering the LSP loop so `Content-Length: N\r\n\r\n` headers are not expanded to `\r\r\n\r\r\n` by the C runtime. Inbound ASCII case variants of `Content-Length` are accepted, but outbound frames use canonical spelling. See
    `docs/adr/ADR-0121-lsp-windows-stdio-binary-mode.md`.
 
 ## Supported Methods
@@ -24,16 +22,19 @@
 6. `textDocument/hover`
 7. `textDocument/definition`
 8. `textDocument/references`
-9. `textDocument/documentSymbol`
-10. `workspace/symbol`
-11. `textDocument/semanticTokens/full`
-12. `textDocument/publishDiagnostics` notification
-13. `$/cancelRequest`
+9. `textDocument/rename`
+10. `textDocument/codeAction`
+11. `textDocument/inlayHint`
+12. `textDocument/documentSymbol`
+13. `workspace/symbol`
+14. `textDocument/semanticTokens/full`
+15. `textDocument/publishDiagnostics` notification
+16. `$/cancelRequest`
 
 ## Startup Sequence
 
 1. Launch `styio_lspd` with the workspace root available to the client.
-2. Send `initialize` with `rootUri`.
+2. Send `initialize` with `rootUri` as a JSON-RPC request with an `id`. If `workspaceFolders` are supplied, the server records them, selects one active workspace, and ignores extra folders explicitly. Notification-shaped initialize messages are treated as malformed defensive input: the server may refresh internal workspace state, but it does not emit a response without a request id.
 3. Open editor buffers via `didOpen`.
 4. Forward buffer changes via `didChange`.
 5. Query completion, hover, definition, references, symbols, and semantic tokens against the open document state.
@@ -58,12 +59,14 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 
 `workspace/symbol` reads the merged workspace index. Unsaved open buffers have priority over background-indexed disk files, and background entries have priority over persisted warm-start entries.
 
+The `initialize` response now records the selected single-workspace state in `experimental.styio.workspaceState` and advertises `capabilities.workspace.workspaceFolders.supported = false` so multi-root support stays fail-closed rather than implicit.
+
 ## Document Sync Contract
 
 1. Incremental `textDocument/didChange` is the primary path.
 2. Ranged `contentChanges` are applied in the original LSP order.
 3. Full-document sync remains a compatibility fallback and is not optimized in the current native-interop slice.
-4. LSP UTF-16 `line/character` positions are converted at the server boundary; internal IDE layers use UTF-8 byte offsets.
+4. LSP UTF-16 `line/character` positions are converted at the server boundary; internal IDE layers use UTF-8 byte offsets. Semantic-token delta positions and lengths are also emitted in UTF-16 units.
 5. Invalid or unsafe incremental ranges trigger full-document resynchronization rather than preserving partially applied edits.
 
 ## Diagnostics Semantics
@@ -76,9 +79,14 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 
 ## Rename Readiness
 
-`textDocument/rename` is the next planned public-method checkpoint, but it is not part of the supported method list yet.
+`textDocument/rename` is now part of the supported method list, but it stays conservative:
 
-Before exposing `rename`, the implementation must prove:
+1. the server only returns a `WorkspaceEdit` when the cursor resolves to a compiler-owned symbol identity;
+2. builtin, string, comment, unresolved, and other identity-free positions return `null`;
+3. the current workspace state must be fresh enough that pending semantic diagnostics and background index work are drained first; and
+4. every rename edit is rebuilt from the current snapshot text for the resolved target and its references.
+
+The implementation keeps these proof points in view for future hardening:
 
 1. semantic identity is compiler-owned and stable across open buffers, background indexes, and persisted warm-start entries;
 2. stale foreground, semantic, and background-index work cannot publish or apply edits for an older snapshot;
@@ -86,14 +94,19 @@ Before exposing `rename`, the implementation must prove:
 4. diagnostics publication remains semantic-first and does not hide rename blockers behind syntax-only facts; and
 5. rename fixtures cover freshness, workspace index identity, stale publication suppression, and malformed-source rejection.
 
-These readiness checks may run as parallel sub-agent lanes by identity, freshness, workspace index, diagnostics publication, and fixture coverage. The serial merge gate is capability exposure: `textDocument/rename` must not be advertised until every lane has passing evidence in the same IDE/LSP checkpoint.
+The initial public checkpoint is covered by `StyioLspServer.RenameIsCapabilityGatedAndUsesResolvedSymbolIdentity`; future rename broadening should keep using parallel evidence lanes for identity, freshness, workspace index, diagnostics publication, and fixture coverage before relaxing any fail-closed case.
 
-`codeAction` and `inlayHint` remain after `rename`; they should not be implemented first unless a later owner decision changes this public-surface order.
+## Inlay Hints
+
+`textDocument/inlayHint` is supported for call-argument parameter names. The server only emits a hint when the callee resolves, the argument slot is compiler-recognized, the parameter name comes from current semantic facts, and semantic/background work is already drained. Unresolved calls, malformed ranges, incomplete signatures, and stale workspace state return an empty list.
+
+`codeAction` is implemented as a conservative, fail-closed action lane: the server returns edit quick-fixes for `unterminated block comment`, `unterminated string literal`, and exact-range `unmatched closing token` editor-syntax diagnostics, returns disabled `quickfix` suggestions for editor-syntax diagnostics it cannot safely auto-fix, and otherwise returns an empty action list.
 
 ## Current Limits
 
-1. The server is local-only and single-workspace for now.
-2. `rename`, `codeAction`, and `inlayHint` are intentionally not implemented yet; `rename` is the next planned public-method checkpoint after the readiness items above are proven.
-3. Debounced semantic publication is request-driven in the stdio loop: `Server::run()` drains runtime diagnostics after each processed request.
-4. `workspace/didChangeWatchedFiles` schedules background reindex work; because the stdio runtime has no separate idle thread, `Server::run()` advances one background task as a request-driven fallback only after foreground responses and semantic diagnostic drains are clear. Embedders can call `IdeService::run_idle_tasks()` for the same semantic-first idle slice.
-5. Stale foreground and semantic work is guarded by snapshot/version checks and counted instead of being published after a newer visible snapshot.
+1. The server is local-only and single-workspace for now. `initialize` records the requested `rootUri`, supplied `workspaceFolders`, and the selected active root explicitly, then ignores any extra folders.
+2. `codeAction` is conservative: only the `unterminated block comment`, `unterminated string literal`, and exact-range `unmatched closing token` editor-syntax diagnostics have edit-producing quick-fixes; unsupported editor-syntax diagnostics remain disabled quick-fix explanations, and all other diagnostics still return an empty action list.
+3. `inlayHint` is freshness-gated: semantic/background work must already be drained before the server emits call-argument parameter hints.
+4. Debounced semantic publication is request-driven in the stdio loop: `Server::run()` drains runtime diagnostics after each processed request.
+5. `workspace/didChangeWatchedFiles` schedules background reindex work only for changed `.styio` file URIs under the selected workspace root. Open files, non-Styio files, out-of-workspace files, duplicate notifications, and empty `changes` arrays do not enqueue work. Because the stdio runtime has no separate idle thread, `Server::run()` advances one background task as a request-driven fallback only after foreground responses and semantic diagnostic drains are clear. Embedders can call `IdeService::run_idle_tasks()` for the same semantic-first idle slice.
+6. Stale foreground and semantic work is guarded by snapshot/version checks and counted instead of being published after a newer visible snapshot.

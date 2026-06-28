@@ -17,7 +17,7 @@ Current active evidence:
 
 | Module | Status | Evidence |
 |--------|--------|----------|
-| `std.resource` | active compatibility prelude | `src/StyioPrelude/resources.styio`, `library/resource/README.md`, file/stdin/stdout feature suites, and prelude parser coverage |
+| `std.resource` | active compatibility prelude | `share/styio/prelude/resources.styio`, `library/resource/README.md`, file/stdin/stdout feature suites, and prelude parser coverage |
 | all other `std.*` directories | planned | directory README plus manifest reservation only |
 
 Maintenance checklist:

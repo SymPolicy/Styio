@@ -17,6 +17,7 @@ private:
   std::string root_path_;
   std::string cache_root_;
   std::vector<std::string> workspace_files_;
+  std::size_t workspace_scan_error_count_ = 0;
 
 public:
   void set_root(const std::string& root_path);
@@ -35,6 +36,10 @@ public:
 
   const std::vector<std::string>& workspace_files() const {
     return workspace_files_;
+  }
+
+  std::size_t workspace_scan_error_count() const {
+    return workspace_scan_error_count_;
   }
 
   void scan_workspace();

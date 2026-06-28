@@ -42,7 +42,7 @@ Treat this plan as the answer to "is the ecosystem done?", not "is one repo loca
 
 ## 2. 权威、镜像与文档传播
 
-`styio-nightly/docs/plans/Styio-Ecosystem-Delivery-Master-Plan.md` 是唯一权威副本。
+`styio-nightly/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md` 是唯一权威副本。
 
 镜像与关联文档的职责固定如下：
 
@@ -50,7 +50,7 @@ Treat this plan as the answer to "is the ecosystem done?", not "is one repo loca
    - 只保留 `spio` 侧里程碑映射、repo exit 和本仓 gate 解释。
 2. `styio-view/docs/plans/Styio-Ecosystem-Delivery-Master-Plan.md`
    - 只保留 `view` 侧里程碑映射、repo exit 和本仓 gate 解释。
-3. `styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md`
+3. `styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md`
    - 继续作为 CLI/machine contract 的唯一冻结矩阵。
 4. `docs/external/for-*`、`docs/external/for-styio/`、`docs/contracts/`
    - 只承载消费者 handoff 和局部合同，不得偷改 phase 定义。
@@ -192,7 +192,7 @@ Repo lead 可以继续下拆 sub-agent. Parallel lanes are preferred for repo in
 
 文档落点：
 
-1. `styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md`
+1. `styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md`
 2. `styio-nightly/docs/external/for-spio/`
 3. `styio-nightly/docs/external/for-ide/`
 4. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`

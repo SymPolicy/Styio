@@ -41,6 +41,7 @@ enum class DiagnosticCode : std::uint16_t {
   TypeCallArgumentMismatch,
   TypeMatrixLiteralInvalid,
   TypeUnsupportedTupleReturn,
+  TypeFunctionMissingReturn,
   TypeStreamHashTagRouteUnsupported,
   TypeStreamZipUnsupportedSource,
   TypeStreamDuplicateDriverUnsupported,
@@ -149,6 +150,8 @@ inline constexpr std::string_view kTypeMatrixLiteralInvalid =
   "STYIO_TYPE_MATRIX_LITERAL_INVALID";
 inline constexpr std::string_view kTypeUnsupportedTupleReturn =
   "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
+inline constexpr std::string_view kTypeFunctionMissingReturn =
+  "STYIO_TYPE_FUNCTION_MISSING_RETURN";
 inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
   "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
 inline constexpr std::string_view kTypeStreamZipUnsupportedSource =
@@ -386,6 +389,9 @@ classify_type_or_lowering_code(std::string_view message) {
   if (contains(message, "tuple function return annotations require tuple value IR")) {
     return std::string(kTypeUnsupportedTupleReturn);
   }
+  if (contains(message, "function body requires a return value")) {
+    return std::string(kTypeFunctionMissingReturn);
+  }
   if (contains(message, "iterator sequence hash-tag routing is not implemented")) {
     return std::string(kTypeStreamHashTagRouteUnsupported);
   }
@@ -442,6 +448,7 @@ inline std::string_view diagnostic_code_name(DiagnosticCode code) {
     case DiagnosticCode::TypeCallArgumentMismatch: return "STYIO_TYPE_CALL_ARGUMENT_MISMATCH";
     case DiagnosticCode::TypeMatrixLiteralInvalid: return "STYIO_TYPE_MATRIX_LITERAL_INVALID";
     case DiagnosticCode::TypeUnsupportedTupleReturn: return "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
+    case DiagnosticCode::TypeFunctionMissingReturn: return "STYIO_TYPE_FUNCTION_MISSING_RETURN";
     case DiagnosticCode::TypeStreamHashTagRouteUnsupported: return "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
     case DiagnosticCode::TypeStreamZipUnsupportedSource: return "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
     case DiagnosticCode::TypeStreamDuplicateDriverUnsupported: return "STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED";

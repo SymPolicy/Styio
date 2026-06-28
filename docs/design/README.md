@@ -15,7 +15,7 @@
 
 1. Design-level SSOT uses stable `Styio-*.md` filenames.
 2. Do not add generic files such as `notes.md`, `draft.md`, or `misc.md` here.
-3. If a topic is no longer design SSOT, move it to `docs/plans/` or `docs/review/`.
+3. If a topic is no longer design SSOT, move it to `docs/plan/` or `docs/review/`.
 
 ## Inventory
 

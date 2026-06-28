@@ -136,8 +136,8 @@ install(
 )
 
 install(
-  DIRECTORY "${CMAKE_SOURCE_DIR}/src/StyioPrelude/"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/styio/src/StyioPrelude"
+  DIRECTORY "${CMAKE_SOURCE_DIR}/share/styio/prelude/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/styio/prelude"
   COMPONENT Runtime
   FILES_MATCHING
     PATTERN "*.styio"

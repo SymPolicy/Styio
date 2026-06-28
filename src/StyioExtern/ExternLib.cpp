@@ -7,7 +7,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <cmath>
-#include <deque>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -22,6 +21,7 @@
 #include "ExternLib.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioRuntime/HandleTable.hpp"
+#include "StyioRuntime/ReadyQueue.hpp"
 
 namespace {
 
@@ -367,13 +367,10 @@ public:
 
   void enqueue(StyioTask* task) {
     ensure_started();
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      queue_.push_back(task);
-      task_profile_update_max(
-        g_task_scheduler_profile_counters.max_queue_depth,
-        static_cast<int64_t>(queue_.size()));
-    }
+    queue_->push(static_cast<void*>(task));
+    task_profile_update_max(
+      g_task_scheduler_profile_counters.max_queue_depth,
+      static_cast<int64_t>(queue_->approximate_size()));
     task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
     cv_.notify_one();
   }
@@ -389,10 +386,14 @@ public:
     return workers_.size();
   }
 
+  styio::runtime::ReadyQueueKind ready_queue_kind() const {
+    return queue_->kind();
+  }
+
 private:
   std::mutex mu_;
   std::condition_variable cv_;
-  std::deque<StyioTask*> queue_;
+  std::unique_ptr<styio::runtime::IReadyQueue> queue_{styio::runtime::make_ready_queue()};
   std::vector<std::thread> workers_;
   std::atomic<bool> started_{false};
   bool stopping_ = false;
@@ -450,16 +451,17 @@ private:
       local_batch.clear();
       {
         std::unique_lock<std::mutex> lock(mu_);
-        cv_.wait(lock, [this]() { return stopping_ || !queue_.empty(); });
-        if (stopping_ && queue_.empty()) {
+        cv_.wait(lock, [this]() { return stopping_ || !queue_->empty(); });
+        if (stopping_ && queue_->empty()) {
           return;
         }
-        const std::size_t batch_limit = queue_.size() > workers_.size() ? 64 : 1;
-        local_batch.push_back(queue_.front());
-        queue_.pop_front();
-        while (!queue_.empty() && local_batch.size() < batch_limit) {
-          local_batch.push_back(queue_.front());
-          queue_.pop_front();
+        const std::size_t batch_limit = queue_->approximate_size() > workers_.size() ? 64 : 1;
+        while (local_batch.size() < batch_limit) {
+          auto* task = static_cast<StyioTask*>(queue_->try_pop());
+          if (task == nullptr) {
+            break;
+          }
+          local_batch.push_back(task);
         }
       }
       for (StyioTask* task : local_batch) {
@@ -2357,6 +2359,7 @@ styio_task_scheduler_profile_snapshot(StyioTaskSchedulerProfileSnapshot* out) {
   }
   out->enabled = task_scheduler_profile_enabled() ? 1 : 0;
   out->worker_count = static_cast<int64_t>(StyioTaskScheduler::instance().current_worker_count());
+  out->ready_queue_kind = static_cast<int64_t>(StyioTaskScheduler::instance().ready_queue_kind());
   out->active_tasks = g_active_task_handles;
   out->ready_tasks = g_task_scheduler_profile_counters.ready_tasks.load(std::memory_order_relaxed);
   out->spawned_tasks = g_task_scheduler_profile_counters.spawned_tasks.load(std::memory_order_relaxed);

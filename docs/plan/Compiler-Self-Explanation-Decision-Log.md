@@ -39,7 +39,7 @@
 | Duplicate stdin boundary | Audit diagnostics, stream-source docs, and future tee/buffer design notes independently. | No runtime or driver behavior may merge until an explicit tee/buffer or duplicate-driver design is accepted. |
 | Canonical resource topology | Audit active syntax, resource-topology fixtures, negative migration diagnostics, and docs drift in parallel with P0 inventory. | Sema/lowering implementation for a touched AST/IR node waits for the relevant P0 inventory slice to land. |
 | Parser Pratt performance | Build precedence fixture inventory, perf harness inputs, and equivalence expectations in parallel with topology/P0 work. | Parser implementation merges only after no-fallback authority, accepted grammar, and diagnostic preservation gates are named. |
-| IDE rename readiness | Audit semantic identity, workspace-index freshness, stale publication suppression, and diagnostics-publication tests independently. | `textDocument/rename` capability advertising waits for all readiness gates to pass in one IDE/LSP merge checkpoint. |
+| IDE rename readiness | The first public checkpoint is closed by a conservative `textDocument/rename` implementation: edits require resolved compiler-owned symbol identity, fresh workspace state, matching snapshot text, and focused LSP coverage. | Keep broadening rename through identity/freshness/workspace-index fixture lanes; apply the same serial capability gate to `codeAction`, `inlayHint`, and later refactor methods. |
 
 ## Guardrails for the Next Checkpoint
 

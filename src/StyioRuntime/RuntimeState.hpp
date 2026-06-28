@@ -8,6 +8,8 @@ using StyioRuntimeLogSink = void (*)(const char* stream, const char* message);
 
 namespace styio::runtime {
 
+// RuntimeState owns error/log state only.
+// Task scheduler queue policy lives behind ReadyQueue and the extern runtime.
 struct RuntimeErrorSnapshot
 {
   bool has_error = false;

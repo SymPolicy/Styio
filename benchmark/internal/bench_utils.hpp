@@ -2,6 +2,7 @@
 #ifndef STYIO_BENCH_INTERNAL_BENCH_UTILS_HPP_
 #define STYIO_BENCH_INTERNAL_BENCH_UTILS_HPP_
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <string>
@@ -20,6 +21,18 @@ struct BenchmarkSample {
   int64_t route_cache_hit_count = 0;
   int64_t route_cache_miss_count = 0;
   int64_t route_cache_disabled_count = 0;
+
+  // IR allocation counters captured from SessionAllocationStats.
+  int64_t ir_arena_allocations = 0;
+  int64_t ir_raw_allocations = 0;
+  int64_t ir_bytes_allocated = 0;
+  int64_t ir_node_count = 0;
+  int64_t ir_max_node_count = 0;
+  int64_t ir_destructor_calls = 0;
+
+  // Task scheduler metadata/counters captured from the runtime profile snapshot.
+  int64_t task_scheduler_queue_kind = -1; // ReadyQueueKind: 0=MutexDeque, 1=BoundedMPMC
+  int64_t task_scheduler_worker_count = 0;
 };
 
 struct BenchmarkResult {
@@ -124,6 +137,32 @@ inline std::string BenchmarkResult::to_json() const {
     }
     if (is_route_cache_sample || s.route_cache_disabled_count > 0) {
       out += ", \"route_cache_disabled_count\": " + std::to_string(s.route_cache_disabled_count);
+    }
+    const bool is_ir_alloc_sample = s.phase == "ir_alloc";
+    if (is_ir_alloc_sample || s.ir_arena_allocations > 0) {
+      out += ", \"ir_arena_allocations\": " + std::to_string(s.ir_arena_allocations);
+    }
+    if (is_ir_alloc_sample || s.ir_raw_allocations > 0) {
+      out += ", \"ir_raw_allocations\": " + std::to_string(s.ir_raw_allocations);
+    }
+    if (is_ir_alloc_sample || s.ir_bytes_allocated > 0) {
+      out += ", \"ir_bytes_allocated\": " + std::to_string(s.ir_bytes_allocated);
+    }
+    if (is_ir_alloc_sample || s.ir_node_count > 0) {
+      out += ", \"ir_node_count\": " + std::to_string(s.ir_node_count);
+    }
+    if (is_ir_alloc_sample || s.ir_max_node_count > 0) {
+      out += ", \"ir_max_node_count\": " + std::to_string(s.ir_max_node_count);
+    }
+    if (is_ir_alloc_sample || s.ir_destructor_calls > 0) {
+      out += ", \"ir_destructor_calls\": " + std::to_string(s.ir_destructor_calls);
+    }
+    const bool is_scheduler_sample = s.phase == "scheduler";
+    if (is_scheduler_sample || s.task_scheduler_queue_kind >= 0) {
+      out += ", \"task_scheduler_queue_kind\": " + std::to_string(s.task_scheduler_queue_kind);
+    }
+    if (is_scheduler_sample || s.task_scheduler_worker_count > 0) {
+      out += ", \"task_scheduler_worker_count\": " + std::to_string(s.task_scheduler_worker_count);
     }
     out += "}";
     if (i + 1 < samples.size()) out += ",";

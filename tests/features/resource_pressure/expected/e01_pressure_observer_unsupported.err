@@ -1,0 +1,1 @@
+resource family @stdout does not expose pressure stream: .pressure

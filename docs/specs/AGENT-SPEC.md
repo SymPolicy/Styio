@@ -90,7 +90,7 @@ Styio/
 │   │   ├── DOCUMENTATION-POLICY.md
 │   │   └── THIRD-PARTY.md
 │   ├── review/                 # Review findings and logic conflicts
-│   ├── plans/                  # Implementation and migration plans
+│   ├── plan/                   # Implementation plans, plan reports, and Better Plan state
 │   ├── assets/
 │   │   ├── workflow/           # Reusable workflows, test framework docs, repo hygiene
 │   │   └── templates/          # Reusable templates
@@ -623,6 +623,14 @@ All documentation is Markdown. Use:
 - Tables for structured data
 - Fenced code blocks with language tags (`cpp`, `ebnf`, or no tag for Styio code)
 - No emojis
+
+### 12.2.1 Documentation Language
+
+Write repository documentation in English by default. This rule applies to development docs, design docs, specs, ADRs, runbooks, workflows, plans, test catalogs, audit records, and source-level README files.
+
+Use Chinese or bilingual text only for explicit product-facing, marketing, localization, or translation artifacts, such as the root `README.md` / `README_zh.md` pair. The English document remains authoritative unless a localization owner explicitly marks a translated artifact as the active user-facing source for that audience.
+
+When editing an existing non-English development document, convert the touched section to English instead of adding more non-English maintenance prose, unless the file is explicitly a translation artifact.
 
 ### 12.3 Code Examples in Docs
 

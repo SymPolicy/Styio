@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -217,6 +218,53 @@ TEST(StyioResourceTopology, GraphApiCoversSparseEdgesAndInvalidLookups) {
     << graph.debug_string();
   EXPECT_NE(graph.debug_string().find("Placement place"), std::string::npos)
     << graph.debug_string();
+}
+
+TEST(StyioResourceTopology, CycleDetectionReportsClosedPathAndEdges) {
+  rt::Graph graph;
+  const std::size_t a = graph.add_node(
+    rt::NodeKind::Task,
+    "task:A",
+    rt::Capability::Task,
+    rt::TypeState::Ready);
+  const std::size_t b = graph.add_node(
+    rt::NodeKind::Task,
+    "task:B",
+    rt::Capability::Task,
+    rt::TypeState::Ready);
+  const std::size_t c = graph.add_node(
+    rt::NodeKind::Task,
+    "task:C",
+    rt::Capability::Task,
+    rt::TypeState::Ready);
+  const std::size_t tail = graph.add_node(
+    rt::NodeKind::Sink,
+    "tail",
+    rt::Capability::None,
+    rt::TypeState::Closed);
+
+  graph.add_edge(rt::EdgeKind::HappensBefore, a, b, "a-before-b");
+  graph.add_edge(rt::EdgeKind::Flow, b, c, "b-to-c");
+  graph.add_edge(rt::EdgeKind::HappensBefore, c, a, "c-before-a");
+  graph.add_edge(rt::EdgeKind::Flow, c, tail, "cycle-output-tail");
+
+  const std::vector<rt::CycleInfo> cycles = graph.detect_cycles();
+
+  ASSERT_EQ(cycles.size(), 1u);
+  const rt::CycleInfo& cycle = cycles.front();
+  ASSERT_EQ(cycle.node_ids.size(), 4u);
+  ASSERT_EQ(cycle.edge_ids.size(), 3u);
+  EXPECT_EQ(cycle.node_ids.front(), cycle.node_ids.back());
+  EXPECT_EQ(
+    std::count(cycle.node_ids.begin(), cycle.node_ids.end(), tail),
+    0);
+
+  for (std::size_t i = 0; i < cycle.edge_ids.size(); ++i) {
+    const rt::Edge& edge = graph.edges().at(cycle.edge_ids[i]);
+    EXPECT_EQ(edge.from, cycle.node_ids[i]);
+    EXPECT_EQ(edge.to, cycle.node_ids[i + 1]);
+    EXPECT_TRUE(edge.kind == rt::EdgeKind::HappensBefore || edge.kind == rt::EdgeKind::Flow);
+  }
 }
 
 TEST(StyioResourceTopology, BuilderReusesCachedAstNodesForRepeatedVisits) {
@@ -441,6 +489,30 @@ TEST(StyioResourceTopology, ResourceTopologyDeclWriteAndSelectorBuildPendingComm
   EXPECT_NE(result.graph.debug_string().find("pending-write"), std::string::npos)
     << result.graph.debug_string();
   EXPECT_NE(result.graph.debug_string().find("committed-snapshot-read"), std::string::npos)
+    << result.graph.debug_string();
+}
+
+TEST(StyioResourceTopology, ResourceTopologyRejectsUnboundedSnapshotSelectors) {
+  auto resource_type = styio_make_topology_resource_type(
+    StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
+    StyioResourceShapeKind::Scalar);
+  auto root = program({
+    ResourceDeclAST::Create({
+      {NameAST::Create("x"), TypeAST::Create(resource_type)},
+    }),
+    PrintAST::Create({
+      ResourceRefAST::CreateSelector(NameAST::Create("x"), ResourceSelectorKind::SnapshotAll),
+    }),
+  });
+
+  rt::BuildResult result = rt::build(root.get());
+
+  ASSERT_FALSE(result.report.ok());
+  EXPECT_NE(
+    result.report.message().find("slice/snapshot selection requires a bounded topology resource"),
+    std::string::npos)
+    << result.report.message();
+  EXPECT_EQ(result.graph.debug_string().find("committed-snapshot-read"), std::string::npos)
     << result.graph.debug_string();
 }
 

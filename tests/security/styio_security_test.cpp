@@ -3355,7 +3355,7 @@ TEST(StyioIRContract, TupleReturnAnnotationsFailClosedForFunctionLowering) {
   );
 }
 
-TEST(StyioIRContract, FunctionLoweringDefaultsUntypedParamsAndEmptyBodies) {
+TEST(StyioIRContract, FunctionLoweringDefaultsUntypedParamsAndRejectsEmptyBodies) {
   {
     AstToStyioIRLowerer analyzer;
     std::unique_ptr<StyioAST> ast(FunctionAST::Create(
@@ -3389,13 +3389,7 @@ TEST(StyioIRContract, FunctionLoweringDefaultsUntypedParamsAndEmptyBodies) {
       nullptr
     ));
 
-    std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
-    auto* fn = dynamic_cast<SGFunc*>(ir.get());
-    ASSERT_NE(fn, nullptr);
-    ASSERT_NE(fn->ret_type, nullptr);
-    EXPECT_EQ(fn->ret_type->data_type.option, StyioDataTypeOption::Integer);
-    ASSERT_NE(fn->func_block, nullptr);
-    EXPECT_TRUE(fn->func_block->stmts.empty());
+    EXPECT_THROW((void)ast->toStyioIR(&analyzer), StyioTypeError);
   }
 
   {
@@ -3408,13 +3402,7 @@ TEST(StyioIRContract, FunctionLoweringDefaultsUntypedParamsAndEmptyBodies) {
       BlockAST::Create({})
     ));
 
-    std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
-    auto* fn = dynamic_cast<SGFunc*>(ir.get());
-    ASSERT_NE(fn, nullptr);
-    ASSERT_NE(fn->ret_type, nullptr);
-    EXPECT_EQ(fn->ret_type->data_type.option, StyioDataTypeOption::Integer);
-    ASSERT_NE(fn->func_block, nullptr);
-    EXPECT_TRUE(fn->func_block->stmts.empty());
+    EXPECT_THROW((void)ast->toStyioIR(&analyzer), StyioTypeError);
   }
 }
 
@@ -3977,6 +3965,99 @@ TEST(StyioIRContract, ResourceMethodInliningClonesWritePreface) {
   EXPECT_NE(dynamic_cast<SGConstString*>(value_scope->stmts.back()), nullptr);
 }
 
+TEST(StyioIRContract, ResourceMethodInliningClonesFmtStringBody) {
+  AstToStyioIRLowerer analyzer;
+  auto param_i64 = [](const std::string& name) {
+    return ParamAST::Create(NameAST::Create(name), TypeAST::Create("i64"));
+  };
+  auto var_typed = [](const std::string& name, TypeAST* type) {
+    return VarAST::Create(NameAST::Create(name), type);
+  };
+
+  std::unique_ptr<MainBlockAST> program(MainBlockAST::Create({
+    ResourceMethodDefAST::Create(
+      "file",
+      "summary",
+      false,
+      false,
+      {param_i64("payload")},
+      ReturnAST::Create(FmtStrAST::Create(
+        {"value="},
+        {
+          BinOpAST::Create(
+            StyioOpType::Binary_Add,
+            NameAST::Create("payload"),
+            IntAST::Create("1"))
+        }))
+    ),
+    HandleAcquireAST::Create(
+      var_typed("log", TypeAST::Create(styio_make_file_handle_type("i64"))),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-resource-method-fmt-inline"), false)
+    ),
+    FinalBindAST::Create(
+      var_typed("summary", TypeAST::Create("string")),
+      FuncCallAST::Create(NameAST::Create("log"), NameAST::Create("summary"), {IntAST::Create("41")})
+    ),
+  }));
+
+  program->typeInfer(&analyzer);
+  std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));
+  auto* entry = dynamic_cast<SGMainEntry*>(ir.get());
+  ASSERT_NE(entry, nullptr);
+  ASSERT_EQ(entry->stmts.size(), 3u);
+  EXPECT_NE(dynamic_cast<SGNoOp*>(entry->stmts[0]), nullptr);
+  EXPECT_NE(dynamic_cast<SIOHandleAcquire*>(entry->stmts[1]), nullptr);
+
+  auto* summary = dynamic_cast<SGFinalBind*>(entry->stmts[2]);
+  ASSERT_NE(summary, nullptr);
+  auto* fmt = dynamic_cast<SGBinOp*>(summary->value);
+  ASSERT_NE(fmt, nullptr);
+}
+
+TEST(StyioIRContract, ResourceMethodInliningClonesSizeOfBody) {
+  AstToStyioIRLowerer analyzer;
+  auto param_i64 = [](const std::string& name) {
+    return ParamAST::Create(NameAST::Create(name), TypeAST::Create("i64"));
+  };
+  auto var_typed = [](const std::string& name, TypeAST* type) {
+    return VarAST::Create(NameAST::Create(name), type);
+  };
+
+  std::unique_ptr<MainBlockAST> program(MainBlockAST::Create({
+    ResourceMethodDefAST::Create(
+      "file",
+      "count_items",
+      false,
+      false,
+      {param_i64("payload")},
+      ReturnAST::Create(new SizeOfAST(ListAST::Create({
+        NameAST::Create("payload"),
+        IntAST::Create("2")
+      })))
+    ),
+    HandleAcquireAST::Create(
+      var_typed("log", TypeAST::Create(styio_make_file_handle_type("i64"))),
+      FileResourceAST::Create(StringAST::Create("/tmp/styio-resource-method-sizeof-inline"), false)
+    ),
+    FinalBindAST::Create(
+      var_typed("count", TypeAST::Create("i64")),
+      FuncCallAST::Create(NameAST::Create("log"), NameAST::Create("count_items"), {IntAST::Create("41")})
+    ),
+  }));
+
+  program->typeInfer(&analyzer);
+  std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));
+  auto* entry = dynamic_cast<SGMainEntry*>(ir.get());
+  ASSERT_NE(entry, nullptr);
+  ASSERT_EQ(entry->stmts.size(), 3u);
+  EXPECT_NE(dynamic_cast<SGNoOp*>(entry->stmts[0]), nullptr);
+  EXPECT_NE(dynamic_cast<SIOHandleAcquire*>(entry->stmts[1]), nullptr);
+
+  auto* count = dynamic_cast<SGFinalBind*>(entry->stmts[2]);
+  ASSERT_NE(count, nullptr);
+  EXPECT_NE(dynamic_cast<SCListLen*>(count->value), nullptr);
+}
+
 TEST(StyioIRContract, ResourceMethodInliningClonesHandleAcquireIteratorStatements) {
   AstToStyioIRLowerer analyzer;
   auto var_typed = [](const std::string& name, TypeAST* type) {
@@ -4251,6 +4332,9 @@ TEST(StyioDiagnosticContract, ClassifiersCoverFallbackAndPhaseFamilies) {
     diag::classify_type_or_lowering_code(
       "StyioIR verifier failed: missing required StyioIR child: SGReturn.expr"),
     "STYIO_IR_VERIFY_CONTRACT");
+  EXPECT_EQ(
+    diag::classify_type_or_lowering_code("function body requires a return value"),
+    "STYIO_TYPE_FUNCTION_MISSING_RETURN");
   EXPECT_EQ(
     diag::classify_type_or_lowering_code("native subsystem returned an unknown failure"),
     "STYIO_NATIVE_INTEROP_ERROR");
@@ -7607,6 +7691,14 @@ TEST(StyioSecurityNightlyParserStmt, ParsesFormatStringEscapesAndRejectsMalforme
   }
 }
 
+TEST(StyioSecurityNightlyParserStmt, RejectsMalformedFormatStringInResourceMethodBody) {
+  const std::string src =
+    "@file::summary = () => { <| $\"value={1 + 2\" }\n";
+
+  EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
+  EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesTaskGroupAndAwaitBindings) {
   const std::string src =
     "||> [\n"
@@ -9094,7 +9186,7 @@ TEST(StyioSecurityNightlyParserStmt, ParsesInternalResourceDefinitions) {
 
 TEST(StyioSecurityNightlyParserStmt, ParsesResourcePreludeSourceFile) {
   const auto prelude =
-    std::filesystem::path(STYIO_SOURCE_DIR) / "src" / "StyioPrelude" / "resources.styio";
+    std::filesystem::path(STYIO_SOURCE_DIR) / "share" / "styio" / "prelude" / "resources.styio";
   std::ifstream in(prelude);
   ASSERT_TRUE(in.good()) << prelude;
   const std::string src(

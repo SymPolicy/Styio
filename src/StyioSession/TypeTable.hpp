@@ -27,6 +27,8 @@ struct TypeKey {
   std::uint32_t capabilities = 0;
   SymbolId item_type_name_id = kInvalidSymbolId;
   SymbolId key_type_name_id = kInvalidSymbolId;
+  bool has_std_stream_kind = false;
+  int std_stream_kind = -1;
   SymbolId resource_value_type_name_id = kInvalidSymbolId;
   bool is_resource_type = false;
   StyioValueFamily value_family = StyioValueFamily::Unknown;
@@ -53,6 +55,8 @@ struct TypeKeyHash {
     combine(h, k.capabilities);
     combine(h, k.item_type_name_id);
     combine(h, k.key_type_name_id);
+    combine(h, k.has_std_stream_kind ? 1 : 0);
+    combine(h, static_cast<std::size_t>(static_cast<std::uint32_t>(k.std_stream_kind)));
     combine(h, k.resource_value_type_name_id);
     combine(h, k.is_resource_type ? 1 : 0);
     combine(h, k.value_family);
@@ -72,6 +76,7 @@ public:
 
   /// Intern a type — returns existing id if already canonicalized.
   TypeId intern(const TypeKey& key);
+  TypeId intern(const StyioDataType& type, SymbolInterner& symbols);
 
   /// Resolve a TypeId back to its TypeKey.
   const TypeKey& resolve(TypeId id) const;
@@ -80,7 +85,9 @@ public:
   bool equals(TypeId a, TypeId b) const noexcept { return a == b; }
 
   /// Pre-register built-in types. Call once after interner is populated.
-  void register_builtins();
+  void register_builtins(SymbolInterner* symbols = nullptr);
+
+  static TypeKey make_key(const StyioDataType& type, SymbolInterner& symbols);
 
   TypeId builtin_i64() const noexcept { return builtin_i64_; }
   TypeId builtin_f64() const noexcept { return builtin_f64_; }

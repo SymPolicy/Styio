@@ -6,7 +6,7 @@
 
 Resource changes start from internal Styio source:
 
-- Add or update `src/StyioPrelude/resources.styio`.
+- Add or update `share/styio/prelude/resources.styio`.
 - Use `@ name : type := #(args) => { body }` for resources with a declared type.
 - Use `@ name := #(args) => { body }` only for fixed standard-resource declarations where the
   type is already fixed by the resource family.
@@ -19,7 +19,7 @@ behavior once the resource identity is defined in Styio.
 | Surface | Examples |
 |---------|----------|
 | syntax SSOT | `docs/design/syntax/RESOURCE_IDENTIFIERS.md` |
-| prelude source | `src/StyioPrelude/resources.styio` |
+| prelude source | `share/styio/prelude/resources.styio` |
 | lifecycle docs | resource ownership, close, transfer, error behavior |
 | lexer/parser | `@name`, resource literals, write/read shorthand |
 | analyzer | copy rules, ownership, type family, fail-closed diagnostics |

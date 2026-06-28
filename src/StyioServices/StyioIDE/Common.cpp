@@ -62,6 +62,46 @@ percent_encode(const std::string& input) {
   return oss.str();
 }
 
+std::size_t
+utf8_sequence_bytes(unsigned char lead) {
+  if ((lead & 0x80U) == 0U) {
+    return 1;
+  }
+  if ((lead & 0xE0U) == 0xC0U) {
+    return 2;
+  }
+  if ((lead & 0xF0U) == 0xE0U) {
+    return 3;
+  }
+  if ((lead & 0xF8U) == 0xF0U) {
+    return 4;
+  }
+  return 1;
+}
+
+std::size_t
+utf16_units_for_utf8_lead(unsigned char lead) {
+  return (lead & 0xF8U) == 0xF0U ? 2 : 1;
+}
+
+std::size_t
+utf16_units_between(const std::string& text, std::size_t start, std::size_t end) {
+  start = std::min(start, text.size());
+  end = std::min(end, text.size());
+  if (end < start) {
+    return 0;
+  }
+
+  std::size_t units = 0;
+  for (std::size_t cursor = start; cursor < end;) {
+    const unsigned char lead = static_cast<unsigned char>(text[cursor]);
+    const std::size_t width = std::min(utf8_sequence_bytes(lead), end - cursor);
+    units += utf16_units_for_utf8_lead(lead);
+    cursor += std::max<std::size_t>(1, width);
+  }
+  return units;
+}
+
 }  // namespace
 
 void
@@ -102,6 +142,19 @@ TextBuffer::position_at(std::size_t offset) const {
   return Position{line, offset - line_starts_[line]};
 }
 
+Position
+TextBuffer::utf16_position_at(std::size_t offset) const {
+  const Position byte_position = position_at(offset);
+  if (line_starts_.empty()) {
+    return byte_position;
+  }
+
+  const std::size_t line = std::min(byte_position.line, line_starts_.size() - 1);
+  return Position{
+    line,
+    utf16_units_between(text_, line_starts_[line], std::min(offset, text_.size()))};
+}
+
 std::size_t
 TextBuffer::offset_at(Position position) const {
   if (line_starts_.empty()) {
@@ -113,6 +166,11 @@ TextBuffer::offset_at(Position position) const {
   const std::size_t next_line_start = line + 1 < line_starts_.size() ? line_starts_[line + 1] : text_.size();
   const std::size_t line_len = next_line_start >= line_start ? next_line_start - line_start : 0;
   return line_start + std::min(position.character, line_len);
+}
+
+std::size_t
+TextBuffer::utf16_length(TextRange range) const {
+  return utf16_units_between(text_, range.start, range.end);
 }
 
 std::vector<std::pair<std::size_t, std::size_t>>

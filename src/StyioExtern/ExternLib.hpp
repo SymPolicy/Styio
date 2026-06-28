@@ -69,6 +69,7 @@ struct StyioTaskSchedulerProfileSnapshot
 {
   int64_t enabled;
   int64_t worker_count;
+  int64_t ready_queue_kind;
   int64_t active_tasks;
   int64_t ready_tasks;
   int64_t spawned_tasks;

@@ -31,10 +31,10 @@
 | Semantic query database | `StyioIDE` | `styio::ide::SemanticDB` | C++ API | Provide cached syntax, semantic, HIR, completion, hover, definition, references, type, and semantic-token queries. |
 | IDE facade | `StyioIDE` | `styio::ide::IdeService` | C++ API | Provide the primary in-process IDE service for document lifecycle, completion, hover, definition, references, symbols, semantic tokens, and runtime scheduling. |
 | Runtime scheduling counters | `StyioIDE` | `RuntimeCounters`, `RuntimeIdleResult` | C++ API | Track request cancellation, stale drops, semantic diagnostic runs, background indexing, and latency counters. |
-| LSP request handling | `StyioLSP` | `styio::lsp::Server::handle` | C++ API | Handle initialize, document sync, completion, hover, definition, references, symbols, semantic tokens, and runtime-drain requests through JSON-RPC payloads. |
+| LSP request handling | `StyioLSP` | `styio::lsp::Server::handle` | C++ API | Handle initialize, document sync, completion, hover, definition, references, rename, code actions, inlay hints, symbols, semantic tokens, and runtime-drain requests through JSON-RPC payloads, with initialize recording explicit single-workspace root selection, fail-closed `workspaceFolders` support, defensive no-response handling for notification-style initialize messages, and freshness-gated rename/inlay/codeAction behavior. |
 | LSP diagnostic code mapping | `StyioLSP` | LSP `Diagnostic.code` and `data.phase` | LSP payload fields | Publish Styio diagnostic codes and phases to editor hosts without inventing a separate compiler grammar or diagnostic namespace. |
 | LSP runtime drain | `StyioLSP` | `Server::drain_runtime` | C++ API | Publish queued semantic diagnostics and background work notifications after foreground requests. |
-| LSP daemon | `StyioLSP` | `styio_lspd` / `Server::run` | CLI daemon plus C++ API | Run the editor-neutral stdio LSP server. |
+| LSP daemon | `StyioLSP` | `styio_lspd` / `Server::run` | CLI daemon plus C++ API | Run the editor-neutral stdio LSP server, emit canonical byte-exact `Content-Length: N\r\n\r\n` frames, and accept ASCII case variants of the inbound `Content-Length` header. |
 
 ## Contract Rules
 

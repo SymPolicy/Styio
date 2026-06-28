@@ -1,6 +1,6 @@
-# Plans Docs
+# Plan Docs
 
-**Purpose:** Define the scope and naming rules for the small set of active implementation plans under `docs/plans/`; absorbed plans are removed from the current tree after durable rules move into active docs, and the generated file inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the unified `docs/plan/` workspace for active implementation plans, plan evidence reports, and Better Plan state; absorbed plans are removed from the current tree after durable rules move into active docs, and generated inventories live in [INDEX.md](./INDEX.md).
 
 **Last updated:** 2026-06-28
 
@@ -10,7 +10,9 @@
 2. These files are not language or acceptance SSOT.
 3. A plan may remain here after a repo-local baseline closes only if it still governs hardening, cross-repository alignment, or later closure work; when that happens, the file must state its current status explicitly near the top.
 4. When a plan is superseded or its durable knowledge has been absorbed into active docs, remove it from the current tree and rely on Git history for exact old wording.
-5. Tradeoff order for plans still follows [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
+5. Store plan evidence reports under [reports/](./reports/) when the evidence still supports active rollups, ADR follow-up, or pending acceptance work.
+6. Store Better Plan state at [Manifest.json](./Manifest.json) and each plan directory's `Checkpoints.json`; there is no separate `better-plan` directory.
+7. Tradeoff order for plans still follows [../specs/PRINCIPLES-AND-OBJECTIVES.md](../specs/PRINCIPLES-AND-OBJECTIVES.md).
 
 ## Required Plan Shape
 
@@ -36,7 +38,7 @@ Common foundation work must be routed through exactly one foundation plan per fo
 1. Use explicit top-level status wording such as `Active`, `Repo-local baseline completed`, or `Completed and ready for deletion after promotion`.
 2. If a repo-local baseline is complete but ecosystem closure remains open elsewhere, say so directly and link the owning master plan.
 3. If a plan is still the sequencing document for unfinished work, keep it short and link the owning SSOT instead of duplicating details.
-4. `docs/plans/INDEX.md` and repository entry docs should be able to answer "is this still active?" without forcing readers to infer it from stage tables.
+4. `docs/plan/INDEX.md`, `docs/plan/reports/INDEX.md`, and repository entry docs should be able to answer "is this still active?" without forcing readers to infer it from stage tables.
 
 ## Naming Rules
 
@@ -46,4 +48,6 @@ Common foundation work must be routed through exactly one foundation plan per fo
 
 ## Inventory
 
-See [INDEX.md](./INDEX.md).
+1. Generated plan inventory: [INDEX.md](./INDEX.md)
+2. Evidence report inventory: [reports/INDEX.md](./reports/INDEX.md)
+3. Better Plan manifest: [Manifest.json](./Manifest.json)

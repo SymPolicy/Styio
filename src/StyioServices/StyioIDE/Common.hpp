@@ -192,7 +192,9 @@ public:
   }
 
   Position position_at(std::size_t offset) const;
+  Position utf16_position_at(std::size_t offset) const;
   std::size_t offset_at(Position position) const;
+  std::size_t utf16_length(TextRange range) const;
   std::vector<std::pair<std::size_t, std::size_t>> build_line_seps() const;
 };
 

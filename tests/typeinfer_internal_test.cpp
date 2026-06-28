@@ -27,12 +27,23 @@ void expect_matrix_type(
 class ExposedTypeInferLowerer : public AstToStyioIRLowerer {
  public:
   using StyioSemaContext::binding_info_;
+  using StyioSemaContext::binding_info_by_sid_;
   using StyioSemaContext::consumed_resource_names_;
+  using StyioSemaContext::consumed_resource_names_by_sid_;
   using StyioSemaContext::consumed_task_names_;
+  using StyioSemaContext::consumed_task_names_by_sid_;
   using StyioSemaContext::fixed_assignment_names_;
+  using StyioSemaContext::fixed_assignment_names_by_sid_;
+  using StyioSemaContext::inferred_function_return_types_;
+  using StyioSemaContext::inferred_function_return_types_by_sid_;
   using StyioSemaContext::owned_resource_names_;
+  using StyioSemaContext::owned_resource_names_by_sid_;
   using StyioSemaContext::resource_binding_types_;
+  using StyioSemaContext::resource_binding_types_by_sid_;
+  using StyioSemaContext::snapshot_var_names_;
+  using StyioSemaContext::snapshot_var_names_by_sid_;
   using StyioSemaContext::task_outer_resource_names_stack_;
+  using StyioSemaContext::task_outer_resource_names_by_sid_stack_;
 };
 
 TEST(StyioTypeInferInternal, MatrixLiteralAndReturnHelpersCoverAnonymousBranches) {
@@ -147,6 +158,16 @@ TEST(StyioTypeInferInternal, FlowAndMatchMergeHelpersCoverAnonymousBranches) {
   EXPECT_EQ(merge_match_value_type(i64, undefined).name, "i64");
   EXPECT_EQ(merge_match_value_type(string_type, i64).name, "string");
   EXPECT_EQ(merge_match_value_type(i64, f64).name, "f64");
+  {
+    styio::session::SymbolInterner symbols;
+    styio::session::TypeTable type_table;
+    AstToStyioIRLowerer analyzer;
+    analyzer.attach_type_table(type_table, symbols);
+    EXPECT_EQ(merge_match_value_type(i64, i64, &analyzer).name, "i64");
+    EXPECT_EQ(type_table.size(), 1u);
+    EXPECT_EQ(merge_match_value_type(string_type, string_type, &analyzer).name, "string");
+    EXPECT_EQ(type_table.size(), 2u);
+  }
   EXPECT_EQ(
     merge_match_value_type(
       styio_data_type_from_name("bool"),
@@ -238,6 +259,643 @@ TEST(StyioTypeInferInternal, CollectionListOperationAndTaskPullEdgesStayExplicit
       VarAST::Create(NameAST::Create("out"), TypeAST::Create("i64"))));
     EXPECT_THROW(bad_target->typeInfer(&analyzer), StyioTypeError);
   }
+}
+
+TEST(StyioTypeInferInternal, AttachedTypeTableInternsBindingTypesThroughSema) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  AstToStyioIRLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  {
+    std::unique_ptr<FinalBindAST> bind(FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("count")),
+      IntAST::Create("1")));
+    ASSERT_NO_THROW(bind->typeInfer(&analyzer));
+  }
+
+  ASSERT_TRUE(analyzer.local_binding_types.contains("count"));
+  const auto count_id = type_table.intern(analyzer.local_binding_types.at("count"), symbols);
+  EXPECT_NE(count_id, styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.size(), 1u);
+
+  {
+    std::unique_ptr<FlexBindAST> bind(FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("other_count")),
+      IntAST::Create("2")));
+    ASSERT_NO_THROW(bind->typeInfer(&analyzer));
+  }
+
+  ASSERT_TRUE(analyzer.local_binding_types.contains("other_count"));
+  EXPECT_EQ(type_table.intern(analyzer.local_binding_types.at("other_count"), symbols), count_id);
+  EXPECT_EQ(type_table.size(), 1u);
+
+  styio::session::SymbolInterner compare_symbols;
+  styio::session::TypeTable compare_table;
+  AstToStyioIRLowerer compare_analyzer;
+  compare_analyzer.attach_type_table(compare_table, compare_symbols);
+
+  std::unique_ptr<StyioAST> literal(IntAST::Create("7"));
+  const StyioDataType literal_type = infer_expr_type(&compare_analyzer, literal.get());
+  EXPECT_EQ(compare_table.size(), 0u);
+
+  EXPECT_TRUE(func_param_accepts_arg(literal_type, literal_type, &compare_analyzer));
+  const auto literal_id = compare_table.intern(literal_type, compare_symbols);
+  EXPECT_NE(literal_id, styio::session::kInvalidTypeId);
+  EXPECT_EQ(compare_table.size(), 1u);
+
+  std::unique_ptr<ListAST> homogeneous(ListAST::Create({
+    IntAST::Create("1"),
+    IntAST::Create("2"),
+  }));
+  EXPECT_EQ(infer_list_literal_type(&compare_analyzer, homogeneous.get()).name, "list[int]");
+  EXPECT_EQ(compare_table.intern(literal_type, compare_symbols), literal_id);
+  EXPECT_EQ(compare_table.size(), 1u);
+
+  styio::session::SymbolInterner tuple_symbols;
+  styio::session::TypeTable tuple_table;
+  AstToStyioIRLowerer tuple_analyzer;
+  tuple_analyzer.attach_type_table(tuple_table, tuple_symbols);
+
+  {
+    auto* first = TypeAST::Create("i64");
+    auto* second = TypeAST::Create("i64");
+    std::unique_ptr<TupleAST> tuple(TupleAST::Create({first, second}));
+    EXPECT_EQ(tuple_table.size(), 0u);
+    tuple->typeInfer(&tuple_analyzer);
+    EXPECT_TRUE(tuple->isConsistent());
+    EXPECT_EQ(tuple->getDataType().name, "i64");
+    EXPECT_EQ(tuple_table.size(), 1u);
+  }
+
+  {
+    auto* first = TypeAST::Create("i64");
+    auto* second = TypeAST::Create("f64");
+    std::unique_ptr<TupleAST> tuple(TupleAST::Create({first, second}));
+    tuple->typeInfer(&tuple_analyzer);
+    EXPECT_FALSE(tuple->isConsistent());
+    EXPECT_EQ(tuple_table.size(), 2u);
+  }
+
+  styio::session::SymbolInterner assignable_symbols;
+  styio::session::TypeTable assignable_table;
+  AstToStyioIRLowerer assignable_analyzer;
+  assignable_analyzer.attach_type_table(assignable_table, assignable_symbols);
+  const StyioDataType list_i64 = styio_make_list_type("i64");
+  EXPECT_TRUE(container_value_assignable(list_i64, list_i64, &assignable_analyzer));
+  const auto list_id = assignable_table.intern(list_i64, assignable_symbols);
+  EXPECT_NE(list_id, styio::session::kInvalidTypeId);
+  EXPECT_EQ(assignable_table.size(), 1u);
+
+  styio::session::SymbolInterner method_symbols;
+  styio::session::TypeTable method_table;
+  AstToStyioIRLowerer method_analyzer;
+  method_analyzer.attach_type_table(method_table, method_symbols);
+  {
+    std::unique_ptr<ResourceMethodDefAST> method(ResourceMethodDefAST::Create(
+      "file",
+      "typed_echo",
+      false,
+      false,
+      {ParamAST::Create(NameAST::Create("value"), TypeAST::Create("i64"))},
+      ReturnAST::Create(StringAST::Create("ok"))));
+    EXPECT_EQ(method_table.size(), 0u);
+    ASSERT_NO_THROW(method->typeInfer(&method_analyzer));
+    EXPECT_EQ(method_table.size(), 2u);
+    EXPECT_NE(method_table.intern(styio_data_type_from_name("i64"), method_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_NE(method_table.intern(styio_data_type_from_name("string"), method_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_EQ(method_table.size(), 2u);
+  }
+
+  styio::session::SymbolInterner function_symbols;
+  styio::session::TypeTable function_table;
+  AstToStyioIRLowerer function_analyzer;
+  function_analyzer.attach_type_table(function_table, function_symbols);
+  {
+    std::unique_ptr<FunctionAST> function(FunctionAST::Create(
+      NameAST::Create("typed_function_decl"),
+      false,
+      {
+        ParamAST::Create(NameAST::Create("value"), TypeAST::Create("i64")),
+        ParamAST::Create(NameAST::Create("items"), TypeAST::Create(styio_make_list_type("string"))),
+      },
+      TypeAST::Create(styio_make_matrix_type("f64", 1, 2)),
+      BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})));
+    EXPECT_EQ(function_table.size(), 0u);
+    ASSERT_NO_THROW(function->typeInfer(&function_analyzer));
+    EXPECT_NE(function_table.intern(styio_data_type_from_name("i64"), function_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_NE(function_table.intern(styio_make_list_type("string"), function_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_NE(function_table.intern(styio_make_matrix_type("f64", 1, 2), function_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_EQ(function_table.size(), 3u);
+  }
+  {
+    std::unique_ptr<SimpleFuncAST> simple(SimpleFuncAST::Create(
+      NameAST::Create("typed_simple_decl"),
+      {
+        ParamAST::Create(NameAST::Create("text"), TypeAST::Create("string")),
+      },
+      TypeAST::Create("f64"),
+      FloatAST::Create("1.0")));
+    ASSERT_NO_THROW(simple->typeInfer(&function_analyzer));
+    EXPECT_NE(function_table.intern(styio_data_type_from_name("string"), function_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_NE(function_table.intern(styio_data_type_from_name("f64"), function_symbols),
+              styio::session::kInvalidTypeId);
+    EXPECT_EQ(function_table.size(), 5u);
+  }
+}
+
+TEST(StyioTypeInferInternal, AttachedTypeTableInternsContainerLiteralTypesThroughSema) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  AstToStyioIRLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  std::unique_ptr<ListAST> list(ListAST::Create({}));
+  ASSERT_NO_THROW(list->typeInfer(&analyzer));
+  EXPECT_EQ(type_table.size(), 1u);
+  const auto list_id = type_table.intern(list->getDataType(), symbols);
+  EXPECT_NE(list_id, styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.resolve(list_id).option, StyioDataTypeOption::List);
+  EXPECT_EQ(type_table.size(), 1u);
+
+  std::unique_ptr<DictAST> dict(DictAST::Create());
+  ASSERT_NO_THROW(dict->typeInfer(&analyzer));
+  EXPECT_EQ(type_table.size(), 2u);
+  const auto dict_id = type_table.intern(dict->getDataType(), symbols);
+  EXPECT_NE(dict_id, styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.resolve(dict_id).option, StyioDataTypeOption::Dict);
+  EXPECT_EQ(type_table.size(), 2u);
+
+  std::unique_ptr<ListAST> same_list(ListAST::Create({}));
+  ASSERT_NO_THROW(same_list->typeInfer(&analyzer));
+  EXPECT_EQ(type_table.intern(same_list->getDataType(), symbols), list_id);
+  EXPECT_EQ(type_table.size(), 2u);
+}
+
+TEST(StyioTypeInferInternal, AttachedTypeTableInternsSemaContextSideMapWrites) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  AstToStyioIRLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+  const StyioDataType f64 = styio_data_type_from_name("f64");
+  const StyioDataType bool_type = styio_data_type_from_name("bool");
+  const StyioDataType string_type = styio_data_type_from_name("string");
+  const StyioDataType list_string = styio_make_list_type("string");
+  const StyioDataType matrix_f64 = styio_make_matrix_type("f64", 1, 2);
+
+  EXPECT_EQ(type_table.size(), 0u);
+
+  const auto local_sid = symbols.intern("side_local");
+  analyzer.record_local_binding_type("side_local", local_sid, i64);
+  EXPECT_EQ(type_table.intern(i64, symbols), styio::session::TypeId{1});
+  EXPECT_EQ(type_table.size(), 1u);
+
+  const auto resource_sid = symbols.intern("side_resource");
+  analyzer.record_resource_binding_type("side_resource", resource_sid, list_string);
+  EXPECT_NE(type_table.intern(list_string, symbols), styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.size(), 2u);
+
+  const auto method_local_sid = symbols.intern("side_method_local");
+  analyzer.record_resource_method_dynamic_local_binding_type(
+    "side_method_local",
+    method_local_sid,
+    matrix_f64);
+  EXPECT_NE(type_table.intern(matrix_f64, symbols), styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.size(), 3u);
+
+  const auto info_sid = symbols.intern("side_info");
+  StyioSemaContext::BindingInfo info;
+  info.declared_type = f64;
+  analyzer.record_binding_info("side_info", info_sid, info);
+  EXPECT_NE(type_table.intern(f64, symbols), styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.size(), 4u);
+
+  const auto native_sid = symbols.intern("side_native");
+  StyioSemaContext::NativeFunctionType native_type;
+  native_type.return_type = string_type;
+  native_type.arg_types = {bool_type, list_string};
+  analyzer.record_native_function_def("side_native", native_sid, native_type);
+  EXPECT_NE(type_table.intern(string_type, symbols), styio::session::kInvalidTypeId);
+  EXPECT_NE(type_table.intern(bool_type, symbols), styio::session::kInvalidTypeId);
+  EXPECT_EQ(type_table.size(), 6u);
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesFunctionDefinitionsBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const auto fn_sid = symbols.intern("by_sid");
+  const auto param_sid = symbols.intern("value");
+  std::unique_ptr<FunctionAST> fn(FunctionAST::Create(
+    NameAST::Create("by_sid", fn_sid),
+    false,
+    {ParamAST::Create(NameAST::Create("value", param_sid), TypeAST::Create("i64"))},
+    TypeAST::Create("i64"),
+    BlockAST::Create({ReturnAST::Create(NameAST::Create("value", param_sid))})));
+
+  ASSERT_NO_THROW(fn->typeInfer(&analyzer));
+  ASSERT_NE(analyzer.find_function_def(fn_sid, "by_sid"), nullptr);
+  analyzer.func_defs.clear();
+
+  std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+    NameAST::Create("by_sid", fn_sid),
+    {IntAST::Create("41")}));
+  EXPECT_EQ(infer_expr_type(&analyzer, call.get()).name, "i64");
+  EXPECT_NO_THROW(call->typeInfer(&analyzer));
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesNativeFunctionDefinitionsBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const auto native_sid = symbols.intern("native_by_sid");
+  StyioSemaContext::NativeFunctionType native_type;
+  native_type.return_type = styio_data_type_from_name("i64");
+  native_type.arg_types.push_back(styio_data_type_from_name("i64"));
+  analyzer.record_native_function_def("native_by_sid", native_sid, native_type);
+  ASSERT_TRUE(analyzer.native_func_defs_by_sid.contains(native_sid));
+
+  analyzer.native_func_defs.clear();
+  std::unique_ptr<FuncCallAST> call(FuncCallAST::Create(
+    NameAST::Create("native_by_sid", native_sid),
+    {IntAST::Create("41")}));
+  EXPECT_EQ(infer_expr_type(&analyzer, call.get()).name, "i64");
+  EXPECT_NO_THROW(call->typeInfer(&analyzer));
+
+  std::unique_ptr<FuncCallAST> wrong_arity(FuncCallAST::Create(
+    NameAST::Create("native_by_sid", native_sid),
+    {}));
+  EXPECT_THROW(wrong_arity->typeInfer(&analyzer), StyioTypeError);
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesLocalBindingTypesBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const auto local_sid = symbols.intern("by_sid_local");
+  std::unique_ptr<FinalBindAST> bind(FinalBindAST::Create(
+    VarAST::Create(NameAST::Create("by_sid_local", local_sid), TypeAST::Create("i64")),
+    IntAST::Create("7")));
+
+  ASSERT_NO_THROW(bind->typeInfer(&analyzer));
+  const StyioDataType* recorded =
+    analyzer.find_local_binding_type(local_sid, "by_sid_local");
+  ASSERT_NE(recorded, nullptr);
+  EXPECT_EQ(recorded->name, "i64");
+
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<NameAST> sid_read(NameAST::Create("by_sid_local", local_sid));
+  EXPECT_EQ(infer_expr_type(&analyzer, sid_read.get()).name, "i64");
+
+  std::unique_ptr<NameAST> spelling_read(NameAST::Create("by_sid_local"));
+  EXPECT_EQ(infer_expr_type(&analyzer, spelling_read.get()).name, "i64");
+
+  const auto numeric_sid = symbols.intern("by_sid_numeric");
+  analyzer.record_local_binding_type(
+    "by_sid_numeric",
+    numeric_sid,
+    styio_data_type_from_name("f64"));
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<BinOpAST> self_add(BinOpAST::Create(
+    StyioOpType::Self_Add_Assign,
+    NameAST::Create("by_sid_numeric", numeric_sid),
+    IntAST::Create("1")));
+  EXPECT_NO_THROW(self_add->typeInfer(&analyzer));
+  EXPECT_EQ(self_add->getType().name, "f64");
+
+  const auto lhs_sid = symbols.intern("by_sid_lhs");
+  const auto rhs_sid = symbols.intern("by_sid_rhs");
+  analyzer.record_local_binding_type("by_sid_lhs", lhs_sid, styio_data_type_from_name("f64"));
+  analyzer.record_local_binding_type("by_sid_rhs", rhs_sid, styio_data_type_from_name("i64"));
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<BinOpAST> sum(BinOpAST::Create(
+    StyioOpType::Binary_Add,
+    NameAST::Create("by_sid_lhs", lhs_sid),
+    NameAST::Create("by_sid_rhs", rhs_sid)));
+  EXPECT_NO_THROW(sum->typeInfer(&analyzer));
+  EXPECT_EQ(sum->getType().name, "f64");
+
+  const auto stdin_sid = symbols.intern("by_sid_stdin_source");
+  const auto collect_sid = symbols.intern("by_sid_stdin_collect");
+  analyzer.record_local_binding_type(
+    "by_sid_stdin_source",
+    stdin_sid,
+    styio_make_std_stream_type(StdStreamKind::Stdin, "string"));
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<HandleAcquireAST> collect(HandleAcquireAST::Create(
+    VarAST::Create(NameAST::Create("by_sid_stdin_collect", collect_sid)),
+    NameAST::Create("by_sid_stdin_source", stdin_sid),
+    HandleAcquireAST::BindMode::Flex));
+  EXPECT_NO_THROW(collect->typeInfer(&analyzer));
+  const StyioDataType* collected_type =
+    analyzer.find_local_binding_type(collect_sid, "by_sid_stdin_collect");
+  ASSERT_NE(collected_type, nullptr);
+  EXPECT_EQ(collected_type->name, "list[string]");
+
+  const auto task_sid = symbols.intern("by_sid_task");
+  const auto pull_target_sid = symbols.intern("by_sid_pull_target");
+  analyzer.record_local_binding_type("by_sid_task", task_sid, styio_make_task_type("i64"));
+  analyzer.record_local_binding_type(
+    "by_sid_pull_target",
+    pull_target_sid,
+    styio_data_type_from_name("i64"));
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<HandleAcquireAST> pull(HandleAcquireAST::Create(
+    VarAST::Create(NameAST::Create("by_sid_pull_target", pull_target_sid)),
+    NameAST::Create("by_sid_task", task_sid)));
+  EXPECT_NO_THROW(pull->typeInfer(&analyzer));
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesFixedAssignmentsBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+
+  const auto fixed_sid = symbols.intern("fixed_by_sid");
+  std::unique_ptr<FinalBindAST> final_bind(FinalBindAST::Create(
+    VarAST::Create(NameAST::Create("fixed_by_sid", fixed_sid), TypeAST::Create("i64")),
+    IntAST::Create("1")));
+  ASSERT_NO_THROW(final_bind->typeInfer(&analyzer));
+  EXPECT_TRUE(analyzer.fixed_assignment_names_by_sid_.contains(fixed_sid));
+
+  analyzer.fixed_assignment_names_.clear();
+  analyzer.binding_info_.clear();
+  std::unique_ptr<FlexBindAST> flex_rebind(FlexBindAST::Create(
+    VarAST::Create(NameAST::Create("fixed_by_sid", fixed_sid)),
+    IntAST::Create("2")));
+  EXPECT_THROW(flex_rebind->typeInfer(&analyzer), StyioSyntaxError);
+
+  std::unique_ptr<ParallelAssignAST> parallel_rebind(ParallelAssignAST::Create(
+    {NameAST::Create("fixed_by_sid", fixed_sid)},
+    {IntAST::Create("3")}));
+  EXPECT_THROW(parallel_rebind->typeInfer(&analyzer), StyioTypeError);
+
+  const auto flow_sid = symbols.intern("fixed_flow_target");
+  analyzer.record_local_binding_type("fixed_flow_target", flow_sid, i64);
+  analyzer.record_fixed_assignment_name("fixed_flow_target", flow_sid);
+  analyzer.local_binding_types.clear();
+  analyzer.fixed_assignment_names_.clear();
+  analyzer.binding_info_.clear();
+  std::unique_ptr<FlowBindAST> flow_rebind(FlowBindAST::Create(
+    IntAST::Create("4"),
+    VarAST::Create(NameAST::Create("fixed_flow_target", flow_sid))));
+  EXPECT_THROW(flow_rebind->typeInfer(&analyzer), StyioTypeError);
+
+  const auto task_sid = symbols.intern("fixed_pull_task");
+  const auto pull_target_sid = symbols.intern("fixed_pull_target");
+  analyzer.record_local_binding_type("fixed_pull_task", task_sid, styio_make_task_type("i64"));
+  analyzer.record_local_binding_type("fixed_pull_target", pull_target_sid, i64);
+  analyzer.record_fixed_assignment_name("fixed_pull_target", pull_target_sid);
+  analyzer.local_binding_types.clear();
+  analyzer.fixed_assignment_names_.clear();
+  analyzer.binding_info_.clear();
+  std::unique_ptr<HandleAcquireAST> task_pull(HandleAcquireAST::Create(
+    VarAST::Create(NameAST::Create("fixed_pull_target", pull_target_sid)),
+    NameAST::Create("fixed_pull_task", task_sid)));
+  EXPECT_THROW(task_pull->typeInfer(&analyzer), StyioTypeError);
+}
+
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesResourceBindingTypesBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+
+  const auto res_sid = symbols.intern("my_resource");
+  analyzer.record_resource_binding_type("my_resource", res_sid, i64);
+  EXPECT_TRUE(analyzer.resource_binding_types_by_sid_.contains(res_sid));
+  EXPECT_EQ(analyzer.resource_binding_types_.at("my_resource").name, "i64");
+
+  analyzer.resource_binding_types_.clear();
+  const StyioDataType* by_sid = analyzer.find_resource_binding_type(res_sid, "my_resource");
+  ASSERT_NE(by_sid, nullptr);
+  EXPECT_EQ(by_sid->name, "i64");
+
+  analyzer.record_resource_binding_type("string_only_resource", styio::session::kInvalidSymbolId, i64);
+  EXPECT_TRUE(analyzer.resource_binding_types_.contains("string_only_resource"));
+
+  analyzer.resource_binding_types_.clear();
+  analyzer.resource_binding_types_by_sid_.clear();
+  EXPECT_EQ(analyzer.find_resource_binding_type(res_sid, "my_resource"), nullptr);
+
+  analyzer.record_resource_binding_type("infer_target", res_sid, i64);
+  std::unique_ptr<ResourceRefAST> ref(ResourceRefAST::Create(
+    NameAST::Create("infer_target", res_sid)));
+  ASSERT_NO_THROW(ref->typeInfer(&analyzer));
+  EXPECT_EQ(ref->getDataType().name, "i64");
+
+  analyzer.resource_binding_types_.clear();
+  analyzer.resource_binding_types_by_sid_.clear();
+  analyzer.resource_binding_types_["string_resource"] = i64;
+  std::unique_ptr<ResourceRefAST> str_ref(ResourceRefAST::Create(
+    NameAST::Create("string_resource")));
+  ASSERT_NO_THROW(str_ref->typeInfer(&analyzer));
+  EXPECT_EQ(str_ref->getDataType().name, "i64");
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesSnapshotVarsBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const auto snapshot_sid = symbols.intern("snapshot_by_sid");
+  std::unique_ptr<SnapshotDeclAST> snapshot(SnapshotDeclAST::Create(
+    NameAST::Create("snapshot_by_sid", snapshot_sid),
+    FileResourceAST::Create(StringAST::Create("data.txt"), false)));
+
+  ASSERT_NO_THROW(snapshot->typeInfer(&analyzer));
+  EXPECT_TRUE(analyzer.snapshot_var_names_by_sid_.contains(snapshot_sid));
+  EXPECT_TRUE(analyzer.is_snapshot_var("snapshot_by_sid"));
+
+  analyzer.snapshot_var_names_.clear();
+  EXPECT_TRUE(analyzer.is_snapshot_var("snapshot_by_sid"));
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesConsumedTasksBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+
+  const auto task_sid = symbols.intern("consumed_task_by_sid");
+  const auto pull_target_sid = symbols.intern("consumed_pull_target");
+  analyzer.record_local_binding_type("consumed_task_by_sid", task_sid, styio_make_task_type("i64"));
+  analyzer.record_local_binding_type("consumed_pull_target", pull_target_sid, i64);
+  analyzer.record_consumed_task_name("consumed_task_by_sid", task_sid);
+  EXPECT_TRUE(analyzer.consumed_task_names_by_sid_.contains(task_sid));
+
+  analyzer.local_binding_types.clear();
+  analyzer.consumed_task_names_.clear();
+  std::unique_ptr<HandleAcquireAST> repeated_pull(HandleAcquireAST::Create(
+    VarAST::Create(NameAST::Create("consumed_pull_target", pull_target_sid)),
+    NameAST::Create("consumed_task_by_sid", task_sid)));
+  EXPECT_THROW(repeated_pull->typeInfer(&analyzer), StyioTypeError);
+
+  const auto await_task_sid = symbols.intern("await_task_by_sid");
+  const auto await_target_sid = symbols.intern("await_target_by_sid");
+  analyzer.record_local_binding_type("await_task_by_sid", await_task_sid, styio_make_task_type("i64"));
+  analyzer.record_consumed_task_name("await_task_by_sid", await_task_sid);
+  analyzer.local_binding_types.clear();
+  analyzer.consumed_task_names_.clear();
+  std::unique_ptr<FlowBindAST> repeated_await(FlowBindAST::CreateAwait(
+    NameAST::Create("await_task_by_sid", await_task_sid),
+    VarAST::Create(NameAST::Create("await_target_by_sid", await_target_sid), TypeAST::Create("i64"))));
+  EXPECT_THROW(repeated_await->typeInfer(&analyzer), StyioTypeError);
+
+  analyzer.consumed_task_names_by_sid_.clear();
+  analyzer.consumed_task_names_.insert("string_consumed_task");
+  std::unique_ptr<FlowBindAST> string_fallback(FlowBindAST::CreateAwait(
+    NameAST::Create("string_consumed_task"),
+    VarAST::Create(NameAST::Create("string_consumed_target"), TypeAST::Create("i64"))));
+  analyzer.local_binding_types["string_consumed_task"] = styio_make_task_type("i64");
+  EXPECT_THROW(string_fallback->typeInfer(&analyzer), StyioTypeError);
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesConsumedResourcesBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const auto resource_sid = symbols.intern("destroyed_resource_by_sid");
+  const StyioDataType file_handle = styio_make_file_handle_type("i64");
+  StyioSemaContext::BindingInfo resource_info;
+  resource_info.resource_value = true;
+  resource_info.value_kind = StyioSemaContext::BindingValueKind::I64;
+  resource_info.declared_type = file_handle;
+  analyzer.record_binding_info("destroyed_resource_by_sid", resource_sid, resource_info);
+  analyzer.record_local_binding_type("destroyed_resource_by_sid", resource_sid, file_handle);
+  analyzer.binding_info_.clear();
+  analyzer.local_binding_types.clear();
+
+  std::unique_ptr<ResourceRedirectAST> destroy(ResourceRedirectAST::Create(
+    NameAST::Create("destroyed_resource_by_sid", resource_sid),
+    EmptyResourceAST::Create()));
+  ASSERT_NO_THROW(destroy->typeInfer(&analyzer));
+  EXPECT_TRUE(analyzer.consumed_resource_names_by_sid_.contains(resource_sid));
+
+  analyzer.consumed_resource_names_.clear();
+  std::unique_ptr<NameAST> use_after_destroy(NameAST::Create(
+    "destroyed_resource_by_sid",
+    resource_sid));
+  EXPECT_THROW(use_after_destroy->typeInfer(&analyzer), StyioTypeError);
+
+  analyzer.consumed_resource_names_by_sid_.clear();
+  analyzer.consumed_resource_names_.insert("string_destroyed_resource");
+  std::unique_ptr<NameAST> string_use_after_destroy(NameAST::Create("string_destroyed_resource"));
+  EXPECT_THROW(string_use_after_destroy->typeInfer(&analyzer), StyioTypeError);
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesOwnedResourcesBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+
+  const auto resource_sid = symbols.intern("outer_resource_by_sid");
+  StyioSemaContext::BindingInfo resource_info;
+  resource_info.resource_value = true;
+  resource_info.value_kind = StyioSemaContext::BindingValueKind::I64;
+  resource_info.declared_type = styio_make_file_handle_type("i64");
+  analyzer.record_binding_info("outer_resource_by_sid", resource_sid, resource_info);
+  analyzer.record_owned_resource_name("outer_resource_by_sid", resource_sid);
+  EXPECT_TRUE(analyzer.owned_resource_names_by_sid_.contains(resource_sid));
+
+  analyzer.binding_info_.clear();
+  analyzer.owned_resource_names_.clear();
+  std::unique_ptr<TaskBlockAST> task(TaskBlockAST::Create(BlockAST::Create({
+    ResourceRedirectAST::Create(
+      NameAST::Create("outer_resource_by_sid", resource_sid),
+      EmptyResourceAST::Create())
+  })));
+  EXPECT_THROW(task_>typeInfer(&analyzer), StyioTypeError);
+  EXPECT_TRUE(analyzer.task_outer_resource_names_stack_.empty());
+  EXPECT_TRUE(analyzer.task_outer_resource_names_by_sid_stack_.empty());
+
+  analyzer.task_outer_resource_names_stack_.clear();
+  analyzer.task_outer_resource_names_by_sid_stack_.clear();
+  analyzer.owned_resource_names_by_sid_.clear();
+  analyzer.owned_resource_names_.insert("string_outer_resource");
+  analyzer.binding_info_["string_outer_resource"] = resource_info;
+  std::unique_ptr<TaskBlockAST> string_task(TaskBlockAST::Create(BlockAST::Create({
+    ResourceRedirectAST::Create(
+      NameAST::Create("string_outer_resource"),
+      EmptyResourceAST::Create())
+  })));
+  EXPECT_THROW(string_task_>typeInfer(&analyzer), StyioTypeError);
+  EXPECT_TRUE(analyzer.task_outer_resource_names_stack_.empty());
+  EXPECT_TRUE(analyzer.task_outer_resource_names_by_sid_stack_.empty());
+}
+
+TEST(StyioTypeInferInternal, SymbolInternerResolvesBindingInfoBySymbolId) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+  const StyioDataType i64 = styio_data_type_from_name("i64");
+  const StyioDataType list_i64 = styio_make_list_type("i64");
+
+  const auto resource_sid = symbols.intern("binding_info_resource");
+  StyioSemaContext::BindingInfo resource_info;
+  resource_info.resource_value = true;
+  resource_info.value_kind = StyioSemaContext::BindingValueKind::ListHandle;
+  resource_info.declared_type = list_i64;
+  analyzer.record_binding_info("binding_info_resource", resource_sid, resource_info);
+  analyzer.record_local_binding_type("binding_info_resource", resource_sid, list_i64);
+  ASSERT_TRUE(analyzer.binding_info_by_sid_.contains(resource_sid));
+
+  analyzer.binding_info_.clear();
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<FinalBindAST> illegal_copy(FinalBindAST::Create(
+    VarAST::Create(NameAST::Create("copied_resource")),
+    NameAST::Create("binding_info_resource", resource_sid)));
+  EXPECT_THROW(illegal_copy->typeInfer(&analyzer), StyioTypeError);
+
+  const auto final_sid = symbols.intern("binding_info_final_slot");
+  StyioSemaContext::BindingInfo final_info;
+  final_info.final_slot = true;
+  final_info.declared_type = i64;
+  final_info.value_kind = StyioSemaContext::BindingValueKind::I64;
+  analyzer.record_binding_info("binding_info_final_slot", final_sid, final_info);
+  analyzer.binding_info_.clear();
+  std::unique_ptr<ParallelAssignAST> final_parallel(ParallelAssignAST::Create(
+    {NameAST::Create("binding_info_final_slot", final_sid)},
+    {IntAST::Create("1")}));
+  EXPECT_THROW(final_parallel->typeInfer(&analyzer), StyioTypeError);
+
+  const auto task_sid = symbols.intern("binding_info_task");
+  const auto target_sid = symbols.intern("binding_info_task_target");
+  StyioSemaContext::BindingInfo target_info;
+  target_info.declared_type = i64;
+  target_info.value_kind = StyioSemaContext::BindingValueKind::I64;
+  analyzer.record_binding_info("binding_info_task_target", target_sid, target_info);
+  analyzer.record_local_binding_type("binding_info_task", task_sid, styio_make_task_type("i64"));
+  analyzer.binding_info_.clear();
+  analyzer.local_binding_types.clear();
+  std::unique_ptr<HandleAcquireAST> task_pull(HandleAcquireAST::Create(
+    VarAST::Create(NameAST::Create("binding_info_task_target", target_sid)),
+    NameAST::Create("binding_info_task", task_sid)));
+  EXPECT_NO_THROW(task_pull->typeInfer(&analyzer));
 }
 
 TEST(StyioTypeInferInternal, BinOpFlowBindAndIterSeqBranchesStayExplicit) {
@@ -584,6 +1242,39 @@ TEST(StyioTypeInferInternal, FunctionReturnAndReceiverScanHelpersStayExplicit) {
       NameAST::Create("matrix_value")
     ));
     expect_matrix_type(func_ret_type_of_def(&analyzer, fn.get()), "f64", 1, 2);
+  }
+  {
+    styio::session::SymbolInterner symbols;
+    styio::session::TypeTable type_table;
+    ExposedTypeInferLowerer sid_analyzer;
+    sid_analyzer.attach_type_table(type_table, symbols);
+    const auto matrix_sid = symbols.intern("matrix_return_by_sid");
+    sid_analyzer.push_active_function_body("matrix_return_by_sid", matrix_sid);
+    sid_analyzer.record_inferred_function_return_type(matrix_f64_1x2);
+    sid_analyzer.pop_active_function_body();
+    ASSERT_TRUE(sid_analyzer.inferred_function_return_types_by_sid_.contains(matrix_sid));
+    sid_analyzer.inferred_function_return_types_.clear();
+
+    std::unique_ptr<FunctionAST> fn(FunctionAST::Create(
+      NameAST::Create("matrix_return_by_sid", matrix_sid),
+      false,
+      {},
+      TypeAST::Create(styio_make_matrix_type("f64")),
+      BlockAST::Create({ReturnAST::Create(NameAST::Create("m"))})
+    ));
+    expect_matrix_type(func_ret_type_of_def(&sid_analyzer, fn.get()), "f64", 1, 2);
+
+    const auto simple_sid = symbols.intern("simple_return_by_sid");
+    sid_analyzer.push_active_function_body("simple_return_by_sid", simple_sid);
+    sid_analyzer.record_inferred_function_return_type(styio_data_type_from_name("string"));
+    sid_analyzer.pop_active_function_body();
+    sid_analyzer.inferred_function_return_types_.clear();
+    std::unique_ptr<SimpleFuncAST> simple(SimpleFuncAST::Create(
+      NameAST::Create("simple_return_by_sid", simple_sid),
+      {},
+      BoolAST::Create(true)
+    ));
+    EXPECT_EQ(func_ret_type_of_def(&sid_analyzer, simple.get()).name, "string");
   }
   {
     std::unique_ptr<SimpleFuncAST> fn(SimpleFuncAST::Create(
@@ -1377,6 +2068,19 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       NameAST::Create("huge_history"),
       ResourceSelectorKind::SnapshotAll));
     EXPECT_THROW(huge_slice->typeInfer(&analyzer), StyioTypeError);
+  }
+  {
+    analyzer.resource_binding_types_["bucket"] = styio_make_topology_resource_type(
+      styio_make_matrix_type("i64", 2, 2),
+      StyioResourceShapeKind::Fixed,
+      2);
+    std::unique_ptr<StreamZipAST> raw_matrix_zip(StreamZipAST::Create(
+      ResourceRefAST::Create(NameAST::Create("bucket")),
+      {ParamAST::Create(NameAST::Create("m"))},
+      ListAST::Create({IntAST::Create("1")}),
+      {ParamAST::Create(NameAST::Create("rank"))},
+      BlockAST::Create({PassAST::Create()})));
+    EXPECT_THROW(raw_matrix_zip->typeInfer(&analyzer), StyioTypeError);
   }
 
   {

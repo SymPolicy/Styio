@@ -33,6 +33,14 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 - a single-line `**Last updated:** YYYY-MM-DD`; or
 - for bilingual documents, an `[EN] Last updated: YYYY-MM-DD` line followed by a translated line such as `[CN] 更新日期：YYYY-MM-DD`.
 
+### 0.1.2 Documentation Language
+
+Repository documentation is English by default. New or materially edited development docs, design docs, specs, ADRs, runbooks, workflows, plans, test catalogs, audit records, and source-level README files must be written in English.
+
+Chinese or bilingual text is allowed only when the document is explicitly a user-facing product page, marketing page, localization artifact, or translation companion, such as the root `README.md` / `README_zh.md` pair. When a document needs Chinese text, keep the English source authoritative and label the translated section or companion file clearly.
+
+When touching an existing non-English development document, do not add more non-English maintenance prose. Convert the edited section to English unless the file has an explicit localization purpose.
+
 ### 0.2 最小改动原则
 
 - 增补约定时 **优先** 修改现有章节并加交叉链接，**非必要不新增** Markdown 文件。
@@ -79,20 +87,20 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | **文档元数据、生成索引与审计流程** | `../../workflows/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
 | **团队 runbook 维护交付门禁** | `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
 | **团队 runbook 标准格式** | `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` | 普通团队 runbook 必须使用该 H2 结构；协调者 runbook 的特殊结构由门禁说明列明 |
-| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | 活跃规则必须提升到 owning SSOT；旧 ADR 全文不保留在当前树 |
+| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | `IMPLEMENTED-DECISIONS.md` 只保留当前最新代码实现对应的压缩决策；活跃规则必须提升到 owning SSOT；旧 ADR 全文和被替换实现使用 Git history |
 
 ### 0.5 文档状态与 superseded 规则
 
 1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、根目录 `workflows/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划。
-2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
-3. 语言验收不再使用冻结批次目录；当前树不得保留 `docs/plans/`。验收规则必须提升到语言设计、feature test catalog、team runbook 或 active rollup。
+2. `docs/plan/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
+3. 语言验收不再使用冻结批次目录；`docs/plan/` 只能承载实施顺序、迁移方案和计划证据，不能作为语言验收规则的唯一 SSOT。验收规则必须提升到语言设计、feature test catalog、team runbook 或 active rollup。
 4. 若后续实现保留兼容层，文档必须明确区分：
    - **canonical**：冻结示例与推荐写法；
    - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
 5. 同一功能若存在较早草案和较晚活跃 SSOT，较早文档必须在文首显式写：
    - `Status: Superseded draft`
    - 指向新的活跃文档路径。
-6. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
+6. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。`docs/adr/IMPLEMENTED-DECISIONS.md` 是当前实现快照，必须随最新代码和 owning SSOT 保鲜；已被替换、删除或仅作为历史兼容语境存在的决策不得作为当前树负担保留。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
 7. 当实现接受的兼容语法多于 canonical 示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
 
 ### 0.6 文档目录职责
@@ -103,7 +111,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
 | `docs/teams/` | 团队日常 runbook、review 协作矩阵、跨团队维护入口；不替代语言、测试或仓库边界 SSOT |
 | `docs/review/` | review 发现、设计冲突、待定决议；不保留已归纳的旧 dated bundle |
-| `docs/plans/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项从当前树删除并依赖 Git 历史追溯 |
+| `docs/plan/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项从当前树删除并依赖 Git 历史追溯 |
 | `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/templates/` | 可复用模板 |
 | 根目录 `workflows/` | 可复用工作流、测试框架、checkpoint / hygiene 标准（机器可读 `*.toml` 配对，repo-local skills 在 `workflows/skills/`） |
@@ -120,7 +128,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 2. `docs/specs/`：规范文件使用稳定、可搜索的全大写短横线命名。
 3. `docs/teams/`：团队日常入口使用 `<TEAM>-RUNBOOK.md`；跨团队协调入口固定为 `COORDINATION-RUNBOOK.md`；集合统计固定为 `DOC-STATS.md`。
    普通团队 runbook 必须遵守 `docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md` 的 H1、`Purpose`、`Last updated`、H2 顺序；交付门禁输出必须指向模板和门禁说明，而不是只要求维护者阅读脚本源码。
-4. `docs/plans/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
+4. `docs/plan/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
 5. 根 `workflows/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
 6. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
 7. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。

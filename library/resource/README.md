@@ -1,6 +1,6 @@
 # std.resource
 
-**Purpose:** Track the active compatibility standard-resource prelude while it migrates from `src/StyioPrelude/resources.styio` into a package-aware library location.
+**Purpose:** Track the active compatibility standard-resource prelude while it awaits a package-aware library location.
 
 **Last updated:** 2026-06-25
 
@@ -8,7 +8,7 @@ Status: active compatibility prelude. The manifest entry records existing source
 
 Evidence:
 
-1. Source: `src/StyioPrelude/resources.styio`
+1. Source: `share/styio/prelude/resources.styio`
 2. Manifest entry: `library/manifest.json`
 3. Gate: `stdlib_manifest_gate`
 4. Test routes: file-resource, stdin, stdout/stderr feature suites plus parser coverage for the prelude source file

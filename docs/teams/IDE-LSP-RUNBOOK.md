@@ -43,16 +43,19 @@ Build and test targets:
 16. `analyze_document` must not use recovery parsing to publish later semantic facts from malformed source. Syntax-validity consumers should use `styio check --syntax --json --file`, not IDE token/CST snapshots.
 17. IDE and LSP diagnostics must preserve shared Styio diagnostic identity: compiler facts carry compiler/service codes, editor-only facts use `styio-editor` service codes, and LSP publishes `Diagnostic.code` plus `data.phase`. If an internal diagnostic carries a Styio code but no explicit phase, the LSP layer derives `data.phase` from the code prefix instead of dropping the phase.
 18. Treat Vityo and Spio as first-party service consumers, not generic LSP-only clients. They may use deep convenience adapters over `StyioServices`, but those adapters must reuse shared service facts and must not become separate grammar, diagnostic, or semantic authorities.
-19. Host-facing service payloads should preserve `documentId`, `revision`, `protocolVersion`, `toolchainId`, `parserEngine`, `grammarVersion`, `configPath`, `workingDirectory`, and per-capability state whenever those fields apply.
+19. Host-facing service payloads should preserve `documentId`, `revision`, `protocolVersion`, `toolchainId`, `parserEngine`, `grammarVersion`, `configPath`, `workingDirectory`, workspace root selection, ignored workspace folders, and per-capability state whenever those fields apply. Defensive protocol handling may update internal initialize workspace state for malformed notification-style initialize messages, but it must not emit a JSON-RPC response without a request id.
 20. Keep `StyioIDECommon.*` tests covering URI/path conversion, `TextBuffer` offset mapping, range helpers, and host-facing enum string contracts when those common service helpers change.
-21. IDE/LSP Windows compatibility changes must keep `styio_lspd` and `styio_ide_test` buildable with native CMake generators. Test fixtures that touch paths, environment variables, subprocesses, or executable names should use portable helpers so IDE service validation does not depend on POSIX shells or Unix path semantics on Windows.
+21. IDE/LSP Windows compatibility changes must keep `styio_lspd` and `styio_ide_test` buildable with native CMake generators. Test fixtures that touch paths, environment variables, subprocesses, or executable names should use portable helpers so IDE service validation does not depend on POSIX shells or Unix path semantics on Windows. The stdio reader should accept ASCII case variants of `Content-Length` while still emitting canonical `Content-Length: N\r\n\r\n` frames.
 22. LSP stdio transport changes must preserve byte-exact JSON-RPC framing on Windows and POSIX hosts; validate binary-mode setup, CRLF handling, stderr draining, and real `styio_lspd` initialize/shutdown traffic before exposing the daemon to editor clients.
-23. Treat `textDocument/rename` as the next planned public LSP method, but do not advertise it until semantic identity, freshness, workspace index agreement, diagnostics publication, and stale-work suppression are proven through focused tests. `codeAction` and `inlayHint` remain after `rename` unless a later owner decision changes the public-surface order.
+23. Treat `textDocument/rename` as a conservative public LSP method: only return edits when symbol identity is explicit, the workspace is fresh, and the current snapshot text matches the resolved target. `textDocument/inlayHint` follows rename as a conservative public method for compiler-recognized call-argument parameter names, and must return no hints while semantic diagnostics or background index work are pending. `textDocument/codeAction` is now a conservative public method: `unterminated block comment` and `unterminated string literal` may produce minimal closing edits, exact-range `unmatched closing token` diagnostics may delete the reported token, unsupported editor-syntax diagnostics return disabled quick-fix explanations, and other diagnostics stay empty until their fixes have focused evidence.
+24. Project cache roots must use the stable, path-derived `root-<hex-path>` key from `Project::set_root(...)`, not process-local `std::hash` output. Workspace scans must use `std::filesystem` error-code traversal, skip known generated directories, and expose `workspace_scan_error_count()` so missing or unreadable roots fail closed without throwing.
+25. Internal IDE ranges stay UTF-8 byte offsets, but any LSP-visible semantic-token payload must be converted through `TextBuffer::utf16_position_at(...)` and `TextBuffer::utf16_length(...)` before delta encoding. Keep an emoji/CJK regression in `styio_ide_test` whenever this path changes.
+26. `workspace/didChangeWatchedFiles` must use the notification `changes` URIs instead of scheduling a blind workspace refresh. Only closed `.styio` files under the selected workspace root may enqueue background index work, and duplicate events must coalesce before they affect runtime counters.
 
 ## Change Classes
 
 1. Small: completion ranking, DTO cleanup, or local VFS/Syntax helper fix. Run IDE unit tests.
-2. Medium: public C++ API, incremental edit application, HIR identity, SemDB cache, or LSP method behavior. Update tests and `docs/external/for-ide/`.
+2. Medium: public C++ API, incremental edit application, HIR identity, SemDB cache, workspace scan/cache-root behavior, or LSP method behavior. Update tests and `docs/external/for-ide/` when host-facing behavior changes.
 3. High: document sync contract, semantic cache model, workspace index behavior, or LSP surface expansion. Use checkpoint workflow and coordinate docs plus tests.
 
 ## Required Gates
@@ -81,7 +84,7 @@ python3 scripts/docs-audit.py
 When `rename` readiness or another LSP public-surface expansion changes:
 
 ```bash
-ctest --test-dir build/default -L ide --tests-regex 'Rename|Definition|References|WorkspaceSymbol|PublishDiagnostics|Stale' --output-on-failure
+ctest --test-dir build/default -L ide --tests-regex 'Rename|InlayHint|Definition|References|WorkspaceSymbol|PublishDiagnostics|Stale' --output-on-failure
 python3 scripts/docs-audit.py
 python3 scripts/team-docs-gate.py
 ```
