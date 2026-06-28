@@ -6,7 +6,7 @@
 
 - 这里是 benchmark/perf 的唯一权威入口
 - 其他文档只保留摘要与跳转，不重复维护 workload 细节
-- 变更 benchmark 覆盖面或执行路线时，只更新这里和 [`COVERAGE-MATRIX.md`](<user-home>/DevSpace/styio-org/styio/benchmark/COVERAGE-MATRIX.md:1)
+- 变更 benchmark 覆盖面或执行路线时，只更新这里和 [`COVERAGE-MATRIX.md`](./COVERAGE-MATRIX.md:1)
 
 ## 目录
 
@@ -64,7 +64,7 @@
 - soak smoke
 - 可选 `soak_deep`
 
-覆盖设计与补强方向见 [COVERAGE-MATRIX.md](<user-home>/DevSpace/styio-org/styio/benchmark/COVERAGE-MATRIX.md:1)。
+覆盖设计与补强方向见 [COVERAGE-MATRIX.md](./COVERAGE-MATRIX.md:1)。
 
 每次运行默认会把产物写到 `benchmark/reports/<timestamp>/`，包括：
 
@@ -138,7 +138,7 @@ STYIO_SOAK_EXECUTE_BENCH_ITERS=20 \
 
 - `cli_wall_us`
 
-[`benchmark/perf-route.sh`](<user-home>/DevSpace/styio-org/styio/benchmark/perf-route.sh:1) 默认会一起执行；如果不传 `--execute-iters`，脚本会根据 `--phase-iters` 自动推导一个较小的执行迭代数。
+[`benchmark/perf-route.sh`](./perf-route.sh:1) 默认会一起执行；如果不传 `--execute-iters`，脚本会根据 `--phase-iters` 自动推导一个较小的执行迭代数。
 
 ## Compiler Error-Path Benchmarks
 
@@ -165,7 +165,7 @@ STYIO_SOAK_ERROR_BENCH_ITERS=50 \
 - `diagnostic_code`
 - `avg_diag_bytes`
 
-[`benchmark/perf-route.sh`](<user-home>/DevSpace/styio-org/styio/benchmark/perf-route.sh:1) 默认也会跑这一组；如果不传 `--error-iters`，脚本会根据 `--phase-iters` 自动推导一个较小但稳定的失败路径迭代数。
+[`benchmark/perf-route.sh`](./perf-route.sh:1) 默认也会跑这一组；如果不传 `--error-iters`，脚本会根据 `--phase-iters` 自动推导一个较小但稳定的失败路径迭代数。
 
 ## Compiler Micro Benchmarks
 
@@ -203,7 +203,7 @@ STYIO_SOAK_MICRO_BENCH_ITERS=5000 \
 - `avg_ast_arena_kib`
 - `rss_growth_kib`
 
-[`benchmark/perf-route.sh`](<user-home>/DevSpace/styio-org/styio/benchmark/perf-route.sh:1) 默认也会跑这一组；如果不传 `--micro-iters`，它默认继承 `--phase-iters`。
+[`benchmark/perf-route.sh`](./perf-route.sh:1) 默认也会跑这一组；如果不传 `--micro-iters`，它默认继承 `--phase-iters`。
 
 ## 测试面
 
@@ -258,7 +258,7 @@ ctest --test-dir build -L soak_smoke --output-on-failure
 ctest --test-dir build -L soak_deep --output-on-failure
 ```
 
-`soak_deep` 档位由 [`benchmark/CMakeLists.txt`](<user-home>/DevSpace/styio-org/styio/benchmark/CMakeLists.txt:1) 注入放大量参数：
+`soak_deep` 档位由 [`benchmark/CMakeLists.txt`](./CMakeLists.txt:1) 注入放大量参数：
 
 - `STYIO_SOAK_LEXER_ITERS=5000`
 - `STYIO_SOAK_INGEST_LINES=4096`

@@ -25,7 +25,7 @@
 6. `Execute`
    - CLI / JIT 执行
 
-当前仓库里，第 1 到 5 层已经能稳定在进程内分段计时，见 [benchmark/styio_soak_test.cpp](<user-home>/DevSpace/styio-org/styio/benchmark/styio_soak_test.cpp:296)；第 6 层已有标准化 CLI workload matrix 和 error-path matrix，见 [benchmark/styio_soak_test.cpp](<user-home>/DevSpace/styio-org/styio/benchmark/styio_soak_test.cpp:1390) 与同文件内的 `CompilerErrorPathBenchmarksReport`。
+当前仓库里，第 1 到 5 层已经能稳定在进程内分段计时，见 [benchmark/styio_soak_test.cpp](./styio_soak_test.cpp:296)；第 6 层已有标准化 CLI workload matrix 和 error-path matrix，见 [benchmark/styio_soak_test.cpp](./styio_soak_test.cpp:1390) 与同文件内的 `CompilerErrorPathBenchmarksReport`。
 
 ## 模块切面视角
 
@@ -55,7 +55,7 @@
 ### 已有
 
 - `Tokenize`
-  - 长输入摄入循环：[benchmark/styio_soak_test.cpp](<user-home>/DevSpace/styio-org/styio/benchmark/styio_soak_test.cpp:357)
+  - 长输入摄入循环：[benchmark/styio_soak_test.cpp](./styio_soak_test.cpp:357)
 - `Compiler stage matrix`
   - `tokenize / parse / typeInfer / styioIR / llvmIR`
   - 覆盖 `Scalar / Bindings / Functions / ControlFlow / Collections / Resources / Streams / StateAndSeries / Topology / Mixed`
