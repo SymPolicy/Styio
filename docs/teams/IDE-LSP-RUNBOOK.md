@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-28
 
 ## Mission
 
@@ -46,6 +46,7 @@ Build and test targets:
 19. Host-facing service payloads should preserve `documentId`, `revision`, `protocolVersion`, `toolchainId`, `parserEngine`, `grammarVersion`, `configPath`, `workingDirectory`, and per-capability state whenever those fields apply.
 20. Keep `StyioIDECommon.*` tests covering URI/path conversion, `TextBuffer` offset mapping, range helpers, and host-facing enum string contracts when those common service helpers change.
 21. IDE/LSP Windows compatibility changes must keep `styio_lspd` and `styio_ide_test` buildable with native CMake generators. Test fixtures that touch paths, environment variables, subprocesses, or executable names should use portable helpers so IDE service validation does not depend on POSIX shells or Unix path semantics on Windows.
+22. LSP stdio transport changes must preserve byte-exact JSON-RPC framing on Windows and POSIX hosts; validate binary-mode setup, CRLF handling, stderr draining, and real `styio_lspd` initialize/shutdown traffic before exposing the daemon to editor clients.
 
 ## Change Classes
 

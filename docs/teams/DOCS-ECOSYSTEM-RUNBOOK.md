@@ -160,6 +160,7 @@ Key SSOTs:
 119. When checkpoint or delivery gates add repository-wide quality metrics such as source coverage, update the gate script, workflow Markdown/TOML mirrors, CI wiring, release conformance rollups, Test Quality runbook, generated indexes, and `DOC-STATS.md` in the same delivery.
 120. When adding a broad source-architecture or external-language comparison audit under `docs/rollups/`, keep the wording evidence-scoped to the local sources reviewed, map follow-up work to the owning `IM-D*` inventories or runbooks, regenerate generated indexes, and refresh `DOC-STATS.md` when this runbook changes.
 121. When IM-D1 StyioIR contract inventory adds new capabilities (IR walker, pass manager, tokenizer span infrastructure), record the capability, current state, and evidence links in the manifest table of `docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md` without removing existing entries. Each entry must name at least one source file as live evidence.
+122. When CI carries a temporary released-audit policy normalization for renamed compiler source directories, keep the workflow step narrowly scoped, record the current source layout in the same checkpoint, and remove the normalization once the external audit policy catches up.
 
 ## Change Classes
 
