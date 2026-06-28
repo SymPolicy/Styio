@@ -16,7 +16,7 @@ The `#(...)` parameter list is mandatory whenever the declaration body uses loca
 the local-variable rule: a declaration body must not use an unbound name just because the name is
 visually obvious.
 
-Canonical standard-resource definitions live in [resources.styio](../../../src/StyioPrelude/resources.styio):
+Canonical standard-resource definitions live in [resources.styio](../../../share/styio/prelude/resources.styio):
 
 ```styio
 @ stdout := #(xs) => { xs >> [>_] }

@@ -1,15 +1,18 @@
 # ADR Docs
 
-**Purpose:** Define the minimal current-tree ADR policy: implemented decisions are compressed, active rules live in owning SSOTs, and exact old decision text is recovered from Git history.
+**Purpose:** Define the minimal current-tree ADR policy: implemented decisions are compressed as current implementation snapshots, active rules live in owning SSOTs, and exact old decision text is recovered from Git history.
 
 **Last updated:** 2026-06-28
+
+Generated inventory lives in [INDEX.md](./INDEX.md).
 
 ## Scope
 
 1. Store a standalone ADR here only while the decision still needs direct review.
 2. Compress implemented decisions into [IMPLEMENTED-DECISIONS.md](./IMPLEMENTED-DECISIONS.md) after the durable rule moves into its owning active document.
-3. Do not keep one-file-per-decision history in the current tree after implementation.
-4. Use Git history for exact old wording.
+3. Keep [IMPLEMENTED-DECISIONS.md](./IMPLEMENTED-DECISIONS.md) fresh against the latest code implementation and owning SSOTs; stale decisions are rewritten, merged, or removed instead of preserved as current-tree history.
+4. Do not keep one-file-per-decision history in the current tree after implementation.
+5. Use Git history for exact old wording.
 
 ## Existing ADR Search
 
@@ -17,7 +20,7 @@
 2. If an active ADR already owns the decision boundary, update that ADR in place so it records the current decision only.
 3. Do not create a new ADR for every small implementation change. A new ADR is allowed only when the decision boundary is genuinely new and no existing ADR or owning SSOT can carry it.
 4. Do not keep old and new decisions side by side in one active ADR. Rewrite the current `Decision` and `Consequences`; exact old wording belongs to Git history.
-5. If a decision is implemented and absorbed into the owning SSOT, compress it into [IMPLEMENTED-DECISIONS.md](./IMPLEMENTED-DECISIONS.md) or remove the standalone ADR from the current tree.
+5. If a decision is implemented and absorbed into the owning SSOT, compress its current implementation state into [IMPLEMENTED-DECISIONS.md](./IMPLEMENTED-DECISIONS.md) or remove the standalone ADR from the current tree.
 
 ## Conventions
 

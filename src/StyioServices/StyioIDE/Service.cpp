@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace styio::ide {
 
@@ -12,6 +15,20 @@ elapsed_microseconds_since(std::chrono::steady_clock::time_point start_time) {
   const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
     std::chrono::steady_clock::now() - start_time);
   return static_cast<std::uint64_t>(elapsed.count());
+}
+
+std::string
+normalized_path_string(const std::string& path) {
+  return fs::path(path).lexically_normal().string();
+}
+
+std::unordered_set<std::string>
+normalized_path_set(const std::vector<std::string>& paths) {
+  std::unordered_set<std::string> normalized;
+  for (const auto& path : paths) {
+    normalized.insert(normalized_path_string(path));
+  }
+  return normalized;
 }
 
 }  // namespace
@@ -97,6 +114,48 @@ IdeService::record_latency(RuntimeLatencyStats& stats, std::uint64_t elapsed_mic
   stats.count += 1;
   stats.total_microseconds += elapsed_microseconds;
   stats.max_microseconds = std::max(stats.max_microseconds, elapsed_microseconds);
+}
+
+std::optional<std::string>
+IdeService::background_index_path_for(const std::string& path) const {
+  if (path.empty() || project_.root_path().empty()) {
+    return std::nullopt;
+  }
+
+  const fs::path normalized = fs::path(path).lexically_normal();
+  if (normalized.extension() != ".styio") {
+    return std::nullopt;
+  }
+
+  const fs::path root = fs::path(project_.root_path()).lexically_normal();
+  const fs::path relative = normalized.lexically_relative(root);
+  if (relative.empty() || relative.is_absolute()) {
+    return std::nullopt;
+  }
+  for (const auto& component : relative) {
+    if (component.string() == "..") {
+      return std::nullopt;
+    }
+  }
+  return normalized.string();
+}
+
+bool
+IdeService::enqueue_background_index_path(
+  const std::string& path,
+  const std::unordered_set<std::string>& open_paths
+) {
+  const auto normalized = background_index_path_for(path);
+  if (!normalized.has_value() || open_paths.find(*normalized) != open_paths.end()) {
+    return false;
+  }
+  if (!background_index_path_set_.insert(*normalized).second) {
+    return false;
+  }
+
+  background_index_paths_.push_back(*normalized);
+  runtime_counters_.background_tasks_enqueued += 1;
+  return true;
 }
 
 void
@@ -235,16 +294,22 @@ IdeService::drain_semantic_diagnostics(std::size_t max_documents) {
 
 void
 IdeService::schedule_background_index_refresh() {
-  const std::vector<std::string> open_paths = vfs_.open_paths();
+  const std::unordered_set<std::string> open_paths = normalized_path_set(vfs_.open_paths());
   for (const auto& path : project_.workspace_files()) {
-    if (std::find(open_paths.begin(), open_paths.end(), path) != open_paths.end()) {
-      continue;
-    }
-    if (background_index_path_set_.insert(path).second) {
-      background_index_paths_.push_back(path);
-      runtime_counters_.background_tasks_enqueued += 1;
+    enqueue_background_index_path(path, open_paths);
+  }
+}
+
+std::size_t
+IdeService::schedule_background_index_refresh_for_paths(const std::vector<std::string>& paths) {
+  const std::unordered_set<std::string> open_paths = normalized_path_set(vfs_.open_paths());
+  std::size_t enqueued = 0;
+  for (const auto& path : paths) {
+    if (enqueue_background_index_path(path, open_paths)) {
+      enqueued += 1;
     }
   }
+  return enqueued;
 }
 
 std::size_t

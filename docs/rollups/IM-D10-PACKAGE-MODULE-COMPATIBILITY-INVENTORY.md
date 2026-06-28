@@ -183,7 +183,7 @@ IM-D10 is not closed by this inventory. The compiler-side boundary is clear enou
 - [Styio / Spio Coordination Plan](../external/for-spio/Styio-Nano-Spio-Coordination.md)
 - [Styio Services](../external/SERVICES.md)
 - [Styio Repository Map](../specs/REPOSITORY-MAP.md)
-- [Styio Ecosystem CLI Contract Matrix](../plans/Styio-Ecosystem-CLI-Contract-Matrix.md)
+- [Styio Ecosystem CLI Contract Matrix](../plan/Styio-Ecosystem-CLI-Contract-Matrix.md)
 - [StyioConfig README](../../src/StyioServices/StyioConfig/README.md)
 - `src/StyioServices/StyioConfig/CompilePlanContract.*`
 - `src/StyioServices/StyioConfig/SourceBuildInfo.*`

@@ -41,7 +41,9 @@ class LowererProbe : public AstToStyioIRLowerer
 {
 public:
   using StyioSemaContext::binding_info_;
+  using StyioSemaContext::binding_info_by_sid_;
   using StyioSemaContext::resource_binding_types_;
+  using StyioSemaContext::resource_binding_types_by_sid_;
   using StyioSemaContext::set_post_pulse_hist_context;
   using StyioSemaContext::snapshot_var_names_;
 };
@@ -158,12 +160,14 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
 
   std::unique_ptr<BlockAST> block(BlockAST::Create({PassAST::Create()}));
   block->set_followings({PassAST::Create()});
-  std::unique_ptr<SGBlock> lowered_block(lower_func_body(&analyzer, block.get(), true));
+  std::unique_ptr<SGBlock> lowered_block(lower_func_body(&analyzer, block.get(), false));
   ASSERT_EQ(lowered_block->stmts.size(), 2u);
   std::unique_ptr<SGBlock> one(lower_func_body(&analyzer, IntAST::Create("9"), true));
   ASSERT_EQ(one->stmts.size(), 1u);
-  std::unique_ptr<StyioIR> tail_null(lower_tail_stmt(&analyzer, nullptr));
-  ASSERT_NE(dynamic_cast<SGConstInt*>(tail_null.get()), nullptr);
+  EXPECT_THROW((void)lower_tail_stmt(&analyzer, nullptr), StyioTypeError);
+  EXPECT_THROW((void)lower_func_body(&analyzer, nullptr, true), StyioTypeError);
+  std::unique_ptr<BlockAST> empty_tail(BlockAST::Create({}));
+  EXPECT_THROW((void)lower_func_body(&analyzer, empty_tail.get(), true), StyioTypeError);
 
   std::unique_ptr<BlockAST> defs(BlockAST::Create({
     FunctionAST::Create(
@@ -947,6 +951,13 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
   expect_cloned_node(new BinCompAST(CompType::GT, IntAST::Create("3"), IntAST::Create("2")), StyioNodeType::Compare);
   expect_cloned_node(CondAST::Create(LogicType::NOT, BoolAST::Create(false)), StyioNodeType::Condition);
   expect_cloned_node(CondAST::Create(LogicType::AND, BoolAST::Create(true), BoolAST::Create(false)), StyioNodeType::Condition);
+  expect_cloned_node(
+    new CondFlowAST(
+      StyioNodeType::CondFlow_Both,
+      CondAST::Create(LogicType::NOT, BoolAST::Create(false)),
+      BlockAST::Create({PassAST::Create()}),
+      BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})),
+    StyioNodeType::CondFlow_Both);
   expect_cloned_node(WaveMergeAST::Create(BoolAST::Create(true), IntAST::Create("1"), IntAST::Create("0")), StyioNodeType::WaveMerge);
   expect_cloned_node(WaveDispatchAST::Create(BoolAST::Create(true), PassAST::Create(), BreakAST::Create()), StyioNodeType::WaveDispatch);
   expect_cloned_node(FallbackAST::Create(UndefinedLitAST::Create(), IntAST::Create("5")), StyioNodeType::Fallback);
@@ -991,6 +1002,43 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
   expect_cloned_node(ReturnAST::Create(IntAST::Create("1")), StyioNodeType::Return);
   expect_cloned_node(FlexBindAST::Create(VarAST::Create(NameAST::Create("m")), IntAST::Create("1")), StyioNodeType::MutBind);
   expect_cloned_node(FinalBindAST::Create(VarAST::Create(NameAST::Create("f")), IntAST::Create("1")), StyioNodeType::FinalBind);
+  {
+    std::unique_ptr<StyioAST> source(ParallelAssignAST::Create(
+      {NameAST::Create("x"), NameAST::Create("y")},
+      {NameAST::Create("x"), IntAST::Create("2")}));
+    std::unique_ptr<StyioAST> repl(IntAST::Create("7"));
+    std::unique_ptr<StyioAST> cloned(clone_state_expr_with_subst(source.get(), "x", repl.get()));
+    auto* parallel = dynamic_cast<ParallelAssignAST*>(cloned.get());
+    ASSERT_NE(parallel, nullptr);
+    ASSERT_EQ(parallel->getLHS().size(), 2u);
+    ASSERT_EQ(parallel->getRHS().size(), 2u);
+    EXPECT_EQ(parallel->getLHS()[0]->getNodeType(), StyioNodeType::Id);
+    EXPECT_EQ(parallel->getRHS()[0]->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    std::unique_ptr<StyioAST> source(BlockAST::Create({
+      FlexBindAST::Create(VarAST::Create(NameAST::Create("local")), IntAST::Create("1")),
+      ParallelAssignAST::Create({NameAST::Create("local")}, {IntAST::Create("2")}),
+      PrintAST::Create({NameAST::Create("local")}),
+    }));
+    std::unique_ptr<StyioAST> cloned(clone_state_expr(source.get()));
+    auto* block = dynamic_cast<BlockAST*>(cloned.get());
+    ASSERT_NE(block, nullptr);
+    ASSERT_EQ(block->stmts.size(), 3u);
+    auto* cloned_bind = dynamic_cast<FlexBindAST*>(block->stmts[0]);
+    auto* cloned_parallel = dynamic_cast<ParallelAssignAST*>(block->stmts[1]);
+    auto* cloned_print = dynamic_cast<PrintAST*>(block->stmts[2]);
+    ASSERT_NE(cloned_bind, nullptr);
+    ASSERT_NE(cloned_parallel, nullptr);
+    ASSERT_NE(cloned_print, nullptr);
+    ASSERT_EQ(cloned_parallel->getLHS().size(), 1u);
+    auto* target = dynamic_cast<NameAST*>(cloned_parallel->getLHS()[0]);
+    auto* printed = dynamic_cast<NameAST*>(cloned_print->exprs[0]);
+    ASSERT_NE(target, nullptr);
+    ASSERT_NE(printed, nullptr);
+    EXPECT_EQ(target->getAsStr(), cloned_bind->getVar()->getNameAsStr());
+    EXPECT_EQ(printed->getAsStr(), cloned_bind->getVar()->getNameAsStr());
+  }
   expect_cloned_node(PrintAST::Create({StringAST::Create("x")}), StyioNodeType::Print);
   expect_cloned_node(
     CasesAST::Create({{IntAST::Create("1"), ReturnAST::Create(IntAST::Create("2"))}}, ReturnAST::Create(IntAST::Create("0"))),
@@ -1003,6 +1051,22 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
   expect_cloned_node(new InfiniteAST(IntAST::Create("0"), IntAST::Create("1")), StyioNodeType::Infinite);
   expect_cloned_node(new InfiniteAST(), StyioNodeType::Infinite);
   expect_cloned_node(ContinueAST::Create(2), StyioNodeType::Continue);
+  expect_cloned_node(
+    FunctionAST::Create(
+      NameAST::Create("helper"),
+      false,
+      {ParamAST::Create(NameAST::Create("x"), TypeAST::Create("i64"))},
+      TypeAST::Create("i64"),
+      BlockAST::Create({ReturnAST::Create(NameAST::Create("x"))})),
+    StyioNodeType::Func);
+  expect_cloned_node(
+    StreamZipAST::Create(
+      ListAST::Create({IntAST::Create("1")}),
+      {ParamAST::Create(NameAST::Create("left"))},
+      ListAST::Create({IntAST::Create("2")}),
+      {ParamAST::Create(NameAST::Create("right"))},
+      BlockAST::Create({PrintAST::Create({NameAST::Create("left")})})),
+    StyioNodeType::StreamZip);
   {
     auto* block = BlockAST::Create({FinalBindAST::Create(VarAST::Create(NameAST::Create("x")), IntAST::Create("1"))});
     block->set_followings({PassAST::Create()});
@@ -1052,6 +1116,37 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
       NameAST::Create("actual_file"),
       {StringAST::Create("arg")}));
     ASSERT_EQ(body->getNodeType(), StyioNodeType::Block);
+  }
+  {
+    std::unique_ptr<ResourceMethodDefAST> method(ResourceMethodDefAST::Create(
+      "file",
+      "helper",
+      false,
+      false,
+      {ParamAST::Create(NameAST::Create("x"), TypeAST::Create("i64"))},
+      BlockAST::Create({
+        SimpleFuncAST::Create(
+          NameAST::Create("helper"),
+          false,
+          {ParamAST::Create(NameAST::Create("x"), TypeAST::Create("i64"))},
+          TypeAST::Create("i64"),
+          NameAST::Create("x")),
+        ReturnAST::Create(FuncCallAST::Create(NameAST::Create("helper"), {NameAST::Create("x")}))
+      })));
+    std::unique_ptr<StyioAST> body(clone_resource_method_body_latest(
+      method.get(),
+      NameAST::Create("actual_file"),
+      {IntAST::Create("7")}));
+    auto* block = dynamic_cast<BlockAST*>(body.get());
+    ASSERT_NE(block, nullptr);
+    ASSERT_EQ(block->stmts.size(), 2u);
+    ASSERT_EQ(block->stmts[0]->getNodeType(), StyioNodeType::SimpleFunc);
+    auto* helper = static_cast<SimpleFuncAST*>(block->stmts[0]);
+    ASSERT_NE(helper->ret_expr, nullptr);
+    ASSERT_EQ(helper->ret_expr->getNodeType(), StyioNodeType::Id);
+    EXPECT_EQ(static_cast<NameAST*>(helper->ret_expr)->getAsStr(), "x");
+    ASSERT_EQ(helper->params.size(), 1u);
+    EXPECT_EQ(helper->params[0]->getNameAsStr(), "x");
   }
 
   EXPECT_EQ(lower_resource_method_value_body_latest(&analyzer, ReturnAST::Create(nullptr)), nullptr);
@@ -2300,6 +2395,28 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
     EXPECT_THROW((void)missing->toStyioIR(&probe), StyioTypeError);
   }
   {
+    styio::session::SymbolInterner symbols;
+    styio::session::TypeTable type_table;
+    LowererProbe probe;
+    probe.attach_type_table(type_table, symbols);
+    const auto history_sid = symbols.intern("history_by_sid");
+    probe.record_resource_binding_type(
+      "history_by_sid",
+      history_sid,
+      styio_make_topology_resource_type(
+        styio_data_type_from_name("i64"),
+        StyioResourceShapeKind::Fixed,
+        2));
+    probe.resource_binding_types_.clear();
+    ASSERT_TRUE(probe.resource_binding_types_by_sid_.contains(history_sid));
+
+    std::unique_ptr<ResourceRefAST> all(ResourceRefAST::CreateSelector(
+      NameAST::Create("history_by_sid", history_sid),
+      ResourceSelectorKind::SnapshotAll));
+    std::unique_ptr<StyioIR> ir(all->toStyioIR(&probe));
+    EXPECT_NE(dynamic_cast<SCListLiteral*>(ir.get()), nullptr);
+  }
+  {
     LowererProbe probe;
     probe.snapshot_var_names_.insert("snap");
     std::unique_ptr<StateRefAST> snap(StateRefAST::Create(NameAST::Create("snap")));
@@ -2376,6 +2493,170 @@ TEST(StyioLoweringInternal, AdditionalLoweringGuardBranchesStayExplicit) {
   }
 }
 
+TEST(StyioLoweringInternal, SymbolInternerRecordsLoweringSideMapWrites) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  LowererProbe probe;
+  probe.attach_type_table(type_table, symbols);
+
+  const auto fn_sid = symbols.intern("lowering_local_fn");
+  const auto simple_sid = symbols.intern("lowering_local_simple");
+  std::unique_ptr<BlockAST> local_defs(BlockAST::Create({
+    FunctionAST::Create(
+      NameAST::Create("lowering_local_fn", fn_sid),
+      false,
+      {},
+      TypeAST::Create("i64"),
+      BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})),
+    SimpleFuncAST::Create(
+      NameAST::Create("lowering_local_simple", simple_sid),
+      {},
+      IntAST::Create("2"))
+  }));
+  register_direct_local_function_defs(&probe, local_defs.get());
+  EXPECT_EQ(probe.func_defs_by_sid[fn_sid], local_defs->stmts[0]);
+  EXPECT_EQ(probe.func_defs_by_sid[simple_sid], local_defs->stmts[1]);
+
+  probe.func_defs.clear();
+  std::unique_ptr<FuncCallAST> simple_call(FuncCallAST::Create(
+    NameAST::Create("lowering_local_simple", simple_sid),
+    {}));
+  std::unique_ptr<StyioIR> simple_call_ir(simple_call->toStyioIR(&probe));
+  EXPECT_NE(dynamic_cast<SGCall*>(simple_call_ir.get()), nullptr);
+
+  const auto native_sid = symbols.intern("lowering_native_by_sid");
+  StyioSemaContext::NativeFunctionType native_type;
+  native_type.return_type = styio_data_type_from_name("i64");
+  native_type.arg_types.push_back(styio_data_type_from_name("i64"));
+  probe.record_native_function_def("lowering_native_by_sid", native_sid, native_type);
+  probe.native_func_defs.clear();
+  std::unique_ptr<FuncCallAST> native_call(FuncCallAST::Create(
+    NameAST::Create("lowering_native_by_sid", native_sid),
+    {IntAST::Create("4")}));
+  std::unique_ptr<StyioIR> native_call_ir(native_call->toStyioIR(&probe));
+  EXPECT_NE(dynamic_cast<SGCall*>(native_call_ir.get()), nullptr);
+
+  const auto state_sid = symbols.intern("lowering_state_by_sid");
+  const auto state_param_sid = symbols.intern("state_value");
+  std::unique_ptr<SimpleFuncAST> state_helper(SimpleFuncAST::Create(
+    NameAST::Create("lowering_state_by_sid", state_sid),
+    {ParamAST::Create(NameAST::Create("state_value", state_param_sid))},
+    StateDeclAST::Create(
+      IntAST::Create("2"),
+      nullptr,
+      nullptr,
+      VarAST::Create(NameAST::Create("state_out"), TypeAST::Create("i64")),
+      NameAST::Create("state_value", state_param_sid))));
+  probe.record_function_def("lowering_state_by_sid", state_sid, state_helper.get());
+  probe.func_defs.clear();
+  std::unique_ptr<FuncCallAST> state_call(FuncCallAST::Create(
+    NameAST::Create("lowering_state_by_sid", state_sid),
+    {IntAST::Create("7")}));
+  EXPECT_TRUE(stmt_may_contain_pulse_state(&probe, state_call.get()));
+  PulseScratch scratch;
+  EXPECT_NE(resolve_state_decl_impl(&probe, state_call.get(), &scratch), nullptr);
+
+  const auto series_sid = symbols.intern("lowering_series_by_sid");
+  const auto series_param_sid = symbols.intern("series_value");
+  std::unique_ptr<SimpleFuncAST> series_helper(SimpleFuncAST::Create(
+    NameAST::Create("lowering_series_by_sid", series_sid),
+    {ParamAST::Create(NameAST::Create("series_value", series_param_sid))},
+    SeriesIntrinsicAST::Create(
+      NameAST::Create("series_value", series_param_sid),
+      SeriesIntrinsicOp::Avg,
+      IntAST::Create("3"))));
+  probe.record_function_def("lowering_series_by_sid", series_sid, series_helper.get());
+  probe.func_defs.clear();
+  std::unique_ptr<FuncCallAST> series_call(FuncCallAST::Create(
+    NameAST::Create("lowering_series_by_sid", series_sid),
+    {IntAST::Create("9")}));
+  EXPECT_NE(series_intrinsic_helper_body(&probe, series_call.get()), nullptr);
+
+  const auto preface_sid = symbols.intern("lowering_preface_local");
+  std::unique_ptr<FlexBindAST> preface(FlexBindAST::Create(
+    VarAST::Create(NameAST::Create("lowering_preface_local", preface_sid)),
+    IntAST::Create("3")));
+  bind_resource_method_preface_local_latest(&probe, preface.get());
+  ASSERT_TRUE(probe.local_binding_types_by_sid.contains(preface_sid));
+  EXPECT_EQ(
+    probe.local_binding_types_by_sid[preface_sid].option,
+    StyioDataTypeOption::Integer);
+
+  probe.local_binding_types.clear();
+  std::unique_ptr<NameAST> preface_read(NameAST::Create("lowering_preface_local", preface_sid));
+  std::optional<StyioDataType> preface_type = bound_type_of(&probe, preface_read.get());
+  ASSERT_TRUE(preface_type.has_value());
+  EXPECT_EQ(preface_type->option, StyioDataTypeOption::Integer);
+
+  const auto dyn_sid = symbols.intern("lowering_dyn_by_sid");
+  StyioSemaContext::BindingInfo dyn_info;
+  dyn_info.dynamic_slot = true;
+  dyn_info.value_kind = StyioSemaContext::BindingValueKind::ListHandle;
+  dyn_info.declared_type = styio_make_list_type("i64");
+  probe.record_binding_info("lowering_dyn_by_sid", dyn_sid, dyn_info);
+  probe.binding_info_.clear();
+  std::unique_ptr<NameAST> dyn_read(NameAST::Create("lowering_dyn_by_sid", dyn_sid));
+  std::unique_ptr<StyioIR> dyn_ir(dyn_read->toStyioIR(&probe));
+  EXPECT_NE(dynamic_cast<SGDynLoad*>(dyn_ir.get()), nullptr);
+
+  const auto method_list_sid = symbols.intern("lowering_method_list_by_sid");
+  std::unique_ptr<FlexBindAST> method_list(FlexBindAST::Create(
+    VarAST::Create(
+      NameAST::Create("lowering_method_list_by_sid", method_list_sid),
+      TypeAST::Create(styio_make_list_type("i64"))),
+    ListAST::Create({IntAST::Create("5")})));
+  bind_resource_method_preface_local_latest(&probe, method_list.get());
+  ASSERT_TRUE(probe.resource_method_dynamic_local_binding_types_by_sid.contains(method_list_sid));
+  probe.resource_method_dynamic_local_binding_types.clear();
+  std::unique_ptr<NameAST> method_list_read(NameAST::Create(
+    "lowering_method_list_by_sid",
+    method_list_sid));
+  std::unique_ptr<StyioIR> method_list_ir(method_list_read->toStyioIR(&probe));
+  EXPECT_NE(dynamic_cast<SGDynLoad*>(method_list_ir.get()), nullptr);
+
+  std::unique_ptr<VarAST> method_list_var(VarAST::Create(
+    NameAST::Create("lowering_method_list_by_sid", method_list_sid)));
+  EXPECT_EQ(
+    bind_slot_type_latest(&probe, "lowering_method_list_by_sid", method_list_var.get()).name,
+    "list[i64]");
+
+  std::unique_ptr<FlexBindAST> method_list_assign(FlexBindAST::Create(
+    VarAST::Create(
+      NameAST::Create("lowering_method_list_by_sid", method_list_sid),
+      TypeAST::Create(styio_make_list_type("i64"))),
+    ListAST::Create({IntAST::Create("8")})));
+  std::unique_ptr<StyioIR> method_list_assign_ir(method_list_assign->toStyioIR(&probe));
+  auto* method_list_bind = dynamic_cast<SGFlexBind*>(method_list_assign_ir.get());
+  ASSERT_NE(method_list_bind, nullptr);
+  EXPECT_TRUE(method_list_bind->var->is_dynamic_slot);
+
+  const auto iter_stream_sid = symbols.intern("lowering_iter_stream_by_sid");
+  probe.record_local_binding_type(
+    "lowering_iter_stream_by_sid",
+    iter_stream_sid,
+    styio_make_std_stream_type(StdStreamKind::Stdin, "string"));
+  probe.local_binding_types.clear();
+  std::unique_ptr<IteratorAST> iter(IteratorAST::Create(
+    NameAST::Create("lowering_iter_stream_by_sid", iter_stream_sid),
+    {ParamAST::Create(NameAST::Create("line"))},
+    {PassAST::Create()}));
+  std::unique_ptr<StyioIR> iter_ir(iter->toStyioIR(&probe));
+  EXPECT_NE(dynamic_cast<SIOStdStreamLineIter*>(iter_ir.get()), nullptr);
+
+  const auto handle_sid = symbols.intern("lowering_handle_by_sid");
+  std::unique_ptr<HandleAcquireAST> acquire(HandleAcquireAST::Create(
+    VarAST::Create(
+      NameAST::Create("lowering_handle_by_sid", handle_sid),
+      TypeAST::Create(styio_make_file_handle_type("i64"))),
+    FileResourceAST::Create(StringAST::Create("data.txt"), false)));
+  std::unique_ptr<StyioIR> ir(acquire->toStyioIR(&probe));
+  ASSERT_NE(ir, nullptr);
+  ASSERT_TRUE(probe.local_binding_types_by_sid.contains(handle_sid));
+  ASSERT_TRUE(probe.binding_info_by_sid_.contains(handle_sid));
+  EXPECT_TRUE(styio_type_is_resource_handle(probe.local_binding_types_by_sid[handle_sid]));
+  EXPECT_TRUE(probe.binding_info_by_sid_[handle_sid].resource_value);
+}
+
 TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
   // Verify that SessionAllocationStats correctly tracks IR node
   // allocations, raw allocations, and destructor calls.
@@ -2384,6 +2665,7 @@ TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
   auto* prev_stats = styio::session_alloc::set_current_ir_stats(&stats);
 
   // ------- Phase 1: create nodes via make_ir (heap path, no arena) -------
+  EXPECT_FALSE(styio::session_alloc::ir_arena_active());
   std::vector<StyioIR*> nodes;
   nodes.push_back(SGConstInt::Create(42));
   nodes.push_back(SGConstBool::Create(true));
@@ -2443,9 +2725,10 @@ TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
   EXPECT_GE(stats.destructor_calls, max_seen / 2);
 
   // ------- Phase 4: verify arena+make_ir path -------
-  // Set up a local arena and re-run to exercise the arena allocation path.
+  // Set up a local arena and re-run to exercise the opt-in arena allocation path.
   styio::session_alloc::SessionArena test_arena(4096);
   auto* prev_arena = styio::session_alloc::set_current_ir_arena(&test_arena);
+  EXPECT_TRUE(styio::session_alloc::ir_arena_active());
 
   stats.reset();
   StyioIR* arena_node_a = SGConstInt::Create(99);
@@ -2483,6 +2766,7 @@ TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
 
   // Restore thread-local state.
   styio::session_alloc::set_current_ir_arena(prev_arena);
+  EXPECT_FALSE(styio::session_alloc::ir_arena_active());
   styio::session_alloc::set_current_ir_stats(prev_stats);
 }
 

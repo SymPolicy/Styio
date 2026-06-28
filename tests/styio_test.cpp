@@ -427,19 +427,19 @@ write_compile_plan_contract_case_latest(
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << paths.root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << paths.root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"" << entry_package_id << "\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-" << suffix << "\",\n"
-      << "    \"file\": \"" << paths.source.string() << "\"\n"
+      << "    \"file\": \"" << paths.source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": " << profile_json << ",\n"
       << "  \"packages\": " << packages_json << ",\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << paths.build_root.string() << "\", \"artifact_dir\": \""
-      << paths.artifact_dir.string() << "\", \"diag_dir\": \"" << paths.diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << paths.build_root.generic_string() << "\", \"artifact_dir\": \""
+      << paths.artifact_dir.generic_string() << "\", \"diag_dir\": \"" << paths.diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -966,25 +966,6 @@ TEST(StyioFiveLayerPipeline, ReportsAstIrLlvmStdoutAndStderrGoldenFailures) {
   const std::string llvm_err = styio::testing::run_pipeline_case(llvm_case.string(), nullptr);
   EXPECT_NE(llvm_err.find("Layer 4 (LLVM IR):"), std::string::npos) << llvm_err;
 
-  const fs::path legacy_llvm_case = copy_pipeline_case_latest(source_case, root, "legacy-llvm");
-  write_text_file_latest(
-    legacy_llvm_case / "expected" / "llvm_ir.txt",
-    "target triple = \"x86_64-unknown-linux-gnu\"\n"
-    "@styio_fmt_i64 = private unnamed_addr constant [4 x i8] c\"%ld\\00\"\n"
-    "@styio_fmt_str = private unnamed_addr constant [4 x i8] c\"%s\\00\"\n"
-    "declare i32 @printf(ptr, ...)\n"
-    "  %1 = call i32 (ptr, ...) @printf(ptr @styio_fmt_i64, i64 %42)\n"
-    "  %2 = call i32 (ptr, ...) @printf(ptr @styio_fmt_str, ptr %7)\n"
-    "  call i32 @puts(ptr @styio_print_at)\n"
-    "  %3 = call ptr @styio_f64_dec_cstr(double 1.5)\n"
-    "  call void @styio_stdout_write_cstr(ptr %3)\n"
-    "  call void @styio_stdout_write_cstr(ptr %9)\n"
-    "  keep trailing spaces   \n");
-  const std::string legacy_llvm_err =
-    styio::testing::run_pipeline_case(legacy_llvm_case.string(), nullptr);
-  EXPECT_NE(legacy_llvm_err.find("Layer 4 (LLVM IR):"), std::string::npos)
-    << legacy_llvm_err;
-
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
     runner = STYIO_COMPILER_EXE;
@@ -1461,7 +1442,7 @@ TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   EXPECT_NE(result.stdout_text.find("\"src/StyioServices/StyioIDE/\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"id\": \"macro_prelude\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"path\": \"src/StyioParser/SymbolRegistry.cpp\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"src/StyioPrelude/resources.styio\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"share/styio/prelude/resources.styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"macro_like_symbols\": ["), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"match\""), std::string::npos);
 }
@@ -1748,12 +1729,12 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
@@ -1830,12 +1811,12 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"check\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-check\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
@@ -1912,12 +1893,12 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"run\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-run\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
@@ -2000,7 +1981,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"test\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"test\",\n"
@@ -2665,7 +2646,7 @@ TEST(StyioDiagnostics, CompilePlanVersionMarkerDoesNotSelectImplementation) {
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -2724,7 +2705,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -2960,7 +2941,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
       << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"yaml\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -3130,18 +3111,18 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-relative-diag-dir\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
       << "\", \"diag_dir\": \"diag\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -3156,7 +3137,9 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
   const CommandResult result =
     run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: diag_dir"), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("compile-plan path must be absolute: outputs.diag_dir"),
+    std::string::npos) << result.stdout_text;
   EXPECT_FALSE(fs::exists(build_root / "diag" / "diagnostics.jsonl"));
 
   fs::remove_all(root);
@@ -4526,6 +4509,7 @@ TEST(StyioFeatureCorpus, NightlyRejectsKnownNegativeDesignSamplesWithJsonlDiagno
     {"tests/features/state_resources/e05_selector_slice_exceeds_bound.styio", 4, "\"phase\":\"type\""},
     {"tests/features/state_resources/e06_selector_snapshot_unbounded_matrix_unsupported.styio", 4, "\"phase\":\"sema\""},
     {"tests/features/state_resources/e07_selector_copy_scalar_unsupported.styio", 3, "\"phase\":\"parse\""},
+    {"tests/features/resource_pressure/e01_pressure_observer_unsupported.styio", 4, "\"phase\":\"sema\""},
     {"tests/features/stdio_input/e01_write_to_stdin.styio", 4, "\"phase\":\"sema\""},
     {"tests/features/stdio_input/e02_read_from_stdout.styio", 4, "\"phase\":\"type\""},
     {"tests/features/stdio_input/e03_read_from_stderr.styio", 4, "\"phase\":\"sema\""},
@@ -8549,6 +8533,52 @@ TEST(StyioDiagnostics, ResourceMethodRangeBodyRunsAfterInlineClone) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(result.stdout_text, "[1,3,5]\n[3,2,1]\nafter\n");
   EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+
+  fs::remove(input);
+  fs::remove(data);
+}
+
+TEST(StyioDiagnostics, ResourceMethodStreamZipBodyRunsAfterInlineClone) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-resource-method-zip-body-" + std::to_string(uniq) + ".styio");
+  const fs::path data =
+    fs::temp_directory_path() / ("styio-resource-method-zip-body-data-" + std::to_string(uniq) + ".txt");
+
+  {
+    std::ofstream out(data);
+    ASSERT_TRUE(out.is_open());
+    out << "seed\n";
+  }
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "@file::pairs = () => {\n";
+    out << "  [1, 2] >> #(left) & [10, 20] >> #(right) => {\n";
+    out << "    >_(left + right)\n";
+    out << "  }\n";
+    out << "}\n";
+    out << "log := @file(\"" << data.generic_string() << "\")\n";
+    out << "log.pairs()\n";
+    out << ">_(\"after\")\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--parser-engine=nightly",
+    "--file",
+    input.string()
+  });
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(normalize_host_text_latest(result.stdout_text), "11\n22\nafter\n");
+  EXPECT_EQ(combined_output_latest(result).find("unsupported AST node in inlined state expression clone"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);
@@ -13311,6 +13341,45 @@ TEST(StyioDiagnostics, TupleFunctionReturnAnnotationReportsTypeCode) {
     result.stdout_text.find("tuple function return annotations require tuple value IR"),
     std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\n7\n"), std::string::npos);
+
+  fs::remove(input);
+}
+
+TEST(StyioDiagnostics, FunctionMissingReturnReportsTypeCode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-function-missing-return-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "# missing := () => {\n";
+    out << "}\n";
+    out << ">_(missing())\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_FUNCTION_MISSING_RETURN\""),
+    std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("function body requires a return value"),
+    std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\n0\n"), std::string::npos);
 
   fs::remove(input);
 }

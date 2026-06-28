@@ -227,6 +227,11 @@ ir_stats_active() noexcept {
   return current_ir_stats != nullptr;
 }
 
+inline bool
+ir_arena_active() noexcept {
+  return current_ir_arena != nullptr;
+}
+
 /// Helper: record a raw heap allocation for tracking purposes.
 /// Returns the pointer unchanged so it can be used inline.
 template <typename T>

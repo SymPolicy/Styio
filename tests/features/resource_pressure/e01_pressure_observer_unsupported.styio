@@ -1,0 +1,4 @@
+@stdout.pressure >> #(p) => {
+  >_(p)
+}
+>_("after")

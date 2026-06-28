@@ -57,7 +57,7 @@ controlled_components() {
     {"paths", component_paths({
       "src/StyioParser/SymbolRegistry.hpp",
       "src/StyioParser/SymbolRegistry.cpp",
-      "src/StyioPrelude/resources.styio",
+      "share/styio/prelude/resources.styio",
     })},
     {"description", "Default symbol, builtin type, and macro registry used as the source-build override surface."},
   });
@@ -91,7 +91,7 @@ controlled_components() {
     {"paths", component_paths({
       "src/StyioParser/SymbolRegistry.hpp",
       "src/StyioParser/SymbolRegistry.cpp",
-      "src/StyioPrelude/resources.styio",
+      "share/styio/prelude/resources.styio",
     })},
     {"description", "Default macro/prelude symbol layer; parser syntax stays fixed while this layer remains overridable."},
   });

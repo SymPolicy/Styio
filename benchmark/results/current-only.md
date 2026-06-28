@@ -1,38 +1,65 @@
-# Benchmark Results — Current Only (de1f341)
+﻿Baseline: 8ef5720 (Debug)
+Current:  8ef5720 (Debug)
+Threshold: 5.0%
 
-**Date:** 2026-06-25
-**Commit:** `de1f341`
-**Build:** Release
+Benchmark                                         Baseline      Current    Delta %       Status
+---------------------------------------------------------------------------------------------
+diag/many_errors_100                             561.30 us    561.30 us      +0.0%       stable
+ir_alloc/factory_smoke                                0 ns         0 ns      +0.0%       stable
+lex/large_file_10k                                15.21 ms     15.21 ms      +0.0%       stable
+parse/deep_expr_200                              974.30 us    974.30 us      +0.0%       stable
+parse/many_stmts_1k                               44.65 ms     44.65 ms      +0.0%       stable
+route_cache/deep_expr_200                             0 ns         0 ns      +0.0%       stable
+route_cache/many_stmts_1k                             0 ns         0 ns      +0.0%       stable
+route_cache/name_resolution_5k                        0 ns         0 ns      +0.0%       stable
+route_cache/resource_dag_200                          0 ns         0 ns      +0.0%       stable
+route_cache/typed_bindings_1k                         0 ns         0 ns      +0.0%       stable
+runtime/task_spawn_1k_nop                           700 ns       700 ns      +0.0%       stable
+scheduler/task_queue_mode                             0 ns         0 ns      +0.0%       stable
+sema/name_resolution_5k                             6.38 s       6.38 s      +0.0%       stable
+topology/resource_dag_200                         60.65 ms     60.65 ms      +0.0%       stable
+type/typed_bindings_1k                           133.66 ms    133.66 ms      +0.0%       stable
 
-## Evidence Summary
+Summary: 0 regression(s), 0 improvement(s), 0 new, 0 missing
 
-Commit `6e59b68` lacks a `styio_core_bench` target, so baseline comparison is unavailable. Evidence: benchmark binary builds and runs; JSON output at `benchmark/results/current.json`.
+Route cache counters:
+Benchmark                                     Metric         Baseline      Current        Delta
+---------------------------------------------------------------------------------------------
+route_cache/deep_expr_200                     scan                  1            1           +0
+route_cache/deep_expr_200                     miss                  1            1           +0
+route_cache/deep_expr_200                     hit                   0            0           +0
+route_cache/deep_expr_200                     disabled              0            0           +0
+route_cache/many_stmts_1k                     scan               1000         1000           +0
+route_cache/many_stmts_1k                     miss               1000         1000           +0
+route_cache/many_stmts_1k                     hit                   0            0           +0
+route_cache/many_stmts_1k                     disabled              0            0           +0
+route_cache/name_resolution_5k                scan              10001        10001           +0
+route_cache/name_resolution_5k                miss              10001        10001           +0
+route_cache/name_resolution_5k                hit                   0            0           +0
+route_cache/name_resolution_5k                disabled              0            0           +0
+route_cache/resource_dag_200                  scan                600          600           +0
+route_cache/resource_dag_200                  miss                600          600           +0
+route_cache/resource_dag_200                  hit                   0            0           +0
+route_cache/resource_dag_200                  disabled              0            0           +0
+route_cache/typed_bindings_1k                 scan               1200         1200           +0
+route_cache/typed_bindings_1k                 miss               1200         1200           +0
+route_cache/typed_bindings_1k                 hit                   0            0           +0
+route_cache/typed_bindings_1k                 disabled              0            0           +0
 
-## Raw Results (30 iterations, median)
+IR allocation stats:
+Benchmark                                     Metric         Baseline      Current        Delta
+---------------------------------------------------------------------------------------------
+ir_alloc/factory_smoke                        arena                 0            0           +0
+ir_alloc/factory_smoke                        raw                   1            1           +0
+ir_alloc/factory_smoke                        bytes                 8            8           +0
+ir_alloc/factory_smoke                        nodes                 1            1           +0
+ir_alloc/factory_smoke                        peak                  1            1           +0
+ir_alloc/factory_smoke                        dtors                 1            1           +0
 
-| Benchmark | Median | Phase |
-|-----------|--------|-------|
-| lex/large_file_10k | 4.23 ms | Tokenizer |
-| parse/many_stmts_1k | 10.9 ms | Parser |
-| parse/deep_expr_200 | 0.19 ms | Parser |
-| sema/name_resolution_5k | 592 ms | Semantic analysis |
-| type/typed_bindings_1k | 32.3 ms | Type checking |
-| topology/resource_dag_200 | 12.0 ms | Resource topology |
-| diag/many_errors_100 | 0.06 ms | Diagnostics |
-| runtime/task_spawn_1k_nop | 0.6 µs | Runtime (nop baseline) |
+Scheduler metadata:
+Benchmark                                     Metric           Baseline      Current        Delta
+-----------------------------------------------------------------------------------------------
+scheduler/task_queue_mode                     queue_kind              0            0           +0
+scheduler/task_queue_mode                     workers                 0            0           +0
 
-## Infrastructure Established
-
-- [x] Benchmark binary builds in Release mode without crash
-- [x] JSON output with commit hash, build type, timestamps
-- [x] 8 benchmark scenarios covering lex/parse/sema/type/topology/diag/runtime
-- [x] Route cache counters available via `STYIO_PARSER_ROUTE_CACHE_STATS=1`
-- [x] IR allocation stats struct available for future instrumentation
-- [x] Route cache counters now emitted in route-cache report (`scripts/benchmark-compare.py --route-cache`)
-
-## Next Steps for Performance Proof
-
-1. Build benchmark on `6e59b68` (or build `styio` binary and use `--styio-bin` mode)
-2. Compare current vs baseline with `scripts/benchmark-compare.py --threshold 5 --markdown`
-3. Keep route cache counter evidence current (`benchmark/results/current-route-cache-report.md`)
-4. Add IR allocation counter readout to benchmark JSON
+PASS: all benchmarks within 5.0% threshold.

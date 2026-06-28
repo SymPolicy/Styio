@@ -199,6 +199,7 @@ void
 FrontendProfiler::set_async_scheduler_stats(
   std::int64_t enabled,
   std::int64_t worker_count,
+  std::int64_t ready_queue_kind,
   std::int64_t active_tasks,
   std::int64_t ready_tasks,
   std::int64_t spawned_tasks,
@@ -219,6 +220,7 @@ FrontendProfiler::set_async_scheduler_stats(
   async_scheduler_.present = true;
   async_scheduler_.enabled = enabled;
   async_scheduler_.worker_count = worker_count;
+  async_scheduler_.ready_queue_kind = ready_queue_kind;
   async_scheduler_.active_tasks = active_tasks;
   async_scheduler_.ready_tasks = ready_tasks;
   async_scheduler_.spawned_tasks = spawned_tasks;
@@ -323,6 +325,7 @@ FrontendProfiler::to_json() const {
     out << "{"
         << "\"enabled\": " << async_scheduler_.enabled
         << ", \"worker_count\": " << async_scheduler_.worker_count
+        << ", \"ready_queue_kind\": " << async_scheduler_.ready_queue_kind
         << ", \"active_tasks\": " << async_scheduler_.active_tasks
         << ", \"ready_tasks\": " << async_scheduler_.ready_tasks
         << ", \"spawned_tasks\": " << async_scheduler_.spawned_tasks

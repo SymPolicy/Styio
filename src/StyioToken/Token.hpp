@@ -146,26 +146,60 @@ struct StyioDataType
     return option == StyioDataTypeOption::Float;
   }
 
-  bool equals(const StyioDataType other) const {
-    return option == other.option
-      && name == other.name
-      && num_of_bit == other.num_of_bit
-      && handle_family == other.handle_family
-      && state == other.state
-      && capabilities == other.capabilities
-      && item_type_name == other.item_type_name
-      && key_type_name == other.key_type_name
-      && has_std_stream_kind == other.has_std_stream_kind
-      && std_stream_kind == other.std_stream_kind
-      && value_family == other.value_family
-      && item_value_family == other.item_value_family
-      && key_value_family == other.key_value_family
-      && is_resource_type == other.is_resource_type
-      && resource_value_type_name == other.resource_value_type_name
-      && resource_shape == other.resource_shape
-      && resource_shape_bound == other.resource_shape_bound;
+  struct CanonicalView
+  {
+    StyioDataTypeOption option;
+    std::string_view name;
+    size_t num_of_bit;
+    StyioHandleFamily handle_family;
+    StyioTypeState state;
+    std::uint32_t capabilities;
+    std::string_view item_type_name;
+    std::string_view key_type_name;
+    bool has_std_stream_kind;
+    int std_stream_kind;
+    StyioValueFamily value_family;
+    StyioValueFamily item_value_family;
+    StyioValueFamily key_value_family;
+    bool is_resource_type;
+    std::string_view resource_value_type_name;
+    StyioResourceShapeKind resource_shape;
+    std::size_t resource_shape_bound;
+
+    bool operator==(const CanonicalView&) const = default;
+  };
+
+  CanonicalView canonical_view() const noexcept {
+    return CanonicalView{
+      option,
+      name,
+      num_of_bit,
+      handle_family,
+      state,
+      capabilities,
+      item_type_name,
+      key_type_name,
+      has_std_stream_kind,
+      std_stream_kind,
+      value_family,
+      item_value_family,
+      key_value_family,
+      is_resource_type,
+      resource_value_type_name,
+      resource_shape,
+      resource_shape_bound
+    };
+  }
+
+  bool equals(const StyioDataType& other) const {
+    return canonical_view() == other.canonical_view();
   }
 };
+
+inline StyioDataType::CanonicalView
+styio_canonical_type_view(const StyioDataType& type) noexcept {
+  return type.canonical_view();
+}
 
 inline bool styio_is_list_type(const StyioDataType& type);
 inline bool styio_is_dict_type(const StyioDataType& type);

@@ -689,6 +689,65 @@ private:
       }
       require_cap(resource, Capability::Pull, "resource selector needs read capability", ast);
       require_cap(resource, Capability::Checkpoint, "resource selector needs snapshot capability", ast);
+      const auto type_hit = binding_types_.find(std::string("@") + ref->getNameStr());
+      const StyioDataType resource_type = type_hit != binding_types_.end()
+        ? type_hit->second
+        : ref->getDataType();
+      const bool bounded_history =
+        (resource_type.resource_shape == StyioResourceShapeKind::Fixed
+         || resource_type.resource_shape == StyioResourceShapeKind::Recent)
+        && resource_type.resource_shape_bound > 0;
+      if ((ref->getSelectorKind() == ResourceSelectorKind::SliceFrom
+           || ref->getSelectorKind() == ResourceSelectorKind::SnapshotAll)
+          && !bounded_history) {
+        error(
+          "resource `" + ref->getNameStr()
+            + "` slice/snapshot selection requires a bounded topology resource",
+          ast);
+        return add_ast_node(
+          ast,
+          NodeKind::Value,
+          std::string("resource-select:@") + ref->getNameStr(),
+          Capability::None,
+          TypeState::Unknown,
+          ctx);
+      }
+      if (ref->getSelectorKind() == ResourceSelectorKind::SliceFrom) {
+        if (ref->getSelectorOffset() == std::numeric_limits<int>::min()) {
+          error("resource slice selector depth exceeds supported selector depth", ast);
+          return add_ast_node(
+            ast,
+            NodeKind::Value,
+            std::string("resource-select:@") + ref->getNameStr(),
+            Capability::None,
+            TypeState::Unknown,
+            ctx);
+        }
+        const int depth = -ref->getSelectorOffset();
+        if (depth <= 0) {
+          error("resource slice selector requires a negative history offset", ast);
+          return add_ast_node(
+            ast,
+            NodeKind::Value,
+            std::string("resource-select:@") + ref->getNameStr(),
+            Capability::None,
+            TypeState::Unknown,
+            ctx);
+        }
+        if (static_cast<std::size_t>(depth) > resource_type.resource_shape_bound) {
+          error(
+            "resource selector depth exceeds resource `@" + ref->getNameStr()
+              + "` history bound",
+            ast);
+          return add_ast_node(
+            ast,
+            NodeKind::Value,
+            std::string("resource-select:@") + ref->getNameStr(),
+            Capability::None,
+            TypeState::Unknown,
+            ctx);
+        }
+      }
       const StyioDataType selector_type = resource_selector_value_type(ref);
       const std::size_t value = add_ast_node(
         ast,
@@ -1315,7 +1374,9 @@ private:
       for (const auto& ci : cycles) {
         std::string desc;
         for (std::size_t i = 0; i < ci.node_ids.size(); ++i) {
-          if (i > 0) desc += " -> ";
+          if (i > 0) {
+            desc += " -> ";
+          }
           desc += result_.graph.node(ci.node_ids[i]).label;
         }
         error("resource dependency cycle: " + desc,
@@ -1508,9 +1569,75 @@ Graph::detect_cycles() const {
   }
 
   // Remaining nodes form cycles — collect them.
+  std::unordered_set<std::size_t> remaining;
+  for (const auto& entry : in_degree) {
+    if (entry.second > 0) {
+      remaining.insert(entry.first);
+    }
+  }
+
   std::vector<CycleInfo> cycles;
-  for (auto& [node, deg] : in_degree) {
-    if (deg > 0) {
+  std::unordered_map<std::size_t, std::uint8_t> color;
+  std::unordered_map<std::size_t, std::size_t> parent_node;
+  std::unordered_map<std::size_t, std::size_t> parent_edge;
+
+  auto record_cycle = [&](std::size_t from, std::size_t to, std::size_t edge_id) {
+    CycleInfo ci;
+    ci.node_ids.push_back(from);
+    ci.edge_ids.push_back(edge_id);
+
+    std::size_t cur = from;
+    while (cur != to) {
+      auto parent_it = parent_node.find(cur);
+      auto edge_it = parent_edge.find(cur);
+      if (parent_it == parent_node.end() || edge_it == parent_edge.end()) {
+        return;
+      }
+      cur = parent_it->second;
+      ci.node_ids.push_back(cur);
+      ci.edge_ids.push_back(edge_it->second);
+    }
+
+    std::reverse(ci.node_ids.begin(), ci.node_ids.end());
+    std::reverse(ci.edge_ids.begin(), ci.edge_ids.end());
+    ci.node_ids.push_back(to);
+    cycles.push_back(std::move(ci));
+  };
+
+  auto dfs = [&](auto&& self, std::size_t node) -> void {
+    color[node] = 1;
+    const auto adj_it = adj.find(node);
+    const auto edge_it = edge_adj.find(node);
+    if (adj_it != adj.end() && edge_it != edge_adj.end()) {
+      const auto& targets = adj_it->second;
+      const auto& edge_ids = edge_it->second;
+      for (std::size_t i = 0; i < targets.size(); ++i) {
+        const std::size_t next = targets[i];
+        if (remaining.count(next) == 0) {
+          continue;
+        }
+        const std::uint8_t next_color = color[next];
+        if (next_color == 0) {
+          parent_node[next] = node;
+          parent_edge[next] = edge_ids[i];
+          self(self, next);
+        }
+        else if (next_color == 1) {
+          record_cycle(node, next, edge_ids[i]);
+        }
+      }
+    }
+    color[node] = 2;
+  };
+
+  for (std::size_t node : remaining) {
+    if (color[node] == 0) {
+      dfs(dfs, node);
+    }
+  }
+
+  if (cycles.empty()) {
+    for (std::size_t node : remaining) {
       CycleInfo ci;
       ci.node_ids.push_back(node);
       cycles.push_back(ci);

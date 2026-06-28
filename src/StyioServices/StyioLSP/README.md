@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the editor-neutral Language Server Protocol service built on `StyioIDE`.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-06-28
 
 ## Use
 
@@ -37,6 +37,8 @@ std::vector<styio::lsp::OutboundMessage> replies = server.handle(std::move(reque
 ## Current LSP Surface
 
 The server is backed by `styio::ide::IdeService` and currently supports document lifecycle, diagnostics, completion, hover, definition, references, document/workspace symbols, semantic tokens, runtime drain, and scheduling-related test hooks.
+
+`initialize` responses now record the requested `rootUri`, any supplied `workspaceFolders`, the selected single active workspace root, and ignored extra folders in `experimental.styio.workspaceState`. The server also advertises `capabilities.workspace.workspaceFolders.supported = false` so multi-root support stays explicit and fail-closed.
 
 Published LSP diagnostics carry Styio diagnostic identity when available:
 

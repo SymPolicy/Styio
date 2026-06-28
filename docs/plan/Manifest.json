@@ -1,0 +1,104 @@
+[
+  {
+    "id": "92b65777-ce34-4328-822f-0b99b5da26cc",
+    "status": "in_progress",
+    "title": "Plan Documentation Governance",
+    "directory": "plan-documentation-governance",
+    "source_files": [
+      "docs/plan/README.md",
+      "docs/plan/INDEX.md",
+      "docs/plan/reports/README.md",
+      "docs/rollups/CURRENT-STATE.md",
+      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md",
+      "docs/rollups/MIGRATION-LEDGER.md"
+    ],
+    "goal": "Keep plan documents organized around active authority, evidence reports, and validated Better Plan state.",
+    "description": "Owns the plan-document boundary: docs/plan for active human-authored plans, docs/plan/reports for evidence reports, docs/rollups for current state, and docs/plan Manifest/Checkpoints files for machine-validated execution state.",
+    "checkpoints": "plan-documentation-governance/Checkpoints.json"
+  },
+  {
+    "id": "ad28a0a7-60f0-46ad-a11b-f1f33cb671df",
+    "status": "in_progress",
+    "title": "Styio Common Foundation Plan",
+    "directory": "styio-common-foundation",
+    "source_files": [
+      "docs/plan/Styio-Common-Foundation-Plan.md"
+    ],
+    "goal": "Route shared workflow, gate, service-contract, and test-harness substrate work through one common foundation plan.",
+    "description": "Covers cross-plan substrate changes that must land before dependent feature, product, or ecosystem work can safely proceed.",
+    "checkpoints": "styio-common-foundation/Checkpoints.json"
+  },
+  {
+    "id": "25aa3975-15c4-4ffd-a700-9161300f5f44",
+    "status": "in_progress",
+    "title": "Styio Ecosystem Delivery Master Plan",
+    "directory": "styio-ecosystem-delivery-master",
+    "source_files": [
+      "docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md",
+      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
+    ],
+    "goal": "Coordinate styio-nightly, styio-spio, and styio-view toward one finished language product.",
+    "description": "Tracks ecosystem phases, cross-repository ownership, shared contract surfaces, and release closure gates.",
+    "checkpoints": "styio-ecosystem-delivery-master/Checkpoints.json"
+  },
+  {
+    "id": "c27cacb9-2081-4254-ab89-732a4d8b2a64",
+    "status": "in_progress",
+    "title": "Styio Ecosystem CLI Contract Matrix",
+    "directory": "styio-ecosystem-cli-contract-matrix",
+    "source_files": [
+      "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
+      "scripts/ecosystem-cli-doc-gate.py"
+    ],
+    "goal": "Keep the active internal CLI contract mirror aligned across styio-nightly, styio-spio, and styio-view.",
+    "description": "Freezes canonical command forms and owner/consumer documentation obligations for machine-readable CLI contracts.",
+    "checkpoints": "styio-ecosystem-cli-contract-matrix/Checkpoints.json"
+  },
+  {
+    "id": "56c82eb6-2696-4d33-8e0a-aa569293552c",
+    "status": "in_progress",
+    "title": "Compiler Self-Explanation Decision Log",
+    "directory": "compiler-self-explanation-decision-log",
+    "source_files": [
+      "docs/plan/Compiler-Self-Explanation-Decision-Log.md",
+      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+      "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
+    ],
+    "goal": "Convert compiler self-explanation findings into explicit decisions, guardrails, and implementation checkpoints.",
+    "description": "Owns the next Sema/IR inventory, hash-tag route retirement guardrails, canonical resource topology sequencing, parser performance prerequisites, and stream/IDE follow-up ordering.",
+    "checkpoints": "compiler-self-explanation-decision-log/Checkpoints.json"
+  },
+  {
+    "id": "a7ea2f76-b0dc-43e1-b0d9-10ad8b514cc2",
+    "status": "blocked",
+    "title": "Dual-Channel Source-Build Absorption",
+    "directory": "dual-channel-source-build-absorption",
+    "source_files": [
+      "docs/plan/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md",
+      "docs/external/for-spio/Styio-Nano-Spio-Coordination.md",
+      "docs/rollups/MIGRATION-LEDGER.md"
+    ],
+    "goal": "Absorb the completed repo-local source-build plan into active ecosystem authority and archive the old plan when external confirmation exists.",
+    "description": "Tracks M-PLAN-01: repo-local baseline is complete, but the plan remains in docs/plan until residual hardening is moved to the master plan and the spio SSOT is confirmed.",
+    "checkpoints": "dual-channel-source-build-absorption/Checkpoints.json"
+  },
+  {
+    "id": "bc7d9809-0f71-4371-8b7b-32e8638a8d6d",
+    "status": "blocked",
+    "title": "Algorithmic Optimization Acceptance",
+    "directory": "algorithmic-optimization-acceptance",
+    "source_files": [
+      "docs/plan/reports/ALGORITHM_AUDIT_REPORT.md",
+      "docs/plan/reports/ALGORITHM_CLOSEOUT_TRACKER.md",
+      "docs/plan/reports/ALGORITHM_CLOSEOUT_FINAL_REPORT.md",
+      "docs/plan/reports/REMOTE_ACCEPTANCE_FIX_REPORT.md",
+      "docs/plan/reports/REMOTE_ACCEPTANCE_FINAL_REPORT.md",
+      "docs/plan/reports/ci-audit-final-fix.md",
+      "docs/rollups/CURRENT-STATE.md"
+    ],
+    "goal": "Close algorithmic optimization acceptance with real benchmark, sanitizer, TypeTable/SymbolInterner, ReadyQueue, and remote CI evidence.",
+    "description": "Merges the algorithm audit, local closeout, CI audit, and remote acceptance reports into one current execution graph; local correctness/evidence paths exist, but speedup and release readiness remain unproven.",
+    "checkpoints": "algorithmic-optimization-acceptance/Checkpoints.json"
+  }
+]

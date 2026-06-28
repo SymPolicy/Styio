@@ -277,13 +277,6 @@ Owner / consumer docs:
 2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
 3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
 
-## 验收条件
-
-1. Every active internal CLI contract row names the canonical invocation and owner or consumer docs.
-2. Cross-repository mirrors are updated in the same checkpoint when a contract shape changes.
-3. `python3 scripts/ecosystem-cli-doc-gate.py` passes for local contract consistency.
-4. Any shared payload or gate substrate change is first accepted through the common foundation plan.
-
 ### 3.6 `spio --json tool install/use/pin`
 
 Canonical forms:
@@ -306,3 +299,10 @@ Owner / consumer docs:
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
 2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
 3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+
+## 验收条件
+
+1. Every active internal CLI contract row names the canonical invocation and owner or consumer docs.
+2. Cross-repository mirrors are updated in the same checkpoint when a contract shape changes.
+3. `python3 scripts/ecosystem-cli-doc-gate.py` passes for local contract consistency.
+4. Any shared payload or gate substrate change is first accepted through the common foundation plan.

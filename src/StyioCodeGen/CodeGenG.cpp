@@ -25,6 +25,7 @@
 
 // [LLVM]
 #include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
@@ -133,6 +134,71 @@ styio_coerce_bounded_ring_value(llvm::Value* value, llvm::Type* elem_ty, llvm::I
     return value;
   }
   throw StyioTypeError("bounded resource ring value type mismatch");
+}
+
+llvm::Value*
+styio_coerce_collection_value(
+  llvm::Value* value,
+  StyioValueFamily family,
+  llvm::IRBuilder<>* builder,
+  const char* context
+) {
+  const std::string label = context != nullptr && context[0] != '\0'
+    ? context
+    : "collection";
+  auto fail = [&label]() -> llvm::Value* {
+    throw StyioTypeError(label + " value type mismatch");
+  };
+
+  if (value == nullptr) {
+    return fail();
+  }
+
+  if (family == StyioValueFamily::String) {
+    return value->getType()->isPointerTy() ? value : fail();
+  }
+
+  if (family == StyioValueFamily::Float) {
+    if (value->getType()->isDoubleTy()) {
+      return value;
+    }
+    if (value->getType()->isIntegerTy()) {
+      return builder->CreateSIToFP(value, builder->getDoubleTy());
+    }
+    return fail();
+  }
+
+  if (family == StyioValueFamily::Char) {
+    if (!value->getType()->isIntegerTy()) {
+      return fail();
+    }
+    return value->getType()->isIntegerTy(8)
+      ? value
+      : builder->CreateSExtOrTrunc(value, builder->getInt8Ty());
+  }
+
+  if (family == StyioValueFamily::ListHandle
+      || family == StyioValueFamily::DictHandle
+      || family == StyioValueFamily::MatrixHandle
+      || family == StyioValueFamily::RangeHandle
+      || family == StyioValueFamily::FileHandle
+      || family == StyioValueFamily::StreamHandle
+      || family == StyioValueFamily::TaskHandle) {
+    return value->getType()->isIntegerTy(64) ? value : fail();
+  }
+
+  if (family == StyioValueFamily::Bool || family == StyioValueFamily::Integer) {
+    if (!value->getType()->isIntegerTy()) {
+      return fail();
+    }
+    return value->getType()->isIntegerTy(1)
+      ? builder->CreateZExt(value, builder->getInt64Ty())
+      : (value->getType()->isIntegerTy(64)
+          ? value
+          : builder->CreateSExtOrTrunc(value, builder->getInt64Ty()));
+  }
+
+  return fail();
 }
 
 std::optional<StyioValueFamily>
@@ -1021,6 +1087,51 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     return cstr_to_f64_checked(v);
   };
 
+  llvm::Value* const styioUndef = theBuilder->getInt64(styio_undef_i64());
+  auto guarded_int_divrem = [&](llvm::Value* numerator, llvm::Value* divisor, bool is_remainder) -> llvm::Value* {
+    if (!numerator->getType()->isIntegerTy() || !divisor->getType()->isIntegerTy()) {
+      throw StyioTypeError("integer division lowering requires integer operands");
+    }
+
+    llvm::Type* result_ty = numerator->getType();
+    if (divisor->getType() != result_ty) {
+      divisor = theBuilder->CreateSExtOrTrunc(divisor, result_ty);
+    }
+
+    auto* int_ty = llvm::cast<llvm::IntegerType>(result_ty);
+    const unsigned bits = int_ty->getBitWidth();
+    llvm::Value* zero = llvm::ConstantInt::get(int_ty, 0, true);
+    llvm::Value* one = llvm::ConstantInt::get(int_ty, 1, true);
+    llvm::Value* false_value = llvm::ConstantInt::getFalse(*theContext);
+
+    llvm::Value* numerator_is_undef = false_value;
+    llvm::Value* divisor_is_undef = false_value;
+    llvm::Value* fallback = zero;
+    if (result_ty->isIntegerTy(64)) {
+      numerator_is_undef = theBuilder->CreateICmpEQ(numerator, styioUndef);
+      divisor_is_undef = theBuilder->CreateICmpEQ(divisor, styioUndef);
+      fallback = styioUndef;
+    }
+
+    llvm::Value* divisor_is_zero = theBuilder->CreateICmpEQ(divisor, zero);
+    llvm::Value* divisor_is_bad = theBuilder->CreateOr(divisor_is_undef, divisor_is_zero);
+
+    llvm::Value* min_int = llvm::ConstantInt::get(int_ty, llvm::APInt::getSignedMinValue(bits));
+    llvm::Value* minus_one = llvm::ConstantInt::getSigned(int_ty, -1);
+    llvm::Value* would_overflow = theBuilder->CreateAnd(
+      theBuilder->CreateICmpEQ(numerator, min_int),
+      theBuilder->CreateICmpEQ(divisor, minus_one));
+
+    llvm::Value* numerator_is_bad = theBuilder->CreateOr(numerator_is_undef, would_overflow);
+    llvm::Value* bad = theBuilder->CreateOr(numerator_is_bad, divisor_is_bad);
+    llvm::Value* safe_numerator = theBuilder->CreateSelect(numerator_is_bad, zero, numerator);
+    llvm::Value* safe_divisor = theBuilder->CreateSelect(divisor_is_bad, one, divisor);
+    llvm::Value* raw = is_remainder
+      ? theBuilder->CreateSRem(safe_numerator, safe_divisor)
+      : theBuilder->CreateSDiv(safe_numerator, safe_divisor);
+    return theBuilder->CreateSelect(bad, fallback, raw);
+  };
+
   auto do_self_assign = [&](Bin2 bi, Bin2 bf) -> llvm::Value* {
     auto* lid = static_cast<SGResId*>(node->lhs_expr);
     const std::string& varname = lid->as_str();
@@ -1056,7 +1167,6 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
   llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
-  llvm::Value* const styioUndef = theBuilder->getInt64(styio_undef_i64());
 
   if (styio_is_matrix_type(data_type)) {
     const bool lhs_matrix = styio_is_matrix_type(node->lhs_type);
@@ -1341,14 +1451,9 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       if (data_type.isInteger() || (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy())) {
         l_val = ptr_to_i64_for_arith(l_val);
         r_val = ptr_to_i64_for_arith(r_val);
-        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
-          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
-          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
-          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
-          llvm::Value* out = theBuilder->CreateSDiv(l_val, r_val);
-          return theBuilder->CreateSelect(bad, styioUndef, out);
+        if (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy()) {
+          return guarded_int_divrem(l_val, r_val, false);
         }
-        return theBuilder->CreateSDiv(l_val, r_val);
       }
     } break;
 
@@ -1387,14 +1492,9 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       if (data_type.isInteger() || (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy())) {
         l_val = ptr_to_i64_for_arith(l_val);
         r_val = ptr_to_i64_for_arith(r_val);
-        if (l_val->getType()->isIntegerTy(64) && r_val->getType()->isIntegerTy(64)) {
-          llvm::Value* lu = theBuilder->CreateICmpEQ(l_val, styioUndef);
-          llvm::Value* ru = theBuilder->CreateICmpEQ(r_val, styioUndef);
-          llvm::Value* bad = theBuilder->CreateOr(lu, ru);
-          llvm::Value* out = theBuilder->CreateSRem(l_val, r_val);
-          return theBuilder->CreateSelect(bad, styioUndef, out);
+        if (l_val->getType()->isIntegerTy() && r_val->getType()->isIntegerTy()) {
+          return guarded_int_divrem(l_val, r_val, true);
         }
-        return theBuilder->CreateSRem(l_val, r_val);
       }
     } break;
 
@@ -1508,13 +1608,13 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
     case StyioOpType::Self_Div_Assign: {
       return do_self_assign(
-        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateSDiv(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return guarded_int_divrem(a, b, false); },
         [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFDiv(a, b); });
     } break;
 
     case StyioOpType::Self_Mod_Assign: {
       return do_self_assign(
-        [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateSRem(a, b); },
+        [&](llvm::Value* a, llvm::Value* b) { return guarded_int_divrem(a, b, true); },
         [&](llvm::Value* a, llvm::Value* b) { return theBuilder->CreateFRem(a, b); });
     } break;
 
@@ -2322,39 +2422,11 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     return theBuilder->getInt64Ty();
   };
   auto coerce_builtin_list_value = [&](llvm::Value* raw, StyioValueFamily family) -> llvm::Value* {
-    llvm::Value* value = raw;
-    if (family == StyioValueFamily::String) {
-      if (!value->getType()->isPointerTy()) {
-        value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
-      }
-      return value;
-    }
-    if (family == StyioValueFamily::Float) {
-      if (!value->getType()->isDoubleTy()) {
-        if (value->getType()->isIntegerTy()) {
-          value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
-        }
-        else {
-          value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
-        }
-      }
-      return value;
-    }
-    if (family == StyioValueFamily::Char) {
-      if (value->getType()->isIntegerTy()) {
-        return value->getType()->isIntegerTy(8)
-          ? value
-          : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt8Ty());
-      }
-      return theBuilder->getInt8(0);
-    }
-    if (value->getType()->isIntegerTy(1)) {
-      return theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
-    }
-    if (!value->getType()->isIntegerTy(64)) {
-      return theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
-    }
-    return value;
+    return styio_coerce_collection_value(
+      raw,
+      family,
+      theBuilder.get(),
+      "runtime list operation");
   };
 
   if (fname == "__styio_list_pop") {
@@ -3380,39 +3452,11 @@ StyioToLLVM::toLLVMIR(SCListLiteral* node) {
   llvm::Value* list = theBuilder->CreateCall(new_fn, {});
   for (auto* elem : node->elems) {
     llvm::Value* value = elem->toLLVMIR(this);
-    if (elem_family == StyioValueFamily::String) {
-      if (!value->getType()->isPointerTy()) {
-        value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
-      }
-    }
-    else if (elem_family == StyioValueFamily::Float) {
-      if (!value->getType()->isDoubleTy()) {
-        if (value->getType()->isIntegerTy()) {
-          value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
-        }
-        else {
-          value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
-        }
-      }
-    }
-    else if (elem_family == StyioValueFamily::Char) {
-      if (value->getType()->isIntegerTy()) {
-        value = value->getType()->isIntegerTy(8)
-          ? value
-          : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt8Ty());
-      }
-      else {
-        value = theBuilder->getInt8(0);
-      }
-    }
-    else {
-      if (value->getType()->isIntegerTy(1)) {
-        value = theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
-      }
-      else if (!value->getType()->isIntegerTy(64)) {
-        value = theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
-      }
-    }
+    value = styio_coerce_collection_value(
+      value,
+      elem_family,
+      theBuilder.get(),
+      "list literal");
     theBuilder->CreateCall(push_fn, {list, value});
     if (elem_family == StyioValueFamily::String) {
       free_owned_cstr_temp_if_tracked(value);
@@ -3452,18 +3496,11 @@ StyioToLLVM::toLLVMIR(SCMatrixLiteral* node) {
   emit_runtime_error_guard_return();
   for (size_t i = 0; i < node->elems.size(); ++i) {
     llvm::Value* value = node->elems[i]->toLLVMIR(this);
-    if (is_f64) {
-      if (!value->getType()->isDoubleTy()) {
-        value = value->getType()->isIntegerTy()
-          ? theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy())
-          : llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
-      }
-    }
-    else if (!value->getType()->isIntegerTy(64)) {
-      value = value->getType()->isIntegerTy(1)
-        ? theBuilder->CreateZExt(value, theBuilder->getInt64Ty())
-        : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
-    }
+    value = styio_coerce_collection_value(
+      value,
+      is_f64 ? StyioValueFamily::Float : StyioValueFamily::Integer,
+      theBuilder.get(),
+      "matrix literal");
     theBuilder->CreateCall(
       set_fn,
       {matrix,
@@ -3522,29 +3559,11 @@ StyioToLLVM::toLLVMIR(SCDictLiteral* node) {
   for (const auto& entry : node->entries) {
     llvm::Value* key = entry.key->toLLVMIR(this);
     llvm::Value* value = entry.value->toLLVMIR(this);
-    if (value_family == StyioValueFamily::String) {
-      if (!value->getType()->isPointerTy()) {
-        value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
-      }
-    }
-    else if (value_family == StyioValueFamily::Float) {
-      if (!value->getType()->isDoubleTy()) {
-        if (value->getType()->isIntegerTy()) {
-          value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
-        }
-        else {
-          value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
-        }
-      }
-    }
-    else {
-      if (value->getType()->isIntegerTy(1)) {
-        value = theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
-      }
-      else if (!value->getType()->isIntegerTy(64)) {
-        value = theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
-      }
-    }
+    value = styio_coerce_collection_value(
+      value,
+      value_family,
+      theBuilder.get(),
+      "dict literal");
     theBuilder->CreateCall(set_fn, {dict, key, value});
     free_owned_cstr_temp_if_tracked(key);
     if (value_family == StyioValueFamily::String) {
@@ -4649,39 +4668,11 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
   if (!idx->getType()->isIntegerTy(64)) {
     idx = theBuilder->CreateSExtOrTrunc(idx, theBuilder->getInt64Ty());
   }
-  if (value_family == StyioValueFamily::String) {
-    if (!value->getType()->isPointerTy()) {
-      value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
-    }
-  }
-  else if (value_family == StyioValueFamily::Float) {
-    if (!value->getType()->isDoubleTy()) {
-      if (value->getType()->isIntegerTy()) {
-        value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
-      }
-      else {
-        value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
-      }
-    }
-  }
-  else if (value_family == StyioValueFamily::Char) {
-    if (value->getType()->isIntegerTy()) {
-      value = value->getType()->isIntegerTy(8)
-        ? value
-        : theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt8Ty());
-    }
-    else {
-      value = theBuilder->getInt8(0);
-    }
-  }
-  else {
-    if (value->getType()->isIntegerTy(1)) {
-      value = theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
-    }
-    else if (!value->getType()->isIntegerTy(64)) {
-      value = theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
-    }
-  }
+  value = styio_coerce_collection_value(
+    value,
+    value_family,
+    theBuilder.get(),
+    "list set");
   theBuilder->CreateCall(set_fn, {list, idx, value});
   if (value_family == StyioValueFamily::String) {
     free_owned_cstr_temp_if_tracked(value_raw);
@@ -4942,29 +4933,11 @@ StyioToLLVM::toLLVMIR(SCDictSet* node) {
   if (!dict->getType()->isIntegerTy(64)) {
     dict = theBuilder->CreateSExtOrTrunc(dict, theBuilder->getInt64Ty());
   }
-  if (value_family == StyioValueFamily::String) {
-    if (!value->getType()->isPointerTy()) {
-      value = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
-    }
-  }
-  else if (value_family == StyioValueFamily::Float) {
-    if (!value->getType()->isDoubleTy()) {
-      if (value->getType()->isIntegerTy()) {
-        value = theBuilder->CreateSIToFP(value, theBuilder->getDoubleTy());
-      }
-      else {
-        value = llvm::ConstantFP::get(theBuilder->getDoubleTy(), 0.0);
-      }
-    }
-  }
-  else {
-    if (value->getType()->isIntegerTy(1)) {
-      value = theBuilder->CreateZExt(value, theBuilder->getInt64Ty());
-    }
-    else if (!value->getType()->isIntegerTy(64)) {
-      value = theBuilder->CreateSExtOrTrunc(value, theBuilder->getInt64Ty());
-    }
-  }
+  value = styio_coerce_collection_value(
+    value,
+    value_family,
+    theBuilder.get(),
+    "dict set");
   theBuilder->CreateCall(set_fn, {dict, key, value});
   free_owned_cstr_temp_if_tracked(key);
   if (value_family == StyioValueFamily::String) {

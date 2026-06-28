@@ -100,7 +100,7 @@ Styio already has corresponding names for many of these layers, but several are 
 | Typed semantic layer | `StyioSemaContext`, node data types, resource topology checks | No independent `TypeTable`, `SymbolTable`, typed HIR, constraint engine, or error trace system. |
 | Mid-level optimizer IR | `StyioIR`, `StyioIROptimizer`, verifier | IR nodes directly expose LLVM codegen; no explicit CFG/SSA/effect/ownership mid-level contract. |
 | Runtime system | `StyioExtern/ExternLib.cpp`, `StyioRuntime/HandleTable.hpp`, `StyioRuntime/RuntimeState.*`, task support, `runtime_surface_gate` | Runtime state has started moving below the C ABI facade; collections, tasks, strings, files, and profiling still need subsystem decomposition. |
-| Standard library | `library/manifest.json`, `library/*/README.md`, and installed `src/StyioPrelude/resources.styio` compatibility prelude | Planned modules are reserved, but only `std.resource` is active; compiler intrinsics and examples are adjacent evidence, not standard-library APIs. Package-aware import and accepted APIs remain future work. |
+| Standard library | `library/manifest.json`, `library/*/README.md`, and installed `share/styio/prelude/resources.styio` compatibility prelude | Planned modules are reserved, but only `std.resource` is active; compiler intrinsics and examples are adjacent evidence, not standard-library APIs. Package-aware import and accepted APIs remain future work. |
 | Package/build distribution | Compiler-side nano and compile-plan contracts | Full package lifecycle is intentionally outside `styio`, but the main repo still needs stable manifest/import/build graph contracts and tests. |
 | Performance corpus | External `styio-benchmark`, adapters, and `benchmark/core/` smoke corpus | The main repo has a release-conformance timing-schema floor; deep comparisons and historical baselines remain external. |
 
@@ -216,7 +216,7 @@ The gap is distribution completeness:
 
 | Distribution area | Current Styio state | Competitive-language target |
 |-------------------|---------------------|-----------------------------|
-| Standard library | `library/manifest.json` skeleton plus compatibility `std.resource` source in `src/StyioPrelude/resources.styio`; current matrix and series helper surfaces are compiler intrinsics, not `std.*` APIs. | Grow the first-class `library/` tree with accepted `core`, `io`, `collections`, `text`, `math`, `stream`, `resource`, `time`, `path`, `process`, `test`, docs, and module tests. |
+| Standard library | `library/manifest.json` skeleton plus compatibility `std.resource` source in `share/styio/prelude/resources.styio`; current matrix and series helper surfaces are compiler intrinsics, not `std.*` APIs. | Grow the first-class `library/` tree with accepted `core`, `io`, `collections`, `text`, `math`, `stream`, `resource`, `time`, `path`, `process`, `test`, docs, and module tests. |
 | Package/build | Nano package producer and compile-plan handoff; full package lifecycle outside this repo. | Versioned manifest, import graph, build graph, lockfile/handoff schema, package negative tests, `spio` contract tests. |
 | Tooling | CLI, syntax check, build, IDE/LSP, compile-plan, nano paths. | `styio fmt`, `styio test`, `styio doc`, `styio check`, stable LSP, formatter/doc extraction, project workspace model. |
 | Bootstrap | CMake builds C++ implementation; nano profile exists. | Explicit stage0/stage1/stage2 route, even if Styio self-hosting begins with a subset. |
@@ -225,7 +225,7 @@ The gap is distribution completeness:
 
 P0 distribution direction:
 
-1. Keep the first-class `library/` manifest/directory shape gated while moving active prelude content out of `src/` when package/import support is ready.
+1. Keep the first-class `library/` manifest/directory shape gated while the active prelude content remains in `share/styio/prelude/` until package/import support is ready.
 2. Keep full package-manager UX outside `styio`, but make manifest/import/build graph contracts testable in this repo.
 3. Keep the minimal `benchmark/core/` performance corpus in this repo so core executable timing evidence is reproducible without external checkout availability.
 4. Define the staged bootstrap route before large-scale self-hosting work begins.

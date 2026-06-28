@@ -2,17 +2,20 @@
 #ifndef STYIO_RUNTIME_READY_QUEUE_HPP_
 #define STYIO_RUNTIME_READY_QUEUE_HPP_
 
-#include <atomic>
 #include <condition_variable>
 #include <cstddef>
-#include <cstdint>
+#include <cstdlib>
 #include <deque>
 #include <memory>
 #include <mutex>
-
-class StyioTask;
+#include <thread>
 
 namespace styio::runtime {
+
+enum class ReadyQueueKind {
+  MutexDeque,
+  BoundedMPMC,
+};
 
 /// Abstract ready-queue for the task scheduler.
 /// Enables swapping implementations behind a common interface.
@@ -20,11 +23,14 @@ class IReadyQueue {
 public:
   virtual ~IReadyQueue() = default;
 
+  /// Identify the concrete backend for assertions and diagnostics.
+  virtual ReadyQueueKind kind() const = 0;
+
   /// Push a task onto the queue (thread-safe).
-  virtual void push(StyioTask* task) = 0;
+  virtual void push(void* task) = 0;
 
   /// Try to pop a task. Returns nullptr if queue is empty.
-  virtual StyioTask* try_pop() = 0;
+  virtual void* try_pop() = 0;
 
   /// Non-blocking snapshot of queue size (approximate for MPMC queues).
   virtual std::size_t approximate_size() const = 0;
@@ -44,20 +50,22 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// MutexDequeReadyQueue — current production implementation.
+// MutexDequeReadyQueue - current default implementation.
 // Wraps std::mutex + std::deque + std::condition_variable.
 // ---------------------------------------------------------------------------
 class MutexDequeReadyQueue : public IReadyQueue {
 public:
-  void push(StyioTask* task) override {
+  ReadyQueueKind kind() const override { return ReadyQueueKind::MutexDeque; }
+
+  void push(void* task) override {
     std::lock_guard<std::mutex> lock(mu_);
     queue_.push_back(task);
   }
 
-  StyioTask* try_pop() override {
+  void* try_pop() override {
     std::lock_guard<std::mutex> lock(mu_);
     if (queue_.empty()) return nullptr;
-    StyioTask* t = queue_.front();
+    void* t = queue_.front();
     queue_.pop_front();
     return t;
   }
@@ -87,11 +95,11 @@ public:
 private:
   mutable std::mutex mu_;
   std::condition_variable cv_;
-  std::deque<StyioTask*> queue_;
+  std::deque<void*> queue_;
 };
 
 // ---------------------------------------------------------------------------
-// BoundedMPMCReadyQueue — lock-free bounded ring buffer.
+// BoundedMPMCReadyQueue - bounded multi-producer/multi-consumer queue.
 // Controlled by STYIO_USE_MPMC_QUEUE environment variable.
 // ---------------------------------------------------------------------------
 class BoundedMPMCReadyQueue : public IReadyQueue {
@@ -99,59 +107,43 @@ class BoundedMPMCReadyQueue : public IReadyQueue {
 
 public:
   explicit BoundedMPMCReadyQueue(std::size_t capacity = kDefaultCapacity)
-    : capacity_(capacity), mask_(capacity - 1) {
-    // capacity must be power of two
-    ring_.reset(new std::atomic<StyioTask*>[capacity]);
-    for (std::size_t i = 0; i < capacity; ++i) {
-      ring_[i].store(nullptr, std::memory_order_relaxed);
+    : capacity_(capacity == 0 ? kDefaultCapacity : capacity) {
+  }
+
+  ReadyQueueKind kind() const override { return ReadyQueueKind::BoundedMPMC; }
+
+  void push(void* task) override {
+    for (;;) {
+      {
+        std::lock_guard<std::mutex> lock(mu_);
+        if (queue_.size() < capacity_) {
+          queue_.push_back(task);
+          cv_.notify_one();
+          return;
+        }
+      }
+      std::this_thread::yield();
     }
   }
 
-  void push(StyioTask* task) override {
-    std::size_t head = head_.load(std::memory_order_relaxed);
-    while (true) {
-      std::size_t tail = tail_.load(std::memory_order_acquire);
-      if (head - tail >= capacity_) {
-        // Queue full — busy-wait (bounded by caller)
-        continue;
-      }
-      std::size_t idx = head & mask_;
-      StyioTask* expected = nullptr;
-      if (ring_[idx].compare_exchange_weak(expected, task,
-            std::memory_order_release, std::memory_order_relaxed)) {
-        head_.store(head + 1, std::memory_order_release);
-        return;
-      }
-      head = head_.load(std::memory_order_relaxed);
+  void* try_pop() override {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (queue_.empty()) {
+      return nullptr;
     }
-  }
-
-  StyioTask* try_pop() override {
-    std::size_t tail = tail_.load(std::memory_order_relaxed);
-    while (true) {
-      std::size_t head = head_.load(std::memory_order_acquire);
-      if (tail >= head) return nullptr; // empty
-      std::size_t idx = tail & mask_;
-      StyioTask* task = ring_[idx].load(std::memory_order_acquire);
-      if (task == nullptr) return nullptr;
-      if (ring_[idx].compare_exchange_weak(task, nullptr,
-            std::memory_order_release, std::memory_order_relaxed)) {
-        tail_.store(tail + 1, std::memory_order_release);
-        return task;
-      }
-      tail = tail_.load(std::memory_order_relaxed);
-    }
+    void* task = queue_.front();
+    queue_.pop_front();
+    return task;
   }
 
   std::size_t approximate_size() const override {
-    std::size_t h = head_.load(std::memory_order_acquire);
-    std::size_t t = tail_.load(std::memory_order_acquire);
-    return h > t ? h - t : 0;
+    std::lock_guard<std::mutex> lock(mu_);
+    return queue_.size();
   }
 
   bool empty() const override {
-    return head_.load(std::memory_order_acquire) <=
-           tail_.load(std::memory_order_acquire);
+    std::lock_guard<std::mutex> lock(mu_);
+    return queue_.empty();
   }
 
   void notify_one() override { cv_.notify_one(); }
@@ -167,19 +159,32 @@ public:
 
 private:
   std::size_t capacity_;
-  std::size_t mask_;
-  std::unique_ptr<std::atomic<StyioTask*>[]> ring_;
-  std::atomic<std::size_t> head_{0};
-  std::atomic<std::size_t> tail_{0};
+  mutable std::mutex mu_;
   std::condition_variable cv_;
+  std::deque<void*> queue_;
 };
 
 /// Factory: create the appropriate queue based on environment.
-inline std::unique_ptr<IReadyQueue> make_ready_queue() {
+inline bool ready_queue_env_requests_mpmc() {
+#if defined(_WIN32)
+  char* raw_value = nullptr;
+  size_t raw_length = 0;
+  if (_dupenv_s(&raw_value, &raw_length, "STYIO_USE_MPMC_QUEUE") != 0 || raw_value == nullptr) {
+    return false;
+  }
+  std::unique_ptr<char, decltype(&std::free)> value(raw_value, &std::free);
+  return value.get()[0] == '1' || value.get()[0] == 'y' || value.get()[0] == 'Y';
+#else
   if (const char* env = std::getenv("STYIO_USE_MPMC_QUEUE")) {
-    if (env[0] == '1' || env[0] == 'y' || env[0] == 'Y') {
-      return std::make_unique<BoundedMPMCReadyQueue>();
-    }
+    return env[0] == '1' || env[0] == 'y' || env[0] == 'Y';
+  }
+  return false;
+#endif
+}
+
+inline std::unique_ptr<IReadyQueue> make_ready_queue() {
+  if (ready_queue_env_requests_mpmc()) {
+    return std::make_unique<BoundedMPMCReadyQueue>();
   }
   return std::make_unique<MutexDequeReadyQueue>();
 }

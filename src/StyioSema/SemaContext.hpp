@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -17,6 +18,7 @@ using std::unordered_map;
 #include "../StyioAST/ASTDecl.hpp"
 #include "../StyioIR/IRDecl.hpp"
 #include "../StyioSession/SymbolInterner.hpp"
+#include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
 
 struct SGPulsePlan;
@@ -190,6 +192,7 @@ public:
     std::vector<StyioDataType> arg_types;
   };
   unordered_map<string, NativeFunctionType> native_func_defs;
+  unordered_map<styio::session::SymbolId, NativeFunctionType> native_func_defs_by_sid;
 
   SGPulsePlan* cur_pulse_plan() {
     return cur_pulse_plan_;
@@ -212,7 +215,136 @@ public:
     post_pulse_hist_plan_ = plan;
   }
 
+  void record_snapshot_var_name(
+    const std::string& name,
+    styio::session::SymbolId sid
+  ) {
+    snapshot_var_names_.insert(name);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      snapshot_var_names_by_sid_.insert(sid);
+    }
+  }
+
+  void record_consumed_task_name(
+    const std::string& name,
+    styio::session::SymbolId sid
+  ) {
+    consumed_task_names_.insert(name);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      consumed_task_names_by_sid_.insert(sid);
+    }
+  }
+
+  bool is_consumed_task_name(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId
+        && consumed_task_names_by_sid_.count(sid) != 0) {
+      return true;
+    }
+    return consumed_task_names_.count(std::string(name)) != 0;
+  }
+
+  void clear_consumed_task_names() {
+    consumed_task_names_.clear();
+    consumed_task_names_by_sid_.clear();
+  }
+
+  void record_consumed_resource_name(
+    const std::string& name,
+    styio::session::SymbolId sid
+  ) {
+    consumed_resource_names_.insert(name);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      consumed_resource_names_by_sid_.insert(sid);
+    }
+  }
+
+  bool is_consumed_resource_name(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId
+        && consumed_resource_names_by_sid_.count(sid) != 0) {
+      return true;
+    }
+    return consumed_resource_names_.count(std::string(name)) != 0;
+  }
+
+  void erase_consumed_resource_name(
+    const std::string& name,
+    styio::session::SymbolId sid
+  ) {
+    consumed_resource_names_.erase(name);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      consumed_resource_names_by_sid_.erase(sid);
+    }
+  }
+
+  void clear_consumed_resource_names() {
+    consumed_resource_names_.clear();
+    consumed_resource_names_by_sid_.clear();
+  }
+
+  void record_owned_resource_name(
+    const std::string& name,
+    styio::session::SymbolId sid
+  ) {
+    owned_resource_names_.insert(name);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      owned_resource_names_by_sid_.insert(sid);
+    }
+  }
+
+  bool is_task_outer_resource_name(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (!task_outer_resource_names_by_sid_stack_.empty()
+        && sid != styio::session::kInvalidSymbolId
+        && task_outer_resource_names_by_sid_stack_.back().count(sid) != 0) {
+      return true;
+    }
+    return !task_outer_resource_names_stack_.empty()
+           && task_outer_resource_names_stack_.back().count(std::string(name)) != 0;
+  }
+
+  void clear_owned_resource_names() {
+    owned_resource_names_.clear();
+    owned_resource_names_by_sid_.clear();
+  }
+
   bool is_snapshot_var(const std::string& s) const {
+    auto sid = lookup_semantic_symbol(s);
+    if (sid != styio::session::kInvalidSymbolId
+        && snapshot_var_names_by_sid_.count(sid) != 0) {
+      return true;
+    }
     return snapshot_var_names_.find(s) != snapshot_var_names_.end();
   }
 
@@ -220,10 +352,43 @@ public:
 
   virtual ~StyioSemaContext() {}
 
+  void attach_type_table(
+    styio::session::TypeTable& table,
+    styio::session::SymbolInterner& symbols
+  ) {
+    type_table_ = &table;
+    type_table_symbols_ = &symbols;
+  }
+
+  styio::session::TypeId maybe_intern_type(const StyioDataType& type) {
+    if (type.isUndefined() || type_table_ == nullptr || type_table_symbols_ == nullptr) {
+      return styio::session::kInvalidTypeId;
+    }
+    return type_table_->intern(type, *type_table_symbols_);
+  }
+
+  bool types_equal(const StyioDataType& lhs, const StyioDataType& rhs) {
+    if (!lhs.isUndefined() && !rhs.isUndefined()
+        && type_table_ != nullptr && type_table_symbols_ != nullptr) {
+      const auto lhs_id = type_table_->intern(lhs, *type_table_symbols_);
+      const auto rhs_id = type_table_->intern(rhs, *type_table_symbols_);
+      if (lhs_id != styio::session::kInvalidTypeId
+          && rhs_id != styio::session::kInvalidTypeId) {
+        return type_table_->equals(lhs_id, rhs_id);
+      }
+    }
+    return lhs.equals(rhs);
+  }
+
   void push_active_function_body(const std::string& name);
+  void push_active_function_body(const std::string& name, styio::session::SymbolId sid);
   void pop_active_function_body();
   void record_inferred_function_return_type(const StyioDataType& type);
   StyioDataType inferred_function_return_type(const std::string& name) const;
+  StyioDataType inferred_function_return_type(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const;
 
   /* Styio AST Type Inference */
 
@@ -358,6 +523,279 @@ public:
     std::vector<StyioDataType> param_types;
   };
 
+  styio::session::SymbolId intern_semantic_symbol(std::string_view spelling) {
+    if (type_table_symbols_ == nullptr) {
+      return styio::session::kInvalidSymbolId;
+    }
+    return type_table_symbols_->intern(spelling);
+  }
+
+  styio::session::SymbolId lookup_semantic_symbol(std::string_view spelling) const {
+    if (type_table_symbols_ == nullptr) {
+      return styio::session::kInvalidSymbolId;
+    }
+    return type_table_symbols_->lookup(spelling);
+  }
+
+  void record_function_def(
+    const std::string& name,
+    styio::session::SymbolId sid,
+    StyioAST* def
+  ) {
+    func_defs[name] = def;
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      func_defs_by_sid[sid] = def;
+    }
+  }
+
+  StyioAST* find_function_def(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = func_defs_by_sid.find(sid);
+      if (sid_it != func_defs_by_sid.end()) {
+        return sid_it->second;
+      }
+    }
+    auto it = func_defs.find(std::string(name));
+    if (it != func_defs.end()) {
+      return it->second;
+    }
+    return nullptr;
+  }
+
+  void record_native_function_def(
+    const std::string& name,
+    styio::session::SymbolId sid,
+    const NativeFunctionType& def
+  ) {
+    native_func_defs[name] = def;
+    maybe_intern_type(def.return_type);
+    for (const auto& arg_type : def.arg_types) {
+      maybe_intern_type(arg_type);
+    }
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      native_func_defs_by_sid[sid] = def;
+    }
+  }
+
+  const NativeFunctionType* find_native_function_def(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = native_func_defs_by_sid.find(sid);
+      if (sid_it != native_func_defs_by_sid.end()) {
+        return &sid_it->second;
+      }
+    }
+    auto it = native_func_defs.find(std::string(name));
+    if (it != native_func_defs.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
+
+  void record_local_binding_type(
+    const std::string& name,
+    styio::session::SymbolId sid,
+    const StyioDataType& type
+  ) {
+    local_binding_types[name] = type;
+    maybe_intern_type(type);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      local_binding_types_by_sid[sid] = type;
+    }
+  }
+
+  const StyioDataType* find_local_binding_type(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = local_binding_types_by_sid.find(sid);
+      if (sid_it != local_binding_types_by_sid.end()) {
+        return &sid_it->second;
+      }
+    }
+    auto it = local_binding_types.find(std::string(name));
+    if (it != local_binding_types.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
+
+  void record_resource_method_dynamic_local_binding_type(
+    const std::string& name,
+    styio::session::SymbolId sid,
+    const StyioDataType& type
+  ) {
+    resource_method_dynamic_local_binding_types[name] = type;
+    maybe_intern_type(type);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      resource_method_dynamic_local_binding_types_by_sid[sid] = type;
+    }
+  }
+
+  const StyioDataType* find_resource_method_dynamic_local_binding_type(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = resource_method_dynamic_local_binding_types_by_sid.find(sid);
+      if (sid_it != resource_method_dynamic_local_binding_types_by_sid.end()) {
+        return &sid_it->second;
+      }
+    }
+    auto it = resource_method_dynamic_local_binding_types.find(std::string(name));
+    if (it != resource_method_dynamic_local_binding_types.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
+
+  void record_fixed_assignment_name(
+    const std::string& name,
+    styio::session::SymbolId sid
+  ) {
+    fixed_assignment_names_.insert(name);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      fixed_assignment_names_by_sid_.insert(sid);
+    }
+  }
+
+  bool is_fixed_assignment_name(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId
+        && fixed_assignment_names_by_sid_.count(sid) != 0) {
+      return true;
+    }
+    return fixed_assignment_names_.count(std::string(name)) != 0;
+  }
+
+  void record_resource_binding_type(
+    const std::string& name,
+    styio::session::SymbolId sid,
+    const StyioDataType& type
+  ) {
+    resource_binding_types_[name] = type;
+    maybe_intern_type(type);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      resource_binding_types_by_sid_[sid] = type;
+    }
+  }
+
+  const StyioDataType* find_resource_binding_type(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = resource_binding_types_by_sid_.find(sid);
+      if (sid_it != resource_binding_types_by_sid_.end()) {
+        return &sid_it->second;
+      }
+    }
+    auto it = resource_binding_types_.find(std::string(name));
+    if (it != resource_binding_types_.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
+
+  void record_binding_info(
+    const std::string& name,
+    styio::session::SymbolId sid,
+    const BindingInfo& info
+  ) {
+    binding_info_[name] = info;
+    maybe_intern_type(info.declared_type);
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = intern_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      binding_info_by_sid_[sid] = info;
+    }
+  }
+
+  const BindingInfo* find_binding_info(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) const {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = binding_info_by_sid_.find(sid);
+      if (sid_it != binding_info_by_sid_.end()) {
+        return &sid_it->second;
+      }
+    }
+    auto it = binding_info_.find(std::string(name));
+    if (it != binding_info_.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
+
+  BindingInfo* find_mutable_binding_info(
+    styio::session::SymbolId sid,
+    std::string_view name
+  ) {
+    if (sid == styio::session::kInvalidSymbolId) {
+      sid = lookup_semantic_symbol(name);
+    }
+    if (sid != styio::session::kInvalidSymbolId) {
+      auto sid_it = binding_info_by_sid_.find(sid);
+      if (sid_it != binding_info_by_sid_.end()) {
+        return &sid_it->second;
+      }
+    }
+    auto it = binding_info_.find(std::string(name));
+    if (it != binding_info_.end()) {
+      return &it->second;
+    }
+    return nullptr;
+  }
+
   const ResourceMethodInfo* find_resource_method(
     const std::string& family,
     const std::string& method) const {
@@ -401,10 +839,16 @@ protected:
   std::unordered_set<std::string> consumed_resource_names_;
   std::unordered_set<std::string> owned_resource_names_;
   std::vector<std::unordered_set<std::string>> task_outer_resource_names_stack_;
+  std::vector<std::unordered_set<styio::session::SymbolId>> task_outer_resource_names_by_sid_stack_;
   std::unordered_set<std::string> active_function_body_inference_;
   std::vector<std::string> active_function_body_stack_;
   std::unordered_map<std::string, StyioDataType> inferred_function_return_types_;
+  std::unordered_set<styio::session::SymbolId> active_function_body_inference_by_sid_;
+  std::vector<styio::session::SymbolId> active_function_body_sid_stack_;
+  std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
   std::string active_resource_receiver_family_;
+  styio::session::TypeTable* type_table_ = nullptr;
+  styio::session::SymbolInterner* type_table_symbols_ = nullptr;
 };
 
 #endif

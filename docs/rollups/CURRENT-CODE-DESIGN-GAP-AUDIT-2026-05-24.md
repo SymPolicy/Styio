@@ -62,14 +62,17 @@ Real compiler/runtime surfaces:
 4. Direct unsupported AST lowering now fails closed or lowers intentional empty
    forms to `SGNoOp`; codegen verifier gating and security tests are present.
 5. Accepted single-quoted `char` literals, format strings, dynamic range
-   literals, match expressions, ordinary function-call returns including
+   literals, materialized list/list stream-zip statements, match expressions, ordinary function-call returns including
    explicit `matrix` return functions, value-producing resource-effect expressions, and single-return list/dict/matrix container bounds expressions are
    executable in ordinary expressions and in user-defined resource method bodies
    after inlining. The resource-method body parser now admits the same
-   `CharAST`, `FmtStrAST`, `RangeAST`, `MatchCasesAST`, value-producing `ResourceEffectAST`,
+   `CharAST`, `FmtStrAST`, `RangeAST`, `StreamZipAST`, `MatchCasesAST`, value-producing `ResourceEffectAST`,
    `FuncCallAST`, list index/slice, inline `dict{...}` index, and typed-parameter matrix
    cell/row or row-range slice value shapes, and `StateExprCloneVisitor` clones
-   them instead of reporting an unsupported inlined state expression.
+   them instead of reporting an unsupported inlined state expression. Internal
+   clone coverage now also includes `CondFlowAST` and local-temp-safe
+   `ParallelAssignAST`, but those are not source-backed resource-method body
+   positives until parser acceptance broadens.
 6. `@extern(c|c++)` is not just design prose: native interop feature tests and
    native executable build tests pass.
 7. The IDE/LSP core exists for completion, hover, definition, references,
@@ -538,7 +541,7 @@ or typed-parameter matrix cell/row or row-range slice expressions also inline
 through `ListAST`/`ListOpAST` and `DictAST` clone paths with type metadata
 preserved, and flat-list matrix returns fail closed before runtime, while
 unimplemented lexical/global capture shapes stay fail-closed.
-That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, receiver-scoped `ResourceReceiverAST` / `AttrAST` property postfix, `RangeAST`, `MatchCasesAST`, `ResourceEffectAST`, local list/dict/matrix container-return, and returned
+That closes only the `IntAST`, `BoolAST`, `FloatAST`, `StringAST`, `CharAST`, `FmtStrAST`, receiver-scoped `ResourceReceiverAST` / `AttrAST` property postfix, `RangeAST`, `StreamZipAST`, `MatchCasesAST`, internal `CondFlowAST` / local-temp-safe `ParallelAssignAST` clone paths, `ResourceEffectAST`, `FuncCallAST`, local `FunctionAST` / `SimpleFuncAST` helper-definition, local list/dict/matrix container-return, and returned
 list/dict/matrix bounds resource-method inline-clone slices of the state inline
 clone surface; other accepted AST families still need source-reachable evidence
 before the unsupported clone fallback can be retired.
@@ -579,16 +582,17 @@ not fully replaced recovery defaults.
 ### P1. IDE/LSP is useful but intentionally incomplete
 
 Current LSP capabilities match the documented core: completion, hover,
-definition, references, document/workspace symbols, semantic tokens, document
-sync, and diagnostics.
+definition, references, conservative rename, conservative call-argument
+inlay hints, edit-producing block-comment, string-literal, and unmatched-closing-token code actions plus
+disabled editor-syntax explanations, document/workspace symbols, semantic tokens,
+document sync, and diagnostics.
 
 Still missing by design/current docs:
 
-1. `rename`
-2. `codeAction`
-3. `inlayHint`
-4. multi-workspace/server deployment behavior
-5. full independent idle runtime, since stdio service progress is request-driven
+1. executable or edit-producing `codeAction` fixes beyond the unterminated-block-comment, unterminated-string-literal, and exact-range unmatched-closing-token editor-syntax quick-fixes
+2. inlay hints beyond compiler-known call-argument parameter names
+3. multi-workspace/server deployment behavior
+4. full independent idle runtime, since stdio service progress is request-driven
 
 Impact: Vityo/first-party adapters may have richer local UX, but public compiler
 service truth is narrower. Hosts must not infer unsupported public LSP features
@@ -1055,8 +1059,12 @@ These should not be counted as missing implementation in this checkout:
 4. Retire or implement the explicit unsupported AST families according to the
    active syntax docs. Do not let parsed-but-unlowerable forms accumulate.
 5. Expand IDE only after service facts and diagnostics remain stable under the
-   compiler-owned semantic bridge. `rename` and `codeAction` should be backed by
-   shared service facts, not editor-local grammar guesses.
+   compiler-owned semantic bridge. `rename` is now a conservative public LSP
+   method backed by shared service facts; `codeAction` is now a conservative
+   editor-syntax method with unterminated-block-comment,
+   unterminated-string-literal, and exact-range unmatched-closing-token edits plus disabled explanations for unsupported
+   syntax diagnostics; later executable fixes and
+   refactors should follow the same rule instead of editor-local grammar guesses.
 6. Keep package lifecycle scope out of `styio`; update handoff docs when `spio`
    contracts change instead of adding compiler CLI flags opportunistically.
 7. Make release gates resilient to optional-target discovery by ensuring the

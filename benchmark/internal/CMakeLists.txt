@@ -1,4 +1,4 @@
-# styio_core_bench — in-repo C++ benchmark binary.
+# styio_core_bench - in-repo C++ benchmark binary.
 # Uses only std::chrono and the compiler itself; no third-party deps.
 
 add_executable(styio_core_bench

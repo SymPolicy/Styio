@@ -75,9 +75,10 @@ Styio/
     zlib.dll
     zstd.dll
     <other required runtime DLLs>
-  library/
-  src/
-    StyioPrelude/
+  share/
+    styio/
+      library/
+      prelude/
   examples/
   docs/
   manifest.json

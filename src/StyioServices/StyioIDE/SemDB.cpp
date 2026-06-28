@@ -1045,12 +1045,12 @@ SemanticDB::semantic_tokens_query(const DocumentSnapshot& document) {
     if (token.is_trivia() || token.type == StyioTokenType::TOK_EOF || token.range.length() == 0) {
       continue;
     }
-    const Position pos = document.buffer.position_at(token.range.start);
+    const Position pos = document.buffer.utf16_position_at(token.range.start);
     const std::size_t delta_line = pos.line - prev_line;
     const std::size_t delta_char = delta_line == 0 ? pos.character - prev_char : pos.character;
     data.push_back(static_cast<std::uint32_t>(delta_line));
     data.push_back(static_cast<std::uint32_t>(delta_char));
-    data.push_back(static_cast<std::uint32_t>(std::max<std::size_t>(1, token.range.length())));
+    data.push_back(static_cast<std::uint32_t>(std::max<std::size_t>(1, document.buffer.utf16_length(token.range))));
     data.push_back(static_cast<std::uint32_t>(semantic_token_type_index(token)));
     data.push_back(0);
     prev_line = pos.line;

@@ -2914,6 +2914,35 @@ TEST(StyioMainContract, ArtifactRefsCopyLocalPathsAndRejectUnsafeInputs) {
   EXPECT_EQ(styio_shell_quote_latest("a'b"), "'a'\\''b'");
 }
 
+TEST(StyioMainContract, NanoArchiveBoundariesRejectTraversalAndSymlinks) {
+  TempDir temp("nano-archive-boundaries");
+  std::string error;
+
+  EXPECT_TRUE(styio_validate_tar_listing_text_latest(
+    ".\n./bin/" + styio_nano_binary_filename_latest() + "\n./styio-nano-package.toml\n",
+    error)) << error;
+  EXPECT_FALSE(styio_validate_tar_listing_text_latest("../escape.txt\n", error));
+  EXPECT_NE(error.find("unsafe nano package archive entry"), std::string::npos);
+  EXPECT_FALSE(styio_validate_tar_listing_text_latest("/tmp/escape.txt\n", error));
+  std::string drive_qualified_entry = "C:";
+  drive_qualified_entry += "/escape.txt\n";
+  EXPECT_FALSE(styio_validate_tar_listing_text_latest(drive_qualified_entry, error));
+  EXPECT_FALSE(styio_validate_tar_listing_text_latest("dir\\escape.txt\n", error));
+
+  const fs::path package_root = temp.path() / "package";
+  WriteText(package_root / "bin" / styio_nano_binary_filename_latest(), "#!/usr/bin/env sh\nexit 0\n");
+  ASSERT_TRUE(styio_validate_nano_package_tree_latest(package_root, error)) << error;
+
+  const fs::path outside = temp.path() / "outside.txt";
+  WriteText(outside, "outside\n");
+  std::error_code symlink_ec;
+  fs::create_symlink(outside, package_root / "linked-outside", symlink_ec);
+  if (!symlink_ec) {
+    EXPECT_FALSE(styio_validate_nano_package_tree_latest(package_root, error));
+    EXPECT_NE(error.find("symbolic link"), std::string::npos);
+  }
+}
+
 TEST(StyioMainContract, NativeCompilerFallbackAndHttpFetchHelpersStayExplicit) {
   TempDir temp("native-http-helper-branches");
   std::string error;
@@ -2945,6 +2974,10 @@ TEST(StyioMainContract, NativeCompilerFallbackAndHttpFetchHelpersStayExplicit) {
   path_guard.set(fake_bin.string() + (old_path != nullptr ? ":" + std::string(old_path) : ""));
   native_cxx_guard.unset();
   toolchain_root_guard.set((temp.path() / "missing-toolchain").string());
+
+  std::string resolved_tool;
+  ASSERT_TRUE(styio_resolve_process_tool_latest("curl", resolved_tool));
+  EXPECT_EQ(resolved_tool, styio_absolute_path_latest(fake_curl).string());
 
   EXPECT_EQ(
     styio_native_build_compiler_from_config_latest({}, "g++"),
@@ -3432,7 +3465,7 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   selection.registry_package = "org/missing";
   selection.registry_version = "1.0.0";
   EXPECT_FALSE(styio_publish_nano_package_latest(selection, error));
-  EXPECT_NE(error.find("styio-nano package archive failed"), std::string::npos);
+  EXPECT_NE(error.find("nano package directory is not a directory"), std::string::npos);
 
   {
     const fs::path fake_tar_bin = temp.path() / "fake-tar-bin";
@@ -3647,6 +3680,9 @@ TEST(StyioMainContract, NanoSourceClosureHelpersCoverSuccessAndFailureEdges) {
   EXPECT_NE(
     std::find(roots_with_pipeline.begin(), roots_with_pipeline.end(), "src/StyioTesting/PipelineCheck.cpp"),
     roots_with_pipeline.end());
+  EXPECT_NE(
+    std::find(roots_without_pipeline.begin(), roots_without_pipeline.end(), "share/styio/prelude/resources.styio"),
+    roots_without_pipeline.end());
 
   const fs::path source_root = temp.path() / "source";
   WriteText(source_root / "src" / "main.cpp", "#include \"local_extra.hpp\"\n");
@@ -3661,6 +3697,8 @@ TEST(StyioMainContract, NanoSourceClosureHelpersCoverSuccessAndFailureEdges) {
   WriteText(source_root / "src" / "a" / "local.hpp", "// local\n");
   WriteText(source_root / "src" / "StyioToken" / "Token.hpp", "// token\n");
   WriteText(source_root / "include" / "root.hpp", "// root\n");
+  const fs::path sibling_source_root = temp.path() / "source_sibling";
+  WriteText(sibling_source_root / "escape.hpp", "// sibling include must not be captured\n");
 
   std::string include_relpath;
   EXPECT_TRUE(styio_resolve_local_include_relpath_latest(
@@ -3686,12 +3724,18 @@ TEST(StyioMainContract, NanoSourceClosureHelpersCoverSuccessAndFailureEdges) {
     "src/a/current.cpp",
     "missing.hpp",
     include_relpath));
+  EXPECT_FALSE(styio_resolve_local_include_relpath_latest(
+    source_root,
+    "src/a/current.cpp",
+    "../../../source_sibling/escape.hpp",
+    include_relpath));
 
   std::set<std::string> closure_files;
   ASSERT_TRUE(styio_collect_nano_closure_files_latest(source_root, true, closure_files, error)) << error;
   EXPECT_NE(closure_files.find("src/main.cpp"), closure_files.end());
   EXPECT_NE(closure_files.find("src/local_extra.hpp"), closure_files.end());
   EXPECT_NE(closure_files.find("src/StyioTesting/PipelineCheck.cpp"), closure_files.end());
+  EXPECT_NE(closure_files.find("share/styio/prelude/resources.styio"), closure_files.end());
 
   std::set<std::string> missing_closure;
   EXPECT_FALSE(styio_collect_nano_closure_files_latest(temp.path() / "missing-source", false, missing_closure, error));
@@ -3884,7 +3928,7 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   disabled.mark_status("ignored");
   disabled.set_source_summary(12, 2);
   disabled.set_parser_route_stats(1, 2, 3, 4);
-  disabled.set_async_scheduler_stats(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+  disabled.set_async_scheduler_stats(1, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
   EXPECT_TRUE(disabled.write());
   EXPECT_FALSE(disabled.written());
   const std::string disabled_json = disabled.to_json();
@@ -3910,7 +3954,7 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   profiler.record_phase("manual\nphase", 42);
   profiler.mark_status("ok", std::string("detail ") + static_cast<char>(1));
   profiler.set_parser_route_stats(3, 2, 1, 0);
-  profiler.set_async_scheduler_stats(1, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11);
+  profiler.set_async_scheduler_stats(1, 4, 1, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11);
 
   StyioToken* name = StyioToken::Create(StyioTokenType::NAME, "name");
   StyioToken* integer = StyioToken::Create(StyioTokenType::INTEGER, "1");
@@ -3949,6 +3993,7 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
     json.find("\"" + StyioToken::getTokName(StyioTokenType::INTEGER) + "\": 1"),
     std::string::npos);
   EXPECT_NE(json.find("\"nightly_subset_statements\": 3"), std::string::npos);
+  EXPECT_NE(json.find("\"ready_queue_kind\": 1"), std::string::npos);
   EXPECT_NE(json.find("\"max_queue_depth\": 11"), std::string::npos);
   EXPECT_NE(json.find("\"name\": \"second\""), std::string::npos);
 

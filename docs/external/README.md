@@ -8,7 +8,7 @@
 
 1. Keep general language-service surfaces in [SERVICES.md](./SERVICES.md).
 2. Keep sibling-repository handoff material under `for-*` subdirectories.
-3. Keep repository-local semantics in the owning `docs/design/`, `docs/specs/`, or `docs/plans/` SSOT.
+3. Keep repository-local semantics in the owning `docs/design/`, `docs/specs/`, or `docs/plan/` SSOT.
 
 ## Naming Rules
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -417,6 +418,25 @@ TEST(StyioCodeGenInternal, GetTypeCoversScalarFallbackDefaults) {
   EXPECT_TRUE(invalid_effect_type->isVoidTy());
 }
 
+TEST(StyioCodeGenInternal, LegacyIoGetTypeUsesConcreteStatementAndPathTypes) {
+  auto generator = make_generator();
+
+  std::unique_ptr<StyioIR> path(SIOPath::Create("fixture.txt"));
+  llvm::Type* path_type = path->toLLVMType(generator.get());
+  ASSERT_NE(path_type, nullptr);
+  EXPECT_TRUE(path_type->isPointerTy());
+
+  std::unique_ptr<StyioIR> print(SIOPrint::Create({SGConstString::Create("out")}));
+  llvm::Type* print_type = print->toLLVMType(generator.get());
+  ASSERT_NE(print_type, nullptr);
+  EXPECT_TRUE(print_type->isVoidTy());
+
+  std::unique_ptr<StyioIR> read(SIORead::Create(SIOPath::Create("fixture.txt")));
+  llvm::Type* read_type = read->toLLVMType(generator.get());
+  ASSERT_NE(read_type, nullptr);
+  EXPECT_TRUE(read_type->isVoidTy());
+}
+
 TEST(StyioCodeGenInternal, ResourceEffectValueEdgesStayExplicit) {
   expect_codegen_ok({
     SIOResourceEffect::Create(SGNoOp::Create(), nullptr, false, i64_type(), {}, true),
@@ -707,25 +727,85 @@ TEST(StyioCodeGenInternal, ScalarCastConditionAndDynamicSlotGuardsStayExplicit) 
   }, "dynamic slot pointer field received a non-pointer value");
 }
 
+TEST(StyioCodeGenInternal, IntegerDivAndModuloGuardUnsafeDivisorsBeforeInstruction) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFlexBind::Create(var("num", i64_type()), SGConstInt::Create(9)),
+    SGFlexBind::Create(var("den", i64_type()), SGConstInt::Create(0)),
+    SGFlexBind::Create(
+      var("quot", i64_type()),
+      SGBinOp::Create(
+        SGResId::Create("num"),
+        SGResId::Create("den"),
+        StyioOpType::Binary_Div,
+        SGType::Create(i64_type()))),
+    SGFlexBind::Create(
+      var("rem", i64_type()),
+      SGBinOp::Create(
+        SGResId::Create("num"),
+        SGResId::Create("den"),
+        StyioOpType::Binary_Mod,
+        SGType::Create(i64_type()))),
+    SGFlexBind::Create(var("assign_div", i64_type()), SGConstInt::Create(9)),
+    SGFlexBind::Create(var("assign_mod", i64_type()), SGConstInt::Create(9)),
+    SGBinOp::Create(
+      SGResId::Create("assign_div"),
+      SGResId::Create("den"),
+      StyioOpType::Self_Div_Assign,
+      SGType::Create(i64_type())),
+    SGBinOp::Create(
+      SGResId::Create("assign_mod"),
+      SGResId::Create("den"),
+      StyioOpType::Self_Mod_Assign,
+      SGType::Create(i64_type())),
+  }));
+  EXPECT_NO_THROW(entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+
+  auto count_needles = [&](const std::string& needle) {
+    unsigned count = 0;
+    std::size_t pos = 0;
+    while ((pos = ir.find(needle, pos)) != std::string::npos) {
+      ++count;
+      pos += needle.size();
+    }
+    return count;
+  };
+
+  EXPECT_GE(count_needles("sdiv i64"), 2u) << ir;
+  EXPECT_GE(count_needles("srem i64"), 2u) << ir;
+  EXPECT_NE(ir.find("select i1"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("i64 1,"), std::string::npos) << ir;
+
+  std::istringstream lines(ir);
+  for (std::string line; std::getline(lines, line);) {
+    if (line.find("sdiv i64") == std::string::npos
+        && line.find("srem i64") == std::string::npos) {
+      continue;
+    }
+    EXPECT_EQ(line.find(", 0"), std::string::npos) << line << "\n" << ir;
+    EXPECT_EQ(line.find(", -9223372036854775808"), std::string::npos) << line << "\n" << ir;
+  }
+}
+
 TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
   expect_codegen_ok({
     SCListLiteral::Create({SGConstBool::Create(true), SGConstInt::Create(0)}, "bool"),
     SCListLiteral::Create({SGConstChar::Create('n')}, "i64"),
-    SCListLiteral::Create({SGConstInt::Create(65), SGConstFloat::Create("2.5")}, "char"),
-    SCListLiteral::Create({SGConstInt::Create(1), SGConstString::Create("not-number")}, "f64"),
-    SCListLiteral::Create({SGConstString::Create("ok"), SGConstInt::Create(7)}, "string"),
+    SCListLiteral::Create({SGConstInt::Create(65), SGConstChar::Create('z')}, "char"),
+    SCListLiteral::Create({SGConstInt::Create(1), SGConstFloat::Create("2.5")}, "f64"),
+    SCListLiteral::Create({SGConstString::Create("ok")}, "string"),
     SCListLiteral::Create({list_i64(), list_i64()}, "list[i64]"),
     SCListLiteral::Create({dict_i64()}, "dict[string,i64]"),
     SCListLiteral::Create({matrix_i64()}, "matrix[i64,1,2]"),
 
     SCMatrixLiteral::Create({SGConstBool::Create(true), SGConstInt::Create(2)}, "i64", 1, 2),
-    SCMatrixLiteral::Create({SGConstInt::Create(1), SGConstString::Create("bad")}, "f64", 1, 2),
+    SCMatrixLiteral::Create({SGConstInt::Create(1), SGConstFloat::Create("2.5")}, "f64", 1, 2),
 
     SCDictLiteral::Create({{SGConstString::Create("flag"), SGConstBool::Create(true)}}, "bool"),
     SCDictLiteral::Create({{SGConstString::Create("narrow"), SGConstChar::Create('n')}}, "i64"),
     SCDictLiteral::Create({{SGConstString::Create("ratio"), SGConstInt::Create(2)}}, "f64"),
-    SCDictLiteral::Create({{SGConstString::Create("fallback_ratio"), SGConstString::Create("bad")}}, "f64"),
-    SCDictLiteral::Create({{SGConstString::Create("text"), SGConstInt::Create(9)}}, "string"),
+    SCDictLiteral::Create({{SGConstString::Create("text"), SGConstString::Create("ok")}}, "string"),
     SCDictLiteral::Create({{SGConstString::Create("list"), list_i64()}}, "list[i64]"),
     SCDictLiteral::Create({{SGConstString::Create("dict"), dict_i64()}}, "dict[string,i64]"),
 
@@ -739,9 +819,9 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
     SCListSlice::Create(SGConstBool::Create(true), SGConstBool::Create(false), nullptr, "i64"),
     SCListSlice::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstBool::Create(true), "i64"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstChar::Create('n'), "i64"),
-    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstInt::Create(1), "string"),
-    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("bad"), "f64"),
-    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("bad"), "char"),
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("next"), "string"),
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstInt::Create(2), "f64"),
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstInt::Create(65), "char"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), list_i64(), "list[i64]"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), dict_i64(), "dict[string,i64]"),
     SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), matrix_i64(), "matrix[i64,1,2]"),
@@ -762,8 +842,8 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
     SCDictGet::Create(SGConstBool::Create(true), SGConstString::Create("list"), "list[i64]"),
     SCDictGet::Create(SGConstBool::Create(true), SGConstString::Create("dict"), "dict[string,i64]"),
     SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("narrow"), SGConstChar::Create('n'), "i64"),
-    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("text"), SGConstInt::Create(1), "string"),
-    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("ratio"), SGConstString::Create("bad"), "f64"),
+    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("text"), SGConstString::Create("next"), "string"),
+    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("ratio"), SGConstInt::Create(2), "f64"),
     SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("list"), list_i64(), "list[i64]"),
     SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("dict"), dict_i64(), "dict[string,i64]"),
     SCDictKeys::Create(SGConstBool::Create(true)),
@@ -785,6 +865,63 @@ TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
     "styio_dict_values_dict",
     "styio_list_cstr_read_stdin",
   });
+}
+
+TEST(StyioCodeGenInternal, CollectionValueMismatchesFailClosed) {
+  expect_codegen_throws({
+    SCListLiteral::Create({SGConstString::Create("not-number")}, "f64"),
+  }, "list literal value type mismatch");
+
+  expect_codegen_throws({
+    SCListLiteral::Create({SGConstInt::Create(7)}, "string"),
+  }, "list literal value type mismatch");
+
+  expect_codegen_throws({
+    SCListLiteral::Create({SGConstFloat::Create("2.5")}, "char"),
+  }, "list literal value type mismatch");
+
+  expect_codegen_throws({
+    SCListLiteral::Create({SGConstBool::Create(true)}, "list[i64]"),
+  }, "list literal value type mismatch");
+
+  expect_codegen_throws({
+    SCMatrixLiteral::Create({SGConstString::Create("bad")}, "f64", 1, 1),
+  }, "matrix literal value type mismatch");
+
+  expect_codegen_throws({
+    SCDictLiteral::Create({{SGConstString::Create("text"), SGConstInt::Create(9)}}, "string"),
+  }, "dict literal value type mismatch");
+
+  expect_codegen_throws({
+    SCDictLiteral::Create({{SGConstString::Create("fallback_ratio"), SGConstString::Create("bad")}}, "f64"),
+  }, "dict literal value type mismatch");
+
+  expect_codegen_throws({
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstInt::Create(1), "string"),
+  }, "list set value type mismatch");
+
+  expect_codegen_throws({
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("bad"), "f64"),
+  }, "list set value type mismatch");
+
+  expect_codegen_throws({
+    SCListSet::Create(SGConstBool::Create(true), SGConstBool::Create(false), SGConstString::Create("bad"), "char"),
+  }, "list set value type mismatch");
+
+  expect_codegen_throws({
+    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("text"), SGConstInt::Create(1), "string"),
+  }, "dict set value type mismatch");
+
+  expect_codegen_throws({
+    SCDictSet::Create(SGConstBool::Create(true), SGConstString::Create("ratio"), SGConstString::Create("bad"), "f64"),
+  }, "dict set value type mismatch");
+
+  expect_codegen_throws({
+    SGCall::Create(SGResId::Create("__styio_list_push_f64"), {
+      SGConstInt::Create(1),
+      SGConstString::Create("not-a-number"),
+    }),
+  }, "runtime list operation value type mismatch");
 }
 
 TEST(StyioCodeGenInternal, DynamicLoadDefaultsAndFallbackValuesStayExplicit) {
@@ -812,10 +949,6 @@ TEST(StyioCodeGenInternal, DynamicLoadDefaultsAndFallbackValuesStayExplicit) {
     SGCall::Create(SGResId::Create("default_i64"), {}),
     SGCall::Create(SGResId::Create("default_bool"), {}),
 
-    SGCall::Create(SGResId::Create("__styio_list_push_f64"), {
-      SGConstInt::Create(1),
-      SGConstString::Create("not-a-number"),
-    }),
     SGCall::Create(SGResId::Create("__styio_list_push_i64"), {
       SGConstInt::Create(1),
       SGConstChar::Create('x'),
@@ -823,7 +956,6 @@ TEST(StyioCodeGenInternal, DynamicLoadDefaultsAndFallbackValuesStayExplicit) {
   }, {
     "default_i64",
     "default_bool",
-    "styio_list_push_f64",
     "styio_list_push",
   });
 }

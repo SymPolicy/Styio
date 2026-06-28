@@ -635,10 +635,11 @@ stream-sink style is intentional.
 - Standard streams need no repeated user-authored declarations; `f <- @stdout` is a semantic error
 
 **Compiler recognition:** The compiler recognizes `@stdout`, `@stderr`, `@stdin` directly at
-parse/lowering time and emits direct FFI-backed standard-stream IR (`printf`/`puts` for
-stdout, `fprintf(stderr, ...)` for stderr, `fgets(stdin)` for stdin). Scalar `expr -> @stdout`
-and iterable `items >> @stdout` both lower through the standard-stream write IR family, with
-the `>>` route requiring text-serializable iterable input before lowering.
+parse/lowering time and emits FFI-backed standard-stream runtime-helper IR (`styio_stdout_write_cstr`
+for stdout writes, `styio_stderr_write_cstr` for stderr writes, and `styio_stdin_read_line` for
+stdin line reads). Scalar `expr -> @stdout` and iterable `items >> @stdout` both lower through
+the standard-stream write IR family, with the `>>` route requiring text-serializable iterable
+input before lowering.
 
 ---
 

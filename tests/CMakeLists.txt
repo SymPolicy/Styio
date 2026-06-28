@@ -62,6 +62,27 @@ add_test(
 set_tests_properties(bootstrap_dev_env_dependency_scope PROPERTIES LABELS "docs;workflow")
 
 add_test(
+  NAME benchmark_evidence_test
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/benchmark_evidence_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(benchmark_evidence_test PROPERTIES LABELS "benchmark;unit;workflow")
+
+add_test(
+  NAME styio_core_bench_json_smoke
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_LIST_DIR}/benchmark_core_bench_json_smoke.py"
+          --binary "$<TARGET_FILE:styio_core_bench>"
+          --output "${CMAKE_BINARY_DIR}/benchmark/core/core-benchmark-json-smoke.json"
+          --warmup 1
+          --measured 1
+)
+set_tests_properties(styio_core_bench_json_smoke PROPERTIES
+  LABELS "benchmark;workflow;core_internal;smoke"
+  ENVIRONMENT "STYIO_BENCH_WARMUP=1;STYIO_BENCH_MEASURED=1"
+)
+
+add_test(
   NAME styio_lspd_stdio_framing
   COMMAND "${Python3_EXECUTABLE}"
           "${CMAKE_CURRENT_LIST_DIR}/lsp_stdio_framing_test.py"
@@ -372,6 +393,7 @@ set_tests_properties(stdio_input_t08_stdin_typed_f64_list_pull PROPERTIES LABELS
 styio_feature_stderr_failure_golden_test(stdio_input stdio_input)
 styio_feature_stderr_failure_golden_test(task_resources task_resources)
 styio_feature_stderr_failure_golden_test(state_resources state_resources)
+styio_feature_stderr_failure_golden_test(resource_pressure resource_pressure)
 styio_feature_stderr_failure_golden_test(final_bindings final_bindings)
 
 # --- file resource stdout goldens + special file / exit-code cases ---
@@ -463,6 +485,7 @@ foreach(STREAM_PROCESSING_FILE IN LISTS STREAM_PROCESSING_STYIO_TESTS)
   endif()
   set_tests_properties("stream_processing_${STREAM_PROCESSING_NAME}" PROPERTIES LABELS "language_feature;stream_processing")
 endforeach()
+styio_feature_stderr_failure_golden_test(stream_processing stream_processing)
 
 add_test(
   NAME parser_shadow_gate_scalar_expressions_zero_fallback_and_internal_bridges
@@ -654,6 +677,7 @@ styio_apply_llvm_compile_settings(styio_security_test)
 add_executable(styio_typeinfer_internal_test
   typeinfer_internal_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
@@ -682,6 +706,7 @@ styio_apply_llvm_compile_settings(styio_typeinfer_internal_test)
 add_executable(styio_lowering_internal_test
   lowering_internal_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
@@ -710,6 +735,7 @@ styio_apply_llvm_compile_settings(styio_lowering_internal_test)
 add_executable(styio_newparser_internal_test
   newparser_internal_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
@@ -738,6 +764,7 @@ styio_apply_llvm_compile_settings(styio_newparser_internal_test)
 add_executable(styio_parser_internal_test
   parser_internal_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
@@ -858,6 +885,10 @@ target_link_libraries(styio_runtime_scheduler_test PRIVATE
   GTest::gtest_main
 )
 styio_apply_llvm_compile_settings(styio_runtime_scheduler_test)
+gtest_discover_tests(styio_runtime_scheduler_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "runtime;unit;concurrency"
+)
 
 add_executable(styio_main_contract_test
   main_contract_test.cpp
@@ -877,6 +908,22 @@ target_compile_definitions(styio_main_contract_test PRIVATE
   "STYIO_CMAKE_CXX_COMPILER=\"${STYIO_DEFINE_CMAKE_CXX_COMPILER}\""
 )
 styio_apply_llvm_compile_settings(styio_main_contract_test)
+
+add_executable(styio_benchmark_evidence_test
+  benchmark_evidence_test.cpp
+)
+target_include_directories(styio_benchmark_evidence_test PRIVATE
+  "${CMAKE_SOURCE_DIR}"
+  "${CMAKE_SOURCE_DIR}/src"
+)
+target_link_libraries(styio_benchmark_evidence_test PRIVATE GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_benchmark_evidence_test)
+add_test(
+  NAME styio_benchmark_evidence_gtest
+  COMMAND "$<TARGET_FILE:styio_benchmark_evidence_test>"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(styio_benchmark_evidence_gtest PROPERTIES LABELS "benchmark;unit")
 
 add_executable(styio_resource_topology_test
   resource_topology_test.cpp
@@ -974,11 +1021,16 @@ if(WIN32)
   set_tests_properties(styio_main_contract_test_windows_native_slice PROPERTIES
     LABELS "styio_pipeline;unit;windows_native")
 else()
-  gtest_discover_tests(styio_main_contract_test
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    PROPERTIES LABELS "styio_pipeline\\;unit"
-  )
+gtest_discover_tests(styio_main_contract_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "styio_pipeline\\;unit"
+)
 endif()
+
+gtest_discover_tests(styio_benchmark_evidence_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "benchmark\\;unit"
+)
 
 gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

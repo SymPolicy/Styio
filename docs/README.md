@@ -10,7 +10,7 @@
 2. Contributor, agent, repository-boundary, dependency, and documentation rules live in `docs/specs/`.
 3. Team daily-work runbooks live in `docs/teams/`.
 4. Still-active review findings live in `docs/review/`; absorbed findings use Git history.
-5. Current plans and cross-repo contracts live in `docs/plans/`.
+5. Current plans and cross-repo contracts live in `docs/plan/`.
 6. Cross-repository handoff notes intended for `styio-spio` live in `docs/external/for-spio/`.
 7. IDE integration, embedding, and LSP usage material lives in `docs/external/for-ide/`.
 8. Reusable workflows and templates live in `docs/assets/`.
@@ -32,13 +32,13 @@
 10. Design SSOT: [design/INDEX.md](./design/INDEX.md)
 11. IDE integration docs: [external/for-ide/INDEX.md](./external/for-ide/INDEX.md)
 12. Archive lifecycle metadata: [archive/INDEX.md](./archive/INDEX.md)
-13. Plans scope and status rules: [plans/README.md](./plans/README.md)
+13. Plans scope and status rules: [plan/README.md](./plan/README.md)
 14. Implemented decision summary: [adr/IMPLEMENTED-DECISIONS.md](./adr/IMPLEMENTED-DECISIONS.md)
 
 ## Default Read Order
 
 1. Start with [rollups/CURRENT-STATE.md](./rollups/CURRENT-STATE.md).
-2. Follow its links into the owning SSOT in `design/`, `specs/`, `../workflows/`, `teams/`, `plans/`, or current rollups.
+2. Follow its links into the owning SSOT in `design/`, `specs/`, `../workflows/`, `teams/`, `plan/`, or current rollups.
 3. Use Git history only when exact old history/review wording is required.
 4. Use `archive/` only for lifecycle metadata.
 
@@ -49,6 +49,6 @@
 3. Regenerate indexes with `python3 scripts/docs-index.py --write` after docs-tree changes.
 4. Validate archive/rollup state with `python3 scripts/docs-lifecycle.py validate`.
 5. Verify the tree with `python3 scripts/docs-audit.py` or `ctest --test-dir build/default -L docs`.
-6. Before creating a Markdown file, search [INDEX.md](./INDEX.md), owning SSOTs, runbooks, workflows, plans, rollups, and [adr/README.md](./adr/README.md); update an existing owner unless a new single-purpose document is necessary.
+6. Before creating a Markdown file, search [INDEX.md](./INDEX.md), owning SSOTs, runbooks, workflows, plan docs, rollups, and [adr/README.md](./adr/README.md); update an existing owner unless a new single-purpose document is necessary.
 7. Do not name feature/module/documentation transformations with `v2`, `new`, `old`, `legacy`, `latest`, or other version-style placeholders; use the feature or transformation result.
 8. Do not record developer-machine paths, server-machine paths, private endpoints, account names, hostnames, or deployment roots; use placeholders and run `python3 scripts/local-info-leak-gate.py --mode worktree`.
