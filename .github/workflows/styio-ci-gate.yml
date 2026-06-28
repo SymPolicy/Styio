@@ -199,6 +199,9 @@ jobs:
             llvm=18.1.8
             llvmdev=18.1.8
             clang-tools=18.1.8
+            zlib
+            zstd
+            libxml2
 
       - name: Locate LLVM 18
         shell: pwsh
@@ -247,6 +250,8 @@ jobs:
           -DCMAKE_C_COMPILER=cl
           -DCMAKE_CXX_COMPILER=cl
           -DLLVM_DIR="$env:LLVM_DIR"
+          -DCMAKE_PREFIX_PATH="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
+          -Dzstd_DIR="$env:STYIO_NATIVE_TOOLCHAIN_ROOT\lib\cmake\zstd"
           -DSTYIO_NATIVE_TOOLCHAIN_ROOT="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
           -DSTYIO_NATIVE_TOOLCHAIN_MODE=auto
 
