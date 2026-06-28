@@ -23,9 +23,10 @@ python3 scripts/docs-audit.py
 Focused changes may use a narrower test selector only when the final handoff states the narrower scope. Cross-repository contract or product changes must also run the matching ecosystem gate from this repository, such as:
 
 ```bash
-python3 scripts/ecosystem-cli-doc-gate.py --workspace-root <user-home>
-python3 scripts/ecosystem-product-gate.py --workspace-root <user-home>
-python3 scripts/ecosystem-sample-workflow-gate.py --workspace-root <user-home>
+export STYIO_ECOSYSTEM_WORKSPACE=<workspace-root>
+python3 scripts/ecosystem-cli-doc-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
+python3 scripts/ecosystem-product-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
+python3 scripts/ecosystem-sample-workflow-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
 ```
 
 The commit message body should record the checks that were actually run.
