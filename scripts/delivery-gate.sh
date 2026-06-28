@@ -144,8 +144,8 @@ resolve_audit_bin() {
     echo "$STYIO_AUDIT_BIN"
     return 0
   fi
-  if [[ -e <user-home>/SymPolicy/audit/bin/audit ]]; then
-    echo <user-home>/SymPolicy/audit/bin/audit
+  if [[ -n "${STYIO_AUDIT_HOME:-}" && -x "${STYIO_AUDIT_HOME}/bin/audit" ]]; then
+    echo "${STYIO_AUDIT_HOME}/bin/audit"
     return 0
   fi
   if command -v audit >/dev/null 2>&1; then
