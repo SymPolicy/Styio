@@ -39,7 +39,7 @@ path = "scripts/bootstrap-dev-env.sh"
 owner = "Docs / Ecosystem"
 kind = "entrypoint"
 purpose = "Prepare the standardized local development dependency baseline."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "architecture-layer-gate"
@@ -47,7 +47,7 @@ path = "scripts/architecture-layer-gate.py"
 owner = "Sema / IR"
 kind = "gate"
 purpose = "Validate the approved AST, Sema, StyioIR, CodeGen, and runtime layer boundary entrypoints."
-last_reviewed = "2026-06-21"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "checkpoint-health"
@@ -55,7 +55,7 @@ path = "scripts/checkpoint-health.sh"
 owner = "Test Quality"
 kind = "gate"
 purpose = "Run the repository build, test, parser, sanitizer/fuzz-smoke, and coverage health floor."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "cleanup-builds"
@@ -63,7 +63,7 @@ path = "scripts/cleanup-builds.sh"
 owner = "Docs / Ecosystem"
 kind = "entrypoint"
 purpose = "Clean local build variants without touching tracked files."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "coverage-gate"
@@ -71,7 +71,7 @@ path = "scripts/coverage-gate.sh"
 owner = "Test Quality"
 kind = "gate"
 purpose = "Build and verify source coverage against the project threshold."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "delivery-gate"
@@ -79,7 +79,7 @@ path = "scripts/delivery-gate.sh"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Compose the common local, branch, audit, release, and checkpoint health floor."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "dev-report"
@@ -87,7 +87,7 @@ path = "scripts/dev-report.sh"
 owner = "Docs / Ecosystem"
 kind = "report"
 purpose = "Generate a local change and CTest report for maintainer handoff."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "docs-audit"
@@ -95,7 +95,7 @@ path = "scripts/docs-audit.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Validate documentation metadata, links, lifecycle state, public wording, and workflow metadata."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "docs-gate"
@@ -103,7 +103,7 @@ path = "scripts/docs-gate.sh"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Compose the docs/process gate for runbooks, docs audit, and ecosystem CLI docs."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "docs-index"
@@ -111,7 +111,7 @@ path = "scripts/docs-index.py"
 owner = "Docs / Ecosystem"
 kind = "entrypoint"
 purpose = "Generate and check deterministic documentation indexes."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "docs-lifecycle"
@@ -119,7 +119,7 @@ path = "scripts/docs-lifecycle.py"
 owner = "Docs / Ecosystem"
 kind = "entrypoint"
 purpose = "Validate archive lifecycle metadata and produce lifecycle candidates."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "docs-scaffold"
@@ -127,7 +127,7 @@ path = "scripts/docs-scaffold.py"
 owner = "Docs / Ecosystem"
 kind = "entrypoint"
 purpose = "Create new documentation files and collections with required metadata."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "docs-config"
@@ -135,7 +135,7 @@ path = "scripts/docs_config.py"
 owner = "Docs / Ecosystem"
 kind = "support-library"
 purpose = "Share documentation collection configuration across docs tools."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "ecosystem-cli-doc-gate"
@@ -143,7 +143,7 @@ path = "scripts/ecosystem-cli-doc-gate.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Validate local and workspace ecosystem CLI contract documentation."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "fuzz-regression-pack"
@@ -151,7 +151,7 @@ path = "scripts/fuzz-regression-pack.sh"
 owner = "Test Quality"
 kind = "entrypoint"
 purpose = "Pack fuzz artifacts into normalized regression case bundles."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "gen-styio-nano-profile"
@@ -159,7 +159,7 @@ path = "scripts/gen-styio-nano-profile.py"
 owner = "CLI / Nano"
 kind = "entrypoint"
 purpose = "Generate CMake definitions from a current styio-nano profile."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "ide-fuzz-gate"
@@ -167,7 +167,7 @@ path = "scripts/ide-fuzz-gate.sh"
 owner = "IDE / LSP"
 kind = "gate"
 purpose = "Build and run IDE/LSP fuzz smoke coverage."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "ide-perf-gate"
@@ -175,7 +175,7 @@ path = "scripts/ide-perf-gate.sh"
 owner = "IDE / LSP"
 kind = "gate"
 purpose = "Build and run frozen IDE latency-budget checks."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "ide-quality-gate"
@@ -183,7 +183,7 @@ path = "scripts/ide-quality-gate.sh"
 owner = "IDE / LSP"
 kind = "gate"
 purpose = "Compose IDE/LSP regression, docs, performance, and fuzz verification."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "install-repo-hygiene-hooks"
@@ -191,7 +191,7 @@ path = "scripts/install-repo-hygiene-hooks.sh"
 owner = "Docs / Ecosystem"
 kind = "installer"
 purpose = "Install local pre-commit and pre-push hygiene hooks."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "parser-retired-route-audit"
@@ -199,7 +199,7 @@ path = "scripts/parser-legacy-entry-audit.sh"
 owner = "Frontend"
 kind = "gate"
 purpose = "Ensure retired parser routes remain audit-only and are not selected by production call sites."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "parser-retired-route-audit-python"
@@ -215,7 +215,7 @@ path = "scripts/repo-hygiene-gate.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Reject forbidden worktree, staged, tracked, and incoming-history artifacts."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "runtime-surface-gate"
@@ -223,7 +223,7 @@ path = "scripts/runtime-surface-gate.py"
 owner = "Codegen / Runtime"
 kind = "gate"
 purpose = "Keep codegen helper calls, ExternLib exports, implementations, and ORC registrations aligned."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "stdlib-manifest-gate"
@@ -231,7 +231,7 @@ path = "scripts/stdlib-manifest-gate.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Validate the first-class Styio standard-library manifest, module directories, and active source/test evidence."
-last_reviewed = "2026-06-21"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "source-build-minimal"
@@ -239,7 +239,7 @@ path = "scripts/source-build-minimal.sh"
 owner = "CLI / Nano"
 kind = "entrypoint"
 purpose = "Configure and build the official source-build minimal compiler profile."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "team-docs-gate"
@@ -247,7 +247,7 @@ path = "scripts/team-docs-gate.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Require affected team runbooks to stay updated and template-shaped."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "tool-skill-registry-gate"
@@ -255,7 +255,7 @@ path = "scripts/tool-skill-registry-gate.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Validate current repo-local skills, tools, release wiring, and module coverage."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "workflow-scheduler"
@@ -263,7 +263,7 @@ path = "scripts/workflow-scheduler.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Register and run ordered workflow tool profiles."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "benchmark-parser-shadow-suite-gate"
@@ -271,7 +271,7 @@ path = "benchmark/parser-shadow-suite-gate.sh"
 owner = "Frontend"
 kind = "gate"
 purpose = "Run parser shadow comparisons for feature suites and enforce no accepted-grammar fallback."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "benchmark-parser-shadow-suite-gate-python"
@@ -295,7 +295,7 @@ path = "benchmark/perf-report.py"
 owner = "Performance / Stability"
 kind = "report"
 purpose = "Forward structured performance report rendering to the active styio-benchmark checkout."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "benchmark-perf-route"
@@ -303,7 +303,7 @@ path = "benchmark/perf-route.sh"
 owner = "Performance / Stability"
 kind = "adapter"
 purpose = "Run the active styio-benchmark performance route against this Styio checkout."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[tool]]
 id = "benchmark-soak-minimize"
@@ -311,7 +311,7 @@ path = "benchmark/soak-minimize.sh"
 owner = "Performance / Stability"
 kind = "adapter"
 purpose = "Run the active styio-benchmark soak minimizer against this Styio checkout."
-last_reviewed = "2026-06-19"
+last_reviewed = "2026-06-28"
 
 [[module_coverage]]
 module = "Frontend"

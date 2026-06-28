@@ -327,9 +327,53 @@ TOOLS_BY_KEY = by_key(TOOLS)
 DOCS_BY_KEY = by_key(WORKFLOW_DOCS)
 PROFILES_BY_KEY = by_key(PROFILES)
 
+ECOSYSTEM_WORKSPACE_GATE_TRIGGERS: tuple[str, ...] = (
+    "docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+    "docs/external/for-spio/",
+    "scripts/ecosystem-cli-doc-gate.py",
+)
+
 
 def run_git(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", *args], cwd=ROOT, text=True, capture_output=True)
+
+
+def parse_changed_paths(text: str) -> list[str]:
+    paths: list[str] = []
+    for line in text.splitlines():
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 3 and parts[0].startswith(("R", "C")):
+            paths.append(parts[2])
+        elif len(parts) >= 2:
+            paths.append(parts[1])
+    return sorted(set(paths))
+
+
+def changed_paths_for_range(revision_range: str) -> list[str]:
+    args = ["diff", "--name-status", "--find-renames"]
+    if revision_range == "HEAD":
+        args.append("HEAD")
+    else:
+        args.append(revision_range)
+    proc = run_git(args)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        raise ValueError(f"cannot inspect changed paths for {revision_range}: {detail}")
+    return parse_changed_paths(proc.stdout)
+
+
+def matches_trigger(path: str, trigger: str) -> bool:
+    return path.startswith(trigger) if trigger.endswith("/") else path == trigger
+
+
+def ecosystem_workspace_gate_required(changed_paths: Sequence[str]) -> bool:
+    return any(
+        matches_trigger(path, trigger)
+        for path in changed_paths
+        for trigger in ECOSYSTEM_WORKSPACE_GATE_TRIGGERS
+    )
 
 
 def default_upstream_base() -> str:
@@ -483,6 +527,19 @@ def cmd_run(args: argparse.Namespace) -> int:
             continue
         tool = TOOLS_BY_KEY[key]
         assert isinstance(tool, Tool)
+        if key == "ecosystem-cli-docs-workspace":
+            try:
+                revision_range = resolve_range(args)
+                changed_paths = changed_paths_for_range(revision_range)
+            except ValueError as exc:
+                print(f"[workflow-scheduler] {key}: {exc}", file=sys.stderr)
+                return 2
+            if not ecosystem_workspace_gate_required(changed_paths):
+                print(
+                    "[workflow-scheduler] skip ecosystem-cli-docs-workspace "
+                    "(no ecosystem CLI contract files changed)"
+                )
+                continue
         try:
             command = materialize_command(tool, args)
         except ValueError as exc:

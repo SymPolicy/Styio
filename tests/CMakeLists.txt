@@ -61,6 +61,16 @@ add_test(
 )
 set_tests_properties(bootstrap_dev_env_dependency_scope PROPERTIES LABELS "docs;workflow")
 
+add_test(
+  NAME styio_lspd_stdio_framing
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_LIST_DIR}/lsp_stdio_framing_test.py"
+          --binary "$<TARGET_FILE:styio_lspd>"
+)
+set_tests_properties(styio_lspd_stdio_framing PROPERTIES
+  LABELS "ide;lsp;transport;smoke"
+)
+
 # Language feature .styio sources live under tests/features/<feature>.
 set(STYIO_FEATURES "${CMAKE_CURRENT_LIST_DIR}/features")
 set(STYIO_EXE "$<TARGET_FILE:styio>")
