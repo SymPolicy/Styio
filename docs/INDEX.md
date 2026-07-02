@@ -17,7 +17,6 @@
 | `design/` | [Design Index](./design/INDEX.md) | Define the scope and naming rules for docs/design/; the generated file inventory lives in INDEX.md. |
 | `external/` | [External Docs Index](./external/INDEX.md) | Define the scope and naming rules for external-facing handoff docs shared with sibling Styio repositories. |
 | `history/` | [History Index](./history/INDEX.md) | Define the recovery usage of docs/history/; current repository state does not retain raw dated checkpoint logs by default. |
-| `milestones/` | [Milestones Index](./milestones/INDEX.md) | Define the scope and naming rules for active milestone batches under docs/milestones/; absorbed batches are removed from the current tree after their durable rules move into active docs, and the generated inventory lives in INDEX.md. |
 | `plans/` | [Plans Index](./plans/INDEX.md) | Define the scope and naming rules for the small set of active implementation plans under docs/plans/; absorbed plans are removed from the current tree after durable rules move into active docs, and the generated file inventory lives in INDEX.md. |
 | `review/` | [Review Index](./review/INDEX.md) | Define the minimal current-tree review policy: keep only still-active review findings, move durable rules into owning SSOTs, and recover old review prose from Git history. |
 | `rollups/` | [Rollups Index](./rollups/INDEX.md) | Define the scope of compressed active summaries under docs/rollups/; these files are the first stop for active repository state, while history and archive stay optional provenance only. |

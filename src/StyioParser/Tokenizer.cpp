@@ -36,6 +36,39 @@ styio_tokenizer_is_trivia(StyioTokenType type) {
   }
 }
 
+class TokenAccumulator
+{
+  std::vector<StyioToken*> tokens_;
+
+public:
+  TokenAccumulator() = default;
+  TokenAccumulator(const TokenAccumulator&) = delete;
+  TokenAccumulator& operator=(const TokenAccumulator&) = delete;
+
+  ~TokenAccumulator() {
+    for (auto* token : tokens_) {
+      delete token;
+    }
+  }
+
+  void
+  push_back(StyioToken* token) {
+    tokens_.push_back(token);
+  }
+
+  const std::vector<StyioToken*>&
+  view() const {
+    return tokens_;
+  }
+
+  std::vector<StyioToken*>
+  release() {
+    std::vector<StyioToken*> out;
+    out.swap(tokens_);
+    return out;
+  }
+};
+
 std::optional<size_t>
 styio_prev_non_trivia_index(const std::vector<StyioToken*>& tokens, size_t before) {
   while (before > 0) {
@@ -255,7 +288,7 @@ count_consecutive(const std::string &text, size_t start, char target) {
 
 std::vector<StyioToken *>
 StyioTokenizer::tokenize(std::string code) {
-  std::vector<StyioToken *> tokens;
+  TokenAccumulator tokens;
   unsigned long long loc = 0; /* local position */
 
   while (loc < code.length()) {
@@ -727,7 +760,7 @@ StyioTokenizer::tokenize(std::string code) {
       // 123
       case '{': {
         const bool is_native_extern_body =
-          styio_recent_tokens_open_native_extern_body(tokens);
+          styio_recent_tokens_open_native_extern_body(tokens.view());
         tokens.push_back(StyioToken::Create(StyioTokenType::TOK_LCURBRAC, "{"));
         loc += 1;
         if (is_native_extern_body) {
@@ -797,5 +830,5 @@ StyioTokenizer::tokenize(std::string code) {
   }
 
   tokens.push_back(StyioToken::Create(StyioTokenType::TOK_EOF, ""));
-  return tokens;
+  return tokens.release();
 }

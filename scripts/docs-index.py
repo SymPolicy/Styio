@@ -116,7 +116,7 @@ def rel_link(from_dir: Path, target: Path) -> str:
 
 
 def choose_dir_entry(path: Path) -> Optional[Path]:
-    for name in ("INDEX.md", "README.md", "00-Milestone-Index.md", "skill.toml", "workflow.toml"):
+    for name in ("INDEX.md", "README.md", "skill.toml", "workflow.toml"):
         candidate = path / name
         if candidate.exists():
             return candidate
@@ -124,7 +124,7 @@ def choose_dir_entry(path: Path) -> Optional[Path]:
 
 
 def choose_dir_summary_source(path: Path) -> Optional[Path]:
-    for name in ("README.md", "INDEX.md", "00-Milestone-Index.md", "skill.toml", "workflow.toml"):
+    for name in ("README.md", "INDEX.md", "skill.toml", "workflow.toml"):
         candidate = path / name
         if candidate.exists():
             return candidate
@@ -133,7 +133,7 @@ def choose_dir_summary_source(path: Path) -> Optional[Path]:
 
 def child_sort_key(base: Path, path: Path):
     name = path.name
-    if base.as_posix() in {"docs/history", "docs/milestones", "docs/archive/history", "docs/archive/review"}:
+    if base.as_posix() in {"docs/history", "docs/archive/history", "docs/archive/review"}:
         return (0 if path.is_dir() else 1, -int(re.sub(r"[^0-9]", "", name) or 0), name)
     if base.as_posix() == "docs/adr":
         return (0 if path.is_dir() else 1, name)
@@ -186,7 +186,7 @@ def render_index(base: Path) -> str:
         updated = max(e.last_updated for e in entries)
     else:
         updated = TODAY
-        for candidate_name in ("README.md", "00-Milestone-Index.md", "INDEX.md"):
+        for candidate_name in ("README.md", "INDEX.md"):
             candidate = base / candidate_name
             if candidate.exists():
                 updated = extract_last_updated(candidate)

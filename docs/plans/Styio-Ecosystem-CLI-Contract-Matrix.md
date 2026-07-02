@@ -1,6 +1,6 @@
 # Styio Ecosystem CLI Contract Matrix
 
-**Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`styio-spio`、`styio-view` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
+**Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`styio-pafio`、`styio-view` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
 
 **Last updated:** 2026-04-20
 
@@ -10,20 +10,20 @@
    - coordinator mirror：本文件
    - owner contract：命令拥有方仓库的 SSOT
    - consumer handoff：下游仓库的对接文档
-2. `spio` 的 canonical machine-readable invocation spellings 固定为：
-   - `spio machine-info --json`
-   - `spio project-graph --manifest-path <path> --json`
-   - `spio tool status --manifest-path <path> --json`
-   - `spio --json build/run/test --manifest-path <path> ...`
-   - `spio --json fetch/vendor/pack/publish ...`
-   - `spio --json tool install/use/pin ...`
+2. `pafio` 的 canonical machine-readable invocation spellings 固定为：
+   - `pafio machine-info --json`
+   - `pafio project-graph --manifest-path <path> --json`
+   - `pafio tool status --manifest-path <path> --json`
+   - `pafio --json build/run/test --manifest-path <path> ...`
+   - `pafio --json fetch/vendor/pack/publish ...`
+   - `pafio --json tool install/use/pin ...`
 3. `styio` 的 compiler-side internal CLI contract 固定为：
    - `styio --machine-info=json`
    - `styio --compile-plan <path>`
    - `styio --source-build-info=json`
 4. 任何 active internal CLI contract 变更，必须在同一 checkpoint 内同步更新三仓文档与 gate manifest。
 
-## 2. `styio` -> `spio` / `view`
+## 2. `styio` -> `pafio` / `view`
 
 ### 2.1 `styio --machine-info=json`
 
@@ -45,7 +45,7 @@ styio --machine-info=json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
+1. `styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
 2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
 ### 2.2 `styio --compile-plan <path>`
@@ -67,7 +67,7 @@ styio --compile-plan <path>
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
+1. `styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
 2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
 ### 2.3 `styio --source-build-info=json`
@@ -91,8 +91,8 @@ styio --source-build-info=json
 
 Owner / consumer docs:
 
-1. `styio-nightly/docs/external/for-spio/Styio-Nano-Spio-Coordination.md`
-2. `styio-spio/docs/governance/Spio-CLI-Contract.md`
+1. `styio-nightly/docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md`
+2. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
 
 ### 2.4 `styio build <file_path> -o <artifact_name>`
 
@@ -115,14 +115,14 @@ Owner / consumer docs:
 1. `styio-benchmark/warm-process` 和 `styio-benchmark/polyglot` route 文档
 2. `styio-nightly/tests/CMakeLists.txt` 的 `styio_build_native_executable_stdin_echo`
 
-## 3. `spio` -> `view`
+## 3. `pafio` -> `view`
 
-### 3.1 `spio machine-info --json`
+### 3.1 `pafio machine-info --json`
 
 Canonical form:
 
 ```text
-spio machine-info --json
+pafio machine-info --json
 ```
 
 当前跨仓必须保持一致的要点：
@@ -136,15 +136,15 @@ spio machine-info --json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
+2. `styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
-### 3.2 `spio project-graph --manifest-path <path> --json`
+### 3.2 `pafio project-graph --manifest-path <path> --json`
 
 Canonical form:
 
 ```text
-spio project-graph --manifest-path <path> --json
+pafio project-graph --manifest-path <path> --json
 ```
 
 当前跨仓必须保持一致的要点：
@@ -158,15 +158,15 @@ spio project-graph --manifest-path <path> --json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Project-Graph-Contract.md`
+1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
+2. `styio-view/docs/external/for-pafio/Pafio-Project-Graph-Contract.md`
 
-### 3.3 `spio tool status --manifest-path <path> --json`
+### 3.3 `pafio tool status --manifest-path <path> --json`
 
 Canonical form:
 
 ```text
-spio tool status --manifest-path <path> --json
+pafio tool status --manifest-path <path> --json
 ```
 
 当前跨仓必须保持一致的要点：
@@ -181,17 +181,17 @@ spio tool status --manifest-path <path> --json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
+2. `styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
-### 3.4 `spio --json build/run/test`
+### 3.4 `pafio --json build/run/test`
 
 Canonical forms:
 
 ```text
-spio --json build --manifest-path <path> ...
-spio --json run --manifest-path <path> ...
-spio --json test --manifest-path <path> ...
+pafio --json build --manifest-path <path> ...
+pafio --json run --manifest-path <path> ...
+pafio --json test --manifest-path <path> ...
 ```
 
 当前跨仓必须保持一致的要点：
@@ -208,19 +208,19 @@ spio --json test --manifest-path <path> ...
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
+1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
+2. `styio-view/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
 
-### 3.5 `spio --json fetch/vendor/pack/publish`
+### 3.5 `pafio --json fetch/vendor/pack/publish`
 
 Canonical forms:
 
 ```text
-spio --json fetch --manifest-path <path> ...
-spio --json vendor --manifest-path <path> ...
-spio --json pack --manifest-path <path> ...
-spio --json publish --manifest-path <path> --dry-run
-spio --json publish --manifest-path <path> --registry <path-or-url>
+pafio --json fetch --manifest-path <path> ...
+pafio --json vendor --manifest-path <path> ...
+pafio --json pack --manifest-path <path> ...
+pafio --json publish --manifest-path <path> --dry-run
+pafio --json publish --manifest-path <path> --registry <path-or-url>
 ```
 
 当前跨仓必须保持一致的要点：
@@ -232,19 +232,19 @@ spio --json publish --manifest-path <path> --registry <path-or-url>
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
+2. `styio-view/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
+3. `styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
-### 3.6 `spio --json tool install/use/pin`
+### 3.6 `pafio --json tool install/use/pin`
 
 Canonical forms:
 
 ```text
-spio --json tool install --styio-bin <path>
-spio --json tool use --version <compiler-version> [--channel <channel>]
-spio --json tool pin --version <compiler-version> [--channel <channel>] --manifest-path <path>
-spio --json tool pin --clear --manifest-path <path>
+pafio --json tool install --styio-bin <path>
+pafio --json tool use --version <compiler-version> [--channel <channel>]
+pafio --json tool pin --version <compiler-version> [--channel <channel>] --manifest-path <path>
+pafio --json tool pin --clear --manifest-path <path>
 ```
 
 当前跨仓必须保持一致的要点：
@@ -255,6 +255,6 @@ spio --json tool pin --clear --manifest-path <path>
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
+2. `styio-view/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
+3. `styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`

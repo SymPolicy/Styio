@@ -167,7 +167,7 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "checkpoint",
         "docs/assets/workflow/CHECKPOINT-WORKFLOW.md",
         50,
-        "Recovery-oriented checkpoint sizing and interruption handling.",
+        "Recovery-oriented checkpoint scope control and interruption handling.",
     ),
     WorkflowDoc(
         "delivery-gate",

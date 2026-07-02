@@ -112,6 +112,6 @@
 
 1. Language semantics remain in `../design/`; this file does not replace semantic SSOT.
 2. Workflow details remain in `../assets/workflow/`; this file only defines priority order and objectives.
-3. Plans, milestones, tests, and reviews must use this file as the common baseline when explaining why a tradeoff is acceptable.
+3. Plans, checkpoints, tests, and reviews must use this file as the common baseline when explaining why a tradeoff is acceptable.
 
 ---

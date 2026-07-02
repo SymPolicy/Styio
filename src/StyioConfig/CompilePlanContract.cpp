@@ -259,8 +259,8 @@ parse_compile_plan(
   }
   (void) generated_by_version;
   (void) profile_name;
-  if (generated_by_tool != "spio") {
-    error_message = "compile-plan generated_by.tool must equal \"spio\"";
+  if (generated_by_tool != "pafio") {
+    error_message = "compile-plan generated_by.tool must equal \"pafio\"";
     return false;
   }
 

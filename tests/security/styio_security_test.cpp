@@ -535,6 +535,16 @@ TEST(StyioSecurityLexer, UnterminatedStringThrowsLexError) {
   );
 }
 
+TEST(StyioSecurityLexer, UnterminatedStringAfterOwnedTokensStaysExceptionSafe) {
+  CompilationSession session;
+  EXPECT_THROW(
+    {
+      session.adopt_tokens(StyioTokenizer::tokenize("555555555555555555555555555555555 \""));
+    },
+    StyioLexError
+  );
+}
+
 TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
   EXPECT_THROW(
     {
@@ -586,6 +596,358 @@ TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
 
   delete ctx;
   free_tokens(tokens);
+}
+
+TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
+  std::string nested_match_print_seed =
+    "x = 1\n"
+    "x ?= {\n"
+    " \n"
+    "x ?= {\n"
+    "  1 => >_(1)\n"
+    "(1)";
+  nested_match_print_seed.push_back('\0');
+  nested_match_print_seed += "|\n}\n";
+
+  std::string typed_binding_recovery_seed =
+    "# ad : d=(a:i6,4  b: " + std::string(100, 'r') + "i64) => {\n"
+    "  <- a + ";
+  typed_binding_recovery_seed.push_back(static_cast<char>(0xa2));
+  typed_binding_recovery_seed += "? >";
+  typed_binding_recovery_seed.append(5, '\0');
+  typed_binding_recovery_seed += "E";
+  typed_binding_recovery_seed.push_back('\0');
+  typed_binding_recovery_seed += "b\n}\n\n>_ad(d(1, 2))\n";
+
+  const std::vector<std::string> samples{
+    "# a : d=(a: a63, )b 6i4:",
+    "a# : dHHHHHHHHHHHHHHH5, ",
+    "# ad : d=(a: i64, b: i64) =>(add(0, 2)>",
+    nested_match_print_seed,
+    typed_binding_recovery_seed
+  };
+  for (const std::string& src : samples) {
+    for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+      CompilationSession session;
+      session.adopt_tokens(StyioTokenizer::tokenize(src));
+      session.attach_context(StyioContext::Create(
+        "<fuzz-regression>",
+        src,
+        build_line_seps(src),
+        session.tokens(),
+        false
+      ));
+      try {
+        session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+      }
+      catch (const StyioBaseException&) {
+        session.mark_failed();
+      }
+      SUCCEED();
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, DeepUnclosedIndexListSeedHitsNestingBudget) {
+  const std::string src = "x" + std::string(70, '[') + "x)\n";
+
+  CompilationSession session;
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<deep-index-list-oom-regression>",
+    src,
+    build_line_seps(src),
+    session.tokens(),
+    false
+  ));
+
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    },
+    StyioParserResourceLimitError
+  );
+}
+
+TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsRecoveryBudget) {
+  const std::string src =
+    "x[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{[[[[[[[[x)\n";
+
+  CompilationSession session;
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<deep-brace-index-timeout-regression>",
+    src,
+    build_line_seps(src),
+    session.tokens(),
+    false
+  ));
+
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    },
+    StyioParserResourceLimitError
+  );
+}
+
+TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsBridgeBudget) {
+  const std::string src = "x[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{[[[[[[[[x)\n";
+
+  CompilationSession session;
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<deep-brace-index-bridge-timeout-regression>",
+    src,
+    build_line_seps(src),
+    session.tokens(),
+    false
+  ));
+
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    },
+    StyioParserResourceLimitError
+  );
+}
+
+TEST(StyioSecurityParserContext, DeepBraceNestedIndexLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x78, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x35, 0x5b, 0x5b, 0x5b, 0x32, 0x32, 0x32,
+    0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32,
+    0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32,
+    0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32,
+    0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32,
+    0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x5b, 0x5b, 0x5b, 0x53, 0x5b, 0x5b, 0x01, 0x00, 0x00, 0x0a,
+    0x5b, 0x5b, 0x5b, 0x5b, 0x0f, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x7b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x5b, 0x5b, 0x5b, 0x5b, 0x78, 0x29, 0x0a,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  CompilationSession session;
+  session.adopt_tokens(StyioTokenizer::tokenize(src));
+  session.attach_context(StyioContext::Create(
+    "<deep-brace-index-leak-regression>",
+    src,
+    build_line_seps(src),
+    session.tokens(),
+    false
+  ));
+
+  try {
+    session.attach_ast(parse_main_block_with_engine_latest(*session.context(), StyioParserEngine::Nightly, nullptr));
+  } catch (const StyioBaseException&) {
+  } catch (...) {
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedBlockLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x61, 0x7b, 0x22, 0x2f, 0x41, 0x61, 0xff, 0x0a, 0x20, 0x0a, 0x23, 0x20, 0x64, 0x20, 0x3a, 0x20,
+    0x64, 0xcd, 0xd7, 0x22, 0x2f, 0x41, 0x61, 0xff, 0x0a, 0x20, 0x0a, 0x9e, 0xc5, 0xdf, 0x96, 0x84,
+    0xdd, 0x2f, 0x00, 0x7c, 0x34, 0x20, 0x41, 0x61, 0xff, 0x0a, 0x78, 0xde, 0x20, 0x0a,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-block-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedHashParamTypeLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x23, 0x20, 0x61, 0x64, 0x64, 0x20, 0x3a, 0x3d, 0x20, 0x28, 0x61, 0x3a,
+    0x20, 0x69, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73,
+    0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x73, 0x36, 0x34, 0x2c, 0x20,
+    0x62, 0x3a, 0x28, 0x61, 0x3a, 0x20, 0x69, 0x36, 0x34, 0x2c, 0x20, 0x62,
+    0x3a, 0x20, 0x69, 0x36, 0x34, 0x29, 0x20, 0x3d, 0x3e, 0x20, 0x7b, 0x0a,
+    0x20, 0x20, 0x3c, 0x7c, 0x20, 0x61, 0x20, 0x2b, 0x20, 0x62, 0x0a, 0x7d,
+    0x0a, 0x20, 0x69, 0x36, 0x34, 0x29, 0x20, 0x3d, 0x3e, 0x20, 0x7b, 0x0a,
+    0x20, 0x20, 0x3c, 0x7c, 0x20, 0x61, 0x20, 0x2b, 0x20, 0x62, 0x0a, 0x7d,
+    0x0a, 0x0a, 0x3e, 0x5b, 0x28, 0x61, 0x64, 0x64, 0x28, 0x31, 0x2c, 0x20,
+    0x32, 0x29, 0x29, 0x0a,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-hash-param-type-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedPrintCallLeakSeedDoesNotLeakUnderSessionArena) {
+  const std::string src = "x = 1 + >_(x(xN)\n";
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-print-call-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedIteratorHashTagLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x78, 0x31, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x5b, 0x69, 0x73, 0x34, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x35,
+    0x5b, 0x5b, 0x5b, 0x32, 0x32, 0x32, 0x3e, 0x3e, 0x3e, 0x3e, 0x3e, 0x23,
+    0x20, 0x61, 0x74, 0x20, 0x32, 0x3e, 0x69, 0x36, 0x38, 0x34, 0x29, 0x29,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-iterator-hashtag-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedIteratorFallbackLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x5b, 0x5b, 0x5b, 0x5b, 0x35, 0x5b, 0x5b, 0x5b, 0x32, 0x32, 0x32, 0x3e,
+    0x40, 0x3e, 0x3e, 0x3e, 0x23, 0x20, 0x61, 0x74, 0x3e, 0x3e, 0x23, 0x20,
+    0x61, 0x74, 0x20, 0x72, 0x3e, 0x69, 0x78, 0x20, 0x72, 0x3e, 0x69, 0x78,
+    0x36, 0x38, 0x34, 0x29, 0x20, 0x29,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-iterator-fallback-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedCompoundAssignNameLeakSeedDoesNotLeakUnderSessionArena) {
+  std::string src(103, 'Q');
+  src += "x*=( > 2\n*****";
+  src.push_back('\x08');
+  src += ">y2&";
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-compound-assign-name-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
+}
+
+TEST(StyioSecurityParserContext, MalformedAtResourceRefNameLeakSeedDoesNotLeakUnderSessionArena) {
+  static constexpr unsigned char kSeed[] = {
+    0x61, 0x23, 0x3a, 0x3d, 0x28, 0x61, 0x3a, 0x20, 0x69, 0x48, 0x48, 0x48,
+    0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x40, 0x48, 0x48, 0x48, 0x48, 0x48,
+    0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48,
+    0x48, 0x78, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b,
+    0x01, 0x00, 0x00, 0x20, 0x5b, 0x48, 0x00, 0x00, 0x00, 0x20, 0x00, 0x7c,
+    0x32, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x5b, 0x78, 0x29, 0x0a, 0xe4,
+    0x20, 0x78,
+  };
+  const std::string src(reinterpret_cast<const char*>(kSeed), sizeof(kSeed));
+
+  for (StyioParserEngine engine : {StyioParserEngine::Legacy, StyioParserEngine::Nightly}) {
+    CompilationSession session;
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create(
+      "<malformed-at-resource-ref-name-leak-regression>",
+      src,
+      build_line_seps(src),
+      session.tokens(),
+      false
+    ));
+
+    try {
+      session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
+    } catch (const StyioBaseException&) {
+    } catch (...) {
+    }
+  }
 }
 
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
@@ -1121,7 +1483,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFlexBindSubsetSamples) {
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file(\"tests/m5/data/hello.txt\")\n",
+    "f <- @file(\"tests/features/file_resources/data/hello.txt\")\n",
     "out << @file(\"/tmp/styio-new-parser-handle-io.txt\")\n",
   };
 
@@ -1131,7 +1493,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnHandleIoSubsetSamples) {
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsBracedExplicitFileResource) {
-  const std::string src = "f <- @file{\"tests/m5/data/hello.txt\"}\n";
+  const std::string src = "f <- @file{\"tests/features/file_resources/data/hello.txt\"}\n";
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
   EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
 }
@@ -2013,6 +2375,80 @@ TEST(StyioSecurityNightlyCodegen, SgCallArityMismatchFailsBeforeLlvmEmission) {
   delete entry;
 }
 
+TEST(StyioSecurityNightlyCodegen, LogicalNotAndXorLowerWithoutLeftOperandFallback) {
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StyioAST> not_ast(CondAST::Create(LogicType::NOT, BoolAST::Create(true)));
+  std::unique_ptr<StyioAST> xor_ast(CondAST::Create(LogicType::XOR, BoolAST::Create(true), BoolAST::Create(false)));
+
+  std::unique_ptr<StyioIR> not_ir(not_ast->toStyioIR(&analyzer));
+  std::unique_ptr<StyioIR> xor_ir(xor_ast->toStyioIR(&analyzer));
+  auto* not_cond = dynamic_cast<SGCond*>(not_ir.get());
+  auto* xor_cond = dynamic_cast<SGCond*>(xor_ir.get());
+  ASSERT_NE(not_cond, nullptr);
+  ASSERT_NE(xor_cond, nullptr);
+  EXPECT_EQ(not_cond->operand, StyioOpType::Logic_NOT);
+  EXPECT_EQ(xor_cond->operand, StyioOpType::Logic_XOR);
+
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{
+    SGCond::Create(SGConstBool::Create(true), SGConstBool::Create(false), StyioOpType::Logic_NOT),
+    SGCond::Create(SGConstBool::Create(true), SGConstBool::Create(false), StyioOpType::Logic_XOR)
+  });
+  EXPECT_NO_THROW(entry->toLLVMIR(&generator));
+  delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, UnsupportedInternalBinaryOperatorFailsClosed) {
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::ExitOnError exit_on_error;
+  std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+  StyioToLLVM generator(std::move(jit));
+  auto* entry = SGMainEntry::Create(std::vector<StyioIR*>{
+    SGBinOp::Create(
+      SGConstInt::Create(1),
+      SGConstInt::Create(2),
+      static_cast<StyioOpType>(999),
+      SGType::Create(StyioDataType{StyioDataTypeOption::Integer, "i64", 64})
+    )
+  });
+  EXPECT_THROW(entry->toLLVMIR(&generator), StyioTypeError);
+  delete entry;
+}
+
+TEST(StyioSecurityNightlyCodegen, UnsupportedInternalLoweringOperatorsFailClosed) {
+  AstToStyioIRLowerer analyzer;
+
+  std::unique_ptr<StyioAST> bad_comp(new BinCompAST(
+    static_cast<CompType>(999),
+    IntAST::Create("1", 64),
+    IntAST::Create("2", 64)
+  ));
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioIR> ir(bad_comp->toStyioIR(&analyzer));
+    },
+    StyioTypeError
+  );
+
+  std::unique_ptr<StyioAST> bad_list(new ListOpAST(
+    StyioNodeType::Get_Reversed,
+    ListAST::Create(std::vector<StyioAST*>{IntAST::Create("1", 64)})
+  ));
+  EXPECT_THROW(
+    {
+      std::unique_ptr<StyioIR> ir(bad_list->toStyioIR(&analyzer));
+    },
+    StyioTypeError
+  );
+}
+
 TEST(StyioSecurityNightlyCodegen, EmitsTypedListHelpersForMutationAndOperations) {
   const std::string src =
     "nums = [1,2]\n"
@@ -2294,8 +2730,8 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
   const std::vector<std::string> samples = {
-    "f <- @file(\"tests/m5/data/hello.txt\")\nf >> #(line) => {\n    >_(line)\n}\n",
-    "# double_it := (x: i32) => x * 2\nf <- @file(\"tests/m5/data/numbers.txt\")\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
+    "f <- @file(\"tests/features/file_resources/data/hello.txt\")\nf >> #(line) => {\n    >_(line)\n}\n",
+    "# double_it := (x: i32) => x * 2\nf <- @file(\"tests/features/file_resources/data/numbers.txt\")\nf >> #(line) => {\n    >_(double_it(line))\n}\n",
     "result = true\n[1, 2, 3] >> #(x) => {\n    result = result && (x > 0)\n}\n>_(result)\n",
     "[1, 2, 3] >> #(x) => {\n    >_(x)\n}\n",
     "[1, 2, 3] >> #(n) & [4, 5, 6] >> #(m) => {\n    >_(n + m)\n}\n",
@@ -2336,13 +2772,13 @@ TEST(StyioSecurityNightlySemantics, RejectsNonBoolConditionalLoopGuard) {
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInstantPullSubsetSamples) {
-  const std::string src = "x = 1\nresult = x + (<< @file(\"tests/m7/data/ref50.txt\"))\n>_(result)\n";
+  const std::string src = "x = 1\nresult = x + (<< @file(\"tests/features/stream_processing/data/ref50.txt\"))\n>_(result)\n";
   EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false));
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax) {
   const std::vector<std::string> samples = {
-    "@[ref_val] << @file(\"tests/m7/data/ref.txt\")\n",
+    "@[ref_val] << @file(\"tests/features/stream_processing/data/ref.txt\")\n",
     "@[3](ma = 1 + 2)\n",
     "$state\n",
     "$state[<<, 1]\n",
@@ -2356,8 +2792,8 @@ TEST(StyioSecurityNightlyParserStmt, RejectsRetiredLegacyStateAndSnapshotSyntax)
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnAtResourceSubsetSamples) {
   const std::vector<std::string> samples = {
-    "@file(\"tests/m7/data/prices_a.txt\") >> #(a) => {\n    >_(a)\n}\n",
-    "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n    result = x * 2\n    result << @file(\"/tmp/styio-new-parser-at-resource-subset.txt\")\n}\n",
+    "@file(\"tests/features/stream_processing/data/prices_a.txt\") >> #(a) => {\n    >_(a)\n}\n",
+    "@file(\"tests/features/stream_processing/data/input.txt\") >> #(x) => {\n    result = x * 2\n    result << @file(\"/tmp/styio-new-parser-at-resource-subset.txt\")\n}\n",
   };
 
   for (const auto& src : samples) {
@@ -2378,7 +2814,7 @@ TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnRedirectRouteSample) {
 
 TEST(StyioSecurityNightlyParserShadow, MatchesLegacyOnArbitrageGuardRouteSample) {
   const std::string src =
-    "@file(\"tests/m7/data/exchange_a.txt\") >> #(a) & @file(\"tests/m7/data/exchange_b.txt\") >> #(b) => {\n"
+    "@file(\"tests/features/stream_processing/data/exchange_a.txt\") >> #(a) & @file(\"tests/features/stream_processing/data/exchange_b.txt\") >> #(b) => {\n"
     "  gap = a - b\n"
     "  ?(gap > 5 || gap < -5) => { >_(\"Arb: \" + gap) }\n"
     "}\n";
@@ -3722,7 +4158,7 @@ TEST(StyioSafetyRuntime, InvalidWriteHandleSetsRuntimeError) {
 
 TEST(StyioSafetyRuntime, CloseIsIdempotentAndKeepsErrorClear) {
   styio_runtime_clear_error();
-  const int64_t h = styio_file_open("tests/m5/data/hello.txt");
+  const int64_t h = styio_file_open("tests/features/file_resources/data/hello.txt");
   ASSERT_NE(h, 0);
   styio_file_close(h);
   styio_file_close(h);
@@ -3737,7 +4173,7 @@ TEST(StyioSafetyRuntime, FreeCstrAcceptsNull) {
 }
 
 TEST(StyioSafetyRuntime, FreeCstrIgnoresBorrowedPointer) {
-  const int64_t h = styio_file_open("tests/m5/data/hello.txt");
+  const int64_t h = styio_file_open("tests/features/file_resources/data/hello.txt");
   ASSERT_NE(h, 0);
   const char* line = styio_file_read_line(h);
   ASSERT_NE(line, nullptr);
