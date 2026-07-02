@@ -67,7 +67,7 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/` |
 | `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioToString/`, `src/StyioSession/` |
 | `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/` |
-| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-spio/` |
+| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `docs/external/for-pafio/` |
 | `IDE-LSP-RUNBOOK.md` | `src/StyioIDE/`, `src/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
 | `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioIDE/TreeSitterBackend.*` |
 | `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `extend_tests.py`, parser shadow scripts, fuzz pack script, `scripts/checkpoint-health.sh` |

@@ -27,7 +27,7 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/plans", "Plans Index", "Provide the generated inventory for `docs/plans/`; document boundaries and naming rules live in [README.md](./README.md)."),
     CollectionSpec("docs/external", "External Docs Index", "Provide the generated inventory for `docs/external/`; external handoff boundaries live in [README.md](./README.md)."),
     CollectionSpec("docs/external/for-ide", "For IDE Index", "Provide the generated inventory for `docs/external/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
-    CollectionSpec("docs/external/for-spio", "For Spio Index", "Provide the generated inventory for `docs/external/for-spio/`; handoff boundaries and coordination rules for `styio-spio` live in [README.md](./README.md)."),
+    CollectionSpec("docs/external/for-pafio", "For Pafio Index", "Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries and coordination rules for `styio-pafio` live in [README.md](./README.md)."),
     CollectionSpec("docs/assets", "Assets Index", "Provide the generated inventory for `docs/assets/`; asset boundaries and reuse rules live in [README.md](./README.md)."),
     CollectionSpec("docs/assets/workflow", "Workflow Assets Index", "Provide the generated inventory for `docs/assets/workflow/`; workflow boundaries and reuse rules live in [README.md](./README.md)."),
     CollectionSpec("docs/assets/templates", "Template Assets Index", "Provide the generated inventory for `docs/assets/templates/`; template boundaries and reuse rules live in [README.md](./README.md)."),

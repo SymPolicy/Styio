@@ -10,5 +10,5 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `Styio-Ecosystem-CLI-Contract-Matrix.md` | [Styio Ecosystem CLI Contract Matrix](./Styio-Ecosystem-CLI-Contract-Matrix.md) | 作为三仓协调镜像，冻结 styio-nightly、styio-spio、styio-view 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。 |
-| `Styio-Ecosystem-Delivery-Master-Plan.md` | [Styio Ecosystem Delivery Master Plan](./Styio-Ecosystem-Delivery-Master-Plan.md) | 作为 styio-nightly、styio-spio、styio-view 的统一交付总纲，定义权威里程碑、跨仓文档落地顺序、共享门禁与完成定义，确保三仓以同一套语言产品目标推进，而不是各自演化。当前它仍然是 active ecosystem plan，而不是已闭合的历史记录。 |
+| `Styio-Ecosystem-CLI-Contract-Matrix.md` | [Styio Ecosystem CLI Contract Matrix](./Styio-Ecosystem-CLI-Contract-Matrix.md) | 作为三仓协调镜像，冻结 styio-nightly、styio-pafio、styio-view 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。 |
+| `Styio-Ecosystem-Delivery-Master-Plan.md` | [Styio Ecosystem Delivery Master Plan](./Styio-Ecosystem-Delivery-Master-Plan.md) | 作为 styio-nightly、styio-pafio、styio-view 的统一交付总纲，定义权威里程碑、跨仓文档落地顺序、共享门禁与完成定义，确保三仓以同一套语言产品目标推进，而不是各自演化。当前它仍然是 active ecosystem plan，而不是已闭合的历史记录。 |

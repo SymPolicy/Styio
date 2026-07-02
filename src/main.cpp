@@ -3851,7 +3851,7 @@ styio_native_build_write_compile_plan_latest(
   plan
     << "{\n"
     << "  \"plan_version\": 1,\n"
-    << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \""
+    << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \""
     << styio_json_escape(STYIO_PROJECT_VERSION) << "\"},\n"
     << "  \"intent\": \"build\",\n"
     << "  \"workspace_root\": \"" << styio_json_escape(input_path.parent_path().string()) << "\",\n"
@@ -4393,7 +4393,7 @@ main(
     cxxopts::value<std::string>()
   )(
     "source-build-info",
-    "Emit machine-readable source-build metadata for spio build. Supported format: json",
+    "Emit machine-readable source-build metadata for pafio build. Supported format: json",
     cxxopts::value<std::string>()
   )(
     "nano-create",

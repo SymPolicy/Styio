@@ -335,6 +335,15 @@ set_tests_properties(parser_legacy_entry_audit PROPERTIES
   LABELS "styio_pipeline;workflow"
 )
 
+add_test(
+  NAME syntax_convergence_gate
+  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/syntax-convergence-gate.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(syntax_convergence_gate PROPERTIES
+  LABELS "styio_pipeline;syntax_convergence;golden_standard"
+)
+
 add_executable(styio_test
   styio_test.cpp
 )
