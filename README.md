@@ -89,3 +89,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
 [SUPPORT.md](SUPPORT.md) before filing issues or proposing changes. Release and
 dependency rules are tracked in [RELEASE-POLICY.md](RELEASE-POLICY.md) and
 [DEPENDENCY-USAGE.md](DEPENDENCY-USAGE.md).
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
