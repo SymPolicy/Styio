@@ -28,7 +28,7 @@ Bootstrap scope:
 
 ## Standardized Baseline
 
-`styio-nightly` and `styio-spio` share the same standardized native baseline:
+`styio-nightly` and `styio-pafio` share the same standardized native baseline:
 
 1. Development host standard: Debian `13` (`trixie`).
 2. Compiler toolchain standard: LLVM / Clang / LLD `18.1.x` via the `clang-18` package line.

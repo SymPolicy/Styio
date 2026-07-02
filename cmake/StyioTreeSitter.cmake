@@ -31,8 +31,8 @@ endif()
 
 FetchContent_Declare(
   tree_sitter_runtime
-  GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
-  GIT_TAG cd5b087cd9f45ca6d93ab1954f6b7c8534f324d2
+  URL https://github.com/tree-sitter/tree-sitter/archive/cd5b087cd9f45ca6d93ab1954f6b7c8534f324d2.tar.gz
+  URL_HASH SHA256=c9933bb1c6fd48ed6e57592a8a890c51cd123c39822ac8e26d5eaa4bdc1c4dfd
 )
 FetchContent_GetProperties(tree_sitter_runtime)
 if(NOT tree_sitter_runtime_POPULATED)

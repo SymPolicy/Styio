@@ -48,8 +48,8 @@ issue 状态和发布进度不在本文件维护。
 | Repository | Role | Owns What | Does Not Own |
 |------------|------|-----------|--------------|
 | [`Styio`](https://github.com/SymPolicy/Styio) / 当前开发镜像 [`README.md`](../../README.md) | 主语言与编译器仓库 | 语言设计、形式文法、编译器实现、CLI、测试、主文档入口 | 包管理器、编辑器插件、产品白皮书、示例工程生态 |
-| [`styio-platform`](https://github.com/SymPolicy/styio-platform) | 平台级产品/hosted surface 整合入口 | 平台产品壳层、hosted surface 占位、未来跨仓平台入口与产品整合说明 | 语言语义、编译器实现、包解析规则 |
-| [`styio-spio`](https://github.com/SymPolicy/styio-spio) | 包管理器、registry/cloud backend、repo-hosted control console | 包格式、包解析/安装/发布、依赖解析、仓库源协议、仓库托管与云平台后台、仓库托管的管控台前端、跨仓 hosted API 合同包 | Styio 核心语言语义与编译器实现 |
+| [`pafio`](https://github.com/SymPolicy/Pafio) | 平台级产品/hosted surface 整合入口 | 平台产品壳层、hosted surface 占位、未来跨仓平台入口与产品整合说明 | 语言语义、编译器实现、包解析规则 |
+| [`styio-pafio`](https://github.com/SymPolicy/styio-pafio) | 包管理器、registry/cloud backend、repo-hosted control console | 包格式、包解析/安装/发布、依赖解析、仓库源协议、仓库托管与云平台后台、仓库托管的管控台前端、跨仓 hosted API 合同包 | Styio 核心语言语义与编译器实现 |
 | [`audit`](https://github.com/SymPolicy/audit) | 集中审计框架 | auditable-code 框架、默认审计模块、Styio 专用审计模块与外部审计入口 | 编译器语义真相、语言接受测试、仓库本地代码实现 |
 | [`Unka-Malloc-doc`](https://github.com/SymPolicy/Unka-Malloc-doc) | 开发者文档仓库 | 跨仓库开发手册、搭建流程、协作说明、外部开发者上手指南 | 语言权威语义、编译器测试验收、产品白皮书 |
 | [`Unka-Malloc-env`](https://github.com/SymPolicy/Unka-Malloc-env) | 标准开发环境 | devcontainer、toolchain bootstrap、统一环境脚本、CI/本地环境约定 | 语言设计、产品定义、示例工程内容 |
