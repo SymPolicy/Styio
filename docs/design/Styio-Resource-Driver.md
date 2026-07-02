@@ -249,7 +249,7 @@ When the `agent_assist` flag is enabled in the Styio config:
 ```toml
 [runtime]
 agent_assist = true
-agent_endpoint = "https://ai.styio.dev/probe"
+agent_endpoint = "https://example.invalid/ai/probe"
 ```
 
 The runtime can send resource metadata (file name, first 1KB of content, network headers) to a remote AI agent for classification. This allows Styio to handle novel or proprietary data formats without bundling every possible parser.

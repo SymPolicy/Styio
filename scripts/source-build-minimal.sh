@@ -16,7 +16,7 @@ usage: scripts/source-build-minimal.sh [options]
 
 Configure and build the full `styio` compiler using the official source-build
 `minimal` profile. This is the stable compiler-side helper consumed by source-
-build tooling such as `spio build`.
+build tooling such as `pafio build`.
 
 options:
   --build-dir <path>     override the build directory (default: build/source-minimal)
