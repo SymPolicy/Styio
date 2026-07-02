@@ -49,7 +49,7 @@ controlled_components() {
       "src/StyioSession/",
       "src/StyioToString/",
     })},
-    {"description", "Official parser-to-codegen compiler graph consumed by spio build."},
+    {"description", "Official parser-to-codegen compiler graph consumed by pafio build."},
   });
   components.push_back(llvm::json::Object{
     {"id", "std_symbols"},
@@ -144,7 +144,7 @@ source_build_info_json(const SourceBuildInfoOptions& options) {
     {"symbol_registry", std::move(symbol_registry)},
     {"notes", llvm::json::Array{
       "machine-info remains the binary-channel handshake contract",
-      "source-build-info describes the official source layout consumed by spio build",
+      "source-build-info describes the official source layout consumed by pafio build",
     }},
   };
 

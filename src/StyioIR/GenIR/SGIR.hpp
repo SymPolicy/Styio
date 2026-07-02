@@ -206,6 +206,11 @@ public:
       from_type(from_type), to_type(to_type) {
   }
 
+  ~SGCast() override {
+    delete from_type;
+    delete to_type;
+  }
+
   static SGCast* Create(SGType* from_type, SGType* to_type) {
     return new SGCast(from_type, to_type);
   };
@@ -242,6 +247,12 @@ public:
       rhs_type(std::move(rhs_data_type)) {
   }
 
+  ~SGBinOp() override {
+    delete data_type;
+    delete lhs_expr;
+    delete rhs_expr;
+  }
+
   static SGBinOp* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op, SGType* data_type) {
     return new SGBinOp(lhs, rhs, op, data_type);
   }
@@ -269,6 +280,11 @@ public:
       lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op) {
   }
 
+  ~SGCond() override {
+    delete lhs_expr;
+    delete rhs_expr;
+  }
+
   static SGCond* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op) {
     return new SGCond(lhs, rhs, op);
   }
@@ -291,6 +307,12 @@ public:
       var_name(id), var_type(type), val_init(value) {
   }
 
+  ~SGVar() override {
+    delete var_name;
+    delete var_type;
+    delete val_init;
+  }
+
   static SGVar* Create(SGResId* id, SGType* type) {
     return new SGVar(id, type);
   }
@@ -311,6 +333,11 @@ public:
       var(var), value(value), pending_resource_write(pending) {
   }
 
+  ~SGFlexBind() override {
+    delete var;
+    delete value;
+  }
+
   static SGFlexBind* Create(SGVar* id, StyioIR* value, bool pending = false) {
     return new SGFlexBind(id, value, pending);
   }
@@ -324,6 +351,11 @@ public:
 
   SGFinalBind(SGVar* var, StyioIR* value) :
       var(var), value(value) {
+  }
+
+  ~SGFinalBind() override {
+    delete var;
+    delete value;
   }
 
   static SGFinalBind* Create(SGVar* id, StyioIR* value) {
@@ -368,6 +400,10 @@ public:
       id(id), arg_type(type) {
   }
 
+  ~SGFuncArg() override {
+    delete arg_type;
+  }
+
   static SGFuncArg* Create(std::string id, SGType* type) {
     return new SGFuncArg(id, type);
   }
@@ -393,6 +429,8 @@ public:
       func_block(func_block) {
   }
 
+  ~SGFunc() override;
+
   static SGFunc* Create(SGType* ret_type, SGResId* func_name, std::vector<SGFuncArg*> func_args, SGBlock* func_block) {
     return new SGFunc(ret_type, func_name, func_args, func_block);
   }
@@ -406,6 +444,11 @@ public:
 
   SGCall(SGResId* func_name, std::vector<StyioIR*> func_args) :
       func_name(std::move(func_name)), func_args(std::move(func_args)) {
+  }
+
+  ~SGCall() override {
+    delete func_name;
+    styio_delete_ir_nodes(func_args);
   }
 
   static SGCall* Create(SGResId* func_name, std::vector<StyioIR*> func_args) {
@@ -452,6 +495,10 @@ public:
       expr(expr) {
   }
 
+  ~SGReturn() override {
+    delete expr;
+  }
+
   static SGReturn* Create(StyioIR* expr) {
     return new SGReturn(expr);
   }
@@ -466,10 +513,21 @@ public:
       stmts(std::move(stmts)) {
   }
 
+  ~SGBlock() override {
+    styio_delete_ir_nodes(stmts);
+  }
+
   static SGBlock* Create(std::vector<StyioIR*> stmts) {
     return new SGBlock(std::move(stmts));
   }
 };
+
+inline SGFunc::~SGFunc() {
+  delete ret_type;
+  delete func_name;
+  styio_delete_ir_nodes(func_args);
+  delete func_block;
+}
 
 class SGEntry : public StyioIRTraits<SGEntry>
 {
@@ -478,6 +536,10 @@ public:
 
   SGEntry(std::vector<StyioIR*> stmts) :
       stmts(std::move(stmts)) {
+  }
+
+  ~SGEntry() override {
+    styio_delete_ir_nodes(stmts);
   }
 
   static SGEntry* Create(std::vector<StyioIR*> stmts) {
@@ -492,6 +554,10 @@ public:
 
   SGMainEntry(std::vector<StyioIR*> stmts) :
       stmts(stmts) {
+  }
+
+  ~SGMainEntry() override {
+    styio_delete_ir_nodes(stmts);
   }
 
   static SGMainEntry* Create(std::vector<StyioIR*> stmts) {
@@ -514,6 +580,11 @@ public:
 
   SGLoop(SGLoopTag t, StyioIR* c, SGBlock* b) :
       tag(t), cond(c), body(b) {
+  }
+
+  ~SGLoop() override {
+    delete cond;
+    delete body;
   }
 
   static SGLoop* CreateInfinite(SGBlock* b) {
@@ -594,6 +665,10 @@ public:
       slot_id(s), x(xi) {
   }
 
+  ~SGSeriesAvgStep() override {
+    delete x;
+  }
+
   static SGSeriesAvgStep* Create(int s, StyioIR* xi) {
     return new SGSeriesAvgStep(s, xi);
   }
@@ -607,6 +682,10 @@ public:
 
   SGSeriesMaxStep(int s, StyioIR* xi) :
       slot_id(s), x(xi) {
+  }
+
+  ~SGSeriesMaxStep() override {
+    delete x;
   }
 
   static SGSeriesMaxStep* Create(int s, StyioIR* xi) {
@@ -626,6 +705,11 @@ public:
 
   SGForEach(StyioIR* it, std::string v, std::string et, SGBlock* b) :
       iterable(it), var(std::move(v)), elem_type(std::move(et)), body(b) {
+  }
+
+  ~SGForEach() override {
+    delete iterable;
+    delete body;
   }
 
   static SGForEach* Create(StyioIR* it, std::string v, std::string elem_type, SGBlock* b) {
@@ -650,6 +734,13 @@ public:
       start(s), end(e), step(st), var(std::move(v)), body(b) {
   }
 
+  ~SGRangeFor() override {
+    delete start;
+    delete end;
+    delete step;
+    delete body;
+  }
+
   static SGRangeFor* Create(StyioIR* s, StyioIR* e, StyioIR* st, std::string v, SGBlock* b) {
     return new SGRangeFor(s, e, st, std::move(v), b);
   }
@@ -664,6 +755,12 @@ public:
 
   SGIf(StyioIR* c, SGBlock* t, SGBlock* e) :
       cond(c), then_block(t), else_block(e) {
+  }
+
+  ~SGIf() override {
+    delete cond;
+    delete then_block;
+    delete else_block;
   }
 
   static SGIf* Create(StyioIR* cond, SGBlock* then_block, SGBlock* else_block = nullptr) {
@@ -697,6 +794,15 @@ public:
       int_arms(std::move(arms)),
       default_arm(d),
       repr_kind(k) {
+  }
+
+  ~SGMatch() override {
+    delete scrutinee;
+    for (auto& arm : int_arms) {
+      delete arm.second;
+    }
+    int_arms.clear();
+    delete default_arm;
   }
 
   static SGMatch* Create(
@@ -756,6 +862,11 @@ public:
       primary(p), alternate(a) {
   }
 
+  ~SGFallback() override {
+    delete primary;
+    delete alternate;
+  }
+
   static SGFallback* Create(StyioIR* p, StyioIR* a) {
     return new SGFallback(p, a);
   }
@@ -770,6 +881,12 @@ public:
 
   SGWaveMerge(StyioIR* c, StyioIR* t, StyioIR* f) :
       cond(c), true_val(t), false_val(f) {
+  }
+
+  ~SGWaveMerge() override {
+    delete cond;
+    delete true_val;
+    delete false_val;
   }
 
   static SGWaveMerge* Create(StyioIR* c, StyioIR* t, StyioIR* f) {
@@ -788,6 +905,12 @@ public:
       cond(c), true_arm(t), false_arm(f) {
   }
 
+  ~SGWaveDispatch() override {
+    delete cond;
+    delete true_arm;
+    delete false_arm;
+  }
+
   static SGWaveDispatch* Create(StyioIR* c, StyioIR* t, StyioIR* f) {
     return new SGWaveDispatch(c, t, f);
   }
@@ -803,6 +926,11 @@ public:
       base(b), guard_cond(c) {
   }
 
+  ~SGGuardSelect() override {
+    delete base;
+    delete guard_cond;
+  }
+
   static SGGuardSelect* Create(StyioIR* b, StyioIR* c) {
     return new SGGuardSelect(b, c);
   }
@@ -816,6 +944,11 @@ public:
 
   SGEqProbe(StyioIR* b, StyioIR* p) :
       base(b), probe(p) {
+  }
+
+  ~SGEqProbe() override {
+    delete base;
+    delete probe;
   }
 
   static SGEqProbe* Create(StyioIR* b, StyioIR* p) {
@@ -834,6 +967,10 @@ public:
     x->var_name = std::move(v);
     x->path_expr = p;
     return x;
+  }
+
+  ~SGSnapshotDecl() override {
+    delete path_expr;
   }
 };
 

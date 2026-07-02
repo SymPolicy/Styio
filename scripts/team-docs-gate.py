@@ -71,7 +71,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "configs/",
             "scripts/gen-styio-nano-profile.py",
             "scripts/source-build-minimal.sh",
-            "docs/external/for-spio/",
+            "docs/external/for-pafio/",
         ),
     ),
     TeamRule(
@@ -104,7 +104,6 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioTesting/",
             "extend_tests.py",
             "tests/workflow_scheduler_test.py",
-            "scripts/parser-shadow-m1-gate.sh",
             "scripts/parser-shadow-suite-gate.sh",
             "scripts/fuzz-regression-pack.sh",
             "scripts/checkpoint-health.sh",

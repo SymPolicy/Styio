@@ -27,7 +27,7 @@
 
 ## Current Development Front
 
-1. The active repo-wide unfinished-work summary is [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md). Use it to split compiler debt, IDE closure work, and `spio` handoff tasks without collapsing repo boundaries.
+1. The active repo-wide unfinished-work summary is [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md). Use it to split compiler debt, IDE closure work, and `pafio` handoff tasks without collapsing repo boundaries.
 2. IDE work is tracked through the IDE external docs, IDE/LSP runbook, perf runbook, and current gap ledger instead of a retained milestone batch.
 3. Resource Topology v2 remains a dedicated migration track owned by [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md), [`../design/syntax/ACTIVE-SYNTAX.md`](../design/syntax/ACTIVE-SYNTAX.md), and the current gap ledger.
 
@@ -46,7 +46,7 @@
 
 ## Current Risks
 
-1. The deepest remaining implementation debt is summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): parser subset gaps, sema/lowering placeholders, incomplete M7 stream closure, compile-plan release hardening with `styio-spio`, and IDE operational closure.
+1. The deepest remaining implementation debt is summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): parser subset gaps, sema/lowering placeholders, incomplete M7 stream closure, compile-plan release hardening with `styio-pafio`, and IDE operational closure.
 2. Resource topology migration must keep design, parser/sema/lowering work, and test catalog updates in one checkpoint path.
 3. Benchmarking is now structured, but meaningful comparisons still depend on keeping parser shadow/five-layer gates green alongside the perf route.
 4. Shared ignore/fixture governance is only frozen for current tracked roots; any future repro root outside `docs/**` or `tests/**` still needs explicit negate rules before files land.

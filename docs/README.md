@@ -11,12 +11,12 @@
 3. Team daily-work runbooks live in `docs/teams/`.
 4. Still-active review findings live in `docs/review/`; absorbed findings use Git history.
 5. Current plans and cross-repo contracts live in `docs/plans/`.
-6. Cross-repository handoff notes intended for `styio-spio` live in `docs/external/for-spio/`.
+6. Cross-repository handoff notes intended for `styio-pafio` live in `docs/external/for-pafio/`.
 7. IDE integration, embedding, and LSP usage material lives in `docs/external/for-ide/`.
 8. Reusable workflows and templates live in `docs/assets/`.
 9. Compressed active summaries live in `docs/rollups/`.
 10. Minimal lifecycle metadata lives in `docs/archive/`; exact old prose is recovered from Git history.
-11. Current milestones and temporary ADRs stay in their dedicated directories; implemented decisions are compressed and raw daily history is not retained by default.
+11. Current checkpoints and temporary ADRs stay in their dedicated directories; implemented decisions are compressed and raw daily history is not retained by default.
 
 ## Entry Points
 

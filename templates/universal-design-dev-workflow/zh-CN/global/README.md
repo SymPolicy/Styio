@@ -7,4 +7,4 @@
 | 文件 | 内容 |
 |------|------|
 | [ARTIFACT-LAYOUT.md](./ARTIFACT-LAYOUT.md) | 路径、目录树、落地模式 |
-| [SSOT-AND-MAINTENANCE-RULES.md](./SSOT-AND-MAINTENANCE-RULES.md) | SSOT、去重、历史/里程碑/测试 |
+| [SSOT-AND-MAINTENANCE-RULES.md](./SSOT-AND-MAINTENANCE-RULES.md) | SSOT、去重、历史/检查点/测试 |

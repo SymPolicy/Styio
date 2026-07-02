@@ -21,7 +21,7 @@ extern "C" DLLEXPORT void styio_file_write_cstr(int64_t h, const char* data);
 extern "C" DLLEXPORT int64_t styio_cstr_to_i64(const char* s);
 extern "C" DLLEXPORT double styio_cstr_to_f64(const char* s);
 
-/* M7: first line of file as integer; string concat (malloc result). */
+/* Stream processing: first line of file as integer; string concat (malloc result). */
 extern "C" DLLEXPORT int64_t styio_read_file_i64line(const char* path);
 /* Owns heap memory; release with styio_free_cstr. */
 extern "C" DLLEXPORT const char* styio_strcat_ab(const char* a, const char* b);
@@ -39,12 +39,12 @@ extern "C" DLLEXPORT void styio_runtime_clear_error();
 using StyioRuntimeLogSink = void (*)(const char* stream, const char* message);
 extern "C" DLLEXPORT void styio_runtime_set_log_sink(StyioRuntimeLogSink sink);
 
-/* M9+: write to stdout / stderr */
+/* Standard streams: write to stdout / stderr */
 extern "C" DLLEXPORT void styio_stdout_write_cstr(const char* s);
-/* M9: write to stderr */
+/* Standard streams: write to stderr */
 extern "C" DLLEXPORT void styio_stderr_write_cstr(const char* s);
 
-/* M10: read one line from stdin */
+/* Stdio input: read one line from stdin */
 extern "C" DLLEXPORT const char* styio_stdin_read_line();
 
 extern "C" DLLEXPORT int64_t styio_task_i64_ready(int64_t value);

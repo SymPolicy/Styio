@@ -85,6 +85,7 @@ private:
   StyioParserRouteStats* parser_route_stats = nullptr;
   StyioParseMode parse_mode_ = StyioParseMode::Strict;
   std::vector<StyioParseDiagnostic> parse_diagnostics_;
+  std::vector<size_t> nightly_internal_legacy_bridge_counts_;
 
   bool debug_mode = false;
 
@@ -334,6 +335,12 @@ public:
     return index_of_token;
   }
 
+  int
+  delimiter_nesting_before_current_token() const {
+    const TokenNesting nesting = token_nesting_before(index_of_token);
+    return nesting.paren + nesting.bracket + nesting.brace + nesting.bounded;
+  }
+
   void move_forward(size_t steps = 1, std::string caller = "") {
     // std::cout << "[" << index_of_token << "] " << caller << "(`" << cur_tok()->as_str() << "`)" << ", step: " << steps << std::endl;
     if (index_of_token >= tokens.size()) {
@@ -391,9 +398,9 @@ public:
   is_root_statement_position() const {
     const TokenNesting nesting = token_nesting_before(index_of_token);
     return nesting.paren == 0
-      && nesting.bracket == 0
-      && nesting.brace == 0
-      && nesting.bounded == 0;
+           && nesting.bracket == 0
+           && nesting.brace == 0
+           && nesting.bounded == 0;
   }
 
   void
@@ -407,7 +414,8 @@ public:
     parse_diagnostics_.push_back(StyioParseDiagnostic{
       start,
       end,
-      std::move(message)});
+      std::move(message)
+    });
   }
 
   bool
@@ -492,11 +500,16 @@ public:
     return parser_route_stats;
   }
 
-  void
+  size_t
   note_nightly_internal_legacy_bridge_latest() {
     if (parser_route_stats != nullptr) {
       parser_route_stats->nightly_internal_legacy_bridges += 1;
     }
+    if (nightly_internal_legacy_bridge_counts_.size() <= index_of_token) {
+      nightly_internal_legacy_bridge_counts_.resize(index_of_token + 1, 0);
+    }
+    nightly_internal_legacy_bridge_counts_[index_of_token] += 1;
+    return nightly_internal_legacy_bridge_counts_[index_of_token];
   }
 
   inline void skip() {
@@ -1310,6 +1323,9 @@ parse_string(StyioContext& context);
 FmtStrAST*
 parse_fmt_str(StyioContext& context);
 
+FmtStrAST*
+parse_fmt_str_token_latest(StyioContext& context, StyioParserEngine engine);
+
 /*
   parse_path
 */
@@ -1473,7 +1489,8 @@ parse_parenthesized_instant_pull_latest(
   StyioContext& context,
   StyioTokenType prefix,
   const std::string& diagnostic,
-  const std::string& close_diagnostic);
+  const std::string& close_diagnostic
+);
 
 bool
 parse_terminal_handle_latest(StyioContext& context);
@@ -1592,7 +1609,37 @@ parse_ext_elem(StyioContext& context);
 ExtPackAST*
 parse_ext_pack(StyioContext& context);
 
-std::vector<ParamAST*>
+inline std::vector<ParamAST*>
+release_owned_params(std::vector<std::unique_ptr<ParamAST>> params) {
+  std::vector<ParamAST*> released;
+  released.reserve(params.size());
+  for (auto& param : params) {
+    released.push_back(param.release());
+  }
+  return released;
+}
+
+inline std::vector<StyioAST*>
+release_owned_exprs(std::vector<std::unique_ptr<StyioAST>> exprs) {
+  std::vector<StyioAST*> released;
+  released.reserve(exprs.size());
+  for (auto& expr : exprs) {
+    released.push_back(expr.release());
+  }
+  return released;
+}
+
+inline std::vector<HashTagNameAST*>
+release_owned_hash_tags(std::vector<std::unique_ptr<HashTagNameAST>> tags) {
+  std::vector<HashTagNameAST*> released;
+  released.reserve(tags.size());
+  for (auto& tag : tags) {
+    released.push_back(tag.release());
+  }
+  return released;
+}
+
+std::vector<std::unique_ptr<ParamAST>>
 parse_params(StyioContext& context);
 
 std::vector<StyioAST*>
@@ -1655,7 +1702,8 @@ parse_main_block_with_engine_latest(
   StyioContext& context,
   StyioParserEngine engine,
   StyioParserRouteStats* route_stats = nullptr,
-  StyioParseMode mode = StyioParseMode::Strict);
+  StyioParseMode mode = StyioParseMode::Strict
+);
 
 StyioAST*
 parse_expr(StyioContext& context);

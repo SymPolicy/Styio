@@ -4,15 +4,13 @@ on:
   pull_request:
   push:
     branches:
-      - ai-dev
+      - release
       - nightly
       - stable
-      - main
-      - master
-      - agent-dev
 
 jobs:
   styio-ci-gate:
+    name: platform-adaptation / linux-ci-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -34,8 +32,8 @@ jobs:
           fi
 
           case "$TARGET_LANE" in
-            ai-dev|nightly|stable|main)
-              ECOSYSTEM_REF="nightly"
+            release|stable|nightly)
+              ECOSYSTEM_REF="$TARGET_LANE"
               ;;
             *)
               ECOSYSTEM_REF="nightly"
@@ -45,12 +43,12 @@ jobs:
           echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
           echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Check out styio-spio sibling repository
+      - name: Check out styio-pafio sibling repository
         uses: actions/checkout@v5
         with:
-          repository: styio-org/styio-spio
+          repository: styio-org/styio-pafio
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
-          path: styio-spio
+          path: styio-pafio
 
       - name: Check out styio-view sibling repository
         uses: actions/checkout@v5
@@ -119,17 +117,17 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure
 
-      - name: Parser shadow gate (M1 full suite + artifacts)
+      - name: Parser shadow gate (scalar expressions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/milestones/m1 ./build/ci/parser-shadow-artifacts
+          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
 
-      - name: Parser shadow gate (M2 full suite + artifacts)
+      - name: Parser shadow gate (functions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts-m2
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/milestones/m2 ./build/ci/parser-shadow-artifacts-m2
+          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
 
       - name: Upload parser shadow artifacts
         if: failure()
@@ -145,10 +143,85 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L soak_smoke --output-on-failure
 
-      - name: Milestone smoke
+      - name: Language feature smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure
 
       - name: Fuzz smoke
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure
+
+  test-smoke:
+    name: test / smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install smoke dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+
+      - name: Configure smoke build
+        run: >
+          cmake -S . -B build/smoke -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+          -DSTYIO_ENABLE_FUZZ=ON
+
+      - name: Build smoke targets
+        run: cmake --build build/smoke --target styio styio_test styio_fuzz_suite
+
+      - name: Run smoke tests
+        run: |
+          ctest --test-dir build/smoke -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure
+
+  test-golden-standard:
+    name: test / golden-standard
+    needs: [styio-ci-gate, test-smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install golden-standard dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+
+      - name: Configure golden-standard build
+        run: >
+          cmake -S . -B build/golden -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+
+      - name: Build golden-standard targets
+        run: >
+          cmake --build build/golden --target
+          styio styio_test styio_algorithm_equivalence_test
+          styio_resource_topology_test
+
+      - name: Run syntax convergence gate
+        run: python3 scripts/syntax-convergence-gate.py
+
+      - name: Run milestone goldens
+        run: ctest --test-dir build/golden -L milestone --output-on-failure
+
+      - name: Run five-layer and convergence goldens
+        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure
+
+      - name: Run parser shadow convergence gates
+        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure
+
+      - name: Run parser legacy entry audit
+        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure

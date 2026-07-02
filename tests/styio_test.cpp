@@ -1,10 +1,10 @@
 #include <gtest/gtest.h>
 
-#include <cstdlib>
 #include <cctype>
 #include <chrono>
-#include <filesystem>
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -13,8 +13,8 @@
 #include <sys/wait.h>
 #endif
 
-#include "StyioToken/Token.hpp"
 #include "StyioTesting/PipelineCheck.hpp"
+#include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
 
@@ -30,7 +30,8 @@ namespace fs = std::filesystem;
 #define STYIO_NANO_COMPILER_EXE ""
 #endif
 
-namespace {
+namespace
+{
 
 struct CommandResult
 {
@@ -117,7 +118,7 @@ sha256_file_latest(const fs::path& path) {
   return "";
 }
 
-} // namespace
+}  // namespace
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {
   const fs::path case_dir =
@@ -445,10 +446,12 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
-    std::string::npos);
+    std::string::npos
+  );
   EXPECT_NE(
     result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
-    std::string::npos);
+    std::string::npos
+  );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"feature_flags\":{\"single_file_entry\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compile_plan_consumer\":true"), std::string::npos);
@@ -588,7 +591,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-build-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -606,7 +609,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -670,7 +673,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-check-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -688,7 +691,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"check\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -752,7 +755,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-run-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -770,7 +773,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"run\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -840,7 +843,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-test-" + std::to_string(uniq));
   const fs::path source = root / "tests" / "smoke.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -858,7 +861,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"test\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -918,7 +921,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-diag-" + std::to_string(uniq));
   const fs::path source = root / "src" / "missing-main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -930,7 +933,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -990,7 +993,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-intent-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1008,7 +1011,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"ship\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1061,7 +1064,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-build-mode-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1079,7 +1082,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1132,7 +1135,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-cli-conflict-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1150,7 +1153,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1181,7 +1184,8 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
   const CommandResult result =
     run_stdout_command(
       std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" --file \"" + source.string()
-      + "\" 2>&1");
+      + "\" 2>&1"
+    );
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
@@ -1202,7 +1206,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidJsonReportsMachineReadableCliDiagnostic
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-json-" + std::to_string(uniq));
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(build_root));
 
@@ -1236,7 +1240,7 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-generated-by-mismatch-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1286,13 +1290,13 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
     run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("compile-plan generated_by.tool must equal \\\"pafio\\\""), std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
   EXPECT_NE(diagnostics.find("\"code\":\"STYIO_CLI\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("compile-plan generated_by.tool must equal \\\"pafio\\\""), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -1303,7 +1307,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-target-kind-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1321,7 +1325,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1370,7 +1374,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-root-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1388,7 +1392,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"relative-root\",\n"
       << "  \"entry\": {\n"
@@ -1437,7 +1441,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-missing-outputs-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
   ASSERT_TRUE(fs::create_directories(build_root));
@@ -1453,7 +1457,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1493,7 +1497,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-version-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1511,7 +1515,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
     out
       << "{\n"
       << "  \"plan_version\": 9,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1554,7 +1558,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-empty-packages-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1572,7 +1576,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1615,7 +1619,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-error-format-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1633,7 +1637,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1676,7 +1680,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-entry-file-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1694,7 +1698,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1737,7 +1741,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-artifact-dir-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -1754,7 +1758,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1797,7 +1801,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-diag-dir-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -1814,7 +1818,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1937,7 +1941,8 @@ TEST(StyioNano, DisabledFlagsAndBackendsAreRejected) {
   EXPECT_EQ(shadow_disabled.exit_code, 6);
   EXPECT_NE(
     shadow_disabled.stdout_text.find("disabled in this styio-nano profile"),
-    std::string::npos);
+    std::string::npos
+  );
 
   const CommandResult backend_disabled =
     run_stdout_command(std::string("\"") + runner + "\" --dict-impl=linear --file \"" + input.string() + "\" 2>&1");
@@ -2071,7 +2076,8 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
       fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml",
       package_root / "styio-nano.profile.toml",
       fs::copy_options::overwrite_existing,
-      ec);
+      ec
+    );
     ASSERT_FALSE(ec) << ec.message();
   }
   {
@@ -2178,7 +2184,8 @@ TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall)
       fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml",
       package_dir / "styio-nano.profile.toml",
       fs::copy_options::overwrite_existing,
-      ec);
+      ec
+    );
     ASSERT_FALSE(ec) << ec.message();
   }
   {
@@ -2252,9 +2259,9 @@ TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall)
   fs::remove_all(root);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1Sample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2275,9 +2282,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1Sample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1TypedBindSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsTypedBindSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t07_typed_bind.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t07_typed_bind.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2298,9 +2305,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1TypedBindSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1CompoundAssignSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsCompoundAssignSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t14_compound.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t14_compound.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2321,9 +2328,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM1CompoundAssignSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM2SimpleFuncSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnFunctionsSimpleFuncSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m2" / "t01_simple_func.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "functions" / "t01_simple_func.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2344,9 +2351,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM2SimpleFuncSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM3MatchExprSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnControlFlowMatchExprSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m3" / "t02_match_expr.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "control_flow" / "t02_match_expr.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2367,9 +2374,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM3MatchExprSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM4WaveMergeSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnWaveDispatchMergeSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m4" / "t01_wave_merge.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "wave_dispatch" / "t01_wave_merge.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2390,9 +2397,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM4WaveMergeSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM4WaveDispatchSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnWaveDispatchSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m4" / "t03_wave_dispatch.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "wave_dispatch" / "t03_wave_dispatch.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2413,9 +2420,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM4WaveDispatchSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5WriteFileSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesWriteFileSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t02_write_file.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "file_resources" / "t02_write_file.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2436,9 +2443,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5WriteFileSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5RedirectSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesRedirectSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t07_redirect.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "file_resources" / "t07_redirect.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2459,9 +2466,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5RedirectSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5ReadFileSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesReadFileSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t01_read_file.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "file_resources" / "t01_read_file.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2482,9 +2489,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5ReadFileSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5AutoDetectSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesAutoDetectSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t05_auto_detect.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "file_resources" / "t05_auto_detect.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2505,9 +2512,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5AutoDetectSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5PipeFuncSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesPipeFuncSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t08_pipe_func.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "file_resources" / "t08_pipe_func.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2528,9 +2535,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM5PipeFuncSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM9StdoutBoolSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStdioOutputBoolSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m9" / "t04_stdout_bool.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stdio_output" / "t04_stdout_bool.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2552,9 +2559,33 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM9StdoutBoolSample) {
   EXPECT_EQ(newer.stdout_text, std::string("true\nfalse\n"));
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7InstantPullSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStdioOutputFmtStringSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t04_instant_pull.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stdio_output" / "t06_stdout_fmtstr.styio";
+  ASSERT_TRUE(fs::exists(input));
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd_legacy =
+    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+  const std::string cmd_new =
+    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+
+  const CommandResult legacy = run_stdout_command(cmd_legacy);
+  const CommandResult newer = run_stdout_command(cmd_new);
+  ASSERT_EQ(legacy.exit_code, 0);
+  ASSERT_EQ(newer.exit_code, 0);
+  EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
+  EXPECT_EQ(newer.stdout_text, std::string("x=10\n"));
+}
+
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingInstantPullSample) {
+  const fs::path input =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t04_instant_pull.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2575,9 +2606,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7InstantPullSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7SnapshotSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingSnapshotSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t03_snapshot.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t03_snapshot.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2598,9 +2629,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7SnapshotSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipCollectionsSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipCollectionsSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t01_zip_collections.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t01_zip_collections.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2621,9 +2652,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipCollectionsSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipUnequalSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipUnequalSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t02_zip_unequal.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t02_zip_unequal.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2644,9 +2675,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipUnequalSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipFilesSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipFilesSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t05_zip_files.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t05_zip_files.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2667,9 +2698,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ZipFilesSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ArbitrageSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingArbitrageSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t08_arbitrage.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t08_arbitrage.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2690,9 +2721,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7ArbitrageSample) {
   EXPECT_EQ(newer.stdout_text, legacy.stdout_text);
 }
 
-TEST(StyioParserEngine, LegacyAndNightlyMatchOnM7FullPipelineSample) {
+TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingFullPipelineSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t10_full_pipeline.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t10_full_pipeline.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -2963,13 +2994,12 @@ TEST(StyioParserEngine, EmptyMatchCasesAreRejectedWithParseError) {
 TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
-  const fs::path input = fs::temp_directory_path() / ("styio-match-pointer-scrutinee-"
-                                                      + std::to_string(uniq) + ".styio");
+  const fs::path input = fs::temp_directory_path() / ("styio-match-pointer-scrutinee-" + std::to_string(uniq) + ".styio");
 
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file(\"tests/m5/data/input.txt\")\n";
+    out << "f <- @file(\"tests/features/file_resources/data/input.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  line ?={\n";
     out << "    1 => >_(1)\n";
@@ -3006,7 +3036,7 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
 
 TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3026,7 +3056,7 @@ TEST(StyioParserEngine, DefaultEngineIsNightlyInShadowArtifact) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const fs::path artifact_dir =
@@ -3069,7 +3099,7 @@ TEST(StyioParserEngine, DefaultEngineIsNightlyInShadowArtifact) {
 
 TEST(StyioParserEngine, DeprecatedNewAliasMatchesNightlySample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3090,9 +3120,9 @@ TEST(StyioParserEngine, DeprecatedNewAliasMatchesNightlySample) {
   EXPECT_EQ(alias.stdout_text, nightly.stdout_text);
 }
 
-TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
+TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsTypedBindSample) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t07_typed_bind.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t07_typed_bind.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3114,7 +3144,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1TypedBindSample) {
   EXPECT_EQ(new_shadow.exit_code, 0);
 }
 
-TEST(StyioParserEngine, ShadowCompareAcceptsM1CoreSuite) {
+TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsCoreSuite) {
   const std::vector<std::string> files = {
     "t01_int_arith.styio",
     "t06_binding.styio",
@@ -3130,7 +3160,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1CoreSuite) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   for (const auto& name : files) {
-    const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / name;
+    const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / name;
     ASSERT_TRUE(fs::exists(input)) << input.string();
 
     const std::string cmd_legacy_shadow =
@@ -3147,12 +3177,13 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1CoreSuite) {
   }
 }
 
-TEST(StyioParserEngine, ShadowCompareAcceptsM1FullSuite) {
-  const fs::path m1_dir = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1";
-  ASSERT_TRUE(fs::exists(m1_dir));
+TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsFullSuite) {
+  const fs::path scalar_expressions_dir =
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions";
+  ASSERT_TRUE(fs::exists(scalar_expressions_dir));
 
   std::vector<fs::path> inputs;
-  for (const auto& entry : fs::directory_iterator(m1_dir)) {
+  for (const auto& entry : fs::directory_iterator(scalar_expressions_dir)) {
     if (!entry.is_regular_file()) {
       continue;
     }
@@ -3187,7 +3218,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM1FullSuite) {
   }
 }
 
-TEST(StyioParserEngine, ShadowCompareAcceptsM2CoreSuite) {
+TEST(StyioParserEngine, ShadowCompareAcceptsFunctionsCoreSuite) {
   const std::vector<std::string> files = {
     "t01_simple_func.styio",
     "t02_typed_return.styio",
@@ -3202,7 +3233,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM2CoreSuite) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   for (const auto& name : files) {
-    const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m2" / name;
+    const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "functions" / name;
     ASSERT_TRUE(fs::exists(input)) << input.string();
 
     const std::string cmd_legacy_shadow =
@@ -3219,12 +3250,12 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM2CoreSuite) {
   }
 }
 
-TEST(StyioParserEngine, ShadowCompareAcceptsM2FullSuite) {
-  const fs::path m2_dir = fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m2";
-  ASSERT_TRUE(fs::exists(m2_dir));
+TEST(StyioParserEngine, ShadowCompareAcceptsFunctionsFullSuite) {
+  const fs::path functions_dir = fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "functions";
+  ASSERT_TRUE(fs::exists(functions_dir));
 
   std::vector<fs::path> inputs;
-  for (const auto& entry : fs::directory_iterator(m2_dir)) {
+  for (const auto& entry : fs::directory_iterator(functions_dir)) {
     if (!entry.is_regular_file()) {
       continue;
     }
@@ -3261,7 +3292,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsM2FullSuite) {
 
 TEST(StyioParserEngine, ShadowCompareWritesArtifactRecordWhenDirConfigured) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3409,9 +3440,9 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   fs::remove_all(artifact_dir);
 }
 
-TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForRedirectMilestone) {
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForRedirectFeature) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m5" / "t07_redirect.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "file_resources" / "t07_redirect.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const auto now = std::chrono::system_clock::now().time_since_epoch();
@@ -3465,7 +3496,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "f <- @file(\"tests/m5/data/hello.txt\")\n";
+    out << "f <- @file(\"tests/features/file_resources/data/hello.txt\")\n";
     out << "f >> #(line) => {\n";
     out << "  >_(line)\n";
     out << "}\n";
@@ -3516,7 +3547,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "ref_val = (<< @file(\"tests/m7/data/ref.txt\"))\n";
+    out << "ref_val = (<< @file(\"tests/features/stream_processing/data/ref.txt\"))\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3726,7 +3757,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@file(\"tests/m7/data/input.txt\") >> #(x) => {\n";
+    out << "@file(\"tests/features/stream_processing/data/input.txt\") >> #(x) => {\n";
     out << "  >_(x)\n";
     out << "}\n";
   }
@@ -3765,9 +3796,9 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   fs::remove_all(artifact_dir);
 }
 
-TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForArbitrageMilestone) {
+TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForArbitrageFeature) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m7" / "t08_arbitrage.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "stream_processing" / "t08_arbitrage.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const auto now = std::chrono::system_clock::now().time_since_epoch();
@@ -3812,7 +3843,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForArbitrageMilesto
 
 TEST(StyioParserEngine, ShadowArtifactDirRequiresShadowCompareFlag) {
   const fs::path input =
-    fs::path(STYIO_SOURCE_DIR) / "tests" / "milestones" / "m1" / "t01_int_arith.styio";
+    fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / "t01_int_arith.styio";
   ASSERT_TRUE(fs::exists(input));
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3833,7 +3864,8 @@ TEST(StyioParserEngine, ShadowArtifactDirRequiresShadowCompareFlag) {
   EXPECT_EQ(result.exit_code, 6);
   EXPECT_NE(
     result.stdout_text.find("--parser-shadow-artifact-dir requires --parser-shadow-compare"),
-    std::string::npos);
+    std::string::npos
+  );
 
   fs::remove_all(artifact_dir);
 }
@@ -4075,6 +4107,41 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   fs::remove(input);
 }
 
+TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingFailsClosed) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input =
+    fs::temp_directory_path() / ("styio-iterseq-hashtag-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "[1, 2] >> #price\n";
+    out << ">_(99)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" --error-format=jsonl --file \""
+    + input.string() + "\" 2>&1";
+
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 4);
+  EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("iterator sequence hash-tag routing is not implemented"),
+    std::string::npos
+  );
+
+  fs::remove(input);
+}
+
 TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
@@ -4102,7 +4169,7 @@ TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3);
   EXPECT_NE(result.stdout_text.find("\"category\":\"ParseError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("legacy M6 @[...] syntax is retired"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("legacy state-resource @[...] syntax is retired"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("Styio.NotImplemented"), std::string::npos);
 
   fs::remove(input);
@@ -4517,7 +4584,8 @@ TEST(StyioSamples, DictTypeScalarFamilies) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(
     result.stdout_text,
-    "true\n[true,false]\nLovelace\n[\"Ada\",\"Lovelace\"]\n3.500000\n[3.500000,2.000000]\n");
+    "true\n[true,false]\nLovelace\n[\"Ada\",\"Lovelace\"]\n3.500000\n[3.500000,2.000000]\n"
+  );
 
   fs::remove(input);
 }
@@ -4556,7 +4624,8 @@ TEST(StyioSamples, DictTypeHandleFamilies) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(
     result.stdout_text,
-    "[1,2,3]\n[[1,2,3],[4,5]]\n{\"x\":1}\n[{\"x\":1},{\"y\":2}]\n[1,2,3]\n[4,5]\n");
+    "[1,2,3]\n[[1,2,3],[4,5]]\n{\"x\":1}\n[{\"x\":1},{\"y\":2}]\n[1,2,3]\n[4,5]\n"
+  );
 
   fs::remove(input);
 }
@@ -4643,7 +4712,8 @@ TEST(StyioSamples, MatrixOperationsAndIntrinsics) {
     "5.477226\n"
     "[2,2]\n"
     "2\n"
-    "2\n");
+    "2\n"
+  );
 
   fs::remove(input);
 }
@@ -4693,7 +4763,8 @@ TEST(StyioSamples, ListPredefinedOperations) {
   EXPECT_EQ(result.exit_code, 0);
   EXPECT_EQ(
     result.stdout_text,
-    "[4,1,2]\n[true,true]\n[\"Ada\",\"Byron\"]\n[[9],[3]]\n[{\"c\":3},{\"b\":2}]\n");
+    "[4,1,2]\n[true,true]\n[\"Ada\",\"Byron\"]\n[[9],[3]]\n[{\"c\":3},{\"b\":2}]\n"
+  );
 
   fs::remove(input);
 }

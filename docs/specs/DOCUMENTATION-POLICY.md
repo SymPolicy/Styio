@@ -2,16 +2,16 @@
 
 **Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-10
 
-**Automation (verify doc links + test registration):** 从仓库根目录配置并运行里程碑测试：
+**Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
 
 ```bash
 cmake -S . -B build/default && cmake --build build/default
-ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L language_feature
 ```
 
-（GoogleTest 目标 `styio_test` 需单独构建；若本机 LLVM 与 libstdc++ 头文件冲突导致 gtest 编译失败，仍以 `styio` 可执行文件与 `ctest -L milestone` 为准。）
+（GoogleTest 目标 `styio_test` 需单独构建；若本机 LLVM 与 libstdc++ 头文件冲突导致 gtest 编译失败，仍以 `styio` 可执行文件与 `ctest -L language_feature` 为准。）
 
 ---
 
@@ -55,7 +55,6 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | 符号 ↔ lexer token 名 | `../design/Styio-Symbol-Reference.md` | 链接 |
 | `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `../design/Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
 | 当前实现缺口与跨团队排期 | `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 链接，不另建平行 backlog |
-| 当前冻结里程碑批次 | `docs/milestones/<日期>/00-Milestone-Index.md`（仅在当前树存在时） | **勿**在 history 等处平行维护同一张总表 |
 | 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **官方仓库生态、角色边界与文档归属** | [`REPOSITORY-MAP.md`](./REPOSITORY-MAP.md) | 其它文档只链接，不重复维护仓库总表 |
@@ -67,7 +66,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
 | Topology v2 **设计、实现状态与迁移入口** | `../design/Styio-Resource-Topology.md` + `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 不保留平行长计划 |
-| **Checkpoint 微里程碑执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| **Checkpoint 执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
 | **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
 | **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
 | **语法契约纠正工作流**（用户质疑 / parser-Sema-EBNF 不一致） | `../assets/workflow/CORRECT-SYNTAX-CONTRACT.md` | 智能体先读 workflow，再改 parser、Sema、lowering、测试或语法文档 |
@@ -80,16 +79,17 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 
 ### 0.5 文档状态与 superseded 规则
 
-1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划或当前里程碑批次。
+1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划。
 2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
-3. `docs/milestones/<YYYY-MM-DD>/` 下的文档是当前仍在推进或仍需直接对照的**冻结规格批次**；被吸收的历史批次应从当前树删除，确需追溯时使用 Git 历史。若后续实现保留兼容层，文档必须明确区分：
+3. 语言验收不再使用冻结批次目录；当前树不得保留 `docs/plans/`。验收规则必须提升到语言设计、feature test catalog、team runbook 或 active rollup。
+4. 若后续实现保留兼容层，文档必须明确区分：
    - **canonical**：冻结示例与推荐写法；
    - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
-4. 同一功能若存在较早草案和较晚冻结批次，较早文档必须在文首显式写：
+5. 同一功能若存在较早草案和较晚活跃 SSOT，较早文档必须在文首显式写：
    - `Status: Superseded draft`
-   - 指向新的冻结文档路径。
-5. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
-6. 当实现接受的兼容语法多于冻结示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
+   - 指向新的活跃文档路径。
+6. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
+7. 当实现接受的兼容语法多于 canonical 示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
 
 ### 0.6 文档目录职责
 
@@ -104,9 +104,8 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
 | `docs/assets/templates/` | 可复用模板 |
 | `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
-| `docs/archive/` | 最小 lifecycle metadata 壳；不保留旧语法目录、旧示例、旧 source、历史 milestone/plan/rollup 快照 |
+| `docs/archive/` | 最小 lifecycle metadata 壳；不保留旧语法目录、旧示例、旧 source、历史 plan/rollup 快照 |
 | `docs/history/` | 恢复入口；默认不保留 raw dated checkpoint，精确历史文本使用 Git history |
-| `docs/milestones/` | 当前仍活跃的按日期冻结里程碑规格批次 |
 | `docs/adr/` | 尚未吸收到主文档或仍需单独审计追溯的决策记录；吸收后的旧文本依赖 Git history 追溯 |
 
 ### 0.7 文件命名约定
@@ -119,7 +118,6 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 5. `docs/assets/workflow/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
 6. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
 7. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。
-8. `docs/milestones/`：目录使用 `YYYY-MM-DD/`，文件使用 `00-Milestone-Index.md` 与 `M<id>-<Topic>.md`。
 
 ### 0.8 Directory Entry Rules
 
@@ -127,8 +125,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 2. `README.md` owns **scope, naming, and maintenance rules** only.
 3. `INDEX.md` owns the **generated inventory** for that directory.
 4. `README.md` must point readers to `INDEX.md`; it should not duplicate a full file inventory.
-5. Leaf bundles such as dated milestone batches may keep their existing entry file (for example `00-Milestone-Index.md`) and do not need an extra nested `INDEX.md`.
-6. Adding a new top-level collection directory requires updating `docs/README.md`, this policy, and the docs-index generator configuration.
+5. Adding a new top-level collection directory requires updating `docs/README.md`, this policy, and the docs-index generator configuration.
 
 ### 0.9 Generated Index Rules
 
@@ -175,7 +172,7 @@ Manifest exports also include text-volume statistics for the selected document s
    - `docs/history/*.md`
    - dated review bundles under `docs/review/<YYYY-MM-DD>/`
 2. `docs/rollups/` is the active compression layer. It keeps concise current summaries and should be read before Git history or archive lifecycle metadata.
-3. `docs/archive/` is a minimal lifecycle metadata shell, not a retention area for old syntax catalogs, archived examples, old source snapshots, old plans, old rollups, or absorbed milestone batches.
+3. `docs/archive/` is a minimal lifecycle metadata shell, not a retention area for old syntax catalogs, archived examples, old source snapshots, old plans, or old rollups.
 4. The JSON source of truth is `docs/archive/ARCHIVE-MANIFEST.json`; the human-facing generated view is `docs/archive/ARCHIVE-LEDGER.md`.
 5. `python3 scripts/docs-lifecycle.py mark ...` records that a raw doc has been summarized into active docs. With the default zero keep window, its status becomes `pending_archive`.
 6. `python3 scripts/docs-lifecycle.py cleanup ...` removes pending raw docs from active history/review locations after their durable value has been promoted.
@@ -196,8 +193,7 @@ Manifest exports also include text-volume statistics for the selected document s
 ## 1. 目标
 
 - **历史（history）**：所有开发经验、排错记录、进展摘要按 **自然日** 写入 `docs/history/`，一天一篇或同日增量追加，禁止只写在聊天或未入库笔记里。
-- **里程碑（milestones）**：里程碑规格、验收说明按 **日期目录** 归档在 `docs/milestones/<YYYY-MM-DD>/`（例如 `docs/milestones/2026-03-29/`）。索引文件为该目录下的 `00-Milestone-Index.md`。
-- **测试说明（workflow assets）**：面向读者的测试说明按 **功能域** 维护在 `docs/assets/workflow/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
+- **测试说明（workflow assets）**：面向读者的测试说明按 **语言特性域** 维护在 `docs/assets/workflow/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
 - **可机读元数据**：凡描述「某测试在测什么」的文档，须在文首或表格中写明 **Last updated**、**输入**、**期望输出/比对物**（golden 路径或约定临时文件），以便脚本与人工对照。
 
 ---
@@ -207,7 +203,7 @@ Manifest exports also include text-volume statistics for the selected document s
 | 规则 | 说明 |
 |------|------|
 | 命名 | `YYYY-MM-DD.md`，与日历日一致。 |
-| 内容 | 当日实现决策、踩坑、与里程碑/PR 的对应关系；可链接到具体提交或文件路径。 |
+| 内容 | 当日实现决策、踩坑、与 checkpoint / PR 的对应关系；可链接到具体提交或文件路径。 |
 | 索引 | `docs/history/README.md` 列出文件与一句话摘要（可手改或由 CI 校验存在性）。 |
 
 文首建议模板：
@@ -223,15 +219,13 @@ Manifest exports also include text-volume statistics for the selected document s
 
 ---
 
-## 3. 里程碑文档 `docs/milestones/<YYYY-MM-DD>/`
+## 3. 语言特性测试文档
 
 | 规则 | 说明 |
 |------|------|
-| 目录 | 一次「里程碑冻结」或重大规划使用一个日期文件夹；其下 `M1-*.md` … `M7-*.md` 与 `00-Milestone-Index.md`。 |
-| 文首 | 写明 **Date** / **Last updated**（与目录日期可不同，但需真实）。 |
-| 与测试关系 | 验收用例名称应与 `tests/milestones/m*/t*.styio` 及 `docs/assets/workflow/TEST-CATALOG.md` 对齐；若规格中有而仓库尚无 `.styio`，须在规格与目录中标注 **gap**。 |
-
-索引：`docs/milestones/README.md` 指向各日期子目录。
+| 目录 | 所有语言验收用例按语言特性放在 `tests/features/<feature>/`。 |
+| 文档入口 | `docs/assets/workflow/TEST-CATALOG.md` 是测试目录、CTest label、特殊 gate 的唯一活跃索引。 |
+| 与实现关系 | 新增或移动 `.styio` fixture 时，必须同步更新 `tests/CMakeLists.txt`、feature catalog、受影响 team runbook。 |
 
 ---
 
@@ -239,7 +233,7 @@ Manifest exports also include text-volume statistics for the selected document s
 
 | 规则 | 说明 |
 |------|------|
-| 划分维度 | **按语言功能域**（与 M1–M7 主题对齐），而非仅按内部文件名。 |
+| 划分维度 | **按语言功能域**，而非按历史编号或内部文件名。 |
 | 每条目 | 至少包含：**CTest 名**、**输入**（`.styio` 路径）、**输出/Oracle**（`expected/*.out` 或文档约定的临时文件路径）、**自动化**（`ctest -R '…'` 或 `ctest -L …`）。 |
 | 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `../assets/workflow/TEST-CATALOG.md`。 |
 
@@ -247,13 +241,13 @@ Manifest exports also include text-volume statistics for the selected document s
 
 | CTest | Input | Oracle | Automation |
 |-------|-------|--------|------------|
-| `m1_t01_int_arith` | `tests/milestones/m1/t01_int_arith.styio` | `tests/milestones/m1/expected/t01_int_arith.out` | `ctest --test-dir build/default -R '^m1_t01_int_arith$'` |
+| `scalar_expressions_t01_int_arith` | `tests/features/scalar_expressions/t01_int_arith.styio` | `tests/features/scalar_expressions/expected/t01_int_arith.out` | `ctest --test-dir build/default -R '^scalar_expressions_t01_int_arith$'` |
 
 ---
 
 ## 5. 与 `AGENT-SPEC.md` 的关系
 
-语言与编译器实现规范仍以 [`AGENT-SPEC.md`](./AGENT-SPEC.md) 为准；**文档存放位置、历史/里程碑/测试目录约定及 §0 维护准则** 以本文件为准。二者冲突时，先更新本策略与索引，再改 `AGENT-SPEC` 中的引用。
+语言与编译器实现规范仍以 [`AGENT-SPEC.md`](./AGENT-SPEC.md) 为准；**文档存放位置、history/checkpoint/feature-test 目录约定及 §0 维护准则** 以本文件为准。二者冲突时，先更新本策略与索引，再改 `AGENT-SPEC` 中的引用。
 
 ---
 
@@ -261,11 +255,11 @@ Manifest exports also include text-volume statistics for the selected document s
 
 CI 或本地可逐步引入：
 
-1. `ctest -L milestone` 全绿（或允许已知失败列表，但须在 `TEST-CATALOG` 标注）。
+1. `ctest -L language_feature` 全绿（或允许已知失败列表，但须在 `TEST-CATALOG` 标注）。
 2. `python3 scripts/docs-index.py --check` 必须通过，确保 collection-directory `INDEX.md` 未过期。
 3. `python3 scripts/docs-lifecycle.py validate` 必须通过，确保 rollup/archive manifest、ledger、keep-window 与路径映射一致。
 4. `python3 scripts/docs-audit.py` 必须通过，确保 `Purpose` / `Last updated` / 命名 / 链接 / 目录入口都符合规则，并串联 lifecycle gate。
 5. `python3 scripts/docs-audit.py --manifest invalid --format list` 是仓库级 Markdown 清理清单；需要排查本地生成物时改用 `--source filesystem`。
-6. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/milestones/...` 路径在仓库中存在。
+6. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/features/...` 路径在仓库中存在。
 
 当前仓库的 **权威自动化入口** 为：**CMake 注册的 CTest + `styio --file`**（见 `tests/CMakeLists.txt`）。

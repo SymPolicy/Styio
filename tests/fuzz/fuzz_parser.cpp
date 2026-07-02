@@ -8,6 +8,7 @@
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioSession/CompilationSession.hpp"
 
 namespace {
 
@@ -33,38 +34,21 @@ build_line_seps(const std::string& src) {
 }
 
 void
-free_tokens(std::vector<StyioToken*>& tokens) {
-  for (auto* t : tokens) {
-    delete t;
-  }
-  tokens.clear();
-}
-
-void
 fuzz_parse_with_engine_latest(
   const std::string& src,
   const std::vector<std::pair<size_t, size_t>>& line_seps,
   StyioParserEngine engine) {
-  std::vector<StyioToken*> tokens;
-  StyioContext* ctx = nullptr;
-  MainBlockAST* ast = nullptr;
+  CompilationSession session;
 
   try {
-    tokens = StyioTokenizer::tokenize(src);
-    ctx = StyioContext::Create("<fuzz>", src, line_seps, tokens, false);
-    ast = parse_main_block_with_engine_latest(*ctx, engine, nullptr);
+    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    session.attach_context(StyioContext::Create("<fuzz>", src, line_seps, session.tokens(), false));
+    session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
   } catch (const StyioBaseException&) {
     // expected on malformed inputs
   } catch (...) {
     // keep fuzzing on soft failures; sanitizer handles memory safety issues
   }
-
-  (void)ast;
-  StyioAST::destroy_all_tracked_nodes();
-  if (ctx != nullptr) {
-    delete ctx;
-  }
-  free_tokens(tokens);
 }
 
 } // namespace

@@ -28,7 +28,7 @@ Bootstrap scope:
 
 ## Standardized Baseline
 
-`styio-nightly` and `styio-spio` share the same standardized native baseline:
+`styio-nightly` and `styio-pafio` share the same standardized native baseline:
 
 1. Development host standard: Debian `13` (`trixie`).
 2. Compiler toolchain standard: LLVM / Clang / LLD `18.1.x` via the `clang-18` package line.
@@ -68,10 +68,10 @@ Stable full-compiler source-build helper:
 ./scripts/source-build-minimal.sh
 ```
 
-Run milestone and pipeline tests:
+Run language feature and pipeline tests:
 
 ```bash
-ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ```
