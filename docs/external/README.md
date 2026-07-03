@@ -7,7 +7,7 @@
 ## Scope
 
 1. Keep sibling-repository handoff material under `for-*` subdirectories.
-2. Keep repository-local semantics in the owning `docs/design/`, `docs/specs/`, or `docs/plans/` SSOT.
+2. Keep repository-local semantics in the owning `docs/design/`, `docs/specs/`, or `docs/plan/` SSOT.
 
 ## Naming Rules
 
