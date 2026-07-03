@@ -43,19 +43,19 @@ jobs:
           echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
           echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Check out styio-pafio sibling repository
+      - name: Check out pafio-nightly sibling repository
         uses: actions/checkout@v5
         with:
           repository: Unka-Malloc/pafio-nightly
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
-          path: styio-pafio
+          path: pafio-nightly
 
-      - name: Check out styio-view sibling repository
+      - name: Check out Vityo sibling repository
         uses: actions/checkout@v5
         with:
           repository: Unka-Malloc/vityo-nightly
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
-          path: styio-view
+          path: vityo-nightly
 
       - name: Set up Python
         uses: actions/setup-python@v6

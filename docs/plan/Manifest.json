@@ -37,7 +37,7 @@
       "docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md",
       "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
     ],
-    "goal": "Coordinate styio-nightly, styio-spio, and styio-view toward one finished language product.",
+    "goal": "Coordinate styio-nightly, pafio-nightly, and vityo-nightly toward one finished language product.",
     "description": "Tracks ecosystem phases, cross-repository ownership, shared contract surfaces, and release closure gates.",
     "checkpoints": "styio-ecosystem-delivery-master/Checkpoints.json"
   },
@@ -50,7 +50,7 @@
       "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
       "scripts/ecosystem-cli-doc-gate.py"
     ],
-    "goal": "Keep the active internal CLI contract mirror aligned across styio-nightly, styio-spio, and styio-view.",
+    "goal": "Keep the active internal CLI contract mirror aligned across styio-nightly, pafio-nightly, and vityo-nightly.",
     "description": "Freezes canonical command forms and owner/consumer documentation obligations for machine-readable CLI contracts.",
     "checkpoints": "styio-ecosystem-cli-contract-matrix/Checkpoints.json"
   },
