@@ -15,7 +15,7 @@ Authoritative references:
 3. Repository boundaries: [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md)
 4. Test catalog: [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
 5. Checkpoint workflow: [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md)
-6. Cross-repo program plan: [../plans/Styio-Ecosystem-Delivery-Master-Plan.md](../plans/Styio-Ecosystem-Delivery-Master-Plan.md)
+6. Cross-repo program plan: [../plan/repository-delivery-convergence/Evidence.md](../plan/repository-delivery-convergence/Evidence.md)
 
 ## Module Map
 
