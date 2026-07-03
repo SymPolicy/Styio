@@ -33,7 +33,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="styio machine-info handshake fields and compile-plan advertisement stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.1 `styio --machine-info=json`",
                     "`active_integration_phase`",
@@ -70,7 +70,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="styio compile-plan consumer behavior stays aligned for pafio and view",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.2 `styio --compile-plan <path>`",
                     "`build/check/run/test` 都走 compile-plan v1",
@@ -103,7 +103,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="styio source-build metadata stays aligned for pafio build",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.3 `styio --source-build-info=json`",
                     "`https://github.com/SymPolicy/Styio.git`",
@@ -130,7 +130,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="pafio machine-info advertised contract lines stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.1 `pafio machine-info --json`",
                     "`supported_contracts.project_graph:[1]`",
@@ -162,7 +162,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="pafio project graph payload keys stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.2 `pafio project-graph --manifest-path <path> --json`",
                     "`project_graph v1`",
@@ -195,7 +195,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="pafio toolchain state payload stays aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.3 `pafio tool status --manifest-path <path> --json`",
                     "`toolchain_state v1`",
@@ -230,7 +230,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="pafio build/run/test success payloads stay aligned",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.4 `pafio --json build/run/test`",
                     "`workflow_success_payloads v1`",
@@ -266,7 +266,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
         summary="supporting pafio JSON success commands stay aligned for source/deploy/toolchain flows",
         docs=(
             DocRule(
-                "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+                "styio-nightly/docs/plan/repository-delivery-convergence/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 3.5 `pafio --json fetch/vendor/pack/publish`",
                     "### 3.6 `pafio --json tool install/use/pin`",

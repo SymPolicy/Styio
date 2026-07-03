@@ -10,7 +10,7 @@
 2. Contributor, agent, repository-boundary, dependency, and documentation rules live in `docs/specs/`.
 3. Team daily-work runbooks live in `docs/teams/`.
 4. Still-active review findings live in `docs/review/`; absorbed findings use Git history.
-5. Current plans and cross-repo contracts live in `docs/plans/`.
+5. Current plans and cross-repo contracts live in `docs/plan/`.
 6. Cross-repository handoff notes intended for `styio-pafio` live in `docs/external/for-pafio/`.
 7. IDE integration, embedding, and LSP usage material lives in `docs/external/for-ide/`.
 8. Reusable workflows and templates live in `docs/assets/`.
@@ -32,7 +32,7 @@
 10. Design SSOT: [design/INDEX.md](./design/INDEX.md)
 11. IDE integration docs: [external/for-ide/INDEX.md](./external/for-ide/INDEX.md)
 12. Archive lifecycle metadata: [archive/INDEX.md](./archive/INDEX.md)
-13. Plans scope and status rules: [plans/README.md](./plans/README.md)
+13. Plans scope and status rules: [plan/repository-delivery-convergence/Evidence.md](./plan/repository-delivery-convergence/Evidence.md)
 14. Implemented decision summary: [adr/IMPLEMENTED-DECISIONS.md](./adr/IMPLEMENTED-DECISIONS.md)
 
 ## Default Read Order
