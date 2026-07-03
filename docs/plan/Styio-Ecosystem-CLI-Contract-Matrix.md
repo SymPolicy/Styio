@@ -1,6 +1,6 @@
 # Styio Ecosystem CLI Contract Matrix
 
-**Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`styio-spio`、`styio-view` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
+**Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`pafio-nightly`、`vityo-nightly` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
 
 **Last updated:** 2026-06-28
 
@@ -15,7 +15,7 @@
 
 | Lane | Parallel work allowed | Serial merge gate |
 |------|-----------------------|-------------------|
-| Owner-command rows | Audit each `styio`, `spio`, or `view` command family against its owner SSOT. | Canonical command spelling or payload vocabulary changes. |
+| Owner-command rows | Audit each `styio`, `spio`, or Vityo command family against its owner SSOT. | Canonical command spelling or payload vocabulary changes. |
 | Consumer handoff rows | Check one consumer repo's docs against the matrix and record drift. | Matrix row changes that alter cross-repo expectations. |
 | Payload fields | Verify diagnostics, receipts, runtime events, project graph, toolchain state, registry, and deploy payload fields independently. | Shared envelope/schema changes or compatibility promises. |
 | Negative-path evidence | Discover missing malformed-input, dependency, publish, deploy, or execution failure tests independently. | New required gate policy or release-blocking matrix changes. |
@@ -40,7 +40,7 @@
    - `styio --source-build-info=json`
 4. 任何 active internal CLI contract 变更，必须在同一 checkpoint 内同步更新三仓文档与 gate manifest。
 
-## 2. `styio` -> `spio` / `view`
+## 2. `styio` -> `spio` / Vityo
 
 ### 2.1 `styio --machine-info=json`
 
@@ -64,8 +64,8 @@ styio --machine-info=json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
-2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
+1. `pafio-nightly/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
+2. `vityo-nightly/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
 ### 2.2 `styio check --syntax --json --file <path>`
 
@@ -87,7 +87,7 @@ styio check --syntax --json --file <path>
 Owner / consumer docs:
 
 1. [../external/SERVICES.md](../external/SERVICES.md)
-2. `styio-view` / Vityo / third-party editor integrations can consume this before adopting full LSP.
+2. `vityo-nightly` / Vityo / third-party editor integrations can consume this before adopting full LSP.
 
 ### 2.3 `styio --compile-plan <path>`
 
@@ -108,8 +108,8 @@ styio --compile-plan <path>
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
-2. `styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md`
+1. `pafio-nightly/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
+2. `vityo-nightly/docs/external/for-styio/Styio-Compile-Run-Contract.md`
 
 ### 2.4 `styio --source-build-info=json`
 
@@ -121,7 +121,7 @@ styio --source-build-info=json
 
 当前跨仓必须保持一致的要点：
 
-1. official source origin 固定为 `https://github.com/eBioRing/Styio.git`
+1. official source origin 固定为 `https://github.com/SymPolicy/Styio.git`
 2. `stable` 和 `nightly` 通道映射到同名源码分支
 3. official controlled source graph 当前冻结为 `compiler_core / std_symbols / runtime / services / macro_prelude`
 4. 当前唯一官方 build mode 是 `minimal`
@@ -133,7 +133,7 @@ styio --source-build-info=json
 Owner / consumer docs:
 
 1. `styio-nightly/docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md`
-2. `styio-spio/docs/governance/Spio-CLI-Contract.md`
+2. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
 
 ### 2.5 `styio build <file_path> -o <artifact_name>`
 
@@ -156,7 +156,7 @@ Owner / consumer docs:
 1. `styio-benchmark/warm-process` 和 `styio-benchmark/polyglot` route 文档
 2. `styio-nightly/tests/CMakeLists.txt` 的 `styio_build_native_executable_stdin_echo`
 
-## 3. `spio` -> `view`
+## 3. `spio` -> Vityo
 
 ### 3.1 `spio machine-info --json`
 
@@ -177,8 +177,8 @@ spio machine-info --json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
+1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
+2. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
 ### 3.2 `spio project-graph --manifest-path <path> --json`
 
@@ -199,8 +199,8 @@ spio project-graph --manifest-path <path> --json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-pafio/Spio-Project-Graph-Contract.md`
+1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
+2. `vityo-nightly/docs/external/for-pafio/Pafio-Project-Graph-Contract.md`
 
 ### 3.3 `spio tool status --manifest-path <path> --json`
 
@@ -222,8 +222,8 @@ spio tool status --manifest-path <path> --json
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
+1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
+2. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
 ### 3.4 `spio --json build/run/test`
 
@@ -249,8 +249,8 @@ spio --json test --manifest-path <path> ...
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-pafio/Spio-Workflow-Success-Payloads.md`
+1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
+2. `vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
 
 ### 3.5 `spio --json fetch/vendor/pack/publish`
 
@@ -273,9 +273,9 @@ spio --json publish --manifest-path <path> --registry <path-or-url>
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-pafio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
+1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
+2. `vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
+3. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
 ### 3.6 `spio --json tool install/use/pin`
 
@@ -292,13 +292,13 @@ spio --json tool pin --clear --manifest-path <path>
 
 1. toolchain lifecycle 通过 success JSON 返回，不靠 stdout prose
 2. project pin、managed installs、current compiler 统一回流到 `toolchain_state compiler-toolchain-shape`
-3. `styio-view` 只能触发 adapter，不再自己拼另一套命令语义
+3. `vityo-nightly` 只能触发 adapter，不再自己拼另一套命令语义
 
 Owner / consumer docs:
 
-1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-pafio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
+1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
+2. `vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
+3. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
 
 ## 验收条件
 

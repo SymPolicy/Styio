@@ -11,7 +11,7 @@ from typing import List, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORKSPACE_ROOT = ROOT.parent
-REQUIRED_REPOS = ("styio-nightly", "styio-pafio", "styio-view")
+REQUIRED_REPOS = ("styio-nightly", "pafio-nightly", "vityo-nightly")
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md",
+                "pafio-nightly/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md",
                 (
                     "### 2.1 `styio --machine-info=json`",
                     "`active_integration_phase`",
@@ -52,7 +52,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md",
+                "vityo-nightly/docs/external/for-styio/Styio-Compile-Run-Contract.md",
                 (
                     "`styio --machine-info=json`",
                     "`supported_adapter_modes`",
@@ -64,7 +64,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
     ),
     ContractRule(
         key="styio.compile_plan",
-        summary="styio compile-plan consumer behavior stays aligned for spio and view",
+        summary="styio compile-plan consumer behavior stays aligned for spio and Vityo",
         docs=(
             DocRule(
                 "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
@@ -76,7 +76,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md",
+                "pafio-nightly/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md",
                 (
                     "### 2.2 `styio --compile-plan <path>`",
                     "- `check`",
@@ -85,7 +85,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-styio/Styio-Compile-Run-Contract.md",
+                "vityo-nightly/docs/external/for-styio/Styio-Compile-Run-Contract.md",
                 (
                     "`styio --compile-plan <path>`",
                     "published compile-plan",
@@ -103,7 +103,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
                     "### 2.4 `styio --source-build-info=json`",
-                    "`https://github.com/eBioRing/Styio.git`",
+                    "`https://github.com/SymPolicy/Styio.git`",
                     "`compiler_core / std_symbols / runtime / services / macro_prelude`",
                     "`minimal`",
                     "`scripts/source-build-minimal.sh`",
@@ -111,9 +111,9 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/governance/Spio-CLI-Contract.md",
+                "pafio-nightly/docs/governance/Spio-CLI-Contract.md",
                 (
-                    "`https://github.com/eBioRing/Styio.git`",
+                    "`https://github.com/SymPolicy/Styio.git`",
                     "`stable` and `nightly` to the same-named source branches",
                     "`spio build minimal`",
                     "`spio-toolchain.lock`",
@@ -136,7 +136,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/governance/Spio-CLI-Contract.md",
+                "pafio-nightly/docs/governance/Spio-CLI-Contract.md",
                 (
                     "spio machine-info --json",
                     "`supported_contracts.project_graph` reports `[1]`",
@@ -145,7 +145,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md",
+                "vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md",
                 (
                     "`pafio machine-info --json`",
                     "`pafio project-graph --json`",
@@ -169,14 +169,14 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/governance/Spio-CLI-Contract.md",
+                "pafio-nightly/docs/governance/Spio-CLI-Contract.md",
                 (
                     "`spio project-graph --json` publishes `project_graph v1`",
                     "`project_graph v1` includes at least `packages`, `dependencies`, `targets`, `toolchain`, `managed_toolchains`, `lock_state`, `vendor_state`, `notes`, `package_distribution`, and `source_state`",
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-pafio/Pafio-Project-Graph-Contract.md",
+                "vityo-nightly/docs/external/for-pafio/Pafio-Project-Graph-Contract.md",
                 (
                     "pafio project-graph --manifest-path <path> --json",
                     "`project_graph` published family",
@@ -202,7 +202,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/governance/Spio-CLI-Contract.md",
+                "pafio-nightly/docs/governance/Spio-CLI-Contract.md",
                 (
                     "`spio tool status --json` publishes `toolchain_state v1`",
                     "`project_pin`",
@@ -211,7 +211,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md",
+                "vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md",
                 (
                     "`pafio tool status --json",
                     "`toolchain_state` published family",
@@ -237,7 +237,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/governance/Spio-CLI-Contract.md",
+                "pafio-nightly/docs/governance/Spio-CLI-Contract.md",
                 (
                     "`workflow_success_payloads",
                     "`receipt.json`",
@@ -246,7 +246,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md",
+                "vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md",
                 (
                     "pafio --json build --manifest-path <path> ...",
                     "`workflow_success_payloads",
@@ -271,7 +271,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-pafio/docs/governance/Spio-CLI-Contract.md",
+                "pafio-nightly/docs/governance/Spio-CLI-Contract.md",
                 (
                     "spio --json fetch --manifest-path path/to/spio.toml ...",
                     "spio --json tool install --styio-bin /path/to/styio",
@@ -280,7 +280,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md",
+                "vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md",
                 (
                     "pafio --json fetch --manifest-path <path> ...",
                     "pafio --json tool install --styio-bin <path>",
@@ -288,7 +288,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
                 ),
             ),
             DocRule(
-                "styio-view/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md",
+                "vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md",
                 (
                     "`pafio --json fetch --manifest-path <path>`",
                     "`pafio --json pack --manifest-path <path>`",
@@ -306,7 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--workspace-root",
         type=Path,
         default=DEFAULT_WORKSPACE_ROOT,
-        help="workspace root that should contain styio-nightly, styio-pafio, and styio-view",
+        help="workspace root that should contain styio-nightly, pafio-nightly, and vityo-nightly",
     )
     parser.add_argument(
         "--require-workspace",

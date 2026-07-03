@@ -44,7 +44,7 @@ Key SSOTs:
 9. Use archive lifecycle tooling for raw history/review metadata and cleanup rather than manually moving provenance.
 10. Use the default unified delivery gate for docs/process deliveries so worktree hygiene, branch-range hygiene, runbook maintenance, docs audit, and external audit stay coupled behind one command.
 11. When refactoring `scripts/delivery-gate.sh`, keep literal scheduler profile invocations visible for `delivery-checkpoint` and `delivery-push` so released `styio-audit` can verify that the unified entrypoint still delegates to the approved scheduler profiles.
-12. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-pafio` or `styio-view` handoff docs change.
+12. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `pafio-nightly` or `vityo-nightly` handoff docs change.
 13. When a compiler-side machine contract grows, update the owner SSOT and both consumer handoff docs in the same checkpoint instead of leaving one side on preview wording.
 14. Keep generated `INDEX.md` files deterministic for empty collections by deriving fallback timestamps from collection metadata instead of local wall-clock date.
 15. When CI validates sibling ecosystem repositories, resolve the sibling checkout to the PR target branch when it is `release`, `stable`, or `nightly`; otherwise use `nightly` as the shared temporary-branch baseline.
@@ -58,7 +58,7 @@ Key SSOTs:
 23. Keep repository entry docs honest about maturity: if repo-local baselines are complete but ecosystem closure is still open, say that explicitly instead of leaving stale `early stage` wording in top-level entrypoints.
 24. When an evidence-backed closure retires a gap, move it out of the open gap table, add the smallest closed-evidence note, update the matching checkpoint tree entry, and regenerate affected generated indexes.
 25. Keep [../specs/POST-COMMIT-CI-CHECKS.md](../specs/POST-COMMIT-CI-CHECKS.md) aligned with actual GitHub Actions monitoring practice whenever commit, push, or CI handoff rules change.
-26. Keep GitHub Actions sibling checkouts for `styio-pafio` and `styio-view` pinned to the same branch ref as `styio-nightly` when a workflow runs cross-repository gates.
+26. Keep GitHub Actions sibling checkouts for `pafio-nightly` and `vityo-nightly` pinned to the same branch ref as `styio-nightly` when a workflow runs cross-repository gates.
 27. Keep compact syntax references under `docs/design/syntax/` short and defer semantic detail to the owning design SSOT.
 28. When syntax tokens change, update the compact syntax page, EBNF, and symbol reference together before regenerating indexes.
 29. When standard-stream or resource identifier declarations change, keep `src/StyioPrelude/resources.styio`, `docs/design/syntax/RESOURCE_IDENTIFIERS.md`, `docs/design/syntax/CONTINUATION_TRANSFER.md`, EBNF, symbol reference, and the language design aligned on accepted source forms, canonical/compatibility status, and parser-implementation status.
