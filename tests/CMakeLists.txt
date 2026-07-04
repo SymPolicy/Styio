@@ -427,6 +427,7 @@ add_executable(styio_algorithm_equivalence_test
 )
 target_link_libraries(
   styio_algorithm_equivalence_test
+  styio_frontend_core
   GTest::gtest_main
 )
 target_compile_definitions(styio_algorithm_equivalence_test PRIVATE

@@ -64,6 +64,7 @@ Primary paths:
 38. LSP transport tests should launch the real `styio_lspd` binary and inspect raw bytes, not only call `Server::handle`, so stdio framing regressions are observable on every host.
 39. When source directories move, update C++ test include paths to the current owned headers instead of adding compatibility shims or keeping obsolete short include roots alive.
 40. Algorithm equivalence helper targets must keep both the repository root and `src/` on their private include path, because generated reference slices include `tests/...` helpers while the shared C++ harness includes owned implementation headers.
+41. Algorithm equivalence helper targets must link the frontend core when they execute the compiler through shared platform process helpers; do not duplicate platform sources in test targets.
 
 ## Change Classes
 
