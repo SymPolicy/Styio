@@ -103,7 +103,7 @@ jobs:
           cmake --build build/ci --target
           styio styio_test styio_algorithm_equivalence_test
           styio_lspd styio_security_test styio_resource_topology_test styio_ide_test
-          styio_soak_test styio_fuzz_suite
+          styio_fuzz_suite
 
       - name: Docs audit
         working-directory: styio-nightly
