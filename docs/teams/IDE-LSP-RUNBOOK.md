@@ -40,6 +40,7 @@ Build and test targets:
 13. When testing `VFS` close/drop-open-file behavior, put expected closed-file contents on disk before closing the in-memory document; closed snapshots intentionally reload from disk instead of retaining stale open-buffer query state.
 14. Keep compiler bridge code pointed at `AstToStyioIRLowerer` for semantic truth; do not rebuild a separate IDE analyzer or depend on the legacy `StyioAnalyzer` compatibility alias for new code.
 15. Keep LSP lifecycle and transport behavior byte-exact: notifications such as `initialized` must not receive JSON-RPC responses, and `styio_lspd` must keep stdio in binary mode on Windows before any LSP frame is exchanged.
+16. Keep IDE/LSP tests on the current public include roots, such as `StyioServices/StyioIDE/` and `StyioServices/StyioLSP/`; do not preserve old short include paths after source directories move.
 
 ## Change Classes
 
