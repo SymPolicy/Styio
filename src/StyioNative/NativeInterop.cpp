@@ -1,6 +1,8 @@
 #include "NativeInterop.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cerrno>
 #include <chrono>
 #include <cctype>
 #include <cstdlib>
@@ -8,27 +10,35 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
-#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#include <unistd.h>
+#endif
+
 #include "StyioException/Exception.hpp"
 #include "StyioNative/NativeToolchainConfig.hpp"
-#include "StyioPlatform/Platform.hpp"
 
 namespace styio::native {
 namespace {
 
-constexpr const char* kNativeCacheScope = "styio-native-cache-abi-stable";
+constexpr const char* kCompileFlags = "-shared -fPIC -O2";
+constexpr const char* kNativeCacheVersion = "styio-native-cache-v1";
 
 struct CachedModule {
-  styio::platform::DynamicLibraryHandle handle = nullptr;
+  void* handle = nullptr;
   std::filesystem::path path;
-  std::filesystem::path cleanup_dir;
-  bool delete_on_unload = false;
 };
 
 class NativeModuleCache
@@ -40,17 +50,11 @@ public:
   ~NativeModuleCache() {
     for (auto& entry : modules) {
       if (entry.second.handle != nullptr) {
-        styio::platform::unload_dynamic_library(entry.second.handle);
-      }
-      if (entry.second.delete_on_unload) {
-        std::error_code ec;
-        if (!entry.second.path.empty()) {
-          std::filesystem::remove(entry.second.path, ec);
-        }
-        ec.clear();
-        if (!entry.second.cleanup_dir.empty()) {
-          std::filesystem::remove_all(entry.second.cleanup_dir, ec);
-        }
+#if defined(_WIN32)
+        ::FreeLibrary(static_cast<HMODULE>(entry.second.handle));
+#else
+        ::dlclose(entry.second.handle);
+#endif
       }
     }
   }
@@ -129,35 +133,6 @@ shell_quote(const std::string& value) {
   return out;
 }
 
-std::string
-c_string_escape(const std::string& value) {
-  std::string out;
-  out.reserve(value.size() + 8);
-  for (char ch : value) {
-    switch (ch) {
-      case '\\':
-        out += "\\\\";
-        break;
-      case '"':
-        out += "\\\"";
-        break;
-      case '\n':
-        out += "\\n";
-        break;
-      case '\r':
-        out += "\\r";
-        break;
-      case '\t':
-        out += "\\t";
-        break;
-      default:
-        out.push_back(ch);
-        break;
-    }
-  }
-  return out;
-}
-
 bool
 native_cache_enabled() {
   if (const char* env = std::getenv("STYIO_NATIVE_CACHE")) {
@@ -174,58 +149,20 @@ native_cache_dir() {
   }
   if (const char* env = std::getenv("STYIO_NATIVE_CACHE_DIR")) {
     if (std::string raw = trim_copy(env); !raw.empty()) {
-      return std::filesystem::path(raw) / "abi-stable";
+      return std::filesystem::path(raw) / "v1";
     }
   }
-#if defined(_WIN32)
-  if (const char* local_app_data = std::getenv("LOCALAPPDATA")) {
-    if (std::string raw = trim_copy(local_app_data); !raw.empty()) {
-      return std::filesystem::path(raw) / "styio" / "native" / "abi-stable";
-    }
-  }
-  if (const char* temp = std::getenv("TEMP")) {
-    if (std::string raw = trim_copy(temp); !raw.empty()) {
-      return std::filesystem::path(raw) / "styio" / "native" / "abi-stable";
-    }
-  }
-#else
   if (const char* xdg = std::getenv("XDG_CACHE_HOME")) {
     if (std::string raw = trim_copy(xdg); !raw.empty()) {
-      return std::filesystem::path(raw) / "styio" / "native" / "abi-stable";
+      return std::filesystem::path(raw) / "styio" / "native" / "v1";
     }
   }
   if (const char* home = std::getenv("HOME")) {
     if (std::string raw = trim_copy(home); !raw.empty()) {
-      return std::filesystem::path(raw) / ".cache" / "styio" / "native" / "abi-stable";
+      return std::filesystem::path(raw) / ".cache" / "styio" / "native" / "v1";
     }
   }
-#endif
   return {};
-}
-
-bool
-compiler_uses_clang_cl(const std::string& command) {
-  std::string base = lower_copy(std::filesystem::path(command).filename().string());
-  return base == "clang-cl" || base == "clang-cl.exe";
-}
-
-bool
-compiler_uses_msvc_driver(const std::string& command) {
-  std::string base = lower_copy(std::filesystem::path(command).filename().string());
-  return compiler_uses_clang_cl(command) || base == "cl" || base == "cl.exe";
-}
-
-std::string
-native_compile_cache_token(const CompilerResolution& compiler) {
-  return std::string(
-#if defined(_WIN32)
-           "windows"
-#else
-           "posix"
-#endif
-         )
-    + (compiler_uses_msvc_driver(compiler.command) ? ":msvc-driver" : ":clang")
-    + ":O2";
 }
 
 std::string
@@ -253,7 +190,7 @@ native_cache_key(
     + compiler.command.size()
     + compiler.source.size()
     + 96);
-  input += kNativeCacheScope;
+  input += kNativeCacheVersion;
   input.push_back('\0');
   input += normalized_abi;
   input.push_back('\0');
@@ -261,7 +198,7 @@ native_cache_key(
   input.push_back('\0');
   input += compiler.source;
   input.push_back('\0');
-  input += native_compile_cache_token(compiler);
+  input += kCompileFlags;
   input.push_back('\0');
   input += source_text;
   return normalized_abi + "-" + stable_hash_hex(input);
@@ -290,23 +227,42 @@ native_cache_path_for_key(const std::string& key, std::string& error_message) {
   if (!ensure_directory(dir, error_message)) {
     return {};
   }
-  return dir / (
-    std::string(styio::platform::shared_library_prefix())
-    + key
-    + styio::platform::shared_library_suffix());
+  return dir / ("lib" + key + ".so");
 }
 
 std::filesystem::path
 native_cache_tmp_path_for_key(const std::filesystem::path& cache_path) {
   const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+#if defined(_WIN32)
+  const auto pid = static_cast<unsigned long long>(::GetCurrentProcessId());
+#else
+  const auto pid = static_cast<unsigned long long>(::getpid());
+#endif
   return cache_path.parent_path()
-    / (cache_path.stem().string()
+    / (cache_path.filename().string()
        + "."
-       + std::to_string(static_cast<unsigned long long>(styio::platform::process_id()))
+       + std::to_string(pid)
        + "."
        + std::to_string(static_cast<long long>(now))
-       + ".tmp"
-       + styio::platform::shared_library_suffix());
+       + ".tmp");
+}
+
+std::string
+native_compile_command(
+  const CompilerResolution& compiler,
+  const std::filesystem::path& source_path,
+  const std::filesystem::path& shared_path,
+  const std::filesystem::path& log_path
+) {
+  return shell_quote(compiler.command)
+    + " "
+    + kCompileFlags
+    + " "
+    + shell_quote(source_path.string())
+    + " -o "
+    + shell_quote(shared_path.string())
+    + " 2>"
+    + shell_quote(log_path.string());
 }
 
 bool
@@ -670,7 +626,6 @@ parse_function_signature_candidate(std::string raw, FunctionSignature& out) {
   const std::string name = raw.substr(name_begin, name_end - name_begin);
   const std::string raw_params = raw.substr(open + 1, close - open - 1);
   const std::string lowered_name = lower_copy(name);
-  const std::string lowered_ret = lower_copy(collapse_ws_copy(raw_ret));
   if (lowered_name == "if" || lowered_name == "for" || lowered_name == "while" || lowered_name == "switch") {
     return false;
   }
@@ -684,7 +639,6 @@ parse_function_signature_candidate(std::string raw, FunctionSignature& out) {
   out.name = name;
   out.return_type = ret;
   out.params = parse_params(raw_params);
-  out.internal_linkage = lowered_ret == "static" || lowered_ret.rfind("static ", 0) == 0;
   return true;
 }
 
@@ -722,13 +676,37 @@ parse_params(const std::string& raw_params) {
 
 std::filesystem::path
 make_native_temp_dir() {
-  std::string error_message;
-  std::filesystem::path created =
-    styio::platform::create_temp_directory("styio-native", error_message);
-  if (created.empty()) {
-    throw StyioTypeError("cannot create native @extern temporary directory: " + error_message);
+  const std::filesystem::path base = std::filesystem::temp_directory_path();
+#if defined(_WIN32)
+  const auto pid = static_cast<unsigned long long>(::GetCurrentProcessId());
+  for (int attempt = 0; attempt < 100; ++attempt) {
+    const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    std::filesystem::path candidate =
+      base / ("styio-native-"
+              + std::to_string(pid)
+              + "-"
+              + std::to_string(static_cast<long long>(now))
+              + "-"
+              + std::to_string(attempt));
+    std::error_code ec;
+    if (std::filesystem::create_directory(candidate, ec)) {
+      return candidate;
+    }
   }
-  return created;
+  throw StyioTypeError("cannot create native @extern temporary directory");
+#else
+  std::string tmpl = (base / "styio-native-XXXXXX").string();
+  std::vector<char> buffer(tmpl.begin(), tmpl.end());
+  buffer.push_back('\0');
+
+  char* created = ::mkdtemp(buffer.data());
+  if (created == nullptr) {
+    throw StyioTypeError(
+      "cannot create native @extern temporary directory: "
+      + std::string(std::strerror(errno)));
+  }
+  return std::filesystem::path(created);
+#endif
 }
 
 bool
@@ -758,31 +736,17 @@ read_text_file(const std::filesystem::path& path, std::string& out_text) {
   return true;
 }
 
-std::vector<std::pair<std::filesystem::path, std::string>>
-read_referenced_sources(const std::vector<std::string>& source_paths) {
-  std::vector<std::pair<std::filesystem::path, std::string>> sources;
-  sources.reserve(source_paths.size());
-  for (const auto& raw_path : source_paths) {
-    if (trim_copy(raw_path).empty()) {
-      throw StyioTypeError("native @extern source reference must not be empty");
-    }
-    std::filesystem::path path(raw_path);
-    if (path.is_relative()) {
-      path = std::filesystem::absolute(path);
-    }
-    path = path.lexically_normal();
-    std::string text;
-    if (!read_text_file(path, text)) {
-      throw StyioTypeError("native @extern source file not found or unreadable: " + path.string());
-    }
-    sources.emplace_back(std::move(path), std::move(text));
-  }
-  return sources;
-}
-
 bool
 is_executable_file(const std::filesystem::path& path) {
-  return styio::platform::is_executable_file(path);
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(path, ec) && !std::filesystem::is_symlink(path, ec)) {
+    return false;
+  }
+#if defined(_WIN32)
+  return true;
+#else
+  return ::access(path.c_str(), X_OK) == 0;
+#endif
 }
 
 void
@@ -798,7 +762,15 @@ push_unique_path(std::vector<std::filesystem::path>& paths, std::filesystem::pat
 
 std::filesystem::path
 current_executable_dir() {
-  return styio::platform::current_executable_dir();
+#if defined(__linux__)
+  std::array<char, 4096> buf{};
+  const ssize_t len = ::readlink("/proc/self/exe", buf.data(), buf.size() - 1);
+  if (len > 0) {
+    buf[static_cast<size_t>(len)] = '\0';
+    return std::filesystem::path(buf.data()).parent_path();
+  }
+#endif
+  return {};
 }
 
 std::vector<std::filesystem::path>
@@ -806,10 +778,7 @@ candidate_native_toolchain_roots() {
   std::vector<std::filesystem::path> roots;
 
   if (const char* env_root = std::getenv("STYIO_NATIVE_TOOLCHAIN_ROOT")) {
-    if (*env_root != '\0') {
-      push_unique_path(roots, env_root);
-      return roots;
-    }
+    push_unique_path(roots, env_root);
   }
   if (std::string configured_root = STYIO_NATIVE_TOOLCHAIN_ROOT; !configured_root.empty()) {
     push_unique_path(roots, configured_root);
@@ -829,21 +798,15 @@ candidate_native_toolchain_roots() {
 std::string
 find_bundled_compiler(const std::string& normalized_abi) {
   const auto names = normalized_abi == "c++"
-#if defined(_WIN32)
-    ? std::vector<std::string>{"clang++", "clang++-18", "clang-cl"}
-    : std::vector<std::string>{"clang", "clang-18", "clang-cl"};
-#else
     ? std::vector<std::string>{"clang++", "clang++-18"}
     : std::vector<std::string>{"clang", "clang-18"};
-#endif
 
   for (const auto& root : candidate_native_toolchain_roots()) {
     for (const auto& dir : {root / "bin", root}) {
       for (const auto& name : names) {
-        for (const auto& candidate : styio::platform::executable_name_candidates(dir / name)) {
-          if (is_executable_file(candidate)) {
-            return candidate.string();
-          }
+        const std::filesystem::path candidate = dir / name;
+        if (is_executable_file(candidate)) {
+          return candidate.string();
         }
       }
     }
@@ -879,68 +842,105 @@ source_preamble(const std::string& normalized_abi) {
   return "#include <stdint.h>\n#include <stddef.h>\n#include <stdbool.h>\n";
 }
 
-std::string
-function_prototype_params(const std::vector<FunctionParam>& params) {
-  if (params.empty()) {
-    return "void";
-  }
-  std::string out;
-  for (const auto& param : params) {
-    if (!out.empty()) {
-      out += ", ";
-    }
-    out += param.type.spelling;
-    if (!param.name.empty()) {
-      out.push_back(' ');
-      out += param.name;
-    }
-  }
-  return out;
-}
-
-std::string
-windows_export_declarations(
-  const std::string& normalized_abi,
-  const std::vector<FunctionSignature>& functions
-) {
+void*
+dlopen_native_module(const std::filesystem::path& shared_path) {
 #if defined(_WIN32)
-  std::string out;
-  if (functions.empty()) {
-    return out;
-  }
-  out += "#if defined(_WIN32)\n";
-  for (const auto& sig : functions) {
-    if (sig.internal_linkage) {
-      continue;
-    }
-    if (normalized_abi == "c++") {
-      out += "extern \"C\" ";
-    }
-    out += "__declspec(dllexport) ";
-    out += sig.return_type.spelling;
-    out.push_back(' ');
-    out += sig.name;
-    out.push_back('(');
-    out += function_prototype_params(sig.params);
-    out += ");\n";
-  }
-  out += "#endif\n\n";
-  return out;
+  return static_cast<void*>(::LoadLibraryW(shared_path.wstring().c_str()));
 #else
-  (void)normalized_abi;
-  (void)functions;
-  return {};
+  return ::dlopen(shared_path.c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif
 }
 
-styio::platform::DynamicLibraryHandle
-load_native_module(const std::filesystem::path& shared_path, std::string& error_message) {
-  return styio::platform::load_dynamic_library(shared_path, error_message);
+void
+dlclose_native_module(void* handle) {
+  if (handle == nullptr) {
+    return;
+  }
+#if defined(_WIN32)
+  ::FreeLibrary(static_cast<HMODULE>(handle));
+#else
+  ::dlclose(handle);
+#endif
+}
+
+std::string
+native_dynamic_library_error() {
+#if defined(_WIN32)
+  const DWORD error_code = ::GetLastError();
+  if (error_code == 0) {
+    return "unknown Windows dynamic-library error";
+  }
+  LPWSTR raw = nullptr;
+  const DWORD size = ::FormatMessageW(
+    FORMAT_MESSAGE_ALLOCATE_BUFFER
+      | FORMAT_MESSAGE_FROM_SYSTEM
+      | FORMAT_MESSAGE_IGNORE_INSERTS,
+    nullptr,
+    error_code,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    reinterpret_cast<LPWSTR>(&raw),
+    0,
+    nullptr);
+  if (size == 0 || raw == nullptr) {
+    return "Windows dynamic-library error " + std::to_string(error_code);
+  }
+  std::wstring wide(raw, raw + size);
+  ::LocalFree(raw);
+  while (!wide.empty() && (wide.back() == L'\n' || wide.back() == L'\r' || wide.back() == L' ')) {
+    wide.pop_back();
+  }
+  const int utf8_size = ::WideCharToMultiByte(
+    CP_UTF8,
+    0,
+    wide.data(),
+    static_cast<int>(wide.size()),
+    nullptr,
+    0,
+    nullptr,
+    nullptr);
+  if (utf8_size <= 0) {
+    return "Windows dynamic-library error " + std::to_string(error_code);
+  }
+  std::string out(static_cast<std::size_t>(utf8_size), '\0');
+  ::WideCharToMultiByte(
+    CP_UTF8,
+    0,
+    wide.data(),
+    static_cast<int>(wide.size()),
+    out.data(),
+    utf8_size,
+    nullptr,
+    nullptr);
+  return out;
+#else
+  const char* err = ::dlerror();
+  return err != nullptr ? std::string(err) : "unknown dlopen error";
+#endif
+}
+
+void*
+dlsym_native_module(void* handle, const std::string& name, std::string& error_message) {
+#if defined(_WIN32)
+  void* symbol = reinterpret_cast<void*>(
+    ::GetProcAddress(static_cast<HMODULE>(handle), name.c_str()));
+  if (symbol == nullptr) {
+    error_message = native_dynamic_library_error();
+  }
+  return symbol;
+#else
+  ::dlerror();
+  void* symbol = ::dlsym(handle, name.c_str());
+  const char* err = ::dlerror();
+  if (err != nullptr || symbol == nullptr) {
+    error_message = err != nullptr ? std::string(err) : "unknown dlsym error";
+  }
+  return symbol;
+#endif
 }
 
 std::vector<LoadedSymbol>
 resolve_loaded_symbols(
-  styio::platform::DynamicLibraryHandle handle,
+  void* handle,
   const std::string& normalized_abi,
   const std::vector<FunctionSignature>& selected
 ) {
@@ -948,12 +948,11 @@ resolve_loaded_symbols(
   symbols.reserve(selected.size());
   for (const auto& sig : selected) {
     std::string symbol_error;
-    void* symbol = styio::platform::lookup_dynamic_symbol(handle, sig.name, symbol_error);
+    void* symbol = dlsym_native_module(handle, sig.name, symbol_error);
     if (symbol == nullptr) {
       throw StyioTypeError(
         "native @extern(" + normalized_abi + ") could not resolve exported symbol `"
-        + sig.name + "`; C++ blocks must expose callable symbols with extern \"C\""
-        + (symbol_error.empty() ? std::string() : "\n" + symbol_error));
+        + sig.name + "`; C++ blocks must expose callable symbols with extern \"C\"");
     }
     symbols.push_back(LoadedSymbol{sig.name, symbol});
   }
@@ -1029,133 +1028,7 @@ resolve_compiler_for_abi(const std::string& abi) {
     }
   }
 
-  std::string resolved;
-#if defined(_WIN32)
-  const auto candidates = normalized_abi == "c++"
-    ? std::vector<std::string>{"clang++", "clang++-18", "clang-cl"}
-    : std::vector<std::string>{"clang", "clang-18", "clang-cl"};
-  for (const auto& candidate : candidates) {
-    if (styio::platform::find_executable(candidate, resolved)) {
-      return CompilerResolution{resolved, "system"};
-    }
-  }
-  return CompilerResolution{normalized_abi == "c++" ? "clang++" : "clang", "system"};
-#else
   return CompilerResolution{normalized_abi == "c++" ? "c++" : "cc", "system"};
-#endif
-}
-
-std::vector<std::string>
-native_shared_compile_argv(
-  const CompilerResolution& compiler,
-  const std::filesystem::path& source_path,
-  const std::filesystem::path& shared_path
-) {
-#if defined(_WIN32)
-  if (compiler_uses_msvc_driver(compiler.command)) {
-    return {
-      compiler.command,
-      "/LD",
-      "/O2",
-      source_path.string(),
-      "/Fe" + shared_path.string(),
-    };
-  }
-  return {
-    compiler.command,
-    "-shared",
-    "-O2",
-    source_path.string(),
-    "-o",
-    shared_path.string(),
-  };
-#else
-  return {
-    compiler.command,
-    "-shared",
-    "-fPIC",
-    "-O2",
-    source_path.string(),
-    "-o",
-    shared_path.string(),
-  };
-#endif
-}
-
-std::vector<std::string>
-native_object_compile_argv(
-  const CompilerResolution& compiler,
-  const std::string& abi,
-  const std::filesystem::path& source_path,
-  const std::filesystem::path& object_path
-) {
-  const std::string normalized_abi = normalize_abi(abi);
-#if defined(_WIN32)
-  if (compiler_uses_msvc_driver(compiler.command)) {
-    return {
-      compiler.command,
-      normalized_abi == "c++" ? "/std:c++20" : "/std:c11",
-      "/O2",
-      "/c",
-      source_path.string(),
-      "/Fo" + object_path.string(),
-    };
-  }
-  return {
-    compiler.command,
-    normalized_abi == "c++" ? "-std=c++20" : "-std=c11",
-    "-O2",
-    "-c",
-    source_path.string(),
-    "-o",
-    object_path.string(),
-  };
-#else
-  return {
-    compiler.command,
-    normalized_abi == "c++" ? "-std=c++20" : "-std=c11",
-    "-O2",
-    "-fPIC",
-    "-c",
-    source_path.string(),
-    "-o",
-    object_path.string(),
-  };
-#endif
-}
-
-std::string
-native_command_display(const std::vector<std::string>& argv) {
-  std::string out;
-  for (const std::string& arg : argv) {
-    if (!out.empty()) {
-      out.push_back(' ');
-    }
-    out += shell_quote(arg);
-  }
-  return out;
-}
-
-NativeCommandResult
-run_native_command_to_log(
-  const std::vector<std::string>& argv,
-  const std::filesystem::path& log_path,
-  bool capture_stdout
-) {
-  const auto result =
-    styio::platform::run_process_to_log(argv, log_path, capture_stdout);
-  return NativeCommandResult{result.exit_code, result.launch_error};
-}
-
-NativeCommandResult
-run_native_command_to_logs(
-  const std::vector<std::string>& argv,
-  const std::filesystem::path& stdout_log_path,
-  const std::filesystem::path& stderr_log_path
-) {
-  const auto result =
-    styio::platform::run_process_to_logs(argv, stdout_log_path, stderr_log_path);
-  return NativeCommandResult{result.exit_code, result.launch_error};
 }
 
 std::vector<FunctionSignature>
@@ -1182,20 +1055,6 @@ parse_function_signatures(const std::string& body) {
   return functions;
 }
 
-std::vector<FunctionSignature>
-parse_function_signatures_for_block(
-  const std::string& body,
-  const std::vector<std::string>& source_paths
-) {
-  std::string signature_text = body;
-  for (const auto& source : read_referenced_sources(source_paths)) {
-    signature_text.push_back('\n');
-    signature_text += source.second;
-    signature_text.push_back('\n');
-  }
-  return parse_function_signatures(signature_text);
-}
-
 StyioDataType
 styio_data_type_for_c_type(const CType& type) {
   switch (type.kind) {
@@ -1217,58 +1076,14 @@ styio_data_type_for_c_type(const CType& type) {
   return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 }
 
-std::string
-source_text_for_block(
-  const std::string& abi,
-  const std::string& body,
-  const std::vector<std::string>& source_paths
-) {
-  const std::string normalized_abi = normalize_abi(abi);
-  const auto referenced_sources = read_referenced_sources(source_paths);
-  std::string signature_text = body;
-  for (const auto& source : referenced_sources) {
-    signature_text.push_back('\n');
-    signature_text += source.second;
-    signature_text.push_back('\n');
-  }
-  std::string source_text =
-    source_preamble(normalized_abi)
-    + windows_export_declarations(
-        normalized_abi,
-        parse_function_signatures(signature_text))
-    + body
-    + "\n";
-  for (const auto& source : referenced_sources) {
-    const std::string include_path = source.first.generic_string();
-    source_text += "\n/* styio native source: ";
-    source_text += c_string_escape(include_path);
-    source_text += " hash=";
-    source_text += stable_hash_hex(source.second);
-    source_text += " */\n#include \"";
-    source_text += c_string_escape(include_path);
-    source_text += "\"\n";
-  }
-  return source_text;
-}
-
 LoadedBlock
 compile_and_load_block(
   const std::string& abi,
   const std::string& body,
   const std::vector<std::string>& export_symbols
 ) {
-  return compile_and_load_block(abi, body, {}, export_symbols);
-}
-
-LoadedBlock
-compile_and_load_block(
-  const std::string& abi,
-  const std::string& body,
-  const std::vector<std::string>& source_paths,
-  const std::vector<std::string>& export_symbols
-) {
   const std::string normalized_abi = normalize_abi(abi);
-  std::vector<FunctionSignature> parsed = parse_function_signatures_for_block(body, source_paths);
+  std::vector<FunctionSignature> parsed = parse_function_signatures(body);
   if (parsed.empty()) {
     throw StyioTypeError("@extern(" + normalized_abi + ") block does not declare any callable function");
   }
@@ -1286,7 +1101,7 @@ compile_and_load_block(
   }
 
   const CompilerResolution compiler = resolve_compiler_for_abi(normalized_abi);
-  const std::string source_text = source_text_for_block(normalized_abi, body, source_paths);
+  const std::string source_text = source_preamble(normalized_abi) + body + "\n";
   const std::string cache_key = native_cache_key(normalized_abi, compiler, source_text);
 
   auto& process_cache = native_module_cache();
@@ -1298,11 +1113,10 @@ compile_and_load_block(
   std::string cache_error;
   const std::filesystem::path cache_path = native_cache_path_for_key(cache_key, cache_error);
   if (!cache_path.empty() && std::filesystem::exists(cache_path)) {
-    std::string load_error;
-    if (auto cached_handle = load_native_module(cache_path, load_error)) {
+    if (void* cached_handle = dlopen_native_module(cache_path)) {
       auto [it, inserted] = process_cache.modules.emplace(
         cache_key,
-        CachedModule{cached_handle, cache_path, {}, false});
+        CachedModule{cached_handle, cache_path});
       (void)inserted;
       return loaded_block_from_cached_module(it->second, normalized_abi, std::move(selected));
     }
@@ -1315,10 +1129,7 @@ compile_and_load_block(
   const std::filesystem::path log_path = tmp_dir / "compile.log";
   const std::filesystem::path compile_shared_path =
     cache_path.empty()
-      ? tmp_dir / (
-          std::string(styio::platform::shared_library_prefix())
-          + "styio_native"
-          + styio::platform::shared_library_suffix())
+      ? tmp_dir / "libstyio_native.so"
       : native_cache_tmp_path_for_key(cache_path);
 
   std::string write_error;
@@ -1327,12 +1138,10 @@ compile_and_load_block(
     throw StyioTypeError(write_error);
   }
 
-  const std::vector<std::string> argv =
-    native_shared_compile_argv(compiler, source_path, compile_shared_path);
-  const std::string command = native_command_display(argv);
+  const std::string command = native_compile_command(compiler, source_path, compile_shared_path, log_path);
 
-  const NativeCommandResult result = run_native_command_to_log(argv, log_path, false);
-  if (!result.ok()) {
+  const int rc = std::system(command.c_str());
+  if (rc != 0) {
     std::string log;
     (void)read_text_file(log_path, log);
     std::filesystem::remove(compile_shared_path);
@@ -1340,7 +1149,6 @@ compile_and_load_block(
     throw StyioTypeError(
       "native @extern(" + normalized_abi + ") compile failed with command `" + command + "`"
       + " using " + compiler.source
-      + (result.launch_error.empty() ? std::string() : "\n" + result.launch_error)
       + (log.empty() ? std::string() : "\n" + log));
   }
 
@@ -1371,9 +1179,9 @@ compile_and_load_block(
     }
   }
 
-  std::string load_error;
-  auto handle = load_native_module(load_path, load_error);
+  void* handle = dlopen_native_module(load_path);
   if (handle == nullptr) {
+    const std::string error_message = native_dynamic_library_error();
     if (cache_path.empty()) {
       std::filesystem::remove(compile_shared_path);
     }
@@ -1382,61 +1190,29 @@ compile_and_load_block(
     }
     std::filesystem::remove_all(tmp_dir);
     throw StyioTypeError(
-      "native @extern(" + normalized_abi + ") " + load_error);
+      "native @extern(" + normalized_abi + ") dlopen failed: "
+      + error_message);
   }
 
-  const bool loaded_from_temp = cache_path.empty() || load_path != cache_path;
   auto [it, inserted] = process_cache.modules.emplace(
     cache_key,
-    CachedModule{
-      handle,
-      load_path,
-#if defined(_WIN32)
-      loaded_from_temp ? tmp_dir : std::filesystem::path(),
-      loaded_from_temp
-#else
-      {},
-      false
-#endif
-    });
+    CachedModule{handle, load_path});
   if (!inserted && it->second.handle != handle) {
-    styio::platform::unload_dynamic_library(handle);
-#if defined(_WIN32)
-    if (loaded_from_temp) {
-      std::error_code cleanup_ec;
-      std::filesystem::remove(load_path, cleanup_ec);
-      cleanup_ec.clear();
-      std::filesystem::remove_all(tmp_dir, cleanup_ec);
-    }
-#endif
+    dlclose_native_module(handle);
   }
 
-  std::error_code cleanup_ec;
-  std::filesystem::remove(source_path, cleanup_ec);
-  cleanup_ec.clear();
-  std::filesystem::remove(log_path, cleanup_ec);
-  if (loaded_from_temp) {
-#if !defined(_WIN32)
-    cleanup_ec.clear();
-    std::filesystem::remove(load_path, cleanup_ec);
-#endif
+  std::filesystem::remove(source_path);
+  std::filesystem::remove(log_path);
+  if (cache_path.empty()) {
+    std::filesystem::remove(compile_shared_path);
   }
-  else {
-    cleanup_ec.clear();
-    std::filesystem::remove_all(tmp_dir, cleanup_ec);
-  }
-#if !defined(_WIN32)
-  cleanup_ec.clear();
-  std::filesystem::remove(tmp_dir, cleanup_ec);
-#endif
+  std::filesystem::remove(tmp_dir);
   return loaded_block_from_cached_module(it->second, normalized_abi, std::move(selected));
 }
 
 void
 close_loaded_block(void* handle) {
-  if (handle != nullptr) {
-    styio::platform::unload_dynamic_library(handle);
-  }
+  dlclose_native_module(handle);
 }
 
 }  // namespace styio::native

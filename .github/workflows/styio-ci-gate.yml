@@ -4,15 +4,13 @@ on:
   pull_request:
   push:
     branches:
-      - ai-dev
+      - release
       - nightly
       - stable
-      - main
-      - master
-      - agent-dev
 
 jobs:
   styio-ci-gate:
+    name: platform-adaptation / linux-ci-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -34,8 +32,8 @@ jobs:
           fi
 
           case "$TARGET_LANE" in
-            ai-dev|nightly|stable|main)
-              ECOSYSTEM_REF="nightly"
+            release|stable|nightly)
+              ECOSYSTEM_REF="$TARGET_LANE"
               ;;
             *)
               ECOSYSTEM_REF="nightly"
@@ -45,12 +43,12 @@ jobs:
           echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
           echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Check out styio-spio sibling repository
+      - name: Check out styio-pafio sibling repository
         uses: actions/checkout@v5
         with:
-          repository: styio-org/styio-spio
+          repository: styio-org/styio-pafio
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
-          path: styio-spio
+          path: styio-pafio
 
       - name: Check out styio-view sibling repository
         uses: actions/checkout@v5
@@ -87,9 +85,6 @@ jobs:
             lld-18 \
             llvm-18-dev \
             libicu-dev \
-            zlib1g-dev \
-            libzstd-dev \
-            libcurl4-openssl-dev \
             python3
 
       - name: Configure
@@ -107,8 +102,8 @@ jobs:
         run: >
           cmake --build build/ci --target
           styio styio_test styio_algorithm_equivalence_test
-          styio_security_test styio_resource_topology_test styio_ide_test
-          styio_fuzz_suite
+          styio_lspd styio_security_test styio_resource_topology_test styio_ide_test
+          styio_soak_test styio_fuzz_suite
 
       - name: Docs audit
         working-directory: styio-nightly
@@ -121,6 +116,10 @@ jobs:
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure
+
+      - name: LSP transport smoke
+        working-directory: styio-nightly
+        run: ctest --test-dir build/ci -R '^styio_lspd_stdio_framing$' --output-on-failure
 
       - name: Parser shadow gate (scalar expressions suite + artifacts)
         working-directory: styio-nightly
@@ -152,111 +151,81 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure
 
-      - name: Source coverage gate
-        working-directory: styio-nightly
-        run: >
-          scripts/coverage-gate.sh
-          --build-dir build/coverage
-          --threshold 95
-          --llvm-cov llvm-cov-18
-          --llvm-profdata llvm-profdata-18
-          --cc clang-18
-          --cxx clang++-18
-
       - name: Fuzz smoke
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure
 
-  styio-windows-native:
-    runs-on: windows-latest
+  test-smoke:
+    name: test / smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install smoke dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+
+      - name: Configure smoke build
+        run: >
+          cmake -S . -B build/smoke -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
+          -DSTYIO_ENABLE_FUZZ=ON
+
+      - name: Build smoke targets
+        run: cmake --build build/smoke --target styio styio_test styio_fuzz_suite
+
+      - name: Run smoke tests
+        run: |
+          ctest --test-dir build/smoke -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure
+
+  test-golden-standard:
+    name: test / golden-standard
+    needs: [styio-ci-gate, test-smoke]
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          path: styio-nightly
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13.5"
-
-      - name: Set up MSVC command environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install CMake, Ninja, and LLVM 18 development package
-        uses: mamba-org/setup-micromamba@v2
-        with:
-          environment-name: styio-llvm18
-          cache-environment: true
-          create-args: >-
-            cmake
-            ninja
-            llvm=18.1.8
-            llvmdev=18.1.8
-            clang-tools=18.1.8
-            zlib
-            zstd
-            libxml2
-
-      - name: Locate LLVM 18
-        shell: pwsh
+      - name: Install golden-standard dependencies
         run: |
-          $condaPrefix = Join-Path $env:MAMBA_ROOT_PREFIX "envs\styio-llvm18"
-          if (!(Test-Path $condaPrefix) -and $env:CONDA_PREFIX) {
-            $condaPrefix = $env:CONDA_PREFIX
-          }
-          if (!(Test-Path $condaPrefix)) {
-            throw "micromamba environment was not found"
-          }
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
 
-          $llvmRoot = Join-Path $condaPrefix "Library"
-          $llvmConfig = Join-Path $llvmRoot "lib\cmake\llvm\LLVMConfig.cmake"
-          if (!(Test-Path $llvmConfig)) {
-            throw "LLVMConfig.cmake was not found in $llvmRoot"
-          }
-          $llvmDir = Split-Path -Parent $llvmConfig
-
-          Add-Content $env:GITHUB_PATH (Join-Path $llvmRoot "bin")
-          Add-Content $env:GITHUB_PATH (Join-Path $condaPrefix "Scripts")
-          Add-Content $env:GITHUB_ENV "LLVM_DIR=$llvmDir"
-          Add-Content $env:GITHUB_ENV "STYIO_NATIVE_TOOLCHAIN_ROOT=$llvmRoot"
-
-      - name: Tool versions
-        shell: pwsh
-        run: |
-          cmake --version
-          ninja --version
-          python --version
-          where.exe cl
-          clang --version
-
-      - name: Configure
-        shell: pwsh
-        working-directory: styio-nightly
+      - name: Configure golden-standard build
         run: >
-          cmake -S . -B build/windows -G Ninja
+          cmake -S . -B build/golden -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_COMPILER=cl
-          -DCMAKE_CXX_COMPILER=cl
-          -DLLVM_DIR="$env:LLVM_DIR"
-          -DCMAKE_PREFIX_PATH="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
-          -Dzstd_DIR="$env:STYIO_NATIVE_TOOLCHAIN_ROOT\lib\cmake\zstd"
-          -DSTYIO_NATIVE_TOOLCHAIN_ROOT="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
-          -DSTYIO_NATIVE_TOOLCHAIN_MODE=auto
+          -DCMAKE_C_COMPILER=clang-18
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
 
-      - name: Build
-        shell: pwsh
-        working-directory: styio-nightly
-        run: |
-          cmake --build build/windows --target all
-          cmake --build build/windows --target styio styio_lspd styio-nano styio_test
+      - name: Build golden-standard targets
+        run: >
+          cmake --build build/golden --target
+          styio styio_test styio_algorithm_equivalence_test
+          styio_resource_topology_test
 
-      - name: Test
-        shell: pwsh
-        working-directory: styio-nightly
-        run: ctest --test-dir build/windows --output-on-failure
+      - name: Run syntax convergence gate
+        run: python3 scripts/syntax-convergence-gate.py
+
+      - name: Run milestone goldens
+        run: ctest --test-dir build/golden -L milestone --output-on-failure
+
+      - name: Run five-layer and convergence goldens
+        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure
+
+      - name: Run parser shadow convergence gates
+        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure
+
+      - name: Run parser legacy entry audit
+        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure

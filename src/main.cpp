@@ -1063,6 +1063,19 @@ styio_file_uri_to_path_latest(const std::string& ref) {
     return ref;
   }
   std::string path_text = ref.substr(std::string("file://").size());
+#ifdef _WIN32
+  if (path_text.size() >= 2
+      && std::isalpha(static_cast<unsigned char>(path_text[0]))
+      && path_text[1] == ':') {
+    return path_text;
+  }
+  if (path_text.size() >= 3
+      && (path_text[0] == '/' || path_text[0] == '\\')
+      && std::isalpha(static_cast<unsigned char>(path_text[1]))
+      && path_text[2] == ':') {
+    return path_text.substr(1);
+  }
+#endif
   if (!path_text.empty() && path_text[0] != '/') {
     path_text = "/" + path_text;
   }
@@ -1936,7 +1949,12 @@ styio_nano_repository_package_leaf_latest(const std::string& package_name) {
 static std::string
 styio_normalize_nano_registry_root_latest(const std::string& raw_root) {
   std::string value = raw_root;
-  while (!value.empty() && value.back() == '/') {
+  while (!value.empty() && (value.back() == '/' || value.back() == '\\')) {
+    if (value.size() == 3
+        && std::isalpha(static_cast<unsigned char>(value[0]))
+        && value[1] == ':') {
+      break;
+    }
     value.pop_back();
   }
   if (value.empty()) {
@@ -2423,6 +2441,16 @@ styio_write_nano_package_cmakelists_latest(
   }
 
   std::ostringstream cmake;
+  const std::string nano_binary_filename = styio_nano_binary_filename_latest();
+  std::string nano_output_name = nano_binary_filename;
+  constexpr std::string_view kWindowsExeSuffix = ".exe";
+  if (nano_output_name.size() > kWindowsExeSuffix.size()
+      && nano_output_name.compare(
+           nano_output_name.size() - kWindowsExeSuffix.size(),
+           kWindowsExeSuffix.size(),
+           kWindowsExeSuffix) == 0) {
+    nano_output_name.resize(nano_output_name.size() - kWindowsExeSuffix.size());
+  }
   cmake << "cmake_minimum_required(VERSION 3.20)\n";
   cmake << "project(styio_nano_subset VERSION " << STYIO_PROJECT_VERSION << ")\n\n";
   cmake << "set(CMAKE_CXX_STANDARD 20)\n";
@@ -2456,6 +2484,30 @@ styio_write_nano_package_cmakelists_latest(
   cmake << "if(NOT DEFINED LLVM_DIR OR LLVM_DIR STREQUAL \"\")\n";
   cmake << "  set(LLVM_DIR \"" << STYIO_LLVM_DIR << "\")\n";
   cmake << "endif()\n";
+  cmake << "get_filename_component(STYIO_NANO_LLVM_CMAKE_DIR \"${LLVM_DIR}\" ABSOLUTE)\n";
+  cmake << "get_filename_component(STYIO_NANO_LLVM_CMAKE_PARENT \"${STYIO_NANO_LLVM_CMAKE_DIR}\" DIRECTORY)\n";
+  cmake << "get_filename_component(STYIO_NANO_LLVM_LIB_DIR \"${STYIO_NANO_LLVM_CMAKE_PARENT}\" DIRECTORY)\n";
+  cmake << "get_filename_component(STYIO_NANO_LLVM_PREFIX \"${STYIO_NANO_LLVM_LIB_DIR}\" DIRECTORY)\n";
+  cmake << "list(PREPEND CMAKE_PREFIX_PATH \"${STYIO_NANO_LLVM_PREFIX}\")\n";
+  cmake << "find_package(ZLIB QUIET)\n";
+  cmake << "find_package(zstd CONFIG QUIET)\n";
+  cmake << "find_package(LibXml2 QUIET)\n";
+  cmake << "if(MSVC AND \"$ENV{VSINSTALLDIR}\" STREQUAL \"\")\n";
+  cmake << "  set(_styio_vs_roots)\n";
+  cmake << "  if(DEFINED CMAKE_GENERATOR_INSTANCE)\n";
+  cmake << "    list(APPEND _styio_vs_roots \"${CMAKE_GENERATOR_INSTANCE}\")\n";
+  cmake << "  endif()\n";
+  cmake << "  list(APPEND _styio_vs_roots\n";
+  cmake << "    \"C:/Program Files/Microsoft Visual Studio/2022/Community\"\n";
+  cmake << "    \"C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools\"\n";
+  cmake << "  )\n";
+  cmake << "  foreach(_styio_vs_root IN LISTS _styio_vs_roots)\n";
+  cmake << "    if(EXISTS \"${_styio_vs_root}/DIA SDK/lib/amd64/diaguids.lib\")\n";
+  cmake << "      set(ENV{VSINSTALLDIR} \"${_styio_vs_root}\")\n";
+  cmake << "      break()\n";
+  cmake << "    endif()\n";
+  cmake << "  endforeach()\n";
+  cmake << "endif()\n";
   cmake << "find_package(LLVM 18.1.0 REQUIRED CONFIG)\n";
   cmake << "separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})\n";
   cmake << "find_library(STYIO_NANO_LLVM_MONOLITHIC NAMES LLVM libLLVM HINTS ${LLVM_LIBRARY_DIRS})\n";
@@ -2472,7 +2524,7 @@ styio_write_nano_package_cmakelists_latest(
   }
   cmake << ")\n\n";
   cmake << "add_executable(styio_nano ${STYIO_NANO_CPP_SOURCES})\n";
-  cmake << "set_target_properties(styio_nano PROPERTIES OUTPUT_NAME \"" << styio_nano_binary_filename_latest() << "\")\n";
+  cmake << "set_target_properties(styio_nano PROPERTIES OUTPUT_NAME \"" << nano_output_name << "\")\n";
   cmake << "target_include_directories(styio_nano PUBLIC \"${CMAKE_SOURCE_DIR}/src\" \"${CMAKE_BINARY_DIR}/generated\")\n";
   cmake << "if(MSVC)\n";
   cmake << "  target_compile_options(styio_nano PRIVATE /utf-8)\n";
@@ -2492,7 +2544,7 @@ styio_write_nano_package_cmakelists_latest(
   cmake << "if(CMAKE_CXX_COMPILER_ID MATCHES \"Clang|GNU|AppleClang\" AND NOT MSVC)\n";
   cmake << "  target_compile_options(styio_nano PRIVATE -Os)\n";
   cmake << "elseif(MSVC)\n";
-  cmake << "  target_compile_options(styio_nano PRIVATE /O1)\n";
+  cmake << "  target_compile_options(styio_nano PRIVATE \"$<$<NOT:$<CONFIG:Debug>>:/O1>\")\n";
   cmake << "endif()\n\n";
   cmake << "if(STYIO_USE_ICU)\n";
   cmake << "  find_package(ICU COMPONENTS uc i18n REQUIRED)\n";

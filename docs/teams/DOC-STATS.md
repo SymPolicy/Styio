@@ -2,7 +2,7 @@
 
 **Purpose:** Record the current size of each `docs/teams/` runbook using the repository-local `scripts/docs-audit.py` word-count and character-count rules; this is a maintenance snapshot, not a quality target.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-04
 
 ## Counting Method
 
@@ -14,7 +14,6 @@ The numbers below use the same approximation as `scripts/docs-audit.py`:
 4. `character_count` is the raw Markdown character length.
 
 This table excludes generated [INDEX.md](./INDEX.md), collection [README.md](./README.md), and this statistics file from the team-runbook total.
-Refresh this snapshot in the same commit whenever a team runbook changes, even if adjacent commits already staged related statistics.
 
 Refresh command:
 
@@ -26,22 +25,22 @@ python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio
 
 | Team | Document | Word count | Character count |
 |------|----------|------------|-----------------|
-| CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | 3,911 | 19,008 |
-| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 5,029 | 24,457 |
-| Coordination | [COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) | 2,029 | 7,587 |
-| Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 9,872 | 47,774 |
-| Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 5,301 | 23,061 |
-| Grammar | [GRAMMAR-RUNBOOK.md](./GRAMMAR-RUNBOOK.md) | 933 | 3,774 |
-| IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | 1,789 | 8,262 |
-| Performance / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | 2,530 | 11,248 |
-| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 7,363 | 34,675 |
-| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 9,050 | 45,347 |
-| **Total** | Team runbooks only | **47,807** | **225,193** |
+| CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | 1,764 | 7,960 |
+| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 1,821 | 8,335 |
+| Coordination | [COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) | 2,005 | 7,538 |
+| Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 3,288 | 15,205 |
+| Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 2,536 | 11,012 |
+| Grammar | [GRAMMAR-RUNBOOK.md](./GRAMMAR-RUNBOOK.md) | 841 | 3,371 |
+| IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | 1,183 | 5,069 |
+| Performance / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | 1,925 | 8,309 |
+| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 2,160 | 9,987 |
+| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 2,498 | 11,612 |
+| **Total** | Team runbooks only | **20,021** | **88,398** |
 
 ## Support File Size
 
 | Document | Word count | Character count |
 |----------|------------|-----------------|
-| [README.md](./README.md) | 599 | 2,295 |
+| [README.md](./README.md) | 595 | 2,307 |
 
 Support files are not counted as team-owned runbooks. Their main purpose is collection maintenance and generated inventory navigation.
