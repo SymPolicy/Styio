@@ -545,6 +545,32 @@ TEST(StyioSyntaxParser, UsesTreeSitterBackendWhenAvailable) {
   EXPECT_TRUE(syntax.diagnostics.empty());
 }
 
+TEST(StyioSyntaxParser, VariableLengthContinueTokenStaysSingleIteratorToken) {
+  styio::ide::SyntaxParser parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.file_id = 2;
+  snapshot.snapshot_id = 1;
+  snapshot.path = "memory://long_continue.styio";
+  snapshot.version = 1;
+  snapshot.buffer = styio::ide::TextBuffer{
+    "[1] >> #(i) => {\n"
+    "  >>>>\n"
+    "}\n"};
+
+  const auto syntax = parser.parse(snapshot);
+  const auto it = std::find_if(
+    syntax.tokens.begin(),
+    syntax.tokens.end(),
+    [](const styio::ide::SyntaxToken& token)
+    {
+      return token.lexeme == ">>>>";
+    });
+
+  ASSERT_NE(it, syntax.tokens.end());
+  EXPECT_EQ(it->type, StyioTokenType::ITERATOR);
+  EXPECT_EQ(it->range.length(), 4u);
+}
+
 TEST(StyioSyntaxParser, ReusesIncrementalTreeForSubsequentParses) {
   styio::ide::SyntaxParser parser;
 

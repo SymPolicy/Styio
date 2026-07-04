@@ -50,6 +50,7 @@ Related docs:
 20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
 22. Native interop platform compatibility belongs with runtime ownership: keep dynamic-library load/unload/symbol lookup paths portable across `dlopen` and Windows `LoadLibrary`, and pair loader changes with the smallest native interop or LSP build smoke that exercises the affected binary.
+23. Standalone continue codegen targets the innermost active loop. Do not reintroduce multi-depth continue dispatch in LLVM emission unless Sema and IR grow a new explicit continuation-domain contract first.
 
 ## Change Classes
 

@@ -1010,7 +1010,7 @@ TEST(StyioIRContract, AstLeafAccessorsCoverDeclarationAndLiteralEdges) {
   }
   {
     std::unique_ptr<BlockAST> block(BlockAST::Create({PassAST::Create()}));
-    block->set_followings({ContinueAST::Create(2)});
+    block->set_followings({ContinueAST::Create()});
     EXPECT_EQ(block->getNodeType(), StyioNodeType::Block);
     EXPECT_EQ(block->getDataType().option, StyioDataTypeOption::Undefined);
     ASSERT_EQ(block->stmts.size(), 1u);
@@ -4205,7 +4205,7 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
       ResourceRefAST::Create(NameAST::Create("whole_resource")),
       ResourceReceiverAST::Create("stream"),
       BreakAST::Create(2),
-      ContinueAST::Create(3),
+      ContinueAST::Create(),
       ReturnAST::Create(IntAST::Create("1")),
     });
     body->set_followings({PassAST::Create()});
@@ -5791,6 +5791,13 @@ TEST(StyioSecurityParserContext, CoversLegacyStatementCodpIteratorAndReadFileHel
   }
   {
     DirectParserContext ctx(">>");
+    std::unique_ptr<StyioAST> stmt(parse_stmt_or_expr_legacy(ctx.get()));
+    auto* cont = dynamic_cast<ContinueAST*>(stmt.get());
+    ASSERT_NE(cont, nullptr);
+    EXPECT_EQ(cont->getNodeType(), StyioNodeType::Continue);
+  }
+  {
+    DirectParserContext ctx(">>>>");
     std::unique_ptr<StyioAST> stmt(parse_stmt_or_expr_legacy(ctx.get()));
     auto* cont = dynamic_cast<ContinueAST*>(stmt.get());
     ASSERT_NE(cont, nullptr);
@@ -7412,6 +7419,7 @@ TEST(StyioTokenizerContract, AllPrefixConflictsResolve) {
     {">_", StyioTokenType::PRINT, ">_"},
     {">>", StyioTokenType::ITERATOR, ">>"},
     {">>>", StyioTokenType::ITERATOR, ">>>"},
+    {">>>>", StyioTokenType::ITERATOR, ">>>>"},
     {"*", StyioTokenType::TOK_STAR, "*"},
     {"**", StyioTokenType::BINOP_POW, "**"},
     {"*=", StyioTokenType::COMPOUND_MUL, "*="},
@@ -8079,6 +8087,22 @@ TEST(StyioSecurityNightlyCodegen, ContinueRunsFileScopeCleanupBeforeLoopStepBran
   }
   EXPECT_NE(branch_pos, std::string::npos) << llvm_ir;
   EXPECT_LT(close_pos, branch_pos);
+}
+
+TEST(StyioSecurityNightlyCodegen, LongStandaloneContinueNormalizesToNearestLoop) {
+  const std::string src =
+    "[0..2] >> #(i) => {\n"
+    "  [0..2] >> #(j) => {\n"
+    "    >>>>\n"
+    "    >_(\"skipped\")\n"
+    "  }\n"
+    "}\n";
+
+  EXPECT_NO_THROW({
+    const std::string llvm_ir =
+      compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+    EXPECT_NE(llvm_ir.find("br label %foreach_step"), std::string::npos) << llvm_ir;
+  });
 }
 
 TEST(StyioSecurityNightlyCodegen, RejectsBreakAndContinueOutsideLoop) {

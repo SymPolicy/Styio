@@ -194,8 +194,12 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
       continue;
     }
     if (maybe_two(">>")) {
-      push(StyioTokenType::ITERATOR, ">>");
-      i += 2;
+      std::size_t end = i + 2;
+      while (end < text.size() && text[end] == '>') {
+        end += 1;
+      }
+      push(StyioTokenType::ITERATOR, std::string(text.substr(i, end - i)));
+      i = end;
       continue;
     }
     if (maybe_two(">=")) {

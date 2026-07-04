@@ -1877,7 +1877,8 @@ class StateExprCloneVisitor
   }
 
   StyioAST* clone(ContinueAST* expr) {
-    return ContinueAST::Create(expr->getDepth());
+    (void)expr;
+    return ContinueAST::Create();
   }
 
   StyioAST* clone(BlockAST* expr) {
@@ -3745,7 +3746,8 @@ AstToStyioIRLowerer::toStyioIR(BreakAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ContinueAST* ast) {
-  return SGContinue::Create(ast->getDepth());
+  (void)ast;
+  return SGContinue::Create();
 }
 
 StyioIR*

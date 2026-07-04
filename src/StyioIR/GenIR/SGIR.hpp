@@ -882,14 +882,11 @@ public:
 class SGContinue : public StyioIRTraits<SGContinue>
 {
 public:
-  unsigned depth = 1;
-
-  explicit SGContinue(unsigned d) :
-      depth(d) {
+  SGContinue() {
   }
 
-  static SGContinue* Create(unsigned d = 1) {
-    return styio::session_alloc::make_ir<SGContinue>(d);
+  static SGContinue* Create() {
+    return styio::session_alloc::make_ir<SGContinue>();
   }
 };
 

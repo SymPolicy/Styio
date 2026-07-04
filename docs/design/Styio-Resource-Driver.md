@@ -31,8 +31,8 @@ Every driver instance passes through exactly three phases:
 
 | Phase | Trigger | Responsibility |
 |-------|---------|----------------|
-| **Subscribe** | `<-` handle acquisition or `>>` pipeline start | Establish physical connection, validate schema, report capabilities |
-| **Pump** | Continuous, driven by data source or consumer demand | Push new data ticks into Styio pipeline, or receive data from `<<`/`->` writes |
+| **Subscribe** | `<-` handle acquisition or `>>` iterative pulse subscription | Establish physical connection, validate schema, report capabilities |
+| **Pump** | Continuous, driven by data source or consumer demand | Push new data ticks one at a time into the Styio pulse pipeline, or receive data from `<<`/`->` writes |
 | **Release** | Scope exit, `^^` break, program termination | Flush buffers, close connections, release file descriptors |
 
 ---
@@ -188,7 +188,7 @@ Some drivers support both `>>` and `<<`:
 
 ```
 db <- @mysql("localhost:3306/trades")
-db >> #(row) => { ... }        // read
+db >> #(row) => { ... }        // iterate rows/ticks one pulse at a time
 "new_row_data" << db           // write
 ```
 

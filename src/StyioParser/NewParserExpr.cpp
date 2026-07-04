@@ -2543,10 +2543,8 @@ parse_break_nightly(StyioContext& context) {
 
 ContinueAST*
 parse_continue_nightly(StyioContext& context) {
-  size_t n = context.curLexeme().size();
-  unsigned depth = static_cast<unsigned>(n > 1 ? n - 1 : 1);
   context.move_forward(1, "new_stmt:continue");
-  return ContinueAST::Create(depth);
+  return ContinueAST::Create();
 }
 
 PassAST*

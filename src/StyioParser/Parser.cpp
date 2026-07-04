@@ -5675,10 +5675,8 @@ parse_stmt_or_expr_legacy(
     } break;
 
     case StyioTokenType::ITERATOR: {
-      size_t n = context.curTextString().size();
-      unsigned depth = static_cast<unsigned>(n > 1 ? n - 1 : 1);
       context.move_forward(1, "continue>>");
-      return ContinueAST::Create(depth);
+      return ContinueAST::Create();
     } break;
 
     /* ( */

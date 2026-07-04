@@ -27,7 +27,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics | Example |
 |--------|------|----------------|-----------|---------|
-| `>>` | Pipe / Iterate / Resource-Write Shorthand | `TOK_PIPE` | **Before iterator tail:** push pulse from source into consumer and enter a block-entry snapshot when the consumer is a block. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, or `@stderr`:** iterable text serialization only; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only for data flow. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
+| `>>` | Pipe / Iterate / Resource-Write Shorthand | `ITERATOR` | **Before iterator tail:** treat the left side as an iterable or pulse source, advance it one item at a time, and push each item as a pulse into the right-side channel/consumer; enter a block-entry snapshot when the consumer is a block. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, or `@stderr`:** iterable text serialization only, one item per pulse; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only for data flow. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
 | `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block and enter a task snapshot context. **Before `[`:** launch independent task blocks and bind each entry name to a task handle; each entry block is its own snapshot/commit stage. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
 | `?\|` | Resource Eval / Await / Freeze | `AWAIT_PIPE` | **Before resource operation:** settle the resource effect at that source site; without fallback, failure raises immediately; with `\| fallback`, recovery enters normal type inference; with `\| effect => handler`, only the named typed effect is handled. Handler chains are allowed. `\| ...` is an audited discard only for standalone statements: it settles the resource operation, discards business recovery, produces no value, and continues with the next statement. `\| effect => @()` is rejected because `@()` is a resource sink, not an executable empty action. **With task source:** await or pull a task/future handle into a newly declared typed local through the same effect-evaluation rule. **Without source:** reserved bare continuation freeze; parsed but fail-closed until continuation lowering lands. | `?\| @("log.txt").close()`, `?\| res -> msg_queue \| backpressure => do_something()`, `?\| res -> msg_queue \| ...`, `?\| close_log() \| cleanup_failure => report_cleanup()`, `?\| job -> value: i64`, `?\| job -> value: i64 \| 0`, `?\| -> input: i64` |
 | `->` | Forward / Redirect / Resource Sink | `TOK_ARROW_RIGHT` | Redirect data to a physical destination or flow a produced value into a named resource sink | `ma5 -> @database(...)`, `price -> @prices` |
@@ -76,7 +76,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **As an expression:** `?(expr) => value \| fallback`. **As a statement:** `?(expr) => { ... }` with optional fallback `\| { ... }`; block branches follow block-entry snapshot/commit semantics. **After `[...] >>`:** `?(expr) =>` → conditioned loop (`InfiniteLoopAST`). |
 | `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body; when the result is a block, it creates a snapshot/commit block stage |
 | `^` ... `^^^^` | Break | `BREAK_TOKEN` | Exit the nearest enclosing loop; count is normalized to 1 |
-| `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN(n)` | Skip to next iteration, `n-1` levels up |
+| `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN` | Standalone statement only. Skip the rest of the current block for this pulse/session and resume at the next pulse/session of the nearest continue-capable domain; token length is ignored. |
 | `[...]` | Infinite Generator / All Selector | `[` + dot run + `]` | Without a left side, produces an infinite pulse stream. After a value/resource, selects all currently enumerable values. |
 | `&` | Stream Zip | `TOK_AMPERSAND` | Align two streams (both must deliver) |
 
@@ -155,8 +155,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |
 | `>>` after expr, before `#`/`{`/ident | Pipe operator |
-| `>>` as standalone statement | Continue (1 level) |
-| `>>>` standalone | Continue (2 levels) |
+| `>>`, `>>>`, `>>>>`, ... as standalone statement | Continue; token length is ignored |
 | Retired history-probe selector family inside brackets | Use `@name[-1]`, `@name[-3..]`, or `@name[...]` |
 | `list[T]` in type position | Type argument list |
 | `x[i]` / `x[a..b]` after indexable value | Index or slice selector |
@@ -198,5 +197,5 @@ TOK_DOLLAR_STRING,   // $"..."
 TOK_DBQUESTION,      // ??
 TOK_AMPERSAND,       // & (stream zip)
 TOK_BREAK,           // ^...^ normalized to nearest-loop break
-TOK_CONTINUE(int n), // >>...> with depth
+TOK_CONTINUE,        // >>...> standalone continue; count ignored
 ```
