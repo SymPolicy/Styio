@@ -137,6 +137,19 @@ run_stdout_command(const std::string& cmd) {
 
 std::string
 shell_quote_latest(const std::string& value) {
+#ifdef _WIN32
+  std::string quoted = "\"";
+  for (const char ch : value) {
+    if (ch == '"') {
+      quoted += "\\\"";
+    }
+    else {
+      quoted.push_back(ch);
+    }
+  }
+  quoted += "\"";
+  return quoted;
+#else
   std::string quoted = "'";
   for (const char ch : value) {
     if (ch == '\'') {
@@ -148,6 +161,7 @@ shell_quote_latest(const std::string& value) {
   }
   quoted += "'";
   return quoted;
+#endif
 }
 
 std::string
@@ -2060,12 +2074,12 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-missing\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
@@ -2140,7 +2154,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"ship\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
@@ -2211,7 +2225,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
@@ -2998,7 +3012,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
@@ -3009,8 +3023,8 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
-      << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
+      << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -3058,19 +3072,19 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-relative-artifact-dir\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"artifacts\", \"diag_dir\": \""
-      << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"artifacts\", \"diag_dir\": \""
+      << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -4446,9 +4460,16 @@ TEST(StyioFeatureCorpus, NightlyExecutesStablePositiveDesignSamples) {
     SCOPED_TRACE(sample);
     const fs::path input = source_root / sample;
     ASSERT_TRUE(fs::exists(input));
-    const CommandResult result =
-      run_stdout_command(runner_cmd + " --parser-engine=nightly --file "
-                         + shell_quote_latest(input.string()) + " 2>&1");
+    const std::string cmd =
+#ifdef _WIN32
+      windows_popen_command_latest(
+        runner,
+        "--parser-engine=nightly --file " + windows_cmd_quote_latest(input.string()));
+#else
+      runner_cmd + " --parser-engine=nightly --file "
+      + shell_quote_latest(input.string()) + " 2>&1";
+#endif
+    const CommandResult result = run_stdout_command(cmd);
     EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   }
 }
@@ -6551,7 +6572,14 @@ TEST(StyioParserEngine, RangeLiteralIteratesInclusivelyAndIgnoresDotCount) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      "--parser-engine=nightly --file " + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -6584,7 +6612,14 @@ TEST(StyioParserEngine, RangeLiteralExpressionBoundsMaterializeList) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      "--parser-engine=nightly --file " + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -13206,6 +13241,7 @@ TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
     out << "}\n";
     out << "# stmt_tail := () => {\n";
     out << "  x = 7\n";
+    out << "  <| 0\n";
     out << "}\n";
     out << ">_(fib(6))\n";
     out << ">_(block_tail(4))\n";
@@ -13223,7 +13259,14 @@ TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      "--parser-engine=nightly --file " + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --parser-engine=nightly --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);

@@ -345,7 +345,7 @@ parse_compile_plan(
   if (!json_require_string(*entry, "package_id", out_request.entry_package_id, error_message, "entry.package_id")
       || !json_require_string(*entry, "target_kind", out_request.entry_target_kind, error_message, "entry.target_kind")
       || !json_require_string(*entry, "target_name", out_request.entry_target_name, error_message, "entry.target_name")
-      || !compile_plan_require_absolute_path(*entry, "file", out_request.entry_file, error_message, "entry.file")) {
+      || !compile_plan_require_absolute_path(*entry, "file", out_request.entry_file, error_message)) {
     return false;
   }
   if (!(out_request.entry_target_kind == "lib"
@@ -368,8 +368,7 @@ parse_compile_plan(
         *outputs,
         "artifact_dir",
         out_request.artifact_dir,
-        error_message,
-        "outputs.artifact_dir")
+        error_message)
       || !compile_plan_require_absolute_path(
         *outputs,
         "diag_dir",

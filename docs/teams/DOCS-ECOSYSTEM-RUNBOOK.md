@@ -96,6 +96,7 @@ Key SSOTs:
 61. Track valid generated-index support files and installed shared assets even when broad ignore patterns match their directories. When `docs/plan/reports/` or `share/styio/prelude/` files become required by docs audit, install layout, or source-build metadata, force-track the owned files and refresh `DOC-STATS.md` in the same change.
 62. When `>>` language docs distinguish pulse transfer from standalone continue, keep EBNF, language design, active syntax, resource docs, symbol reference, rollups, agent specs, examples, and the owning implementation runbooks aligned in the same checkpoint.
 63. When writable-resource iterable writes change between whole-value serialization and per-item pulse emission, keep resource identifier docs, EBNF, language design, active syntax, symbol reference, handle capability wording, Sema / IR ownership, and security evidence aligned in the same checkpoint.
+64. Keep `docs/design/syntax/SYNTAX-CONVERGENCE-MATRIX.json` aligned with the current feature-test layout. The matrix and `scripts/syntax-convergence-gate.py` are durable gate inputs, so do not point them back at deleted milestone paths or archived syntax drafts.
 
 ## Change Classes
 

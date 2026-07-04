@@ -1120,6 +1120,7 @@ lower_cases_with_scrutinee(
   const StyioDataType* inferred_type = nullptr
 ) {
   SGMatchReprKind rk = classify_cases(c, inferred_type);
+  const bool implicit_tail_value = rk != SGMatchReprKind::Stmt;
   std::vector<std::pair<std::int64_t, SGBlock*>> arms;
   for (auto const& pr : c->case_list) {
     std::optional<std::int64_t> arm_value =
@@ -1127,11 +1128,11 @@ lower_cases_with_scrutinee(
     if (!arm_value.has_value()) {
       throw StyioTypeError("match arms need integer literal patterns in this language feature");
     }
-    arms.push_back({*arm_value, lower_func_body(an, pr.second, true)});
+    arms.push_back({*arm_value, lower_func_body(an, pr.second, implicit_tail_value)});
   }
   SGBlock* def = nullptr;
   if (c->case_default) {
-    def = lower_func_body(an, c->case_default, true);
+    def = lower_func_body(an, c->case_default, implicit_tail_value);
   }
   return SGMatch::Create(scrutinee_ir, std::move(arms), def, rk);
 }
