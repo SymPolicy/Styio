@@ -1,6 +1,28 @@
 include(GoogleTest)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+set(STYIO_BENCHMARK_RUNTIME_PATH_MODS)
+macro(styio_add_benchmark_runtime_path path)
+  if(NOT "${path}" STREQUAL "")
+    list(APPEND STYIO_BENCHMARK_RUNTIME_PATH_MODS "PATH=path_list_prepend:${path}")
+  endif()
+endmacro()
+
+styio_add_benchmark_runtime_path("$<TARGET_FILE_DIR:styio>")
+if(DEFINED LLVM_TOOLS_BINARY_DIR)
+  styio_add_benchmark_runtime_path("${LLVM_TOOLS_BINARY_DIR}")
+endif()
+if(DEFINED LLVM_BINARY_DIR)
+  styio_add_benchmark_runtime_path("${LLVM_BINARY_DIR}")
+endif()
+if(DEFINED LLVM_DIR)
+  get_filename_component(_styio_bench_llvm_cmake_dir "${LLVM_DIR}" ABSOLUTE)
+  get_filename_component(_styio_bench_llvm_lib_dir "${_styio_bench_llvm_cmake_dir}/../.." ABSOLUTE)
+  get_filename_component(_styio_bench_llvm_prefix "${_styio_bench_llvm_lib_dir}/.." ABSOLUTE)
+  styio_add_benchmark_runtime_path("${_styio_bench_llvm_prefix}/bin")
+endif()
+list(JOIN STYIO_BENCHMARK_RUNTIME_PATH_MODS "\\;" STYIO_BENCHMARK_RUNTIME_PATH_MODS_ESCAPED)
+
 # In-repo core benchmark binary (TASK-00).
 add_subdirectory(internal)
 
@@ -24,6 +46,7 @@ add_test(
 )
 set_tests_properties(styio_core_benchmark_smoke PROPERTIES
   LABELS "benchmark;performance;core_smoke"
+  ENVIRONMENT_MODIFICATION "${STYIO_BENCHMARK_RUNTIME_PATH_MODS}"
 )
 
 function(styio_resolve_benchmark_root out_var)

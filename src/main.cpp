@@ -4843,6 +4843,8 @@ styio_native_build_link_argv_latest(
       "/std:c++20",
       "/O2",
       "/DNDEBUG",
+      "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+      "/D_CRT_SECURE_NO_WARNINGS",
       native_ir_path.string(),
       wrapper_path.string(),
     };
@@ -4864,6 +4866,10 @@ styio_native_build_link_argv_latest(
     "-O3",
     "-DNDEBUG",
     "-Wno-override-module",
+#if defined(_WIN32)
+    "-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+    "-D_CRT_SECURE_NO_WARNINGS",
+#endif
     native_ir_path.string(),
     wrapper_path.string(),
   };

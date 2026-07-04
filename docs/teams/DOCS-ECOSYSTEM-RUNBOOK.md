@@ -97,6 +97,8 @@ Key SSOTs:
 62. When `>>` language docs distinguish pulse transfer from standalone continue, keep EBNF, language design, active syntax, resource docs, symbol reference, rollups, agent specs, examples, and the owning implementation runbooks aligned in the same checkpoint.
 63. When writable-resource iterable writes change between whole-value serialization and per-item pulse emission, keep resource identifier docs, EBNF, language design, active syntax, symbol reference, handle capability wording, Sema / IR ownership, and security evidence aligned in the same checkpoint.
 64. Keep `docs/design/syntax/SYNTAX-CONVERGENCE-MATRIX.json` aligned with the current feature-test layout. The matrix and `scripts/syntax-convergence-gate.py` are durable gate inputs, so do not point them back at deleted milestone paths or archived syntax drafts.
+65. Callable binding docs must teach the unified binding model consistently across active syntax, EBNF, language design, symbol reference, and the convergence matrix: `=` is mutable, `:=` is final, `#` marks a callable/operation-channel binding, and direct resource atoms such as `# sink = @stdout` stay invalid because resources remain in the visible `@` family.
+66. Range docs must keep naked `start..end` as the expression-level range form, bracketed `[start..end]` as the canonical materialized range source, and `[start..end..step]` as reserved/non-active wording across active syntax, EBNF, language design, symbol reference, examples, test catalog, and editor grammar notes.
 
 ## Change Classes
 

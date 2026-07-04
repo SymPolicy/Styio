@@ -17,6 +17,7 @@
 2. Error-node detection and additional syntax diagnostics
 3. Folding-oriented structural ranges
 4. Incremental tree reuse for repeated parses of the same file path
+5. Edit-time distinction between `range_expr` (`start..end`) and `materialized_range` (`[start..end]`); reserved step ranges still rely on the nightly compiler parser for authoritative rejection.
 
 ## What It Does Not Own
 

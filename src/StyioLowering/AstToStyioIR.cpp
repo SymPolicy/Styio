@@ -4818,6 +4818,16 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
 
   for (auto stmt : ast->getStmts()) {
     set_post_pulse_hist_context(pending_region, pending_plan);
+    if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
+      if (find_function_def(f->func_name->getSymbolId(), f->getNameAsStr()) != f) {
+        continue;
+      }
+    }
+    if (auto* sf = dynamic_cast<SimpleFuncAST*>(stmt)) {
+      if (find_function_def(sf->func_name->getSymbolId(), sf->func_name->getAsStr()) != sf) {
+        continue;
+      }
+    }
     StyioIR* ir = stmt->toStyioIR(this);
     if (auto* fe = dynamic_cast<SGForEach*>(ir)) {
       if (fe->pulse_plan && fe->pulse_plan->total_bytes > 0) {

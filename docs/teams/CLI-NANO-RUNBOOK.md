@@ -56,6 +56,7 @@ Key handoff document:
 24. Keep generated nano CMake portable across upstream-supported hosts: preserve Windows `file://` drive handling, do not emit `.exe` inside CMake `OUTPUT_NAME`, derive LLVM dependency roots from `LLVM_DIR`, and guard MSVC size flags so Debug builds remain debuggable.
 25. When generated nano CMake needs Windows toolchain discovery paths, derive them from CMake inputs or process environment variables instead of emitting machine-specific absolute roots in `src/main.cpp`.
 26. Compile-plan validation diagnostics must keep service-facing field names stable. Relative `entry.file` reports `file`, relative `outputs.artifact_dir` reports `artifact_dir`, and `outputs.diag_dir` keeps the fully qualified field because invalid diagnostics sinks cannot be written safely.
+27. Windows `styio build` native executable linking must keep LLVM 18 viable with newer MSVC STL headers by emitting the established compiler/STL compatibility define and CRT warning define through the generated Clang command. Do not solve this in CTest with a machine-specific Visual Studio path.
 
 ## Change Classes
 

@@ -5,6 +5,7 @@ module.exports = grammar({
   word: ($) => $.identifier,
   conflicts: ($) => [
     [$.param, $._expr],
+    [$._expr, $._range_bound_expr],
   ],
 
   rules: {
@@ -78,12 +79,13 @@ module.exports = grammar({
         $.call_expr,
         $.attr_expr,
         $.list_expr,
+        $.range_expr,
         $.resource_expr,
         $.paren_expr
       ),
 
     binary_expr: ($) =>
-      prec.left(1, seq(
+      prec.left(2, seq(
         field("left", $._expr),
         field("operator", choice("+", "-", "*", "/", "%", "==", "!=", ">=", "<=", ">", "<", "&&", "||")),
         field("right", $._expr)
@@ -92,7 +94,27 @@ module.exports = grammar({
     call_expr: ($) => prec.left(3, seq(field("callee", $.identifier), $.arg_list)),
     arg_list: ($) => seq("(", optional(seq($._expr, repeat(seq(",", $._expr)))), ")"),
     attr_expr: ($) => prec.left(4, seq($._expr, ".", $.identifier)),
-    list_expr: ($) => seq("[", optional(seq($._expr, repeat(seq(",", $._expr)))), "]"),
+    list_expr: ($) =>
+      choice(
+        $.materialized_range,
+        $.list_literal
+      ),
+    list_literal: ($) => prec(1, seq("[", optional(seq($._expr, repeat(seq(",", $._expr)))), "]")),
+    materialized_range: ($) => prec(2, seq("[", field("range", $.range_expr), "]")),
+    range_expr: ($) => prec.left(1, seq(
+      field("start", $._range_bound_expr),
+      "..",
+      field("end", $._range_bound_expr)
+    )),
+    _range_bound_expr: ($) =>
+      choice(
+        $.binary_expr,
+        $.identifier,
+        $.number,
+        $.call_expr,
+        $.attr_expr,
+        $.paren_expr
+      ),
     resource_expr: ($) =>
       choice(
         prec.right(2, seq("@", $.identifier, $.block)),

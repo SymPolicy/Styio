@@ -66,6 +66,11 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `[max, n]` | Rolling Maximum | Postfix on stream/state input | Active compiler intrinsic for the i64 pulse-ledger path; see `Styio-StdLib-Intrinsics.md` for limits |
 | `[min, n]`, `[std, n]`, `[ema, n]`, `[rsi, n]` | Deferred series intrinsics | Not active syntax contract | Design candidates only until parser, Sema, lowering, runtime/codegen, and tests land |
 
+`x[a..b]` is a postfix slice selector because it has a left-hand receiver. By
+contrast, naked `a..b` is an expression-level range, and `[a..b]` with no
+left-hand receiver is a materialized range source rather than a list literal
+containing one range expression.
+
 ---
 
 ## 5. Control Flow Symbols
@@ -78,6 +83,8 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `^` ... `^^^^` | Break | `BREAK_TOKEN` | Exit the nearest enclosing loop; count is normalized to 1 |
 | `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN` | Standalone statement only. Skip the rest of the current block for this pulse/session and resume at the next pulse/session of the nearest continue-capable domain; token length is ignored. |
 | `[...]` | Infinite Generator / All Selector | `[` + dot run + `]` | Without a left side, produces an infinite pulse stream. After a value/resource, selects all currently enumerable values. |
+| `start..end` | Range Expression | `ELLIPSIS` | Naked expression-level range. It is not a list literal. Step range spelling is reserved and not active syntax. |
+| `[start..end]` | Materialized Range | `[` + `ELLIPSIS` + `]` | Materializes `start..end` as an iterable `list[i64]` source. `[start..end] >> #(x) => { ... }` pushes each element into the consumer one at a time. |
 | `&` | Stream Zip | `TOK_AMPERSAND` | Align two streams (both must deliver) |
 
 ---
@@ -86,8 +93,8 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics |
 |--------|------|----------------|-----------|
-| `=` | Assignment | `TOK_ASSIGN` | Bind value (overwrite per pulse in stream context) |
-| `:=` | State Binding | `TOK_BIND` | Establish reactive/persistent binding |
+| `=` | Mutable Binding | `TOK_ASSIGN` | Bind or rebind a mutable name. Under `#`, rebinds a callable or operation-channel endpoint. |
+| `:=` | Final Binding | `TOK_BIND` | Bind a final name. Under `#`, binds a final callable or operation-channel endpoint that cannot be redefined. |
 | `+=` | Aggregate Assign | `TOK_PLUS_ASSIGN` | Accumulate (semi-ring fold in stream context) |
 | `-=` | Subtract Assign | `TOK_MINUS_ASSIGN` | Subtract-accumulate |
 | `*=` | Multiply Assign | `TOK_STAR_ASSIGN` | Multiply-accumulate |
@@ -99,7 +106,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | Semantics |
 |--------|------|-----------|
-| `#` | Function Prefix | Introduces function/closure definition |
+| `#` | Callable / Operation-Channel Binding Prefix | Marks the binding target as callable or operable and combines with `=` or `:=`. It is not a resource prefix; resource identities stay in the `@` family. |
 | `:` | Type Annotation | Binds a type to identifier (`a: i32`, `# f : f32 = ...`) |
 | `[]` | Type Argument List | In type position, applies type arguments: `list[i64]`, `dict[string, string]` |
 | `__ : T := U` | Type Rewrite Rule | Two or more underscores define a type-pattern rewrite, e.g. `__ : list[T] := T..` |
@@ -159,6 +166,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Retired history-probe selector family inside brackets | Use `@name[-1]`, `@name[-3..]`, or `@name[...]` |
 | `list[T]` in type position | Type argument list |
 | `x[i]` / `x[a..b]` after indexable value | Index or slice selector |
+| `start..end` without a left-hand receiver | Range expression |
+| `[start..end]` without a left-hand receiver | Materialized range source, not a single-element list literal |
+| `[start..end..step]` | Reserved step range spelling; rejected by active syntax |
 | `T..` / `T...` in type position | Infinite repetition type suffix |
 | `T|n|` / `T|..n|` in type position | Exact-length or recent-window type suffix |
 | `(<- @res)` in parens | Immediate pull |

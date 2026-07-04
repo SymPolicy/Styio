@@ -6598,11 +6598,8 @@ TEST(StyioParserEngine, RangeLiteralExpressionBoundsMaterializeList) {
     ASSERT_TRUE(out.is_open());
     out << "start = 2\n"
         << "stop = 6\n"
-        << "step = 2\n"
-        << "xs = [start..stop..step]\n"
-        << ">_(xs)\n"
-        << "down = [stop..start..-step]\n"
-        << ">_(down)\n";
+        << "xs = [start..stop]\n"
+        << ">_(xs)\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -6623,7 +6620,41 @@ TEST(StyioParserEngine, RangeLiteralExpressionBoundsMaterializeList) {
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_EQ(result.stdout_text, std::string("[2,4,6]\n[6,4,2]\n"));
+  EXPECT_EQ(result.stdout_text, std::string("[2,3,4,5,6]\n"));
+
+  fs::remove(input);
+}
+
+TEST(StyioParserEngine, RangeLiteralRejectsStepRangeSyntax) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path input = fs::temp_directory_path() / ("styio-range-step-" + std::to_string(uniq) + ".styio");
+
+  {
+    std::ofstream out(input);
+    ASSERT_TRUE(out.is_open());
+    out << "start = 2\n"
+        << "stop = 6\n"
+        << "xs = [start..stop..2]\n"
+        << ">_(xs)\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--parser-engine=nightly",
+    "--file",
+    input.string()
+  });
+  EXPECT_EQ(result.exit_code, 3) << combined_output_latest(result);
+  EXPECT_NE(
+    combined_output_latest(result).find("step range syntax is reserved"),
+    std::string::npos);
 
   fs::remove(input);
 }
@@ -6647,13 +6678,16 @@ TEST(StyioParserEngine, RangeLiteralRejectsNonIntegerExpressionBounds) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
-
-  const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--parser-engine=nightly",
+    "--file",
+    input.string()
+  });
+  const std::string output = combined_output_latest(result);
+  EXPECT_EQ(result.exit_code, 4) << output;
   EXPECT_NE(
-    result.stdout_text.find("range literal bounds and step must be integer expressions"),
+    output.find("range literal bounds must be integer expressions"),
     std::string::npos);
 
   fs::remove(input);
@@ -8609,10 +8643,10 @@ TEST(StyioDiagnostics, ResourceMethodRangeBodyRunsAfterInlineClone) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }\n";
+    out << "@file::span = (start: int, stop: int) => { <| [start..stop] }\n";
     out << "log := @file(\"" << data.generic_string() << "\")\n";
-    out << "direct = log.span(1, 5, 2)\n";
-    out << "guarded = ?| log.span(3, 1, -1) | [9]\n";
+    out << "direct = log.span(1, 5)\n";
+    out << "guarded = ?| log.span(3, 5) | [9]\n";
     out << ">_(direct)\n";
     out << ">_(guarded)\n";
     out << ">_(\"after\")\n";
@@ -8624,14 +8658,15 @@ TEST(StyioDiagnostics, ResourceMethodRangeBodyRunsAfterInlineClone) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \""
-    + input.string() + "\" 2>&1";
-
-  const CommandResult result = run_stdout_command(cmd);
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--parser-engine=nightly",
+    "--file",
+    input.string()
+  });
   EXPECT_EQ(result.exit_code, 0);
-  EXPECT_EQ(result.stdout_text, "[1,3,5]\n[3,2,1]\nafter\n");
-  EXPECT_EQ(result.stdout_text.find("unsupported AST node in inlined state expression clone"), std::string::npos);
+  EXPECT_EQ(normalize_host_text_latest(result.stdout_text), "[1,2,3,4,5]\n[3,4,5]\nafter\n");
+  EXPECT_EQ(combined_output_latest(result).find("unsupported AST node in inlined state expression clone"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);
@@ -8752,16 +8787,19 @@ TEST(StyioDiagnostics, ResourceMethodInvalidRangeBoundFailsClosed) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
-    + input.string() + "\" 2>&1";
-
-  const CommandResult result = run_stdout_command(cmd);
-  EXPECT_EQ(result.exit_code, 4);
+  const CommandResult result = run_argv_capture_latest({
+    runner,
+    "--error-format=jsonl",
+    "--parser-engine=nightly",
+    "--file",
+    input.string()
+  });
+  const std::string output = combined_output_latest(result);
+  EXPECT_EQ(result.exit_code, 4) << output;
   EXPECT_NE(
-    result.stdout_text.find("range literal bounds and step must be integer expressions"),
+    output.find("range literal bounds must be integer expressions"),
     std::string::npos);
-  EXPECT_EQ(result.stdout_text.find("after"), std::string::npos);
+  EXPECT_EQ(output.find("after"), std::string::npos);
 
   fs::remove(input);
   fs::remove(data);

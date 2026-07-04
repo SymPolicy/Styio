@@ -301,6 +301,23 @@ parse_hash_function_common_latest(
   if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
     state.set_params(parse_params(context));
   }
+  else if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_HASH) {
+    context.move_forward(1, "hash_callable_rhs");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::TOK_LPAREN) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected #(param...) callable body after hash binding operator")
+      );
+    }
+    state.set_params(parse_params(context));
+  }
+
+  context.skip();
+  if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_AT) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok("resource atoms must stay in @ resource syntax; # bindings require callable bodies")
+    );
+  }
 
   context.skip();
   if (saw_assign && context.cur_tok_type() == StyioTokenType::MATCH) {

@@ -40,12 +40,12 @@
       "golden_cases": ["tests/features/stdio_input/t08_stdin_typed_f64_list_pull.styio", "tests/features/final_bindings/t02_bounded_read.styio"]
     },
     {
-      "id": "core.function-definition",
-      "syntax": "# name := (arg: T) => expr and block-bodied forms",
+      "id": "core.callable-binding",
+      "syntax": "# name = #(arg: T) => expr, # name := (arg: T) => expr, and block-bodied callable forms",
       "status": "converged",
       "implementation": {
-        "path": "src/StyioParser/NewParserExpr.cpp",
-        "symbol": "parse_hash_stmt_nightly",
+        "path": "src/StyioParser/HashFunctionParser.hpp",
+        "symbol": "parse_hash_function_common_latest",
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
@@ -98,6 +98,18 @@
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
       "golden_cases": ["tests/features/control_flow/t05_for_each.styio", "tests/pipeline_cases/p05_snapshot_accum/input.styio"]
+    },
+    {
+      "id": "core.materialized-range",
+      "syntax": "[start..end] materialized range and [start..end] >> #(item) => body; [start..end..step] is reserved",
+      "status": "converged",
+      "implementation": {
+        "path": "src/StyioParser/Parser.cpp",
+        "symbol": "parse_list_exprs_latest_draft",
+        "owner": "Parser / Grammar"
+      },
+      "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md", "docs/design/Styio-Language-Design.md", "docs/design/Styio-Symbol-Reference.md"],
+      "golden_cases": ["tests/features/control_flow/t08_multi_break.styio", "tests/features/control_flow/t11_recursive_board_assignment_eight_queens.styio"]
     },
     {
       "id": "core.infinite-loop",

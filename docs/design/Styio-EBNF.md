@@ -88,11 +88,11 @@ TOK_BIND           = ':=' ;
 (* Resource copy / compatibility pull *)
 TOK_SHIFT_BACK     = '<<' ;
 
-(* Hash (function definition prefix) *)
+(* Hash (callable / operation-channel binding prefix) *)
 TOK_HASH           = '#' ;
 
 (* Dot run: two or more dots. '..', '...', and longer runs are normalized
-   by context as range separators or type repetition suffixes. *)
+   by context as range separators, selector separators, or type repetition suffixes. *)
 TOK_DOT_RUN        = '..' { '.' } ;
 
 (* Standard operators *)
@@ -205,17 +205,30 @@ Notes:
 3. `.` is accepted compatibility syntax and is normalized to slash form internally.
 4. One import item must not mix `/` and `.`.
 
-### 4.2 Function Declaration
+### 4.2 Callable / Operation-Channel Binding
 
 ```ebnf
-declaration        = '#' identifier
-                     [ ':' type_annotation ]
-                     [ capture_list ]
-                     ':=' function_body ;
+declaration        = callable_decl ;
+
+callable_decl      = '#' identifier callable_decl_tail ;
+
+callable_decl_tail = [ ':' type_annotation ] [ capture_list ]
+                     ( bind_op callable_body
+                     | '=>' callable_tail )
+                   | '(' [ param_list ] ')' [ ':' type_annotation ] [ capture_list ]
+                     ( bind_op callable_tail
+                     | '=>' callable_tail
+                     | '?=' match_body ) ;
+
+bind_op            = '=' | ':=' ;
+
+callable_body      = [ '#' ] function_body ;
+
+callable_tail      = block | expression ;
 
 capture_list       = '$' '(' identifier { ',' identifier } ')' ;
 
-function_body      = '(' [ param_list ] ')' [ '=>' ] ( block | expression ) ;
+function_body      = '(' [ param_list ] ')' [ '=>' ] callable_tail ;
 
 param_list         = param { ',' param } ;
 param              = identifier [ ':' type_annotation ] ;
@@ -249,6 +262,19 @@ infinite_repeat_suffix = dot_run ;               (* T.., T..., T..... *)
 
 dot_run            = '..' { '.' } ;              (* length >= 2 *)
 ```
+
+Notes:
+
+1. `#` marks the binding target as callable or operation-channel-like. It is not
+   a resource prefix and should not be taught as a traditional `def` keyword.
+2. `=` creates a mutable binding; `:=` creates a final binding. The rule is the
+   same for ordinary names and for `#` callable bindings.
+3. `# name = #(args) => expr` and `# name := #(args) => expr` use the optional
+   hash on the right side as an explicit callable-body marker in a `#` binding.
+4. A resource atom cannot be the direct right side of a `#` binding. For example,
+   `# sink = @stdout` is invalid because `@stdout` must stay visibly a resource.
+   Native `@ extern(...)` import bindings are the separate native-callable import
+   form, not resource aliasing.
 
 ### 4.3 Type Rewrite Declaration
 
@@ -408,7 +434,10 @@ the declared value type and fallback value type must unify.
 
 ```ebnf
 expression         = resource_effect_expr
+                   | range_expr
                    | apply_expr ;
+
+range_expr         = apply_expr dot_run apply_expr ;
 
 resource_effect_expr
                    = '?|' resource_operation { '|' resource_effect_handler } ;
@@ -416,7 +445,8 @@ resource_effect_expr
 resource_effect_discard_stmt
                    = '?|' resource_operation { '|' effect_handler_clause } '|' '...' ;
 
-resource_operation = apply_expr ;
+resource_operation = range_expr
+                   | apply_expr ;
 
 resource_effect_handler
                    = effect_handler_clause
@@ -468,6 +498,10 @@ member_access      = '.' identifier ;
 
 expression_list    = expression { ',' expression } ;
 ```
+
+`range_expr` is the naked expression-level range form, such as `start..end`.
+It is not a list literal. Step range spelling such as `start..end..step` is
+reserved, not active syntax, and not canonical.
 
 `resource_effect_expr` is the only resource fallback surface. `?| op` settles
 the resource operation in place and raises a structured error immediately if it
@@ -575,14 +609,25 @@ semantic checks because `@stdin` is read-only.
 ## 10. Collections
 
 ```ebnf
-collection         = list_literal | tuple_literal | range_literal ;
+collection         = list_literal | tuple_literal | materialized_range ;
 
 list_literal       = '[' [ expression { ',' expression } ] ']' ;
 
 tuple_literal      = '(' expression ',' expression { ',' expression } ')' ;
 
-range_literal      = expression '..' expression [ '..' expression ] ;
+materialized_range = '[' range_expr ']' ;
+
+reserved_step_range = expression dot_run expression dot_run expression ;
+                   (* reserved / not active / not canonical *)
 ```
+
+`[start..end]` is a materialized range. It materializes the expression-level
+range `start..end` as an iterable `list[i64]` source, and
+`[start..end] >> #(x) => { ... }` pushes each materialized element into the
+consumer one at a time. The parser must not interpret `[start..end]` as a
+`list_literal` containing one naked `range_expr`; there is no comma-separated
+list element in that form. `[start..end..step]` and equivalent step spellings
+remain reserved and are rejected by the active parser.
 
 `matrix` annotations reuse nested `list_literal` syntax as their source form. A binding such as `m: matrix = [[1,0],[0,1]]` triggers rectangular numeric row validation in the typed context and lowers to a matrix handle; untyped nested list literals remain ordinary lists. Matrix operations such as `matmul(a,b)`, `transpose(m)`, `mat_shape(m)`, and `mat_set(m,r,c,v)` are ordinary identifier calls at the grammar level and are recognized by semantic analysis.
 

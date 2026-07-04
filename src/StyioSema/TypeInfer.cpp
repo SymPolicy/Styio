@@ -36,6 +36,66 @@ params_of_func_def(StyioAST* def) {
   return {};
 }
 
+static bool
+callable_def_is_final_binding_latest(StyioAST* def) {
+  if (auto* f = dynamic_cast<FunctionAST*>(def)) {
+    return f->is_unique;
+  }
+  if (auto* s = dynamic_cast<SimpleFuncAST*>(def)) {
+    return s->is_unique;
+  }
+  return false;
+}
+
+void
+StyioSemaContext::record_function_def(
+  const std::string& name,
+  styio::session::SymbolId sid,
+  StyioAST* def
+) {
+  if (sid == styio::session::kInvalidSymbolId) {
+    sid = intern_semantic_symbol(name);
+  }
+
+  StyioAST* existing = nullptr;
+  if (sid != styio::session::kInvalidSymbolId) {
+    auto sid_it = func_defs_by_sid.find(sid);
+    if (sid_it != func_defs_by_sid.end()) {
+      existing = sid_it->second;
+    }
+  }
+  if (existing == nullptr) {
+    auto it = func_defs.find(name);
+    if (it != func_defs.end()) {
+      existing = it->second;
+    }
+  }
+
+  if (existing != nullptr
+      && existing != def
+      && active_function_body_stack_.empty()) {
+    const bool existing_final = callable_def_is_final_binding_latest(existing);
+    const bool incoming_final = callable_def_is_final_binding_latest(def);
+    if (existing_final && !incoming_final) {
+      throw StyioTypeError(
+        "callable `" + name
+        + "` was defined with `:=` (final binding); cannot rebind with `=`"
+      );
+    }
+    if (incoming_final) {
+      throw StyioTypeError(
+        "callable `" + name
+        + "` cannot be redefined with `:=` after an existing binding"
+      );
+    }
+  }
+
+  func_defs[name] = def;
+  if (sid != styio::session::kInvalidSymbolId) {
+    func_defs_by_sid[sid] = def;
+  }
+}
+
 namespace
 {
 
@@ -2377,7 +2437,7 @@ StyioSemaContext::typeInfer(RangeAST* ast) {
   if (start_type.option != StyioDataTypeOption::Integer
       || end_type.option != StyioDataTypeOption::Integer
       || step_type.option != StyioDataTypeOption::Integer) {
-    throw StyioTypeError("range literal bounds and step must be integer expressions");
+    throw StyioTypeError("range literal bounds must be integer expressions");
   }
 }
 

@@ -619,6 +619,28 @@ TEST(StyioParserInternal, HashFunctionCommonEdgesStayExplicit) {
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Func);
   }
   {
+    DirectContext direct("#foo = #(x) => x");
+    std::unique_ptr<StyioAST> ast(parse_hash_function_common_latest(direct.get(), ops));
+    auto* simple = dynamic_cast<SimpleFuncAST*>(ast.get());
+    ASSERT_NE(simple, nullptr);
+    EXPECT_FALSE(simple->is_unique);
+    ASSERT_EQ(simple->params.size(), 1u);
+    EXPECT_EQ(simple->params[0]->getNameAsStr(), "x");
+  }
+  {
+    DirectContext direct("#foo := #(x) => x");
+    std::unique_ptr<StyioAST> ast(parse_hash_function_common_latest(direct.get(), ops));
+    auto* simple = dynamic_cast<SimpleFuncAST*>(ast.get());
+    ASSERT_NE(simple, nullptr);
+    EXPECT_TRUE(simple->is_unique);
+    ASSERT_EQ(simple->params.size(), 1u);
+    EXPECT_EQ(simple->params[0]->getNameAsStr(), "x");
+  }
+  {
+    DirectContext direct("#sink = @stdout");
+    EXPECT_THROW((void)parse_hash_function_common_latest(direct.get(), ops), StyioSyntaxError);
+  }
+  {
     DirectContext direct("#foo(a, b) >> (item) => item");
     EXPECT_THROW((void)parse_hash_function_common_latest(direct.get(), ops), StyioSyntaxError);
   }

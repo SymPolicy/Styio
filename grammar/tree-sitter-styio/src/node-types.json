@@ -36,6 +36,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -83,6 +87,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -127,6 +135,10 @@
           },
           {
             "type": "paren_expr",
+            "named": true
+          },
+          {
+            "type": "range_expr",
             "named": true
           },
           {
@@ -230,6 +242,10 @@
             "named": true
           },
           {
+            "type": "range_expr",
+            "named": true
+          },
+          {
             "type": "resource_expr",
             "named": true
           },
@@ -286,6 +302,10 @@
         },
         {
           "type": "paren_expr",
+          "named": true
+        },
+        {
+          "type": "range_expr",
           "named": true
         },
         {
@@ -397,6 +417,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -463,6 +487,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -479,6 +507,25 @@
   },
   {
     "type": "list_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "list_literal",
+          "named": true
+        },
+        {
+          "type": "materialized_range",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "list_literal",
     "named": true,
     "fields": {},
     "children": {
@@ -514,6 +561,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -522,6 +573,22 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "materialized_range",
+    "named": true,
+    "fields": {
+      "range": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "range_expr",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -602,6 +669,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -610,6 +681,72 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "range_expr",
+    "named": true,
+    "fields": {
+      "end": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "attr_expr",
+            "named": true
+          },
+          {
+            "type": "binary_expr",
+            "named": true
+          },
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren_expr",
+            "named": true
+          }
+        ]
+      },
+      "start": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "attr_expr",
+            "named": true
+          },
+          {
+            "type": "binary_expr",
+            "named": true
+          },
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren_expr",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -719,6 +856,10 @@
           "named": true
         },
         {
+          "type": "range_expr",
+          "named": true
+        },
+        {
           "type": "resource_expr",
           "named": true
         },
@@ -771,6 +912,10 @@
   },
   {
     "type": ".",
+    "named": false
+  },
+  {
+    "type": "..",
     "named": false
   },
   {

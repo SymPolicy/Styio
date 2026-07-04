@@ -175,20 +175,45 @@ Import resolution remains explicit:
 
 ---
 
-## 5. Functions
+## 5. Callable / Operation-Channel Bindings
 
-### 5.1 Definition Syntax
+### 5.1 Unified Binding Syntax
 
-Functions are declared with `#`:
+Styio binds names to targets. A target may be an ordinary value, a callable, a
+resource, a channel endpoint, a processor, or a continuation. The binding
+operator carries mutability:
 
 ```
-# add := (a, b) => { <| a + b }    // block form with explicit yield
-# add := (a, b) => a + b            // expression form (implicit yield)
-# add := (a: i32, b: i32) => a + b  // with type annotations
-# add : i32 = (a: i32, b: i32) => a + b  // with return type
+value = 1                            // mutable ordinary value binding
+value := 1                           // final ordinary value binding
+# add = (a, b) => { <| a + b }        // mutable callable binding
+# add := (a, b) => a + b              // final callable binding
+# add := (a: i32, b: i32) => a + b    // parameter annotations
+# add : i32 = (a: i32, b: i32) => a + b  // return type
+# transform = #(x: i64) => x * 2      // explicit callable-body marker
 ```
 
-### 5.2 Anonymous Closures
+`#` is the callable/operation-channel binding prefix. It tells readers and the
+compiler that the binding target must be callable or operable. It is not a plain
+function-declaration keyword: `# f = ...` is rebindable because `=` is mutable,
+and `# f := ...` is final because `:=` is final.
+
+`f = expr` does not promise that `expr` is callable. `# f = (...) => expr`
+does make that promise, enters the callable/operation-channel binding path, and
+allows later `# f = ...` replacement until a final `# f := ...` definition is
+used. A final callable binding cannot be redefined by `=` or `:=`.
+
+Resources keep their visible `@` identity. A direct resource atom is not a
+valid right side for a `#` binding:
+
+```
+# sink = @stdout     // invalid: @stdout is a resource, not a callable binding body
+```
+
+Use `expr -> @stdout` or `items >> @stdout` for resource writes. Resource-family
+definitions use the `@family::member` forms described in the resource section.
+
+### 5.2 Pulse Closures
 
 Used within stream pipes:
 
@@ -200,7 +225,7 @@ prices >> #(p) => { <| p * 2 }
 
 ### 5.3 Context Capture with `$(...)`
 
-Functions can explicitly capture external variables by reference:
+Callable bindings can explicitly capture external variables by reference:
 
 ```
 trade $(bal, is_open) := my_strategy <| bal <| is_open
@@ -271,9 +296,18 @@ closed until their value IR and merge semantics are defined.
 
 ```
 [1, 2, 3] >> #(item) => { /* body */ }
+[start..end] >> #(i) => { /* body */ }
 ```
 
 The collection becomes a finite pulse source. `>>` advances the collection one element at a time and pushes each element as a pulse into the closure; each pulse binds one element to `item`.
+
+`start..end` is the naked expression-level range form. It is not a list literal.
+`[start..end]` is the materialized range form: the brackets materialize the
+range as an iterable `list[i64]` source. Therefore `[0..n] >> #(i) => { ... }`
+pushes each materialized integer into the consumer one by one; `[0..n]` is not
+parsed as a normal list containing one range expression. Step range spellings
+such as `[start..end..step]` or `[0..n..2]` are reserved and are not active
+syntax.
 
 ### 6.5 Break: `^...` (Immediate Loop)
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-04
 
 ## Mission
 
@@ -51,6 +51,7 @@ High-value docs:
 17. Soak workloads that exercise state-like behavior must use resource topology resource declarations, `expr -> @name` writes, and `@name[-1]` selectors. Retired state-resource spellings belong only in negative parser/security tests, not performance baselines.
 18. Benchmark and stability helpers must stay native-Windows buildable when they are part of default targets. Prefer C++ standard library, `_popen`/`_pclose` guarded probes, CMake, or Python over POSIX-only shell commands so Windows CI can build `all` before running CTest without adding MSYS/Git Bash as a dependency.
 19. Repository-local benchmark evidence tests may prove JSON serialization and compare-script handling for route-cache counters, IR-allocation counters, or scheduler queue metadata without presenting runtime improvement as established. Full speedup, allocation-reduction, or concurrency-safety statements still require stable benchmark JSON plus baseline/current comparison and the relevant sanitizer/profiler evidence.
+20. Windows CTest benchmark entries that launch `styio.exe` must prepend the built runtime directory and resolved LLVM runtime directories through `ENVIRONMENT_MODIFICATION`. Do not rely on an interactive Developer PowerShell, WSL Bash path translation, or user-global PATH for `styio_core_benchmark_smoke`.
 
 ## Change Classes
 

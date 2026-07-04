@@ -3961,9 +3961,9 @@ parse_list_exprs_latest_draft(StyioContext& context) {
     context.skip();
     std::unique_ptr<StyioAST> step_expr(IntAST::Create("1"));
     if (context.match(StyioTokenType::ELLIPSIS)) {
-      context.skip();
-      step_expr.reset(parse_list_elem_expr({StyioTokenType::TOK_RBOXBRAC}));
-      context.skip();
+      throw StyioSyntaxError(context.mark_cur_tok(
+        "step range syntax is reserved; active materialized ranges use [start..end]"
+      ));
     }
     context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
     return new RangeAST(first_expr.release(), last_expr.release(), step_expr.release());
