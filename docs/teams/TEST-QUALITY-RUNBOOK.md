@@ -66,7 +66,7 @@ Primary paths:
 40. Algorithm equivalence helper targets must keep both the repository root and `src/` on their private include path, because generated reference slices include `tests/...` helpers while the shared C++ harness includes owned implementation headers.
 41. Algorithm equivalence helper targets must link the frontend core when they execute the compiler through shared platform process helpers; do not duplicate platform sources in test targets.
 42. Continue-depth compatibility changes must update parser, clone/lowering, codegen, IDE tolerant tokenization, and security/lowering regression tests together so multi-character `>>...` spellings do not leave stale depth assumptions in fixtures.
-43. Standard-stream iterable write changes must assert the lowered runtime shape, not just parse/typecheck success. Cover list/string-line and dict-value sources so tests can prove `>> @stdout` emits per-item pulse writes instead of collapsing the container through whole-value stringification.
+43. Writable-resource iterable write changes must assert the lowered runtime shape, not just parse/typecheck success. Cover list/string-line and dict-value sources so tests can prove `>> @stdout` and `>> @file(...)` emit per-item pulse writes instead of collapsing the container through whole-value stringification.
 
 ## Change Classes
 

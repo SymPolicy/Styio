@@ -54,7 +54,7 @@
 | Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only for data flow; each input line is pushed as one pulse into `line`; explicit resource operations may still release it. |
 | Stdin zip source | `@stdin >> #(line) & xs >> #(x) => { ... }` | Finite zip is accepted with materialized lists or `@file` streams; duplicate `@stdin & @stdin` remains unsupported until the stream-driver contract defines duplicate consumption. |
 | Stdout/stderr scalar write | `expr -> @stdout`, `expr -> @stderr` | `@stdout` and `@stderr` are write-only data sinks; explicit resource operations may still release them. |
-| Stdout/stderr iterable write | `items >> @stdout`, `items >> @stderr` | Each iterable item is serialized and written as a stream-sink pulse. Plain strings should use `->` unless explicitly split. |
+| Resource-sink iterable write | `items >> @stdout`, `items >> @stderr`, `items >> @file("out.txt")` | Each iterable item is serialized and written as a sink pulse. Plain strings should use `->` unless explicitly split. |
 | File resource | `@("log.txt")`, `@file("log.txt")` | Runtime substrate is file-backed when resolved as a file. |
 | Empty resource sink | `@()` | Destroy sink / empty resource. |
 | Explicit copy | `snapshot << @price[...]`, `copy << list_or_dict_or_matrix` | Selector snapshots and materialized list/dict/matrix handles copy through `<<`; `<-` stays resource acquire / task pull, not bound-resource clone. |

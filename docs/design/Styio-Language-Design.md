@@ -620,18 +620,19 @@ pull; treat that as a compatibility artifact, not the canonical read/pull spelli
 ```
 
 Feature test catalog use `-> @stdout` / `-> @stderr` as the **canonical spelling**.
-The current compiler also accepts iterable stream-sink writes:
+The current compiler also accepts iterable sink writes:
 
 ```
 values >> @stdout
 text.lines() >> @stdout
 warnings >> @stderr
+records >> @file("out.txt")
 ```
 
-When `>>` is followed by a standard-stream resource atom (`@stdout` / `@stderr`), the parser
-builds a `resource_write` node. The semantic rule matches terminal-handle `>> [>_]`: the left
-side must be iterable and text-serializable. Use `->` for scalar values and `>>` only where
-stream-sink style is intentional.
+When `>>` is followed by a writable resource atom (`@stdout`, `@stderr`, or `@file(...)`), the
+parser builds a `resource_write` node. The semantic rule matches terminal-handle `>> [>_]`:
+the left side must be iterable and text-serializable. Use `->` for scalar values and `>>` only
+where sink-pulse style is intentional.
 
 **Direction constraints:**
 
@@ -643,9 +644,9 @@ stream-sink style is intentional.
 parse/lowering time and emits FFI-backed standard-stream runtime-helper IR (`styio_stdout_write_cstr`
 for stdout writes, `styio_stderr_write_cstr` for stderr writes, and `styio_stdin_read_line` for
 stdin line reads). Scalar `expr -> @stdout` lowers directly through the standard-stream write
-IR family. Iterable `items >> @stdout` first expands into a per-item pulse loop, and the loop
-body writes each item through the standard-stream write IR family. The `>>` route requires
-text-serializable iterable input before lowering.
+IR family. Iterable `items >> @stdout` and `items >> @file(...)` first expand into a per-item
+pulse loop, and the loop body writes each item through the matching sink-write IR family. The
+`>>` route requires text-serializable iterable input before lowering.
 
 ---
 
@@ -884,7 +885,7 @@ complete resource definitions and usage patterns.
 @stdin >> #(line) => { >_(line) }     // >_ used as stream source under the hood
 ```
 
-**Type formatting rules** (applies to `>_()`, scalar `-> @stdout`, and each item emitted by iterable `>> @stdout`):
+**Type formatting rules** (applies to `>_()`, scalar `-> @stdout`, and each item emitted by iterable `>> @stdout` / `>> @file(...)`):
 
 | Type | Output format |
 |------|---------------|

@@ -10590,6 +10590,56 @@ TEST(StyioSecurityNightlySemantics, DictValuesFeedStdoutResourceIteratorWriteAsP
   EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlySemantics, StringLinesFeedFileResourceIteratorWriteAsPulses) {
+  const std::string src =
+    "text = \"alpha\nbeta\"\n"
+    "text.lines() >> @file(\"out.txt\")\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_string_lines"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_cstr"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_open_write"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_write_cstr"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, DictValuesFeedFileResourceIteratorWriteAsPulses) {
+  const std::string src =
+    "items = dict{\"a\": 1, \"b\": 2}\n"
+    "items >> @file(\"out.txt\")\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_dict_values_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_dict_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_file_write_cstr"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, FileResourceIteratorWriteRejectsScalarString) {
+  const std::string src =
+    "text = \"alpha\"\n"
+    "text >> @file(\"out.txt\")\n";
+  EXPECT_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+}
+
+TEST(StyioSecurityNightlySemantics, FileResourceRedirectStillAcceptsScalarString) {
+  const std::string src =
+    "text = \"alpha\"\n"
+    "text -> @file(\"out.txt\")\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+}
+
 TEST(StyioSecurityNightlySemantics, StdoutResourceIteratorWriteRejectsScalarString) {
   const std::string src =
     "text = \"alpha\"\n"
