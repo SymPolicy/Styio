@@ -288,7 +288,7 @@ public:
     llvm::orc::SymbolMap symbols;
     symbols[Mangle(Name)] = {
       llvm::orc::ExecutorAddr::fromPtr(address),
-      llvm::JITSymbolFlags::Callable,
+      llvm::JITSymbolFlags::Callable | llvm::JITSymbolFlags::Exported,
     };
     return MainJD.define(llvm::orc::absoluteSymbols(std::move(symbols)));
   }

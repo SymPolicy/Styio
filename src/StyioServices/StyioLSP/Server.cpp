@@ -847,6 +847,10 @@ Server::handle(llvm::json::Object request) {
     return output;
   }
 
+  if (method == "initialized") {
+    return output;
+  }
+
   if (method == "$/cancelRequest") {
     if (params != nullptr) {
       const llvm::json::Value* cancel_id = params->get("id");
