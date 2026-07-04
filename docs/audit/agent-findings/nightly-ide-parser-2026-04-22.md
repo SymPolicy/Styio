@@ -16,7 +16,7 @@
 |----|------|--------|----------|-------|
 | NIP-001 | IDE lifecycle | Resolved | `src/StyioIDE/VFS.cpp:161-177` | Closed-file snapshots now re-read disk contents on each access, so background indexing no longer keeps stale in-memory text after a file changes on disk. |
 | NIP-002 | Cache / index | Resolved | `src/StyioIDE/SemDB.cpp:636-653` | Workspace indexing now persists an empty symbol set as well, so a later session clears deleted symbols instead of resurrecting them from an old `symbols.json`. |
-| NIP-003 | LSP protocol boundary | Resolved | `src/StyioLSP/Server.cpp:13-22`, `src/StyioLSP/Server.cpp:247-322` | LSP frame parsing now validates `Content-Length`, caps frame size, discards oversized frames safely, and ignores oversized string request IDs without throwing. |
+| NIP-003 | LSP protocol boundary | Resolved | `src/StyioServices/StyioLSP/Server.cpp:13-22`, `src/StyioServices/StyioLSP/Server.cpp:247-322` | LSP frame parsing now validates `Content-Length`, caps frame size, discards oversized frames safely, and ignores oversized string request IDs without throwing. |
 | NIP-004 | Workspace scan / gate | Resolved | `src/StyioServices/StyioIDE/Project.cpp`, `tests/ide/styio_ide_test.cpp` | Recursive workspace scanning now uses `std::filesystem` error-code traversal with `workspace_scan_error_count()`, and cache-root identity uses stable `root-<hex-path>` values instead of process-local `std::hash<std::string>`. |
 
 ## Regression Coverage Added

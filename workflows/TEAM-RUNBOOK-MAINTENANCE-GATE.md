@@ -67,7 +67,7 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/`, parser legacy-entry audit scripts |
 | `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioResourceTopology/`, `src/StyioToString/`, `src/StyioSession/`, frontend source CMake map |
 | `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/`, `scripts/runtime-surface-gate.py` |
-| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `scripts/source-build-minimal.sh`, `docs/external/for-spio/` |
+| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `scripts/source-build-minimal.sh`, `docs/external/for-pafio/` |
 | `IDE-LSP-RUNBOOK.md` | `src/StyioServices/StyioIDE/`, `src/StyioServices/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
 | `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioServices/StyioIDE/TreeSitterBackend.*` |
 | `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `tests/workflow_scheduler_test.py`, parser shadow suite gates, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |

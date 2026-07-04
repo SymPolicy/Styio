@@ -18,16 +18,16 @@ Primary paths:
 4. `tests/algorithms/`
 5. `tests/security/`
 6. `src/StyioTesting/`
-7. [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md)
-8. [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md)
-9. [../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md)
+7. [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md)
+8. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
+9. [../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md)
 
 ## Daily Workflow
 
 1. Identify the behavior owner before adding an oracle.
 2. Choose the smallest useful test layer: milestone stdout, semantic failure, five-layer, C++ unit, security, fuzz, shadow gate, or soak.
 3. Register every new automated test in CMake.
-4. Update [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) when adding or changing acceptance tests.
+4. Update [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) when adding or changing acceptance tests.
 5. Keep generated or temporary outputs out of the repository unless the test framework explicitly treats them as goldens.
 6. Treat compile-plan negative-path coverage and machine-readable diagnostics as contract evidence, not optional smoke coverage.
 7. When compile-plan artifacts grow, add assertions for receipt fields and auxiliary artifacts such as `runtime-events.jsonl`, not just exit codes.

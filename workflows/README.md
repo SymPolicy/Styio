@@ -13,7 +13,7 @@
 5. Pair workflow changes with gates or validation commands.
 6. Use [INDEX.md](./INDEX.md) for the generated workflow inventory.
 
-> The former `docs/assets/workflow/` mirror was retired on 2026-05-22; this root tree is the only canonical location for reusable workflow documents.
+> The former `workflows/` mirror was retired on 2026-05-22; this root tree is the only canonical location for reusable workflow documents.
 
 ## Entry Points
 

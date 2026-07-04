@@ -1,4 +1,4 @@
-# Styio / Spio Coordination Plan
+# Styio / Pafio Coordination Plan
 
 **Purpose:** 从 `styio` 主仓库视角，冻结 `spio` 双通道消费 `styio` 的 handoff contract：`binary` 通道继续消费已发布的 `styio` 二进制和 compile-plan 合同，`build` 通道消费官方受控源码子图和 source-build 元数据；同时保留 `styio-nano` bootstrap/package contract 作为 binary 通道的一部分。本文件描述的是 `styio` 侧 handoff contract，不替代 `styio-spio` 仓库内自己的 SSOT。
 

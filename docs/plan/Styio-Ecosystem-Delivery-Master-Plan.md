@@ -193,7 +193,7 @@ Repo lead 可以继续下拆 sub-agent. Parallel lanes are preferred for repo in
 文档落点：
 
 1. `styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md`
-2. `styio-nightly/docs/external/for-spio/`
+2. `styio-nightly/docs/external/for-pafio/`
 3. `styio-nightly/docs/external/for-ide/`
 4. `styio-spio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
 5. `styio-view/docs/external/for-styio/`
@@ -218,7 +218,7 @@ Repo lead 可以继续下拆 sub-agent. Parallel lanes are preferred for repo in
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
 2. `styio-spio/docs/governance/Spio-Entry-Argument-Index.md`
 3. `styio-spio/docs/operations/Spio-Verification-Matrix.md`
-4. `styio-view/docs/external/for-spio/`
+4. `styio-view/docs/external/for-pafio/`
 5. `styio-view/docs/contracts/`
 
 门禁出口：
@@ -243,7 +243,7 @@ Repo lead 可以继续下拆 sub-agent. Parallel lanes are preferred for repo in
 1. `styio-view/docs/plans/Styio-View-Implementation-Plan.md`
 2. `styio-view/docs/contracts/`
 3. `styio-view/docs/external/for-styio/`
-4. `styio-view/docs/external/for-spio/`
+4. `styio-view/docs/external/for-pafio/`
 5. `styio-view/docs/assets/workflow/TEST-CATALOG.md`
 
 门禁出口：

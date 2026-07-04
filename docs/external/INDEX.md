@@ -11,7 +11,7 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `for-ide/` | [For IDE Index](./for-ide/INDEX.md) | Define the scope and naming rules for docs/external/for-ide/; this directory is the SSOT for consuming styio's IDE-facing components, while consumer-neutral service rules live in ../SERVICES.md and the generated inventory lives in INDEX.md. |
-| `for-spio/` | [For Spio Index](./for-spio/INDEX.md) | Define the scope and naming rules for docs/external/for-spio/; this directory holds styio-side handoff and coordination material intended for the styio-spio repository, while the generated inventory lives in INDEX.md. |
+| `for-pafio/` | [For Pafio Index](./for-pafio/INDEX.md) | Define the scope and naming rules for docs/external/for-pafio/; this directory holds styio-side handoff and coordination material intended for the styio-pafio repository, while the generated inventory lives in INDEX.md. |
 
 ## Files
 
