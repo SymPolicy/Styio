@@ -228,6 +228,14 @@ purpose = "Reject forbidden worktree, staged, tracked, and incoming-history arti
 last_reviewed = "2026-06-28"
 
 [[tool]]
+id = "manifest-tool"
+path = "scripts/manifest_tool.py"
+owner = "Docs / Ecosystem"
+kind = "gate"
+purpose = "Validate Better Plan JSON manifests used by repo-local planning workspaces."
+last_reviewed = "2026-07-04"
+
+[[tool]]
 id = "runtime-surface-gate"
 path = "scripts/runtime-surface-gate.py"
 owner = "Codegen / Runtime"
@@ -374,5 +382,5 @@ maintenance_command = "STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark
 [[module_coverage]]
 module = "Docs / Ecosystem"
 runbook = "docs/teams/DOCS-ECOSYSTEM-RUNBOOK.md"
-tool_ids = ["docs-gate", "workflow-scheduler", "tool-skill-registry-gate", "repo-hygiene-gate"]
+tool_ids = ["docs-gate", "workflow-scheduler", "tool-skill-registry-gate", "repo-hygiene-gate", "manifest-tool"]
 maintenance_command = "python3 scripts/tool-skill-registry-gate.py && ./scripts/docs-gate.sh"
