@@ -86,6 +86,7 @@ python3 scripts/docs-audit.py
 2. Frontend and Sema / IR must review changes that depend on parser/analyzer truth.
 3. Test Quality must review new IDE regression tests.
 4. Docs / Ecosystem must review host-facing documentation changes.
+5. Range CST changes must preserve the IDE/compiler boundary: Tree-sitter may expose `range_expr` and `materialized_range` nodes, but active syntax acceptance and reserved step-range rejection remain owned by the nightly compiler parser.
 
 ## Handoff / Recovery
 

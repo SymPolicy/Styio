@@ -34,12 +34,13 @@
 namespace styio::native {
 namespace {
 
-constexpr const char* kCompileFlags = "-shared -fPIC -O2";
+constexpr const char* kCompileFlags = "shared-O2";
 constexpr const char* kNativeCacheVersion = "styio-native-cache-v1";
 
 struct CachedModule {
   void* handle = nullptr;
   std::filesystem::path path;
+  bool remove_on_close = false;
 };
 
 class NativeModuleCache
@@ -56,6 +57,13 @@ public:
 #else
         ::dlclose(entry.second.handle);
 #endif
+      }
+      if (entry.second.remove_on_close && !entry.second.path.empty()) {
+        std::error_code ec;
+        std::filesystem::remove(entry.second.path, ec);
+        if (!entry.second.path.parent_path().empty()) {
+          std::filesystem::remove(entry.second.path.parent_path(), ec);
+        }
       }
     }
   }
@@ -269,7 +277,10 @@ native_cache_path_for_key(const std::string& key, std::string& error_message) {
   if (!ensure_directory(dir, error_message)) {
     return {};
   }
-  return dir / ("lib" + key + ".so");
+  return dir / (
+    std::string(styio::platform::shared_library_prefix())
+    + key
+    + styio::platform::shared_library_suffix());
 }
 
 std::filesystem::path
@@ -287,24 +298,6 @@ native_cache_tmp_path_for_key(const std::filesystem::path& cache_path) {
        + "."
        + std::to_string(static_cast<long long>(now))
        + ".tmp");
-}
-
-std::string
-native_compile_command(
-  const CompilerResolution& compiler,
-  const std::filesystem::path& source_path,
-  const std::filesystem::path& shared_path,
-  const std::filesystem::path& log_path
-) {
-  return shell_quote(compiler.command)
-    + " "
-    + kCompileFlags
-    + " "
-    + shell_quote(source_path.string())
-    + " -o "
-    + shell_quote(shared_path.string())
-    + " 2>"
-    + shell_quote(log_path.string());
 }
 
 bool
@@ -1163,6 +1156,8 @@ native_shared_compile_argv(
       compiler.command,
       "/LD",
       "/O2",
+      "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+      "/D_CRT_SECURE_NO_WARNINGS",
       source_path.string(),
       "/Fe" + shared_path.string(),
     };
@@ -1171,6 +1166,8 @@ native_shared_compile_argv(
     compiler.command,
     "-shared",
     "-O2",
+    "-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+    "-D_CRT_SECURE_NO_WARNINGS",
     source_path.string(),
     "-o",
     shared_path.string(),
@@ -1202,6 +1199,8 @@ native_object_compile_argv(
       compiler.command,
       normalized_abi == "c++" ? "/std:c++20" : "/std:c11",
       "/O2",
+      "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+      "/D_CRT_SECURE_NO_WARNINGS",
       "/c",
       source_path.string(),
       "/Fo" + object_path.string(),
@@ -1211,6 +1210,8 @@ native_object_compile_argv(
     compiler.command,
     normalized_abi == "c++" ? "-std=c++20" : "-std=c11",
     "-O2",
+    "-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+    "-D_CRT_SECURE_NO_WARNINGS",
     "-c",
     source_path.string(),
     "-o",
@@ -1411,7 +1412,10 @@ compile_and_load_block(
   const std::filesystem::path log_path = tmp_dir / "compile.log";
   const std::filesystem::path compile_shared_path =
     cache_path.empty()
-      ? tmp_dir / "libstyio_native.so"
+      ? tmp_dir / (
+          std::string(styio::platform::shared_library_prefix())
+          + "styio_native"
+          + styio::platform::shared_library_suffix())
       : native_cache_tmp_path_for_key(cache_path);
 
   std::string write_error;
@@ -1420,10 +1424,10 @@ compile_and_load_block(
     throw StyioTypeError(write_error);
   }
 
-  const std::string command = native_compile_command(compiler, source_path, compile_shared_path, log_path);
-
-  const int rc = std::system(command.c_str());
-  if (rc != 0) {
+  const auto argv = native_shared_compile_argv(compiler, source_path, compile_shared_path);
+  const std::string command = native_command_display(argv);
+  const auto result = run_native_command_to_log(argv, log_path, true);
+  if (!result.ok()) {
     std::string log;
     (void)read_text_file(log_path, log);
     std::filesystem::remove(compile_shared_path);
@@ -1431,6 +1435,7 @@ compile_and_load_block(
     throw StyioTypeError(
       "native @extern(" + normalized_abi + ") compile failed with command `" + command + "`"
       + " using " + compiler.source
+      + (result.launch_error.empty() ? std::string() : "\n" + result.launch_error)
       + (log.empty() ? std::string() : "\n" + log));
   }
 
@@ -1478,17 +1483,16 @@ compile_and_load_block(
 
   auto [it, inserted] = process_cache.modules.emplace(
     cache_key,
-    CachedModule{handle, load_path});
+    CachedModule{handle, load_path, cache_path.empty()});
   if (!inserted && it->second.handle != handle) {
     dlclose_native_module(handle);
   }
 
   std::filesystem::remove(source_path);
   std::filesystem::remove(log_path);
-  if (cache_path.empty()) {
-    std::filesystem::remove(compile_shared_path);
+  if (!cache_path.empty()) {
+    std::filesystem::remove(tmp_dir);
   }
-  std::filesystem::remove(tmp_dir);
   return loaded_block_from_cached_module(it->second, normalized_abi, std::move(selected));
 }
 
@@ -1546,7 +1550,10 @@ compile_and_load_block(
   const std::filesystem::path log_path = tmp_dir / "compile.log";
   const std::filesystem::path compile_shared_path =
     cache_path.empty()
-      ? tmp_dir / "libstyio_native.so"
+      ? tmp_dir / (
+          std::string(styio::platform::shared_library_prefix())
+          + "styio_native"
+          + styio::platform::shared_library_suffix())
       : native_cache_tmp_path_for_key(cache_path);
 
   std::string write_error;
@@ -1555,10 +1562,10 @@ compile_and_load_block(
     throw StyioTypeError(write_error);
   }
 
-  const std::string command = native_compile_command(compiler, source_path, compile_shared_path, log_path);
-
-  const int rc = std::system(command.c_str());
-  if (rc != 0) {
+  const auto argv = native_shared_compile_argv(compiler, source_path, compile_shared_path);
+  const std::string command = native_command_display(argv);
+  const auto result = run_native_command_to_log(argv, log_path, true);
+  if (!result.ok()) {
     std::string log;
     (void)read_text_file(log_path, log);
     std::filesystem::remove(compile_shared_path);
@@ -1566,6 +1573,7 @@ compile_and_load_block(
     throw StyioTypeError(
       "native @extern(" + normalized_abi + ") compile failed with command `" + command + "`"
       + " using " + compiler.source
+      + (result.launch_error.empty() ? std::string() : "\n" + result.launch_error)
       + (log.empty() ? std::string() : "\n" + log));
   }
 
@@ -1613,17 +1621,16 @@ compile_and_load_block(
 
   auto [it, inserted] = process_cache.modules.emplace(
     cache_key,
-    CachedModule{handle, load_path});
+    CachedModule{handle, load_path, cache_path.empty()});
   if (!inserted && it->second.handle != handle) {
     dlclose_native_module(handle);
   }
 
   std::filesystem::remove(source_path);
   std::filesystem::remove(log_path);
-  if (cache_path.empty()) {
-    std::filesystem::remove(compile_shared_path);
+  if (!cache_path.empty()) {
+    std::filesystem::remove(tmp_dir);
   }
-  std::filesystem::remove(tmp_dir);
   return loaded_block_from_cached_module(it->second, normalized_abi, std::move(selected));
 }
 

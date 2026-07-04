@@ -721,6 +721,18 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::List);
   }
   {
+    DirectContext direct("[0..n]");
+    std::unique_ptr<StyioAST> ast(parse_list_expr_or_iterator_nightly_draft(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Range);
+  }
+  {
+    DirectContext direct("[0..n..2]");
+    EXPECT_THROW(
+      (void)parse_list_expr_or_iterator_nightly_draft(direct.get()),
+      StyioSyntaxError);
+  }
+  {
     DirectContext direct("[1, 2] >>(item) => { << item }");
     std::unique_ptr<StyioAST> ast(parse_list_expr_or_iterator_nightly_draft(direct.get()));
     ASSERT_NE(ast, nullptr);

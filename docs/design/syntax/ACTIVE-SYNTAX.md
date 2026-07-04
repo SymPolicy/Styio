@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compact authoring map for current Styio syntax; grammar authority stays in [../Styio-EBNF.md](../Styio-EBNF.md), token authority stays in [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md), and semantics stay in the owning design documents.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-04
 
 ## Reading Contract
 
@@ -17,15 +17,32 @@
 | Imports | `@import { pkg/module }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Final binding | `name := expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Mutable binding | `name = expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
-| Function | `# name : T := (arg: U) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Callable binding | `# name : T := (arg: U) => { ... }`, `# name = #(arg: U) => expr` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Match sugar | `#(name = expr) ?= { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Return/export | `<| expr` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Conditional | `?(cond) => { ... } | { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
-| Range literal | `[start..end]`, `[start..end..step]` | Integer expressions only; materializes `list[i64]` for expression/value use and remains iterable in `>> #(x)` loops. |
+| Materialized range | `[start..end]` | Canonical iterable/source form. The bracketed form materializes the expression-level range `start..end` as `list[i64]`; it is not a list literal containing one range expression. `[start..end] >> #(x) => { ... }` advances the range one item at a time and pushes each item into the consumer. Step ranges are reserved and not active syntax. |
 | Iteration / pulse transfer | `iterable >> #(x) => { ... }` | `>>` advances the left iterable or stream one item at a time and pushes each item as a pulse into the right closure/channel. |
 | Infinite stream loop | `[...] >> ?(cond) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Continue | `>>`, `>>>`, `>>>>`, ... as a standalone statement | Skip the rest of the current block for this pulse/session and resume at the next pulse/session of the nearest continue-capable domain; token length is ignored. |
+
+### Binding Model
+
+`=` is the mutable binding operator. It may bind or rebind an ordinary value with
+`name = expr`, and it may bind or rebind a callable or operation-channel endpoint
+with `# name = (...) => expr` or `# name = #(args) => expr`.
+
+`:=` is the final binding operator. It may bind an ordinary final value with
+`name := expr`, and it may bind a final callable or operation-channel endpoint
+with `# name := (...) => expr` or `# name := #(args) => expr`. A final callable
+binding cannot later be replaced by `=` or another `:=`.
+
+`#` marks a binding as callable/operable; it is not a resource prefix and not a
+plain `def` keyword. The right side of a `#` binding must be a callable body or
+operation-channel body. Resource identities remain visibly in the `@` family, so
+`# sink = @stdout` is invalid; use `expr -> @stdout`, `items >> @stdout`, or a
+resource-family declaration when the target is a resource.
 
 ## Types
 

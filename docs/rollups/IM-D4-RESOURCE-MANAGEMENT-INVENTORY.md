@@ -135,7 +135,7 @@ resource topology gives Styio an active source direction for resource declaratio
   preserve the current `i64`/`f64`/`bool`/`char`/`string` match result families
   through direct calls and guarded value paths; returned container match results
   remain rejected before lowering.
-  Returned dynamic range literals such as `<| [start..stop..step]` inline as
+  Returned dynamic range literals such as `<| [start..stop]` inline as
   ordinary `list[i64]` success values and still reject non-integer bounds before lowering.
   Returned value-producing resource-effect expressions such as
   `<| ?| (<< @file("data.txt")) | io => 8 | 7` parse through the authoritative

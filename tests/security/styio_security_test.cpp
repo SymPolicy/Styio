@@ -7534,6 +7534,7 @@ TEST(StyioSecurityNightlyParserExpr, RangeLiteralAcceptsRepeatedDotSeparator) {
   EXPECT_EQ(two_dot, three_dot);
   EXPECT_EQ(two_dot, many_dot);
   EXPECT_EQ(two_dot, parse_expr_to_repr_latest("[0..3]", false));
+  EXPECT_THROW(parse_expr_to_repr_latest("[0..3..2]", true), StyioSyntaxError);
 }
 
 TEST(StyioSecurityNightlyParserExpr, RejectsNonSubsetStatementToken) {
@@ -8246,12 +8247,11 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedListSliceFallba
 
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceMethodReturnedRangeFallbackExpression) {
   const std::string src =
-    "@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }\n"
+    "@file::span = (start: int, stop: int) => { <| [start..stop] }\n"
     "start = 1\n"
     "stop = 3\n"
-    "step = 1\n"
     "log := @file(\"/tmp/styio-resource-method-range\")\n"
-    "result = ?| log.span(start, stop, step) | [9]\n"
+    "result = ?| log.span(start, stop) | [9]\n"
     ">_(result)\n";
 
   EXPECT_NO_THROW(
@@ -9243,6 +9243,7 @@ TEST(StyioSecurityNightlyParserStmt, RejectsParameterizedResourcePseudoDefinitio
     "@ socket : ftype := #(path) => { ... }\n",
     "@ stdout := { xs >> [>_] }\n",
     "@ stderr := #(xs) => { !(x) >> [>_] }\n",
+    "# sink = @stdout\n",
   };
 
   for (const auto& src : samples) {
@@ -13286,8 +13287,7 @@ TEST(StyioSecurityNightlyCodegen, DynamicRangeLiteralLowersToRuntimeListLoop) {
   const std::string src =
     "start = 2\n"
     "stop = 6\n"
-    "step = 2\n"
-    "xs = [start..stop..step]\n"
+    "xs = [start..stop]\n"
     ">_(xs)\n";
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
@@ -14332,6 +14332,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
     "# pulse : [|3|] = (x: i32) => x\n>_(pulse(5))\n",
     "# pair : (i32, [|2|]) = (a: i32, b: i32) => a + b\n>_(pair(1, 2))\n",
     "# mix(a: i32, b: i32) : i32 = a + b\n>_(mix(5, 7))\n",
+    "# transform = #(x: i32) => x * 2\n>_(transform(5))\n",
     "# const42 : i32 => 42\n>_(const42())\n",
     "# ping => 1\n>_(ping())\n",
     "# parity(n: i32) ?={\n    0 => 0\n    _ => 1\n}\n>_(parity(0), parity(3))\n",
@@ -14375,6 +14376,50 @@ TEST(StyioSecurityNightlyParserStmt, AcceptsModuloSubjectBeforeMatchCases) {
   const std::string legacy = parse_program_to_repr_latest(src, false);
   EXPECT_EQ(nightly, legacy);
   EXPECT_NE(nightly.find("label"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, CallableBindingOperatorsStayMutableAndFinal) {
+  const std::string mutable_src =
+    "# transform = #(x: i64) => x + 1\n"
+    "# transform = #(x: i64) => x + 2\n"
+    "transform(3) -> @stdout\n";
+
+  g_runtime_log_events.clear();
+  styio_runtime_set_log_sink(capture_runtime_log);
+  try {
+    execute_program_engine_with_stdin_latest(
+      mutable_src,
+      StyioParserEngine::Nightly,
+      ""
+    );
+  }
+  catch (...) {
+    styio_runtime_set_log_sink(nullptr);
+    throw;
+  }
+  styio_runtime_set_log_sink(nullptr);
+
+  ASSERT_EQ(g_runtime_log_events.size(), 1u);
+  EXPECT_EQ(g_runtime_log_events[0].first, "stdout");
+  EXPECT_EQ(g_runtime_log_events[0].second, "5");
+
+  const std::string final_then_mutable =
+    "# transform := #(x: i64) => x + 1\n"
+    "# transform = #(x: i64) => x + 2\n"
+    "transform(3) -> @stdout\n";
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(final_then_mutable, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
+
+  const std::string mutable_then_final =
+    "# transform = #(x: i64) => x + 1\n"
+    "# transform := #(x: i64) => x + 2\n"
+    "transform(3) -> @stdout\n";
+  EXPECT_THROW(
+    parse_typecheck_program_engine_latest(mutable_then_final, StyioParserEngine::Nightly),
+    StyioTypeError
+  );
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsUndefinedMatchArmTailValue) {

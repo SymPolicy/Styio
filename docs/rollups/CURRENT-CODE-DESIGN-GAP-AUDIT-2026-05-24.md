@@ -241,7 +241,7 @@ Current implementation reality:
    string, and format-string expressions preserve their value family through
    direct calls and guarded value paths, including
    `@file::summary = (x: int) => { <| $"value={x + 1}" }`. Returned dynamic
-   range literals such as `<| [start..stop..step]` inline as ordinary `list[i64]`
+   materialized range literals such as `<| [start..stop]` inline as ordinary `list[i64]`
    success values and keep non-integer range bounds fail-closed before lowering.
    Returned match expressions such as
    `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }` preserve
@@ -523,7 +523,7 @@ expressions, and dynamic range literals.
 `@file::self_path := @file.path`,
 `@file::describe = () => { <| $"path={@file.path}" }`,
 `@file::pick = (x: int) => { <| x ?= { 0 => 'a' _ => 'b' } }`,
-`@file::span = (start: int, stop: int, step: int) => { <| [start..stop..step] }`,
+`@file::span = (start: int, stop: int) => { <| [start..stop] }`,
 `@file::list_answer = () => { xs := [41,42] <| xs }`,
 `@file::dict_answer = () => { d := dict{"a": 40, "b": 2} <| d }`,
 `@file::read_or = () => { <| ?| (<< @file("data.txt")) | io => 8 | 7 }`,
@@ -561,10 +561,11 @@ Examples:
    fixed/recent resources this becomes a bounded-ring storage value, but
    unsupported tuple/list/dict/matrix storage and absence/default semantics are
    not a full typed resource initialization contract.
-3. Range literals now accept integer expressions for `start`, `end`, and
-   optional `step`; non-integer bounds fail in Sema. Constant ranges still lower
-   to list literals, while expression-bound ranges materialize `list[i64]`
-   through the runtime list loop used by the current value/print paths.
+3. Materialized range literals now accept integer expressions for `start` and
+   `end`; non-integer bounds fail in Sema, and source step range spelling stays
+   reserved/rejected before Sema. Constant ranges still lower to list literals,
+   while expression-bound ranges materialize `list[i64]` through the runtime
+   list loop used by the current value/print paths.
 4. Accepted match expressions and function match sugar now run Sema before
    lowering: scrutinees must infer integer type, case patterns stay on the
    integer-literal/equality subset that lowering accepts, arm/default bodies are

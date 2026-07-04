@@ -36,6 +36,13 @@ def _env_with(overrides: list[str]) -> dict[str, str]:
     return env
 
 
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path, ignore_errors=True)
+    else:
+        path.unlink(missing_ok=True)
+
+
 def _materialize_source(source: Path, replacements: list[list[str]]) -> tuple[Path, tempfile.TemporaryDirectory[str] | None]:
     if not replacements:
         return source, None
@@ -79,6 +86,8 @@ def _run_process(argv: list[str], cwd: Path, env: dict[str, str], stdin: bytes |
 
 def command_run(args: argparse.Namespace) -> int:
     source, temp = _materialize_source(args.source, args.replace_literal)
+    for raw in args.cleanup:
+        _remove_path(Path(raw))
     try:
         stdin = args.stdin_text.encode("utf-8") if args.stdin_text is not None else None
         if args.stdin_file:
@@ -129,11 +138,7 @@ def command_run(args: argparse.Namespace) -> int:
         if temp is not None:
             temp.cleanup()
         for raw in args.cleanup:
-            path = Path(raw)
-            if path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-            else:
-                path.unlink(missing_ok=True)
+            _remove_path(Path(raw))
 
 
 def command_build_run(args: argparse.Namespace) -> int:

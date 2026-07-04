@@ -541,15 +541,7 @@ public:
     const std::string& name,
     styio::session::SymbolId sid,
     StyioAST* def
-  ) {
-    func_defs[name] = def;
-    if (sid == styio::session::kInvalidSymbolId) {
-      sid = intern_semantic_symbol(name);
-    }
-    if (sid != styio::session::kInvalidSymbolId) {
-      func_defs_by_sid[sid] = def;
-    }
-  }
+  );
 
   StyioAST* find_function_def(
     styio::session::SymbolId sid,

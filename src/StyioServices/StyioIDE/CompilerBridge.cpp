@@ -341,9 +341,9 @@ analyze_document(const std::string& path, const std::string& text) {
       *context,
       StyioParserEngine::Nightly,
       nullptr,
-      StyioParseMode::Strict);
+      StyioParseMode::Recovery);
     summary.parse_success = ast != nullptr;
-    summary.used_recovery = false;
+    summary.used_recovery = !context->parse_diagnostics().empty();
 
     for (const auto& diagnostic : context->parse_diagnostics()) {
       summary.diagnostics.push_back(Diagnostic{
