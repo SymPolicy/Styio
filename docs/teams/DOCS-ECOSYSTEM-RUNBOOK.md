@@ -93,6 +93,7 @@ Key SSOTs:
 58. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
 59. When local divergent history is reintroduced after an upstream governance update, preserve the old branch or stash reference in a rollup ledger and migrate only slices that fit current repository ownership. Do not restore deleted plan trees, old service paths, or superseded ecosystem names as active docs.
 60. Keep rollup ledgers and migration notes free of developer-machine absolute paths; describe portability behavior generically unless an owned contract explicitly requires a literal path form.
+61. Track valid generated-index support files and installed shared assets even when broad ignore patterns match their directories. When `docs/plan/reports/` or `share/styio/prelude/` files become required by docs audit, install layout, or source-build metadata, force-track the owned files and refresh `DOC-STATS.md` in the same change.
 
 ## Change Classes
 

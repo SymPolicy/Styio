@@ -1,0 +1,18 @@
+// Active standard-resource compatibility prelude.
+
+@ stdout := #(xs) => { xs >> [>_] }
+@ stdout := #(x) => { x -> [>_] }
+@ stdout := #(xs) => { xs >> (>_) }
+@ stdout := #(x) => { x -> (>_) }
+
+@ stderr := #(xs) => { !(xs) >> [>_] }
+@ stderr := #(x) => { !(x) -> [>_] }
+@ stderr := #(xs) => { !(xs) >> (>_) }
+@ stderr := #(x) => { !(x) -> (>_) }
+
+@ stdin := #() => { <|[>_] }
+@ stdin := #() => { <|(>_) }
+@ stdin := #() => { <| <- [>_] }
+@ stdin := #() => { <| <- (>_) }
+
+@ file : ftype := #(path) => { ... }
