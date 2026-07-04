@@ -22,7 +22,7 @@
 
 1. `src/main.cpp`: Windows-safe nano file URI handling, registry-root normalization, generated nano CMake dependency discovery, Windows output-name handling, and MSVC size-optimization guard.
 2. `src/StyioJIT/StyioJIT_ORC.hpp`: native extern absolute symbols remain callable and exported.
-3. `src/StyioIDE/Common.cpp`: Windows `file:///C:/...` URI decoding and slash-normalized URI emission are restored in the current IDE path.
+3. `src/StyioIDE/Common.cpp`: Windows drive-letter URI decoding and slash-normalized URI emission are restored in the current IDE path.
 4. `src/StyioNative/NativeInterop.cpp`: the dynamic-library loader now has a minimal Windows branch for process-local load, symbol lookup, unload, executable probing, temp directories, and process IDs without reintroducing the old platform module.
 5. `src/StyioLSP/`: `initialized` is treated as a no-response notification, and `styio_lspd` switches stdio to binary mode on Windows.
 6. `tests/`: focused LSP lifecycle and stdio framing regressions plus Windows-safe CTest registration for selected GTest slices.

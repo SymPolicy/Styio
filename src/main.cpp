@@ -2497,10 +2497,12 @@ styio_write_nano_package_cmakelists_latest(
   cmake << "  if(DEFINED CMAKE_GENERATOR_INSTANCE)\n";
   cmake << "    list(APPEND _styio_vs_roots \"${CMAKE_GENERATOR_INSTANCE}\")\n";
   cmake << "  endif()\n";
-  cmake << "  list(APPEND _styio_vs_roots\n";
-  cmake << "    \"C:/Program Files/Microsoft Visual Studio/2022/Community\"\n";
-  cmake << "    \"C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools\"\n";
-  cmake << "  )\n";
+  cmake << "  if(DEFINED ENV{ProgramFiles})\n";
+  cmake << "    list(APPEND _styio_vs_roots \"$ENV{ProgramFiles}/Microsoft Visual Studio/2022/Community\")\n";
+  cmake << "  endif()\n";
+  cmake << "  if(DEFINED ENV{ProgramFiles(x86)})\n";
+  cmake << "    list(APPEND _styio_vs_roots \"$ENV{ProgramFiles(x86)}/Microsoft Visual Studio/2022/BuildTools\")\n";
+  cmake << "  endif()\n";
   cmake << "  foreach(_styio_vs_root IN LISTS _styio_vs_roots)\n";
   cmake << "    if(EXISTS \"${_styio_vs_root}/DIA SDK/lib/amd64/diaguids.lib\")\n";
   cmake << "      set(ENV{VSINSTALLDIR} \"${_styio_vs_root}\")\n";
