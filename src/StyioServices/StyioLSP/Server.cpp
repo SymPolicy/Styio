@@ -329,12 +329,12 @@ make_code_action_for_diagnostic(
   if (diagnostic.message.rfind(unmatched_closing_prefix, 0) == 0
       && diagnostic.range.start < diagnostic.range.end
       && diagnostic.range.end <= buffer.size()) {
-    const std::string token = diagnostic.message.substr(unmatched_closing_prefix.size());
+    const std::string closing_text = diagnostic.message.substr(unmatched_closing_prefix.size());
     const auto& text = buffer.text();
     const std::string range_text = text.substr(
       diagnostic.range.start,
       diagnostic.range.end - diagnostic.range.start);
-    if (!token.empty() && range_text == token) {
+    if (!closing_text.empty() && range_text == closing_text) {
       llvm::json::Array edits;
       edits.push_back(llvm::json::Object{
         {"range", to_lsp_range(buffer, diagnostic.range)},

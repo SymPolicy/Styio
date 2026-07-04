@@ -46,14 +46,14 @@ jobs:
       - name: Check out styio-pafio sibling repository
         uses: actions/checkout@v5
         with:
-          repository: styio-org/styio-pafio
+          repository: Unka-Malloc/pafio-nightly
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: styio-pafio
 
       - name: Check out styio-view sibling repository
         uses: actions/checkout@v5
         with:
-          repository: styio-org/styio-view
+          repository: Unka-Malloc/vityo-nightly
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: styio-view
 
