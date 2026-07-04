@@ -9,7 +9,7 @@
 1. `docs/assets/templates/` stores reusable document skeletons.
 2. Do not store date-specific implementation history in this subtree.
 
-> The former `docs/assets/workflow/` mirror was retired on 2026-05-22; the canonical reusable workflow documents now live at root `workflows/`. Use [`../../workflows/INDEX.md`](../../workflows/INDEX.md) as the entry point.
+> The former `workflows/` mirror was retired on 2026-05-22; the canonical reusable workflow documents now live at root `workflows/`. Use [`../../workflows/INDEX.md`](../../workflows/INDEX.md) as the entry point.
 
 ## Usage Rules
 

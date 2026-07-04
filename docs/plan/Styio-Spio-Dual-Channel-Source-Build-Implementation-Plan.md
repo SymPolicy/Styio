@@ -1,6 +1,6 @@
 # Styio / Spio Dual-Channel Source-Build Implementation Plan
 
-**Purpose:** 作为 `styio-nightly` 侧适配 `styio-spio` 双通道工具链模型的总实施计划，冻结 compiler-side contract、源码分层、默认符号层收敛、source-build 入口、测试与交付阶段顺序。当前 repo-local baseline 已完成；本文件保留在 `docs/plan/`，用于记录完成证据和后续 hardening/生态对齐边界，而不是替代 `docs/external/for-spio/` handoff contract 或 `spio` 仓库自己的 SSOT。
+**Purpose:** 作为 `styio-nightly` 侧适配 `styio-spio` 双通道工具链模型的总实施计划，冻结 compiler-side contract、源码分层、默认符号层收敛、source-build 入口、测试与交付阶段顺序。当前 repo-local baseline 已完成；本文件保留在 `docs/plan/`，用于记录完成证据和后续 hardening/生态对齐边界，而不是替代 `docs/external/for-pafio/` handoff contract 或 `spio` 仓库自己的 SSOT。
 
 **Last updated:** 2026-06-28
 
@@ -146,7 +146,7 @@ Build channel 新增并冻结：
 2. `src/StyioConfig/SourceBuildInfo.*`
 3. `src/StyioIDE/SemDB.cpp` 改读共享 registry
 4. `tests/styio_test.cpp` 新增 `--source-build-info=json` 回归
-5. `docs/external/for-spio/Styio-Nano-Spio-Coordination.md`
+5. `docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md`
 6. `docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md`
 7. `scripts/ecosystem-cli-doc-gate.py` 新增 `styio.source_build`
 
@@ -251,7 +251,7 @@ Build channel 新增并冻结：
 已落地证据：
 
 1. `scripts/ecosystem-cli-doc-gate.py`、`scripts/team-docs-gate.py` 和 `./scripts/docs-gate.sh` 已把 dual-channel source-build contract 纳入常规门禁
-2. `docs/external/for-spio/Styio-Nano-Spio-Coordination.md` 与 `docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md` 已对齐 helper、source origin、channel mapping、build-mode contract
+2. `docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md` 与 `docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md` 已对齐 helper、source origin、channel mapping、build-mode contract
 3. `tests/styio_test.cpp` 现在同时覆盖 source-build metadata、helper smoke path、compile-plan `build_mode` 成功路径和失败路径
 
 ## 6. Workstreams
@@ -310,7 +310,7 @@ Owner focus:
 
 ## 8. Related Documents
 
-1. [../external/for-spio/Styio-Nano-Spio-Coordination.md](../external/for-spio/Styio-Nano-Spio-Coordination.md)
+1. [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md)
 2. [Styio-Ecosystem-CLI-Contract-Matrix.md](./Styio-Ecosystem-CLI-Contract-Matrix.md)
 3. [../teams/CLI-NANO-RUNBOOK.md](../teams/CLI-NANO-RUNBOOK.md)
 4. [../teams/FRONTEND-RUNBOOK.md](../teams/FRONTEND-RUNBOOK.md)

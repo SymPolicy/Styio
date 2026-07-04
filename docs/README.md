@@ -32,13 +32,13 @@
 10. Design SSOT: [design/INDEX.md](./design/INDEX.md)
 11. IDE integration docs: [external/for-ide/INDEX.md](./external/for-ide/INDEX.md)
 12. Archive lifecycle metadata: [archive/INDEX.md](./archive/INDEX.md)
-13. Plans scope and status rules: [plan/repository-delivery-convergence/Evidence.md](./plan/repository-delivery-convergence/Evidence.md)
+13. Plans scope and status rules: [plan/INDEX.md](./plan/INDEX.md)
 14. Implemented decision summary: [adr/IMPLEMENTED-DECISIONS.md](./adr/IMPLEMENTED-DECISIONS.md)
 
 ## Default Read Order
 
 1. Start with [rollups/CURRENT-STATE.md](./rollups/CURRENT-STATE.md).
-2. Follow its links into the owning SSOT in `design/`, `specs/`, `assets/workflow/`, `teams/`, `plans/`, or current rollups.
+2. Follow its links into the owning SSOT in `design/`, `specs/`, `workflows/`, `teams/`, `plans/`, or current rollups.
 3. Use Git history only when exact old history/review wording is required.
 4. Use `archive/` only for lifecycle metadata.
 
@@ -49,3 +49,5 @@
 3. Regenerate indexes with `python3 scripts/docs-index.py --write` after docs-tree changes.
 4. Validate archive/rollup state with `python3 scripts/docs-lifecycle.py validate`.
 5. Verify the tree with `python3 scripts/docs-audit.py` or `ctest --test-dir build/default -L docs`.
+6. Before creating a Markdown file, check whether the content belongs in an existing owner document.
+7. Prefer to update an existing owner instead of adding a parallel note for the same rule, contract, or workflow.

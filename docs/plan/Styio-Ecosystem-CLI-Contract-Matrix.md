@@ -132,7 +132,7 @@ styio --source-build-info=json
 
 Owner / consumer docs:
 
-1. `styio-nightly/docs/external/for-spio/Styio-Nano-Spio-Coordination.md`
+1. `styio-nightly/docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md`
 2. `styio-spio/docs/governance/Spio-CLI-Contract.md`
 
 ### 2.5 `styio build <file_path> -o <artifact_name>`
@@ -178,7 +178,7 @@ spio machine-info --json
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
 
 ### 3.2 `spio project-graph --manifest-path <path> --json`
 
@@ -200,7 +200,7 @@ spio project-graph --manifest-path <path> --json
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Project-Graph-Contract.md`
+2. `styio-view/docs/external/for-pafio/Spio-Project-Graph-Contract.md`
 
 ### 3.3 `spio tool status --manifest-path <path> --json`
 
@@ -223,7 +223,7 @@ spio tool status --manifest-path <path> --json
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
 
 ### 3.4 `spio --json build/run/test`
 
@@ -250,7 +250,7 @@ spio --json test --manifest-path <path> ...
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
+2. `styio-view/docs/external/for-pafio/Spio-Workflow-Success-Payloads.md`
 
 ### 3.5 `spio --json fetch/vendor/pack/publish`
 
@@ -274,8 +274,8 @@ spio --json publish --manifest-path <path> --registry <path-or-url>
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-pafio/Spio-Workflow-Success-Payloads.md`
+3. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
 
 ### 3.6 `spio --json tool install/use/pin`
 
@@ -297,8 +297,8 @@ spio --json tool pin --clear --manifest-path <path>
 Owner / consumer docs:
 
 1. `styio-spio/docs/governance/Spio-CLI-Contract.md`
-2. `styio-view/docs/external/for-spio/Spio-Workflow-Success-Payloads.md`
-3. `styio-view/docs/external/for-spio/Spio-Toolchain-And-Registry-State.md`
+2. `styio-view/docs/external/for-pafio/Spio-Workflow-Success-Payloads.md`
+3. `styio-view/docs/external/for-pafio/Spio-Toolchain-And-Registry-State.md`
 
 ## 验收条件
 

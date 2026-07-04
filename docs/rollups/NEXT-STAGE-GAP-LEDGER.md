@@ -84,14 +84,14 @@
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| LSP surface is still intentionally incomplete | Medium | Current limits still list local-only, single-workspace behavior and missing `rename`, `codeAction`, and `inlayHint` in [../external/for-ide/LSP.md](../external/for-ide/LSP.md); server capabilities stop at completion/hover/definition/references/symbols/semantic tokens in [src/StyioLSP/Server.cpp](../../src/StyioLSP/Server.cpp) | IDE / LSP, Docs / Ecosystem | Expand the surface only after runtime drain and semantic identity paths remain stable under tests |
+| LSP surface is still intentionally incomplete | Medium | Current limits still list local-only, single-workspace behavior and missing `rename`, `codeAction`, and `inlayHint` in [../external/for-ide/LSP.md](../external/for-ide/LSP.md); server capabilities stop at completion/hover/definition/references/symbols/semantic tokens in [src/StyioServices/StyioLSP/Server.cpp](../../src/StyioServices/StyioLSP/Server.cpp) | IDE / LSP, Docs / Ecosystem | Expand the surface only after runtime drain and semantic identity paths remain stable under tests |
 | Perf budget enforcement is split between unit and dedicated Release harnesses | Low | `StyioIdePerf.EnforcesFrozenLatencyBudgets` skips non-Release runs in [tests/ide/styio_ide_test.cpp](../../tests/ide/styio_ide_test.cpp), with operational guidance in [../teams/PERF-STABILITY-RUNBOOK.md](../teams/PERF-STABILITY-RUNBOOK.md) | IDE / LSP, Perf / Stability | Preserve the dedicated Release gate, but keep the distinction visible so teams do not mistake Debug green for perf closure |
 
 ### 5.6 Tests / Quality / Perf
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| Next-stage migration tests need to stay tied to active syntax | Medium | [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) now treats M6 positive coverage as Topology v2 resource syntax and keeps retired state-family spellings only as negative migration diagnostics | Test Quality, Frontend, Sema / IR | Add new positive coverage only for active syntax; keep retired spellings in negative tests with stable migration diagnostics |
+| Next-stage migration tests need to stay tied to active syntax | Medium | [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) now treats M6 positive coverage as Topology v2 resource syntax and keeps retired state-family spellings only as negative migration diagnostics | Test Quality, Frontend, Sema / IR | Add new positive coverage only for active syntax; keep retired spellings in negative tests with stable migration diagnostics |
 | Package and contract negative-path testing still lags behind implementation branches | Medium | Nano create/publish guards, marker parsing, and blob verification are present in code but not closed by matching test density | Test Quality, CLI / Nano | Treat contract-edge coverage as release-blocking for any future nano handoff changes |
 | Broadened ignore baselines can still hide future tracked repro fixtures outside the frozen negate roots | Low | Root ignore rules now absorb cache, `tmp/`, `build-*`, and `*.tmp` / `*.log` style paths in [../../.gitignore](../../.gitignore), but `docs/**` and `tests/**` now have explicit negate rules and are checked by [../../scripts/repo-hygiene-gate.py](../../scripts/repo-hygiene-gate.py) | Docs / Ecosystem, Test Quality | Keep the shared ignore baseline, extend explicit negate rules before adding new tracked repro roots outside `docs/**` or `tests/**`, and do not rely on review memory alone |
 
@@ -100,7 +100,7 @@
 | Closed item | Evidence | Verification |
 |-------------|----------|--------------|
 | `f32` dtype mapping and nearby numeric-promotion regression | `f32` maps to internal name `f32` in [src/StyioToken/Token.hpp](../../src/StyioToken/Token.hpp), and focused coverage exists in [tests/styio_test.cpp](../../tests/styio_test.cpp) (`StyioTypes.F32BuiltinMappingUsesF32InternalName`, `StyioTypes.GetMaxTypeNumericPromotionByBitWidth`) | `ctest --test-dir build-codex -R '^(StyioTypes\.F32BuiltinMappingUsesF32InternalName\|StyioTypes\.GetMaxTypeNumericPromotionByBitWidth)$' --output-on-failure` passed on 2026-04-21 |
-| M8 positive smoke coverage in the automated milestone matrix | [tests/CMakeLists.txt](../../tests/CMakeLists.txt) registers M8 positive fixtures via `styio_stdout_golden_test(m8 "t*.styio" m8)`, and [../assets/workflow/TEST-CATALOG.md](../assets/workflow/TEST-CATALOG.md) lists `m8_t01_bounded_final_bind`, `m8_t02_bounded_read`, and `m8_t14_flex_other_var_after_final_ok` | `ctest --test-dir build-codex -R '^m8_t(01_bounded_final_bind\|02_bounded_read\|14_flex_other_var_after_final_ok)$' --output-on-failure` passed on 2026-04-21 |
+| M8 positive smoke coverage in the automated milestone matrix | [tests/CMakeLists.txt](../../tests/CMakeLists.txt) registers M8 positive fixtures via `styio_stdout_golden_test(m8 "t*.styio" m8)`, and [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) lists `m8_t01_bounded_final_bind`, `m8_t02_bounded_read`, and `m8_t14_flex_other_var_after_final_ok` | `ctest --test-dir build-codex -R '^m8_t(01_bounded_final_bind\|02_bounded_read\|14_flex_other_var_after_final_ok)$' --output-on-failure` passed on 2026-04-21 |
 | `stdio semantic drain request-loop integration` | `Server::run()` now drains runtime diagnostics on each request and `styio_ide_test` asserts the serialized loop output matches `handle + drain_runtime()` (`StyioLspServer.RunDrainsRuntimeDiagnostics`) | `ctest --test-dir build-codex --tests-regex 'StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure` passed on 2026-04-21 |
 | `CP-B0.2 runtime scheduling freeze` | Request-loop runtime diagnostics are budgeted in `Server::run()` (`kRuntimeDrainBudgetPerLoop = 1`), `IdeService::run_idle_tasks()` drains semantic diagnostics before budgeted background work, and stale/late updates are dropped by snapshot-version sequencing in `IdeService` | `ctest --test-dir build-codex -L ide --tests-regex 'StyioLspRuntime.RuntimeDrainCanBeBudgetedForScheduling|StyioLspRuntime.IdleSliceDrainsSemanticBeforeBackgroundWork|StyioLspRuntime.RunAdvancesBackgroundWorkAsRequestDrivenFallback|StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure` passed on 2026-04-22 |
 
@@ -132,7 +132,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 
 ## 8. Rules for Scalable Team Execution
 
-1. Keep checkpoints 1-3 days wide, consistent with [../assets/workflow/CHECKPOINT-WORKFLOW.md](../assets/workflow/CHECKPOINT-WORKFLOW.md).
+1. Keep checkpoints 1-3 days wide, consistent with [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md).
 2. Route every checkpoint through the owning runbook in [../teams/COORDINATION-RUNBOOK.md](../teams/COORDINATION-RUNBOOK.md); do not leave cross-team review implicit.
 3. Do not let package-manager UX drift back into `styio`; only compiler-side contracts belong here.
 4. Do not expand the public IDE surface until the stdio runtime drain path and semantic publication discipline are closed.
@@ -141,7 +141,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 
 ## 9. Immediate Stage Conclusion
 
-1. The repository is not “unfinished everywhere”; it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
+1. The repository is not 鈥渦nfinished everywhere鈥? it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
 2. The deepest unfinished work is concentrated in compiler completion debt: parser subset gaps, sema/type/lowering placeholders, M7 runtime closure, and Topology v2 migration debt.
 3. Package-manager expectations must stay split cleanly: `styio` now owns the compiler-side compile-plan contract baseline and its compatibility maintenance, but not a full package-manager product surface.
 4. IDE next-stage work should prioritize operational closure over feature count: drain semantics correctly first, then expand methods.

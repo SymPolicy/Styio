@@ -91,7 +91,7 @@ The unified delivery floor is additive, not a replacement. Run `./scripts/delive
 | IR shape accepted by codegen | Five-layer cases for affected stages plus feature or unit coverage |
 | Runtime or handle contract | Security tests, soak smoke, relevant benchmark route |
 | CLI diagnostic or exit-code contract | CLI-focused unit/feature cases and docs update |
-| Nano package contract | Nano tests in `styio_test`, [../external/for-spio/Styio-Nano-Spio-Coordination.md](../external/for-spio/Styio-Nano-Spio-Coordination.md) review |
+| Nano package contract | Nano tests in `styio_test`, [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md) review |
 | LSP or IDE API surface | `styio_ide_test`, [../external/for-ide/INDEX.md](../external/for-ide/INDEX.md) update, syntax grammar gate when applicable |
 | Documentation collection shape | `./scripts/delivery-gate.sh --skip-health` |
 

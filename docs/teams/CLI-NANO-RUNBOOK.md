@@ -54,6 +54,7 @@ Key handoff document:
 22. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
 23. Keep the Pafio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
 24. Keep generated nano CMake portable across upstream-supported hosts: preserve Windows `file://` drive handling, do not emit `.exe` inside CMake `OUTPUT_NAME`, derive LLVM dependency roots from `LLVM_DIR`, and guard MSVC size flags so Debug builds remain debuggable.
+25. When generated nano CMake needs Windows toolchain discovery paths, derive them from CMake inputs or process environment variables instead of emitting machine-specific absolute roots in `src/main.cpp`.
 
 ## Change Classes
 
