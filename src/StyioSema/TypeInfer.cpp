@@ -2789,15 +2789,21 @@ StyioSemaContext::typeInfer(ResourceWriteAST* ast) {
   if (!styio_type_is_writable(resource_type)) {
     throw StyioTypeError("write target must be a writable resource");
   }
+  bool text_sink_requires_iterable = false;
   if (auto* stream = dynamic_cast<StdStreamAST*>(ast->getResource())) {
-    if (stream->getStreamKind() != StdStreamKind::Stdin) {
-      StyioDataType data_type = infer_expr_type(this, ast->getData());
-      if (!type_is_text_serializable_iterable(data_type)) {
-        throw StyioTypeError(
-          "terminal/standard-stream `>>` requires an iterable text-serializable value; "
-          "use `-> @stdout` or `-> [>_]` for scalar text"
-        );
-      }
+    text_sink_requires_iterable = stream->getStreamKind() != StdStreamKind::Stdin;
+  }
+  else if (dynamic_cast<FileResourceAST*>(ast->getResource()) != nullptr
+           || resource_type.handle_family == StyioHandleFamily::File) {
+    text_sink_requires_iterable = true;
+  }
+  if (text_sink_requires_iterable) {
+    StyioDataType data_type = infer_expr_type(this, ast->getData());
+    if (!type_is_text_serializable_iterable(data_type)) {
+      throw StyioTypeError(
+        "terminal/file/standard-stream `>>` requires an iterable text-serializable value; "
+        "use `->` for scalar text"
+      );
     }
   }
 }

@@ -665,6 +665,36 @@ lower_text_iterable_std_stream_write(
   );
 }
 
+StyioIR*
+lower_text_iterable_file_write(
+  AstToStyioIRLowerer* an,
+  StyioAST* data,
+  StyioIR* data_ir,
+  StyioIR* path_ir,
+  bool is_auto_path
+) {
+  std::string elem_type = expr_iterable_item_type_name(an, data);
+  StyioIR* iterable_ir = data_ir;
+  if (expr_is_dict_like(an, data)) {
+    iterable_ir = SCDictValues::Create(iterable_ir, elem_type);
+  }
+
+  const StyioValueFamily elem_family = styio_value_family_from_type_name(elem_type);
+  const bool item_is_string = elem_family == StyioValueFamily::String;
+  const bool promote = !item_is_string;
+  const bool append_newline = promote;
+  std::string item_name = alloc_generated_pipe_item_name();
+  StyioIR* item_expr = std_stream_item_expr_for_type(item_name, elem_type);
+  return SGForEach::Create(
+    iterable_ir,
+    std::move(item_name),
+    std::move(elem_type),
+    SGBlock::Create({
+      SIOResourceWriteToFile::Create(item_expr, path_ir, is_auto_path, promote, append_newline)
+    })
+  );
+}
+
 bool
 is_matrix_intrinsic_name(const std::string& name) {
   return name == "mat_zeros"
@@ -3405,17 +3435,27 @@ AstToStyioIRLowerer::lowerResourceSinkWriteLatest(
     return SIOStdStreamWrite::Create(stream, {data_ir});
   }
 
+  auto* fr = dynamic_cast<FileResourceAST*>(resource);
+  if (!fr) {
+    const char* op = redirect_mode ? "->" : "<<";
+    throw StyioTypeError(std::string(op) + " target must be a file or standard stream resource");
+  }
+
+  if (!redirect_mode && (expr_is_list_like(this, data) || expr_is_dict_like(this, data))) {
+    return lower_text_iterable_file_write(
+      this,
+      data,
+      data_ir,
+      fr->getPath()->toStyioIR(this),
+      fr->isAutoDetect()
+    );
+  }
+
   if (expr_is_list_like(this, data)) {
     data_ir = SCListToString::Create(data_ir);
   }
   else if (expr_is_dict_like(this, data)) {
     data_ir = SCDictToString::Create(data_ir);
-  }
-
-  auto* fr = dynamic_cast<FileResourceAST*>(resource);
-  if (!fr) {
-    const char* op = redirect_mode ? "->" : "<<";
-    throw StyioTypeError(std::string(op) + " target must be a file or standard stream resource");
   }
 
   bool promote = true;

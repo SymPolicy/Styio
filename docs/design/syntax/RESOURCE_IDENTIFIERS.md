@@ -50,11 +50,12 @@ resource identity is governed by the Styio declaration above.
 consumed as an iterable stream through `@stdin >> #(line) => { ... }`; immediate pulls use
 `(<- @stdin)` or typed pull declarations such as `a, b <- @stdin : (f64, f64)`.
 
-`value -> [>_]` and `value -> @stdout` write scalar/text output. `items >> [>_]` and
-`items >> @stdout` are only for iterable values whose items can be text-serialized; the left
-iterable is advanced item by item, and each item is pushed as a separate pulse into the terminal
-or standard-stream sink. A plain string must not use `>>`; write it with `->` or split it
-explicitly with `text.lines() >> [>_]` / `text.lines() >> @stdout`.
+`value -> [>_]`, `value -> @stdout`, and `value -> @file("out.txt")` write scalar/text output.
+`items >> [>_]`, `items >> @stdout`, and `items >> @file("out.txt")` are only for iterable
+values whose items can be text-serialized; the left iterable is advanced item by item, and each
+item is pushed as a separate pulse into the terminal, standard-stream, or file sink. A plain
+string must not use `>>`; write it with `->` or split it explicitly with
+`text.lines() >> [>_]` / `text.lines() >> @stdout`.
 
 Direction describes data flow only. Standard resources remain explicit resource subjects, so user
 code may invoke declared release/close operations when the resource family provides them.
