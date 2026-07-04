@@ -146,7 +146,7 @@ class InfiniteLoopAST;
   - End-Of-Line
   - `pass` ..........
   - `break` ^... (nearest loop)
-  - `continue` >>>>>>
+  - `continue` >>... (nearest pulse/session domain; count ignored)
   - `return` <<<<<<<<
 */
 class CondFlowAST;

@@ -3596,11 +3596,11 @@ StyioToLLVM::toLLVMIR(SGBreak* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGContinue* node) {
-  if (loop_stack_.empty() || node->depth == 0 || node->depth > loop_stack_.size()) {
+  (void)node;
+  if (loop_stack_.empty()) {
     throw StyioTypeError("continue outside enclosing loop");
   }
-  size_t ix = loop_stack_.size() - node->depth;
-  const LoopFrame& frame = loop_stack_[ix];
+  const LoopFrame& frame = loop_stack_.back();
   emit_scope_cleanup_to_depth(frame.resource_scope_depth);
   llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
   if (cur == nullptr || cur->getTerminator() != nullptr) {

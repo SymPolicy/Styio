@@ -205,8 +205,9 @@ resource topology gives Styio an active source direction for resource declaratio
 - Tracked file handles now have the first compiler-owned scope-exit cleanup
   settlement slice: explicit `<| return` closes active file-handle slots before
   emitting the LLVM `ret`, normal scope-pop cleanup checks the runtime error
-  channel after cleanup, loop `^` break and standalone `>>` continue branches
-  clean the resource scopes they bypass before jumping to the loop target, and
+  channel after cleanup, loop `^` break and standalone `>>...` continue branches
+  clean the resource scopes they bypass before jumping to the next pulse/session
+  of the nearest continue-capable domain, and
   function codegen keeps function-local resource scope stacks isolated from
   surrounding codegen. File flex-rebind also runs the tracked file-handle close
   before the RHS acquire/overwrite, then checks the cleanup error channel so

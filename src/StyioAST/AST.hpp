@@ -674,19 +674,12 @@ public:
 
 class ContinueAST : public StyioASTTraits<ContinueAST>
 {
-  unsigned depth_ = 1;
-
 public:
-  explicit ContinueAST(unsigned d = 1) :
-      depth_(d) {
+  ContinueAST() {
   }
 
-  static ContinueAST* Create(unsigned d = 1) {
-    return new ContinueAST(d);
-  }
-
-  unsigned getDepth() const {
-    return depth_;
+  static ContinueAST* Create() {
+    return new ContinueAST();
   }
 
   const StyioNodeType getNodeType() const {

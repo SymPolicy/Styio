@@ -23,7 +23,7 @@ IM-D5 does not redefine the single-resource capability, typestate, fallback, cle
 
 Styio already has active design and partial implementation surfaces for streams:
 
-- `source >> #(x) => { ... }` is the primary pulse/stream consumer shape.
+- `source >> #(x) => { ... }` is the primary pulse/stream consumer shape: `source` is advanced one item at a time and each item is pushed as a pulse into `x`.
 - `[...]` is the infinite pulse generator.
 - `&` is the stream zip token for aligned synchronization.
 - Pulse-frame locking is documented as a core Styio design direction.

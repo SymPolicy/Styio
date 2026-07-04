@@ -146,7 +146,7 @@ all    = @price[...]
 |------|---------|
 | `expr -> @x` | Flow one produced value into resource sink `@x` |
 | `x = @price[-1]` | Read a scalar value |
-| `@price >> #(v) => { ... }` | Run the block over a resource snapshot and commit at block exit |
+| `@price >> #(v) => { ... }` | Iterate the resource snapshot one produced item at a time; each item is pushed as a pulse into `v`, and the block commits at block exit |
 | `a => { ... }` | Enter a block stage, operate on a resource snapshot context, and commit at block exit |
 | `x ?= { arm => { ... } }` | Match block entry plus selected arm block entry; each block stage has its own snapshot/commit |
 | `||> { ... }` | Task block entry; captures a resource snapshot context when constructing the task block |

@@ -26,7 +26,7 @@ Primary paths:
 3. Regenerate artifacts from `grammar/tree-sitter-styio/`.
 4. Review generated diffs for suspicious broad churn.
 5. Run IDE tests with `STYIO_ENABLE_TREE_SITTER=ON`; when relevant, also configure with it OFF to preserve tolerant fallback.
-6. For token repetitions such as `^...`, keep edit-time recognition tolerant while following the language SSOT for semantics; caret count is not a Tree-sitter-owned break-depth contract.
+6. For token repetitions such as `^...` and standalone `>>...`, keep edit-time recognition tolerant while following the language SSOT for semantics; token count is not a Tree-sitter-owned break/continue-depth contract.
 7. When conditional-loop syntax changes, keep compiler parser tests, [../design/Styio-EBNF.md](../design/Styio-EBNF.md), language design docs, and symbol reference aligned; the active form is `[...] >> ?(condition) => { ... }`.
 8. Generated support headers may be edited only for repository-public wording cleanup or regenerated artifact hygiene; keep those edits narrow and rerun grammar/IDE gates when behavior changes.
 9. Tree-sitter and fallback syntax snapshots are non-authoritative editor aids. Accepted grammar must be proven through the hand-written nightly compiler parser and [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), not by Tree-sitter success.

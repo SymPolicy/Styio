@@ -41,6 +41,7 @@ Build and test targets:
 14. Keep compiler bridge code pointed at `AstToStyioIRLowerer` for semantic truth; do not rebuild a separate IDE analyzer or depend on the legacy `StyioAnalyzer` compatibility alias for new code.
 15. Keep LSP lifecycle and transport behavior byte-exact: notifications such as `initialized` must not receive JSON-RPC responses, and `styio_lspd` must keep stdio in binary mode on Windows before any LSP frame is exchanged.
 16. Keep IDE/LSP tests on the current public include roots, such as `StyioServices/StyioIDE/` and `StyioServices/StyioLSP/`; do not preserve old short include paths after source directories move.
+17. Tolerant IDE tokenization should keep full multi-character continue lexemes such as `>>>` together for editor spans, but it must not imply a different compiler semantic depth than the parser-owned nearest-loop continue.
 
 ## Change Classes
 

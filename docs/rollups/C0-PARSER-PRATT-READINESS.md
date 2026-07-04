@@ -103,7 +103,7 @@ The following golden inputs lock current parser behavior. Run as feature tests o
 | `f(x)(y)[0]` | `((f(x))(y))[0]` | Medium |
 | `xs[0..2]` | Slice | Low |
 | `?\|\ job -> value: i64 \| 0` | Await pipe | Low |
-| `@stdin & xs >> #(line, x) => { ... }` | Stream zip | Medium |
+| `@stdin >> #(line) & xs >> #(x) => { ... }` | Stream zip | Medium |
 
 ## 8. Checkpoint C Migration Boundary
 

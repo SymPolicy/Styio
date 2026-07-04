@@ -800,7 +800,7 @@ Features from the design documents and their current implementation state:
 | Resource topology selectors | §8.4 | ✅ | ✅ | Partial | Partial | Partial | Partial | **In Progress** |
 | Pulse Frame Lock | §8.5 | — | — | — | Partial | Partial | — | **In Progress** |
 | Break (`^...`) | §5.5 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Continue (`>>>`) | §5.6 | — | — | — | — | — | — | **Not Started** |
+| Continue (`>>...` standalone) | §5.6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
 | Stream Zip (`&`) | §9.1 | — | — | — | — | — | — | **Not Started** |
 | Snapshot Pull (`<< @res`) | §9.2 | — | — | — | — | — | — | **Not Started** |
 | Selector intrinsics (`[avg,n]`, `[max,n]`) | Intrinsics §2 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **Partial: avg/max pulse-state slice only** |

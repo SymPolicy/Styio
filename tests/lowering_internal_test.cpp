@@ -1050,7 +1050,7 @@ TEST(StyioLoweringInternal, CloneResourceMethodAndPulseHelpersStayExplicit) {
     StyioNodeType::MatchCases);
   expect_cloned_node(new InfiniteAST(IntAST::Create("0"), IntAST::Create("1")), StyioNodeType::Infinite);
   expect_cloned_node(new InfiniteAST(), StyioNodeType::Infinite);
-  expect_cloned_node(ContinueAST::Create(2), StyioNodeType::Continue);
+  expect_cloned_node(ContinueAST::Create(), StyioNodeType::Continue);
   expect_cloned_node(
     FunctionAST::Create(
       NameAST::Create("helper"),
@@ -2677,7 +2677,7 @@ TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
   nodes.push_back(SGConstChar::Create('A'));
   nodes.push_back(SGUndef::Create());
   nodes.push_back(SGBreak::Create(1));
-  nodes.push_back(SGContinue::Create(2));
+  nodes.push_back(SGContinue::Create());
   nodes.push_back(SGStateSnapLoad::Create(0));
   nodes.push_back(SGStateHistLoad::Create(1, 2));
 

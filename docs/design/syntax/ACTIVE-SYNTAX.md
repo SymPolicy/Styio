@@ -23,7 +23,9 @@
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Conditional | `?(cond) => { ... } | { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Range literal | `[start..end]`, `[start..end..step]` | Integer expressions only; materializes `list[i64]` for expression/value use and remains iterable in `>> #(x)` loops. |
+| Iteration / pulse transfer | `iterable >> #(x) => { ... }` | `>>` advances the left iterable or stream one item at a time and pushes each item as a pulse into the right closure/channel. |
 | Infinite stream loop | `[...] >> ?(cond) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Continue | `>>`, `>>>`, `>>>>`, ... as a standalone statement | Skip the rest of the current block for this pulse/session and resume at the next pulse/session of the nearest continue-capable domain; token length is ignored. |
 
 ## Types
 
@@ -44,15 +46,15 @@
 | Resource slot | `@price : f64|..10|` | Top-level only. |
 | Multi-resource slot | `@a : f64|..2|, @b : f64|..2| := { ... }` | Driver-block coverage remains staged by topology tests. |
 | Sink write | `expr -> @price` | Produces a pending write against the current resource context. |
-| Resource block | `resource >> { ... }` / `resource >> #(x) => { ... }` | Enters a snapshot at `>>`; commits snapshot result at `}`. Chained block stages commit once per block. |
+| Resource block | `resource >> { ... }` / `resource >> #(x) => { ... }` | Iterates the resource one produced item at a time into the block, enters a snapshot at `>>`, and commits snapshot result at `}`. Chained block stages commit once per block. |
 | Latest read | `@price[-1]` | Reads committed resource state or the current block snapshot. |
 | Slice read | `@price[-3..]`, `@price[...]` | Resource-object selectors; bounded selector snapshots materialize iterable lists, while scalar latest reads remain non-iterable. |
 | Stdin pull | `value <- @stdin` | Untyped scalar pull. |
 | Typed stdin pull | `a, b <- @stdin : (f64, f64)` | Tuple/list/scalar forms share the stdin-pull path. |
-| Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only for data flow; explicit resource operations may still release it. |
+| Stdin iteration | `@stdin >> #(line) => { ... }` | `@stdin` is read-only for data flow; each input line is pushed as one pulse into `line`; explicit resource operations may still release it. |
 | Stdin zip source | `@stdin >> #(line) & xs >> #(x) => { ... }` | Finite zip is accepted with materialized lists or `@file` streams; duplicate `@stdin & @stdin` remains unsupported until the stream-driver contract defines duplicate consumption. |
 | Stdout/stderr scalar write | `expr -> @stdout`, `expr -> @stderr` | `@stdout` and `@stderr` are write-only data sinks; explicit resource operations may still release them. |
-| Stdout/stderr iterable write | `items >> @stdout`, `items >> @stderr` | Plain strings should use `->` unless explicitly split. |
+| Stdout/stderr iterable write | `items >> @stdout`, `items >> @stderr` | Each iterable item is serialized and written as a stream-sink pulse. Plain strings should use `->` unless explicitly split. |
 | File resource | `@("log.txt")`, `@file("log.txt")` | Runtime substrate is file-backed when resolved as a file. |
 | Empty resource sink | `@()` | Destroy sink / empty resource. |
 | Explicit copy | `snapshot << @price[...]`, `copy << list_or_dict_or_matrix` | Selector snapshots and materialized list/dict/matrix handles copy through `<<`; `<-` stays resource acquire / task pull, not bound-resource clone. |

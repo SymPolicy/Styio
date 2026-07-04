@@ -74,6 +74,8 @@ Build and test targets:
 
 43. `StyioDataType` canonical field changes are frontend-owned because token/type metadata is shared by Sema and session services. Keep `StyioDataType::equals()` and any canonical view used by `TypeTable` in lockstep so parser-produced primitive, stream, collection, and resource type metadata compare through the same field set.
 
+44. Continue spelling is token-width tolerant but semantically depthless. Tokenizers may preserve the full `>>...` lexeme for diagnostics and highlighting, while parser routes must construct the same `ContinueAST` for every standalone continue spelling.
+
 ## Change Classes
 
 1. Small: typo-safe parser helper changes, local lookahead fix, or token display-name cleanup. Run targeted unit or feature tests.

@@ -356,6 +356,9 @@ For `expr >> #(x) => body`, typing succeeds iff:
 - the block runs on a resource snapshot created at the `>>` boundary
 - block exit commits the snapshot result back to the source resource when the resource family supports commit
 
+The operator transfers iterable items as pulses into the body. It is not a bit-shift,
+single read, or bulk pipe operation.
+
 The same rule should drive:
 
 - plain iteration
