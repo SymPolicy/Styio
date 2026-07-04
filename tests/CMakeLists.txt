@@ -433,7 +433,10 @@ target_compile_definitions(styio_algorithm_equivalence_test PRIVATE
   "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
   "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
 )
-target_include_directories(styio_algorithm_equivalence_test PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(styio_algorithm_equivalence_test PRIVATE
+  "${CMAKE_SOURCE_DIR}"
+  "${CMAKE_SOURCE_DIR}/src"
+)
 add_dependencies(styio_algorithm_equivalence_test styio)
 
 add_executable(styio_security_test

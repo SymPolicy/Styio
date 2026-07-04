@@ -63,6 +63,7 @@ Primary paths:
 37. Windows-native CTest registration may replace broad GTest discovery with explicit focused slices when discovery requires host runtime details. Keep those slices labelled with their behavior family and add a matching non-Windows registration path.
 38. LSP transport tests should launch the real `styio_lspd` binary and inspect raw bytes, not only call `Server::handle`, so stdio framing regressions are observable on every host.
 39. When source directories move, update C++ test include paths to the current owned headers instead of adding compatibility shims or keeping obsolete short include roots alive.
+40. Algorithm equivalence helper targets must keep both the repository root and `src/` on their private include path, because generated reference slices include `tests/...` helpers while the shared C++ harness includes owned implementation headers.
 
 ## Change Classes
 
