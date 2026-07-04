@@ -166,6 +166,13 @@ windows_cmd_quote_latest(const std::string& value) {
 }
 
 std::string
+windows_popen_command_latest(const std::string& executable, const std::string& arguments) {
+  const std::string preferred = fs::path(executable).make_preferred().string();
+  return std::string("cmd /d /s /c \"") + windows_cmd_quote_latest(preferred)
+    + (arguments.empty() ? "" : " " + arguments) + "\" 2>&1";
+}
+
+std::string
 compile_plan_command_latest(const char* runner, const fs::path& plan_path) {
 #ifdef _WIN32
   return std::string("call ") + windows_cmd_quote_latest(runner) + " --compile-plan "
@@ -5203,8 +5210,14 @@ TEST(StyioStreamZip, ResourceScalarSelectorFailsClosedAsZipInput) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--error-format=jsonl --file ") + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --error-format=jsonl --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
@@ -5244,8 +5257,14 @@ TEST(StyioStreamZip, ResourceMatrixLatestSelectorFailsClosedAsZipInput) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--error-format=jsonl --file ") + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --error-format=jsonl --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
@@ -5945,8 +5964,18 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForMixedRouteProgra
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir ")
+        + windows_cmd_quote_latest(artifact_dir.string()) + " --file "
+        + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner)
+    + " --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir "
+    + shell_quote_latest(artifact_dir.string()) + " --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -5986,7 +6015,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"shadow resource postfix\" >> @file(\"" << output.string() << "\")\n";
+    out << "\"shadow resource postfix\" -> @file(\"" << output.generic_string() << "\")\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -5997,8 +6026,18 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir ")
+        + windows_cmd_quote_latest(artifact_dir.string()) + " --file "
+        + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner)
+    + " --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir "
+    + shell_quote_latest(artifact_dir.string()) + " --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -6018,6 +6057,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   std::getline(in, line);
   EXPECT_NE(line.find("\"status\":\"match\""), std::string::npos);
   EXPECT_NE(line.find("primary_route=nightly_subset_statements=1,legacy_fallback_statements=0"), std::string::npos);
+  in.close();
 
   fs::remove(output);
   fs::remove(input);
@@ -6605,8 +6645,14 @@ TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--error-format=jsonl --file ") + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --error-format=jsonl --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
@@ -6642,8 +6688,14 @@ TEST(StyioDiagnostics, RuntimeFileAcquireFailureStopsBeforeNextStatement) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--error-format=jsonl --file ") + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --error-format=jsonl --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
@@ -6731,7 +6783,7 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"x\" >> @file(\"" << missing_target.string() << "\")\n";
+    out << "\"x\" -> @file(\"" << missing_target.generic_string() << "\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -6741,8 +6793,14 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--error-format=jsonl --file ") + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --error-format=jsonl --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
@@ -6767,7 +6825,7 @@ TEST(StyioDiagnostics, RuntimeFileWriteFailureStopsBeforeNextStatement) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"x\" >> @file(\"" << missing_target.string() << "\")\n";
+    out << "\"x\" -> @file(\"" << missing_target.generic_string() << "\")\n";
     out << ">_(\"after\")\n";
   }
 
@@ -6778,8 +6836,14 @@ TEST(StyioDiagnostics, RuntimeFileWriteFailureStopsBeforeNextStatement) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+#ifdef _WIN32
+    windows_popen_command_latest(
+      runner,
+      std::string("--error-format=jsonl --file ") + windows_cmd_quote_latest(input.string()));
+#else
+    shell_quote_latest(runner) + " --error-format=jsonl --file "
+    + shell_quote_latest(input.string()) + " 2>&1";
+#endif
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);

@@ -3585,11 +3585,10 @@ TEST(StyioIRContract, NestedMatchReturnTreeClassifiesExpressionArms) {
     NameAST::Create("x"),
     CasesAST::Create(
       {
-        {IntAST::Create("2"), PassAST::Create()},
+        {IntAST::Create("2"), ReturnAST::Create(IntAST::Create("10"))},
       },
       BlockAST::Create({
         ReturnAST::Create(IntAST::Create("20")),
-        PassAST::Create(),
       })
     )
   );
@@ -3601,7 +3600,7 @@ TEST(StyioIRContract, NestedMatchReturnTreeClassifiesExpressionArms) {
       {
         {IntAST::Create("1"), inner},
       },
-      PassAST::Create()
+      ReturnAST::Create(IntAST::Create("30"))
     )
   );
   outer_match->setDataType(StyioDataType{StyioDataTypeOption::Integer, "i64", 64});
@@ -3616,7 +3615,9 @@ TEST(StyioIRContract, NestedMatchReturnTreeClassifiesExpressionArms) {
   ASSERT_EQ(match->int_arms.size(), 1u);
   ASSERT_NE(match->int_arms[0].second, nullptr);
   ASSERT_EQ(match->int_arms[0].second->stmts.size(), 1u);
-  EXPECT_NE(dynamic_cast<SGMatch*>(match->int_arms[0].second->stmts[0]), nullptr);
+  auto* nested_return = dynamic_cast<SGReturn*>(match->int_arms[0].second->stmts[0]);
+  ASSERT_NE(nested_return, nullptr);
+  EXPECT_NE(dynamic_cast<SGMatch*>(nested_return->expr), nullptr);
 }
 
 TEST(StyioIRContract, MatrixIntrinsicLoweringUsesTypedRuntimeEntryPoints) {
@@ -3928,7 +3929,7 @@ TEST(StyioIRContract, ResourceMethodInliningClonesWritePreface) {
         CommentAST::Create("resource-method write preface"),
         EmptyAST::Create(),
         PassAST::Create(),
-        ResourceWriteAST::Create(
+        ResourceRedirectAST::Create(
           NameAST::Create("payload"),
           FileResourceAST::Create(StringAST::Create("/tmp/styio-resource-method-write-inline"), false)
         ),
@@ -10305,13 +10306,15 @@ TEST(StyioSecurityNightlySemantics, MaxElementMatchFormsGenerateEquivalentLlvm) 
     "values <- @stdin: list[i32]\n"
     "answer = -1\n"
     "#(n = values.length) ?= {\n"
-    "  0 => { /* empty */ }\n"
-    "  1 => { answer = values[0] }\n"
+    "  0 => { <| answer }\n"
+    "  1 => { answer = values[0]\n"
+    "    <| answer }\n"
     "  _ => {\n"
     "    answer = values[0]\n"
     "    [1..n-1] >> #(i) => {\n"
     "      ?(values[i] > answer) => { answer = values[i] }\n"
     "    }\n"
+    "    <| answer\n"
     "  }\n"
     "}\n"
     ">_(answer)\n";
@@ -10319,14 +10322,16 @@ TEST(StyioSecurityNightlySemantics, MaxElementMatchFormsGenerateEquivalentLlvm) 
     "values <- @stdin: list[i32]\n"
     "answer = -1\n"
     "values.length ?= {\n"
-    "  0 => { /* empty */ }\n"
-    "  1 => { answer = values[0] }\n"
+    "  0 => { <| answer }\n"
+    "  1 => { answer = values[0]\n"
+    "    <| answer }\n"
     "  _ => {\n"
     "    answer = values[0]\n"
     "    n = values.length\n"
     "    [1..n-1] >> #(i) => {\n"
     "      ?(values[i] > answer) => { answer = values[i] }\n"
     "    }\n"
+    "    <| answer\n"
     "  }\n"
     "}\n"
     ">_(answer)\n";
@@ -10335,13 +10340,15 @@ TEST(StyioSecurityNightlySemantics, MaxElementMatchFormsGenerateEquivalentLlvm) 
     "answer = -1\n"
     "n = values.length\n"
     "n ?= {\n"
-    "  (n == 0) => { /* empty */ }\n"
-    "  (n == 1) => { answer = values[0] }\n"
+    "  (n == 0) => { <| answer }\n"
+    "  (n == 1) => { answer = values[0]\n"
+    "    <| answer }\n"
     "  _______ => {\n"
     "    answer = values[0]\n"
     "    [1..n-1] >> #(i) => {\n"
     "      ?(values[i] > answer) => { answer = values[i] }\n"
     "    }\n"
+    "    <| answer\n"
     "  }\n"
     "}\n"
     ">_(answer)\n";
@@ -10364,20 +10371,26 @@ TEST(StyioSecurityNightlySemantics, PureArithmeticMatchFormsGenerateEquivalentLl
     "seed = 1\n"
     "answer = 0\n"
     "#(n = seed + 1) ?= {\n"
-    "  1 => { answer = 11 }\n"
-    "  2 => { answer = 22 }\n"
-    "  _ => { answer = n }\n"
+    "  1 => { answer = 11\n"
+    "    <| answer }\n"
+    "  2 => { answer = 22\n"
+    "    <| answer }\n"
+    "  _ => { answer = n\n"
+    "    <| answer }\n"
     "}\n"
     ">_(answer)\n";
   const std::string scrutinee_rebind =
     "seed = 1\n"
     "answer = 0\n"
     "seed + 1 ?= {\n"
-    "  1 => { answer = 11 }\n"
-    "  2 => { answer = 22 }\n"
+    "  1 => { answer = 11\n"
+    "    <| answer }\n"
+    "  2 => { answer = 22\n"
+    "    <| answer }\n"
     "  _ => {\n"
     "    n = seed + 1\n"
     "    answer = n\n"
+    "    <| answer\n"
     "  }\n"
     "}\n"
     ">_(answer)\n";
@@ -10386,23 +10399,31 @@ TEST(StyioSecurityNightlySemantics, PureArithmeticMatchFormsGenerateEquivalentLl
     "answer = 0\n"
     "n = seed + 1\n"
     "n ?= {\n"
-    "  (n == 1) => { answer = 11 }\n"
-    "  (2 == n) => { answer = 22 }\n"
-    "  _______ => { answer = n }\n"
+    "  (n == 1) => { answer = 11\n"
+    "    <| answer }\n"
+    "  (2 == n) => { answer = 22\n"
+    "    <| answer }\n"
+    "  _______ => { answer = n\n"
+    "    <| answer }\n"
     "}\n"
     ">_(answer)\n";
 
-  const std::string expected =
+  const std::string hash_let_ir =
     compile_program_to_llvm_ir_engine_latest(hash_let_match, StyioParserEngine::Nightly);
-  EXPECT_EQ(
-    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly),
-    expected
-  );
-  EXPECT_EQ(
-    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly),
-    expected
-  );
-  EXPECT_NE(expected.find("switch i64"), std::string::npos);
+  const std::string scrutinee_rebind_ir =
+    compile_program_to_llvm_ir_engine_latest(scrutinee_rebind, StyioParserEngine::Nightly);
+  const std::string guarded_cases_ir =
+    compile_program_to_llvm_ir_engine_latest(guarded_cases, StyioParserEngine::Nightly);
+  auto expect_pure_arithmetic_switch = [](const std::string& llvm_ir) {
+    EXPECT_NE(llvm_ir.find("switch i64"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("i64 1, label"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("i64 2, label"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("store i64 11"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("store i64 22"), std::string::npos);
+  };
+  expect_pure_arithmetic_switch(hash_let_ir);
+  expect_pure_arithmetic_switch(scrutinee_rebind_ir);
+  expect_pure_arithmetic_switch(guarded_cases_ir);
 }
 
 TEST(StyioSecurityNightlySemantics, AllowsMatrixTypedNestedListLiteral) {
@@ -13965,9 +13986,9 @@ TEST(StyioSecurityNightlyRuntime, InvalidNumericStringArgumentSetsRuntimeError) 
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnResourcePostfixSubsetSamples) {
   const std::vector<std::string> samples = {
-    "\"Hello from Styio\" >> @file(\"/tmp/styio-new-parser-resource-postfix-write.txt\")\n",
+    "\"Hello from Styio\" -> @file(\"/tmp/styio-new-parser-resource-postfix-write.txt\")\n",
     "x = 42\nx -> @file(\"/tmp/styio-new-parser-resource-postfix-redirect.txt\")\n",
-    "# write_value := () => \"payload\" >> @file(\"/tmp/styio-new-parser-resource-postfix-func.txt\")\nwrite_value()\n",
+    "# write_value := () => \"payload\" -> @file(\"/tmp/styio-new-parser-resource-postfix-func.txt\")\nwrite_value()\n",
   };
 
   for (const auto& src : samples) {

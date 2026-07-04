@@ -1,6 +1,6 @@
 <STRING>	"Hello from Styio"
  	 
->>	>>
+->	->
  	 
 @	@
 <ID>	file
