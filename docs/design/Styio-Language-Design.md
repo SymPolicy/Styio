@@ -573,9 +573,9 @@ bracketed terminal-handle spelling `[>_]` is canonical:
 | Operation | Canonical symbolic form | Compatibility form | Unix fd | Semantics |
 |-----------|--------------------------|--------------------|---------|-----------|
 | Scalar write | `x -> [>_]` | `x -> (>_)` | fd 1 | Write one scalar/text value to stdout |
-| Iterable write | `xs >> [>_]` | `xs >> (>_)` | fd 1 | Serialize an iterable value to stdout |
+| Iterable write | `xs >> [>_]` | `xs >> (>_)` | fd 1 | Advance `xs` item by item; write each item as a pulse to stdout |
 | Scalar error write | `!(x) -> [>_]` | `!(x) -> (>_)` | fd 2 | Write one scalar/text value to stderr (unbuffered) |
-| Iterable error write | `!(xs) >> [>_]` | `!(xs) >> (>_)` | fd 2 | Serialize an iterable value to stderr (unbuffered) |
+| Iterable error write | `!(xs) >> [>_]` | `!(xs) >> (>_)` | fd 2 | Advance `xs` item by item; write each item as an unbuffered pulse to stderr |
 | Read stream shorthand | `<\|[>_]` | `<\|(>_)` | fd 0 | Return the terminal input stream |
 | Read stream expanded | `<\| <- [>_]` | `<\| <- (>_)` | fd 0 | Pull the terminal input stream, then return it |
 
@@ -642,9 +642,10 @@ stream-sink style is intentional.
 **Compiler recognition:** The compiler recognizes `@stdout`, `@stderr`, `@stdin` directly at
 parse/lowering time and emits FFI-backed standard-stream runtime-helper IR (`styio_stdout_write_cstr`
 for stdout writes, `styio_stderr_write_cstr` for stderr writes, and `styio_stdin_read_line` for
-stdin line reads). Scalar `expr -> @stdout` and iterable `items >> @stdout` both lower through
-the standard-stream write IR family, with the `>>` route requiring text-serializable iterable
-input before lowering.
+stdin line reads). Scalar `expr -> @stdout` lowers directly through the standard-stream write
+IR family. Iterable `items >> @stdout` first expands into a per-item pulse loop, and the loop
+body writes each item through the standard-stream write IR family. The `>>` route requires
+text-serializable iterable input before lowering.
 
 ---
 
@@ -883,7 +884,7 @@ complete resource definitions and usage patterns.
 @stdin >> #(line) => { >_(line) }     // >_ used as stream source under the hood
 ```
 
-**Type formatting rules** (applies to `>_()`, scalar `-> @stdout`, and iterable `>> @stdout` after serialization):
+**Type formatting rules** (applies to `>_()`, scalar `-> @stdout`, and each item emitted by iterable `>> @stdout`):
 
 | Type | Output format |
 |------|---------------|
