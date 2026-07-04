@@ -68,6 +68,7 @@ Primary paths:
 42. Continue-depth compatibility changes must update parser, clone/lowering, codegen, IDE tolerant tokenization, and security/lowering regression tests together so multi-character `>>...` spellings do not leave stale depth assumptions in fixtures.
 43. Writable-resource iterable write changes must assert the lowered runtime shape, not just parse/typecheck success. Cover list/string-line and dict-value sources so tests can prove `>> @stdout` and `>> @file(...)` emit per-item pulse writes instead of collapsing the container through whole-value stringification.
 44. Scalar file-write fixture changes must keep `-> @file(...)` for whole-value writes and reserve `>> @file(...)` for iterable pulse writes. Expression-match fixture branches must end in `<| expr` or an equivalent final value so AST, IR, and LLVM tests follow the current return contract.
+45. Windows-native tests that execute `styio.exe` through `_popen` must use `windows_popen_command_latest(...)` or an equivalent `cmd.exe` wrapper instead of POSIX single-quote commands. Compile-plan JSON fixtures must write Windows paths with `generic_string()` so early diagnostic-sink probing sees valid JSON.
 
 ## Change Classes
 
