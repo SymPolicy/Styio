@@ -95,6 +95,7 @@ Key SSOTs:
 60. Keep rollup ledgers and migration notes free of developer-machine absolute paths; describe portability behavior generically unless an owned contract explicitly requires a literal path form.
 61. Track valid generated-index support files and installed shared assets even when broad ignore patterns match their directories. When `docs/plan/reports/` or `share/styio/prelude/` files become required by docs audit, install layout, or source-build metadata, force-track the owned files and refresh `DOC-STATS.md` in the same change.
 62. When `>>` language docs distinguish pulse transfer from standalone continue, keep EBNF, language design, active syntax, resource docs, symbol reference, rollups, agent specs, examples, and the owning implementation runbooks aligned in the same checkpoint.
+63. When standard-stream iterable writes change between whole-value serialization and per-item pulse emission, keep resource identifier docs, EBNF, language design, handle capability wording, Sema / IR ownership, and security evidence aligned in the same checkpoint.
 
 ## Change Classes
 

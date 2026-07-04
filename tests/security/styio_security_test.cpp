@@ -8101,7 +8101,15 @@ TEST(StyioSecurityNightlyCodegen, LongStandaloneContinueNormalizesToNearestLoop)
   EXPECT_NO_THROW({
     const std::string llvm_ir =
       compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
-    EXPECT_NE(llvm_ir.find("br label %foreach_step"), std::string::npos) << llvm_ir;
+    std::size_t branch_pos = llvm_ir.find("br label %foreach_step");
+    if (branch_pos == std::string::npos) {
+      branch_pos = llvm_ir.find("br label %foreach_rt_step");
+    }
+    if (branch_pos == std::string::npos) {
+      branch_pos = llvm_ir.find("br label %rangefor_step");
+    }
+    EXPECT_NE(branch_pos, std::string::npos) << llvm_ir;
+    EXPECT_EQ(llvm_ir.find("skipped"), std::string::npos) << llvm_ir;
   });
 }
 
@@ -10537,7 +10545,8 @@ TEST(StyioSecurityNightlySemantics, StringLinesCanFeedTerminalHandleIteratorWrit
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_string_lines"), std::string::npos);
-  EXPECT_NE(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_cstr"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
   EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
 }
 
@@ -10561,7 +10570,23 @@ TEST(StyioSecurityNightlySemantics, StringLinesCanFeedStdoutResourceIteratorWrit
   const std::string llvm_ir =
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_string_lines"), std::string::npos);
-  EXPECT_NE(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get_cstr"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_list_to_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
+}
+
+TEST(StyioSecurityNightlySemantics, DictValuesFeedStdoutResourceIteratorWriteAsPulses) {
+  const std::string src =
+    "items = dict{\"a\": 1, \"b\": 2}\n"
+    "items >> @stdout\n";
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly)
+  );
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_dict_values_i64"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_list_get"), std::string::npos);
+  EXPECT_EQ(llvm_ir.find("styio_dict_to_cstr"), std::string::npos);
   EXPECT_NE(llvm_ir.find("styio_stdout_write"), std::string::npos);
 }
 

@@ -35,6 +35,12 @@ alloc_pulse_region_id() {
   return n++;
 }
 
+std::string
+alloc_generated_pipe_item_name() {
+  static int n = 0;
+  return "__styio_pipe_item_" + std::to_string(n++);
+}
+
 StyioDataType
 lowering_bool_type() {
   return StyioDataType{StyioDataTypeOption::Bool, "bool", 1};
@@ -612,6 +618,51 @@ expr_is_dict_like(AstToStyioIRLowerer* an, StyioAST* expr) {
 bool
 expr_is_matrix_like(AstToStyioIRLowerer* an, StyioAST* expr) {
   return styio_is_matrix_type(expr_lowered_type(an, expr));
+}
+
+std::string
+expr_iterable_item_type_name(AstToStyioIRLowerer* an, StyioAST* expr) {
+  StyioDataType type = expr_lowered_type(an, expr);
+  std::string elem_type = styio_type_item_type_name(type);
+  return elem_type.empty() ? std::string("i64") : elem_type;
+}
+
+StyioIR*
+std_stream_item_expr_for_type(const std::string& item_name, const std::string& elem_type) {
+  StyioIR* item = SGResId::Create(item_name);
+  switch (styio_value_family_from_type_name(elem_type)) {
+    case StyioValueFamily::ListHandle:
+      return SCListToString::Create(item);
+    case StyioValueFamily::DictHandle:
+      return SCDictToString::Create(item);
+    case StyioValueFamily::MatrixHandle:
+      return SCMatrixToString::Create(item);
+    default:
+      return item;
+  }
+}
+
+StyioIR*
+lower_text_iterable_std_stream_write(
+  AstToStyioIRLowerer* an,
+  StyioAST* data,
+  StyioIR* data_ir,
+  SIOStdStreamWrite::Stream stream
+) {
+  std::string elem_type = expr_iterable_item_type_name(an, data);
+  StyioIR* iterable_ir = data_ir;
+  if (expr_is_dict_like(an, data)) {
+    iterable_ir = SCDictValues::Create(iterable_ir, elem_type);
+  }
+
+  std::string item_name = alloc_generated_pipe_item_name();
+  StyioIR* item_expr = std_stream_item_expr_for_type(item_name, elem_type);
+  return SGForEach::Create(
+    iterable_ir,
+    std::move(item_name),
+    std::move(elem_type),
+    SGBlock::Create({SIOStdStreamWrite::Create(stream, {item_expr})})
+  );
 }
 
 bool
@@ -3334,13 +3385,6 @@ AstToStyioIRLowerer::lowerResourceSinkWriteLatest(
   }
 
   StyioIR* data_ir = data->toStyioIR(this);
-  if (expr_is_list_like(this, data)) {
-    data_ir = SCListToString::Create(data_ir);
-  }
-  else if (expr_is_dict_like(this, data)) {
-    data_ir = SCDictToString::Create(data_ir);
-  }
-
   if (auto* ss = dynamic_cast<StdStreamAST*>(resource)) {
     if (ss->getStreamKind() == StdStreamKind::Stdin) {
       const char* action = redirect_mode ? "redirect to" : "write to";
@@ -3349,7 +3393,23 @@ AstToStyioIRLowerer::lowerResourceSinkWriteLatest(
     auto stream = (ss->getStreamKind() == StdStreamKind::Stdout)
                     ? SIOStdStreamWrite::Stream::Stdout
                     : SIOStdStreamWrite::Stream::Stderr;
+    if (!redirect_mode && (expr_is_list_like(this, data) || expr_is_dict_like(this, data))) {
+      return lower_text_iterable_std_stream_write(this, data, data_ir, stream);
+    }
+    if (expr_is_list_like(this, data)) {
+      data_ir = SCListToString::Create(data_ir);
+    }
+    else if (expr_is_dict_like(this, data)) {
+      data_ir = SCDictToString::Create(data_ir);
+    }
     return SIOStdStreamWrite::Create(stream, {data_ir});
+  }
+
+  if (expr_is_list_like(this, data)) {
+    data_ir = SCListToString::Create(data_ir);
+  }
+  else if (expr_is_dict_like(this, data)) {
+    data_ir = SCDictToString::Create(data_ir);
   }
 
   auto* fr = dynamic_cast<FileResourceAST*>(resource);
