@@ -746,10 +746,9 @@ selector_body      = dot_run                         (* x[..], x[...] *)
    that still accepts `[avg, n]` / `[max, n]` is compatibility debt.
 
    The stride selector `x[%n]` keeps elements at index ≡ 0 (mod n); `n` is a
-   positive integer, `[%1]` is identity, `[%0]` is rejected. It is a
-   design-accepted surface: the parser does not implement it yet and fails
-   closed until implementation evidence lands. There is no left operand
-   inside the bracket, so `[%` never collides with binary modulo. *)
+   positive integer, `[%1]` is identity, `[%0]` is rejected. Parser, Sema,
+   lowering, code generation, and runtime support are active. There is no left
+   operand inside the bracket, so `[%` never collides with binary modulo. *)
 
 (* Retired selector families are parser errors outside registered negative tests. *)
 

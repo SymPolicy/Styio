@@ -902,6 +902,40 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Slice);
   }
   {
+    DirectContext direct("name[%2]");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Stride);
+    auto* stride = dynamic_cast<ListOpAST*>(ast.get());
+    ASSERT_NE(stride, nullptr);
+    ASSERT_NE(stride->getSlot1(), nullptr);
+    EXPECT_EQ(stride->getSlot1()->getNodeType(), StyioNodeType::Integer);
+  }
+  {
+    DirectContext direct("name[1...][%step]");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Stride);
+    auto* stride = dynamic_cast<ListOpAST*>(ast.get());
+    ASSERT_NE(stride, nullptr);
+    ASSERT_NE(stride->getList(), nullptr);
+    EXPECT_EQ(stride->getList()->getNodeType(), StyioNodeType::Access_By_Slice);
+  }
+  {
+    DirectContext direct("@prices[-100..][%2]");
+    std::unique_ptr<StyioAST> ast(parse_expr_subset_nightly(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Stride);
+    auto* stride = dynamic_cast<ListOpAST*>(ast.get());
+    ASSERT_NE(stride, nullptr);
+    ASSERT_NE(stride->getList(), nullptr);
+    EXPECT_EQ(stride->getList()->getNodeType(), StyioNodeType::ResourceRef);
+  }
+  {
+    DirectContext direct("name[%]");
+    EXPECT_THROW((void)parse_expr_subset_nightly(direct.get()), StyioSyntaxError);
+  }
+  {
     DirectContext direct("name[]");
     EXPECT_THROW((void)parse_expr_subset_nightly(direct.get()), StyioSyntaxError);
   }

@@ -76,7 +76,7 @@ backpressure scheduling remain with their focused owners.
 | `[?, cond]` | Retired Predicate Guard | Inactive old syntax | Use `?(cond) => then_value \| else_value` or `?(cond) => { ... }` |
 | `[?=, val]` | Retired Equality Probe | Inactive old syntax | Use `?=` match blocks |
 | Retired history-probe selector | Retired History Probe | Inactive old syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
-| `x[%n]` | Stride Selector | Postfix on sliceable value/resource (design-accepted; parser pending, fails closed) | Keep every element at index ≡ 0 (mod n), counting from the first selected element. `n` is a positive integer; `[%1]` is identity; `[%0]` is rejected. No left operand exists inside the bracket, so `[%` never collides with binary modulo. |
+| `x[%n]` | Stride Selector | Active postfix selector on a sliceable value/resource | Keep every element at index ≡ 0 (mod n), counting from the first selected element. `n` is a positive integer; `[%1]` is identity; literal `[%0]` is rejected statically and dynamic non-positive strides fail through the runtime error channel. No left operand exists inside the bracket, so `[%` never collides with binary modulo. |
 | `[avg, n]` / `[max, n]` | Removed Word-Mode Selectors | Removed design spelling | Selectors are a pure-symbol algebra: no identifier participates in selector syntax. Series intrinsics use ordinary call syntax `avg(series, n)` / `max(series, n)` recognized in Sema (matrix-helper model); the parser's bracket path is compatibility debt. See `Styio-StdLib-Intrinsics.md`. |
 | `[min, n]`, `[std, n]`, `[ema, n]`, `[rsi, n]` | Removed word-mode spellings for deferred intrinsics | Not syntax | Deferred series intrinsics land as ordinary calls only (`min(series, n)`, `rsi(series, n)`) once evidence exists; no word-mode selector spelling will be added |
 
@@ -237,7 +237,7 @@ operand runs only when selected and at most once.
 | Retired history-probe selector family inside brackets | Use `@name[-1]`, `@name[-3..]`, or `@name[...]` |
 | `list[T]` in type position | Type argument list |
 | `x[i]` / `x[a..b]` after indexable value | Index or slice selector |
-| `%` directly after `[` | Stride selector `x[%n]` (no left operand exists inside the bracket, so it is never binary modulo); design-accepted, parser pending, fails closed |
+| `%` directly after `[` | Active stride selector `x[%n]` (no left operand exists inside the bracket, so it is never binary modulo) |
 | `avg` / `max` or any identifier directly inside `[...]` selector | Removed word-mode selector spelling; series intrinsics use ordinary call syntax `avg(series, n)`; parser bracket acceptance is compatibility debt |
 | `start..end` without a left-hand receiver | Range expression |
 | `[start..end]` without a left-hand receiver | Materialized range source, not a single-element list literal |

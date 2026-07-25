@@ -148,6 +148,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("access.by_slice");
     } break;
 
+    case StyioNodeType::Access_By_Stride: {
+      output += std::string("access.by_stride");
+    } break;
+
     case StyioNodeType::Get_Index_By_Value: {
       output += std::string("get_index.by_value");
     } break;

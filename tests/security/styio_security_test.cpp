@@ -6049,6 +6049,7 @@ TEST(StyioSecurityParserContext, CoversModernIndexTailsAndCharLiteralEdgesDirect
   expect_modern_index("items[1..3]", StyioNodeType::Access_By_Slice);
   expect_modern_index("items[..3]", StyioNodeType::Access_By_Slice);
   expect_modern_index("items[1..]", StyioNodeType::Access_By_Slice);
+  expect_modern_index("items[%2]", StyioNodeType::Access_By_Stride);
 
   {
     DirectParserContext ctx("series[avg, 3]");
@@ -11785,6 +11786,10 @@ TEST(StyioSecurityRepr, RareAstAndIrNodesHaveStableTextForm) {
     NameAST::Create("items"),
     IntAST::Create("0"),
     IntAST::Create("2")), "access.slice");
+  append_ast(new ListOpAST(
+    StyioNodeType::Access_By_Stride,
+    NameAST::Create("items"),
+    IntAST::Create("2")), "access.stride");
   append_ast(new ListOpAST(
     StyioNodeType::Get_Index_By_Value,
     NameAST::Create("items"),

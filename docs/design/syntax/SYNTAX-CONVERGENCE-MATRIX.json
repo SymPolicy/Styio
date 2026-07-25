@@ -17,6 +17,18 @@
       "golden_cases": ["tests/features/scalar_expressions/t20_combined.styio", "tests/pipeline_cases/p01_print_add/input.styio", "tests/features/wave_dispatch/e09_fallback_noop.styio"]
     },
     {
+      "id": "core.stride-selector",
+      "syntax": "x[%n] postfix stride selector, including composition after a slice",
+      "status": "converged",
+      "implementation": {
+        "path": "src/StyioParser/NewParserExpr.cpp",
+        "symbol": "parse_postfix",
+        "owner": "Parser / Grammar"
+      },
+      "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md", "docs/design/Styio-Language-Design.md"],
+      "golden_cases": ["tests/newparser_internal_test.cpp"]
+    },
+    {
       "id": "core.final-and-mutable-binding",
       "syntax": "name := expr, name = expr, name: T := expr",
       "status": "converged",

@@ -1630,6 +1630,22 @@ private:
         enforce_expr_delimiter_budget_latest(context_, "index expression");
         context_.move_forward(1, "new_expr:index_open");
         context_.skip();
+        if (context_.cur_tok_type() == StyioTokenType::TOK_PERCENT) {
+          context_.move_forward(1, "new_expr:stride_percent");
+          context_.skip();
+          if (context_.cur_tok_type() == StyioTokenType::TOK_RBOXBRAC) {
+            throw StyioSyntaxError(context_.mark_cur_tok("stride selector expression is required"));
+          }
+          std::unique_ptr<StyioAST> stride(parse_postfix(parse_expression(0)));
+          context_.skip();
+          context_.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+          StyioAST* access =
+            new ListOpAST(StyioNodeType::Access_By_Stride, owner.get(), stride.get());
+          owner.release();
+          stride.release();
+          owner.reset(access);
+          continue;
+        }
         std::unique_ptr<StyioAST> idx;
         if (context_.cur_tok_type() != StyioTokenType::ELLIPSIS) {
           idx.reset(parse_postfix(parse_expression(0)));
