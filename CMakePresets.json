@@ -1,0 +1,53 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "windows-msvc-llvm",
+      "displayName": "Windows MSVC + LLVM",
+      "description": "Build Styio natively with the Visual Studio 2022 MSVC toolset and a bootstrapped LLVM backend meeting the repository minimum.",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/windows-msvc-llvm",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "LLVM_DIR": {
+          "type": "PATH",
+          "value": "$env{LLVM_DIR}"
+        },
+        "STYIO_NATIVE_TOOLCHAIN_ROOT": {
+          "type": "PATH",
+          "value": "$env{STYIO_NATIVE_TOOLCHAIN_ROOT}"
+        },
+        "CMAKE_PREFIX_PATH": {
+          "type": "PATH",
+          "value": "$env{STYIO_NATIVE_TOOLCHAIN_ROOT}"
+        },
+        "STYIO_NATIVE_TOOLCHAIN_MODE": "auto"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-llvm-debug",
+      "configurePreset": "windows-msvc-llvm",
+      "configuration": "Debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-msvc-llvm-debug",
+      "configurePreset": "windows-msvc-llvm",
+      "configuration": "Debug",
+      "environment": {
+        "PATH": "$env{STYIO_NATIVE_TOOLCHAIN_ROOT}\\bin;$penv{PATH}"
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

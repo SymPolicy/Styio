@@ -2,14 +2,14 @@
 
 **Purpose:** Provide the repository-level entry point for preparing environment dependencies on a fresh machine and finding the next subsystem-specific docs.
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-07-26
 
 ## Who This Is For
 
 1. Contributors preparing `styio-nightly` dependencies on a fresh Debian/Ubuntu VM or container.
 2. Contributors who need the common compiler build, test, and docs-audit commands after bootstrap.
 3. IDE/LSP contributors who need the repo-level prerequisites before following `docs/external/for-ide/`.
-4. Windows contributors building and testing Styio natively with CMake, Ninja or Visual Studio, Python, and LLVM 18.x.
+4. Windows contributors building and testing Styio natively with CMake, Ninja or Visual Studio, Python, and a supported LLVM development package.
 
 ## Fresh Machine Bootstrap
 
@@ -32,7 +32,7 @@ Bootstrap scope:
 `styio-nightly` and `styio-spio` share the same standardized native baseline:
 
 1. Development host standard: Debian `13` (`trixie`).
-2. Compiler toolchain standard: LLVM / Clang / LLD `18.1.x` via the `clang-18` package line.
+2. LLVM backend floor: LLVM `18.1.0`; each host may use any newer compatible LLVM development package.
 3. CMake / CTest standard: `3.31.6`.
 4. Validation Python standard: `3.13.5`.
 5. Node.js standard for grammar maintenance: `v24.15.0` LTS.
@@ -41,7 +41,7 @@ Bootstrap scope:
 
 ## Required Toolchains
 
-1. LLVM `18.1.x` discoverable by `find_package(LLVM ...)`; `18.1.0` remains the compatibility floor accepted by CMake discovery. On Windows this must be an LLVM development install that provides `LLVMConfig.cmake` and C++ LLVM headers, not only a clang/LLVM executable installer.
+1. LLVM `18.1.0` or newer discoverable by `find_package(LLVM ...)`. On Windows this must be an LLVM development install that provides `LLVMConfig.cmake` and C++ LLVM headers, not only a clang/LLVM executable installer.
 2. A C++20 compiler and CMake / CTest `3.31.6` for the standardized local and CI toolchain.
 3. Python `3.13.5` for docs and lifecycle scripts in the standardized validation pipeline.
 4. Node.js `v24.15.0` LTS when regenerating the Tree-sitter grammar.
@@ -51,45 +51,51 @@ Bootstrap scope:
 
 Styio supports native Windows configure, build, and CTest runs without WSL, Cygwin, MSYS, or Git Bash as a runtime/test requirement. Install:
 
-1. An LLVM `18.1.x` development package with `LLVMConfig.cmake` and C++ LLVM headers. The upstream Windows executable installer is compiler-toolchain focused and may not provide enough files for `find_package(LLVM)`.
+1. An LLVM `18.1.0` or newer development package with `LLVMConfig.cmake` and C++ LLVM headers. The upstream Windows executable installer is compiler-toolchain focused and may not provide enough files for `find_package(LLVM)`.
 2. CMake and either Ninja or Visual Studio Build Tools.
 3. Python `3.13.x` for repository validation helpers.
 
-One reproducible option is conda-forge's native Windows packages:
+The canonical Styio Windows strategy is:
+
+1. Visual Studio 2022 MSVC x64 compiles and links the C++ host binaries.
+2. The conda-forge Windows `llvmdev` package supplies a compatible LLVM
+   distribution with headers, libraries, tools, and `LLVMConfig.cmake`.
+3. Matching development packages for zlib, zstd, and libxml2 satisfy the
+   imported LLVM CMake targets on Windows.
+4. `clang-tools` is installed for LLVM tooling support; it does not replace
+   MSVC as the default Styio host compiler.
+5. The toolchain is user-local and requires no administrator privileges.
+
+Prepare or repair the canonical environment once:
 
 ```powershell
-micromamba create -n styio-llvm18 -c conda-forge `
-  cmake ninja llvm=18.1.8 llvmdev=18.1.8 clang-tools=18.1.8
-micromamba activate styio-llvm18
+.\scripts\bootstrap-dev-env.ps1
 ```
 
-From a Developer PowerShell for Visual Studio 2022, configure with Ninja:
+The bootstrap verifies the download checksum, installs native packages,
+verifies the LLVM `18.1.0` minimum, and persists `LLVM_DIR` plus
+`STYIO_NATIVE_TOOLCHAIN_ROOT` for future PowerShell, Codex, and CMake
+processes. Re-running it is an idempotent repair/update operation.
+Processes that were already open before the first bootstrap must be restarted
+once so they inherit the persisted variables.
+
+Configure, build, and test through the shared MSVC preset:
 
 ```powershell
-$env:LLVM_DIR = "$env:CONDA_PREFIX\Library\lib\cmake\llvm"
-$env:STYIO_NATIVE_TOOLCHAIN_ROOT = "$env:CONDA_PREFIX\Library"
-
-cmake -S . -B build/windows -G Ninja `
-  -DCMAKE_C_COMPILER=cl `
-  -DCMAKE_CXX_COMPILER=cl `
-  -DLLVM_DIR="$env:LLVM_DIR" `
-  -DSTYIO_NATIVE_TOOLCHAIN_ROOT="$env:STYIO_NATIVE_TOOLCHAIN_ROOT" `
-  -DSTYIO_NATIVE_TOOLCHAIN_MODE=auto
-
-cmake --build build/windows --target styio styio_lspd styio-nano styio_test
-ctest --test-dir build/windows --output-on-failure
+cmake --preset windows-msvc-llvm
+cmake --build --preset windows-msvc-llvm-debug
+ctest --preset windows-msvc-llvm-debug
 ```
 
-`clang-cl`, `clang`, or `clang++` can also be used as the CMake compiler when the selected LLVM development package and Windows SDK are compatible. Visual Studio generators are supported when `LLVM_DIR` points at the LLVM CMake package:
+For targeted work, pass targets to the build preset and filters to CTest:
 
 ```powershell
-cmake -S . -B build/vs -G "Visual Studio 17 2022" `
-  -DLLVM_DIR="$env:LLVM_DIR" `
-  -DSTYIO_NATIVE_TOOLCHAIN_ROOT="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
-
-cmake --build build/vs --config Debug --target styio styio_lspd styio-nano styio_test
-ctest --test-dir build/vs -C Debug --output-on-failure
+cmake --build --preset windows-msvc-llvm-debug --target styio_newparser_internal_test
+ctest --preset windows-msvc-llvm-debug -R StyioNewParserInternal
 ```
+
+Direct `clang-cl`, `clang`, or `clang++` host builds remain optional
+compatibility routes. They are not the default Windows development strategy.
 
 Native `@extern(c)` and `@extern(c++)` blocks compile to DLLs on Windows. Compiler discovery checks `STYIO_NATIVE_CC` / `STYIO_NATIVE_CXX`, `STYIO_NATIVE_TOOLCHAIN_ROOT`, bundled install paths, then system `clang`, `clang++`, or `clang-cl` according to `STYIO_NATIVE_TOOLCHAIN_MODE` (`auto`, `bundled`, or `system`). The native cache uses `STYIO_NATIVE_CACHE_DIR` first, then `LOCALAPPDATA`, then `TEMP`.
 
