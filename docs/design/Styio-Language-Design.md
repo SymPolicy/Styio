@@ -1456,8 +1456,9 @@ rejected. The stride selector composes with the other symbolic selectors —
 `xs[a..b][%n]` strides the slice, and on a materialized range the compiler may
 fuse `[a..b][%n]` into an arithmetic progression without materializing.
 
-Status: design-accepted surface. The parser does not implement it yet and
-fails closed until parser, Sema, lowering, and test evidence land.
+Status: active across parser, Sema, lowering, code generation, and runtime.
+Literal non-positive strides are rejected statically; dynamic non-positive
+strides fail through the runtime error channel.
 
 ### 11.6 Retired History Probe Family
 

@@ -3354,6 +3354,22 @@ parse_token_index_suffix(StyioContext& context, StyioAST* base) {
     return probe;
   }
 
+  if (context.check(StyioTokenType::TOK_PERCENT)) {
+    context.move_forward(1, "[%");
+    context.skip();
+    if (context.check(StyioTokenType::TOK_RBOXBRAC)) {
+      throw StyioSyntaxError(context.mark_cur_tok("stride selector expression is required"));
+    }
+    std::unique_ptr<StyioAST> stride(parse_fallback_expr(context));
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_RBOXBRAC);
+    StyioAST* access =
+      new ListOpAST(StyioNodeType::Access_By_Stride, base_owner.get(), stride.get());
+    base_owner.release();
+    stride.release();
+    return access;
+  }
+
   std::unique_ptr<StyioAST> idx;
   if (context.check(StyioTokenType::ELLIPSIS)) {
     idx.reset(IntAST::Create("0"));

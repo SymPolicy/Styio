@@ -945,6 +945,8 @@ match_tail_value_expected(StyioAST* ast) {
     case StyioNodeType::Call:
     case StyioNodeType::Attribute:
     case StyioNodeType::Access_By_Index:
+    case StyioNodeType::Access_By_Slice:
+    case StyioNodeType::Access_By_Stride:
     case StyioNodeType::Access_By_Name:
     case StyioNodeType::BinOp:
     case StyioNodeType::Compare:
@@ -1366,7 +1368,8 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       }
       return styio_data_type_from_name(styio_type_item_type_name(base_type));
     }
-    case StyioNodeType::Access_By_Slice: {
+    case StyioNodeType::Access_By_Slice:
+    case StyioNodeType::Access_By_Stride: {
       auto* access = static_cast<ListOpAST*>(expr);
       StyioDataType base_type = infer_expr_type(an, access->getList());
       if (styio_is_matrix_type(base_type)) {
@@ -1543,7 +1546,8 @@ resource_effect_index_operation_supported_latest(StyioSemaContext* an, ListOpAST
     return false;
   }
   StyioDataType base_type = infer_expr_type(an, access->getList());
-  if (access->getOp() == StyioNodeType::Access_By_Slice) {
+  if (access->getOp() == StyioNodeType::Access_By_Slice
+      || access->getOp() == StyioNodeType::Access_By_Stride) {
     return styio_is_list_type(base_type)
            || styio_is_matrix_type(base_type)
            || styio_is_dict_type(base_type);
@@ -2497,6 +2501,24 @@ StyioSemaContext::typeInfer(ListOpAST* ast) {
   if (ast->getOp() == StyioNodeType::Access_By_Name) {
     if (!styio_is_dict_type(list_type)) {
       throw StyioTypeError("name-based access requires a dict value");
+    }
+    return;
+  }
+  if (ast->getOp() == StyioNodeType::Access_By_Stride) {
+    if (!styio_is_list_type(list_type)
+        && !styio_is_matrix_type(list_type)
+        && !styio_is_dict_type(list_type)) {
+      throw StyioTypeError("stride selector requires a list, matrix, or dict value");
+    }
+    StyioDataType stride_type = infer_expr_type(this, ast->getSlot1());
+    if (stride_type.option != StyioDataTypeOption::Integer) {
+      throw StyioTypeError("stride selector requires an integer stride");
+    }
+    if (dynamic_cast<IntAST*>(ast->getSlot1()) != nullptr) {
+      const std::optional<int64_t> stride = static_i64_literal(ast->getSlot1());
+      if (!stride.has_value() || *stride <= 0) {
+        throw StyioTypeError("stride selector requires a positive integer");
+      }
     }
     return;
   }

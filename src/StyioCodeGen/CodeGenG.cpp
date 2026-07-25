@@ -245,7 +245,8 @@ ir_yields_list_handle(StyioIR* value) {
   if (auto* call = dynamic_cast<SGCall*>(value)) {
     return call->func_name != nullptr
       && (call->func_name->as_str() == "__styio_string_lines"
-          || call->func_name->as_str() == "__styio_list_range_i64");
+          || call->func_name->as_str() == "__styio_list_range_i64"
+          || call->func_name->as_str() == "__styio_list_stride");
   }
   return false;
 }
@@ -2532,6 +2533,40 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     theBuilder->SetInsertPoint(exit_bb);
     track_owned_resource_temp(list, TempResourceKind::List);
     return list;
+  }
+
+  if (fname == "__styio_list_stride") {
+    if (node->func_args.size() != 2) {
+      throw StyioTypeError(
+        "runtime list stride expects 2 arguments, got "
+        + std::to_string(node->func_args.size()));
+    }
+    auto coerce_i64 = [&](llvm::Value* raw, const char* role) -> llvm::Value*
+    {
+      if (raw->getType()->isIntegerTy(64)) {
+        return raw;
+      }
+      if (raw->getType()->isIntegerTy()) {
+        return theBuilder->CreateSExtOrTrunc(raw, theBuilder->getInt64Ty());
+      }
+      throw StyioTypeError(std::string("runtime list stride requires integer ") + role);
+    };
+    llvm::Value* source_raw = node->func_args[0]->toLLVMIR(this);
+    llvm::Value* source = coerce_i64(source_raw, "list handle");
+    llvm::Value* stride = coerce_i64(node->func_args[1]->toLLVMIR(this), "stride");
+    llvm::FunctionCallee stride_fn = theModule->getOrInsertFunction(
+      "styio_list_stride",
+      llvm::FunctionType::get(
+        theBuilder->getInt64Ty(),
+        {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
+        false));
+    llvm::Value* out = theBuilder->CreateCall(stride_fn, {source, stride});
+    free_owned_resource_temp_if_tracked(source_raw);
+    if (resource_effect_operation_depth_ == 0) {
+      emit_runtime_error_guard_return();
+    }
+    track_owned_resource_temp(out, TempResourceKind::List);
+    return out;
   }
 
   bool is_builtin_list_push = false;

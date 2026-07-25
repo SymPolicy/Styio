@@ -141,6 +141,7 @@ public:
     add_symbol("styio_list_get_dict", &styio_list_get_dict);
     add_symbol("styio_list_get_matrix", &styio_list_get_matrix);
     add_symbol("styio_list_slice", &styio_list_slice);
+    add_symbol("styio_list_stride", &styio_list_stride);
     add_symbol("styio_list_set_bool", &styio_list_set_bool);
     add_symbol("styio_list_set_char", &styio_list_set_char);
     add_symbol("styio_list_set", &styio_list_set);

@@ -511,13 +511,19 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
     if (access->getOp() == StyioNodeType::Access_By_Index && styio_is_matrix_type(base_type)) {
       return styio_make_list_type(styio_matrix_elem_type_name(base_type));
     }
-    if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_list_type(base_type)) {
+    if ((access->getOp() == StyioNodeType::Access_By_Slice
+         || access->getOp() == StyioNodeType::Access_By_Stride)
+        && styio_is_list_type(base_type)) {
       return base_type;
     }
-    if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_matrix_type(base_type)) {
+    if ((access->getOp() == StyioNodeType::Access_By_Slice
+         || access->getOp() == StyioNodeType::Access_By_Stride)
+        && styio_is_matrix_type(base_type)) {
       return styio_make_list_type(styio_type_item_type_name(base_type));
     }
-    if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_dict_type(base_type)) {
+    if ((access->getOp() == StyioNodeType::Access_By_Slice
+         || access->getOp() == StyioNodeType::Access_By_Stride)
+        && styio_is_dict_type(base_type)) {
       return styio_make_list_type(styio_dict_value_type_name(base_type));
     }
     if (styio_is_dict_type(base_type)) {
@@ -2067,6 +2073,7 @@ public:
       case StyioNodeType::Access:
       case StyioNodeType::Access_By_Index:
       case StyioNodeType::Access_By_Slice:
+      case StyioNodeType::Access_By_Stride:
       case StyioNodeType::Access_By_Name:
       case StyioNodeType::Get_Index_By_Value:
       case StyioNodeType::Get_Indices_By_Many_Values:
@@ -3021,6 +3028,34 @@ AstToStyioIRLowerer::toStyioIR(SizeOfAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
+  if (ast->getOp() == StyioNodeType::Access_By_Stride) {
+    StyioDataType base_type = expr_lowered_type(this, ast->getList());
+    StyioIR* source = nullptr;
+    if (styio_is_matrix_type(base_type)) {
+      source = SCMatrixRowsSlice::Create(
+        ast->getList()->toStyioIR(this),
+        SGConstInt::Create(0),
+        nullptr,
+        styio_matrix_elem_type_name(base_type)
+      );
+    }
+    else if (styio_is_dict_type(base_type)) {
+      source = SCDictValues::Create(
+        ast->getList()->toStyioIR(this),
+        styio_dict_value_type_name(base_type)
+      );
+    }
+    else if (styio_is_list_type(base_type)) {
+      source = ast->getList()->toStyioIR(this);
+    }
+    else {
+      throw StyioTypeError("stride selector lowering requires a list, matrix, or dict value");
+    }
+    return SGCall::Create(
+      SGResId::Create("__styio_list_stride"),
+      {source, ast->getSlot1()->toStyioIR(this)}
+    );
+  }
   if (ast->getOp() == StyioNodeType::Access_By_Slice) {
     StyioDataType base_type = expr_lowered_type(this, ast->getList());
     if (styio_is_matrix_type(base_type)) {

@@ -2136,6 +2136,9 @@ public:
     Access_By_Slice
       [start..end]
 
+    Access_By_Stride
+      [%stride]
+
     Access_By_Name
       ["name"]
 

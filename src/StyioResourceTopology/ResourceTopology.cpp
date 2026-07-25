@@ -278,13 +278,19 @@ private:
           && (styio_is_list_type(base) || styio_is_dict_type(base) || styio_is_matrix_type(base))) {
         return styio_data_type_from_name(styio_type_item_type_name(base));
       }
-      if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_list_type(base)) {
+      if ((access->getOp() == StyioNodeType::Access_By_Slice
+           || access->getOp() == StyioNodeType::Access_By_Stride)
+          && styio_is_list_type(base)) {
         return base;
       }
-      if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_matrix_type(base)) {
+      if ((access->getOp() == StyioNodeType::Access_By_Slice
+           || access->getOp() == StyioNodeType::Access_By_Stride)
+          && styio_is_matrix_type(base)) {
         return styio_make_list_type(styio_type_item_type_name(base));
       }
-      if (access->getOp() == StyioNodeType::Access_By_Slice && styio_is_dict_type(base)) {
+      if ((access->getOp() == StyioNodeType::Access_By_Slice
+           || access->getOp() == StyioNodeType::Access_By_Stride)
+          && styio_is_dict_type(base)) {
         return styio_make_list_type(styio_dict_value_type_name(base));
       }
       return ast->getDataType();

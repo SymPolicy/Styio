@@ -314,6 +314,12 @@ StyioRepr::toString(ListOpAST* ast, int indent) {
              + "\n" + make_padding(indent) + "Index: " + ast->getSlot1()->toString(this, indent + 1)
              + "}";
       break;
+    case StyioNodeType::Access_By_Stride:
+      return reprASTType(ast->getNodeType(), " ")
+             + "{\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)
+             + "\n" + make_padding(indent) + "Stride: " + ast->getSlot1()->toString(this, indent + 1)
+             + "}";
+      break;
     case StyioNodeType::Access_By_Name:
       return reprASTType(ast->getNodeType(), " ")
              + "\n" + make_padding(indent) + ast->getList()->toString(this, indent + 1)

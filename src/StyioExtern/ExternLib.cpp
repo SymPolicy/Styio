@@ -2532,6 +2532,29 @@ slice_plain_list(ListT* list, int64_t start, int64_t end_exclusive, bool has_end
   return stash_list(out);
 }
 
+size_t
+stride_result_size(size_t size, size_t stride) {
+  return size == 0 ? 0 : 1 + (size - 1) / stride;
+}
+
+template <typename ListT>
+int64_t
+stride_plain_list(ListT* list, size_t stride) {
+  if (list == nullptr) {
+    return 0;
+  }
+  auto* out = new ListT();
+  out->elems.reserve(stride_result_size(list->elems.size(), stride));
+  for (size_t i = 0; i < list->elems.size();) {
+    out->elems.push_back(list->elems[i]);
+    if (stride > list->elems.size() - 1 - i) {
+      break;
+    }
+    i += stride;
+  }
+  return stash_list(out);
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_new_bool() {
   return stash_list(new StyioListBool());
@@ -2902,6 +2925,71 @@ styio_list_slice(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_en
       out->elems.reserve(finish - begin);
       for (size_t i = begin; i < finish; ++i) {
         out->elems.push_back(clone_matrix_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+  }
+  return 0;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_stride(int64_t h, int64_t stride) {
+  StyioListBase* list = as_list_base(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  if (stride <= 0) {
+    set_runtime_error_once(kRuntimeSubcodeListIndex, "list stride must be positive");
+    return 0;
+  }
+  const size_t step = static_cast<size_t>(stride);
+  switch (list->elem_kind) {
+    case StyioListElemKind::Bool:
+      return stride_plain_list(static_cast<StyioListBool*>(list), step);
+    case StyioListElemKind::Char:
+      return stride_plain_list(static_cast<StyioListChar*>(list), step);
+    case StyioListElemKind::I64:
+      return stride_plain_list(static_cast<StyioListI64*>(list), step);
+    case StyioListElemKind::F64:
+      return stride_plain_list(static_cast<StyioListF64*>(list), step);
+    case StyioListElemKind::String:
+      return stride_plain_list(static_cast<StyioListString*>(list), step);
+    case StyioListElemKind::ListHandle: {
+      auto* src = static_cast<StyioListListHandle*>(list);
+      auto* out = new StyioListListHandle();
+      out->elems.reserve(stride_result_size(src->elems.size(), step));
+      for (size_t i = 0; i < src->elems.size();) {
+        out->elems.push_back(clone_list_handle_value(src->elems[i]));
+        if (step > src->elems.size() - 1 - i) {
+          break;
+        }
+        i += step;
+      }
+      return stash_list(out);
+    }
+    case StyioListElemKind::DictHandle: {
+      auto* src = static_cast<StyioListDictHandle*>(list);
+      auto* out = new StyioListDictHandle();
+      out->elems.reserve(stride_result_size(src->elems.size(), step));
+      for (size_t i = 0; i < src->elems.size();) {
+        out->elems.push_back(clone_dict_handle_value(src->elems[i]));
+        if (step > src->elems.size() - 1 - i) {
+          break;
+        }
+        i += step;
+      }
+      return stash_list(out);
+    }
+    case StyioListElemKind::MatrixHandle: {
+      auto* src = static_cast<StyioListMatrixHandle*>(list);
+      auto* out = new StyioListMatrixHandle();
+      out->elems.reserve(stride_result_size(src->elems.size(), step));
+      for (size_t i = 0; i < src->elems.size();) {
+        out->elems.push_back(clone_matrix_handle_value(src->elems[i]));
+        if (step > src->elems.size() - 1 - i) {
+          break;
+        }
+        i += step;
       }
       return stash_list(out);
     }
