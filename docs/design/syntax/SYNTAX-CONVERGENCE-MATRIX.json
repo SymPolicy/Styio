@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
   "minimum_feature_count": 23,
-  "purpose": "Golden-standard syntax convergence matrix. Each accepted syntax feature declares exactly one implementation owner plus docs and golden evidence.",
+  "purpose": "Parser-shape convergence matrix. Each row records one implementation owner plus docs and golden evidence for source acceptance; it does not prove that Sema, lowering, backend behavior, or an unresolved semantic contract has converged. D02 excludes ordinary value-level fallback/coalescing, -> has one left-to-right data direction without implying preparation order or ownership mode, and ?| opens settlement of one complete operation without a task-only binder.",
+  "status_axis": "implementation-shape-only",
   "features": [
     {
       "id": "core.expression-precedence",
-      "syntax": "arithmetic, comparison, boolean, call, index, member, and parenthesized expressions",
+      "syntax": "arithmetic, comparison, boolean, call, index, member, and parenthesized expressions; ordinary a | b and a ?? b fallback/coalescing forms are rejected before type inference, while grammar-anchored ? | T, guard else, and leading ?| settlement roles remain distinct",
       "status": "converged",
       "implementation": {
         "path": "src/StyioParser/NewParserExpr.cpp",
@@ -13,7 +14,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/features/scalar_expressions/t20_combined.styio", "tests/pipeline_cases/p01_print_add/input.styio"]
+      "golden_cases": ["tests/features/scalar_expressions/t20_combined.styio", "tests/pipeline_cases/p01_print_add/input.styio", "tests/features/wave_dispatch/e09_fallback_noop.styio"]
     },
     {
       "id": "core.final-and-mutable-binding",
@@ -60,7 +61,7 @@
         "symbol": "parse_return_nightly",
         "owner": "Parser / Grammar"
       },
-      "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/syntax/CONTINUATION_TRANSFER.md"],
+      "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/syntax/BLOCK_COMPLETION.md"],
       "golden_cases": ["tests/features/functions/t06_multi_stmt.styio", "tests/features/control_flow/t10_fizzbuzz.styio"]
     },
     {
@@ -77,7 +78,7 @@
     },
     {
       "id": "core.conditional-expression",
-      "syntax": "?(cond) => expr | fallback and block-bodied conditionals",
+      "syntax": "?(cond) => when_true | when_false and block-bodied conditionals; | is the guard-anchored else delimiter",
       "status": "converged",
       "implementation": {
         "path": "src/StyioParser/NewParserExpr.cpp",
@@ -101,7 +102,7 @@
     },
     {
       "id": "core.materialized-range",
-      "syntax": "[start..end] materialized range and [start..end] >> #(item) => body; [start..end..step] is reserved",
+      "syntax": "[start..end] materialized range and [start..end] >> #(item) => body; [start..end..step] is removed and rejected",
       "status": "converged",
       "implementation": {
         "path": "src/StyioParser/Parser.cpp",
@@ -173,7 +174,7 @@
     },
     {
       "id": "resource.sink-write",
-      "syntax": "expr -> @resource",
+      "syntax": "expr -> @resource as a resource-endpoint instance of generic source -> destination; endpoint typing selects resource lowering without creating a second arrow role",
       "status": "converged",
       "implementation": {
         "path": "src/StyioParser/Parser.cpp",
@@ -277,19 +278,7 @@
         "owner": "Parser / Task Runtime"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/features/task_resources/t06_task_group_await.styio"]
-    },
-    {
-      "id": "task.await-bind",
-      "syntax": "?| job -> value: T | fallback",
-      "status": "converged",
-      "implementation": {
-        "path": "src/StyioParser/NewParserExpr.cpp",
-        "symbol": "parse_await_bind_stmt_nightly",
-        "owner": "Parser / Task Runtime"
-      },
-      "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/features/task_resources/t01_task_pull_left.styio", "tests/features/task_resources/t06_task_group_await.styio"]
+      "golden_cases": ["tests/newparser_internal_test.cpp"]
     },
     {
       "id": "task.resource-order",
@@ -301,7 +290,7 @@
         "owner": "Parser / Task Runtime"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/features/task_resources/t02_task_flow_right.styio"]
+      "golden_cases": ["tests/newparser_internal_test.cpp"]
     },
     {
       "id": "parser.shadow-cutover",

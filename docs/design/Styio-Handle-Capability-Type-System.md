@@ -2,7 +2,7 @@
 
 **Purpose:** 为 Styio 的资源值、`@stdin/@stdout`、`<<`、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-07-20
 
 **Status:** Target design — not fully implemented in the current compiler.  
 **See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
@@ -24,6 +24,12 @@ This leads to ad hoc special cases:
 - `<<` currently behaves differently depending on parser shape instead of a single type-directed rule.
 
 This document defines a target design that unifies these cases.
+
+Priority note (settled decision): the type-directed unification of `<<` is a
+deliberately **low-priority** workstream. The current copy/snapshot and
+compatibility-pull behaviors are considered adequate for now, no active
+convergence work is scheduled, and `<<` proposals should not be re-raised as a
+design discussion until this priority is explicitly changed.
 
 ---
 
@@ -116,6 +122,16 @@ The accepted capability baseline supports exactly these public capabilities:
 | `clone` | Supports deep clone into independent owned storage or resource state |
 | `close` | Has an explicit close / release protocol |
 
+The compiler-closed constraint relations consumed by `Q02-INF` are not members
+of this public handle/resource capability set. In particular, accepted
+`Q05-LIT-ADD` is owned by
+[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md):
+its internal `Add`/literal relation is a finite compiler table, and its
+`overflow` name is a nominal operation completion family, not a handle
+capability. Neither creates structural duck typing or user-definable
+capability/operator instances. Any future author-written instances or
+constraints require the separate `F02` admission decision.
+
 ### 5.2 Derived concepts
 
 These are not separate runtime kinds; they are predicates over capabilities:
@@ -169,10 +185,13 @@ Examples of desired transitions:
 - `file.open --close--> file.closed`
 - `list.materialized --index--> list.materialized`
 
-When the state is statically known, invalid operations should be compile-time errors.  
-When the state is dynamic, the runtime may emit a typed operation effect that is
-settled by `?|`, a named handler, statement discard, or the default failure
-handler. `failed` is not a persistent resource state.
+When the state is statically known, invalid operations should be compile-time errors.
+When an admitted operation can complete in several ways, Sema exposes one
+success type plus its finite nominal completion-family set. `?|` may settle an
+exact `family` / `family(binding)` arm or a final recoverable-only fallback;
+unhandled families propagate statically. There is no statement discard, default
+failure handler, ambient channel, or dynamic handler lookup. `failed` is not a
+persistent resource state.
 
 ---
 
@@ -374,40 +393,41 @@ Styio should distinguish “end of sequence” from “operation failure”.
 
 ### 11.1 Internal models
 
-Use two internal concepts:
+Use two distinct semantic facts:
 
-- `Step[T] = Yield(T) | End`
-- `Result[T, E]`
+- iteration yields `T` or reaches the nominal EOF terminal family;
+- every operation has one success type plus a finite set of nominal completion
+  families.
 
-`Step` is for iterator progression.  
-`Result` is for I/O failure, parse failure, bounds failure, closed-handle failure, and so on.
+Neither fact requires or exposes a source `Step[T]` or `Result[T, E]` wrapper.
+EOF is not absence and a failure is not an alternate ordinary value.
 
 ### 11.2 Default surface behavior
 
-Styio should not require explicit `unwrap` at every use site.
+The accepted model is defined by
+[Styio Operation Completion and Settlement](./Styio-Operation-Completion-and-Settlement.md).
+`?|` runs one operation once, exact family arms optionally bind payloads, a
+trailing bare fallback catches recoverable failures only, normal results join
+to the success type, and unhandled families propagate statically. There is no
+implicit unwrap, dynamic exception search, ambient failure channel, wildcard
+discard, or hidden retry.
 
-Default behavior:
-
-1. Fallible operations are typed internally as `Result`.
-2. At statement or expression-use boundaries, Styio performs an implicit force.
-3. If the result is `Err`, execution aborts with a structured diagnostic.
-4. Cleanup failure uses the distinct `ResourceCleanupFailure` family and participates in the same
-   inference path; `?| resource_operation` without fallback raises immediately at that source site,
-   while `?| resource_operation | fallback` recovers through normal type inference.
-
-This is effectively “default unwrap with fail-fast diagnostics”.
+Current `ResourceEffectAST` / `SIOResourceEffect` behavior remains
+implementation evidence and must migrate to this contract rather than define
+the public type system.
 
 ### 11.3 Examples
 
-- writing to `@stdout` may fail: internally `Result[unit, IOError]`
-- `@stdin: list[i32]` parsing may fail: internally `Result[list[i32], ParseError]`
-- `list[i][j]` bounds checks may fail: internally `Result[T, BoundsError]`
-- closing or dropping a resource may fail: internally `Result[unit, ResourceCleanupFailure]`
-- write backpressure is first an observable `ResourceBackpressure` pressure signal; only a
-  resource-family escalation such as timeout, closed channel, failed transport, or exceeded backlog
-  limit becomes a `ResourceBackpressureFailure`
+- writing to `@stdout` may have a no-payload success and an I/O completion family;
+- typed stdin decoding may produce a list or a parse/decode completion family;
+- checked indexing may produce an element or a bounds completion family;
+- closing or dropping a resource may succeed without payload or expose cleanup failure;
+- backpressure begins as an observable resource signal. Whether a resource
+  upgrades it to failure belongs to that resource-family contract; settlement
+  itself never implies retry, waiting, replay, or scheduling.
 
-The default top-level handler reports the error immediately.
+These examples intentionally do not spell an internal `Result` type or a
+default dynamic handler because neither belongs to the language contract.
 
 ---
 
@@ -423,8 +443,10 @@ Design consequences:
 
 1. `@stdin` itself stays a raw `stream[string]`.
 2. Typed ingestion is an adapter or intrinsic layered on top.
-3. The adapter is fallible and therefore internally returns `Result[list[T], ParseError]`.
-4. The language default handler implicitly forces that result and aborts on parse failure.
+3. The adapter has success type `list[T]` plus a statically known parse/decode
+   completion family that follows the accepted static propagation algebra.
+4. No implicit force, default abort, or `Result` spelling is inferred from the
+   current backend.
 
 This avoids baking a second unrelated “stdin type” into the core model.
 
@@ -446,7 +468,10 @@ Block-entry execution uses resource snapshots:
 
 - `resource >> { ... }` enters a snapshot at the `>>` boundary.
 - `resource >> #(x) => { ... }` binds yielded items from the snapshot stream.
-- `=> { ... }`, selected `?=` arm blocks, active `||> { ... }`, and reserved `|>` block forms follow the same block-entry rule when they enter a block.
+- `=> { ... }`, selected `?=` arm blocks, active `||> { ... }`, and resource
+  sessions `|?| { ... }` follow the same block-entry rule when they enter a
+  block. Settlement-forward `|>` after a session transfers settlement; it is
+  not itself a topology snapshot scope unless a stage enters a new block.
 - The block body may read or write the snapshot according to the resource capability rules.
 - At `}`, the compiler commits the snapshot result back to the original resource.
 - A chained sequence such as `a => { 1 } => { 2 } => { 3 }` has one snapshot and one commit per block stage. Later stages read the resource state committed by earlier stages.

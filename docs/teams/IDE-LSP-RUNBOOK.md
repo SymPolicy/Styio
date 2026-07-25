@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-20
 
 ## Mission
 
@@ -42,6 +42,10 @@ Build and test targets:
 15. Keep LSP lifecycle and transport behavior byte-exact: notifications such as `initialized` must not receive JSON-RPC responses, and `styio_lspd` must keep stdio in binary mode on Windows before any LSP frame is exchanged.
 16. Keep IDE/LSP tests on the current public include roots, such as `StyioServices/StyioIDE/` and `StyioServices/StyioLSP/`; do not preserve old short include paths after source directories move.
 17. Tolerant IDE tokenization should keep full multi-character continue lexemes such as `>>>` together for editor spans, but it must not imply a different compiler semantic depth than the parser-owned nearest-loop continue.
+
+18. `Q02-INF` IDE facts come from the compiler's canonical definition-site scheme and fresh call-site instantiations. Hover, diagnostics, semantic tokens, and caches must preserve the same normalized parameter/result/completion constraints, source origins, and explicit-boundary status that Sema reports; never cache the first observed concrete call as the definition's identity, and never let call order change a definition hover. Present definition ambiguity at the definition and a concrete unsatisfied constraint at the call. Internal displays such as `forall A`, `Literal(5)`, and `Add(...)` must be clearly marked as compiler-inferred metadata, not source keywords, completion items, or fix-it spellings. The approved `Q05-LIT-ADD` facts in item 19 now replace the previous undecided placeholder.
+19. `Q05-LIT-ADD` is design-approved and implementation-pending. IDE displays must distinguish an exact unresolved integer/decimal literal term from its contextual materialization and from the late ordinary-boundary `i64`/`f64` default; do not imply magnitude widening or defaulting inside `add_five`. Hover and diagnostics must show the selected same-type scalar `Add` row and its stable completion upper bound, including conservative `{overflow}` for generalized `add_five`. Keep “literal cannot materialize”, “concrete operand types mismatch”, and “constant/runtime addition produces `overflow`” as distinct diagnostics; `overflow` has no payload. Preserve explicit decimal negative zero and the fixed IEEE float contract without promising a NaN payload/equality/order policy. Do not offer fix-its for an unapproved cast spelling or completion items for internal `Literal`/`Add` metadata. The remaining Q05 surfaces stay open; evaluation previews must use accepted Q03-F facts rather than imply a source-order timeline.
+20. `Q03-F` diagnostics and IDE facts come from the compiler's canonical evaluation graph. For an unordered order-sensitive conflict, highlight both child source ranges, name the missing dependency/capability fact, and offer only a consecutive Block bind/settle rewrite; mention an existing task construct only when the author explicitly wants concurrency. Hover or graph views may show strict prerequisites, Block/control/resource edges, completion stop, and the four independent optimization rights, but must not promise automatic concurrency or a deterministic order between unconnected safe-pure nodes. Cache keys include the semantic-summary fingerprint and invalidate when alias, capability, completion, or totality facts change.
 
 ## Change Classes
 
@@ -86,7 +90,7 @@ python3 scripts/docs-audit.py
 2. Frontend and Sema / IR must review changes that depend on parser/analyzer truth.
 3. Test Quality must review new IDE regression tests.
 4. Docs / Ecosystem must review host-facing documentation changes.
-5. Range CST changes must preserve the IDE/compiler boundary: Tree-sitter may expose `range_expr` and `materialized_range` nodes, but active syntax acceptance and reserved step-range rejection remain owned by the nightly compiler parser.
+5. Range CST changes must preserve the IDE/compiler boundary: Tree-sitter may expose `range_expr` and `materialized_range` nodes, but active syntax acceptance and removed step-range rejection remain owned by the nightly compiler parser.
 
 ## Handoff / Recovery
 

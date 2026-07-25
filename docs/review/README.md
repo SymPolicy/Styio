@@ -2,7 +2,7 @@
 
 **Purpose:** Define the minimal current-tree review policy: keep only still-active review findings, move durable rules into owning SSOTs, and recover old review prose from Git history.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-07-25
 
 ## Scope
 
@@ -14,9 +14,17 @@
 
 ## Naming Rules
 
-1. Stable long-lived review files use descriptive topic names.
-2. One-off review bundles should not be retained in the current tree after their actionable findings are resolved or promoted.
-3. Use Git history when exact old dated review wording is required.
+1. Every active review document other than `README.md` and the generated
+   `INDEX.md` contains unresolved work and must end in `-Draft.md`.
+2. A document anywhere in the repository that still awaits an owner decision
+   must declare `**Status:** Draft` near its title and end in `-Draft.md`.
+3. `Pending implementation` does not mean `Draft`: an implementation plan for
+   an accepted design keeps its ordinary descriptive filename.
+4. When the final owner decision closes, promote the accepted rule into its
+   owning SSOT and remove the review draft. If the same file becomes the owning
+   SSOT, remove `-Draft` in that same change; do not leave a compatibility file
+   at the old path.
+5. Use Git history when exact old review wording is required.
 
 ## Inventory
 

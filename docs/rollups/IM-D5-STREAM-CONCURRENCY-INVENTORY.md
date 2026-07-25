@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted stream-runtime, concurrency, pulse-frame, cross-stream synchronization, and multi-writer merge decisions for IM-D5.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-20
 
 ## Scope
 
@@ -191,10 +191,20 @@ Accepted decision:
 - A committed resource state is visible to later frames that start after the commit.
 - Chained block stages observe the commit from the immediately previous stage.
 - Task forms such as `||>` do not create implicit shared mutable access to resources.
-- Task results, task failures, and task resource effects cross stream/frame boundaries only through explicit task handles, awaits, resource effects, or commit boundaries.
+- Task results, task failures, and task resource effects cross stream/frame boundaries only through explicit task handles, generic operation settlement, resource effects, or commit boundaries.
 - Runtime scheduling order is not an accepted source of language-visible ordering.
+- Q03-F safe-pure siblings have dependency order only; absence of a source-time
+  edge does not launch them concurrently. Only an accepted task/stream construct
+  introduces concurrency.
+- Top-level items of one lexical Block order order-sensitive work and stop later
+  ordinary items after completion. Inside one ordinary expression, two
+  order-sensitive siblings without a data/control/resource/Block/task edge are
+  rejected rather than ordered by source position or scheduler choice.
+- For `source -> endpoint`, left-to-right is data direction only. Source value
+  and endpoint capability are independent prerequisites; their preparation
+  order must come from an accepted edge outside the arrow.
 
-If the implementation cannot prove a deterministic happens-before relation for an accepted construct, the construct must be rejected by a stable diagnostic or forced through an explicit synchronization/resource effect.
+If the implementation cannot prove a required deterministic happens-before relation for an accepted construct, the construct must be rejected by a stable diagnostic or forced through an explicit synchronization/resource effect. This fail-closed rule is design-approved but its shared `EvaluationFacts`/DAG/CFG implementation remains pending.
 
 ## Parallel Resource Worktree Commit Model
 
@@ -254,7 +264,11 @@ StyioIR and runtime traces must be able to represent or recover:
 - `ResourceMergeConflict`,
 - pressure state and escalation,
 - EOF versus failure, and
-- explicit happens-before edges.
+- explicit happens-before edges,
+- Q03-F computation identity plus safe-pure/order-sensitive summaries,
+- value/data/control/resource/Block/settlement/task edge kinds,
+- completion-stop and mandatory-exit/publication boundaries, and
+- separate reorder/speculate/duplicate/elide permissions.
 
 Codegen must not guess these facts from source text after lowering.
 
@@ -269,6 +283,7 @@ Codegen must not guess these facts from source text after lowering.
 | Parallel writers conflict | Use deterministic worktree merge and typed `ResourceMergeConflict` instead of scheduler order |
 | Native calls break determinism | Require effect classification before treating native calls as deterministic frame operations |
 | Optimization moves effects across frame boundaries | Preserve frame, snapshot, commit, sync, and merge boundaries as StyioIR/verifier-visible facts |
+| Parser traversal, AST child order, or scheduler order becomes an accidental Q03-F timeline | Carry canonical evaluation facts and typed edges into the verifier; reject unordered order-sensitive siblings and keep no-edge safe-pure work distinct from explicit concurrency |
 
 ## Stop Condition
 

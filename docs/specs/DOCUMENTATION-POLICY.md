@@ -2,7 +2,7 @@
 
 **Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-25
 
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
 
@@ -124,6 +124,12 @@ When touching an existing non-English development document, do not add more non-
 
 0. Feature, module, workflow, skill, and documentation transformations must not use version-style names such as `v2`, `version`, `new`, `old`, `legacy`, or `latest`; name the artifact by the feature or transformation result so the active tree has one current implementation and no renamed old/new residue.
 0. Repo-owned documentation and skills must not expose developer-machine paths, server-machine paths, private endpoints, account names, hostnames, or deployment roots. Use placeholders such as `<workspace-root>`, `<user-home>`, `<server-host>`, `<service-url>`, `<private-ip>`, or documented environment variables, and run `python3 scripts/local-info-leak-gate.py --mode worktree` before delivery.
+0. Any active document that still awaits an owner decision must declare
+   `**Status:** Draft` near its title and use the exact `-Draft.md` filename
+   suffix. `Pending implementation` for an accepted decision is a separate
+   lifecycle state and must not be labeled Draft. When the final decision
+   closes, promote the accepted content and remove the suffix in the same
+   change, without retaining an old-path compatibility document.
 1. `docs/design/`：设计级 SSOT 使用稳定、可搜索的主题名；当前约定为 `Styio-*.md`。
 2. `docs/specs/`：规范文件使用稳定、可搜索的全大写短横线命名。
 3. `docs/teams/`：团队日常入口使用 `<TEAM>-RUNBOOK.md`；跨团队协调入口固定为 `COORDINATION-RUNBOOK.md`；集合统计固定为 `DOC-STATS.md`。

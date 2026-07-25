@@ -1,0 +1,145 @@
+[
+  {
+    "id": "82e6815a-8cde-4f4f-98b5-4f299c1c228b",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Confirm the frozen explicit-first-value contract without deciding adjacent record, resource, raw-storage, or default-expression policy.",
+    "description": "Scope: Requirements.md and the O01-Q08..Q09 decision trace only. Context: the owner rejects every ordinary declaration without an RHS and forbids implicit default values. Target: keep REQ-BI-001..REQ-BI-006 complete, source-observable, and bounded away from field defaults, topology initialization, partial storage, FFI out-pointers, and future explicit Default syntax. Design Considerations: distinguish executable ordinary storage from atomically supplied binders and schema/protocol declarations. Design Value: prevents implementation convenience from reopening the value model. Constraints & Risks: update all mappings before source work if a later owner decision changes a stated dependency.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states users, scope, non-goals, constraints, and final acceptance for REQ-BI-001..REQ-BI-006."},
+      {"checked": false, "text": "Every requirement traces to O01-Q08..Q09 and makes no choice for explicitly excluded adjacent policies."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze explicit binding requirements", "target": "styio-nightly"},
+    "next": ["fafc9f34-b201-42d4-ab04-3735ecfadd09"]
+  },
+  {
+    "id": "fafc9f34-b201-42d4-ab04-3735ecfadd09",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["82e6815a-8cde-4f4f-98b5-4f299c1c228b"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Verify every synthesized-default route, affected fixture, supplied-binder boundary, and relevant failure lesson before implementation.",
+    "description": "Scope: Evidence.md plus read-only inspection of Parser, AST, Sema, IR/lowering, task settlement, resource storage, tests, and active docs. Context: the nightly parser manufactures scalar defaults while later layers expect an actual RHS. Target: cite exact symbols, enumerate source cases, classify each identifier-colon-type context, and record primary language evidence for definite assignment, hidden uninitialized state, and universal zero/default pitfalls. Design Considerations: separate repository fact from inference and route resource findings to their owner. Design Value: prevents an over-broad parser rejection or a hidden replacement default. Constraints & Risks: external examples inform hazards but never override the frozen Styio contract.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites all parser synthesis, binding ownership, ordinary settlement-result binding, generic directional endpoint, resource storage, and old-test paths."},
+      {"checked": false, "text": "Every bare typed-name fixture is classified as rejected ordinary syntax or a separately owned binder/schema/protocol context."},
+      {"checked": false, "text": "Primary language sources document the implementation cost and failure modes of all rejected alternatives."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground explicit binding evidence", "target": "styio-nightly"},
+    "next": ["053f06bf-7a29-4395-8cdc-220e93ace2a4"]
+  },
+  {
+    "id": "053f06bf-7a29-4395-8cdc-220e93ace2a4",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["82e6815a-8cde-4f4f-98b5-4f299c1c228b", "fafc9f34-b201-42d4-ab04-3735ecfadd09"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Define positive, negative, structural, migration, and convergence evidence before changing the parser.",
+    "description": "Scope: Validation.md and test/gate discovery only. Context: a parser rejection can still leave default repair in AST/Sema/IR or accidentally reject supplied binders. Target: map every REQ-BI label to accepted explicit bindings, rejected missing-RHS cases across type families, positive supplied-binder/schema/protocol cases, structural searches, stable diagnostics, and end-to-end gates. Design Considerations: pair each rejection with its nearest accepted boundary and require exact diagnostic evidence. Design Value: prevents parser-only or blanket-colon implementations. Constraints & Risks: commands must name existing gate families or explicitly identify tests to add; prose review alone is insufficient.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every REQ-BI label to at least one executable or static check."},
+      {"checked": false, "text": "The matrix covers every representative ordinary type family and every exempt supplied/schema/protocol context."},
+      {"checked": false, "text": "Removal searches and docs/plan/syntax gates are part of final acceptance."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map explicit binding validation", "target": "styio-nightly"},
+    "next": ["551447dc-91fc-44c5-b476-b33f0eafc55a"]
+  },
+  {
+    "id": "551447dc-91fc-44c5-b476-b33f0eafc55a",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["82e6815a-8cde-4f4f-98b5-4f299c1c228b", "fafc9f34-b201-42d4-ab04-3735ecfadd09", "053f06bf-7a29-4395-8cdc-220e93ace2a4"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the grammar-context, mandatory-RHS AST, publication timing, IR verifier, and deletion architecture.",
+    "description": "Scope: Architecture.md and interface/scaffold decisions; no feature behavior is claimed complete. Context: current code treats nullable syntax as a request for a manufactured expression. Target: define syntax-directed context classification, parser recovery, a non-null ordinary RHS node contract, Sema publish-after-value behavior, value-operand IR verification, resource typestate separation, and one-shot deletion. Design Considerations: remove lifecycle state rather than add definite-assignment analysis; classify by AST kind rather than nullable pointers or source scans. Design Value: one invariant eliminates repeated default logic and runtime initialized checks. Constraints & Risks: do not design field defaults, topology initialization, raw storage, or future Default syntax.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines module ownership, dependency direction, context classification, diagnostics, AST/IR invariants, migration, and complexity."},
+      {"checked": false, "text": "No proposed abstraction creates an ordinary uninitialized state or a second default path."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design explicit binding architecture", "target": "styio-nightly"},
+    "next": ["967df85d-0a4d-43bb-900a-700df65e2659"]
+  },
+  {
+    "id": "967df85d-0a4d-43bb-900a-700df65e2659",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["551447dc-91fc-44c5-b476-b33f0eafc55a"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Reject missing ordinary RHS syntax and make the binding AST require a real value expression.",
+    "description": "Scope: src/StyioParser, ordinary binding nodes in src/StyioAST, parser/token tests, and stable diagnostic fixtures. Context: make_default_value_for_decl_latest currently turns missing syntax into a fabricated scalar AST. Target: parse only complete ordinary binding productions, emit one source-located missing-RHS diagnostic, delete the helper and all calls, make missing ordinary RHS unrepresentable in AST, and preserve distinct parameter/pattern/iteration, ordinary settlement-expression RHS, generic directional endpoint, schema, and topology routes. Design Considerations: syntax-directed recovery at the statement boundary; no type query or compatibility warning. Design Value: establishes the single frontend fact consumed by all later layers. Constraints & Risks: migrate every frontend visitor/factory atomically and retain old source only in negative fixtures.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Representative bare ordinary declarations fail with the stable diagnostic before AST construction."},
+      {"checked": false, "text": "Explicit scalar, optional, Unit, collection, record, callable-value, and handle bindings still parse."},
+      {"checked": false, "text": "Supplied binders and schema/topology contexts remain on distinct accepted parser/AST routes."},
+      {"checked": false, "text": "The default helper, call sites, compatibility node shapes, and positive default tests are removed."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(frontend): require explicit binding values", "target": "styio-nightly"},
+    "next": ["8eb3460f-9351-4ce8-b87e-be57a4c905fe"]
+  },
+  {
+    "id": "8eb3460f-9351-4ce8-b87e-be57a4c905fe",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["967df85d-0a4d-43bb-900a-700df65e2659"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Enforce the mandatory value operand through Sema, StyioIR, lowering, and resource-boundary audit.",
+    "description": "Scope: src/StyioSema, affected src/StyioIR and src/StyioLowering paths, semantic/IR/security tests, and a read-before-valid resource audit. Context: later layers currently assume an RHS but can inherit parser-created fake values; resource buffers also have internal zero-fill. Target: publish ordinary names only with a proven RHS type, require a value operand in IR/verifiers, remove any missing-value repair, add no initialized bit, and prove protocol storage is not exposed as ordinary T. Design Considerations: reuse existing symbol/type metadata and route resource policy findings separately. Design Value: removes hidden state and ensures the backend consumes proof rather than guessing. Constraints & Risks: do not change resource initialization semantics or introduce a raw-storage API in this node.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Sema and IR tests prove every ordinary binding has a typed value and no maybe-initialized state."},
+      {"checked": false, "text": "IR verifiers reject a missing value operand and lowering/codegen contain no repair/default path."},
+      {"checked": false, "text": "Resource zero-fill sites are audited and cannot expose an ordinary value before protocol validity; policy gaps are routed to P09."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): enforce initialized binding invariant", "target": "styio-nightly"},
+    "next": ["2fa39030-c167-42d7-94e6-4fb04619cd53"]
+  },
+  {
+    "id": "2fa39030-c167-42d7-94e6-4fb04619cd53",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["967df85d-0a4d-43bb-900a-700df65e2659", "8eb3460f-9351-4ce8-b87e-be57a4c905fe"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge fixtures, editor/tooling mirrors, runbooks, and active language docs on the explicit-first-value contract.",
+    "description": "Scope: affected Styio source fixtures, EBNF, Language Design, Symbol Reference, ACTIVE-SYNTAX, syntax convergence evidence, frontend/sema/test/docs runbooks, editor grammar, and formatter. Context: old tests and fixtures can preserve the rejected spelling after compiler code changes. Target: migrate intended code to explicit values or true supplied-binder syntax, retain bare declarations only as exact negative diagnostics, regenerate indexes, and document implementation status honestly. Design Considerations: SSOT owns semantics; tooling mirrors syntax; removed behavior is deleted rather than labeled legacy. Design Value: prevents compatibility debt from becoming a second contract. Constraints & Risks: do not document decisions about field defaults, topology initialization, raw storage, or future Default syntax.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "All active SSOT and tooling mirrors state the same mandatory-RHS and context-boundary rules."},
+      {"checked": false, "text": "Every affected fixture is migrated, deleted, or registered as one current negative diagnostic; no positive compatibility case remains."},
+      {"checked": false, "text": "Syntax convergence, generated indexes, docs audit, docs lifecycle, and local-information gates pass."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge explicit binding contract", "target": "styio-nightly"},
+    "next": ["607c8457-f8ff-4690-b024-23ea81348211"]
+  },
+  {
+    "id": "607c8457-f8ff-4690-b024-23ea81348211",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["053f06bf-7a29-4395-8cdc-220e93ace2a4", "8eb3460f-9351-4ce8-b87e-be57a4c905fe", "2fa39030-c167-42d7-94e6-4fb04619cd53"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove the complete explicit-binding contract and deletion on one head commit.",
+    "description": "Scope: execute and record every Validation.md mapping; source changes route back to the owning implementation node. Context: parser, Sema, IR, tooling, and docs may each pass while an old default route or over-broad rejection survives elsewhere. Target: run all standing and REQ-specific checks, classify every remaining bare typed-name and default-helper match, record evidence per REQ-BI label, and synchronize Better Plan state. Design Considerations: validate source behavior, diagnostics, AST/IR structure, runtime settlement, resource boundaries, tooling, and generated docs together. Design Value: turns the owner decision into auditable compiler behavior. Constraints & Risks: acceptance targets may not be weakened to retain compatibility or an implicit value.",
+    "requirements": ["REQ-BI-001", "REQ-BI-002", "REQ-BI-003", "REQ-BI-004", "REQ-BI-005", "REQ-BI-006"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Parser, language-feature, pipeline, security, parser-shadow, syntax-convergence, documentation, lifecycle, local-information, and plan validators pass on one head commit."},
+      {"checked": false, "text": "Every REQ-BI label has recorded positive, negative, structural, and boundary evidence from Validation.md."},
+      {"checked": false, "text": "No synthesized-default helper, nullable ordinary RHS, initialized-bit state, compatibility implementation, or obsolete positive fixture remains."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate explicit binding contract", "target": "styio-nightly"},
+    "next": []
+  }
+]

@@ -1,0 +1,907 @@
+[
+  {
+    "id": "e55ac3f1-93cb-425f-914c-0249a20878fa",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Confirm the complete Q05-LIT-ADD product contract, requirement trace, and adjacent-owner boundaries.",
+    "description": "Scope: Requirements.md, Plan.md, the accepted Q05 exact-literals/Add owner, accepted Q02/Q03-F external implementation boundaries, and active Q06/Q08/F02/completion boundaries. Context: approved semantics must be converted into testable compiler and tooling obligations before implementation. Target: keep REQ-LITADD-001 through REQ-LITADD-011 complete, user-observable, deterministic, and limited to exact literals plus compiler-owned scalar Add. Design Considerations: distinguish language rules, implementation resource choices, accepted Q03-F ordering facts, and deferred operator families. Design Value: prevents current coercions or convenient backend defaults from becoming accidental policy. Constraints & Risks: this node may not introduce grammar, conversions, open operators, duplicate inference or Q03-F ownership, or implementation status claims.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "acceptance_criteria": [
+      { "checked": false, "text": "Requirements.md defines eleven testable requirements and their final acceptance target without copying ownership from the sole Q05 design." },
+      { "checked": false, "text": "Q02 inference, generic completion CFG, accepted Q03-F evaluation/effect ordering, text/collection/matrix operations, and author operators retain explicit external ownership." },
+      { "checked": false, "text": "Exact values, finite budgets, materialization/defaults, relation rows, completion, strict floating behavior, tooling, migration, and non-functional evidence are all covered." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): confirm exact literal and Add requirements",
+      "target": "styio-nightly"
+    },
+    "next": ["b7d82395-7f71-4591-81f8-ce4cc6810ffd"]
+  },
+  {
+    "id": "b7d82395-7f71-4591-81f8-ce4cc6810ffd",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["e55ac3f1-93cb-425f-914c-0249a20878fa"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Verify current parser-to-backend numeric paths, external primitives, migration risks, and missing performance evidence.",
+    "description": "Scope: Evidence.md and read-only inspection of parser, AST, Sema, lowering, SGIR, codegen, IDE/cache, tests, build files, and official LLVM/Clang material. Context: current code mixes strings, host numbers, promotion, coercion, undefined/default IR state, and unchecked emission. Target: record the facts that justify each replacement and the evidence still required before enablement. Design Considerations: cite primary sources, separate current behavior from normative semantics, and inventory owner-sensitive fixtures. Design Value: anchors the architecture in repository reality and proven arbitrary-precision/strict-IR primitives. Constraints & Risks: no benchmark threshold, target support, or old-path removal may be claimed without an execution receipt.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "acceptance_criteria": [
+      { "checked": false, "text": "Evidence.md identifies concrete parser, AST, Sema, folding, SGIR, codegen, IDE, cache, test, and build migration points." },
+      { "checked": false, "text": "LLVM APInt/APSInt/APFloat, checked-add, constrained-FP, strict/denormal, and fast-math evidence links directly to official sources." },
+      { "checked": false, "text": "Unresolved risks include target strict-FP support, large decimal work, Q02 catalog overlap, fixture ownership, and threshold/performance baselines." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): inventory exact literal and Add evidence",
+      "target": "styio-nightly"
+    },
+    "next": ["786cd7ea-f967-4f18-9a82-01e247a1d347"]
+  },
+  {
+    "id": "786cd7ea-f967-4f18-9a82-01e247a1d347",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": [
+      "e55ac3f1-93cb-425f-914c-0249a20878fa",
+      "b7d82395-7f71-4591-81f8-ce4cc6810ffd"
+    ],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze requirement-level behavioral, differential, structural, target, tooling, and performance evidence before source implementation.",
+    "description": "Scope: Validation.md and discovery of focused test seams. Context: local unit success can hide const/runtime drift, optimizer-dependent floats, missed catalog rows, stale IDE facts, resource amplification, or surviving compatibility paths. Target: map every REQ-LITADD label to executable and structural evidence with exact boundary/oracle rules. Design Considerations: test every width/format, both literal positions, N/N+1 budgets, one-revision determinism, target capability, and owner-aware removal. Design Value: makes acceptance independent of implementation internals and happy-path examples. Constraints & Risks: all checks remain prospective and unchecked; elapsed time and RSS are evidence, not semantic gates.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "acceptance_criteria": [
+      { "checked": false, "text": "Every requirement maps to at least one executable check and one applicable static, IR, cache, documentation, or structural check." },
+      { "checked": false, "text": "The matrix includes exact boundary values, exhaustive i8, wider differential cases, const/runtime equivalence, O0/O2/O3/LTO floating checks, and unsupported-target behavior." },
+      { "checked": false, "text": "Budget, performance/memory, CLI/IDE/cache determinism, old-path deletion, and separately owned adjacent-operation evidence are explicit." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): freeze exact literal and Add validation",
+      "target": "styio-nightly"
+    },
+    "next": ["f449e5f9-24b9-46fe-8ab0-5e57f858e5f3"]
+  },
+  {
+    "id": "f449e5f9-24b9-46fe-8ab0-5e57f858e5f3",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": [
+      "e55ac3f1-93cb-425f-914c-0249a20878fa",
+      "b7d82395-7f71-4591-81f8-ce4cc6810ffd",
+      "786cd7ea-f967-4f18-9a82-01e247a1d347"
+    ],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze exact-value, budget, materialization, relation, evaluator, SGIR, backend, tooling, cache, and deletion interfaces.",
+    "description": "Scope: Architecture.md and the design contracts embedded in all execution nodes. Context: shared TypeInfer, lowering, SGIR, and backend files cannot safely migrate until one authority and dependency direction are fixed. Target: define immutable exact facts, deterministic work accounting, failure-closed materialization, dense catalog/Q02 seam, shared operation descriptors, checked/strict IR, cache identity, and one-shot deletion. Design Considerations: APInt/APFloat value objects, side tables, stable row IDs, full-key collision checks, direct completion successors, and target capability gates. Design Value: replaces a cross-layer web of coercions with one auditable pipeline. Constraints & Risks: architecture may not duplicate Q02 solving or generic settlement and may not create fallback semantics for deferred families or unsupported targets.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "acceptance_criteria": [
+      { "checked": false, "text": "Architecture.md assigns one authority to exact values and catalog selection and defines a single parser-to-backend data flow." },
+      { "checked": false, "text": "Each execution node has complete owned/scaffold/acceptance paths, symbols, interfaces, dependencies, decisions, and test seams." },
+      { "checked": false, "text": "Deterministic limits, Q02/completion ownership, target strict-FP failure, cache identity, concurrency, and old-path deletion are explicit." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): design exact literal and Add architecture",
+      "target": "styio-nightly"
+    },
+    "next": ["230912f6-15d7-43fb-8379-a217da967621"]
+  },
+  {
+    "id": "230912f6-15d7-43fb-8379-a217da967621",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["f449e5f9-24b9-46fe-8ab0-5e57f858e5f3"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement canonical exact integer/decimal facts and deterministic numeric resource accounting from lexer through Sema publication.",
+    "description": "Scope: new StyioSema/Numeric exact-value and limit modules, parser/AST/Sema fact publication, focused exact/limit tests, and source registration. Context: numeric spelling is currently copied as strings and float AST state claims f64 before contextual selection. Target: preserve source spelling while publishing one canonical APInt-backed integer or coefficient/exponent decimal fact, including decimal negative zero, under five finite checked budgets. Design Considerations: lexer preflight, chunked parsing, saturating work charges, immutable session side tables, and canonical serialization. Design Value: establishes exactness and bounded hostile-input behavior before any type or Add decision. Constraints & Risks: no new grammar, early storage type, host-number authority, large allocation before charge, or time-based gate; concrete threshold values need a checked-in evidence receipt before enablement.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-009",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Numeric/ExactLiteral.hpp",
+        "src/StyioSema/Numeric/ExactLiteral.cpp",
+        "src/StyioSema/Numeric/NumericLiteralLimits.hpp",
+        "src/StyioSema/Numeric/NumericLiteralLimits.cpp",
+        "src/StyioParser/Tokenizer.cpp",
+        "src/StyioParser/Parser.cpp",
+        "src/StyioParser/NewParserExpr.cpp",
+        "src/StyioAST/AST.hpp",
+        "src/StyioSema/SemaContext.hpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/sema/numeric_literal_exact_test.cpp",
+        "tests/sema/numeric_literal_limits_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Numeric/ExactLiteral.hpp",
+        "src/StyioSema/Numeric/ExactLiteral.cpp",
+        "src/StyioSema/Numeric/NumericLiteralLimits.hpp",
+        "src/StyioSema/Numeric/NumericLiteralLimits.cpp",
+        "tests/sema/numeric_literal_exact_test.cpp",
+        "tests/sema/numeric_literal_limits_test.cpp"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "src/StyioSema/Numeric/ExactLiteral.hpp", "kind": "type", "name": "ExactLiteral", "operation": "add", "signature": "using ExactLiteral = std::variant<ExactInteger, ExactDecimal>" },
+        { "path": "src/StyioSema/Numeric/NumericLiteralLimits.hpp", "kind": "class", "name": "LiteralWorkBudget", "operation": "add", "signature": "class LiteralWorkBudget" }
+      ],
+      "interfaces": [
+        {
+          "name": "parseExactLiteral",
+          "producer": "src/StyioSema/Numeric/ExactLiteral.hpp",
+          "consumers": ["src/StyioParser/Parser.cpp", "src/StyioParser/NewParserExpr.cpp", "src/StyioSema/SemaContext.hpp"],
+          "inputs": "grammar-admitted numeric lexeme, source kind, sign, and request-local work budget",
+          "outputs": "one canonical immutable exact literal fact",
+          "errors": ["invalid admitted spelling", "token/digit/bit/exponent/work budget exhaustion"]
+        },
+        {
+          "name": "charge",
+          "producer": "src/StyioSema/Numeric/NumericLiteralLimits.hpp",
+          "consumers": ["src/StyioSema/Numeric/ExactLiteral.cpp", "tests/sema/numeric_literal_limits_test.cpp"],
+          "inputs": "operation kind and checked conservative work units",
+          "outputs": "remaining request-local deterministic budget",
+          "errors": ["saturated counter", "configured work limit exceeded"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioSema/Numeric/NumericLiteralLimits.hpp", "to": "src/StyioSema/Numeric/ExactLiteral.cpp", "reason": "exact parsing and canonicalization charge before arbitrary-precision work" },
+        { "from": "src/StyioSema/Numeric/ExactLiteral.hpp", "to": "src/StyioSema/SemaContext.hpp", "reason": "the session publishes immutable expression-keyed semantic facts without AST mutation" }
+      ],
+      "decisions": {
+        "composition": "lexer preflight, pure exact parser/canonicalizer, then immutable Sema side-table publication",
+        "algorithms": "linear scan and chunked APInt accumulation with checked exponent and precharged size formulas",
+        "data_structures": "APSInt integers, APInt coefficients, checked int64 exponent, compact negative-zero flag, and saturating uint64 work counters",
+        "state": "limit config is immutable per session; each parse owns a work counter and publishes one immutable fact",
+        "isolation": "AST retains only spelling/location authority and persistent keys exclude AST pointers and host numeric values",
+        "concurrency": "independent literals parse concurrently with request-local counters; side-table publication uses existing session synchronization"
+      },
+      "test_seams": [
+        "pure lexeme-to-canonical-value boundary",
+        "each configured limit at N and N+1",
+        "canonical serialization and collision comparison boundary",
+        "session side-table publication without AST type mutation"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "Exact/canonical tests cover arbitrary signed integers, coefficient/exponent decimals, integer zero equivalence, decimal negative zero, and no grammar expansion." },
+      { "checked": false, "text": "All five versioned limits use checked counters and pass N/N+1, saturation, hostile-alignment, debug/release, and early-allocation evidence." },
+      { "checked": false, "text": "AST nodes no longer own an early float type or semantic numeric width, and persistent fact identity uses canonical values rather than raw pointers or host numbers." },
+      { "checked": false, "text": "New modules/tests are explicitly registered and the threshold-selection performance/memory receipt is checked in before route enablement." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "feat(sema): add bounded exact numeric literals",
+      "target": "styio-nightly"
+    },
+    "next": ["a03f5396-557a-4ad3-980e-9c585dd1f569"]
+  },
+  {
+    "id": "a03f5396-557a-4ad3-980e-9c585dd1f569",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["230912f6-15d7-43fb-8379-a217da967621"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement failure-closed literal materialization and late concrete defaults without generalization-time defaulting.",
+    "description": "Scope: LiteralMaterialization, Sema expected-type/default-boundary integration, focused range/rounding/default tests, and registration. Context: current float AST and inference paths choose or promote concrete types before the accepted context/default rules. Target: convert exact integers/decimals only through the closed target table, preserve IEEE subnormal/signed-zero behavior, reject finite-to-infinity, and invoke i64/f64 defaults only at enumerated concrete boundaries. Design Considerations: APSInt range proofs, APFloat target semantics and operation status, structured failure kinds, and no suggested widening. Design Value: centralizes the semantic boundary shared by relation selection, constant evaluation, diagnostics, and tooling. Constraints & Risks: decimal-to-int, inexact integer-to-float, auto-i128 widening, host rounding, and any default inside a Q02 generalization context are forbidden.",
+    "requirements": [
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-007",
+      "REQ-LITADD-009",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Numeric/LiteralMaterialization.hpp",
+        "src/StyioSema/Numeric/LiteralMaterialization.cpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/sema/numeric_materialization_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Numeric/LiteralMaterialization.hpp",
+        "src/StyioSema/Numeric/LiteralMaterialization.cpp",
+        "tests/sema/numeric_materialization_test.cpp"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "src/StyioSema/Numeric/LiteralMaterialization.hpp", "kind": "function", "name": "materialize", "operation": "add", "signature": "MaterializationResult materialize(const ExactLiteral&, ConcreteScalarType, LiteralWorkBudget&)" },
+        { "path": "src/StyioSema/Numeric/LiteralMaterialization.hpp", "kind": "function", "name": "defaultAtConcreteBoundary", "operation": "add", "signature": "DefaultResult defaultAtConcreteBoundary(const ExactExpressionFact&, ConcreteBoundaryKind, LiteralWorkBudget&)" }
+      ],
+      "interfaces": [
+        {
+          "name": "materialize",
+          "producer": "src/StyioSema/Numeric/LiteralMaterialization.hpp",
+          "consumers": ["src/StyioSema/TypeInfer.cpp", "src/StyioSema/Numeric/BuiltinAddRelation.cpp", "src/StyioSema/Numeric/NumericConstantEvaluator.cpp"],
+          "inputs": "canonical exact literal, one selected admitted target, and work budget",
+          "outputs": "canonical concrete bits/format or one classified failure",
+          "errors": ["signed range failure", "inexact integer-to-float", "decimal-to-integer", "finite decimal rounds to infinity", "resource budget exhaustion"]
+        },
+        {
+          "name": "defaultAtConcreteBoundary",
+          "producer": "src/StyioSema/Numeric/LiteralMaterialization.hpp",
+          "consumers": ["src/StyioSema/TypeInfer.cpp", "tests/sema/numeric_materialization_test.cpp"],
+          "inputs": "still-exact expression fact and enumerated mandatory concrete boundary",
+          "outputs": "i64 or f64 materialization result",
+          "errors": ["not a defaulting boundary", "default target cannot represent the value", "resource budget exhaustion"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioSema/Numeric/ExactLiteral.hpp", "to": "src/StyioSema/Numeric/LiteralMaterialization.cpp", "reason": "materialization consumes the sole canonical exact value" },
+        { "from": "src/StyioSema/Numeric/LiteralMaterialization.hpp", "to": "src/StyioSema/TypeInfer.cpp", "reason": "Sema applies context before the only enumerated late-default boundary" }
+      ],
+      "decisions": {
+        "composition": "one pure materializer plus an explicitly enumerated default-boundary wrapper",
+        "algorithms": "signed APInt range comparison and APFloat conversion with explicit target semantics, nearest-ties-to-even, and inspected status",
+        "data_structures": "tagged materialization success bits or stable classified failure with no wider-type suggestion",
+        "state": "materialization is request-local and deterministic; selected facts are immutable after Sema publication",
+        "isolation": "Q02 generalization has no default API and backend/IDE cannot repeat conversion",
+        "concurrency": "materialization is pure apart from request-local budget charge and can run independently across expressions"
+      },
+      "test_seams": [
+        "every signed target boundary",
+        "integer-to-float exactness status",
+        "decimal IEEE bit-pattern conversion",
+        "ordinary boundary versus Q02 generalization default gate"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "All signed ranges, exact integer-to-float cases, decimal ties/subnormals/signed zero/infinity, and decimal-to-integer rejection match the owner table." },
+      { "checked": false, "text": "Expected types precede defaulting; only enumerated ordinary boundaries select i64/f64; out-of-range defaults diagnose without auto-widening." },
+      { "checked": false, "text": "A generalized callable retains its exact constraint and cannot reach the default-boundary function." },
+      { "checked": false, "text": "Parser, Sema, const evaluation, IDE, and later catalog consumers share this materializer rather than host conversion copies." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "feat(sema): centralize literal materialization",
+      "target": "styio-nightly"
+    },
+    "next": ["9cd3544f-2321-486c-9e4f-fb7f3b073316"]
+  },
+  {
+    "id": "9cd3544f-2321-486c-9e4f-fb7f3b073316",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["a03f5396-557a-4ad3-980e-9c585dd1f569"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement the immutable closed scalar Add catalog and its narrow Q02 relation/completion-bound seam.",
+    "description": "Scope: BuiltinAddRelation provider, scalar TypeInfer route, catalog/Q02 contract tests, and registration; Q02-owned solver/scheme files remain external consumers. Context: current binary inference performs common-type selection, string coercion, matrix routing, and backend-compatible guessing. Target: select only the owner rows, return one success type and operation descriptor, expose stable row IDs/fingerprint and conservative {overflow} bound, and reject every missing row. Design Considerations: dense seven-type indexing, symmetric literal entries, materializer reuse, immutable sorted serialization, and full-key collision comparison. Design Value: gives every compiler layer and Q02 one finite auditable authority instead of copied promotion matrices. Constraints & Risks: no fallback row, hidden conversion/completion, second Q02 catalog, first-use default, or accidental policy for string/container/matrix/user operators.",
+    "requirements": [
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Numeric/BuiltinAddRelation.hpp",
+        "src/StyioSema/Numeric/BuiltinAddRelation.cpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/sema/builtin_add_relation_test.cpp",
+        "tests/sema/builtin_add_q02_contract_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Numeric/BuiltinAddRelation.hpp",
+        "src/StyioSema/Numeric/BuiltinAddRelation.cpp",
+        "tests/sema/builtin_add_relation_test.cpp",
+        "tests/sema/builtin_add_q02_contract_test.cpp"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "kind": "class", "name": "BuiltinAddCatalog", "operation": "add", "signature": "class BuiltinAddCatalog" },
+        { "path": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "kind": "function", "name": "queryAdd", "operation": "add", "signature": "AddQueryResult queryAdd(OperandDomain, OperandDomain, LiteralWorkBudget&)" },
+        { "path": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "kind": "function", "name": "conservativeCompletionBound", "operation": "add", "signature": "CompletionSet conservativeCompletionBound(AddConstraintShape)" }
+      ],
+      "interfaces": [
+        {
+          "name": "queryAdd",
+          "producer": "src/StyioSema/Numeric/BuiltinAddRelation.hpp",
+          "consumers": ["src/StyioSema/TypeInfer.cpp", "Q02-owned principal inference adapter", "tests/sema/builtin_add_relation_test.cpp"],
+          "inputs": "two concrete-or-exact operand domains and request-local materialization budget",
+          "outputs": "one stable row and numeric operation descriptor",
+          "errors": ["concrete type mismatch", "literal materialization failure", "excluded or unsupported operand family", "resource budget exhaustion"]
+        },
+        {
+          "name": "conservativeCompletionBound",
+          "producer": "src/StyioSema/Numeric/BuiltinAddRelation.hpp",
+          "consumers": ["Q02-owned principal inference adapter", "tests/sema/builtin_add_q02_contract_test.cpp"],
+          "inputs": "closed unresolved scalar Add constraint shape",
+          "outputs": "stable finite union {overflow}",
+          "errors": ["constraint shape outside the closed scalar catalog"]
+        },
+        {
+          "name": "builtinAddCatalogFingerprint",
+          "producer": "src/StyioSema/Numeric/BuiltinAddRelation.hpp",
+          "consumers": ["Q02-owned instance cache", "src/StyioServices/StyioIDE/SemDB.cpp"],
+          "inputs": "immutable canonical catalog",
+          "outputs": "versioned deterministic fingerprint plus full canonical comparison data",
+          "errors": ["catalog invariant violation", "duplicate or unstable row identity"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioSema/Numeric/LiteralMaterialization.hpp", "to": "src/StyioSema/Numeric/BuiltinAddRelation.cpp", "reason": "literal rows reuse the sole failure-closed materializer" },
+        { "from": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "to": "Q02-owned principal inference adapter", "reason": "Q02 consumes the Q05 catalog without owning or copying its rows" },
+        { "from": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "to": "src/StyioSema/TypeInfer.cpp", "reason": "production scalar Add selection has exactly one catalog entry point" }
+      ],
+      "decisions": {
+        "composition": "one immutable provider serves direct Sema selection, Q02 constraints, constant evaluation, tooling, and cache fingerprinting",
+        "algorithms": "bounded dense ordinal lookup with exact type equality and symmetric materialization predicates",
+        "data_structures": "fixed seven-type table, stable row IDs, sorted canonical serialization, finite completion bitsets, and full keys after hash matches",
+        "state": "the catalog and overflow family identity are frozen per compilation session and never mutated by calls",
+        "isolation": "Q05 exports operand/result/completion facts only; Q02 owns all variables, schemes, solving, instantiation, and specialization",
+        "concurrency": "the immutable catalog is lock-free for reads and materialization uses request-local budgets"
+      },
+      "test_seams": [
+        "complete generated catalog oracle",
+        "symmetric literal/concrete query boundary",
+        "Q02 add_five scheme and conservative completion contract",
+        "catalog fingerprint stability and collision comparison"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "A generated oracle covers every admitted identical-concrete and symmetric literal row plus all concrete mismatches and excluded families." },
+      { "checked": false, "text": "TypeInfer scalar Add has one catalog entry and no getMaxType, string/numeric coercion, backend guessing, or generic catch-all fallback." },
+      { "checked": false, "text": "The Q02 contract consumes Q05 row IDs/fingerprint and keeps add_five symbolic with the stable {overflow} completion bound." },
+      { "checked": false, "text": "Catalog lookup is bounded, immutable, deterministic across order/session/cache permutations, and contains no hidden completion row." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "feat(sema): add closed scalar Add catalog",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "460b9fe1-e5dc-4313-88af-1a858720fb3b",
+      "eaf4d4b1-22ac-44a2-83f4-4e672208acb3"
+    ]
+  },
+  {
+    "id": "460b9fe1-e5dc-4313-88af-1a858720fb3b",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["9cd3544f-2321-486c-9e4f-fb7f3b073316"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement one selected-row constant evaluator and concrete SGIR operation contract with completion-preserving lowering.",
+    "description": "Scope: NumericConstantEvaluator, AST-to-SGIR lowering, optimizer migration, SGIR constant/binop representation and verifier tests. Context: current lowering reparses strings through host widths and folding computes with host long/double while SGIR can default width/format or carry Undefined operands. Target: evaluate APInt/APFloat under the selected descriptor, return the same success/completion outcome as runtime, and lower concrete row/width/format/completion facts into verified SGIR. Design Considerations: materialize before selected-row folding, APInt signed overflow, APFloat explicit rounding/status, direct resolved completion successors, and negative verifier fixtures. Design Value: prevents compile-time semantics, IR repair, and backend behavior from diverging. Constraints & Risks: exact provisional folding cannot bypass materialization, statically known overflow is not a syntax error, and no host parsing/string round-trip or duplicate settlement CFG is allowed.",
+    "requirements": [
+      "REQ-LITADD-002",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Numeric/NumericConstantEvaluator.hpp",
+        "src/StyioSema/Numeric/NumericConstantEvaluator.cpp",
+        "src/StyioLowering/AstToStyioIR.cpp",
+        "src/StyioLowering/StyioIROptimizer.cpp",
+        "src/StyioLowering/StyioIROptimizer.hpp",
+        "src/StyioIR/GenIR/SGIR.hpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/lowering/numeric_add_const_runtime_test.cpp",
+        "tests/ir/numeric_add_sgir_verifier_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Numeric/NumericConstantEvaluator.hpp",
+        "src/StyioSema/Numeric/NumericConstantEvaluator.cpp",
+        "tests/lowering/numeric_add_const_runtime_test.cpp",
+        "tests/ir/numeric_add_sgir_verifier_test.cpp"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "src/StyioSema/Numeric/NumericConstantEvaluator.hpp", "kind": "function", "name": "evaluateNumericAdd", "operation": "add", "signature": "NumericEvaluationResult evaluateNumericAdd(const NumericOperationDescriptor&, const ConcreteNumericValue&, const ConcreteNumericValue&)" },
+        { "path": "src/StyioIR/GenIR/SGIR.hpp", "kind": "type", "name": "SGNumericBinOp", "operation": "add", "signature": "struct SGNumericBinOp" }
+      ],
+      "interfaces": [
+        {
+          "name": "evaluateNumericAdd",
+          "producer": "src/StyioSema/Numeric/NumericConstantEvaluator.hpp",
+          "consumers": ["src/StyioLowering/StyioIROptimizer.cpp", "tests/lowering/numeric_add_const_runtime_test.cpp"],
+          "inputs": "selected operation descriptor and two already materialized concrete values",
+          "outputs": "concrete result bits or resolved payload-free overflow completion",
+          "errors": ["descriptor/value type mismatch", "resource budget exhaustion", "invalid floating semantics"]
+        },
+        {
+          "name": "verifyNumericAdd",
+          "producer": "src/StyioIR/GenIR/SGIR.hpp",
+          "consumers": ["src/StyioLowering/AstToStyioIR.cpp", "src/StyioCodeGen/CodeGenG.cpp", "tests/ir/numeric_add_sgir_verifier_test.cpp"],
+          "inputs": "concrete SGIR operands, result, stable row ID, operation summary, and successors",
+          "outputs": "verified backend-ready integer or floating operation",
+          "errors": ["unresolved or Undefined numeric type", "width/format mismatch", "unknown row", "incorrect completion set or successor shape"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioSema/Numeric/LiteralMaterialization.hpp", "to": "src/StyioSema/Numeric/NumericConstantEvaluator.cpp", "reason": "selected-row evaluation begins from the same concrete materialized operands as runtime" },
+        { "from": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "to": "src/StyioIR/GenIR/SGIR.hpp", "reason": "SGIR records stable Q05 row identity and finite completion summary" },
+        { "from": "src/StyioIR/GenIR/SGIR.hpp", "to": "src/StyioCodeGen/CodeGenG.cpp", "reason": "backend emission is allowed only after concrete numeric verification" }
+      ],
+      "decisions": {
+        "composition": "Sema selects and materializes; a shared evaluator or typed lowerer consumes the same immutable operation descriptor",
+        "algorithms": "APInt signed overflow detection and APFloat add with explicit target semantics and nearest-ties-to-even",
+        "data_structures": "canonical concrete bit values, stable row IDs, compact completion bitsets, and explicit success/completion successors",
+        "state": "evaluation temporaries are request-local and SGIR stores immutable selected facts without re-inference",
+        "isolation": "optimizer cannot parse source strings, choose types, or build a second completion/settlement model",
+        "concurrency": "independent constant evaluations and lowering units run concurrently after immutable fact publication"
+      },
+      "test_seams": [
+        "selected-row pure evaluator",
+        "folded versus forced-runtime differential corpus",
+        "known integer overflow completion edge",
+        "SGIR malformed width, row, completion, and Undefined fixtures"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "Constant and forced-runtime cases agree for every row, boundary, rounding result, materialization failure, and overflow completion." },
+      { "checked": false, "text": "Known integer overflow follows the resolved overflow edge and remains subject to existing propagation/settlement obligations rather than a new syntax error." },
+      { "checked": false, "text": "SGIR constants and Add nodes carry concrete width/format, stable row, success type, finite completion set, and valid successor shape only." },
+      { "checked": false, "text": "Host stol/stoll/stod/to_string, long/double arithmetic authority, source-string reparse, and executable Undefined/default repair are absent from numeric lowering/folding." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "feat(ir): preserve exact Add semantics",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "c76e26d3-1d37-44f1-8c15-3440973b7f03",
+      "eaf4d4b1-22ac-44a2-83f4-4e672208acb3"
+    ]
+  },
+  {
+    "id": "c76e26d3-1d37-44f1-8c15-3440973b7f03",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["460b9fe1-e5dc-4313-88af-1a858720fb3b"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Emit exact concrete LLVM types, checked signed Add completion edges, and target-gated strict IEEE floating Add.",
+    "description": "Scope: GetTypeG, CodeGenG/LLVMEmission, a strict-FP target contract, focused IR/runtime/optimization/target tests, and source registration. Context: current backend erases widths to i64/double, reparses host numbers, coerces strings and mixed numerics, guesses Add flavor, and emits unchecked/permissive instructions. Target: map all seven concrete types exactly, emit sadd.with.overflow plus direct completion branch for integers, and constrained nearest-ties-even floating add with strict/IEEE denormal attributes and no fast flags. Design Considerations: verified SGIR-only input, explicit target capability digest, O0/O2/O3/LTO IR audits, and fail-closed unsupported targets or a separately verified helper. Design Value: makes optimized runtime execution observationally identical to Sema and constant evaluation. Constraints & Risks: no i64/double repair, nsw/nuw, naked language checked add, ordinary fadd fallback, fast-math, FTZ/DAZ, reassociation, host rounding, or target optimism.",
+    "requirements": [
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioCodeGen/GetTypeG.cpp",
+        "src/StyioCodeGen/CodeGenG.cpp",
+        "src/StyioCodeGen/LLVMEmission.cpp",
+        "src/StyioCodeGen/LLVMEmission.hpp",
+        "src/StyioCodeGen/StrictFPContract.cpp",
+        "src/StyioCodeGen/StrictFPContract.hpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/codegen/numeric_add_codegen_test.cpp",
+        "tests/codegen/numeric_add_strict_fp_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "scaffold_paths": [
+        "src/StyioCodeGen/StrictFPContract.cpp",
+        "src/StyioCodeGen/StrictFPContract.hpp",
+        "tests/codegen/numeric_add_codegen_test.cpp",
+        "tests/codegen/numeric_add_strict_fp_test.cpp"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "src/StyioCodeGen/StrictFPContract.hpp", "kind": "class", "name": "StrictFPContract", "operation": "add", "signature": "class StrictFPContract" },
+        { "path": "src/StyioCodeGen/CodeGenG.cpp", "kind": "function", "name": "emitCheckedSignedAdd", "operation": "add", "signature": "emitCheckedSignedAdd(const SGNumericBinOp&)" },
+        { "path": "src/StyioCodeGen/CodeGenG.cpp", "kind": "function", "name": "emitStrictFloatingAdd", "operation": "add", "signature": "emitStrictFloatingAdd(const SGNumericBinOp&)" }
+      ],
+      "interfaces": [
+        {
+          "name": "validateStrictFPContract",
+          "producer": "src/StyioCodeGen/StrictFPContract.hpp",
+          "consumers": ["src/StyioCodeGen/LLVMEmission.cpp", "src/StyioServices/StyioIDE/CompilerBridge.cpp", "tests/codegen/numeric_add_strict_fp_test.cpp"],
+          "inputs": "LLVM version, target triple, CPU/features, constrained-FP and denormal capabilities",
+          "outputs": "immutable supported-target digest and emission policy",
+          "errors": ["strict rounding unavailable", "IEEE gradual underflow unavailable", "unverified deterministic helper"]
+        },
+        {
+          "name": "emitCheckedSignedAdd",
+          "producer": "src/StyioCodeGen/CodeGenG.cpp",
+          "consumers": ["src/StyioCodeGen/LLVMEmission.cpp", "tests/codegen/numeric_add_codegen_test.cpp"],
+          "inputs": "verified concrete signed SGIR row and two direct successors",
+          "outputs": "sadd.with.overflow result and success/overflow branch",
+          "errors": ["unsupported width", "missing overflow successor", "row/type mismatch"]
+        },
+        {
+          "name": "emitStrictFloatingAdd",
+          "producer": "src/StyioCodeGen/CodeGenG.cpp",
+          "consumers": ["src/StyioCodeGen/LLVMEmission.cpp", "tests/codegen/numeric_add_strict_fp_test.cpp"],
+          "inputs": "verified f32/f64 row and validated strict-FP contract",
+          "outputs": "constrained nearest-ties-even floating add with IEEE denormal behavior",
+          "errors": ["unsupported target contract", "unexpected completion set", "forbidden fast-math state"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioIR/GenIR/SGIR.hpp", "to": "src/StyioCodeGen/CodeGenG.cpp", "reason": "codegen consumes only verified concrete rows and successors" },
+        { "from": "src/StyioCodeGen/StrictFPContract.hpp", "to": "src/StyioCodeGen/LLVMEmission.cpp", "reason": "module/function attributes and instruction choice require a validated target digest" },
+        { "from": "src/StyioCodeGen/GetTypeG.cpp", "to": "src/StyioCodeGen/CodeGenG.cpp", "reason": "exact concrete LLVM width/format mapping precedes row emission" }
+      ],
+      "decisions": {
+        "composition": "verified SGIR feeds exact type mapping, then row-specific integer or floating emission under one target contract",
+        "algorithms": "LLVM signed-add-with-overflow extraction/branch and constrained fadd with explicit nearest-ties-even",
+        "data_structures": "stable concrete type map, two-successor integer operation, empty-completion float operation, and immutable target capability digest",
+        "state": "target contract is validated once per module/session and emitted IR contains all relevant strict attributes",
+        "isolation": "backend cannot select rows, parse literals, coerce operands, repair Undefined, or consult host FP state",
+        "concurrency": "modules may emit concurrently after sharing an immutable target contract; no mutable global rounding state is used"
+      },
+      "test_seams": [
+        "all integer widths and overflow successor IR",
+        "f32/f64 constrained instruction and attribute audit",
+        "O0/O2/O3/LTO bit-pattern differential",
+        "supported and deliberately unsupported target capability fixtures"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "i8/i16/i32/i64/i128 and f32/f64 map to exact LLVM types with no default repair or host literal reparse." },
+      { "checked": false, "text": "Every signed row emits sadd.with.overflow and direct success/overflow branches without nsw/nuw, wrapping, implicit trap, or naked language add." },
+      { "checked": false, "text": "Every floating row emits constrained nearest-ties-even strict IEEE code with gradual underflow and no fast-math, FTZ/DAZ, reassociation, nsz, nnan, or ninf assumption." },
+      { "checked": false, "text": "O0/O2/O3/LTO result bits and const/runtime results agree on every supported target; unsupported contracts fail closed or use a separately proven deterministic helper." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "feat(codegen): emit checked and strict scalar Add",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "eaf4d4b1-22ac-44a2-83f4-4e672208acb3",
+      "c1cfa6f8-507f-4d99-85fe-60f3f3b4d685"
+    ]
+  },
+  {
+    "id": "eaf4d4b1-22ac-44a2-83f4-4e672208acb3",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": [
+      "9cd3544f-2321-486c-9e4f-fb7f3b073316",
+      "460b9fe1-e5dc-4313-88af-1a858720fb3b",
+      "c76e26d3-1d37-44f1-8c15-3440973b7f03"
+    ],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Publish stable numeric diagnostics, IDE semantic facts, and canonical incremental-cache identities from the shared pipeline.",
+    "description": "Scope: NumericDiagnostics, Sema fact publication, CompilerBridge/SemDB integration, focused CLI/IDE/cache tests, and registration. Context: existing tooling exposes early concrete AST types and broad type failures while relation, limits, and target facts can change semantic results. Target: classify resource, parse, materialization, default, no-row, overflow-obligation, SGIR, and target failures consistently; publish selected exact/concrete facts; and key caches by canonical catalog/limits/target inputs. Design Considerations: bounded source-located records, shared CLI/IDE consumption, full canonical comparison after hash matches, and explicit invalidation. Design Value: makes editor and incremental behavior observationally identical to clean CLI compilation. Constraints & Risks: exact literals are not author-visible runtime types, overflow completion is not mislabeled as a type error, and keys cannot contain pointers, unordered order, host values, secrets, or mutable session state.",
+    "requirements": [
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Numeric/NumericDiagnostics.hpp",
+        "src/StyioSema/Numeric/NumericDiagnostics.cpp",
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioServices/StyioIDE/CompilerBridge.cpp",
+        "src/StyioServices/StyioIDE/CompilerBridge.hpp",
+        "src/StyioServices/StyioIDE/SemDB.cpp",
+        "src/StyioServices/StyioIDE/SemDB.hpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/ide/numeric_semantics_ide_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Numeric/NumericDiagnostics.hpp",
+        "src/StyioSema/Numeric/NumericDiagnostics.cpp",
+        "tests/ide/numeric_semantics_ide_test.cpp"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "src/StyioSema/Numeric/NumericDiagnostics.hpp", "kind": "type", "name": "NumericDiagnosticKind", "operation": "add", "signature": "enum class NumericDiagnosticKind" },
+        { "path": "src/StyioServices/StyioIDE/SemDB.hpp", "kind": "type", "name": "NumericSemanticCacheKey", "operation": "add", "signature": "struct NumericSemanticCacheKey" }
+      ],
+      "interfaces": [
+        {
+          "name": "publishNumericDiagnostic",
+          "producer": "src/StyioSema/Numeric/NumericDiagnostics.hpp",
+          "consumers": ["src/StyioSema/TypeInfer.cpp", "src/StyioServices/StyioIDE/CompilerBridge.cpp"],
+          "inputs": "classified numeric failure, bounded semantic facts, source range, and selected row/target when available",
+          "outputs": "one stable CLI/IDE diagnostic record",
+          "errors": ["missing source range", "unbounded note payload", "completion misclassified as type failure"]
+        },
+        {
+          "name": "numericSemanticCacheKey",
+          "producer": "src/StyioServices/StyioIDE/SemDB.hpp",
+          "consumers": ["src/StyioServices/StyioIDE/SemDB.cpp", "tests/ide/numeric_semantics_ide_test.cpp"],
+          "inputs": "canonical exact fact, expected boundary, row/catalog, completion, limits, compiler schema, and target contract",
+          "outputs": "stable fingerprint plus full canonical equality key",
+          "errors": ["unsupported cache schema", "configuration mismatch", "hash collision with unequal canonical data"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "to": "src/StyioServices/StyioIDE/SemDB.cpp", "reason": "tooling and caches consume selected row facts and the sole catalog fingerprint" },
+        { "from": "src/StyioSema/Numeric/NumericDiagnostics.hpp", "to": "src/StyioServices/StyioIDE/CompilerBridge.cpp", "reason": "CLI and IDE share one source-located classification model" },
+        { "from": "src/StyioCodeGen/StrictFPContract.hpp", "to": "src/StyioServices/StyioIDE/CompilerBridge.cpp", "reason": "unsupported target diagnostics and cache invalidation consume the validated contract digest" }
+      ],
+      "decisions": {
+        "composition": "Sema publishes immutable numeric facts/diagnostics and existing IDE/cache layers adapt them without re-inference",
+        "algorithms": "canonical sorted serialization, stable hashing, full equality on collisions, and dependency-digest invalidation",
+        "data_structures": "bounded diagnostic records, immutable semantic facts, versioned full cache keys, and compact completion bitsets",
+        "state": "one compilation session owns facts/configuration; cache entries are immutable and invalidated by all semantic digests",
+        "isolation": "tooling cannot materialize, select rows, shrink completion bounds, expose secrets, or use author-visible hidden numeric types",
+        "concurrency": "read-only facts support parallel IDE queries; cache publication follows existing SemDB synchronization and full-key checks"
+      },
+      "test_seams": [
+        "CLI versus IDE normalized diagnostic corpus",
+        "hover before and after concrete boundary",
+        "cold/warm/edit-invalidated cache equivalence",
+        "collision, order, session, and parallel query determinism"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "Every required failure category has stable code, source range, bounded notes, and identical CLI/IDE classification." },
+      { "checked": false, "text": "Hover and semantic facts show selected concrete types without inventing an author-visible exact runtime type or repeating relation logic." },
+      { "checked": false, "text": "Cold/warm/edit/order/session/concurrency tests agree, and catalog/limits/compiler/target digest changes invalidate affected entries." },
+      { "checked": false, "text": "Cache identity excludes raw pointers, unordered iteration, host numeric values, runtime/private data, and incomplete hash-only equality." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "feat(ide): publish exact numeric semantic facts",
+      "target": "styio-nightly"
+    },
+    "next": ["c1cfa6f8-507f-4d99-85fe-60f3f3b4d685"]
+  },
+  {
+    "id": "c1cfa6f8-507f-4d99-85fe-60f3f3b4d685",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": [
+      "c76e26d3-1d37-44f1-8c15-3440973b7f03",
+      "eaf4d4b1-22ac-44a2-83f4-4e672208acb3"
+    ],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Converge tests, performance evidence, build registration, tooling docs, and complete owner-aware deletion on the single numeric pipeline.",
+    "description": "Scope: legacy TypeInfer/lowering/codegen/test fixtures, numeric feature corpus, focused benchmark, build registration, active IDE/compiler docs, and structural-removal receipt. Context: even correct new modules would leave two languages if promotion, string-plus-number, host folding, backend repair, or obsolete positive fixtures survive. Target: switch all scalar numeric Add/literal consumers, delete every conflicting executable route and expectation, preserve only separately owned adjacent operations, and check in thresholds/performance/memory evidence. Design Considerations: classify every match by owner, migrate tests rather than layering compatibility, compare fixed-corpus baseline, and register every source/test. Design Value: delivers one final behavior and removes long-term dead gates. Constraints & Risks: no design/review owner rewrite in this node, no dormant flag or wrapper, no blind matrix/container deletion, and no threshold chosen without reproducible evidence.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/TypeInfer.cpp",
+        "src/StyioLowering/AstToStyioIR.cpp",
+        "src/StyioLowering/StyioIROptimizer.cpp",
+        "src/StyioCodeGen/GetTypeG.cpp",
+        "src/StyioCodeGen/CodeGenG.cpp",
+        "src/StyioToken/Token.cpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/CMakeLists.txt",
+        "tests/styio_test.cpp",
+        "tests/typeinfer_internal_test.cpp",
+        "tests/lowering_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "tests/ide/styio_ide_test.cpp",
+        "tests/features/numeric_literals_add",
+        "tests/benchmarks/numeric_semantics_benchmark.cpp",
+        "docs/external/for-ide/README.md",
+        "docs/external/for-ide/LSP.md",
+        "docs/external/for-ide/CXX-API.md",
+        "docs/review/Styio-Exact-Literals-and-Builtin-Add-Migration.md"
+      ],
+      "scaffold_paths": [
+        "tests/features/numeric_literals_add",
+        "tests/benchmarks/numeric_semantics_benchmark.cpp",
+        "docs/review/Styio-Exact-Literals-and-Builtin-Add-Migration.md"
+      ],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+      "symbols": [
+        { "path": "tests/benchmarks/numeric_semantics_benchmark.cpp", "kind": "module", "name": "numeric semantics benchmark corpus", "operation": "add", "signature": "fixed parse, materialize, fold, catalog, memory, and cache evidence suite" },
+        { "path": "src/StyioSema/TypeInfer.cpp", "kind": "function", "name": "legacy scalar Add coercion routes", "operation": "remove", "signature": "getMaxType/string-coercion/backend-default scalar Add authority" }
+      ],
+      "interfaces": [
+        {
+          "name": "numericMigrationReceipt",
+          "producer": "docs/review/Styio-Exact-Literals-and-Builtin-Add-Migration.md",
+          "consumers": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+          "inputs": "old-path inventory, fixture ownership classification, source/test/doc removals, limit configuration, benchmark and peak-memory results",
+          "outputs": "one-revision proof of a single production route and evidence-backed finite thresholds",
+          "errors": ["surviving compatibility path", "obsolete positive fixture", "unowned adjacent deletion", "missing or non-reproducible threshold evidence"]
+        }
+      ],
+      "dependencies": [
+        { "from": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "to": "src/StyioSema/TypeInfer.cpp", "reason": "the converged Sema path retains only the sole catalog" },
+        { "from": "src/StyioSema/Numeric/NumericConstantEvaluator.hpp", "to": "src/StyioLowering/StyioIROptimizer.cpp", "reason": "legacy host folding is deleted only after the shared evaluator is live" },
+        { "from": "docs/plan/styio-exact-literals-and-builtin-add/Validation.md", "to": "docs/review/Styio-Exact-Literals-and-Builtin-Add-Migration.md", "reason": "the frozen structural and performance matrix defines the migration receipt" }
+      ],
+      "decisions": {
+        "composition": "one convergence node joins production consumers, fixtures, build manifests, docs, limit evidence, and structural deletion",
+        "algorithms": "scoped search plus manual owner classification and fixed-corpus baseline comparison on one source revision",
+        "data_structures": "owner/path inventory, requirement-indexed removal table, versioned limits, metric receipts, and removed-fixture list",
+        "state": "the production switch is atomic at the revision level and no feature flag or compatibility state remains",
+        "isolation": "deferred matrix/container/text policy is neither implemented nor erased unless a current path is proven to be unauthorized scalar Add authority",
+        "concurrency": "independent test/doc audits may run concurrently after code paths freeze; shared production and build-file edits are serialized"
+      },
+      "test_seams": [
+        "migrated legacy unit/security/IDE fixture inventory",
+        "new end-to-end numeric feature corpus",
+        "fixed-corpus performance and peak-memory baseline",
+        "scoped old-path search with owner classification",
+        "source/test/build/document registration audit"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "Promotion, string/numeric scalar Add, host parse/fold, pointer coercion, width erasure, unchecked/mixed backend Add, and executable default-repair paths plus dependent fixtures are absent." },
+      { "checked": false, "text": "Every remaining matrix/container/text match has a separate owner and operation identity or now rejects pending that owner; no deferred semantics are invented." },
+      { "checked": false, "text": "Versioned finite thresholds, fixed corpus, throughput/work/memory/cache baseline, N/N+1 behavior, and regression criteria are checked in and reproducible." },
+      { "checked": false, "text": "All sources/tests are registered, active tooling docs describe the new diagnostics/facts, and relevant targeted plus repository suites pass without obsolete gates." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "refactor(language): converge exact literals and scalar Add",
+      "target": "styio-nightly"
+    },
+    "next": ["ef5fe9ea-c4b2-42a9-9b0a-9dea02e6cd99"]
+  },
+  {
+    "id": "ef5fe9ea-c4b2-42a9-9b0a-9dea02e6cd99",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["c1cfa6f8-507f-4d99-85fe-60f3f3b4d685"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove all exact-literal and built-in Add requirements, resource bounds, strict target behavior, and old-path deletion on one revision.",
+    "description": "Scope: every Validation.md mapping, accepted owner revisions, focused/full builds and tests, differential/optimization/target/IDE/cache/performance matrices, structural searches, docs gates, and Better Plan state. Context: each layer can pass locally while const/runtime drift, a missing row, default during generalization, overflow misrouting, target FTZ, stale cache, or compatibility route survives elsewhere. Target: record one auditable evidence set for REQ-LITADD-001 through REQ-LITADD-011 and route any source/config failure to its owning node. Design Considerations: compare canonical values and bit results across modes, validate N/N+1 before exhaustion, capture target/catalog/limits fingerprints, and inspect every structural match. Design Value: proves one deterministic source-to-runtime numeric pipeline rather than a collection of patches. Constraints & Risks: acceptance cannot be weakened for current fixtures, unavailable target features, benchmark variance, Q02 integration delay, or unrelated dirty-worktree state.",
+    "requirements": [
+      "REQ-LITADD-001",
+      "REQ-LITADD-002",
+      "REQ-LITADD-003",
+      "REQ-LITADD-004",
+      "REQ-LITADD-005",
+      "REQ-LITADD-006",
+      "REQ-LITADD-007",
+      "REQ-LITADD-008",
+      "REQ-LITADD-009",
+      "REQ-LITADD-010",
+      "REQ-LITADD-011"
+    ],
+    "design": {
+      "artifact": "docs/plan/styio-exact-literals-and-builtin-add/Architecture.md",
+      "owned_paths": [
+        "docs/plan/styio-exact-literals-and-builtin-add/Validation.md",
+        "docs/review/Styio-Exact-Literals-and-Builtin-Add-Validation.md"
+      ],
+      "scaffold_paths": ["docs/review/Styio-Exact-Literals-and-Builtin-Add-Validation.md"],
+      "acceptance_paths": ["docs/plan/styio-exact-literals-and-builtin-add/Acceptance.md"],
+      "symbols": [
+        { "path": "docs/review/Styio-Exact-Literals-and-Builtin-Add-Validation.md", "kind": "module", "name": "exact literals and Add validation receipt", "operation": "add", "signature": "one-revision requirement, target, performance, and deletion evidence record" }
+      ],
+      "interfaces": [
+        {
+          "name": "exactLiteralAddValidationReceipt",
+          "producer": "docs/review/Styio-Exact-Literals-and-Builtin-Add-Validation.md",
+          "consumers": ["docs/plan/styio-exact-literals-and-builtin-add/Validation.md"],
+          "inputs": "owner revisions, source snapshot, compiler/LLVM/target facts, limits/catalog digests, executable results, metrics, and structural-removal searches",
+          "outputs": "one auditable pass or node-routed failure for REQ-LITADD-001 through REQ-LITADD-011",
+          "errors": ["changed source or configuration snapshot", "missing target capability evidence", "failed or unregistered test", "surviving old route or obsolete fixture"]
+        }
+      ],
+      "dependencies": [
+        { "from": "docs/plan/styio-exact-literals-and-builtin-add/Validation.md", "to": "docs/review/Styio-Exact-Literals-and-Builtin-Add-Validation.md", "reason": "the frozen matrix defines every receipt field and final command" },
+        { "from": "docs/design/Styio-Exact-Literals-and-Builtin-Add.md", "to": "docs/review/Styio-Exact-Literals-and-Builtin-Add-Validation.md", "reason": "final evidence proves the sole accepted semantic owner without redefining it" }
+      ],
+      "decisions": {
+        "composition": "one receipt joins exactness, limits, materialization, relation, inference seam, completion, IR/backend, tooling, performance, docs, and deletion evidence",
+        "algorithms": "canonical values, row IDs, completion sets, and float bits are compared across const/runtime, optimization, target, order, cache, and session permutations",
+        "data_structures": "requirement-indexed evidence tables, command receipts, target/catalog/limits digests, metric boundaries, and structural-removal results",
+        "state": "the receipt binds one immutable source/configuration snapshot and routes every failure to its owning pending node",
+        "isolation": "acceptance never infers missing semantics, relaxes strict FP, restores compatibility, or masks unrelated workspace changes",
+        "concurrency": "independent suites may execute in parallel but every recorded result must share source, catalog, limit, compiler, and target fingerprints"
+      },
+      "test_seams": [
+        "full REQ-LITADD-001 through REQ-LITADD-011 trace audit",
+        "exact boundary and full relation oracle",
+        "const/runtime and O0/O2/O3/LTO bit/control equivalence",
+        "N/N+1 resource and fixed-corpus performance/memory evidence",
+        "CLI/IDE/cache/order/session determinism",
+        "complete old-path and obsolete-fixture deletion audit"
+      ]
+    },
+    "acceptance_criteria": [
+      { "checked": false, "text": "Every REQ-LITADD label has positive, nearest-negative, boundary, structural, deterministic, performance, tooling, and end-to-end evidence where applicable on one snapshot." },
+      { "checked": false, "text": "All exact/materialization/catalog/default/generalization/overflow/strict-FP cases agree across const/runtime, optimization modes, supported targets, CLI/IDE, and cold/warm caches." },
+      { "checked": false, "text": "Finite limits and memory/work behavior pass N/N+1 and hostile-input evidence, and the full relation/catalog fingerprint matches the sole owner." },
+      { "checked": false, "text": "No promotion, coercion, host numeric authority, untyped/default backend repair, forbidden float transformation, duplicate Q02 catalog, compatibility route, or obsolete fixture remains." },
+      { "checked": false, "text": "Targeted/full tests, IR audits, benchmark receipts, source/test/doc gates, generated-artifact checks, and Better Plan validation all pass." }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(language): validate exact literals and scalar Add",
+      "target": "styio-nightly"
+    },
+    "next": []
+  }
+]

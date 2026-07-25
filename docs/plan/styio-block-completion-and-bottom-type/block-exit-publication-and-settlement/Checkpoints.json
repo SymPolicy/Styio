@@ -1,0 +1,178 @@
+[
+  {
+    "id": "4e039aa9-2e34-4a20-a609-d0c91d5e9139",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Confirm the frozen Block publication and exit-settlement product contract without introducing source syntax or a managed runtime.",
+    "description": "Scope: Requirements.md, Plan.md, and the P01.12-A..B / O05-Q06 decision trace. Context: the owner has frozen publication after required settlement, one static dependency graph, internal total/fallible/fatal classification, and compiler-sized fixed failure slots. Target: keep REQ-BE-001..REQ-BE-008 complete, source-observable where effects and diagnostics require it, and explicit that all graph/storage names remain compiler-only. Design Considerations: requirements describe one final contract and preserve the parent Block-result algebra; they distinguish implementation-hidden representation from statically visible failure effects. Design Value: prevents implementation details from inventing syntax, hiding physical failure, or reopening the decision. Constraints & Risks: do not reopen decided D02 or add ordinary value fallback; new cancellation APIs, transactions, and resource completion levels remain outside this plan; shared substrate belongs to styio-common-foundation.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states users, scope, non-goals, constraints, and final acceptance for REQ-BE-001..REQ-BE-008."},
+      {"checked": false, "text": "Every requirement traces to P01.12-A..B/O05-Q06 and explicitly preserves the no-new-syntax, no-managed-runtime, and honest-effect boundaries."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze block exit requirements", "target": "styio-nightly"},
+    "next": ["da23c8f8-ef08-408e-871e-12a5ee5ecbc3"]
+  },
+  {
+    "id": "da23c8f8-ef08-408e-871e-12a5ee5ecbc3",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["4e039aa9-2e34-4a20-a609-d0c91d5e9139"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Verify repository exit-path gaps, historical failure lessons, and the data-structure basis for a runtime-free protocol.",
+    "description": "Scope: Evidence.md plus read-only inspection of StyioResourceTopology, Sema, StyioIR, lowering, codegen, accepted task/resource hooks, tests, and active docs. Context: current exits use family-split cleanup, hash-derived commit enumeration, construct-specific control flow, and first-error-only support state. Target: cite exact symbols and primary language/compiler lessons supporting dependency ordering, candidate ownership, fixed failure slots, bounded children, and handler-after-epilogue semantics. Design Considerations: compare reverse-drop defaults, native compiler-generated cleanup, typed-failure loss, double-failure termination, structured join, and deterministic scheduling; distinguish evidence from inference. Design Value: grounds every graph, storage, complexity, and failure choice before implementation. Constraints & Risks: external mechanisms provide failure history and patterns only; undecided lexical features, Java runtime representation, and any unbounded heap strategy remain forbidden.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites every current implementation path that orders, commits, releases, joins, publishes, or records Block exit failure."},
+      {"checked": false, "text": "Evidence.md compares relevant systems-language and compiler practices and derives the chosen dense DAG, stable schedule, fixed-slot, and bounded-child consequences."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground block exit evidence", "target": "styio-nightly"},
+    "next": ["0486d6d9-0475-49f3-8e47-8091b09f543b"]
+  },
+  {
+    "id": "0486d6d9-0475-49f3-8e47-8091b09f543b",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["4e039aa9-2e34-4a20-a609-d0c91d5e9139", "da23c8f8-ef08-408e-871e-12a5ee5ecbc3"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Define deterministic, ownership, multi-failure, no-runtime, and convergence evidence before implementation.",
+    "description": "Scope: Validation.md and read-only test/gate discovery. Context: a shallow natural-exit test can pass while yield, loop control, failure, concurrency, resource borrowing, or generated storage still violates the contract. Target: map every REQ-BE label to positive, negative, verifier, structural, randomized, concurrent, sanitizer, and final end-to-end checks. Design Considerations: require exact source spans and stable ordinals; cover N==0, declared bounds, one-past-bound rejection, body-plus-cleanup failures, accepted task/resource edges, conditional integration for later admitted frame-retaining features, and unchanged token/grammar inventories. Design Value: makes determinism, bounded memory, and failure preservation testable before code shapes bias acceptance. Constraints & Risks: commands must name existing suites or explicitly identify tests to add; prose review alone cannot satisfy a criterion.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every REQ-BE label to executable or structural evidence, including randomized order and concurrent completion stress."},
+      {"checked": false, "text": "The matrix proves no new syntax/runtime mechanism, fixed bounded storage, honest total/fallible/fatal classification, complete migration, and deterministic diagnostics."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map block exit validation", "target": "styio-nightly"},
+    "next": ["5fc369a7-e713-4f0a-a9ab-adef935efde2"]
+  },
+  {
+    "id": "5fc369a7-e713-4f0a-a9ab-adef935efde2",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["4e039aa9-2e34-4a20-a609-d0c91d5e9139", "da23c8f8-ef08-408e-871e-12a5ee5ecbc3", "0486d6d9-0475-49f3-8e47-8091b09f543b"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the exit graph, verified IR, fixed failure layout, module split, and no-runtime lowering architecture.",
+    "description": "Scope: Architecture.md and the interface/scaffold contract for new ExitActionGraph, SGExit, ExitProtocolVerifier, ExitProtocolLowering, and ExitProtocolCodeGen responsibilities. Context: ResourceTopology validates metadata without emitting a schedule, while large shared lowering/codegen files separately infer partial cleanup. Target: define dense action IDs, compact adjacency, deterministic Kahn scheduling, candidate ownership, action outcome classes, fixed child/failure segments, direct handler CFG, final sinks, module boundaries, and dependency direction. Design Considerations: graph build O(V+E), stable scheduling O(V log V+E), cached schedule consumption, one responsibility per new file, verifier firewall, and thin native-hook adapters. Design Value: moves semantic proof out of backend guesses and preserves every typed failure without heap/runtime machinery. Constraints & Risks: do not create parser/AST surface, global failure objects, dynamic dispatch, duplicate scheduling authority, or compatibility files; architecture changes discovered later must be recorded before coupled code changes.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines module/file ownership, dependency direction, interfaces, state machines, graph/layout data structures, algorithms, complexity, and final sinks."},
+      {"checked": false, "text": "Each deliberate pattern explains its value, source syntax remains pattern-free, and no new file combines unrelated graph, verifier, lowering, codegen, and native-hook responsibilities."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design block exit architecture", "target": "styio-nightly"},
+    "next": ["124e429f-b83a-4779-9f84-2cfcceb66a54"]
+  },
+  {
+    "id": "124e429f-b83a-4779-9f84-2cfcceb66a54",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["5fc369a7-e713-4f0a-a9ab-adef935efde2"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Build and verify the semantic per-Block exit-action dependency graph and stable schedule.",
+    "description": "Scope: StyioSema exit facts, src/StyioResourceTopology/ExitActionGraph.hpp/.cpp, minimal ResourceTopology integration, topology/Sema tests, and graph diagnostics. Context: current topology records useful ownership, borrow, commit, and HB edges but does not include all of them in cycle detection or emit an executable order. Target: classify actions and bounds, build dense per-Block action/edge storage, deduplicate edges, derive lifetime/commit/hook dependencies, reconstruct source-located cycles, compute and cache the deterministic ready-queue schedule and semantic ordinals, and mark safe concurrency batches. Design Considerations: one O(V+E) graph build, O(V log V+E) stable Kahn schedule, compact IDs/adjacency, no pointer/hash ordering, and no codegen reanalysis. Design Value: turns existing semantic facts into one deterministic proof consumed by every exit path. Constraints & Risks: no native storage or handler syntax is chosen here; parent Block-result typing and separately declared resource/task contracts remain authoritative.",
+    "requirements": ["REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-006", "REQ-BE-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Topology/Sema tests cover every edge family, deterministic reverse-registration tie-breaking, dependency override, edge deduplication, declared bounds, and source-located relevant cycles."},
+      {"checked": false, "text": "Randomized insertion/hash-order tests produce identical schedules, ordinals, batches, and diagnostics, with measured graph and scheduling complexity matching Architecture.md."},
+      {"checked": false, "text": "Code inspection proves the schedule is built and cached once per Block and contains no pointer-identity or unordered-container ordering authority."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(topology): verify block exit graph", "target": "styio-nightly"},
+    "next": ["6f58161a-3085-4f65-8ff2-4e550465d8ed"]
+  },
+  {
+    "id": "6f58161a-3085-4f65-8ff2-4e550465d8ed",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["124e429f-b83a-4779-9f84-2cfcceb66a54"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Represent and verify the sealed candidate, exit actions, fixed failure layout, and final sinks in StyioIR and lowering.",
+    "description": "Scope: src/StyioIR/GenIR/SGExit.hpp, src/StyioIR/ExitProtocolVerifier.*, minimal IR walker/declaration integration, src/StyioLowering/ExitProtocolLowering.*, and IR/lowering tests. Context: SGBlock/SGReturn currently conflate result and exit behavior, and lowering validates topology without carrying an exit schedule or bounded failure layout. Target: add typed exit IR that owns candidate metadata, action descriptors, stable schedule/batches, total/fallible/fatal outcomes, slot/child bounds, commit-or-abort reason, and publish/branch/propagate/fatal sink; lower every source exit edge to it. Design Considerations: the verifier rejects malformed ownership, edges, ordinals, layout, unbounded obligations, illegal sinks, and handler-before-seal; lowering consumes Sema/RTG proof and never rebuilds topology. Design Value: establishes a hard semantic firewall before native code generation. Constraints & Risks: avoid growing the generic Verifier.cpp with unrelated logic; no source token, heap layout, runtime object, or dynamic handler search may appear.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "IR verifier tests accept each valid exit reason/sink and reject early publication, double owner, dying borrow, illegal commit/abort, duplicate ordinal/slot, unbounded child, and handler-before-seal forms."},
+      {"checked": false, "text": "Lowering tests prove natural, yield, function, loop-control, typed-failure, and cancellation edges produce the same exit protocol form and consume the cached semantic schedule."},
+      {"checked": false, "text": "IR dumps retain nominal completion families and fixed bounds while adding no parser, token, AST exception, or authored classification surface."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ir): model verified block exit protocol", "target": "styio-nightly"},
+    "next": ["2852c57a-6e93-4c8a-aba0-515048b4e080"]
+  },
+  {
+    "id": "2852c57a-6e93-4c8a-aba0-515048b4e080",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["6f58161a-3085-4f65-8ff2-4e550465d8ed"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Emit allocation-free candidate settlement, fixed multi-failure state, stable concurrency, and direct effect-handler control flow.",
+    "description": "Scope: src/StyioCodeGen/ExitProtocolCodeGen.*, fixed-layout helpers owned by that module, codegen/IR goldens, concurrency stress, security, and allocation-structure tests. Context: current global support state keeps only one error and cannot preserve bounded typed failures or deterministic concurrent ordering. Target: emit epilogue-owned candidate storage, no ledger for N==0, fixed bit/inline-payload slots for fallible actions and child segments, O(1) direct failure stores, semantic-ordinal primary/secondary selection, sealed handler routing by direct CFG, explicit replacement recovery, and publish/branch/propagate/fatal sinks. Design Considerations: stack or preallocated contiguous storage only; slot liveness reuse requires verifier proof; concurrency batches retain preassigned ordinals and never use completion time. Design Value: preserves complete typed evidence with deterministic behavior and no managed runtime or heap allocation. Constraints & Risks: support logging is non-authoritative; a physically fallible hook cannot be silently reclassified total; fatal inability remains outside recoverable aggregation.",
+    "requirements": ["REQ-BE-001", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Generated-code tests prove N==0 emits no ledger and bounded fallible cases use only fixed stack/preallocated status and inline payload slots."},
+      {"checked": false, "text": "Body-plus-cleanup, multiple-child, cancellation, timeout/join, candidate-discard, and concurrent-race tests preserve deterministic primary and every secondary failure."},
+      {"checked": false, "text": "Structural inspection proves no malloc/new/GC, exception object, growable list, dynamic handler search, global typed failure append, or scheduler-based ordering exists."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(codegen): emit fixed block exit failures", "target": "styio-nightly"},
+    "next": ["06d10c26-b51c-4ece-9349-d782d6c608bd"]
+  },
+  {
+    "id": "06d10c26-b51c-4ece-9349-d782d6c608bd",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["2852c57a-6e93-4c8a-aba0-515048b4e080"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Migrate every concrete exit path and lifecycle hook to the one verified protocol and delete old ordering authorities.",
+    "description": "Scope: existing exit/cleanup code in src/StyioCodeGen/CodeGenG.cpp and CodeGenIO.cpp, concrete accepted task/resource hooks in src/StyioExtern, pending commit/flush/release paths, affected tests, and deletion of obsolete helpers. Context: natural Block, yield, functions, loops, break/continue, runtime errors, and cleanup errors currently perform different partial actions; family passes and first-error state can still decide behavior. Target: route all edges through ExitProtocolCodeGen, expose honest fixed status from concrete hooks, enforce join-before-borrowed-release and every admitted feature's proven terminal-before-release edge, select commit versus abort by exit reason, preserve earlier barriers, and leave each owner exactly one cleanup path. Design Considerations: existing hooks remain thin adapters; a cancellation request never substitutes for join; family-specific operations cannot impose global order; irreversible I/O is not rolled back. Design Value: removes path drift and makes the frozen protocol the only executable authority. Constraints & Risks: complete migration is mandatory in one change set; no undecided continuation integration, old/legacy/fallback epilogue, default-return repair, double release, or positive test for retired behavior remains.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "End-to-end tests prove every exit reason uses the same protocol, success commits, failure aborts only unpublished state, and ordinary results never publish before non-transferable obligations finish."},
+      {"checked": false, "text": "Resource/task tests prove join/commit/flush/close dependencies, exactly-one cleanup ownership, honest hook failure, and no implicit detach or fake rollback; later admitted features add conditional integration tests through their own plans."},
+      {"checked": false, "text": "Static deletion evidence finds no construct-specific epilogue authority, family-global ordering pass, default-result repair, or first-error-only canonical propagation in exit paths."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(exit): converge block epilogues", "target": "styio-nightly"},
+    "next": ["6cd15b63-da9b-4df2-ac85-8cd8af867c63"]
+  },
+  {
+    "id": "6cd15b63-da9b-4df2-ac85-8cd8af867c63",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["06d10c26-b51c-4ece-9349-d782d6c608bd"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge active language/resource documentation, diagnostics, fixtures, test catalogs, and tooling on the runtime-free exit contract.",
+    "description": "Scope: Styio Language Design, Resource Topology, Block-completion/stream design docs, active syntax mirrors, Sema/IR/codegen/test runbooks, test catalog, syntax decision report links, diagnostics, fixtures, and generated indexes. Context: active prose still describes reverse-only cleanup, infallible sessions, Java-style suppression, construct-specific behavior, or undecided continuation semantics, while syntax mirrors must prove no token change. Target: publish one dependency-first, fixed-native-state contract, update tests and runbooks to current behavior, migrate/remove obsolete fixtures, and link the child plan from its parent and decision register. Design Considerations: language/resource SSOT owns semantics; syntax mirrors assert no new authored form; generated indexes are regenerated; only current negative diagnostics remain for removed paths. Design Value: prevents old runtime assumptions or hidden syntax from surviving as documentation and acceptance debt. Constraints & Risks: do not retain historical implementation labels or compatibility tests; do not activate continuations, reopen D02, or introduce a fallback operator, cancellation API, transaction rollback, or new resource completion levels.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "All active language/resource/Block-completion/stream docs and runbooks state the same publication, dependency-order, fixed-failure, fatal, no-runtime, and no-unapproved-continuation rules."},
+      {"checked": false, "text": "Tokenizer, EBNF, symbol, and active-syntax evidence proves this plan added no source token, keyword, constructor, exception type, or authored total/fallible/fatal classification."},
+      {"checked": false, "text": "Obsolete executable fixtures and compatibility expectations are removed, generated indexes are current, and syntax-convergence, docs, lifecycle, local-information, and plan gates pass."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge block exit protocol", "target": "styio-nightly"},
+    "next": ["335c23dd-329d-44a4-9d93-ee11166239e8"]
+  },
+  {
+    "id": "335c23dd-329d-44a4-9d93-ee11166239e8",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["0486d6d9-0475-49f3-8e47-8091b09f543b", "06d10c26-b51c-4ece-9349-d782d6c608bd", "6cd15b63-da9b-4df2-ac85-8cd8af867c63"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove the complete Block exit publication and settlement contract on one head commit.",
+    "description": "Scope: execute and record every Validation.md mapping; source fixes route back to their owning implementation node. Context: topology, IR, codegen, native hooks, resource/task behavior, concurrency, diagnostics, and docs can each pass locally while disagreeing end to end. Target: run all targeted and standing checks, randomized/hash/concurrency determinism stress, allocation/static audits, obsolete-authority searches, syntax inventory comparison, and Better Plan validation on one commit. Design Considerations: evidence must cover source behavior, ownership/lifetime, IR verification, native layout, failure order, fatal behavior, complexity, concurrency, migration deletion, and documentation together. Design Value: turns the frozen owner decision into auditable delivery rather than a prose-only promise. Constraints & Risks: acceptance targets cannot be weakened around unrelated worktree failures; decided D02 must not be reopened, and resource/cancellation/transaction choices remain out of scope and fail closed.",
+    "requirements": ["REQ-BE-001", "REQ-BE-002", "REQ-BE-003", "REQ-BE-004", "REQ-BE-005", "REQ-BE-006", "REQ-BE-007", "REQ-BE-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Build, targeted topology/Sema/IR/codegen/resource/task tests, conditional tests for already admitted lexical features, randomized/concurrent stress, sanitizer/security, syntax-convergence, documentation, lifecycle, local-information, and plan validators pass on one head commit."},
+      {"checked": false, "text": "Every REQ-BE label has recorded positive, negative, structural, determinism, complexity, and source-location evidence from Validation.md."},
+      {"checked": false, "text": "No new source syntax, managed runtime mechanism, dynamic allocation fallback, construct-specific epilogue, hidden physical failure, obsolete acceptance fixture, or contradictory active documentation remains."}
+    ],
+    "commit": {"repository": ".git", "message": "test(exit): validate block publication protocol", "target": "styio-nightly"},
+    "next": []
+  }
+]

@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-20
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -25,7 +25,7 @@ The name encodes the language's identity:
 |--------|-------------|
 | **Pure Symbolism** | Replace natural-language keywords (`if`, `while`, `for`, `def`) with unambiguous symbolic operators (`?=`, `>>`, `#`, `@`). |
 | **Intent Awareness** | The compiler statically analyzes field access patterns and pushes intent down to resource drivers (e.g., only fetch needed database columns). |
-| **Honest Missing** | Runtime absence is represented as `@` in diagnostics and stream algebra. Source-level bare `@` is retired from active syntax; current code should obtain absence from resources or intrinsics instead of authoring it directly. |
+| **Honest Missing** | Absence exists only in the static type `? \| T`; `(?)` is its empty source value and an ordinary `T` never contains it. Source `@` belongs to resource anchors, not the value algebra. Debuggers may render empty provenance with an internal marker, but that display is not syntax or a value. |
 | **Thick Library, Thin Artifact** | Development uses a rich standard library with protocol detection and AI-assisted probing. Production builds perform dead-code elimination to produce minimal binaries. |
 
 ### 1.2 Compiler Toolchain
@@ -46,7 +46,11 @@ Styio has no explicit loop constructs (`for`, `while`). Instead, data sources em
 ### 2.2 Progressive Performance
 
 The language follows a "write less, get convenience; write more, get speed" model:
-- Omit type annotations → compiler infers defaults (`i32` for integers, `f64` for floats)
+- Omit type annotations where the local-inference contract permits it → the
+  compiler infers from surrounding constraints. Exact numeric literals remain
+  unmaterialized inside a generalizable callable scheme; at a concrete
+  unconstrained value boundary they default once to `i64` or `f64` under
+  [Q05-LIT-ADD](./Styio-Exact-Literals-and-Builtin-Add.md).
 - Add explicit types → compiler generates optimized, specialized instructions
 - Omit resource protocol → runtime probes automatically
 - Specify protocol (e.g., `@file`, `@mysql`) → static dispatch without runtime probing
@@ -54,6 +58,27 @@ The language follows a "write less, get convenience; write more, get speed" mode
 ### 2.3 Expression-Oriented
 
 All control flow constructs (match, conditional wave, loops) are **expressions** that produce values. There are no void statements — everything flows.
+
+### 2.4 Functional Evaluation and Explicit Effect Order
+
+Styio uses the accepted Q03-F model: **strict values + dependency graphs +
+explicit effect sequences**. Ordinary calls and operators require their strict
+input values but do not give independent safe-pure siblings an author-visible
+left-to-right timeline. Top-level items of a lexical Block, data/control edges,
+operation settlement, and resource-topology happens-before edges order
+effectful, completing, or otherwise non-normal computations. Two unordered
+order-sensitive sibling computations in one ordinary expression are rejected;
+the author first settles/binds them in consecutive Block items or uses an
+explicit task construct when concurrency is intended.
+
+`source -> endpoint` orders neither source preparation nor endpoint
+preparation: both are prerequisites of the transfer, and the successful
+transfer alone produces Unit. Optimizers consume separate reorder, speculate,
+duplicate, and elide rights; `pure` by itself never authorizes all four.
+
+The complete normative contract, construct matrix, runtime-free lowering
+boundary, diagnostics, and rejected alternatives are owned by
+[Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md).
 
 ---
 
@@ -70,11 +95,32 @@ All control flow constructs (match, conditional wave, loops) are **expressions**
 | `string` / `str` | variable | UTF-8 string |
 | `byte` | 8 | Raw byte |
 
-### 3.2 Default Types
+### 3.2 Exact Numeric Literals, Built-in `Add`, and Late Defaults
 
-When type annotations are omitted:
-- Integer literals default to `i32`, including negative literals such as `-1`
-- Floating-point literals default to `f64`, including negative literals such as `-1.5`
+Accepted decision `Q05-LIT-ADD` is defined in
+[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
+the sole detailed semantic owner. Integer and decimal literals preserve their
+exact mathematical value before materialization. Context selects a concrete
+type first; materialization then fails closed on an out-of-range integer,
+inexact integer-to-float conversion, forbidden decimal-to-integer conversion,
+or a finite decimal that would become infinity.
+
+The compiler-owned scalar `Add` table is closed over `i8` through `i128`, `f32`,
+and `f64`. Two already concrete operands must have the same type; an exact
+literal may materialize symmetrically to the other operand's concrete type, and
+the selected row uniquely returns that type. There is no C-style common-type
+promotion. At an otherwise unconstrained concrete value boundary only, an
+integer expression defaults once to `i64` and a decimal expression to `f64`.
+No default occurs inside a generalizable callable scheme.
+
+Signed-integer `Add` is checked and admits the payload-free prelude completion
+family `overflow`; floating `Add` has an empty completion bound and strict IEEE
+behavior. Constant and runtime evaluation use the same relation. A generalized
+constraint spanning integer and floating rows has the conservative finite upper
+bound `{overflow}`, and statically known overflow takes that same completion
+edge rather than becoming a new syntax-error class. This decision adds no token
+or grammar production; matrix/text operations, conversions, other arithmetic,
+and remaining NaN policy stay with their deferred owners.
 
 ### 3.3 Type Annotations
 
@@ -87,7 +133,96 @@ Types are annotated with `:` on both parameters and return values:
 - `add : f32` — return type is `f32`
 - `a: f32` — parameter type
 - `:` always binds a **type** to its left-hand identifier
-- `m: matrix = [[1,0],[0,1]]` — explicit matrix context accepts a nested list source form, checks that all rows are non-empty, rectangular, and numeric, and lowers the value to a matrix handle; untyped nested lists remain ordinary lists
+- `m: matrix = [[1,0],[0,1]]` — explicit matrix context accepts a nested list source form and checks that rows are non-empty, rectangular, and numeric; its element-kind/coercion policy remains separately owned, and untyped nested lists remain ordinary lists
+
+#### 3.3.1 Ordinary Binding Initialization
+
+An ordinary binding is created only when its right-hand side successfully
+produces the first value. Both canonical binding operators therefore require an
+RHS:
+
+```styio
+count: i64 = 0
+limit: i64 := 100
+missing: ? | i64 = (?)
+done: unit = ()
+```
+
+`name: T` by itself is not a delayed declaration and is rejected for every
+ordinary `T`. The compiler never interprets the missing syntax as zero,
+`false`, an empty string, `()`, `(?)`, an uninitialized slot, or a type-provided
+default. Styio initially exposes no `Default` capability; if a default-producing
+feature is added later, it must be requested by an explicit expression and does
+not change this grammar rule.
+
+This rule applies to executable ordinary storage bindings, not every occurrence
+of `identifier: Type`. Parameters, pattern binders, and iteration binders receive
+their first value atomically from their enclosing operation. Record field
+schemas and resource topology slots describe shapes or protocols and retain
+their separately owned construction rules; they gain no implicit default from
+this distinction. Settlement creates no typed-target exception: an ordinary
+result uses an ordinary binding with an explicit RHS, such as
+`answer: i64 = ?| operation | fallback`.
+
+Cold, pending, moved, partially initialized, and uninitialized storage are
+compiler, runtime, or resource-protocol states, never values of an ordinary
+`T`. FFI out-pointers and bulk partial construction require a separately typed,
+restricted storage facility if they are introduced; ordinary bindings are not
+weakened to model them.
+
+#### 3.3.2 Unit, optional Unit, and zero-payload boundaries
+
+`unit` is a first-class built-in type with exactly one value, `()`. It is not
+absence, failure, uninitialized state, EOF, `never`, C `void`, or integer zero.
+`never` is the distinct uninhabited built-in type for paths proven not to
+complete. Both names are recognized contextually in type position from ordinary
+`NAME` tokens; neither adds a lexer keyword.
+
+`unit` is accepted wherever the corresponding built-in generic constructor
+accepts an ordinary type argument:
+
+```styio
+present: ? | unit = ()
+missing: ? | unit = (?)
+ticks: list[unit] = [(), (), ()]
+membership: dict[string, unit] = dict{"ready": ()}
+job: task[unit] = ||> { <| () }
+```
+
+The semantic and physical models are deliberately separate:
+
+| Type/boundary | Required semantic fact | Permitted physical optimization |
+|---|---|---|
+| `unit` | one value `()` | zero payload bytes |
+| `? | unit` | absent versus present `()` | presence tag with no Unit payload |
+| `list[unit]` | logical length and exactly that many iteration events | no per-element payload storage |
+| `dict[K,unit]` | key order, cardinality, membership, and optional lookup | keys/index only; no mapped Unit payload |
+| `task[unit]` | lifecycle, success/failure, consumption, and successful `()` settlement | no result payload slot |
+| returning foreign `void` | a call that returned successfully produces `()` | target ABI no-result convention |
+
+Logical count or state is always authoritative and independent of physical
+payload. It may never be derived from payload byte size, allocation, pointer
+identity/difference, or an integer placeholder. Unit-list iteration therefore
+uses explicit logical indices; Unit dictionaries use their key/member structure;
+Unit tasks use their control state. Zero-sized storage must not introduce
+division by zero, fake allocation, non-advancing pointer iteration, or unchecked
+logical-count overflow.
+
+A fallible no-business-payload operation has success type `unit` plus a finite
+nominal completion-family set. It never uses bare Unit, absence, or `i64` to
+encode both outcomes. This rule does not introduce a `Result` keyword, an
+ordinary value fallback operator, or an ambient failure channel. The frozen
+`?|`/`->` composition is described in §6.9 and §8.6; the accepted completion
+algebra is owned by [Operation Completion and Settlement](./Styio-Operation-Completion-and-Settlement.md).
+
+At an explicit foreign adapter, a returning C `void` result maps to `unit`, a
+declared nullable result maps to `? | T`, and a proven no-return call maps to
+`never`. Missing/unspecified pointer nullability fails closed until the adapter
+states nullable or non-null behavior. Source Unit is not exported as a C object
+or parameter, and optional unions acquire no implicit C layout.
+
+**Implementation status:** design accepted; delivery and deletion gates are in
+[`unit-zero-payload-boundaries/Plan.md`](../plan/styio-block-completion-and-bottom-type/unit-zero-payload-boundaries/Plan.md).
 
 ### 3.4 Matrix Values
 
@@ -102,45 +237,60 @@ m: matrix = [[1,0],[0,1]]
 Matrix binding rules:
 
 - rows must be non-empty and rectangular
-- elements must be numeric, with mixed integer/float values promoted to `f64`
+- elements must be numeric; mixed concrete element kinds do not gain an implicit
+  promotion from the scalar `Q05-LIT-ADD` decision and fail closed until a
+  separate matrix conversion policy is accepted
 - statically known dimensions are preserved in the inferred type
 - shape mismatches are semantic errors before lowering
 - `m[row][col]` reads one element, while `m[row]` materializes a list row
 
-Matrix operators and functions:
-
-| Surface | Meaning |
-|---------|---------|
-| `a + b`, `a - b` | element-wise matrix add/subtract; shapes must match |
-| `a * b` | matrix multiply when both operands are matrices |
-| `a * scalar`, `scalar * a` | scalar multiplication |
-| `mat_add`, `mat_sub`, `mat_hadamard`, `matmul` | explicit matrix arithmetic helpers |
-| `transpose`, `dot`, `norm`, `mat_sum` | common numeric reductions/transforms |
-| `mat_zeros`, `mat_zeros_i64`, `mat_identity`, `mat_identity_i64` | constructors |
-| `mat_shape`, `mat_rows`, `mat_cols`, `mat_get`, `mat_set`, `mat_clone` | shape, access, mutation, and copy helpers |
+The scalar `Add` table does not admit matrix operands. Matrix `+`, `-`, `*`,
+mixed-kind coercion, and scalar/matrix arithmetic remain deferred to a separate
+`Q05`/`Q08` relation. Existing named helpers such as `mat_add`, `matmul`,
+`transpose`, and `mat_set` remain tracked compiler/standard-library surfaces;
+their current runtime paths do not freeze a general matrix operator algebra or
+authorize implicit numeric promotion.
 
 The current runtime representation is a flat row-major matrix handle with element-kind-specific
 helpers for `i64` and `f64`. Small statically shaped same-type operations may lower directly to
 LLVM loads/stores over the flat backing store; dynamic, mixed-kind, or larger operations route
 through the runtime helper surface registered in ORC.
 
-### 3.5 Runtime Absence: `@`
+### 3.5 Optional Absence: `? | T` / empty atoms
 
-`@` represents **honest absence** at runtime and in diagnostics. It is not `null`, not `0`, not `NaN` — it is the explicit admission that data does not exist.
+Absence is a state of the explicit Optional union `? | T`, not a hidden member
+of every runtime value. `(?)`, `[?]`, and `{?}` are delimiter variants of the
+same empty Optional value; ordinary prose and examples use `(?)`. In an expected
+`? | T`, an ordinary `T` expression selects the present branch. These forms are
+distinct from `null`, zero, `false`, NaN, Unit, and failure. An ordinary `T` can
+never carry or receive the empty state.
 
-**2026-04-24 syntax revision:** user-authored bare `@` is no longer part of the
-active source language. Historical fixtures such as `x = @`, `x + @`,
-`x -> @stdout`, and the old wave-dispatch sink shorthand were retired from active feature fixtures.
-`@` remains visible as an absence marker produced by resources/intrinsics and in
-diagnostics.
+The type layer normalizes repeated optionality as a set-like union:
 
-**Propagation rules:**
-- absence produced by resource/intrinsic execution propagates through supported
-  arithmetic and logical operators
-- absence short-circuits through expressions until explicitly intercepted
+```text
+? | (? | T) == ? | T
+```
 
-**Diagnostic tainting (debug mode):**
-In debug builds, `@` carries metadata (reason code, source location) enabling root-cause tracing via `.reason()`.
+This is canonical type identity, not an implicit unwrap and not permission to
+encode several different empty meanings in repeated layers. Several distinct
+empty states require an explicitly tagged type. An empty atom without an
+expected Optional payload type or a compatible control-flow join is rejected;
+the compiler does not guess `T`.
+
+Every resource field, parameter, return, binding, or intermediate expression
+that may be missing must therefore expose `? | T` statically. A
+resource/intrinsic adapter may produce `(?)` only through such a typed boundary.
+Operations that preserve absence must declare an Optional result; no hidden
+sentinel or tainted ordinary value may propagate through arithmetic, logic,
+equality, or control flow.
+
+Source `@` has no absence-value role. It remains the resource-anchor prefix;
+historical bare-`@` value fixtures are parse errors. A debugger or diagnostic
+formatter may display an internal empty-state marker and retain a reason code
+or source location, but that provenance is semantically inert: it is not
+source syntax, payload, type identity, equality state, or a branch condition,
+and it has no extraction operator. In particular, `??` is not a
+diagnostic-extraction spelling.
 
 ---
 
@@ -186,11 +336,12 @@ operator carries mutability:
 ```
 value = 1                            // mutable ordinary value binding
 value := 1                           // final ordinary value binding
-# add = (a, b) => { <| a + b }        // mutable callable binding
-# add := (a, b) => a + b              // final callable binding
-# add := (a: i32, b: i32) => a + b    // parameter annotations
-# add : i32 = (a: i32, b: i32) => a + b  // return type
-# transform = #(x: i64) => x * 2      // explicit callable-body marker
+# add : i32 ?| {overflow} = (a: i32, b: i32) => a + b // checked integer Add
+# add = (a, b) => { <| a + b }        // rebind against that established scheme
+# identity := (x) => x                // eligible final principal inference
+# add_five := (x) => x + 5            // eligible final constrained inference
+# read : f64 ?| {io, parse} := (path: string) => { ... } // completion upper bound
+# transform : i64 = #(x: i64) => x * 2 // explicit callable-body marker
 ```
 
 `#` is the callable/operation-channel binding prefix. It tells readers and the
@@ -199,9 +350,39 @@ function-declaration keyword: `# f = ...` is rebindable because `=` is mutable,
 and `# f := ...` is final because `:=` is final.
 
 `f = expr` does not promise that `expr` is callable. `# f = (...) => expr`
-does make that promise, enters the callable/operation-channel binding path, and
-allows later `# f = ...` replacement until a final `# f := ...` definition is
-used. A final callable binding cannot be redefined by `=` or `:=`.
+does make that promise and enters the callable/operation-channel binding path.
+A bare `# f = ...` is only a replacement against an already established
+callable scheme; it never creates or changes one through inference. An initial
+mutable callable needs a complete explicit contract. A final callable binding
+cannot be redefined by `=` or `:=`.
+
+#### 5.1.1 Completion boundary contract
+
+Public, recursive, native/FFI, and typed protocol-boundary callables must expose
+a finite upper bound of nominal completion families in their source contract.
+The implementation body may produce a strict subset of that bound, but any
+family outside it is a definition-site error. A caller either settles each
+relevant family with the operation-settlement construct or propagates the
+unhandled family into its own admitted boundary contract.
+
+This is a static callable-type fact, not a returned union value, hidden
+`Result`, exception object, or ambient program-level channel. Its accepted
+spelling is:
+
+```styio
+# read_price : f64 ?| {io, parse} := (path: string) => { ... }
+# abs : i64 := (x: i64) => { ... }
+# local := (x) => { ... }
+```
+
+The `?| {...}` clause is a finite non-empty upper bound of ordinary nominal
+family identifiers. Its braces are signature grammar, not a runtime set/dict or
+Block. Duplicate families, non-family names, `?| {}`, and a trailing comma are
+rejected. Whenever an author writes `: T`, omission of the completion clause
+means the empty upper bound in every scope; it never means “infer completions”.
+Only an eligible non-boundary lexical-local or module-private callable that
+omits the entire `: T` contract may infer the complete success type and
+completion set. Required boundary callables cannot omit that contract.
 
 Resources keep their visible `@` identity. A direct resource atom is not a
 valid right side for a `#` binding:
@@ -213,6 +394,26 @@ valid right side for a `#` binding:
 Use `expr -> @stdout` or `items >> @stdout` for resource writes. Resource-family
 definitions use the `@family::member` forms described in the resource section.
 
+#### 5.1.2 Principal inference for eligible callable bindings
+
+Accepted decision `Q02-INF` is defined in
+[Styio Callable Principal Inference](./Styio-Callable-Principal-Inference.md),
+the sole detailed semantic owner. In summary, only a capture-safe, final `:=`,
+non-recursive, non-boundary lexical-local or module-private callable value can
+receive automatic principal constrained rank-1 generalization. The definition
+site generalizes only variables not free in its lexical environment; every use
+gets a fresh instance, and neither first use, future calls, defaults, `any`, nor
+backend choices may determine the scheme.
+
+`# f = ...` only rebinds an existing stable scheme, while all required
+boundaries remain explicit. Internal scheme and closed-constraint notation is
+metalanguage rather than Styio source. The accepted closed literal/`Add`
+contract is owned by
+[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
+while `F02` owns any future author-written generics, constraints, user
+instances, higher-rank polymorphism, or completion rows. Neither decision adds
+a token or EBNF production.
+
 ### 5.2 Pulse Closures
 
 Used within stream pipes:
@@ -223,15 +424,105 @@ prices >> #(p) => { <| p * 2 }
 
 `#(p)` binds the current pulse to the local name `p`.
 
-### 5.3 Context Capture with `$(...)`
-
-Callable bindings can explicitly capture external variables by reference:
+### 5.3 Derived Bindings: `name := $(deps) => expr`
 
 ```
-trade $(bal, is_open) := my_strategy <| bal <| is_open
+trade := $(bal, is_open) => decide(bal, is_open)   // derived: ambient state flows in at frame commit
 ```
 
-The `$(...)` list declares a **reactive binding** — the function re-evaluates whenever captured variables change.
+A derived binding declares a **frame-committed derived slot**: the `$(...)`
+head lists the binding's complete dependency set, and `=>` maps those
+dependencies into a pure expression body. The old head spelling
+`trade $(bal, is_open) := ...` is removed — a capture head is an
+expression-side construct and sits to the right of `:=`, keeping the name
+side identical to every other binding.
+
+The three input-feeding forms are symmetric:
+
+```
+# add := (a, b) => a + b                            // callable: parameters flow in at call time
+trade := $(bal, is_open) => decide(bal, is_open)    // derived: ambient state flows in at frame commit
+@src >> #(p) => { ... }                             // pulse closure: events flow in per pulse
+```
+
+#### 5.3.1 Frame-Commit Semantics
+
+Derived bindings follow synchronous-dataflow discipline — the pulse frame is
+the logical instant. They are not eager FRP:
+
+1. **Frame-edge recomputation.** A write to a captured variable never
+   executes the body; it only marks the slot dirty. Dirty slots recompute at
+   the pulse-frame commit boundary, in topological dependency order, at most
+   once per frame. Diamond dependency graphs are glitch-free by construction:
+   no reader can observe a mixed old/new dependency state.
+2. **Frame constancy.** Within a frame, a derived name is constant — it is
+   part of the frame snapshot, and the pulse frame lock invariant (repeated
+   reads in one closure observe one value) extends to derived names. The
+   recomputed value becomes visible from the next frame's snapshot and to
+   reads after the commit.
+3. **Static graph.** The dependency set is exactly the `$(...)` list. The
+   compiler builds the dependency graph at compile time, rejects cycles
+   (including self-capture) statically, and inlines recomputation at frame
+   commit points. There is no runtime dependency discovery, and writes to
+   non-captured variables cost nothing.
+4. **Value decay.** A derived name decays to a plain committed value at every
+   use. No `signal[T]` type exists; passing a derived name to a function
+   passes the current committed value; reactivity never crosses a function
+   boundary.
+
+Cold start never injects a hidden sentinel into a derived value. A derived slot
+that can be empty must have static type `? | T` and may initialize to `(?)`; a
+non-optional `T` slot instead requires a proven present initializer/dependency
+state or is rejected. A body failure during recomputation is a separate typed
+frame-commit failure, and the graph never partially updates.
+
+#### 5.3.2 Usage Restrictions (Fail-Closed Whitelist)
+
+Automatic recomputation is the most dangerous semantics in the language, so
+the accepted surface is deliberately narrow. Everything outside this
+whitelist is a compile error.
+
+Declaration site:
+
+1. Module/topology scope only. A derived binding may not be declared inside a
+   pulse closure, function body, match arm, guard branch, task block, or any
+   other nested block — graph nodes never appear or disappear dynamically.
+2. `:=` only — derived slots are final and never rebind. The body is a single
+   expression: no `{ ... }` block, no statements, no local bindings.
+
+Capture list:
+
+3. Captured names must be module-scope value state: mutable `=` bindings or
+   other derived bindings. Resources (`@` family), closure locals, function
+   parameters, and callables are rejected in the capture list.
+4. `$()` (empty), duplicate names, captured-but-unused names, and the
+   identity alias form (`x := $(y) => y`) are rejected as unnecessary
+   surface.
+5. Cycles, including self-capture, are rejected statically.
+
+Body:
+
+6. The derived-binding body checker must prove the body effect-free on its own:
+   no resource atoms or selectors, no `->` / `>>` / `<-` / `?|` / `||>`, no
+   continuation operations, and no call whose effect status is unknown.
+   Unknown means rejected. This whitelist does not classify or reinterpret
+   operator syntax.
+7. The body may reference only captured names, literals, and provably pure
+   callables/intrinsics. Any other free name is an undeclared dependency and
+   is rejected.
+
+Interaction:
+
+8. After its initializing declaration, a captured variable may be rewritten
+   only inside pulse-frame contexts (`>>` pipelines and zip closures). A
+   write site outside any frame has no commit boundary — no defined
+   recomputation time — and is rejected.
+9. Derived names may not be read or captured inside task (`||>`) blocks until
+   the task memory model defines cross-frame visibility.
+
+Status: design-accepted surface. The parser does not implement derived
+bindings; every occurrence fails closed until parser, Sema (graph and effect
+checks), lowering, and test evidence land.
 
 ---
 
@@ -306,8 +597,8 @@ The collection becomes a finite pulse source. `>>` advances the collection one e
 range as an iterable `list[i64]` source. Therefore `[0..n] >> #(i) => { ... }`
 pushes each materialized integer into the consumer one by one; `[0..n]` is not
 parsed as a normal list containing one range expression. Step range spellings
-such as `[start..end..step]` or `[0..n..2]` are reserved and are not active
-syntax.
+such as `[start..end..step]` or `[0..n..2]` are removed from the design and
+rejected by the parser; `[start..end]` is the only materialized range form.
 
 ### 6.5 Break: `^...` (Immediate Loop)
 
@@ -324,6 +615,12 @@ Rules:
 - `^^ ^^` is **illegal** — it is two adjacent break statements, not a deeper break
 - a break outside an enclosing loop is rejected by code generation
 
+Single-level exit is a settled language decision. Break always exits exactly
+one level — the nearest enclosing loop — and multi-level break (encoding jump
+depth in caret count or any other spelling) is permanently rejected. The
+rationale is goto-hell prevention: control transfer stays local and visible.
+This is closed by decision and is not an open design question.
+
 ### 6.6 Continue: `>>...` (Standalone, Variable Length, >=2)
 
 ```
@@ -337,22 +634,111 @@ The base continue spelling is 2 characters (`>>`), and any longer contiguous run
 
 Context distinguishes continue from pipe: the pipe form connects a left iterable or pulse source to a right channel/consumer (`left >> right`). The continue form is a standalone statement: aside from horizontal whitespace, the `>>...` token is the whole line/statement and is followed by a newline, statement separator, block end, or EOF. In a pulse/session domain, it skips the remaining statements in the current block and resumes at the next pulse/session of the nearest continue-capable domain. Outside such a domain, current code generation rejects it as `continue outside enclosing loop`.
 
-### 6.7 Yield / Return: `<|`
+Two settled decisions apply here and are not open design questions:
 
-```
+1. **Continue is single-level only.** `>>...` always targets the nearest
+   continue-capable domain, and token length never encodes nesting depth.
+   Multi-level continue is permanently rejected for the same goto-hell
+   prevention rationale as break.
+2. **`>>` serves multiple syntax roles by explicit design requirement.** Pipe
+   / iterate, resource-write shorthand, and standalone continue deliberately
+   share the `>>` spelling. Disambiguation is compiler-owned context logic
+   (EBNF Appendix Rule 1); proposals to split these roles across different
+   symbols are out of scope.
+
+### 6.7 Lexical Block Completion: `<|`
+
+```styio
 # square := (x) => { <| x * x }
 ```
 
-`<|` pushes a value out of the current block. When used in control flow that is part of an assignment, it produces the value for the enclosing expression.
+`<| expr` completes exactly the immediately enclosing lexical Block and makes
+`expr` that Block's result. It never searches for a function and never crosses
+an intervening Block, closure, task body, match arm, guard branch, or resource
+session. Only after the outermost function-body Block has been typed does its
+Block result become the function result.
 
-In expression position, `<|` applies one value to a callable/continuation. Chained
-apply-pipe examples are not canonical while continuation lowering remains pending.
+There are two authored value-body forms:
 
-Captured continuations follow the OCaml-style one-shot discipline: a suspended continuation must be resumed or discontinued exactly once. Resuming it consumes it; resuming it again is an error. While suspended, it keeps captured scope data and resources alive until resume/discontinue unwinds the frame.
+1. A direct single expression: `=> expr`.
+2. A Block result: `=> { <| expr }`. When a Block contains exactly one ordinary
+   expression and no other item, `=> { expr }` is sugar for the same result.
 
-For compressed one-line blocks, `|<| value |;` is the inline return spelling. `|>` and `|<-` remain reserved.
+Therefore `=> expr`, `=> { expr }`, and `=> { <| expr }` are equivalent for a
+direct single-expression body. This is deliberately not Rust-style general tail
+inference: a multi-item Block does not infer its final ordinary expression as a
+result and must use `<|` when it produces a non-`unit` value. Separators and
+formatting never toggle this rule.
 
-When multiple branches yield (e.g., in `?=`), the compiler generates LLVM `phi` nodes at the merge point.
+For compressed one-line Blocks, `|<| expr |;` is the exact inline spelling. It
+creates the same lexical Block-yield node and target as `<| expr`; the closing
+`|;` is mandatory and has no independent semantic effect. `<| ()` is legal and
+explicitly completes the current Block with Unit. `|<-` remains reserved, and
+`|>` belongs only to resource-session settlement (§6.10).
+
+Every normally reachable `}` completes with `() : unit`. All reachable normal
+exits of a value Block must have compatible canonical result types. A `T` exit
+and reachable Unit fallthrough are a compile-time error; the compiler never
+repairs the join with a default, integer zero, absence, or implicit `? | T`.
+A proven non-completing edge has type `never` and contributes no normal value,
+so `join(T, never) = T`; `never` is never an inference fallback.
+
+A Block consumer that accepts only Unit rejects `<| expr` when `expr` is not
+Unit; it does not evaluate and silently discard the value. A sibling or region
+whose every structural incoming path has already completed is a compile-time
+unreachable-code error independent of optimization or backend terminator
+omission.
+
+`<|` is not an infix application or continuation operator. The retired
+`f <| a <| b` spelling has no grammar role; ordinary application uses
+`f(a)(b)`. Continuation admission, capture, resume, discontinue, and lifetime
+semantics remain a separate owner decision and are not implied by lexical Block
+completion.
+
+#### 6.7.1 Block-result publication barrier
+
+A Block result becoming ready and that result becoming observable are different
+events. The result expression is evaluated exactly once into an immutable
+epilogue-owned candidate. Ordinary `T` is published only after the Block's
+required logical commit and every non-transferable lexical exit obligation has
+reached a terminal outcome. A failure before publication invalidates the
+candidate; recovery must produce an explicit replacement value and never revives
+the failed candidate.
+
+All exit reasons—natural `}`, `<|`, outer function completion, loop control,
+typed failure, and cancellation where that feature exists—enter one verified
+exit-action dependency graph. Real dependencies such as last borrow before drop,
+owned child join before releasing reachable resources, pending state before
+logical commit, and commit before the resource family's required flush/close
+override default reverse-registration ordering. Independent actions use stable
+lexical/source ordinals, never pointer identity, hash iteration, wall-clock
+completion order, or scheduler races. Any future lexical feature contributes an
+exit action only after that feature is separately accepted; this rule does not
+activate continuations or another control surface.
+
+Successful control exits commit the current unpublished logical frame. Failure
+or cancellation may abort only still-unpublished pending state; neither implies
+rollback of earlier publication barriers or irreversible external effects.
+Late work is visible only through an explicit task, effect, settlement, or
+resource-completion capability. A cancellation request is not completion, and a
+child that can reach lexical resources must terminate or join before those
+resources are released.
+
+Exit actions are classified internally as proven total, typed fallible, or
+fatal. Declaring an operation infallible, ignoring an OS result, logging out of
+band, or terminating does not remove a physical failure mode. Statically known
+or explicitly bounded typed failures use compiler-sized fixed status/payload
+slots with deterministic semantic ordinals; no managed exception runtime,
+growable failure list, hidden truncation, or heap fallback is introduced.
+Existing failure remains primary and later failures remain observable as
+secondary evidence. Unbounded independently fallible exit work must expose an
+explicit bounded or settleable language capability instead of hiding behind an
+ordinary `T`.
+
+This publication protocol adds no source token or authored classification. Its
+compiler architecture and delivery evidence are specified by the Block Exit
+Publication and Settlement Better Plan; the language-level observable contract
+is the barrier and failure preservation defined above.
 
 ### 6.8 Block-Entry Snapshot / Commit
 
@@ -360,8 +746,8 @@ Every language form that enters a `{ ... }` block creates a resource snapshot co
 block-entry operator and commits resource effects at the matching `}`. This is a general block
 semantics rule, not a special case for resource loops.
 
-Covered block-entry surfaces include `>>`, `=>`, `?=`, active `||>`, and the reserved `|>` family
-if it later becomes an active block-entry form. The rule applies to resource state and resource
+Covered block-entry surfaces include `>>`, `=>`, `?=`, active `||>`, and
+resource sessions `|?| { ... }`. The rule applies to resource state and resource
 effects; ordinary lexical values keep their normal scoping rules.
 
 Chained stages commit once per block. For example:
@@ -377,7 +763,7 @@ If a block-entry operation supports recovery, recovery must wrap the
 block-entry operation with `?| block_entry_operation | fallback`. A trailing
 `} | fallback` is not resource fallback.
 
-### 6.9 Tasks, Resource Effects, and Await: `||>` / `?|`
+### 6.9 Tasks and Effect Settlement: `||>` / `?|`
 
 `||> { ... }` constructs one scheduled task. `||> [ name := { ... } ... ]`
 launches a group of independent task blocks and binds each name to its task handle.
@@ -388,70 +774,62 @@ launches a group of independent task blocks and binds each name to its task hand
     risk  := { <| calc_risk() }
 ]
 
-?| price -> p: f64
-?| risk -> r: f64 | 0.0
+p: f64 = ?| price
+r: f64 = ?| risk | 0.0
 ?| @("log.txt").close()
-?| @("archive.log").close() | cleanup_failure => report_cleanup()
+?| @("archive.log").close() | cleanup(problem) => report_cleanup(problem)
 ```
 
-`?| task -> value: T` awaits or pulls a task/future handle and declares `value`
-with type `T`. Without fallback, a failed pull settles at that source site and
-raises a structured error immediately. `?| task -> value: T | fallback` evaluates
-`fallback` only when the task pull reports runtime failure or absence.
+`?|` has no task-only await/binder variant. It settles exactly one operation.
+The operation's ordinary result is bound by the surrounding `=` / `:=`, as in
+`answer: T = ?| operation | fallback`. The unauthorized forms
+`?| task -> value: T` and `?| -> value: T` are rejected; `:` after the arrow
+does not declare a settlement target.
 
-The same marker is the uniform resource-effect evaluation form:
-`?| resource_operation` settles the resource operation in place, while
-`?| resource_operation | fallback` recovers through normal type inference. The
-successful operation value and fallback value must match the surrounding use-site
-type. Current statement forms include file writes, file acquire/rebind,
-direct file line iteration such as
-`?| @file("data.txt") >> #(line) => { ... } | fallback`, and resource method
-calls; file iterator open failures recover through catch-all fallback or matched
-`io` handlers, while non-file iterators remain rejected under `?|`. Current
-value-producing forms include file/stdin instant pulls,
-acquired file-handle instant pulls after a checked file acquire, materialized
-container bounds reads, including ordered dict value slices that lower through
-`d.values` plus list-slice bounds recovery, and user-defined resource methods
-whose body is a single `<| expr` return, a statement-only preface followed by a
-final `<| expr` return, or scalar local `=` / `:=` value-binding prefaces or local list/dict/matrix `=` / `:=`
-prefaces followed by a final scalar/string or local list/dict/matrix container `<| expr` return. Method-local
-scalar/list/dict/matrix `=` and `:=` bindings are scoped to the inlined method body;
-returning a local list/dict/matrix container clones the handle before method-scope cleanup, while local resource bindings and
-capture-dependent method bodies remain rejected until those scope semantics are implemented. A
-bare `resource_operation | fallback` is not a resource fallback form.
-Effect-specific handlers use the same boundary:
-`?| resource_operation | effect_name => handler` handles only the named typed
-effect family. For example, `?| res -> msg_queue | backpressure => do_something()`
-is a pressure handler, not a `?=` match and not a catch-all fallback.
-Handlers may be chained: `?| op | e1 => handler1 | e2 => handler2`.
-The current statement implementation covers file acquire/rebind, direct file
-iterators, direct file release to `@()`, file resource-method settlement, and
-file writes under this boundary, while value-producing recovery remains limited
-to the explicitly listed instant-pull, container-bounds, and value-returning
-resource-method slices.
-`?| resource_operation | ...` is an audited discard form, but only as a
-standalone statement. It executes and settles the resource operation, discards
-business recovery for any effects at that site, produces no value, and continues
-with the next statement. It is illegal anywhere a value is required, such as
-assignment, argument position, or branch expression. `?| resource_operation |
-effect => @()` is rejected: `@()` is an empty resource / destroy sink, not an
-executable empty action.
-`?=` remains value/pattern matching; it can match `backpressure` only after an
-operation explicitly materializes a normal result value, not as an implicit catch
-for unsettled resource effects.
-`??` remains diagnostic extraction, not async or resource fallback syntax.
+This does not remove `job -> answer`. That is an instance of the language-wide
+directional transfer axiom: the value produced on the left flows into the
+compatible destination/receiver endpoint on the right. If a complete operation
+contains that transfer, `?| job -> answer | fallback` parses only as
+`?| (job -> answer) | fallback`. `?|` settles the complete transfer operation;
+it does not reinterpret `->` as task binding.
 
-Backpressure is a resource pressure signal before it is a failure. A pressured
-write may wait, stay pending, or be scheduled by the resource family. Only an
-escalated pressure condition, such as a closed channel, failed transport,
-timeout, or exceeded backlog limit, becomes a `ResourceBackpressureFailure` for
-`?| ... | fallback`.
+The accepted operation-completion algebra is specified normatively in
+[Styio Operation Completion and Settlement](./Styio-Operation-Completion-and-Settlement.md).
+Its source boundary is:
+
+- leading `?|` opens settlement of one complete operation;
+- a following `| fallback`, `| family => recovery`, or
+  `| family(binding) => recovery` belongs only to that settlement production;
+- a bare `operation | fallback` is never a settlement form;
+- `?=` continues to match ordinary materialized values and does not implicitly
+  catch an unsettled effect;
+- `??`, general binary value `|`, and `?| operation | ...` have no
+  source-language role.
+
+Every operation has one success type and a finite set of nominal completion
+families as static Sema/callable facts. This is not a source `Result`, an
+exception object, or a new keyword. `family` and its optional payload `binding`
+are ordinary identifiers: `io(err)` means “match the family currently resolved
+as `io` and bind its payload locally as `err`”; neither spelling is reserved.
+
+The operation runs once. Success bypasses recovery. Only the selected arm runs,
+lazily and once, with no implicit retry. Named arms match exact nominal family
+identity; duplicates are errors and catch-all is last. Bare fallback catches
+only remaining recoverable failures. EOF, cancellation, and shutdown require an
+exact admitted named arm or propagate; fatal/trap is outside settlement.
+Success and every normally completing recovery arm must join to the same type;
+`never` contributes no normal value. Unhandled families plus failures produced
+by recovery expressions remain static facts of the enclosing operation.
+
+Backpressure remains a resource pressure signal, not an automatic completion
+family. The owning resource protocol decides whether and when it escalates that
+signal into a nominal recoverable failure. Settlement may then match that
+family, but never infers retry, waiting, replay, or scheduling from the arm.
 
 Resource families may expose pressure as an ordinary observable effect stream:
 
 ```styio
 ?| res -> msg_queue | backpressure => do_something()
-?| res -> msg_queue | ...
 
 channel.pressure >> #(p) => {
     ?(p.pending > 10000) => {
@@ -466,9 +844,61 @@ channel.pressure >> #(p) => {
 This form is side-effecting resource code, not implicit error handling. The
 observer can count, log, spawn a task, or invoke recovery operations, and those
 operations still obey normal resource capabilities and fallback rules.
+`pressure` is a Sema-recognized member attribute in the member namespace, not
+a grammar word.
+
+The observer contract is pinned as follows.
+
+**Delivery: single-slot level sensor (conflated, latest-wins).** A pressure
+stream is not an event queue. The runtime keeps exactly one slot per observed
+resource and atomically overwrites it on every pressure-state change; the
+scheduler delivers the latest reading to the observer body only when the
+observer is free. Intermediate readings are overwritten, never queued. There
+is no reading backlog, so observation staleness is bounded by one observer
+execution and a pressure stream can never itself develop pressure —
+`.pressure.pressure` is impossible by construction, not by rule. Programs that
+need a per-event audit trail must build an explicit data channel and accept
+that it is ordinary data with ordinary pressure.
+
+**Payload: a compiler-declared read-only struct.** The pulse payload is an
+ordinary struct instance constructed by the runtime and declared in the
+prelude, with the initial closed field set `pending: i64` (current backlog),
+`limit: i64` (declared capacity), and `peak: i64` (highest watermark since the
+previous delivery, reset at delivery, so spike magnitude survives conflation).
+This depends on the general struct story — a separate design item — landing
+first; the observer surface stays fail-closed until then.
+
+**Trigger: hysteresis state transitions only.** A pulse fires only when the
+resource's pressure state transitions: entering the pressured state at the
+family's high watermark, leaving it at the low watermark, or escalating to
+failure. Oscillation between the watermarks produces no pulses. Watermark and
+escalation parameters are resource-family policy documented at activation;
+there is no user-level threshold syntax.
+
+**Execution: never inline in the writer path.** Observer bodies are scheduled
+as ordinary pulse frames. A pressured writer never executes and never blocks
+on an observer; the data path and the observation path stay decoupled by
+contract.
+
+**Static safety rules (fail-closed).**
+
+1. An observer body must not write to the resource it observes, and
+   cross-resource observer-write cycles (the observer of `@a` writes `@b`
+   while the observer of `@b` writes `@a`) are rejected: the resource topology
+   graph performs cycle detection over observer-to-resource write edges.
+2. At most one pressure observer per resource per program, declared at
+   module/topology scope only; duplicate or nested observers are compile
+   errors.
+3. Pressure streams are not zip sources: a conflated level stream contradicts
+   the event-arrival barrier semantics of `&`.
+4. A family qualifies for activation only when it has an honestly countable
+   pending metric (a Styio-owned bounded structure such as a task or zip input
+   queue). OS-opaque sinks whose buffers cannot be counted do not qualify.
+
 The current compiler recognizes the observer syntax and rejects every current
 resource family in Sema with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`
-until a family declares a pressure payload and runtime stream.
+until a family declares a pressure payload and runtime stream that satisfy
+this contract.
 
 This pressure model is a core Styio design choice. The compiler may do additional
 effect inference when that preserves a valuable language feature: useful resource
@@ -476,9 +906,45 @@ effects should not be collapsed into failures merely because they require more
 static reasoning. Backpressure is useful precisely because it can remain
 observable and mostly harmless until a resource-family policy escalates it.
 
-`?| -> value: T` is reserved as the bare "freeze here" continuation point. The
-parser accepts the shape, but semantic analysis currently fails closed until
-first-class continuation lowering can guarantee one-shot resume/discontinue.
+### 6.10 Resource Session: `|?| { ... }` / `|!|` / `|>`
+
+The design contract is settled; implementation availability belongs to the
+syntax-convergence matrix and delivery plans. Owner detail: Resource Topology
+§4.2. There is no `session` keyword.
+
+`|?| { ... }` is an explicit resource session: the qualifying scope for local
+handles and anchors, the owned-child join and lexical-obligation boundary, a
+settleable resource operation, and a stage that may defer settlement through
+`|>`.
+
+**Placement.**
+
+- Mid-transfer only for bare `|?|`: execution symbols must stand before and
+  after, e.g. `# f => |?| { ... } |!|(cleanup) => handler` or
+  `# f := |?| { ... } |> g`.
+- Statement-start settlement uses `?|`: e.g.
+  `?| |?| { ... } | cleanup => handler` or
+  `?| |?| { ... } |> next |> cleanup => handler`.
+
+**Body.** Handles and anchors only (`h <- @file(...)`, inline anchors). Topology
+declarations `@name : Type` remain rejected inside sessions.
+
+**Exit.** No `|!|` and no deferred cleanup chain → default Close (reverse-order
+RAII). `|!|(cleanup)` / `|!|(ResourceCleanupFailure)` marks special exit
+handling for the cleanup effect family (not a universal exception catch-all).
+`|>` forwards settlement to a later stage. Fallible releases contribute their
+nominal completion families to the session operation. An explicit settlement
+site may handle them; otherwise they remain in the enclosing operation or
+callable's static completion set. Infallible sessions may omit settlement.
+Multi-failure merge keeps the primary body completion first and preserves
+cleanup completions as bounded secondary facts. There is no ambient
+program-level failure channel or dynamic stack search.
+
+**Escape.** Return/move-out/store-out are statically rejected; in-session `||>`
+tasks join at exit and no detached escape hatch exists in v1. If a future
+continuation feature is admitted, its session escape and settlement behavior
+must be decided by that feature; resource-session syntax does not activate or
+predefine it.
 
 ---
 
@@ -486,7 +952,9 @@ first-class continuation lowering can guarantee one-shot resume/discontinue.
 
 Guard conditionals replace ternary expressions and if/else chains with a single
 condition-first spelling. The old wave spellings are tokenized but reserved:
-`<~` and `~>` have no active user-level semantics.
+`<~` and `~>` are **reserved symbols only**. They participate in no syntax
+feature, and no grammar production may consume them, until the language design
+explicitly declares an active semantics for them.
 
 ### 7.1 Inline Guard Value: `?(cond) => A | B`
 
@@ -502,11 +970,16 @@ Read as: "If condition holds, evaluate to `a`; otherwise evaluate to `b`." This 
 ?(signal) => {
     order_logic(p)
 } | {
-    fallback_logic(p)
+    else_logic(p)
 }
 ```
 
-Read as: "If signal is truthy, execute the block; otherwise execute the fallback block." When the fallback block is omitted, the false branch routes to `@` (void).
+Read as: "If signal is truthy, execute the block; otherwise execute the else
+block." A statement-position block guard may omit the else block; its false
+path executes no statements and completes with Unit `()`. A guard used as a
+value expression must provide an explicit else branch whose result is
+join-compatible with the then branch. The compiler never synthesizes absence
+or a default value for an omitted branch.
 
 ### 7.3 Visual Semantics
 
@@ -514,7 +987,31 @@ Read as: "If signal is truthy, execute the block; otherwise execute the fallback
 |------|---------|
 | `?(cond) => A \| B` | Inline value selection |
 | `?(cond) => { A } \| { B }` | Block-level if/else |
-| `\|` | Else/fallback separator |
+| `\|` | Else separator inside the enclosing guard production |
+
+### 7.4 `|` Is Grammar-Anchored, Never a General Value Operator
+
+The parser determines every accepted single `|` from syntax that is already
+open; Sema never classifies a generic binary pipe from operand types, inferred
+truthiness, effects, or purity:
+
+1. In type position after `?`, `? | T` is the Optional union grammar.
+2. After the then branch of `?(cond) => ...`, `|` is that guard's else
+   separator. The guard's semantic checks may still reject an invalid condition,
+   but they cannot reinterpret the separator as another operator.
+3. After a leading `?|`, `|` separates the complete operation's settlement
+   fallback or a registered exact named arm. This role exists only because the
+   settlement production was opened by `?|`. The retired `| ...` candidate is
+   rejected rather than treated as another branch.
+4. In every other value-expression position, `lhs | rhs` is a syntax error
+   before type inference. Consequently `true | false`, `0 | 1`, `a | b`, and
+   `a | b | 42` have no inferred type and no fallback interpretation.
+
+There is no purity-based escape hatch and no "accept first, diagnose after
+inference" path. D02 is closed with no ordinary Optional/value fallback
+operator: `??` is rejected just like a bare binary `|`. Optional values must be
+handled by explicit control flow or pattern facilities whose own grammar and
+typing contracts are defined independently.
 
 ---
 
@@ -573,13 +1070,40 @@ resource-effect channel instead of continuing into the replacement open.
 Broader resource-family cleanup and source-level fallback recovery for implicit
 cleanup remain staged implementation work.
 
-### 8.6 Persistence via Redirection: `->`
+### 8.6 Directional Transfer Axiom: `->`
 
-```
+```styio
+operation -> result
+job -> answer
 ma5 -> @database("redis://localhost/ma5_cache")
 ```
 
-`->` redirects a value's storage destination. The runtime asynchronously syncs to the target resource.
+`left -> right` is a graphical statement about real data direction: the value
+produced at the location/action on the left flows into the
+destination/location/receiver endpoint drawn on the right. This is the arrow's
+only language-level meaning. The language must not first classify it as
+assignment, export, redirection, resource write, or task binding. Ordinary
+variables, task-result receivers, resources, channels, and terminal devices are
+different endpoint types, not different arrow meanings. Each endpoint's
+separately decided protocol determines compatibility, completion families, and
+lowering. The right side never declares a name: an identifier destination must
+already exist and have the required write capability, while another destination
+expression must independently resolve to a legal endpoint. A successful
+directional transfer always produces `() : unit`; it never implicitly returns
+the source, destination, or a receipt. Ownership, backpressure scheduling,
+multi-edge chaining, and arrow associativity remain with their focused owners.
+Evaluation ordering is fixed by Q03-F: source value and endpoint capability are
+independent prerequisites of transfer, so arrow direction does not imply
+source-before-endpoint preparation. If both preparations are order-sensitive,
+the author must settle/bind them in consecutive Block items before transfer.
+See [Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md) §6.
+
+This direction axiom is orthogonal to effect settlement. `?|` consumes one
+complete operation, so `?| operation -> result | fallback` is parsed as
+`?| (operation -> result) | fallback`. It is never a task-specific await/binder
+form, and the arrow does not declare a typed target. To bind the successful
+value returned by settlement itself, use the ordinary binding expression
+`answer = ?| operation | fallback`.
 
 ### 8.7 Standard Stream Resources
 
@@ -650,7 +1174,7 @@ pull; treat that as a compatibility artifact, not the canonical read/pull spelli
 ```
 42 -> @stdout              // redirect value to stdout (action)
 "Hello" -> @stdout         // redirect string to stdout
-@stdout("Hello")           // call form (freezes for continuation)
+@stdout("Hello")           // resource call form; not the canonical write spelling
 ```
 
 Feature test catalog use `-> @stdout` / `-> @stderr` as the **canonical spelling**.
@@ -747,7 +1271,10 @@ expr -> @price
 snapshot << @price[...]
 ```
 
-`->` writes a produced value into a resource sink. `>>` enters a snapshot-backed block or iteration and commits resource effects at block exit. `<<` makes an explicit copy or snapshot.
+Here the destination endpoint happens to be a resource, so the generic `->`
+directional edge lowers as a resource write; this is not a second arrow role.
+`>>` enters a snapshot-backed block or iteration and commits resource effects at
+block exit. `<<` makes an explicit copy or snapshot.
 
 Resource acquisition uses `<-` only at resource-entry boundaries:
 
@@ -791,7 +1318,20 @@ The old state-resource history-probe selector family is not active syntax.
 }
 ```
 
-Both streams must deliver a pulse before the closure executes. The trigger frequency is `min(freq_A, freq_B)`.
+`&` is an **event-arrival barrier**. Each side delivers events independently;
+the first-arriving value stops at the barrier and waits — it does nothing else —
+until the other side's event arrives. Only when both values are ready does the
+closure fire once with the matched pair. The trigger frequency is
+`min(freq_A, freq_B)`.
+
+Blocking is the contract, not an accident: the wait deliberately trades
+progress for the guarantee that both channel states are fresh at the frame
+boundary. The operator defines **no staleness, expiry, timeout, or tolerance
+policy** for the earlier value — a developer who writes `&` is explicitly
+choosing to wait on the mutual dependence and already knows the earlier value
+will sit through some delay. When the two streams do not actually depend on
+each other, write separate per-stream pipelines instead of zipping them.
+
 Finite zip also applies to the standard input line stream when the other side is a materialized
 list or an `@file` stream:
 
@@ -805,11 +1345,9 @@ This consumes at most one stdin line per matched frame and terminates at stdin E
 shorter finite peer. Zipping `@stdin` with itself is not active syntax until duplicate
 consumption of the same external stream has a driver-level decision.
 
-Optional tolerance window:
-
-```
-@binance >> #(p) &[5ms] @okx >> #(p_okx) => { ... }
-```
+The old tolerance-window sketch (`&[5ms]`) is removed: it presupposed a
+staleness policy that contradicts the barrier semantics, and no duration
+literal exists in the lexical grammar. `&` takes no bracketed argument.
 
 ### 10.2 Snapshot Pull: `<< @resource`
 
@@ -841,7 +1379,11 @@ gap = p - (<- @okx("BTC"))
 
 ## 11. Selector Operators: `[mode, arg]`
 
-Square brackets serve as a **contextual transformer**, not just an indexer.
+Square brackets form a **pure-symbol selection algebra**: they decide *which
+elements* of the receiver are selected, never *what computation* runs on them.
+The rule is **brackets select, functions compute** — no word (identifier,
+parameter name, or operation name) participates in selector syntax. Named
+computations are ordinary function calls in the library namespace.
 
 ### 11.1 Static Indexing and Slicing
 
@@ -862,7 +1404,7 @@ member access, as in `a.length`.
 ### 11.2 Retired Guard Selector: `[?, cond]`
 
 The postfix guard selector was an early draft and is no longer active syntax.
-Use `?(cond) => value | fallback` for value selection, or normal `?(cond) => { ... }`
+Use `?(cond) => then_value | else_value` for value selection, or normal `?(cond) => { ... }`
 blocks for statement-level control.
 
 ### 11.3 Retired Equality Probe: `[?=, val]`
@@ -870,20 +1412,54 @@ blocks for statement-level control.
 The postfix equality probe was retired with the guard selector. Use `?=` match
 blocks for equality-style branching.
 
-### 11.4 Plugin Operators: `[op, n]`
+### 11.4 Removed Word-Mode Selectors: `[op, n]` → Ordinary Calls
+
+The word-mode selector spellings are removed from the design:
 
 ```
-prices[avg, 20]    // moving average compiler intrinsic in the pulse/state path
-prices[max, 14]    // rolling maximum compiler intrinsic in the pulse/state path
+prices[avg, 20]    // removed spelling — parser acceptance is compatibility debt
+avg(prices, 20)    // accepted surface: ordinary call syntax
+max(prices, 14)    // accepted surface: ordinary call syntax
 ```
 
-Current compiler-owned series intrinsics are limited to `avg` and `max`, with the
-implementation and limits recorded in
-[Styio-StdLib-Intrinsics.md](./Styio-StdLib-Intrinsics.md). Other proposed
-operators such as `min`, `std`, `ema`, and `rsi` are deferred until they have
-parser, Sema, lowering, runtime/codegen, and test evidence.
+Words such as `avg` and `max` belong to the library namespace, not to the
+grammar. Series intrinsics follow the same model as the matrix helpers
+(`matmul(a, b)`, `transpose(m)`): ordinary identifier calls at the grammar
+level, recognized as compiler intrinsics during semantic analysis. The
+compiler machinery is unchanged behind the name — fingerprinting the triple
+`(source, avg, n)` for deduplication, implicit hidden-ledger slots, and a
+scalar result per tick, with implementation and limits recorded in
+[Styio-StdLib-Intrinsics.md](./Styio-StdLib-Intrinsics.md).
 
-### 11.5 Retired History Probe Family
+The parser path that still recognizes `avg` / `max` inside brackets is
+compatibility debt and must converge on rejecting the word-mode spelling with
+a migration diagnostic. Deferred operators such as `min`, `std`, `ema`, and
+`rsi` will land as ordinary calls only (`min(prices, n)`, `rsi(prices, n)`);
+no word-mode selector spelling will be added for them.
+
+### 11.5 Stride Selector: `[%n]`
+
+```
+[0..100][%5]           // 0, 5, 10, ..., 95
+@prices[-100..][%2]    // every 2nd pulse of the last 100
+```
+
+`x[%n]` keeps every element of the receiver whose position satisfies
+`index % n == 0`, counting from the first selected element. The symbol is the
+semantics: "every n-th" is exactly the modulo filter, so `%` — the existing
+modulo token — is reused rather than inventing a word or a new glyph. There
+is no left operand inside the bracket, so `[%` can never collide with the
+binary modulo operator.
+
+Rules: `n` is a positive integer; `[%1]` is the identity selection; `[%0]` is
+rejected. The stride selector composes with the other symbolic selectors —
+`xs[a..b][%n]` strides the slice, and on a materialized range the compiler may
+fuse `[a..b][%n]` into an arithmetic progression without materializing.
+
+Status: design-accepted surface. The parser does not implement it yet and
+fails closed until parser, Sema, lowering, and test evidence land.
+
+### 11.6 Retired History Probe Family
 
 The old state-resource postfix history selector family is not active syntax. Future history access
 must use resource selectors or a revised state-topology fixture.
@@ -928,7 +1504,7 @@ complete resource definitions and usage patterns.
 | Bool | `true\n` / `false\n` |
 | String | `%s\n` |
 | Char | `%c\n` |
-| `@` (Undefined) | `@\n` |
+| Empty `? \| T` | `(?)\n` |
 
 ### 12.2 I/O Buffer: `>_` (stream context)
 
@@ -966,34 +1542,41 @@ $"Price is {p}, Volume is {v}" -> @stdout
 
 If a resource schema mismatch is detected (e.g., accessing a non-existent database column), the program terminates immediately at connection time — **before** the first data pulse. No silent degradation.
 
-### 13.2 Algebraic Propagation for Data Errors
+### 13.2 Typed Propagation for Missing Data
 
-Missing data within a stream becomes runtime absence, displayed as `@` in diagnostics and terminal formatting. It propagates through supported downstream computations; user code should not manufacture this state with a standalone `@` literal.
+Missing stream data is represented only as `(?)` inside a static `? | T`.
+Downstream operations may preserve that Optional state only when their result
+type also exposes it; an ordinary `T` result must prove presence or be rejected.
+Terminal value formatting uses `(?)`. Debuggers may use a distinct internal
+display marker for provenance, but it is not source-observable value state.
 
-### 13.3 Diagnostic Tracing
+### 13.3 Diagnostic Provenance Has No Source Operator
 
-Design target: in debug mode, `@` values may carry tainted metadata:
+Debuggers and runtime diagnostics may display internal absence provenance such
+as a reason code and source location. That provenance is semantically inert:
+source code cannot bind it, branch on it, compare it, or change release behavior
+through it. The discarded proposal that assigned diagnostic extraction to
+`??` is not active or approved syntax.
 
-```
-last_signal ?? reason    // "DataSource(@binance) timeout at 14:22:05.123"
-```
+`??` has no source-language role. The orphan token and the old
+diagnostic-extraction route are implementation debt to delete, not syntax to
+reserve for a second interpretation.
 
-The `??` operator is deferred until the absence-metadata contract, parser surface,
-type behavior, and runtime route are implemented.
+### 13.4 No Ordinary Optional Fallback Operator
 
-### 13.4 Guard-based Recovery
+Styio has no general value-level fallback or coalescing operator. In particular,
+`optional | default`, `optional ?? default`, `true | false`, `0 | 1`, and
+unconstrained `a | b` are rejected by the expression grammar before type
+inference (§7.4). This is a settled syntax boundary, not a late type or purity
+diagnostic.
 
-```
-safe_price = price | @last_valid_price[-1]    // value fallback if price carries runtime absence
-```
-
-Value-level absence fallback is a design target. Current implemented recovery
-evidence is the resource-effect form `?| operation | fallback` and its named
-handler variants described in the active test catalog.
-
-The `|` operator provides a value fallback when the left side carries runtime
-absence. Resource failures do not use bare `|`; they use
-`?| resource_operation | fallback`.
+D02 is closed by excluding that feature, so there is no operator precedence,
+chaining, laziness, result-type algebra, or overload contract to infer for value
+fallback. Effect failure recovery remains the distinct, grammar-anchored
+settlement form `?| operation | fallback`: the leading `?|` opens settlement of
+one complete operation, and its following `| fallback` branch is not an ordinary
+value operator and does not authorize one. If the operation contains `->`, the
+arrow keeps its single directional-transfer meaning.
 
 ---
 
@@ -1004,7 +1587,8 @@ absence. Resource failures do not use bare `|`; they use
 - Full standard library loaded
 - AI-assisted protocol probing enabled
 - LLVM ORC JIT for instant execution
-- Diagnostic tainting active
+- Diagnostic provenance collection may be active for debugger/runtime output;
+  it remains semantically inert and has no source extraction operator
 
 ### 14.2 Strict Mode (AOT, `styio build --strict`)
 
@@ -1021,38 +1605,29 @@ absence. Resource failures do not use bare `|`; they use
 
 ---
 
-## Appendix A: Consultant's Additional Thoughts
+## Appendix A: Authority And Decision Boundary
 
-### A.1 Reconciling Design with Existing Codebase
+This file specifies accepted language semantics. It does not use parser
+recognition, a token enum, an executable fixture, or a proposed lowering path as
+evidence that an undecided feature exists in the language.
 
-The current C++ compiler implementation already has a rich token system, parser, AST, IR, and LLVM codegen. However, significant features from the Gemini design discussion are not yet implemented:
+- Exact grammar is owned by [`Styio-EBNF.md`](./Styio-EBNF.md).
+- Token/glyph lookup is owned by
+  [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md).
+- The compact accepted-surface index is
+  [`syntax/ACTIVE-SYNTAX.md`](./syntax/ACTIVE-SYNTAX.md).
+- Frozen owner decisions and their unique design landing points are indexed by
+  [`Styio-Language-Decision-Ledger.md`](./Styio-Language-Decision-Ledger.md).
+- Questions requiring an owner choice, historical failure evidence, and their
+  dependency order live in
+  [`../review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md`](../review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md).
+- Parser/Sema/backend availability, compatibility deletion, and migration work
+  belong to the convergence matrix, rollups, and Better Plans.
 
-- **Reserved wave tokens** (`<~`, `~>`) already exist at the lexer level but have no active grammar production
-- **Target resource objects** (`@name : Type`, `@name[-1]`, `@name[...]`) require a new state/resource analysis pass
-- **Pulse Frame Lock** needs runtime infrastructure in the JIT executor
-- **Cross-stream sync** (`&`, `<< @res`) requires a concurrency model in the IR
-
-**Recommended implementation order:**
-1. Keep `?(cond) => value | fallback` and `?(cond) => { ... } | { ... }` as the active guard forms
-2. Extend the parser/type system for `Type|n|`, `Type|..n|`, `Type..`, and `list[T]`
-3. Add AST nodes for target resource declarations, resource selectors, and stream zip
-4. Implement resource hoisting in the analyzer
-5. Extend LLVM codegen for fixed-length and recent-window resource storage
-6. Add concurrency primitives for stream synchronization
-
-### A.2 Open Design Questions
-
-1. **`>>` ambiguity resolution:** The parser must distinguish between pipe (`source >> consumer`), continue (`>>` as standalone statement), and stride selector (`[>>, 2]`). The current implementation already handles `>>` as `Iterate` — extending this to multi-meaning requires careful lookahead logic.
-
-2. **`@` overload risk:** `@` remains overloaded as a resource prefix, state prefix, standard-stream prefix, and runtime absence marker. Source-level bare `@` has been retired from active syntax to reduce ambiguity.
-
-3. **Legacy migration:** retired state-resource state families are parser errors. The active surface is `@name : Type|n|` / `@name : Type|..n|` plus resource-object selectors.
-
-4. **Cross-platform builds:** The current CMakeLists.txt hardcodes Linux paths. Windows and macOS support need platform-conditional toolchain detection.
-
-### A.3 Performance Considerations
-
-The **Pulse Frame Lock** design is elegant but may introduce measurable overhead in ultra-high-frequency scenarios (>100k ticks/sec). Consider:
-- A compile-time optimization that detects when frame lock is unnecessary (single resource-snapshot read, no aliasing)
-- An `unsafe` annotation to opt out of frame lock for latency-critical inner loops
-- Hardware-level atomic snapshot using `LOCK CMPXCHG` or ARM `LDXR/STXR` for multi-threaded shadow updates
+Reserved tokens and implementation experiments remain non-language until an
+owner decision is landed in these authorities. In particular, current-Block
+completion does not activate a continuation system. The `->` direction and
+operation-completion decisions now fix Unit success, pre-existing destinations,
+static finite completion facts, settlement matching, joins, propagation, and
+discard rejection; they do not decide transfer ownership, public signature
+spelling, chaining, scheduling, or resource-family pressure policy.

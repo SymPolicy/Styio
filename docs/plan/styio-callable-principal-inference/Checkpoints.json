@@ -1,0 +1,668 @@
+[
+  {
+    "id": "4f0e6e73-4137-435d-bf58-b16ff75a998a",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Confirm the approved Q02-INF product contract, its owner boundaries, and the complete requirement trace without redefining Q05-LIT-ADD or adjacent generic policy.",
+    "description": "Scope: Requirements.md, Plan.md, the approved docs/design/Styio-Callable-Principal-Inference.md and docs/design/Styio-Exact-Literals-and-Builtin-Add.md owners, and upstream Q02-SIG/Q04/Q05/F02/Q10 boundaries. Context: Q02-INF and Q05-LIT-ADD are approved; Q02 retains and solves callable constraints while the sibling Q05 lifecycle owns the exact-literal and finite scalar catalog. Target: keep REQ-CPI-001..REQ-CPI-011 complete, user-observable, and bounded to eligible implicit rank-1 callable inference plus concrete specialization. Design Considerations: distinguish equality/generalization and catalog-consumption policy from the Q05-owned rows and from author-written/public generics. Design Value: prevents implementation convenience from reopening a decided contract, cloning the catalog, or stealing an adjacent decision. Constraints & Risks: module-private source visibility remains Q10-owned; if either semantic owner changes, update all requirement and validation mappings before implementation.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states users, scope, non-goals, non-functional constraints, and final acceptance for REQ-CPI-001..REQ-CPI-011."},
+      {"checked": false, "text": "Every requirement traces to the approved Q02-INF owner and preserves Q02-SIG, Q04, Q05, F02, and Q10 ownership boundaries."},
+      {"checked": false, "text": "The equality-only identity contract is testable without an uncontextualized numeric literal, while REQ-CPI-005 explicitly consumes the accepted Q05 catalog through a non-owning integration boundary."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): confirm callable inference requirements", "target": "styio-nightly"},
+    "next": ["adc50e54-c3cf-482b-bd60-00a7cf563a42"]
+  },
+  {
+    "id": "adc50e54-c3cf-482b-bd60-00a7cf563a42",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["4f0e6e73-4137-435d-bf58-b16ff75a998a"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Verify every callable inference, concrete type, call, operator, lowering, backend, IDE/cache, test, and removal path before implementation.",
+    "description": "Scope: Evidence.md plus read-only inspection of StyioParser, StyioAST, StyioSema, StyioSession TypeTable, StyioLowering, StyioIR, StyioCodeGen, IDE/SemDB, CMake, tests, and the exact Q02/Q05 owner documents and sibling delivery boundary. Context: current behavior parses the target source but permanently writes the first argument type into ParamAST, caches one concrete return per function, and lowers unresolved callables through i64 defaults. Target: cite symbol-level facts, inventory all definition/call/boundary/type-constructor routes, confirm test registration, identify the Q05 catalog consumer interface and a stable definition fingerprint source, and measure evidence for deterministic specialization budgets. Design Considerations: compare the scoped inference/canonicalization/worklist design with primary Rust, OCaml, GHC, and Haskell sources while keeping Styio's smaller closed rank-1 domain. Design Value: prevents a partial parser/Sema patch, duplicate numeric catalog, unstable cache key, or unmeasured code-growth policy. Constraints & Risks: the accepted Q05 rows are never copied from current code; observation and inference remain explicitly separated.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites every current parser/AST/Sema/TypeTable/lowering/IR/codegen/IDE/build/test route that affects callable schemes or instances."},
+      {"checked": false, "text": "The accepted Q02 owner revision, exact Q05 owner path/status, Q02-SIG integration interface, recursion/capture/boundary facts, and all unresolved prerequisites are recorded."},
+      {"checked": false, "text": "Primary compiler sources and repository measurements support the chosen inference, canonicalization, monomorphization, and resource-gate design."},
+      {"checked": false, "text": "Every existing positive test is classified as real independent-instantiation evidence, a single-call gap, or an obsolete compatibility assertion."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground callable inference evidence", "target": "styio-nightly"},
+    "next": ["44c1ca60-cd82-4b05-9b3e-33c0c1be6c69"]
+  },
+  {
+    "id": "44c1ca60-cd82-4b05-9b3e-33c0c1be6c69",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["4f0e6e73-4137-435d-bf58-b16ff75a998a", "adc50e54-c3cf-482b-bd60-00a7cf563a42"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze positive, negative, structural, determinism, resource-bound, IDE/cache, and end-to-end evidence before source implementation.",
+    "description": "Scope: Validation.md and executable test/gate discovery only. Context: single-call tests currently hide first-use mutation, and uncontextualized integer literals would silently couple equality validation to Q05. Target: map every REQ-CPI label to explicitly typed identity calls, catalog-driven accepted Q05 rows, solver/unit tests, concrete IR/execution checks, order/cache permutations, recursion/budget boundaries, IDE/CLI agreement, removal searches, and documentation gates. Design Considerations: require every test source to be registered in a built target; compare canonical full keys rather than pointer/session ordinals; pair each success boundary with its nearest rejection. Design Value: makes a parser-only, equality-only, copied-catalog, or backend-default implementation unable to claim completion. Constraints & Risks: fixtures derive from the accepted owner and sibling catalog interface before operator integration starts; prose review alone is never acceptance evidence.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every REQ-CPI label to at least one executable and one appropriate negative/static/determinism check."},
+      {"checked": false, "text": "Identity validation uses explicitly typed input variables and proves both call orders, repeated-instance reuse, and AST immutability without depending on Q05 literal defaulting."},
+      {"checked": false, "text": "Q05 row generation/update rules, recursion/limit boundaries, cache permutations, performance metrics, structural removals, and final commands are specified."},
+      {"checked": false, "text": "All proposed unit/integration test files have an identified production and CTest/gtest registration path."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map callable inference validation", "target": "styio-nightly"},
+    "next": ["336ce7b7-f90d-41ff-a1be-6711f267a110"]
+  },
+  {
+    "id": "336ce7b7-f90d-41ff-a1be-6711f267a110",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["4f0e6e73-4137-435d-bf58-b16ff75a998a", "adc50e54-c3cf-482b-bd60-00a7cf563a42", "44c1ca60-cd82-4b05-9b3e-33c0c1be6c69"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the inference-domain, fact-table, Q05 relation seam, concrete identity, specialization, IR/backend, diagnostics, IDE/cache, and deletion architecture.",
+    "description": "Scope: Architecture.md, final module/file map, interface headers/scaffold, and build/test wiring decisions; no incomplete behavior is claimed as a product delivery. Context: TypeInfer.cpp, AstToStyioIR.cpp, and CodeGenG.cpp currently combine unrelated responsibilities and share mutable AST/concrete fallback state. Target: specify one-responsibility inference modules, arena/union-find data structures, canonical scheme and call facts, solved TypeTable reification, stable full keys, bounded worklist specialization, concrete-only SGIR, shared IDE/diagnostic/cache facts, a non-owning Q05 catalog adapter, and one-shot migration. Design Considerations: dependency arrows flow from AST/resolution into the inference domain, immutable facts, specializer, concrete IR, and backend; Q05 enters only through its sibling-owned closed catalog; patterns are justified by isolation, determinism, complexity, and testability. Design Value: lets later nodes own disjoint modules and removes the need for a second inferencer, numeric table, or runtime generic ABI. Constraints & Risks: do not introduce source generic syntax, raw-pointer/session-ordinal cache identity, duplicated Add rows, elapsed-time gates, or a new all-purpose file; architecture changes require checkpoint/file-ownership updates first.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines one-responsibility modules, layer boundaries, dependency direction, interfaces, data models, algorithms, complexity, caches, budgets, diagnostics, and deletion."},
+      {"checked": false, "text": "The architecture explicitly distinguishes arena-local terms, canonical schemes, session TypeIds, cross-session fingerprints, symbolic call uses, and concrete caller/callee instances."},
+      {"checked": false, "text": "Q05 is an external finite-catalog adapter, SGIR stays concrete, and no duplicate inference/runtime generic/default path is designed."},
+      {"checked": false, "text": "Implementation nodes have disjoint or prerequisite-serialized file ownership aligned with the module map."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design callable inference architecture", "target": "styio-nightly"},
+    "next": ["52a7b979-1e41-4714-aec0-f7724b7d8419"]
+  },
+  {
+    "id": "52a7b979-1e41-4714-aec0-f7724b7d8419",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["336ce7b7-f90d-41ff-a1be-6711f267a110"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement and verify the scoped type-term, constraint, unification, canonicalization, and solved-type reification core.",
+    "description": "Scope: new src/StyioSema/Inference/TypeTerm.*, Constraint.*, Unifier.*, CallableScheme.* domain modules; focused solver tests; src/cmake/StyioFrontendSources.cmake and internal test-source registration; only the narrow solved-type interface to StyioSession TypeTable. Context: StyioDataType/TypeTable model only concrete types, while Undefined currently conflates unknown, wildcard, and fallback. Target: provide dense arena IDs, structural terms for supported constructors, equality/operator fact shapes, compact origins, union-find with path compression/rank and occurs checks, canonical scheme variables/constraints, ambiguity hooks, and reification that returns TypeId only when fully solved. Design Considerations: use dense vectors and strong IDs, isolate mutable state per solve, bound traces, compare full canonical keys on hash collisions, and expose no AST/IDE/lowering dependency. Design Value: creates a sound near-linear reusable domain core instead of growing TypeInfer.cpp or abusing global concrete interning. Constraints & Risks: no production callable route switches in this node, no Q02-local Q05 catalog row, no TypeVar in TypeTable/AST/SGIR, and every new source/test must be linked by CMake.",
+    "requirements": ["REQ-CPI-002", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-008", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Inference/TypeTerm.hpp",
+        "src/StyioSema/Inference/TypeTerm.cpp",
+        "src/StyioSema/Inference/Constraint.hpp",
+        "src/StyioSema/Inference/Constraint.cpp",
+        "src/StyioSema/Inference/Unifier.hpp",
+        "src/StyioSema/Inference/Unifier.cpp",
+        "src/StyioSema/Inference/CallableScheme.hpp",
+        "src/StyioSema/Inference/CallableScheme.cpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/sema/callable_inference_core_test.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Inference/TypeTerm.hpp",
+        "src/StyioSema/Inference/TypeTerm.cpp",
+        "src/StyioSema/Inference/Constraint.hpp",
+        "src/StyioSema/Inference/Constraint.cpp",
+        "src/StyioSema/Inference/Unifier.hpp",
+        "src/StyioSema/Inference/Unifier.cpp",
+        "src/StyioSema/Inference/CallableScheme.hpp",
+        "src/StyioSema/Inference/CallableScheme.cpp",
+        "tests/sema/callable_inference_core_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioSema/Inference/TypeTerm.hpp", "kind": "class", "name": "InferenceArena", "operation": "add", "signature": "class InferenceArena"},
+        {"path": "src/StyioSema/Inference/Unifier.hpp", "kind": "class", "name": "Unifier", "operation": "add", "signature": "class Unifier"},
+        {"path": "src/StyioSema/Inference/CallableScheme.hpp", "kind": "type", "name": "CallableScheme", "operation": "add", "signature": "struct CallableScheme"}
+      ],
+      "interfaces": [
+        {"name": "solve", "producer": "src/StyioSema/Inference/Unifier.hpp", "consumers": ["src/StyioSema/Inference/CallableScheme.cpp", "tests/sema/callable_inference_core_test.cpp"], "inputs": "arena-local terms, equality constraints, and compact origins", "outputs": "a solved substitution or one structured inference error", "errors": ["occurs-check failure", "structural type mismatch", "resource-budget exhaustion"]},
+        {"name": "reifySolvedType", "producer": "src/StyioSema/Inference/TypeTerm.hpp", "consumers": ["src/StyioSema/Inference/CallableScheme.cpp", "tests/sema/callable_inference_core_test.cpp"], "inputs": "a fully solved arena-local type term and TypeTable boundary", "outputs": "one concrete session TypeId", "errors": ["unresolved runtime-relevant term", "unsupported structural constructor"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioSema/Inference/Constraint.hpp", "to": "src/StyioSema/Inference/Unifier.hpp", "reason": "the equality solver consumes normalized constraints and their bounded origins"},
+        {"from": "src/StyioSema/Inference/Unifier.hpp", "to": "src/StyioSema/Inference/CallableScheme.hpp", "reason": "scheme canonicalization consumes solved representatives without exposing mutable arena state"}
+      ],
+      "decisions": {
+        "composition": "focused term, constraint, unifier, and scheme modules compose through strong-ID value interfaces",
+        "algorithms": "union-find uses path compression and rank, structural occurs checks, and deterministic scheme canonicalization",
+        "data_structures": "dense arena vectors, strong integer IDs, compact origin chains, and full canonical keys",
+        "state": "each definition or call solve owns one isolated arena and publishes immutable solved facts only",
+        "isolation": "the inference core has no AST, lowering, IDE, cache, SGIR, or backend dependency",
+        "concurrency": "independent solve arenas may run concurrently; TypeTable interning occurs only at the solved reification boundary"
+      },
+      "test_seams": [
+        "pure arena and unifier unit boundary",
+        "canonical scheme serialization boundary",
+        "solved versus unresolved TypeId reification boundary"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "Unit tests cover equality/structural unification, repeated variables, occurs failure, canonical variable ordering, constraint normalization, ambiguity hooks, and solved/unsolved reification."},
+      {"checked": false, "text": "Stress metrics demonstrate the required amortized union-find behavior, bounded traces, deterministic canonical output, and session-owned memory."},
+      {"checked": false, "text": "No inference variable is interned in TypeTable or exposed to AST, SGIR, persisted cache, or backend APIs."},
+      {"checked": false, "text": "Production and relevant test targets compile the new domain modules through explicit CMake registration."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): add principal inference domain", "target": "styio-nightly"},
+    "next": ["2969520f-26f5-493f-8740-b2c8f8879c0c"]
+  },
+  {
+    "id": "2969520f-26f5-493f-8740-b2c8f8879c0c",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["52a7b979-1e41-4714-aec0-f7724b7d8419"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Replace callable definition/body inference with canonical principal schemes and explicit generalization eligibility.",
+    "description": "Scope: new src/StyioSema/CallableInference.*, callable-definition/body/name/return integration in src/StyioSema/TypeInfer.cpp and SemaContext.hpp, callable annotation predicates in src/StyioAST/AST.hpp, resolver/operation-summary interfaces, and Sema tests. Context: callable declarations currently register syntax only, infer bodies on demand under concrete mutated parameters, and merge one return type per function. Target: generate definition terms/constraints, infer identity relationships, instantiate nested scheme calls symbolically, attach one concrete finite completion summary, prove final/non-recursive/non-boundary/capture-safe eligibility, generalize only environment-free variables, publish immutable canonical schemes, and diagnose ambiguity/ineligibility at the definition. Design Considerations: use an eligibility proof object and resolved definition identities; keep module-private eligibility conditional on Q10's concrete visibility classification; explicitly typed monomorphic callables use the same fact API. Design Value: makes schemes depend only on definitions/environment/expected contracts and gives all consumers one stable semantic fact. Constraints & Risks: no call-set scan, weak mutable variable, hidden public generic ABI, implicit polymorphic recursion, AST scheme storage, or Q05 relation implementation; shared Sema files remain serially owned through the next node.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/CallableInference.hpp",
+        "src/StyioSema/CallableInference.cpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioAST/AST.hpp",
+        "tests/sema/callable_scheme_test.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/CallableInference.hpp",
+        "src/StyioSema/CallableInference.cpp",
+        "tests/sema/callable_scheme_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioSema/CallableInference.hpp", "kind": "class", "name": "CallableInference", "operation": "add", "signature": "class CallableInference"},
+        {"path": "src/StyioSema/SemaContext.hpp", "kind": "interface", "name": "CallableSchemeTable", "operation": "add", "signature": "CallableSchemeTable& callableSchemes()"},
+        {"path": "src/StyioAST/AST.hpp", "kind": "function", "name": "callableAnnotationPredicate", "operation": "modify", "signature": "bool hasExplicitCallableContract() const"}
+      ],
+      "interfaces": [
+        {"name": "inferDefinitionScheme", "producer": "src/StyioSema/CallableInference.hpp", "consumers": ["src/StyioSema/TypeInfer.cpp", "tests/sema/callable_scheme_test.cpp"], "inputs": "resolved callable definition, lexical scheme environment, expected contract, and finite operation summary", "outputs": "one canonical immutable CallableScheme and eligibility proof", "errors": ["ineligible implicit generalization", "ambiguous principal scheme", "unsupported recursive or boundary callable"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioSema/Inference/CallableScheme.hpp", "to": "src/StyioSema/CallableInference.hpp", "reason": "definition orchestration constructs and publishes only canonical scheme-domain values"},
+        {"from": "src/StyioAST/AST.hpp", "to": "src/StyioSema/CallableInference.cpp", "reason": "authored annotations are syntax inputs and never storage for inferred types"}
+      ],
+      "decisions": {
+        "composition": "TypeInfer delegates callable definitions to a focused orchestration service and reads immutable scheme facts",
+        "algorithms": "definition constraints are solved once, eligible environment-free variables are generalized, and residual constraints are canonicalized",
+        "data_structures": "resolved definition keys, immutable scheme tables, eligibility proof objects, and finite completion summaries",
+        "state": "SemaContext owns published scheme facts while each definition solve retains no mutable arena",
+        "isolation": "definition inference does not inspect future call sets and Q05 relation policy stays outside this node",
+        "concurrency": "definitions with satisfied lexical dependencies may infer concurrently and publish by stable key"
+      },
+      "test_seams": [
+        "definition-only identity scheme inference",
+        "eligibility proof positive and negative matrix",
+        "AST syntax immutability check"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "Definition-only identity and explicitly typed controls publish stable canonical schemes/operation summaries without any call-site input."},
+      {"checked": false, "text": "Final/non-recursive/non-boundary/capture-safe eligibility and environment-free generalization have positive and negative tests, including mutable, recursive, boundary, capture, and ambiguous cases."},
+      {"checked": false, "text": "Callable scheme facts are keyed by resolved stable identity and exposed read-only to later consumers, while AST contains syntax annotations only."},
+      {"checked": false, "text": "Single concrete inferred-return merging is no longer the definition/body inference authority, and callable annotation helpers are corrected or removed."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): infer canonical callable schemes", "target": "styio-nightly"},
+    "next": ["16ff3697-f13b-4a0d-b14c-c87a76e4d5d2"]
+  },
+  {
+    "id": "16ff3697-f13b-4a0d-b14c-c87a76e4d5d2",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["2969520f-26f5-493f-8740-b2c8f8879c0c"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement independent call-use/concrete-instance facts and delete first-use parameter/return inference semantics.",
+    "description": "Scope: CallUseTable/ConcreteCallInstance interfaces under src/StyioSema/Inference, callable-call integration in TypeInfer.cpp/SemaContext.hpp, TypeTable solved reification calls, and multi-instantiation Sema tests. Context: the current call checker permanently executes ParamAST::setDataType on its first concrete argument and records one return cache, so correct later calls are order-dependent. Target: fresh-instantiate schemes per call, solve argument/result terms in isolated contexts, record symbolic call templates inside generic bodies and concrete records per caller specialization, reuse equal full keys, return a concrete result fact to ordinary expression typing, and remove every old mutation/single-return/Undefined-wildcard success route. Design Considerations: key concrete nested calls by caller instance plus call site; full-key equality resolves hash collisions; no rollback is needed because each solve has isolated state. Design Value: delivers the user-visible independence invariant and gives lowering/IDE an immutable call contract. Constraints & Risks: core tests use explicitly typed input variables so equality validation does not select a Q05 numeric default; operator constraints remain symbolic until the later Q05-catalog integration node.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-004", "REQ-CPI-006", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/Inference/CallUseTable.hpp",
+        "src/StyioSema/Inference/CallUseTable.cpp",
+        "src/StyioSema/Inference/ConcreteCallInstance.hpp",
+        "src/StyioSema/Inference/ConcreteCallInstance.cpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioSession/TypeTable.hpp",
+        "src/StyioSession/TypeTable.cpp",
+        "tests/sema/callable_instantiation_test.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Inference/CallUseTable.hpp",
+        "src/StyioSema/Inference/CallUseTable.cpp",
+        "src/StyioSema/Inference/ConcreteCallInstance.hpp",
+        "src/StyioSema/Inference/ConcreteCallInstance.cpp",
+        "tests/sema/callable_instantiation_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioSema/Inference/CallUseTable.hpp", "kind": "class", "name": "CallUseTable", "operation": "add", "signature": "class CallUseTable"},
+        {"path": "src/StyioSema/Inference/ConcreteCallInstance.hpp", "kind": "type", "name": "ConcreteCallInstance", "operation": "add", "signature": "struct ConcreteCallInstance"},
+        {"path": "src/StyioSema/TypeInfer.cpp", "kind": "function", "name": "inferCallableCall", "operation": "modify", "signature": "TypeId inferCallableCall(const CallExpr&)"}
+      ],
+      "interfaces": [
+        {"name": "instantiateCall", "producer": "src/StyioSema/Inference/CallUseTable.hpp", "consumers": ["src/StyioSema/TypeInfer.cpp", "tests/sema/callable_instantiation_test.cpp"], "inputs": "callee scheme, stable call-site identity, concrete or symbolic arguments, and expected result", "outputs": "isolated call solution plus symbolic and concrete call facts", "errors": ["arity mismatch", "argument or result mismatch", "unsolved runtime term"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioSema/Inference/CallableScheme.hpp", "to": "src/StyioSema/Inference/CallUseTable.hpp", "reason": "every call receives a fresh instantiation of the immutable canonical scheme"},
+        {"from": "src/StyioSession/TypeTable.hpp", "to": "src/StyioSema/Inference/ConcreteCallInstance.hpp", "reason": "concrete call records contain only fully solved session TypeIds"}
+      ],
+      "decisions": {
+        "composition": "call typing composes fresh scheme instantiation, isolated solving, solved reification, and immutable fact publication",
+        "algorithms": "canonical full-key lookup deduplicates equal concrete instances after isolated per-call solving",
+        "data_structures": "symbolic CallUseTemplate records and caller-specialization-plus-call-site concrete instance records",
+        "state": "call solves never mutate ParamAST, callable schemes, or a per-function return cache",
+        "isolation": "each call receives fresh variables and unresolved Q05 operator relations remain symbolic",
+        "concurrency": "independent call solves may run concurrently and merge immutable facts by full canonical key"
+      },
+      "test_seams": [
+        "explicitly typed i64 and string identity calls in both orders",
+        "repeated concrete instance reuse",
+        "structural absence of ParamAST mutation and single-return caches"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "Explicitly typed i64 and string bindings can call one identity definition in either order, produce independent concrete results, and reuse repeated identical instances."},
+      {"checked": false, "text": "Nested symbolic calls resolve per concrete caller specialization and all call facts carry source origins and canonical keys."},
+      {"checked": false, "text": "ParamAST first-use mutation, per-function inferred-return maps/helpers, and Undefined-as-success call compatibility are absent from production source and positive tests."},
+      {"checked": false, "text": "Call mismatch, unsolved runtime term, wrong arity, and explicit-boundary cases fail at the correct semantic location without backend fallback."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): instantiate callable schemes per call", "target": "styio-nightly"},
+    "next": ["15721355-b9f4-4dd4-b2cb-f6a5dcf59e93", "73d837ff-feb7-498b-a301-47aec24df989"]
+  },
+  {
+    "id": "15721355-b9f4-4dd4-b2cb-f6a5dcf59e93",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["16ff3697-f13b-4a0d-b14c-c87a76e4d5d2"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Consume the Q05-owned closed Add catalog and enable operator-constrained callable schemes without duplicating numeric policy.",
+    "description": "Scope: Q02 Evidence/Requirements/Validation trace updates; a narrow TypeTerm-to-Q05 query adapter under src/StyioSema/Inference; binary-expression constraint generation/solving in CallableInference/TypeInfer; focused add_five relation and diagnostic tests. Context: Q05-LIT-ADD is approved and its sibling Better Plan exclusively delivers ExactLiteral, materialization, BuiltinAddRelation, row fingerprints, completion facts, and concrete arithmetic semantics. Target: retain Add(A, Literal(5), R) in the principal scheme, translate Q02 terms into the immutable Q05 query domain, consume deterministic candidates and functional-determination metadata, and solve each call independently. Design Considerations: the adapter owns no rows, defaults, conversion rules, literal representation, arithmetic execution, or registration API; candidate order and catalog fingerprints come from Q05. Design Value: supports principal behavior constraints without guessing a concrete type or importing an open trait system. Constraints & Risks: this node is externally gated on the reviewed Q05 catalog interface; the old syntax-kind matrix is never a fallback, and runtime integer overflow is an accepted completion fact rather than a relation-query error.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-005", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "docs/plan/styio-callable-principal-inference/Evidence.md",
+        "docs/plan/styio-callable-principal-inference/Requirements.md",
+        "src/StyioSema/Inference/ClosedOperatorRelationAdapter.hpp",
+        "src/StyioSema/Inference/ClosedOperatorRelationAdapter.cpp",
+        "src/StyioSema/CallableInference.cpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "tests/sema/callable_operator_relation_test.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/Inference/ClosedOperatorRelationAdapter.hpp",
+        "src/StyioSema/Inference/ClosedOperatorRelationAdapter.cpp",
+        "tests/sema/callable_operator_relation_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioSema/Inference/ClosedOperatorRelationAdapter.hpp", "kind": "class", "name": "ClosedOperatorRelationAdapter", "operation": "add", "signature": "class ClosedOperatorRelationAdapter"},
+        {"path": "src/StyioSema/CallableInference.cpp", "kind": "function", "name": "emitOperatorConstraint", "operation": "modify", "signature": "TypeTermId emitOperatorConstraint(const BinaryExpr&)"},
+        {"path": "src/StyioSema/TypeInfer.cpp", "kind": "function", "name": "inferBinaryExpression", "operation": "modify", "signature": "TypeId inferBinaryExpression(const BinaryExpr&)"}
+      ],
+      "interfaces": [
+        {"name": "resolveClosedOperatorConstraint", "producer": "src/StyioSema/Inference/ClosedOperatorRelationAdapter.hpp", "consumers": ["src/StyioSema/CallableInference.cpp", "tests/sema/callable_operator_relation_test.cpp"], "inputs": "Q02 type terms plus immutable Q05 queryAdd candidates, representability results, catalog fingerprint, functional-determination metadata, and completion facts", "outputs": "deterministic propagated equalities, residual constraint facts, and the conservative completion bound, or one source-located closed-relation error", "errors": ["unsatisfied relation", "ambiguous relation", "unrepresentable literal", "concrete operand mismatch", "excluded family"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioSema/Numeric/BuiltinAddRelation.hpp", "to": "src/StyioSema/Inference/ClosedOperatorRelationAdapter.hpp", "reason": "Q02 integration starts only after the sibling Q05 plan delivers and reviews the immutable query interface"},
+        {"from": "src/StyioSema/Inference/ClosedOperatorRelationAdapter.hpp", "to": "src/StyioSema/CallableInference.cpp", "reason": "binary constraint solving consumes one non-owning closed-policy adapter"}
+      ],
+      "decisions": {
+        "composition": "a non-owning Q02 adapter consumes the Q05 catalog as the sole built-in Add policy",
+        "algorithms": "indexed finite candidate lookup and monotone propagation use stable candidate ordering and functional-determination metadata",
+        "data_structures": "Q02 type terms and residual constraints reference Q05 exact-literal facts, canonical candidate fingerprints, and completion facts without copying catalog rows",
+        "state": "the Q05 relation catalog is immutable for one semantic configuration; the adapter keeps only Q02-local constraint state and contributes no open registrations",
+        "isolation": "Q05 owns operand, result, conversion, overflow, defaulting, and completion policy; Q02 owns only relation retention and solving",
+        "concurrency": "immutable catalog queries are read-only and deterministic across parallel definition and call solves"
+      },
+      "test_seams": [
+        "consumer-contract coverage against the Q05-generated finite-table oracle",
+        "one unsupported and one ambiguous boundary per candidate family",
+        "structural deletion of the syntax-kind Add matrix"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "The exact accepted Q05 owner revision, sibling plan ID, delivered catalog interface, and catalog fingerprint are traced before this integration node starts."},
+      {"checked": false, "text": "Definition-only add_five retains the canonical operator/literal relation without choosing a concrete parameter type, and every accepted concrete row solves to the Q05 result/completion facts."},
+      {"checked": false, "text": "Unsupported, ambiguous, unrepresentable, concrete-mismatch, and excluded-family cases emit source-located relation diagnostics; integer overflow remains the accepted completion edge and is not reclassified as a type error."},
+      {"checked": false, "text": "No Q02 file stores a second Add row/default/materialization table, and the previous syntax-node-kind matrix is never consulted as a fallback by callable inference."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): solve closed callable operator constraints", "target": "styio-nightly"},
+    "next": ["ff7d806c-f29e-4555-a372-d51033e9f844"]
+  },
+  {
+    "id": "73d837ff-feb7-498b-a301-47aec24df989",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["16ff3697-f13b-4a0d-b14c-c87a76e4d5d2"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement stable concrete specialization planning, bounded reachability, and concrete SGFunc/SGCall lowering.",
+    "description": "Scope: new src/StyioLowering/CallableSpecialization.*, AstToStyioIR.cpp/AstToStyioIRLowerer.hpp integration, concrete fingerprint support in StyioSession, SGFunc/SGCall shape in src/StyioIR/GenIR/SGIR.hpp, StyioIR verifier, frontend CMake wiring, and lowering/IR tests. Context: lowering currently emits one source-named function, defaults unspecified signatures to i64, and cannot distinguish instances. Target: derive full stable DefinitionKey/SpecializationKey values, discover reachable concrete instances with a deduplicating stateful worklist, lower each under its concrete substitution, resolve nested calls, keep SGType concrete, carry matching concrete call result/signature, omit unused generic definitions, and sort emission deterministically. Design Considerations: insert before body lowering for same-key cycles; reject growing recursive keys; charge evidence-backed per-definition/session/constraint/code-size budgets before allocation; use full canonical key comparison after hashing. Design Value: turns proven schemes into optimized concrete code while making recursion, code growth, and identity observable and bounded. Constraints & Risks: no raw SymbolId/TypeId ordinal or std::hash in persisted/mangled identity, no generic SGType/runtime dictionary, no direct default lowering of a source generic definition, and no backend fallback.",
+    "requirements": ["REQ-CPI-004", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "src/StyioLowering/CallableSpecialization.hpp",
+        "src/StyioLowering/CallableSpecialization.cpp",
+        "src/StyioLowering/AstToStyioIR.cpp",
+        "src/StyioLowering/AstToStyioIRLowerer.hpp",
+        "src/StyioSession/ConcreteTypeFingerprint.hpp",
+        "src/StyioSession/ConcreteTypeFingerprint.cpp",
+        "src/StyioIR/GenIR/SGIR.hpp",
+        "src/StyioIR/Verifier.cpp",
+        "src/cmake/StyioFrontendSources.cmake",
+        "tests/lowering/callable_specialization_test.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioLowering/CallableSpecialization.hpp",
+        "src/StyioLowering/CallableSpecialization.cpp",
+        "src/StyioSession/ConcreteTypeFingerprint.hpp",
+        "src/StyioSession/ConcreteTypeFingerprint.cpp",
+        "src/StyioIR/Verifier.cpp",
+        "tests/lowering/callable_specialization_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioLowering/CallableSpecialization.hpp", "kind": "class", "name": "CallableSpecializationPlanner", "operation": "add", "signature": "class CallableSpecializationPlanner"},
+        {"path": "src/StyioSession/ConcreteTypeFingerprint.hpp", "kind": "function", "name": "fingerprintConcreteType", "operation": "add", "signature": "ConcreteTypeFingerprint fingerprintConcreteType(TypeId)"},
+        {"path": "src/StyioIR/GenIR/SGIR.hpp", "kind": "type", "name": "SGCall", "operation": "modify", "signature": "struct SGCall"},
+        {"path": "src/StyioIR/Verifier.cpp", "kind": "function", "name": "verifyConcreteCallables", "operation": "add", "signature": "void verifyConcreteCallables(const SGModule&)"}
+      ],
+      "interfaces": [
+        {"name": "discoverReachableInstances", "producer": "src/StyioLowering/CallableSpecialization.hpp", "consumers": ["src/StyioLowering/AstToStyioIR.cpp", "tests/lowering/callable_specialization_test.cpp"], "inputs": "concrete roots, canonical schemes, symbolic call uses, concrete type fingerprints, and deterministic budgets", "outputs": "a deduplicated stable-order list of concrete specialization records", "errors": ["growing recursive specialization", "per-definition instance budget exhaustion", "session or code-size budget exhaustion"]},
+        {"name": "verifyConcreteCallables", "producer": "src/StyioIR/Verifier.cpp", "consumers": ["tests/lowering/callable_specialization_test.cpp"], "inputs": "SGModule with specialized SGFunc and SGCall records", "outputs": "verified concrete callable and call signatures", "errors": ["unresolved or Undefined SGType", "missing concrete callee", "arity or signature mismatch"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioSession/ConcreteTypeFingerprint.hpp", "to": "src/StyioLowering/CallableSpecialization.hpp", "reason": "stable full specialization keys encode concrete type content rather than session ordinals"},
+        {"from": "src/StyioLowering/CallableSpecialization.hpp", "to": "src/StyioLowering/AstToStyioIR.cpp", "reason": "AST lowering consumes only discovered concrete records and substitutions"},
+        {"from": "src/StyioIR/GenIR/SGIR.hpp", "to": "src/StyioIR/Verifier.cpp", "reason": "the verifier enforces the concrete SGFunc and SGCall contract before backend emission"}
+      ],
+      "decisions": {
+        "composition": "stable fingerprinting, a stateful specialization planner, concrete AST lowering, and an SGIR verifier form one pipeline",
+        "algorithms": "a deduplicating worklist inserts before lowering, detects recursive key growth, charges deterministic budgets, and sorts final emission",
+        "data_structures": "full DefinitionKey and SpecializationKey values, dense records, hash lookup with full-key comparison, a deque, and explicit discovery states",
+        "state": "the planner owns Discovered, Lowering, and Lowered records plus deterministic resource counters",
+        "isolation": "SGIR contains concrete types only and generic source definitions are never emitted through a default lowering route",
+        "concurrency": "discovery may parallelize only behind deterministic full-key ownership and final canonical sorting"
+      },
+      "test_seams": [
+        "cold and reordered specialization key snapshots",
+        "same-key recursion and growing-key rejection",
+        "at-limit and one-over deterministic budget checks",
+        "concrete SGIR verifier failures"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "Order/cache/session permutations produce identical full specialization keys, stable internal names, sorted concrete SGFuncs/SGCalls, and one instance per full key."},
+      {"checked": false, "text": "Unused generic definitions emit no runtime function; nested calls resolve under the caller substitution; every SGFunc/SGCall signature/result is concrete and verifier-matched."},
+      {"checked": false, "text": "Same-key explicit recursion reuses one record, growing/different-key recursion fails deterministically, and every configured budget has at-limit/one-over stress evidence."},
+      {"checked": false, "text": "Unspecified callable parameter/return i64 lowering and one-source-name emission compatibility are absent."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(lowering): monomorphize callable instances", "target": "styio-nightly"},
+    "next": ["2a62abbd-10a7-490c-ae42-7be5c506a33c"]
+  },
+  {
+    "id": "2a62abbd-10a7-490c-ae42-7be5c506a33c",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["73d837ff-feb7-498b-a301-47aec24df989"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Emit and execute only the verified concrete callable instances and remove backend result/signature repair.",
+    "description": "Scope: src/StyioCodeGen/GetTypeG.cpp, CodeGenG.cpp, backend CMake wiring, codegen/JIT/end-to-end/security tests, and IR-to-LLVM signature diagnostics. Context: codegen currently finds one function by source name, coerces arguments to its signature, and may type a missing call result as i64. Target: declare all stable concrete instance signatures, define each once, emit calls by the verified SGCall identity/signature/result, reject missing/mismatched instances, preserve deterministic declaration/definition order, and record generated function/code-size metrics. Design Considerations: SGIR is the full type authority at this boundary; backend maps only concrete types and performs only conversions already explicit/proven in SGIR/Q05. Design Value: closes the semantic-to-runtime loop and ensures LLVM cannot silently choose a type or first instance. Constraints & Risks: preserve explicit native/runtime call routes outside generic Styio callable specialization, do not leak host/toolchain data in diagnostics, and coordinate with unrelated dirty CodeGenG.cpp edits without reverting them.",
+    "requirements": ["REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "src/StyioCodeGen/GetTypeG.cpp",
+        "src/StyioCodeGen/CodeGenG.cpp",
+        "src/cmake/StyioBackendSources.cmake",
+        "tests/codegen/callable_specialization_codegen_test.cpp",
+        "tests/security/styio_security_test.cpp"
+      ],
+      "scaffold_paths": [
+        "tests/codegen/callable_specialization_codegen_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioCodeGen/GetTypeG.cpp", "kind": "function", "name": "getTypeForConcreteCall", "operation": "modify", "signature": "llvm::Type* getTypeForConcreteCall(const SGCall&)"},
+        {"path": "src/StyioCodeGen/CodeGenG.cpp", "kind": "function", "name": "emitConcreteCallableInstances", "operation": "modify", "signature": "void emitConcreteCallableInstances(const SGModule&)"}
+      ],
+      "interfaces": [
+        {"name": "emitConcreteCallableInstances", "producer": "src/StyioCodeGen/CodeGenG.cpp", "consumers": ["tests/codegen/callable_specialization_codegen_test.cpp", "tests/security/styio_security_test.cpp"], "inputs": "verified stable-order concrete SGFunc and SGCall records", "outputs": "one LLVM declaration and definition per concrete specialization plus exact concrete calls", "errors": ["missing concrete callee", "signature or result mismatch", "unresolved type at backend boundary"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioIR/GenIR/SGIR.hpp", "to": "src/StyioCodeGen/CodeGenG.cpp", "reason": "SGIR is the sole callable signature, identity, and result authority at the backend boundary"},
+        {"from": "src/StyioIR/GenIR/SGIR.hpp", "to": "src/StyioCodeGen/GetTypeG.cpp", "reason": "SGCall carries its already verified concrete result type"}
+      ],
+      "decisions": {
+        "composition": "codegen declares all concrete instances, defines them once, and emits calls from verified SGIR facts",
+        "algorithms": "canonical emission order and exact signature lookup replace source-name first-match and repair coercions",
+        "data_structures": "stable internal-name to LLVM function maps keyed by full concrete specialization identity",
+        "state": "one module-local declaration and definition table records each verified concrete instance",
+        "isolation": "the backend performs no inference, numeric defaulting, generic dispatch, or inferred result repair",
+        "concurrency": "parallel body generation, if used, must preserve unique key ownership and deterministic final module order"
+      },
+      "test_seams": [
+        "LLVM declaration and call signature inspection",
+        "JIT identity multi-instantiation in both call orders",
+        "missing or mismatched concrete callee rejection",
+        "diagnostic local-information security scan"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "End-to-end explicitly typed identity multi-instantiation executes correctly in both call orders, with stable concrete LLVM declarations/calls and repeated-instance reuse."},
+      {"checked": false, "text": "Every Q05-authorized operator instance that reaches this node executes with its verified concrete signature/result/completion behavior."},
+      {"checked": false, "text": "Missing callee, signature/result mismatch, unresolved/Undefined type, and budget failure stop before unsafe emission with stable diagnostics."},
+      {"checked": false, "text": "Module-lookup call-result i64 fallback, first-signature argument coercion, and duplicate-name compatibility behavior are removed from generic callable emission."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(codegen): emit concrete callable instances", "target": "styio-nightly"},
+    "next": ["32c83693-33e5-495f-83b4-b9b027f18edd"]
+  },
+  {
+    "id": "ff7d806c-f29e-4555-a372-d51033e9f844",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["16ff3697-f13b-4a0d-b14c-c87a76e4d5d2", "15721355-b9f4-4dd4-b2cb-f6a5dcf59e93"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Publish one source-located scheme/call diagnostic model and one deterministic IDE/incremental-cache fact model.",
+    "description": "Scope: focused StyioSema diagnostic rendering, immutable callable/call fact interfaces, src/StyioServices/StyioIDE/CompilerBridge.cpp and owning HIR/SemDB/cache modules, IDE/security tests, and cache metrics. Context: IDE currently observes only concrete local types/function definitions, while future scheme/call facts would be unsafe to cache by arena IDs, AST pointers, or call sets. Target: render canonical compiler meta-notation and bounded origin traces, distinguish definition ambiguity/generalization from call relation/mismatch and specialization failures, publish scheme/call result facts to IDE, and key/invalidate caches from stable definition/environment/expected-contract/operation/Q05/config fingerprints. Design Considerations: inference arenas never cross the fact boundary; definition keys exclude future calls; dependency edges invalidate call/instance consumers transitively; full canonical keys resolve hash collisions. Design Value: prevents CLI/IDE disagreement and order-sensitive incremental results while making errors actionable at their origin. Constraints & Risks: meta-notation is not new source syntax, diagnostics/caches contain no runtime values/secrets or disallowed host paths, and module-private exposure remains subject to Q10 visibility facts.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/CallableInferenceDiagnostics.hpp",
+        "src/StyioSema/CallableInferenceDiagnostics.cpp",
+        "src/StyioServices/StyioIDE/CompilerBridge.hpp",
+        "src/StyioServices/StyioIDE/CompilerBridge.cpp",
+        "src/StyioServices/StyioIDE/HIR.hpp",
+        "src/StyioServices/StyioIDE/HIR.cpp",
+        "src/StyioServices/StyioIDE/SemDB.hpp",
+        "src/StyioServices/StyioIDE/SemDB.cpp",
+        "tests/ide/styio_ide_test.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/CallableInferenceDiagnostics.hpp",
+        "src/StyioSema/CallableInferenceDiagnostics.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "src/StyioSema/CallableInferenceDiagnostics.hpp", "kind": "function", "name": "renderCallableInferenceDiagnostic", "operation": "add", "signature": "Diagnostic renderCallableInferenceDiagnostic(const CallableInferenceError&)"},
+        {"path": "src/StyioServices/StyioIDE/CompilerBridge.hpp", "kind": "interface", "name": "publishCallableFacts", "operation": "add", "signature": "void publishCallableFacts(const CallableSemanticFacts&)"},
+        {"path": "src/StyioServices/StyioIDE/SemDB.hpp", "kind": "type", "name": "CallableFactCacheKey", "operation": "add", "signature": "struct CallableFactCacheKey"}
+      ],
+      "interfaces": [
+        {"name": "publishCallableFacts", "producer": "src/StyioServices/StyioIDE/CompilerBridge.hpp", "consumers": ["src/StyioServices/StyioIDE/HIR.cpp", "src/StyioServices/StyioIDE/SemDB.cpp", "tests/ide/styio_ide_test.cpp"], "inputs": "immutable canonical definition schemes, call results, source spans, and dependency fingerprints", "outputs": "CLI-equivalent hover, diagnostic, semantic, and cache facts", "errors": ["stale dependency fingerprint", "unresolved or arena-local fact at publication boundary"]},
+        {"name": "renderCallableInferenceDiagnostic", "producer": "src/StyioSema/CallableInferenceDiagnostics.hpp", "consumers": ["src/StyioServices/StyioIDE/CompilerBridge.cpp", "tests/ide/styio_ide_test.cpp"], "inputs": "structured inference error and bounded origin trace", "outputs": "one stable source-located diagnostic in canonical compiler meta-notation", "errors": ["origin trace truncation marker when the configured bound is reached"]}
+      ],
+      "dependencies": [
+        {"from": "src/StyioSema/CallableInferenceDiagnostics.hpp", "to": "src/StyioServices/StyioIDE/CompilerBridge.cpp", "reason": "CLI and IDE consume one structured diagnostic renderer"},
+        {"from": "src/StyioServices/StyioIDE/CompilerBridge.hpp", "to": "src/StyioServices/StyioIDE/SemDB.cpp", "reason": "the bridge publishes immutable fingerprints and explicit dependency edges for persistence"}
+      ],
+      "decisions": {
+        "composition": "one Sema diagnostic/fact model feeds both CLI and the IDE bridge, HIR, SemDB, and incremental cache",
+        "algorithms": "cache invalidation follows explicit dependency edges and full canonical fingerprints; bounded traces render deterministically",
+        "data_structures": "immutable fact snapshots, source spans, canonical scheme/call fingerprints, and transitive dependency edges",
+        "state": "SemDB owns persisted facts and invalidates schemes, calls, and instances together when an input fingerprint changes",
+        "isolation": "no arena ID, pointer, raw session ordinal, runtime value, secret, call set, or Q10-private fact crosses the publication boundary",
+        "concurrency": "parallel IDE queries share immutable snapshots and serialize cache publication by full stable key"
+      },
+      "test_seams": [
+        "CLI versus IDE diagnostic and hover snapshots",
+        "cold versus warm cache semantic equality",
+        "definition, environment, Q05, and configuration invalidation matrix",
+        "private and local-information cache scan"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "CLI and IDE publish identical canonical identity/operator schemes and concrete call results with correct source spans and bounded traces."},
+      {"checked": false, "text": "Cold/warm caches and call/file/interning-order permutations produce equal semantic facts; relevant definition/environment/Q05 edits invalidate every dependent fact."},
+      {"checked": false, "text": "Definition ambiguity/ineligibility, occurs/equality failure, unsatisfied Q05 relation, call mismatch, recursion growth, budget, and unresolved-IR diagnostics are distinct and stable."},
+      {"checked": false, "text": "Cache keys/facts contain no arena ID, raw pointer, raw session ordinal, call-set dependency, runtime value, secret, or disallowed local information."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ide): publish callable inference facts", "target": "styio-nightly"},
+    "next": ["32c83693-33e5-495f-83b4-b9b027f18edd"]
+  },
+  {
+    "id": "32c83693-33e5-495f-83b4-b9b027f18edd",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["15721355-b9f4-4dd4-b2cb-f6a5dcf59e93", "2a62abbd-10a7-490c-ae42-7be5c506a33c", "ff7d806c-f29e-4555-a372-d51033e9f844"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge fixtures, active language/tooling documentation, diagnostics catalogs, build registration, and removal evidence on the single inference pipeline.",
+    "description": "Scope: parser/Sema/lowering/codegen/IDE/security/end-to-end fixtures; tests/CMakeLists.txt; active language and tooling documents owned by their normal authorities; generated documentation evidence; structural-removal inventory. Context: stale single-call tests and prose can continue to bless first-use inference, hidden i64 defaults, or unsupported Add rows after production code changes. Target: replace them with explicitly typed order-independent identity cases and Q05-table-driven operator cases, ensure every test executes, document one canonical implementation status, retain removed behavior only as current negative diagnostics where required, and delete obsolete positive tests/gates. Design Considerations: use source examples that do not trigger unresolved Q05 defaults; update semantic SSOT rather than duplicate it in runbooks; generated artifacts must be reproducible. Design Value: prevents tests/tooling/docs from becoming a compatibility authority and supplies auditable migration closure. Constraints & Risks: do not edit unrelated dirty documentation, invent module-private Q10 syntax, retain old fixtures for history, or claim convergence before executable evidence exists.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "tests/styio_test.cpp",
+        "tests/ide/styio_ide_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "tests/CMakeLists.txt",
+        "docs/design/Styio-Language-Design.md",
+        "docs/teams/IDE-LSP-RUNBOOK.md"
+      ],
+      "scaffold_paths": [
+        "tests/styio_test.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md"
+      ],
+      "symbols": [
+        {"path": "tests/styio_test.cpp", "kind": "function", "name": "callablePrincipalInferenceEndToEnd", "operation": "add", "signature": "TEST(StyioCallableInference, MultiInstantiationEndToEnd)"},
+        {"path": "tests/CMakeLists.txt", "kind": "module", "name": "callable principal inference test registration", "operation": "modify", "signature": "registered CTest and gtest targets"},
+        {"path": "docs/design/Styio-Language-Design.md", "kind": "module", "name": "callable principal inference implementation status", "operation": "modify", "signature": "active language documentation section"}
+      ],
+      "interfaces": [
+        {"name": "registeredCallableInferenceSuites", "producer": "tests/CMakeLists.txt", "consumers": ["tests/styio_test.cpp", "tests/ide/styio_ide_test.cpp", "tests/security/styio_security_test.cpp"], "inputs": "all callable inference, specialization, backend, IDE/cache, security, and migration test sources", "outputs": "built and discoverable CTest or gtest cases", "errors": ["unregistered test source", "stale obsolete compatibility fixture"]}
+      ],
+      "dependencies": [
+        {"from": "docs/design/Styio-Callable-Principal-Inference.md", "to": "docs/design/Styio-Language-Design.md", "reason": "active language documentation summarizes but never supersedes the sole Q02 semantic owner"},
+        {"from": "tests/CMakeLists.txt", "to": "tests/styio_test.cpp", "reason": "every source-level acceptance fixture must execute in a registered target"}
+      ],
+      "decisions": {
+        "composition": "registered executable suites and active documentation converge on the one semantic-to-concrete-code pipeline",
+        "algorithms": "table-driven Q05 cases and order, cache, recursion, and budget permutations replace single-call compatibility fixtures",
+        "data_structures": "requirement-tagged fixture tables and structural-removal search inventories",
+        "state": "tests and active docs describe only the final pipeline; removed behavior has no retained positive compatibility state",
+        "isolation": "Q10 module-private syntax and unrelated dirty documentation remain outside this convergence node",
+        "concurrency": "disjoint test suites may run in parallel while documentation and shared CMake edits remain serialized"
+      },
+      "test_seams": [
+        "CTest discovery and registration audit",
+        "typed identity order and repeated-instance end-to-end fixtures",
+        "Q05 table-driven operator fixtures",
+        "structural searches for every deleted compatibility path"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "All targeted tests are registered/executed and cover explicitly typed identity order independence, Q05 rows, concrete IR/runtime, IDE/cache, recursion/budgets, diagnostics, and boundaries."},
+      {"checked": false, "text": "Active semantic/tooling documentation and diagnostics catalogs describe the same approved Q02/Q05 implementation without presenting compiler meta-notation as source syntax."},
+      {"checked": false, "text": "Structural searches find no first-use AST mutation, single-return cache, unresolved callable i64 default, backend result fallback, duplicate inference route, or obsolete positive test."},
+      {"checked": false, "text": "Syntax convergence, docs index/audit/lifecycle, local-information, build-registration, and generated-artifact checks pass or record unrelated pre-existing failures."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge callable principal inference", "target": "styio-nightly"},
+    "next": ["e8b90f56-4031-4495-a23c-8b12b59ab7cc"]
+  },
+  {
+    "id": "e8b90f56-4031-4495-a23c-8b12b59ab7cc",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["44c1ca60-cd82-4b05-9b3e-33c0c1be6c69", "15721355-b9f4-4dd4-b2cb-f6a5dcf59e93", "2a62abbd-10a7-490c-ae42-7be5c506a33c", "ff7d806c-f29e-4555-a372-d51033e9f844", "32c83693-33e5-495f-83b4-b9b027f18edd"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove every callable principal-inference requirement, resource bound, concrete backend invariant, and old-path deletion on one head commit.",
+    "description": "Scope: every Validation.md mapping, accepted Q02/Q05 owner revisions, targeted production/test builds, Sema/lowering/IR/codegen/JIT/IDE/security suites, determinism/cache/performance/growth matrices, structural searches, documentation gates, and Better Plan state. Context: each layer can pass locally while call-order dependence, an unstable key, unsupported Add assumption, hidden generic SGIR, unbounded specialization, stale IDE cache, or backend default survives elsewhere. Target: record one auditable evidence set for REQ-CPI-001..REQ-CPI-011 and route any source change or failed criterion back to its owning node. Design Considerations: compare full canonical facts across permutations, validate at-limit/one-over gates before exhaustion, and prove both semantic behavior and complete deletion. Design Value: demonstrates one deterministic principal scheme-to-concrete-code pipeline rather than a collection of local patches. Constraints & Risks: acceptance cannot be weakened for compatibility, performance convenience, missing Q05 rows, unrelated dirty-worktree state, or an unregistered test source.",
+    "requirements": ["REQ-CPI-001", "REQ-CPI-002", "REQ-CPI-003", "REQ-CPI-004", "REQ-CPI-005", "REQ-CPI-006", "REQ-CPI-007", "REQ-CPI-008", "REQ-CPI-009", "REQ-CPI-010", "REQ-CPI-011"],
+    "design": {
+      "artifact": "docs/plan/styio-callable-principal-inference/Architecture.md",
+      "owned_paths": [
+        "docs/plan/styio-callable-principal-inference/Validation.md",
+        "docs/review/Styio-Callable-Principal-Inference-Validation.md"
+      ],
+      "scaffold_paths": [
+        "docs/review/Styio-Callable-Principal-Inference-Validation.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/styio-callable-principal-inference/Acceptance.md"
+      ],
+      "symbols": [
+        {"path": "docs/review/Styio-Callable-Principal-Inference-Validation.md", "kind": "module", "name": "callable principal inference validation receipt", "operation": "add", "signature": "one-head-commit requirement and deletion evidence record"}
+      ],
+      "interfaces": [
+        {"name": "callablePrincipalInferenceValidationReceipt", "producer": "docs/review/Styio-Callable-Principal-Inference-Validation.md", "consumers": ["docs/plan/styio-callable-principal-inference/Validation.md"], "inputs": "approved owner revisions, source snapshot, executable results, determinism and budget metrics, and structural-removal searches", "outputs": "one auditable pass or node-routed failure for REQ-CPI-001 through REQ-CPI-011", "errors": ["changed source snapshot", "missing Q05 owner evidence", "unregistered or failed test", "surviving compatibility path"]}
+      ],
+      "dependencies": [
+        {"from": "docs/plan/styio-callable-principal-inference/Validation.md", "to": "docs/review/Styio-Callable-Principal-Inference-Validation.md", "reason": "the frozen matrix defines every receipt field and command required for final acceptance"},
+        {"from": "docs/design/Styio-Callable-Principal-Inference.md", "to": "docs/review/Styio-Callable-Principal-Inference-Validation.md", "reason": "the final receipt proves the sole approved Q02 semantic contract without redefining it"}
+      ],
+      "decisions": {
+        "composition": "one validation receipt joins semantic, solver, specialization, IR, backend, tooling, resource, security, documentation, and deletion evidence",
+        "algorithms": "full canonical facts are compared across call, file, cache, interning, and session permutations on one source snapshot",
+        "data_structures": "requirement-indexed evidence tables, command receipts, metric boundaries, and structural-removal results",
+        "state": "the receipt records one immutable head commit and routes every failure back to the owning checkpoint",
+        "isolation": "acceptance never weakens requirements for compatibility, missing Q05 evidence, local environment variance, or dirty unrelated files",
+        "concurrency": "independent suites may execute in parallel but all recorded results must reference the same source and configuration fingerprints"
+      },
+      "test_seams": [
+        "full REQ-CPI-001 through REQ-CPI-011 trace audit",
+        "positive and nearest-negative behavior matrix",
+        "cold, warm, order, interning, and session determinism matrix",
+        "at-limit and one-over resource evidence",
+        "complete old-path deletion audit"
+      ]
+    },
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every REQ-CPI label has recorded positive, negative, structural, order/cache determinism, resource-bound, tooling, and end-to-end evidence on one source snapshot."},
+      {"checked": false, "text": "Approved identity and every Q05-authorized operator case produce canonical definition schemes, independent calls, deterministic bounded concrete instances, verified SGIR/LLVM, and correct runtime/diagnostic results."},
+      {"checked": false, "text": "CLI/IDE/cache facts agree across cold/warm and order/session permutations, with correct invalidation and no private/runtime/unstable identity data."},
+      {"checked": false, "text": "No first-use mutation, single-return cache, unresolved callable i64 default, module-lookup result fallback, runtime generic path, compatibility branch, or obsolete positive test remains."},
+      {"checked": false, "text": "Targeted builds/tests, stress/metrics, syntax/documentation/lifecycle/local-information gates, generated artifacts, and Better Plan validation all pass."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate callable principal inference", "target": "styio-nightly"},
+    "next": []
+  }
+]

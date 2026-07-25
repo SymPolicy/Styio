@@ -1,0 +1,183 @@
+[
+  {
+    "id": "60310c5c-b54b-4541-bcd0-9f19f7e9b55c",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the accepted Unit zero-payload boundary and mandatory logical-state/physical-payload separation as testable requirements.",
+    "description": "Scope: Requirements.md, the frozen O01-Q10..Q12 report section, and parent-plan boundaries. Context: the owner accepted option A and explicitly required logical counts to be separate from physical payload. Target: define canonical Unit identity, optional presence, collection cardinality/membership, task/effect state, native adapters, typed IR, and one-shot migration as REQ-UZ-001..008. Design Considerations: semantic facts are authoritative; zero bytes are only a layout optimization. Design Value: prevents the zero-sized-value bugs that otherwise spread across generic, runtime, and ABI code. Constraints & Risks: do not reopen decided D02 or alter P01.14-A directional-flow/settlement composition, general generics, user-defined ZSTs, or record ABI.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-004", "REQ-UZ-005", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states logical state/count as an acceptance-critical invariant independent of payload size, allocation, or address."},
+      {"checked": false, "text": "Every accepted O01-Q10..Q12 consequence is covered by exactly one REQ-UZ label without importing unresolved syntax."},
+      {"checked": false, "text": "Non-goals exclude general generics/ZSTs, implicit C layout, and compatibility implementations."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze zero-payload Unit requirements", "target": "styio-nightly"},
+    "next": ["c0a59250-4734-485a-bccd-35372b06e0f0"]
+  },
+  {
+    "id": "c0a59250-4734-485a-bccd-35372b06e0f0",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["60310c5c-b54b-4541-bcd0-9f19f7e9b55c"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Complete repository and primary-source evidence for Unit typing, zero-payload algorithms, tasks, and ABI adapters.",
+    "description": "Scope: Evidence.md plus audits of Token/TypeTable, Sema, Lowering, StyioIR, ExternLib collections/tasks, NativeInterop, codegen, and affected tests. Context: current code duplicates Unit-to-i64 and void-to-Undefined repairs and derives ordinary collection length from payload vectors. Target: enumerate every affected switch/helper/test and compare official Rust/C++ experience, especially zero-sized vector iterator failures. Design Considerations: trace data structures, complexity, ownership, concurrency publication, and ABI classification rather than only syntax. Design Value: makes the architecture respond to proven failure modes. Constraints & Risks: use primary sources and do not expose machine-local or runtime-sensitive data.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-004", "REQ-UZ-005", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence inventories every Unit-to-integer, void-to-Undefined, collection kind, task helper, and obsolete assertion in scope."},
+      {"checked": false, "text": "Primary language/runtime sources support the semantic/layout separation and identify pointer/count, failure-channel, and FFI pitfalls."},
+      {"checked": false, "text": "Open evidence gaps are converted into implementation or validation checks rather than assumed away."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): audit Unit layout and ABI evidence", "target": "styio-nightly"},
+    "next": ["41d89279-32e0-4296-9e52-ee7c0e76170c"]
+  },
+  {
+    "id": "41d89279-32e0-4296-9e52-ee7c0e76170c",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["60310c5c-b54b-4541-bcd0-9f19f7e9b55c", "c0a59250-4734-485a-bccd-35372b06e0f0"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Define executable semantic, structural, complexity, memory, concurrency, ABI, and deletion evidence before implementation.",
+    "description": "Scope: Validation.md and target test/gate inventory. Context: ordinary happy-path tests can pass while payload-derived length, integer Unit surrogates, or racy task publication remain. Target: map every REQ-UZ label to positive, negative, stress, IR, memory/complexity, sanitizer, native, and documentation evidence. Design Considerations: include a million-element Unit list, key-only Unit dict, checked overflow, acquire/release task state, optional presence, and native void/null/no-return separation. Design Value: makes the owner's mandatory separation mechanically auditable. Constraints & Risks: preserve existing gate authority and record unrelated failures instead of weakening checks.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-004", "REQ-UZ-005", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every REQ-UZ label has named positive, negative, structural, and boundary evidence."},
+      {"checked": false, "text": "Validation explicitly proves logical counts/states without per-Unit payload allocation or pointer-derived cardinality."},
+      {"checked": false, "text": "Final standing gates and evidence-record invalidation rules are documented."}
+    ],
+    "commit": {"repository": ".git", "message": "test(plan): define Unit zero-payload validation", "target": "styio-nightly"},
+    "next": ["a3f33a59-acc7-4615-96b0-a7a43cf6e921"]
+  },
+  {
+    "id": "a3f33a59-acc7-4615-96b0-a7a43cf6e921",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["60310c5c-b54b-4541-bcd0-9f19f7e9b55c", "c0a59250-4734-485a-bccd-35372b06e0f0", "41d89279-32e0-4296-9e52-ee7c0e76170c"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the semantic/layout firewall and the serial collection, task/effect, and ABI implementation chain.",
+    "description": "Scope: Architecture.md, TypeTable/layout boundary, canonical optional-union representation, Unit list/dict/task representations, typed IR, native signature metadata, and module ownership. Context: TypeKey bit width, payload vectors, task payload kinds, and native Undefined currently conflate semantic and physical facts. Target: define canonical Unit identity plus a separate layout query; uniform optional tags; explicit counters/key state/task state; zero-operand typed IR; and ABI adapters. Design Considerations: checked O(1) count algorithms, O(1) Unit element-payload storage, ordered key/index authority, acquire/release task state, and explicit void/nullable/no-return metadata. Design Value: supplies one reusable invariant instead of per-layer special cases. Constraints & Risks: shared ExternLib, CodeGen, JIT, and dispatch files force a serial implementation chain; only audits and proven file-disjoint tests may run in parallel.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-004", "REQ-UZ-005", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture names an authoritative logical representation for every accepted state and a separate physical representation."},
+      {"checked": false, "text": "Unit list/dict algorithms, task publication, IR verification, and ABI adaptation include complexity and failure invariants."},
+      {"checked": false, "text": "The checkpoint graph serializes every implementation stage that overlaps ExternLib, CodeGen, JIT registration, or value-family dispatch."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(arch): define Unit semantic layout firewall", "target": "styio-nightly"},
+    "next": ["d63fd6c4-bca6-41a4-bb69-3fbb6ab11865"]
+  },
+  {
+    "id": "d63fd6c4-bca6-41a4-bb69-3fbb6ab11865",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["a3f33a59-acc7-4615-96b0-a7a43cf6e921"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement canonical Unit identity, separate layout queries, uniform optional presence, and typed zero-payload IR facts.",
+    "description": "Scope: StyioToken, StyioSession/TypeTable and layout helpers, canonical ? | T type/representation infrastructure, relevant Sema type construction, StyioIR type/result nodes and verifier, plus focused tests. Context: Unit is absent from DTypeTable/TypeTable, optional union is not yet complete, and zero bits currently overlap Undefined and payload-layout assumptions. Target: give Unit a distinct TypeId/value family, map it to zero physical payload only through a layout query, make ? | unit consume the same presence-tag representation as every ? | T, and preserve Unit on zero-operand IR facts. Design Considerations: semantic equality stays TypeId-based; no consumer recognizes Unit from bit width or missing operands; a Unit-only pseudo-option is forbidden. Design Value: unlocks the serial collection, task, and native stages with one canonical foundation. Constraints & Risks: integrate the parent Unit/Never contract; if the uniform optional foundation has a separate owner, make it an explicit completed prerequisite rather than duplicating it; do not implement general generics, arbitrary ZSTs, recovery syntax, or a second type table.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Unit, Never, Undefined, absence, and i64 resolve to distinct semantic identities with targeted tests."},
+      {"checked": false, "text": "Unit layout is zero payload but no semantic consumer identifies Unit or presence from payload size/operands."},
+      {"checked": false, "text": "Optional Unit two-state and StyioIR verifier tests pass without an integer/default repair."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(types): separate Unit identity from payload layout", "target": "styio-nightly"},
+    "next": ["75b5779c-1762-455b-a0e6-5f72454322be"]
+  },
+  {
+    "id": "75b5779c-1762-455b-a0e6-5f72454322be",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["d63fd6c4-bca6-41a4-bb69-3fbb6ab11865"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement zero-payload Unit list and dictionary representations with authoritative logical count and membership.",
+    "description": "Scope: Unit branches of StyioExtern list/dict storage and helpers, collection lowering/codegen switches, JIT registrations, and runtime/feature/security tests. Context: all current lists derive length from payload vectors and dictionaries store mapped values. Target: add a logical_len Unit list with no element buffer and, for currently supported key families (first string), a key/index-only Unit dictionary; preserve every public operation and iteration event. Design Considerations: checked count arithmetic, integer index/end iterators, deterministic ordered keys, O(1) list operations, expected-average dict lookup, O(1) Unit element-payload storage, and no fake allocations. Design Value: directly enforces the owner's separation requirement while retaining generic semantics. Constraints & Risks: do not turn dict into a source set type, broaden key support, or retain an integer/byte Unit value kind as compatibility.",
+    "requirements": ["REQ-UZ-002", "REQ-UZ-004", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Unit list operations and iteration use only checked logical_len/index metadata and pass empty, singleton, million-element, mutation, slice, clone, and bounds tests."},
+      {"checked": false, "text": "Unit dictionary uses keys/index as membership authority, omits mapped Unit payload, and preserves order/lookup/values iteration."},
+      {"checked": false, "text": "Static and representation tests find no pointer/byte-derived count, zero-size division, fake allocation, or Unit placeholder payload."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(runtime): add logical Unit collections", "target": "styio-nightly"},
+    "next": ["0aaf3fd6-3514-4af3-8e24-0afb40b7c813"]
+  },
+  {
+    "id": "0aaf3fd6-3514-4af3-8e24-0afb40b7c813",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["75b5779c-1762-455b-a0e6-5f72454322be"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Preserve Unit task lifecycle and typed failure without a result payload or integer surrogate.",
+    "description": "Scope: task result inference in StyioSema, task binding lowering, task IR/codegen helpers, StyioExtern task runtime/API, JIT registrations, and task tests. Context: Sema and lowering rewrite task[unit] to i64 and the runtime embeds all payload slots in one task object. Target: split the common task control block from typed payload storage, give Unit no result field and a no-result callback, preserve lifecycle/failure/consumption, publish terminal state with release/acquire ordering, and delete both rewrites. Design Considerations: failure metadata precedes terminal publication, success constructs typed Unit once, and the P01.14-A generic settlement wrapper consumes the same internal state while D02 excludes value fallback; a max-sized variant with monostate does not meet the payload requirement. Design Value: prevents asynchronous state from depending on a fabricated or reserved business payload. Constraints & Risks: do not decide cancellation, alter directional endpoint semantics, or keep an I64 fallback, task-specific binder, or old monolithic task layout.",
+    "requirements": ["REQ-UZ-002", "REQ-UZ-005", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Sema, lowering, IR, and runtime preserve task[unit] and successful settlement produces typed () with no payload slot."},
+      {"checked": false, "text": "Pending/running/success/failure/consumed behavior and acquire/release visibility pass fast, blocking, failure, and double-pull tests."},
+      {"checked": false, "text": "All Unit-to-i64 branches and tests requiring them are deleted; no task helper silently selects the I64 path."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(tasks): preserve zero-payload Unit results", "target": "styio-nightly"},
+    "next": ["a6ba1eef-822e-4414-adfd-ce930bb1b9d0"]
+  },
+  {
+    "id": "a6ba1eef-822e-4414-adfd-ce930bb1b9d0",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["0aaf3fd6-3514-4af3-8e24-0afb40b7c813"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement explicit native adapters for returning void, declared nullable values, and proven no-return calls.",
+    "description": "Scope: StyioNative signature metadata/parser, native Sema type mapping, native call/export codegen, StyioIR verification, JIT call paths, and ABI/security tests. Context: CTypeKind::Void currently maps to Undefined even though codegen already uses LLVM void, and pointer metadata lacks nullability/noreturn. Target: classify successful no-result, declared nullable/non-null result, and proven no-return separately; adapt them to Unit, optional T, and Never while keeping target ABI representations private. Design Considerations: Unit is never a C object/parameter, optional has no implicit C layout, no-return requires explicit trusted metadata, and absent/unspecified pointer nullability fails closed until an explicit adapter contract. Design Value: prevents platform invalid states from entering ordinary Styio types. Constraints & Risks: preserve supported ABI/toolchain behavior, do not expose local toolchain data, and do not invent broad C type syntax beyond explicit adapter metadata.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Returning C void maps to semantic Unit while LLVM uses the no-result convention and no Undefined value is produced."},
+      {"checked": false, "text": "Declared nullable and proven no-return signatures map to optional and Never with targeted positive and negative tests."},
+      {"checked": false, "text": "Source Unit is not emitted as a C parameter/object and optional unions gain no implicit ABI layout."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ffi): adapt native no-payload boundaries", "target": "styio-nightly"},
+    "next": ["17a70c9c-d9ed-4352-b8ed-20b23ad3ae4d"]
+  },
+  {
+    "id": "17a70c9c-d9ed-4352-b8ed-20b23ad3ae4d",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["75b5779c-1762-455b-a0e6-5f72454322be", "0aaf3fd6-3514-4af3-8e24-0afb40b7c813", "a6ba1eef-822e-4414-adfd-ce930bb1b9d0"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge language SSOT, tooling, diagnostics, fixtures, and obsolete-test deletion on the delivered Unit boundary.",
+    "description": "Scope: Language Design, EBNF, Symbol Reference, ACTIVE-SYNTAX, syntax convergence evidence, runbooks, feature/pipeline fixtures, and affected unit/security tests. Context: old assertions and prose can preserve Unit-to-i64 or void-to-Undefined after compiler/runtime changes. Target: document one canonical contract and implementation status, migrate positive examples, retain only current negative diagnostics, and remove obsolete tests/gates. Design Considerations: use no new keyword/token/constructor; make logical-state/payload separation visible to implementers without exposing representation as source ABI. Design Value: prevents documentation and tests from becoming a compatibility authority. Constraints & Risks: do not mark parser/runtime surfaces converged before executable evidence exists and do not edit unrelated dirty changes.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-004", "REQ-UZ-005", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "All active SSOT/tooling/runbook surfaces state the same Unit, logical-state, task/effect, and ABI rules with honest implementation status."},
+      {"checked": false, "text": "Every obsolete positive assertion or fixture is migrated or deleted; only one current diagnostic path remains for rejected cases."},
+      {"checked": false, "text": "Generated indexes, syntax convergence, docs lifecycle, docs audit, and local-information checks pass or record unrelated pre-existing failures."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge Unit zero-payload contract", "target": "styio-nightly"},
+    "next": ["4de5fbab-6b75-4da8-99e6-1e05aea598a7"]
+  },
+  {
+    "id": "4de5fbab-6b75-4da8-99e6-1e05aea598a7",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["41d89279-32e0-4296-9e52-ee7c0e76170c", "75b5779c-1762-455b-a0e6-5f72454322be", "0aaf3fd6-3514-4af3-8e24-0afb40b7c813", "a6ba1eef-822e-4414-adfd-ce930bb1b9d0", "17a70c9c-d9ed-4352-b8ed-20b23ad3ae4d"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove the complete logical-state/physical-payload boundary and removal of old Unit/ABI repairs on one head commit.",
+    "description": "Scope: every Validation.md mapping, targeted compiler/runtime/native tests, sanitizer/stress evidence, structural searches, docs/tooling gates, and Better Plan state. Context: each lane can pass locally while an integer repair, payload-derived algorithm, stale fixture, or ABI leak survives elsewhere. Target: record auditable evidence for REQ-UZ-001..008 on one source snapshot and route any source change back to its owner. Design Considerations: validate semantic behavior, memory/complexity, concurrent publication, IR/LLVM shape, ABI boundaries, and deletion together. Design Value: proves the owner's mandatory separation rather than merely documenting it. Constraints & Risks: acceptance may not be weakened for compatibility, target convenience, or unrelated dirty-worktree failures.",
+    "requirements": ["REQ-UZ-001", "REQ-UZ-002", "REQ-UZ-003", "REQ-UZ-004", "REQ-UZ-005", "REQ-UZ-006", "REQ-UZ-007", "REQ-UZ-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every REQ-UZ label has recorded positive, negative, structural, stress, and boundary evidence on one head commit."},
+      {"checked": false, "text": "Large Unit collections, Unit task concurrency/failure, optional presence, and void/null/no-return ABI tests pass with the required complexity and storage properties."},
+      {"checked": false, "text": "No Unit-to-i64, void-to-Undefined, payload-derived count/state, fake Unit payload, compatibility route, or obsolete positive test remains."},
+      {"checked": false, "text": "Targeted tests, sanitizers, syntax convergence, documentation/lifecycle/local-information gates, and Better Plan validation pass."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate Unit zero-payload boundaries", "target": "styio-nightly"},
+    "next": []
+  }
+]

@@ -1,0 +1,172 @@
+[
+  {
+    "id": "a482f40d-4d12-4105-be14-ae8f4705d2e5",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Confirm the frozen Optional absence and no-value-fallback product contract without changing adjacent pattern, numeric, directional-flow/settlement, or ABI policy.",
+    "description": "Scope: Requirements.md and the O01-Q01/O01-Q06..Q07/P01.13-B decision trace. Context: ordinary T excludes absence, ? | T is canonical, repeated Optional normalizes, and the owner rejected the entire ordinary value fallback surface. Target: keep REQ-OA-001..REQ-OA-008 complete, source-observable, and bounded away from convenience APIs, D08 numeric failure behavior, P01.14-A directional-flow/settlement implementation, and foreign layout. Design Considerations: distinguish semantic absence, compiler unknown type, typed effect failure, Unit, and physical inactive payload bytes. Design Value: prevents implementation convenience from recreating a sentinel or replacement operator. Constraints & Risks: if later evidence changes a source-visible rule, update requirements and validation before implementation rather than widening this node.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states users, functional requirements, non-functional constraints, scope, non-goals, and final acceptance for REQ-OA-001..REQ-OA-008."},
+      {"checked": false, "text": "Every requirement traces to a frozen owner decision or an explicitly internal representation consequence without reopening D02."},
+      {"checked": false, "text": "The D08 numeric, P01.14-A directional-flow/settlement, pattern/convenience, and foreign-ABI boundaries are explicit."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze optional absence requirements", "target": "styio-nightly"},
+    "next": ["8fe77a10-c282-41d8-9eb5-ed1ac6b4d5c6"]
+  },
+  {
+    "id": "8fe77a10-c282-41d8-9eb5-ed1ac6b4d5c6",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["a482f40d-4d12-4105-be14-ae8f4705d2e5"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Verify the Optional type gap, every retired value-fallback route, every sentinel-as-absence consumer, and every anchored pipe boundary before source work.",
+    "description": "Scope: Evidence.md plus read-only inspection of StyioToken, Parser, AST, TypeTable, Sema, IR, lowering, codegen, resource topology, IDE syntax, tests, and active docs. Context: the repository mixes an orphan ?? token, bare-pipe FallbackAST/SGFallback, UndefinedLitAST/SGUndef, and i64::MIN while current resource fallback remains valid. Target: cite exact symbols, classify each Fallback occurrence by semantic owner, separate Optional sentinel use from D08 numeric use, and record primary language failure lessons. Design Considerations: repository facts and external lessons inform the frozen target but cannot invent a replacement operator. Design Value: prevents both incomplete deletion and collateral removal of effect settlement. Constraints & Risks: classification must be semantic, not a case-insensitive text deletion by the word fallback.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites tokenizer, parser, AST, Sema, TypeTable, IR, lowering, codegen, topology, tooling, and test paths."},
+      {"checked": false, "text": "Every fallback-named implementation/test family is classified as removed value fallback, preserved effect settlement, or unrelated host infrastructure."},
+      {"checked": false, "text": "Sentinel evidence separates Optional absence from D08-owned numeric behavior and includes i64::MIN payload risk."},
+      {"checked": false, "text": "Primary other-language sources document coalescing, truthiness, nesting, and representation failure modes."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground optional absence evidence", "target": "styio-nightly"},
+    "next": ["7c5ac8a6-bd78-4cb7-ab0e-bf96971ce6b2"]
+  },
+  {
+    "id": "7c5ac8a6-bd78-4cb7-ab0e-bf96971ce6b2",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["a482f40d-4d12-4105-be14-ae8f4705d2e5", "8fe77a10-c282-41d8-9eb5-ed1ac6b4d5c6"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Define Optional value-domain, normalization, syntax rejection, anchored-pipe preservation, structural deletion, and convergence evidence before implementation.",
+    "description": "Scope: Validation.md and test/gate discovery only. Context: a blanket pipe rejection would break type, guard, and settlement syntax, while parser-only success could leave fallback IR or a sentinel behind. Target: map every REQ-OA label to positive Optional cases, payload extremes, negative |/?? cases, anchored-pipe regressions, TypeId/layout checks, structural searches, and end-to-end gates. Design Considerations: pair every removed form with its nearest preserved grammar role and require evidence below the parser. Design Value: makes semantic deletion and non-regression measurable before code changes. Constraints & Risks: commands must name existing test families or specify exact tests to add; prose review alone is insufficient.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every REQ-OA label to executable or static evidence."},
+      {"checked": false, "text": "The matrix covers empty/present values, all three literals, normalization, payload extremes, functions/containers, and underdetermined empty inference."},
+      {"checked": false, "text": "Negative value operators are paired with positive type-union, guard-else, and effect-settlement cases."},
+      {"checked": false, "text": "Deletion searches, D08 routing, docs/tooling gates, and Better Plan validation are included in final acceptance."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map optional absence validation", "target": "styio-nightly"},
+    "next": ["dc36c3a6-7e34-464c-b514-93f30c738158"]
+  },
+  {
+    "id": "dc36c3a6-7e34-464c-b514-93f30c738158",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["a482f40d-4d12-4105-be14-ae8f4705d2e5", "8fe77a10-c282-41d8-9eb5-ed1ac6b4d5c6", "7c5ac8a6-bd78-4cb7-ab0e-bf96971ce6b2"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the structural Optional type, syntax-selected pipe roles, focused AST/IR modules, explicit native tag layout, ownership, and deletion architecture.",
+    "description": "Scope: Architecture.md and interface/scaffold decisions; no compiler behavior is claimed complete. Context: StyioDataType/TypeTable are flat, empty and unknown nodes overlap, and codegen uses a legal i64 sentinel. Target: define TypeId normalization, one empty AST, expected-type present injection, typed OptionalNone/OptionalSome IR, verifier rules, direct LLVM tag/payload layout, guarded ownership/drop, cached layouts, diagnostics, and one-shot deletion. Design Considerations: use structural interning and a discriminated value because they eliminate repeated string/type checks and preserve full payload domains; keep simple syntax-directed parsing and add no runtime registry. Design Value: one cross-layer invariant replaces fallback/sentinel guessing. Constraints & Risks: do not choose D08 numeric failure policy, alter P01.14-A direction/settlement composition, choose pattern syntax or foreign layout, or add speculative niche optimization.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines module ownership, dependency direction, type/AST/Sema/IR/codegen interfaces, ownership, diagnostics, migration, and complexity."},
+      {"checked": false, "text": "The initial representation uses an explicit discriminant, specializes Unit without erasing presence, and preserves every legal payload bit pattern."},
+      {"checked": false, "text": "The deletion boundary preserves TOK_PIPE/AWAIT_PIPE and resource settlement while removing the complete value-fallback path."},
+      {"checked": false, "text": "Chosen patterns explain their value and no unnecessary managed runtime, registry, heap box, or niche mechanism is introduced."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design optional absence architecture", "target": "styio-nightly"},
+    "next": ["273ffcd0-fe00-45e5-80d4-9d3845caf4e7"]
+  },
+  {
+    "id": "273ffcd0-fe00-45e5-80d4-9d3845caf4e7",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["dc36c3a6-7e34-464c-b514-93f30c738158"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge tokenizer, grammar, and AST on structural Optional syntax while deleting every ordinary fallback/coalescing source path.",
+    "description": "Scope: StyioToken, StyioParser, Optional-focused StyioAST files, parser/token/AST tests, IDE token syntax, and stable diagnostics. Context: Parser.cpp still calls parse_fallback_expr, Token.hpp maps | to Bitwise_OR, DBQUESTION is maximal-munch tokenized, and None/Undefined/Fallback nodes overlap. Target: parse ? | T and all three empty atoms, keep guard and leading ?| separators, reject general |/??, delete DBQUESTION and parse_fallback_expr/FallbackAST plus frontend visitors/clones/repr/topology hooks, and introduce one empty Optional AST. Design Considerations: grammar state selects each legal pipe; replace call sites with the correct non-pipe expression entry and split Optional AST responsibility from the mixed monolith where practical. Design Value: makes invalid value fallback impossible before Sema. Constraints & Risks: preserve TOK_PIPE/AWAIT_PIPE, resource-effect fallback AST members/tests, guard syntax, source spans, and parser recovery; do not activate bitwise punctuation or convenience Optional syntax.",
+    "requirements": ["REQ-OA-002", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "? | T and the three empty atoms parse to the canonical Optional frontend nodes."},
+      {"checked": false, "text": "Bare/chained/Boolean/integer | and all ?? inputs fail with syntax-owned diagnostics before Sema."},
+      {"checked": false, "text": "Type-union, guard-else, and leading ?| settlement parser tests remain positive."},
+      {"checked": false, "text": "DBQUESTION, parse_fallback_expr, FallbackAST, value-pipe operator mapping, frontend visitors/clones/repr/topology routes, and positive node tests are absent."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(frontend): enforce optional absence grammar", "target": "styio-nightly"},
+    "next": ["fcac0562-b0d2-4670-945a-6d359a5111d4"]
+  },
+  {
+    "id": "fcac0562-b0d2-4670-945a-6d359a5111d4",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["273ffcd0-fe00-45e5-80d4-9d3845caf4e7"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement canonical Optional TypeIds, normalization, empty/present typing, joins, and settlement-boundary separation in Sema.",
+    "description": "Scope: StyioSession TypeTable, StyioDataType integration boundaries, Optional-focused StyioSema code, type/semantic tests, and IR-facing typed conversion facts. Context: TypeKey has no structural Optional payload and Undefined currently serves both unknown-state and source-value paths. Target: intern Optional(payload TypeId), flatten Optional-of-Optional once, keep compiler unknown distinct, type empty literals from expected/join context, record present injection explicitly, reject ordinary-T absence, and preserve resource settlement recovery compatibility under its own AST. Design Considerations: centralize make_optional/inject_present/join_empty operations for O(1) TypeId equality instead of scattering name-string checks. Design Value: gives all later layers one proof of presence and eliminates sentinel/type guessing. Constraints & Risks: no general subtyping, word constructors, unwrap/coalesce, hidden default, numeric error policy, or change to effect settlement semantics.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-005", "REQ-OA-006", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "TypeTable gives ? | (? | T) and ? | T one canonical TypeId with O(1) equality."},
+      {"checked": false, "text": "Empty, present injection, assignment, argument, return, field/element, and branch-join tests enforce the static absence boundary."},
+      {"checked": false, "text": "Underdetermined empty and empty-under-ordinary-T cases fail without an invented payload type or default."},
+      {"checked": false, "text": "Compiler unknown type state is not a source value, and resource settlement fallback typing stays on its dedicated path."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): canonicalize optional absence", "target": "styio-nightly"},
+    "next": ["19f2e45f-d214-4a41-ad20-5158f289340e"]
+  },
+  {
+    "id": "19f2e45f-d214-4a41-ad20-5158f289340e",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["fcac0562-b0d2-4670-945a-6d359a5111d4"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Lower verified Optional values through one typed IR and explicit native discriminant while deleting undefined/fallback IR and absence sentinels.",
+    "description": "Scope: Optional-focused StyioIR, verifier/walker, StyioLowering, StyioCodeGen, ToString, ownership/drop logic, tests, and the numeric-sentinel classification record. Context: SGUndef emits i64::MIN and SGFallback eagerly lowers both operands; neither represents the frozen type model. Target: add typed OptionalNone/OptionalSome nodes, verify TypeIds/payloads, emit cached {present,payload} layouts and tag-only Optional Unit, guard every payload use/drop, delete SGUndef/SGFallback and their complete visitor/type/codegen/test routes, and prove Some(i64::MIN) remains present. Design Considerations: explicit tags avoid legal-value collisions; deterministic inactive storage plus verifier-dominated projection avoids poison and false payload construction; no managed runtime helper. Design Value: preserves full value domains with predictable native cost. Constraints & Risks: classify remaining arithmetic sentinel uses for D08 instead of choosing trap/effect/saturation; do not expose an ABI or niche promise.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "OptionalNone/OptionalSome verifier, lowering, codegen, copy/drop, Unit specialization, and malformed-IR tests pass."},
+      {"checked": false, "text": "Empty/present round trips cover payload extrema and Some(i64::MIN) is never classified empty."},
+      {"checked": false, "text": "SGUndef, SGFallback, sentinel-as-absence comparisons, visitors, optimizer/type/repr routes, and positive node tests are absent."},
+      {"checked": false, "text": "Remaining numeric-only sentinel consumers are exhaustively recorded under D08 and cannot influence Optional presence."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ir): lower tagged optional values", "target": "styio-nightly"},
+    "next": ["81ebb500-0c28-45e7-8c1e-d2ec5765f5d4"]
+  },
+  {
+    "id": "81ebb500-0c28-45e7-8c1e-d2ec5765f5d4",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["273ffcd0-fe00-45e5-80d4-9d3845caf4e7", "fcac0562-b0d2-4670-945a-6d359a5111d4", "19f2e45f-d214-4a41-ad20-5158f289340e"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge fixtures, effect-settlement regressions, tooling mirrors, runbooks, and active language documents on the delivered Optional boundary.",
+    "description": "Scope: source fixtures, tokenizer/parser/Sema/IR/codegen/security/resource-effect tests, IDE/editor/formatter mirrors, Language Design, EBNF, Symbol Reference, ACTIVE-SYNTAX, decision report, runbooks, generated indexes, and plan mappings. Context: old positive node tests can preserve removed value fallback, while broad fallback searches can wrongly delete current ?| recovery tests. Target: remove or migrate retired-node fixtures, keep rejected spellings only as current negative diagnostics, retain and if needed rename/classify anchored effect tests, publish implementation status honestly, and regenerate deterministic artifacts. Design Considerations: SSOT owns semantics and tests follow grammar/AST ownership, not historical labels. Design Value: prevents either compatibility debt or accidental effect-feature loss. Constraints & Risks: do not reopen D02, alter P01.14-A directional-flow/settlement composition, or claim D08 numeric closure.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "All active SSOT, syntax/tooling mirrors, and runbooks state the same Optional and no-value-fallback contract with current implementation status."},
+      {"checked": false, "text": "No positive fixture constructs a removed token/AST/IR/sentinel path; rejected forms remain only as registered negative syntax cases."},
+      {"checked": false, "text": "All type-union, guard, resource-effect, and task-settlement fallback tests remain current positive evidence."},
+      {"checked": false, "text": "Syntax convergence, generated indexes, docs audit/lifecycle, local-information, and plan validators pass."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge optional absence boundary", "target": "styio-nightly"},
+    "next": ["5185140f-68fa-4266-acd6-9e62541df3a2"]
+  },
+  {
+    "id": "5185140f-68fa-4266-acd6-9e62541df3a2",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["7c5ac8a6-bd78-4cb7-ab0e-bf96971ce6b2", "19f2e45f-d214-4a41-ad20-5158f289340e", "81ebb500-0c28-45e7-8c1e-d2ec5765f5d4"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove the complete Optional absence boundary, value-fallback deletion, and anchored-settlement preservation on one head commit.",
+    "description": "Scope: execute and record every Validation.md mapping; source fixes route back to their owning implementation node. Context: parser, TypeTable, Sema, IR, codegen, resource effects, tooling, and docs can each pass while a sentinel, orphan visitor, or over-broad pipe deletion survives elsewhere. Target: run all standing and REQ-specific checks, classify every residual fallback/sentinel match, record evidence per REQ-OA label, prove i64::MIN presence and Optional normalization, and synchronize Better Plan state. Design Considerations: validate source behavior, canonical types, ownership, native layout, diagnostics, deletion, anchored grammar, and documentation together. Design Value: turns the owner decisions into one auditable compiler contract. Constraints & Risks: acceptance cannot be weakened to retain compatibility, hide absence in T, delete current effect settlement, or silently choose D08 behavior.",
+    "requirements": ["REQ-OA-001", "REQ-OA-002", "REQ-OA-003", "REQ-OA-004", "REQ-OA-005", "REQ-OA-006", "REQ-OA-007", "REQ-OA-008"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Tokenizer, parser, type-table, Sema, IR verifier, lowering, codegen, ownership, resource-effect, task, security, syntax, docs, lifecycle, local-information, and Better Plan checks pass on one head commit."},
+      {"checked": false, "text": "Every REQ-OA label has recorded positive, negative, structural, payload-boundary, and anchored-role evidence from Validation.md."},
+      {"checked": false, "text": "No value-fallback/??/undefined-as-absence implementation or positive compatibility fixture remains, and Some(i64::MIN) plus ? | unit behavior are proven."},
+      {"checked": false, "text": "Every remaining fallback/sentinel match is classified as current effect infrastructure, unrelated host behavior, or an explicitly D08-owned numeric item."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate optional absence boundary", "target": "styio-nightly"},
+    "next": []
+  }
+]

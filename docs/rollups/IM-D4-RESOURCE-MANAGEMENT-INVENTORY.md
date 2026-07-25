@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted resource-management decisions for IM-D4 without duplicating the IM-D1 StyioIR verifier, lowering, no-op, or codegen-gate contract.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-20
 
 ## Scope
 
@@ -39,10 +39,14 @@ resource topology gives Styio an active source direction for resource declaratio
   `@stdout.pressure` and topology resource bindings such as
   `channel.pressure` fail closed with
   `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`. This
-  preserves task_await binding for `?| task -> value: T`; failed task pulls now
-  run the await fallback after clearing the materialized task error, while
-  failed task pulls without fallback stop at the await settlement site. Non-task
-  await sources and bare continuation freeze fallbacks remain fail-closed.
+  still contains a task-specific typed-target compatibility path for
+  `?| task -> value: T [| fallback]`. Its task-error clearing and fail-fast
+  behavior are useful implementation evidence, but the binder grammar is
+  deletion/migration debt. Accepted value capture is ordinary binding such as
+  `value = ?| task_operation | fallback`; accepted directional composition is
+  the same generic `?| (task_operation -> destination) | fallback` available to
+  every endpoint family. The targetless `?| -> value: T` form is invalid and is
+  not a reserved continuation feature.
   Statement-shaped resource method calls now enter the same settlement route:
   `?| @file("data.txt").close() | fallback` skips recovery on successful file
   open/close, missing files recover through catch-all fallback or matched `io`
@@ -363,18 +367,32 @@ Accepted block-entry decision:
 - Each later block stage starts from the resource state committed by the previous stage.
 - If the block exits through a fallible resource effect, the commit participates in the same typed resource-effect path as other resource operations.
 
-### Resource Write Commit Boundary
+### Directional Transfer Commit Boundary (Resource Endpoint)
 
 Accepted `expr -> @name` decision:
 
+- `source -> destination` always means one thing: data moves from the left
+  position to the right slot. `@name` selecting resource validation, topology,
+  and commit lowering is endpoint specialization, not a second "resource write"
+  meaning for the arrow.
+- The left-to-right arrow is a data direction, not a preparation timeline.
+  Q03-F makes the source value and destination capability independent strict
+  prerequisites of the transfer. If both preparations are order-sensitive and
+  no accepted edge orders them, Sema rejects the transfer; the author must
+  prepare them as consecutive lexical Block items.
+
 - A resource write first creates a pending resource-write effect against the current resource context: the block-entry snapshot when inside a block, or the original resource when outside a block.
-- The compiler should commit as late as correctness allows so Sema, lowering, optimization, and resource-topology reasoning can fuse, reorder, or remove writes that have no observable difference.
+- The compiler should commit as late as correctness allows so Sema, lowering, optimization, and resource-topology reasoning can fuse, reorder, or remove writes that have no observable difference. This physical payload schedule is separate from the Q03-F logical event graph: lexical Block order and explicit resource edges remain observable even when pending writes fuse.
 - Required commit barriers include same-resource reads that must observe the write, explicit snapshot/copy, iteration by another consumer, `flush`, `close`, resource-family release/commit hooks, and any explicit happens-before edge.
 - Block-entering forms add one mandatory barrier: block exit commits the snapshot back to the source resource context for that stage.
 - Resource families may define a later safe boundary such as scope exit or driver batch flush only when it does not violate the block-end commit rule.
 - Failure ordering must remain typed: a delayed commit still carries the original write effect and any resource-family failure type.
 
-This is an IM-D4 resource-effect rule. Cross-stream synchronization and global memory-model behavior remain IM-D5.
+This is an IM-D4 resource-effect rule. The shared prerequisite, Block sequence,
+completion-stop, and optimizer-right contract comes from
+[Styio Functional Evaluation and Effect Ordering](../design/Styio-Functional-Evaluation-and-Effect-Ordering.md)
+§§4/6/8/10. Cross-stream synchronization and global memory-model behavior
+remain IM-D5. The corresponding compiler facts/DAG/CFG migration is pending.
 
 ### Cleanup And Drop
 
@@ -413,7 +431,7 @@ bypass before branching. The file
 iterator closed-handle slice reports a structured `closed`-family diagnostic
 when a stale same-path alias uses that zeroed slot. The file/stdin instant-pull
 and materialized container-index/list-slice paths now cover the first value-producing
-success/fallback/handler paths for non-task `?|` expressions, including
+success/fallback/handler paths for generic `?|` expressions, including
 explicit-target stdin `f64`, `string`, typed-list values, list/dict/matrix
 `bounds` recovery, ordered dict value-slice recovery through `d.values` plus
 the list-slice bounds path, and returned matrix cell/row or row-range-slice bounds from
@@ -454,22 +472,31 @@ The default contract should be:
 
 This keeps failure visible to the compiler without turning every simple resource program into manual error plumbing.
 
-### Resource Effect Evaluation And Fallback
+### Generic Effect Evaluation And Fallback (Resource Inventory View)
 
-Accepted resource fallback decision:
+Accepted settlement decision:
 
-- `?|` is the uniform source marker for resource effect evaluation.
+- `?|` is the uniform source marker for settling one generic operation; this
+  inventory records the resource-effect implementation slice.
 - `?| resource_operation` evaluates and settles a resource operation through the typed resource-effect path. Without a fallback, failure is raised immediately at that site.
 - `?| resource_operation | fallback` evaluates `fallback` only when the resource operation yields a resource effect failure, then type-checks the recovered value against the successful operation value and surrounding use-site type.
 - `?| resource_operation | effect_name => handler` is the effect-specific handler form. It handles only the named typed effect family, such as `backpressure`, and the handler result must still type-check against the operation's success type and surrounding use site.
 - `?| resource_operation | e1 => handler1 | e2 => handler2` chains effect-specific handlers. The first matching typed effect family runs; unmatched failure effects use the default fail-fast rule unless a final catch-all fallback is present.
-- A bare `| fallback` is not a resource fallback form. Bare `|` remains available for guard else branches and ordinary value-level fallback where those grammars already own it.
+- A bare `| fallback` is not a resource fallback form, and Styio has no ordinary value-level fallback operator. `|` remains available only in separately anchored grammar roles such as guard else, `? | T`, and the recovery separator inside a leading `?|` settlement form.
 - `?| resource_operation | ...` is an audited resource-effect discard statement. It is allowed only as a standalone statement, never as an expression or value-producing form. It means: execute and settle the resource operation; if resource effects arise, discard business recovery for this site; then continue with the next statement. Current statement resource operations with runtime evidence include file acquire/rebind, file writes, direct file iterators, direct file release to `@()`, and file resource-method settlement.
 - A discard statement does not pretend the operation succeeded, does not produce a value, does not skip resource-state settlement, and does not bypass cleanup, commit, diagnostic, trace, or pressure accounting required by the resource family.
 - `?| resource_operation | effect => @()` is also not accepted as a "do nothing" handler. `@()` is the empty resource / destroy sink, not an executable empty action.
-- Await keeps the same marker because task/future await is also a resource-like effect: `?| task -> value: T` raises immediately on failed pull, while `?| task -> value: T | fallback` recovers through the same typed fallback path.
+- Task/future operations use the same settlement grammar rather than an await-target sublanguage: `value = ?| task_operation | fallback` binds a recovered result through ordinary `=`, and `?| (task_operation -> destination) | fallback` settles a generic direction flow when the destination is independently valid. Existing support for `?| task -> value: T [| fallback]` as a typed target declaration is migration debt, not an alias or accepted contract.
 - `?=` remains ordinary value/pattern matching. A form such as `res_op ?= { backpressure => { ... } }` only applies after `res_op` has explicitly materialized a normal discriminated value or result; it does not implicitly catch resource effects.
 - Future syntax may add more ergonomic forms, but the current uniform resource fallback surface is `?| ... | ...`.
+
+Q03-F supplies the surrounding order graph without changing this settlement
+grammar. The operation executes once; only the selected recovery branch runs;
+a completion skips later ordinary Block items but still runs mandatory exit
+obligations and does not roll back already-visible external effects. Pending
+resource writes may still fuse or move before a commit barrier only when the
+separate optimizer-right proofs preserve those logical events. Compiler support
+for these shared facts and edges remains implementation-pending.
 
 Implementation note: the current value-producing non-task slices are limited to
 file instant pulls, stdin instant pulls, materialized container index/row
@@ -534,12 +561,12 @@ tested before the full typed resource-effect model is closed.
 
 Allowed fallback installation points:
 
-1. Explicit resource-effect settlement: `?| resource_operation | fallback`.
-2. Task/future pull settlement: `?| task -> value: T | fallback`.
-3. Effect-specific resource settlement: `?| resource_operation | effect_name => handler`.
-4. Effect-handler chains: `?| resource_operation | e1 => handler1 | e2 => handler2`.
-5. Audited statement-only effect discard: `?| resource_operation | ...`.
-6. Future resource block-entry settlement, if a block-entry form supports recovery, must use the same `?| block_entry_operation | fallback`, `?| block_entry_operation | effect_name => handler`, handler-chain, or statement-only discard shape. A trailing `} | fallback` is not resource fallback.
+1. Generic operation settlement: `?| operation | fallback`, including task and resource operations.
+2. Generic direction-flow composition: `?| (operation -> destination) | fallback`; `->` retains its single left-to-right data direction, which does not impose source-before-destination preparation time.
+3. Effect-specific settlement: `?| operation | effect_name => handler`.
+4. Effect-handler chains: `?| operation | e1 => handler1 | e2 => handler2`.
+5. Audited statement-only effect discard: `?| operation | ...`.
+6. Future block-entry settlement, if a block-entry form supports recovery, must use the same `?| block_entry_operation | fallback`, `?| block_entry_operation | effect_name => handler`, handler-chain, or statement-only discard shape. A trailing `} | fallback` is not settlement.
 
 All other fallible resource operations still settle at their ordinary statement,
 expression, commit, or cleanup boundary. If no explicit `?| ... | fallback`,

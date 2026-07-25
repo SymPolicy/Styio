@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-20
 
 ## Mission
 
@@ -57,6 +57,7 @@ Key handoff document:
 25. When generated nano CMake needs Windows toolchain discovery paths, derive them from CMake inputs or process environment variables instead of emitting machine-specific absolute roots in `src/main.cpp`.
 26. Compile-plan validation diagnostics must keep service-facing field names stable. Relative `entry.file` reports `file`, relative `outputs.artifact_dir` reports `artifact_dir`, and `outputs.diag_dir` keeps the fully qualified field because invalid diagnostics sinks cannot be written safely.
 27. Windows `styio build` native executable linking must keep LLVM 18 viable with newer MSVC STL headers by emitting the established compiler/STL compatibility define and CRT warning define through the generated Clang command. Do not solve this in CTest with a machine-specific Visual Studio path.
+28. Q03-F generated/JIT/native entry execution must consume the compiler-owned bounded `EntryOutcome` directly. CLI and nano paths map normal success or a finite completion family/payload to the existing diagnostic and exit-code surfaces; they must not clear, poll, match, or report through a process/global/TLS error flag or string subcode. The cutover is one-shot: no fallback from `EntryOutcome` to the ambient channel and no dual compatibility mode. The ABI/layout remains owned by the [Functional Evaluation and Effect Ordering Plan](../plan/Styio-Functional-Evaluation-and-Effect-Ordering-Plan.md); CLI / Nano owns only its driver-side consumption and regression coverage.
 
 ## Change Classes
 
@@ -89,6 +90,7 @@ python3 scripts/docs-audit.py
 2. Test Quality must review new CLI/nano tests and package workflow regression coverage.
 3. Docs / Ecosystem must review [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md) changes.
 4. Frontend or Sema / IR must review CLI switches that select parser or compiler-stage behavior.
+5. Q03-F `EntryOutcome` consumption requires Codegen / Runtime, Sema / IR, Test Quality, and CLI / Nano review on the same cutover revision; Q01's canonical directional-node receipt is an upstream prerequisite, not a second CLI ABI.
 
 ## Handoff / Recovery
 

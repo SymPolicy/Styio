@@ -2,7 +2,7 @@
 
 **Purpose:** Record the current implementation-to-design gap audit for the `styio` repository after the recovery-era rebuild, using the live code, docs, build tree, and local gates as evidence.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-16
 
 **Status:** Active rollup. Use this as a current, evidence-backed audit companion to
 [`CURRENT-STATE.md`](./CURRENT-STATE.md) and [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md).
@@ -83,21 +83,28 @@ Real compiler/runtime surfaces:
 
 ## Highest-Priority Gaps
 
-### P0. Resource-effect `?|` has fallback settlement, but not the full unified model
+### P0. Generic `?|` settlement has resource slices, while a task-specific binder remains migration debt
 
-Design says `?| resource_operation`, `?| resource_operation | fallback`,
-effect-specific handlers, and audited discard are the uniform resource-effect
-surface. See `docs/design/syntax/ACTIVE-SYNTAX.md` resource rows for fallback,
-handler, discard, and pressure observer, and `docs/design/Styio-Language-Design.md`
-task/resource-effect section.
+The frozen contract is `?| operation`, `?| operation | fallback`,
+effect-specific handlers, and audited discard over one generic operation. A
+value-producing result uses ordinary binding, for example
+`answer = ?| operation | fallback`. Independently, `source -> destination` is
+the single direction-flow operation: data moves from the left position to the
+right slot, and endpoint types choose validation/lowering without creating a
+separate task-bind, resource-write, redirect, export, or assignment meaning.
+The two features compose as `?| (operation -> destination) | fallback` when the
+destination is independently valid. See the active syntax and language-design
+authorities for settlement, handler, discard, and pressure-observer details.
 
 Current implementation reality:
 
-1. The parser entry for `?|` now routes through
+1. The parser entry for `?|` still routes through the historically named
    `parse_await_or_resource_effect_stmt_nightly` in
-   `src/StyioParser/NewParserExpr.cpp`; it preserves typed task_await binding
-   for `?| task -> name: T` and routes non-typed resource operations to a
-   resource-effect statement path.
+   `src/StyioParser/NewParserExpr.cpp`. Its split task/resource routing and its
+   typed task-target acceptance for `?| task -> name: T` conflict with the
+   generic settlement contract and are deletion/migration debt. This does not
+   invalidate ordinary `task -> destination` direction flow; it invalidates
+   only the task-specific declaration grammar attached to `?|`.
 2. Resource-effect statements now lower through an explicit resource-effect
    AST/IR wrapper. `?| resource_operation` settles the operation and emits a
    runtime-error guard at that source site, statement-only
@@ -108,12 +115,15 @@ Current implementation reality:
    chains, stores them through AST/IR, rejects duplicate or unknown handler names
    in Sema, and dispatches matched runtime subcodes through the current resource
    error channel.
-3. Task/future pull settlement now has parser/Sema/lowering/runtime evidence:
-   `?| task -> name: T` and `?| task -> name: T | fallback` lower through
-   `SIOFlowBind`; failed task pulls run the await fallback only after clearing
-   the materialized task error; failed task pulls without fallback stop at the
-   await settlement site; non-task await sources and bare continuation freeze
-   fallbacks fail closed.
+3. The current task-specific path has parser/Sema/lowering/runtime evidence for
+   `?| task -> name: T [| fallback]` through `SIOFlowBind`, including clearing a
+   materialized task error before recovery and fail-fast behavior without a
+   fallback. Those runtime invariants are reusable, but the parser/AST/Sema
+   binder shape is not accepted syntax. It must migrate to generic settlement
+   (`answer = ?| task_operation | fallback`) and, where a destination flow is
+   intended, generic composition (`?| (task_operation -> destination) |
+   fallback`). The targetless `?| -> name: T` route remains invalid and has no
+   reserved continuation role.
 4. File-backed resource-write and handle-acquire smoke coverage proves fallback
    and named `io` handlers run only after the resource failure is materialized
    and cleared, successful operations skip recovery, unmatched handlers such as
@@ -317,7 +327,8 @@ Current implementation reality:
 Impact: statement-shaped fallback, audited discard, and named handler chains now
 have a real parser/Sema/IR/codegen/runtime path for current runtime error
 subcode families such as `io`, plus the first file-close cleanup-failure family.
-Task await fallback settlement for failed task pulls is now covered, and plain
+The current task-specific settlement path covers failed task-pull behavior but
+remains migration evidence rather than accepted grammar. Plain
 file acquire/write/release failures now fail fast before subsequent statements
 when no `?|` recovery wrapper is present, direct file iterators fail fast on open
 failure, successful direct file release continues normally, and same-path
@@ -708,14 +719,16 @@ These should not be counted as missing implementation in this checkout:
    `ScalarAndInferredFunctionReturnsStayExecutable` keeps adjacent scalar/inferred returns executable, and
    `StyioSecurityNightlyParserStmt.RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback`
    covers the Sema/lowering fail-closed path.
-11. Task await fallback settlement is no longer missing from the resource-effect
-   compatibility path. `StyioResourceEffects` proves failed task pulls run
-   fallback after clearing the materialized task error and fail fast without
-   fallback, `StyioSecurityNightlyParserStmt` keeps bare continuation freeze
-   fallback fail-closed, and `task_resources` feature negatives cover non-task
-   await sources and reserved bare freeze fallback syntax.
+11. Task-pull error clearing and fail-fast behavior have implementation
+   evidence, but the tests currently reach that behavior through the
+   unauthorized task-specific `?| task -> name: T [| fallback]` route. Treat
+   `TaskAwait*`, non-task-await, and bare-freeze test names as migration debt,
+   not grammar acceptance. Replacement coverage must exercise
+   `answer = ?| task_operation | fallback` and generic
+   `?| (task_operation -> destination) | fallback`; `?| -> name: T` has no
+   reserved continuation meaning.
 12. File and stdin instant-pull value-producing resource effects are no longer missing
-   from the non-task `?|` path. `StyioResourceEffects` proves success and
+   from the generic `?|` path. `StyioResourceEffects` proves success and
    fallback values are returned from `result = ?| (<< @file("data.txt")) | fallback`,
    named `io` handler values can recover a file-open read failure, and acquired
    file handles from a preceding `?| f <- @file(...) | ...` can feed
@@ -790,7 +803,7 @@ These should not be counted as missing implementation in this checkout:
    `StyioSecurityNightlySemantics` prove parser/codegen routing, fallback type
    checking, and the adjacent fallback-mismatch boundary.
 15. Simple value-producing resource methods are no longer excluded from the
-   first non-task `?|` value path. `StyioResourceEffects` proves direct
+   first generic `?|` value path. `StyioResourceEffects` proves direct
    `log.answer()` and `result = ?| log.answer() | fallback` return simple
    single-`<| expr` method values and accepted statement-preface final-return
    bodies without lowering an expression-context
@@ -1013,8 +1026,10 @@ These should not be counted as missing implementation in this checkout:
    checkpoints. Statement-only discard, catch-all fallback, and the first
    statement-shaped named-handler chain slice are implemented, and explicit
    file-write close cleanup failure now reaches the `cleanup` handler family.
-   Task_await fallback settlement now has parser, Sema, lowering, runtime, and
-   negative evidence. Plain file acquire/write/release, direct file iterator
+   Task-specific typed await-target parsing has parser, Sema, lowering, runtime,
+   and negative evidence only as migration debt; replace it with generic
+   operation settlement while retaining the verified error-clearing and
+   fail-fast invariants. Plain file acquire/write/release, direct file iterator
    open, and same-path alias closed-handle failures now settle at ordinary
    statement boundaries outside `?|`, and file/stdin instant-pull plus materialized
    container-index/list-slice resource-effect expressions and simple
