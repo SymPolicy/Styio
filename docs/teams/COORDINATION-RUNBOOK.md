@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily coordination entrypoint for Styio maintainers and tech leads; this file routes ownership, review, escalation, checkpoint, and cutover decisions to existing SSOTs instead of redefining them.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-07-20
 
 ## Mission
 
@@ -60,6 +60,7 @@ flowchart TB
 4. CLI diagnostics or nano package changes require CLI / Nano and Docs / Ecosystem review; add Codegen / Runtime when runtime capability output changes.
 5. IDE public API or LSP surface changes require IDE / LSP, Grammar when syntax behavior changes, and Docs / Ecosystem for `docs/external/for-ide/`.
 6. Documentation structure changes require Docs / Ecosystem review and must preserve generated-index and audit gates.
+7. Q03-F evaluation/Outcome changes require Sema / IR, Codegen / Runtime, CLI / Nano, Test Quality, Perf / Stability, and Docs / Ecosystem review. Q01 owns canonical direction/settlement nodes and must provide its completed interface receipt first; Q03-F then owns one generated-code Outcome cutover and complete ambient-state deletion, with no shared or duplicate deletion owner.
 
 ## Escalation Rules
 
@@ -80,6 +81,7 @@ Any high-risk cross-team work must stay checkpoint-sized:
 5. If a checkpoint changes cross-repo phase IDs, repo exits, or shared cutover rules, update the authoritative ecosystem plan and affected handoff docs in the same batch.
 6. If a checkpoint changes docs tree topology, index-generation rules, archive/rollup lifecycle, ignore-policy baseline, or tracked-fixture negate rules, update the documentation policy and affected docs/runbook owners in the same batch.
 7. Run the smallest team gate first, then `./scripts/delivery-gate.sh` for the common auto delivery floor. Pass `--base <ref>` only when auto cannot infer the intended branch delivery base. Keep `./scripts/checkpoint-health.sh` as the inner recovery gate.
+8. For Q01 → Q03-F integration, foundations may remain source-unreachable while prerequisites are pending, but the source-reachable directional integration, lazy CFG, generated/native producer migration, JIT/CLI `EntryOutcome` consumption, and ambient-state deletion form one Q03-F cutover train. Do not create a legacy adapter, dual ABI, feature flag, or release point between those steps.
 
 ## Release / Cutover Gates
 
@@ -90,6 +92,7 @@ The unified delivery floor is additive, not a replacement. Run `./scripts/delive
 | Default parser route | Feature tests, parser shadow gates, `parser_legacy_entry_audit`, relevant fuzz smoke |
 | IR shape accepted by codegen | Five-layer cases for affected stages plus feature or unit coverage |
 | Runtime or handle contract | Security tests, soak smoke, relevant benchmark route |
+| Q03-F evaluation / Outcome cutover | Q01 canonical-interface receipt; `functional_evaluation` suites; generated/native/JIT/CLI outcome cases; ambient-state structural-zero search; verifier, performance, documentation, and Better Plan gates |
 | CLI diagnostic or exit-code contract | CLI-focused unit/feature cases and docs update |
 | Nano package contract | Nano tests in `styio_test`, [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md) review |
 | LSP or IDE API surface | `styio_ide_test`, [../external/for-ide/INDEX.md](../external/for-ide/INDEX.md) update, syntax grammar gate when applicable |

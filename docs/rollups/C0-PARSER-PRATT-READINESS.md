@@ -2,7 +2,7 @@
 
 **Purpose:** Record the current parser expression structure and identify migration boundaries for Checkpoint C (Pratt/precedence-climbing parser unification). This is a readiness-only snapshot; no parser rewriting is in scope until C0 is approved.
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-07-16
 
 **Status:** Pre-implementation inventory for Checkpoint C.
 
@@ -102,7 +102,8 @@ The following golden inputs lock current parser behavior. Run as feature tests o
 | `a == b && c != d` | `(a == b) && (c != d)` | Low |
 | `f(x)(y)[0]` | `((f(x))(y))[0]` | Medium |
 | `xs[0..2]` | Slice | Low |
-| `?\|\ job -> value: i64 \| 0` | Await pipe | Low |
+| `value = ?\|\ job \| 0` | Generic operation settlement in ordinary binding | Low |
+| `?\|\ (job -> value) \| 0` | Generic direction flow nested in settlement | Low |
 | `@stdin >> #(line) & xs >> #(x) => { ... }` | Stream zip | Medium |
 
 ## 8. Checkpoint C Migration Boundary

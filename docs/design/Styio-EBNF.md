@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-07-20
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -47,6 +47,14 @@ escape_seq     = '\' ( 'n' | 't' | 'r' | '\' | '"' | '0' ) ;
 char_escape_seq = '\' ( 'n' | 't' | 'r' | '0' | '\' | '\'' ) ;
 ```
 
+`int_literal` and `float_literal` are source grammar categories, not concrete
+storage types. Their accepted exact-value, fail-closed materialization, late
+`i64`/`f64` default, and closed scalar `Add` semantics are owned by
+[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md).
+That semantic decision does not add a suffix, radix, separator, exponent,
+keyword, token, or production; only spellings present in this grammar are
+accepted.
+
 ### 2.3 Core Compound Symbols
 
 These are ordered by **priority** for maximal-munch disambiguation.
@@ -55,14 +63,20 @@ These are ordered by **priority** for maximal-munch disambiguation.
 (* Resource / State *)
 TOK_AT             = '@' ;
 
-(* State reference *)
+(* Retired state-reference prefix: `$` before an identifier is a parse error *)
 TOK_DOLLAR         = '$' ;
 
-(* Arrows and redirections *)
+(* Derived-binding capture head `$(`; design-accepted, parser pending *)
+TOK_DOLLAR_PAREN   = '$(' ;
+
+(* Rightward directional transfer plus the separately defined left-arrow token *)
 TOK_ARROW_RIGHT    = '->' ;
 TOK_ARROW_LEFT     = '<-' ;
 
-(* Reserved wave tokens: tokenized for future use, rejected by parser today. *)
+(* Reserved wave tokens: reserved symbols only. They participate in no syntax
+   feature, and no grammar production may reference them, until the language
+   design explicitly declares an activation. The parser rejects every
+   occurrence. *)
 TOK_WAVE_LEFT      = '<~' ;
 TOK_WAVE_RIGHT     = '~>' ;
 
@@ -77,7 +91,11 @@ TOK_PIPE_SEMI      = '|;' ;
 (* Pipe *)
 TOK_PIPE           = '>>' ;
 TOK_TASK_LAUNCH    = '||>' ;
-TOK_AWAIT_PIPE     = '?|' ;
+TOK_AWAIT_PIPE     = '?|' ;      (* legacy token name; operation settlement or callable completion-bound marker by grammar context *)
+TOK_SESSION_MARK   = '|?|' ;   (* resource session marker; mid-transfer placement *)
+TOK_SESSION_EXIT   = '|!|' ;   (* session-exit special handling, e.g. |!|(cleanup) *)
+TOK_SETTLE_FWD     = '|>' ;    (* deferred settlement / control transfer after session *)
+(* '|<-' remains reserved; no production consumes it. *)
 
 (* IO buffer *)
 TOK_IO_BUF         = '>_' ;
@@ -128,11 +146,10 @@ TOK_PLUS_ASSIGN    = '+=' ;
 TOK_MINUS_ASSIGN   = '-=' ;
 TOK_STAR_ASSIGN    = '*=' ;
 TOK_SLASH_ASSIGN   = '/=' ;
-TOK_PIPE_SINGLE    = '|' ;
+TOK_PIPE_SINGLE    = '|' ;    (* anchored grammar separator; never a general value operator *)
 TOK_CARET          = '^' ;
 TOK_TILDE          = '~' ;
 TOK_QUESTION       = '?' ;
-TOK_DBQUESTION     = '??' ;
 ```
 
 ### 2.4 Variable-Length Tokens
@@ -169,10 +186,9 @@ top_level_statement = import_declaration
                     | statement ;
 
 statement          = declaration
-                   | assignment
+                   | ordinary_binding
+                   | compound_assignment
                    | conditional_stmt
-                   | await_stmt
-                   | resource_effect_discard_stmt
                    | task_group_launch
                    | resource_order_stmt
                    | match_bind_expr
@@ -212,13 +228,22 @@ declaration        = callable_decl ;
 
 callable_decl      = '#' identifier callable_decl_tail ;
 
-callable_decl_tail = [ ':' type_annotation ] [ capture_list ]
+callable_decl_tail = [ callable_contract ] [ capture_list ]
                      ( bind_op callable_body
                      | '=>' callable_tail )
-                   | '(' [ param_list ] ')' [ ':' type_annotation ] [ capture_list ]
+                   | '(' [ param_list ] ')' [ callable_contract ] [ capture_list ]
                      ( bind_op callable_tail
                      | '=>' callable_tail
                      | '?=' match_body ) ;
+
+callable_contract  = ':' type_annotation [ completion_upper_bound ] ;
+
+completion_upper_bound = '?|' '{'
+                         completion_family_ref
+                         { ',' completion_family_ref }
+                         '}' ;
+
+completion_family_ref = identifier ;
 
 bind_op            = '=' | ':=' ;
 
@@ -235,16 +260,22 @@ param              = identifier [ ':' type_annotation ] ;
 
 type_annotation    = type_expr ;
 
-type_expr          = type_primary { type_suffix } ;
+type_expr          = optional_type ;
+
+optional_type      = '?' '|' type_expr
+                   | suffixed_type ;
+
+suffixed_type      = type_primary { type_suffix } ;
 
 type_primary       = scalar_type
                    | identifier [ '[' type_arg_list ']' ]
+                   | '(' type_expr ')'
                    | tuple_type ;
 
 scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | 'f32' | 'f64'
                    | 'bool' | 'char' | 'string' | 'byte'
-                   | 'matrix' ;
+                   | 'matrix' | 'unit' | 'never' ;
 
 type_arg_list      = type_expr { ',' type_expr } ;
 
@@ -275,6 +306,50 @@ Notes:
    `# sink = @stdout` is invalid because `@stdout` must stay visibly a resource.
    Native `@ extern(...)` import bindings are the separate native-callable import
    form, not resource aliasing.
+5. `unit` and `never` are written as literals in this grammar for readability,
+   but the tokenizer emits ordinary `NAME` tokens; type resolution recognizes
+   them contextually and adds no keyword token.
+6. `? | T` is the canonical source spelling for optionality. Repeated forms are
+   accepted but normalize as a set-like union, so `? | (? | T) == ? | T`.
+   `? | unit` still has two states because optional presence is independent of
+   Unit payload bytes.
+7. `?|` is contiguous in `completion_upper_bound`; it is a different lexer
+   token from the spaced `? | T` Optional prefix. The completion clause is
+   available only after a callable's normal result annotation and is not an
+   ordinary `type_expr` or value union.
+8. `# f : T ?| {io, parse} := ...` declares the finite nominal completion
+   upper bound `{io, parse}`. The braces and commas are compile-time signature
+   structure, not a runtime set/dict/block value. Family references are
+   identifiers resolved by Sema; duplicate or non-family names are errors.
+9. The family list is non-empty and has no trailing comma. A callable contract
+   written as `: T` with no completion clause always declares the empty upper
+   bound; `?| {}` is redundant and rejected.
+10. Only an eligible non-boundary lexical-local or module-private callable that
+    omits the entire `callable_contract` may infer its complete operation
+    summary. Public/exported, recursive, native/FFI, and typed protocol-boundary
+    callables require every parameter type and the callable contract. Writing
+    `: T` never asks the compiler to infer hidden completion families.
+11. Eligibility requires a capture-safe, final `:=`, non-recursive callable
+    value. Its definition-site principal constrained rank-1 scheme generalizes
+    only variables not free in the lexical environment. The detailed rule is
+    owned by [Styio Callable Principal Inference](./Styio-Callable-Principal-Inference.md).
+12. Every permitted use freshly instantiates that stable scheme. First use,
+    future callers, source/hash order, numeric or backend defaults, `any`, and
+    `dynamic` cannot determine it.
+13. A bare `# f = ...` only checks a replacement against an already established
+    scheme. It never creates or changes a scheme; an initial mutable callable
+    requires a complete explicit contract.
+14. Compiler displays such as `forall T`,
+    `Add(T, IntegerLiteral(5), T, Completion(T))`, and type
+    variables are metalanguage, not source. The concrete closed relation is
+    owned by
+    [Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
+    while `F02` owns any future author-written generic or completion-row
+    surface.
+15. `overflow` is a payload-free prelude completion-family identifier, not a
+    keyword. Checked integer `+`, strict floating `+`, literal defaulting, and
+    compile-time completion edges are semantic rules and add no token or
+    production.
 
 ### 4.3 Type Rewrite Declaration
 
@@ -304,13 +379,45 @@ schema_field       = '@' '[' ( integer | identifier ) ']' identifier ;
 
 ---
 
-## 5. Assignments
+## 5. Ordinary Bindings And Assignments
 
 ```ebnf
-assignment         = identifier assign_op expression ;
+ordinary_binding   = identifier [ ':' type_annotation ] bind_op expression ;
 
-assign_op          = '=' | '+=' | '-=' | '*=' | '/=' | ':=' ;
+compound_assignment = identifier compound_assign_op expression ;
+
+compound_assign_op = '+=' | '-=' | '*=' | '/=' ;
+
+derived_binding    = identifier ':=' '$(' identifier { ',' identifier } ')'
+                     '=>' expression ;
 ```
+
+`ordinary_binding` covers both creation and mutable `=` rebinding; semantic
+analysis distinguishes them from the symbol table. `:=` creates a final binding
+and cannot rebind an existing name. The RHS `expression` is mandatory in every
+ordinary case: `name : T` is not a production and is rejected rather than
+creating zero, Unit, absence, an uninitialized slot, or an implicit default.
+
+Typed binder positions are owned by their enclosing productions rather than by
+`ordinary_binding`. For example, parameters and pattern/iteration binders
+receive a value atomically from the call, match, or iteration operation. Schema
+fields and resource topology slots are declarations of shape/protocol, not
+empty ordinary storage bindings, and this grammar grants them no implicit
+construction default. Settlement introduces no special target-declaration
+exception: bind its produced value with an ordinary RHS, for example
+`answer : T = ?| operation | fallback`.
+
+(* Derived binding: frame-committed derived slot; see Language Design §5.3.
+   Design-accepted, parser pending, fails closed. Fail-closed whitelist:
+   module/topology scope only; `:=` only; the body is one pure expression
+   checked by the dedicated derived-binding effect-free whitelist; captured
+   names are module-scope
+   mutable bindings or other derived bindings; `$()`, duplicate names, unused
+   captures, identity aliases (`x := $(y) => y`), and cycles including
+   self-capture are rejected; after initialization, captured variables may be
+   rewritten only inside pulse-frame contexts; derived names stay out of task
+   blocks until the task memory model lands. The removed head spelling
+   `name $(deps) := expr` is not syntax. *)
 
 ---
 
@@ -346,11 +453,51 @@ consumer           = [ closure_sig ] '=>' ( block | expression )
 
 closure_sig        = '#' '(' [ param_list ] ')' ;
 
-block              = '{' { statement [ statement_sep ] } [ yield_expr [ statement_sep ] ] '}' ;
+block              = '{' [ block_content ] '}' ;
 
-yield_expr         = '<|' expression
-                   | '|<|' expression ;
+block_content      = sole_expression
+                   | statement_sequence [ statement_sep ]
+                   | [ statement_sequence statement_sep ] block_yield [ statement_sep ] ;
+
+sole_expression    = expression ;
+
+statement_sequence = statement { statement_sep statement } ;
+
+block_yield        = '<|' expression
+                   | '|<|' expression '|;' ;
 ```
+
+`sole_expression` is selected only when the Block contains exactly one ordinary
+expression item and no separator or explicit yield. It is value sugar:
+`=> expr`, `=> { expr }`, and `=> { <| expr }` have the same result. It does not
+create general tail-expression semantics; a multi-item Block needs an explicit
+`block_yield` for a non-Unit result. The inline spelling has its own mandatory
+`|;` in the production and therefore cannot be accepted without it.
+
+Every reachable natural closing brace contributes `() : unit`. Reachable normal
+exits must have compatible canonical result types; `T` plus reachable Unit
+fallthrough is an error and never synthesizes a default or `? | T`. A proven
+non-completing edge has type `never` and joins as `join(T, never) = T` without
+fallback. Both yield spellings target only the immediately owning lexical Block;
+only the outer function-body Block result is adapted to a function result.
+`<| ()` is legal. Unit-only consumers reject a non-Unit yield, and structurally
+unreachable siblings after unconditional completion are compile-time errors.
+
+Q03-F adds no production. Top-level items recognized by `statement_sequence`
+form the Block's explicit order-sensitive sequence: an earlier item normally
+settles before a later order-sensitive item starts, and completion skips later
+ordinary items while preserving mandatory exit obligations. By contrast,
+comma-separated arguments/elements and ordinary operator operands do not gain
+a source-position time edge. They are strict value prerequisites; two unordered
+order-sensitive siblings are rejected and must be prebound/settled as Block
+items. See
+[Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md).
+
+A `conditional_stmt` without an else block is statement-only. If its guard is
+false, it executes no branch statements and completes with Unit `()`; it never
+manufactures absence or a default. A value-position guard is instead parsed by
+`conditional_value_expr` and requires both branches separated by its
+grammar-anchored `|`.
 
 In `flow_pipeline`, the `>>` operator is the two-character iterator/pulse transfer
 operator. The `stream_source` side must produce an iterable sequence or pulse stream;
@@ -365,10 +512,35 @@ Conditional infinite loops use `[...] >> ?(condition) => { ... }`, so
 
 ```ebnf
 zip_pipeline       = stream_source '>>' closure_sig
-                     '&' [ '[' expression ']' ]
+                     '&'
                      stream_source '>>' closure_sig
                      '=>' block ;
+
+(* `&` is an event-arrival barrier: the first-arriving side blocks and waits
+   until the other side delivers, then the block fires once per matched pair.
+   The removed tolerance-window spelling `&[expr]` is rejected; `&` takes no
+   bracketed argument. Pressure observer streams are not zip sources: a
+   conflated level stream contradicts the barrier semantics. *)
 ```
+
+### 7.1.1 Pressure Observer Stream
+
+```ebnf
+pressure_observer  = expression '.' 'pressure' '>>' closure_sig '=>' block ;
+```
+
+(* `pressure` is a Sema-recognized member attribute in the member namespace,
+   not a reserved grammar word. The parser routes `expr.pressure >> #(p) =>`
+   through the attribute/iterator path; Sema rejects every current resource
+   family with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`.
+   Contract at activation (Language Design §6, backpressure): delivery is a
+   single-slot conflated latest-wins level sensor (no reading queue, no
+   meta-pressure); the payload is a prelude-declared read-only struct
+   `{ pending: i64, limit: i64, peak: i64 }` pending the general struct story;
+   pulses fire only on hysteresis state transitions (enter / exit / escalate);
+   observer bodies run as ordinary frames off the writer path; observer-to-
+   observed-resource write cycles, duplicate observers, non-module-scope
+   observers, and pressure streams as zip sources are rejected. *)
 
 ### 7.2 Snapshot Declaration
 
@@ -384,7 +556,7 @@ instant_pull       = '(' '<-' resource ')' ;
 legacy_instant_pull = '(' '<<' resource ')' ;  (* compatibility only; do not use in new design text *)
 ```
 
-### 7.4 Tasks and Await
+### 7.4 Tasks
 
 ```ebnf
 task_expr          = '||>' block ;
@@ -393,19 +565,42 @@ task_group_launch  = '||>' '[' task_group_entry { statement_sep task_group_entry
 
 task_group_entry   = identifier ( ':=' | '=' ) block ;
 
-await_stmt         = '?|' [ expression ] '->' identifier ':' type_annotation
-                     [ '|' expression ] ;
-
 resource_order_stmt = identifier '=>' identifier ;
 ```
 
-`await_stmt` without a source (`?| -> name: T`) is reserved for bare continuation
-freeze. The parser accepts it, but current semantic analysis rejects it until
-continuation lowering can enforce one-shot resume/discontinue.
+Tasks do not own a special await/binder production. A task-producing operation
+is settled by the same `settlement_expr` as every other settleable operation,
+and an ordinary result is bound through the ordinary binding grammar:
+`answer : T = ?| job | fallback`. The shapes `?| job -> answer : T` and
+`?| -> answer : T` are not productions. The former must not be confused with a
+valid generic directional transfer such as `job -> answer`, nor with settlement
+of such a transfer: `?| job -> answer | fallback` groups as
+`?| (job -> answer) | fallback`.
 
-`await_stmt` with a source settles the task/future pull at the current source
-site. Without `| fallback`, pull failure raises immediately. With `| fallback`,
-the declared value type and fallback value type must unify.
+### 7.5 Resource Session
+
+```ebnf
+session_block      = '|?|' block ;
+
+session_exit       = '|!|' '(' effect_name ')' '=>' ( block | expression ) ;
+
+session_forward    = '|>' expression ;
+
+(* Mid-transfer: execution symbols both before and after |?|.
+   Examples:  # f => |?| { ... } |!|(cleanup) => handler
+              # f := |?| { ... } |> g
+              a => |?| { ... } |> b |> c |> cleanup => handler
+
+   Statement-start settlement opens with ?|:
+              ?| |?| { ... } | cleanup => handler
+              ?| |?| { ... } |> next |> cleanup => handler
+
+   Body whitelist: handles and anchors only. Topology @name : Type inside
+   session_block is rejected (Resource Topology §4.1 / §4.2).
+   Design-accepted; parser-pending and fail-closed until implementation. *)
+
+effect_name        = identifier ;  (* cleanup, ResourceCleanupFailure, … *)
+```
 
 ---
 
@@ -425,41 +620,96 @@ the declared value type and fallback value type must unify.
 | 8 | `&&` | Left |
 | 9 | `\|\|` | Left |
 | 10 | `>>`, `?=` | Left |
-| 11 | `<\|` | Left |
-| 12 | `\|` (value fallback / guard else) | Left |
-| 13 | `??` (diagnostic) | Left |
-| 14 (lowest) | `=`, `+=`, etc. | Right |
+| 11 (lowest) | `=`, `+=`, etc. | Right |
+
+Precedence and associativity determine only the parse tree. They never create
+an operand-evaluation timeline. Q03-F separately requires strict prerequisites,
+explicit dependency/effect edges, and static rejection of unordered
+order-sensitive siblings.
+
+`<|` does not appear in the expression precedence table: it is a lexical
+Block-completion marker only (`block_yield`), and the infix apply-pipe
+production is removed. Ordinary application uses call syntax `f(a)(b)`;
+continuation syntax is not activated by this rule.
+
+A single `|` is not an expression operator and therefore has no precedence.
+The parser consumes it only inside a grammar production that has already fixed
+its role: the union delimiter in type position (including `? | T`), the else
+separator after `?(cond) => ...`, or a handler/fallback separator inside a
+settlement expression that begins with `?|`. The parser rejects `a | b`,
+`true | false`, `0 | 1`, and longer bare-pipe chains before semantic analysis;
+type inference, truthiness, and purity analysis may not reinterpret them.
+
+There is no ordinary value-level fallback or coalescing operator. In
+particular, neither `a | b` nor `a ?? b` is a source expression. `??` has no
+token, grammar production, or semantic role in the target language.
 
 ### 8.2 Expression Grammar
 
 ```ebnf
-expression         = resource_effect_expr
+expression         = settlement_expr
+                   | directional_transfer
                    | range_expr
-                   | apply_expr ;
+                   | conditional_value_expr ;
 
-range_expr         = apply_expr dot_run apply_expr ;
+range_expr         = conditional_value_expr dot_run conditional_value_expr ;
 
-resource_effect_expr
-                   = '?|' resource_operation { '|' resource_effect_handler } ;
+settlement_expr    = '?|' settleable_operation
+                     { '|' named_completion_arm }
+                     [ '|' expression ] ;
 
-resource_effect_discard_stmt
-                   = '?|' resource_operation { '|' effect_handler_clause } '|' '...' ;
+settleable_operation
+                   = directional_transfer
+                   | range_expr
+                   | conditional_value_expr ;
 
-resource_operation = range_expr
-                   | apply_expr ;
+named_completion_arm
+                   = completion_family [ '(' identifier ')' ]
+                     '=>' ( block | expression ) ;
 
-resource_effect_handler
-                   = effect_handler_clause
-                   | expression ;
+completion_family  = identifier ;
 
-effect_handler_clause
-                   = identifier '=>' ( block | expression ) ;
+directional_transfer
+                   = transfer_source '->' transfer_destination ;
 
-apply_expr         = conditional_value_expr { '<|' conditional_value_expr } ;  (* left associative; one-shot continuation resume when lhs is captured *)
+transfer_source    = range_expr
+                   | conditional_value_expr ;
+
+transfer_destination
+                   = postfix_expr
+                   | terminal_handle ;
+
+(* `->` has one graphical, directional meaning: place the value produced at the
+   left location into the destination/receiver endpoint drawn on the right.
+   A name, resource, task-result receiver, channel, or terminal is an endpoint
+   kind, not a separate arrow role. The destination does not declare a name and
+   must independently resolve to a legal writable endpoint. Successful transfer
+   has result `() : unit`; it never yields an implicit source, destination, or
+   receipt. The endpoint protocol determines compatibility, completion families,
+   and lowering. Q03-F fixes preparation ordering without adding grammar:
+   source value and endpoint capability are independent prerequisites of the
+   transfer, so arrow direction does not imply source-before-endpoint
+   preparation. Two order-sensitive preparations require prior Block items.
+   This rule still does not decide ownership, backpressure scheduling, chaining,
+   or arrow associativity.
+
+   `?|` is orthogonal: it settles the complete `settleable_operation`. Therefore
+   `?| source -> destination | fallback` is always
+   `?| (source -> destination) | fallback`; it never invokes a task-only await
+   binder and never declares `destination`. *)
+
+(* The infix apply-pipe production (`f <| a <| b`) is removed. Ordinary
+   application uses `postfix_expr` call chains such as `f(a)(b)`. `<|` appears
+   only in `block_yield`; no continuation surface follows from this grammar. *)
 
 conditional_value_expr
                    = guard '=>' logic_or_expr '|' logic_or_expr
                    | logic_or_expr ;
+
+(* There is deliberately no production of the form
+   expression '|' expression. Bare binary value pipe is a syntax error, not a
+   type-directed or purity-directed fallback candidate. There is likewise no
+   `??` value-fallback production. *)
 
 logic_or_expr      = logic_and_expr { '||' logic_and_expr } ;
 
@@ -485,10 +735,21 @@ selector           = '[' selector_body ']' ;
 selector_body      = dot_run                         (* x[..], x[...] *)
                    | expression dot_run [ expression ]  (* x[a..], x[a..b] *)
                    | dot_run expression              (* x[..b] *)
-                   | [ selector_mode ',' ] expression_list ;
+                   | '%' expression                  (* x[%n] stride selector *)
+                   | expression_list ;
 
-selector_mode      = 'avg' | 'max' | 'min' | 'std' | 'rsi'
-                   | identifier ;
+(* Selectors are a pure-symbol selection algebra: no identifier participates
+   in selector syntax. The word-mode production `[ selector_mode ',' ] ...`
+   with `avg` / `max` / `min` / `std` / `rsi` is removed from the design.
+   Series intrinsics use ordinary call syntax `avg(series, n)` recognized by
+   semantic analysis, the same model as matrix helper calls. The parser path
+   that still accepts `[avg, n]` / `[max, n]` is compatibility debt.
+
+   The stride selector `x[%n]` keeps elements at index ≡ 0 (mod n); `n` is a
+   positive integer, `[%1]` is identity, `[%0]` is rejected. It is a
+   design-accepted surface: the parser does not implement it yet and fails
+   closed until implementation evidence lands. There is no left operand
+   inside the bracket, so `[%` never collides with binary modulo. *)
 
 (* Retired selector families are parser errors outside registered negative tests. *)
 
@@ -499,27 +760,43 @@ member_access      = '.' identifier ;
 expression_list    = expression { ',' expression } ;
 ```
 
+Calls, ordinary operators, selectors, and expression lists are strict: every
+required child must produce its value before the parent operation starts.
+Independent children do not gain a left-to-right time edge from their source
+positions. If two children are order-sensitive and no accepted data, control,
+resource, ownership, or Block edge orders them, Sema rejects the parent and the
+author first binds/settles them in consecutive Block items. `&&` and `||` are
+the exception only in the precise sense that their right operand is selected
+by a short-circuit control edge and is not evaluated when unselected.
+
 `range_expr` is the naked expression-level range form, such as `start..end`.
 It is not a list literal. Step range spelling such as `start..end..step` is
-reserved, not active syntax, and not canonical.
+removed from the design and rejected by the parser.
 
-`resource_effect_expr` is the only resource fallback surface. `?| op` settles
-the resource operation in place and raises a structured error immediately if it
-fails. `?| op | fallback` evaluates `fallback` only for resource-effect failure,
-then type-checks the operation success value and fallback value against the same
-use-site type. `?| op | effect => handler` handles only the named typed effect
-family and must still type-check against the same use-site type. Multiple named
-handlers may be chained; duplicate handlers are rejected, and any catch-all
-fallback must be last. A bare `op | fallback` is not resource fallback.
-Statement-shaped resource operations that become `?|`-eligible must route
-through the same settlement contract rather than adding a trailing bare
-`| fallback`. `?=` does not catch resource effects; it only matches ordinary
-values that have already been materialized. `?| op | ...` is a separate
-statement-only discard form: it settles the operation, discards business recovery
-for effects at that site, produces no value, and continues with the next
-statement. It is rejected in expression contexts such as assignment, call
-arguments, and branch values. A bare `@()` handler is also rejected because `@()`
-is the empty resource / destroy sink, not an executable empty action.
+`settlement_expr` is the only effect-settlement surface and always wraps one
+complete operation. A bare `operation | fallback` is not settlement syntax.
+Resource and task operations do not create another `?|` grammar role, and an
+inner generic directional transfer remains a directional transfer. `?=` does
+not catch effects; it matches only ordinary values already materialized.
+
+`completion_family` and the optional payload binder are identifiers, not
+keywords. `io(err)` therefore means “resolve the family identifier `io` and
+bind its payload locally as `err`”; neither spelling is reserved. The bare form
+matches the same exact nominal family without binding its payload. Binding a
+no-payload family is rejected by Sema.
+
+The operation executes once. Success bypasses recovery; only the selected arm
+executes, lazily and once, with no implicit retry. Named arms match exact family
+identity, duplicates are rejected, and a catch-all expression must be last. A
+bare fallback catches only remaining recoverable failures. All normally
+completing arms must join with the operation's success type; `never` contributes
+no normal value. Unhandled families and failures from recovery expressions
+propagate statically. Absence remains `? | T`; EOF, cancellation, and shutdown
+are not matched by bare fallback; fatal/trap is outside settlement; pressure is
+not a completion family until an owning protocol explicitly escalates it.
+
+There is deliberately no `?| operation | ...` production. That retired parser
+candidate is a syntax error in statement and expression positions.
 
 ### 8.3 Primary Expressions
 
@@ -530,6 +807,8 @@ primary_expr       = identifier
                    | string_literal
                    | char_literal
                    | 'true' | 'false'
+                   | unit_value
+                   | optional_empty
                    | resource
                    | collection
                    | instant_pull
@@ -537,7 +816,20 @@ primary_expr       = identifier
                    | '(' expression ')'
                    | '?' '(' expression ')'        (* guard condition prefix; followed by => for value selection *)
                    | block ;
+
+unit_value         = '(' ')' ;
+
+optional_empty     = '(' '?' ')'
+                   | '[' '?' ']'
+                   | '{' '?' '}' ;
 ```
+
+All three `optional_empty` productions construct the same empty Optional value;
+the delimiters do not create different types or states. They require an expected
+`? | T` payload type or a compatible control-flow join. Exact-token recognition
+disambiguates `(?)` from a parenthesized expression, `[?]` from a collection, and
+`{?}` from a Block before the enclosing generic production is entered. `()` is
+the sole value of `unit` and is not Optional empty.
 
 ---
 
@@ -617,8 +909,9 @@ tuple_literal      = '(' expression ',' expression { ',' expression } ')' ;
 
 materialized_range = '[' range_expr ']' ;
 
-reserved_step_range = expression dot_run expression dot_run expression ;
-                   (* reserved / not active / not canonical *)
+(* Step range spellings such as `[start..end..step]` are removed from the
+   design. There is no step-range production; the parser rejects those
+   spellings, and `[start..end]` is the only materialized range form. *)
 ```
 
 `[start..end]` is a materialized range. It materializes the expression-level
@@ -627,9 +920,15 @@ range `start..end` as an iterable `list[i64]` source, and
 consumer one at a time. The parser must not interpret `[start..end]` as a
 `list_literal` containing one naked `range_expr`; there is no comma-separated
 list element in that form. `[start..end..step]` and equivalent step spellings
-remain reserved and are rejected by the active parser.
+are removed from the design and rejected by the parser.
 
 `matrix` annotations reuse nested `list_literal` syntax as their source form. A binding such as `m: matrix = [[1,0],[0,1]]` triggers rectangular numeric row validation in the typed context and lowers to a matrix handle; untyped nested list literals remain ordinary lists. Matrix operations such as `matmul(a,b)`, `transpose(m)`, `mat_shape(m)`, and `mat_set(m,r,c,v)` are ordinary identifier calls at the grammar level and are recognized by semantic analysis.
+
+List and tuple elements are strict prerequisites of construction. Comma order
+preserves element position in the resulting value but does not itself impose a
+time order between independent element computations; unordered
+order-sensitive elements are rejected under Q03-F. A materialized range first
+obtains its required bound values under the same rule.
 
 ---
 
@@ -670,6 +969,12 @@ are canonicalized to the same match arm value when the guard references the
 match scrutinee. Source spellings that are semantically equivalent converge in
 the StyioIR optimizer before LLVM codegen.
 
+The scrutinee is evaluated exactly once before arm selection. Arms are tested
+in their accepted lexical-priority order; any guard runs only after its pattern
+matches, and only the selected arm body runs. Unselected guards and bodies have
+no operation, effect, or completion event. This control graph is distinct from
+ordinary sibling-operand ordering.
+
 ---
 
 ## 12. Control Flow Statements
@@ -677,6 +982,10 @@ the StyioIR optimizer before LLVM codegen.
 ```ebnf
 break_stmt         = BREAK_TOKEN ;      (* ^ or ^^ or ^^^ etc.; always nearest loop *)
 continue_stmt      = CONTINUE_TOKEN ;   (* >> or >>> or >>>> etc.; count ignored *)
+
+(* Settled decision, not an open question: break and continue are single-level
+   only. Token length never encodes nesting depth, and multi-level jump
+   spellings are permanently rejected (goto-hell prevention). *)
 ```
 
 ---
@@ -689,11 +998,14 @@ When the parser encounters `>>` (or a longer contiguous run such as `>>>`, `>>>>
 - If the two-character `>>` spelling is preceded by an expression and followed by `@` resource atom: **Resource-write shorthand**
 - If the two-character `>>` spelling is preceded by an expression and followed by `#(`, `{`, or an identifier: **Pipe operator**. The left side is an iterable or pulse source; the operator pushes each item as a pulse into the right-side channel/consumer.
 - If the token is the only non-trivia item in the statement and is followed by newline, `;`, `}`, or EOF: **Continue statement**. Longer spellings have the same meaning as `>>`; they do not encode nesting depth.
-- If inside `[` brackets: **Stride selector mode**
+- Inside `[` brackets, `>>` has no meaning: the old stride selector mode (`[>>, 2]`) is removed from the design and must not be reintroduced.
+- The multi-role service of `>>` (pipe / iterate, resource-write shorthand, standalone continue) is a settled design requirement, not an open question. Disambiguation stays compiler-owned context logic, and the roles will not be split across different symbols.
 
 ### Rule 2: `@` Disambiguation
 
-- `@` alone as a source expression: **parse error**. Use resource/intrinsic-produced absence; active feature fixtures must not author bare `@` directly.
+- `@` alone as a source expression: **parse error**. Optional empty is `(?)`
+  under static type `? | T`; a resource/intrinsic result that may be absent must
+  expose that Optional type rather than producing a hidden `@` value.
 - `@` followed by `[` : **retired state-resource state-container family; parse error**
 - `@` followed by identifier then `:`: **resource topology resource declaration**
 - `@` followed by identifier then `(`: **Resource with explicit protocol**
@@ -709,7 +1021,7 @@ When the parser encounters `>>` (or a longer contiguous run such as `>>>`, `>>>>
 
 ### Rule 4: `<~` / `~>` vs. `<` / `~` / `>`
 
-The lexer always prefers the two-character compound token over individual characters (maximal munch). `<~` is always tokenized as a single `TOK_WAVE_LEFT`, and `~>` is always tokenized as `TOK_WAVE_RIGHT`. Both tokens are reserved and have no active grammar production; the parser rejects them with a reserved-symbol diagnostic.
+The lexer always prefers the two-character compound token over individual characters (maximal munch). `<~` is always tokenized as a single `TOK_WAVE_LEFT`, and `~>` is always tokenized as `TOK_WAVE_RIGHT`. Both are reserved symbols only: they participate in no syntax feature, and no grammar production may consume them, until the language design explicitly declares an activation. The parser rejects them with a reserved-symbol diagnostic.
 
 ### Rule 5: Break Token Contiguity
 
@@ -736,6 +1048,14 @@ top_level_decl_topology  = resource_decl_topology
 resource_decl_topology   = "@" identifier ":" type_topology
                      { "," "@" identifier ":" type_topology }
                      [ ":=" driver_block_topology ] ;
+
+(* Scope rule: resource_decl_topology is top-level only. A declaration inside
+   any local block — including inside a |?| resource session — is rejected with
+   "The global resource cannot be initialized in a local block." Resource
+   sessions (|?| { ... }, Resource Topology §4.2) authorize handles and anchors
+   only, not local topology nodes. Scoped subtopology remains a separate
+   fail-closed reserve. Resources as first-class dynamic values are
+   permanently rejected. *)
 
 driver_block_topology    = "{" stream_topology "}" ;
 (* stream_topology matches existing pipe: expr ">>" "#(" id ")" "=>" block *)

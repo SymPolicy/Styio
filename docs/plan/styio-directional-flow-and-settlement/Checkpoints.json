@@ -1,0 +1,172 @@
+[
+  {
+    "id": "b7ca5192-9815-4550-a4c7-d40b66318cbd",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze one product contract for graphical direction and static operation completion without inventing adjacent policy.",
+    "description": "Scope: Requirements.md and the D21/Q01-A decision trace. Context: the owner accepted one left-to-right data-direction meaning, Unit directional success, finite nominal completion families, exact family(binding) arms, safe fallback, static propagation, and deletion of task-target and wildcard-discard routes; accepted Q03-F separately fixes strict prerequisites, dependency/effect ordering, the cross-producer Outcome ABI, and ambient-state deletion. Target: keep REQ-DFS-001..008 and REQ-OCS-001..012 complete, source-observable, and bounded away from the separately owned Q02/Q03-F implementation scopes and active Q04/Q09 policy. Design Considerations: distinguish an operation from settlement and ordinary binding; family and binder names remain identifiers; arrow direction never becomes source-before-endpoint preparation time. Design Value: prevents parser/backend implementation categories from redefining the language. Constraints & Risks: no compatibility route, new keyword, Result wrapper, Q01-local ambient-state consumer, implicit retry, duplicate Q03-F machinery, or speculative adjacent policy.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states users, functional requirements, constraints, scope, non-goals, follow-up owners, and final acceptance for every DFS/OCS requirement."},
+      {"checked": false, "text": "Direction, operation summaries, settlement, recovery, and ordinary result binding trace to D21/Q01-A without adding a keyword."},
+      {"checked": false, "text": "Accepted Q02 and Q03-F contracts remain external implementation owners, while every unresolved ownership, endpoint, resource-escalation, scheduling, cancellation-protocol, and reverse-flow policy stays outside the target."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze directional completion requirements", "target": "styio-nightly"},
+    "next": ["6b379f88-c66e-43d1-93b3-9737de13bcbf"]
+  },
+  {
+    "id": "6b379f88-c66e-43d1-93b3-9737de13bcbf",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["b7ca5192-9815-4550-a4c7-d40b66318cbd"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Inventory every direction, settlement, family, discard, task-target, IR, backend, test, and documentation path before migration.",
+    "description": "Scope: Evidence.md plus read-only Parser, AST, Sema, IR, lowering, codegen, task/resource adapters, tests, tooling, and SSOT inspection. Context: FlowBind mixes task declaration with direction while ResourceEffect uses hard-coded family strings, discard state, and backend repair. Target: classify every path as retained direction, retained canonical settlement, ordinary binding, or deleted specialization/compatibility. Design Considerations: repository facts and primary-language lessons must conform to accepted Q02/Q03-F, cannot duplicate their implementations, and cannot invent Q04/Q09 policy. Design Value: prevents both incomplete deletion and accidental removal of valid endpoint operations. Constraints & Risks: classify semantic ownership rather than deleting by search term.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites task-target/parser forks, FlowBind flags, ResourceEffect family/discard state, Sema/IR/backend repair, tests, and active documentation contradictions."},
+      {"checked": false, "text": "Every arrow/settlement/discard route and affected positive fixture is cited and classified; ambient error routes are classified only for handoff to Q03-F's sole deletion inventory."},
+      {"checked": false, "text": "Primary external sources support exact static failure constraints and expression-shaped settlement without copying their runtimes."},
+      {"checked": false, "text": "Every adjacent policy finding is routed and remains unimplemented."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground directional completion evidence", "target": "styio-nightly"},
+    "next": ["d2ae8237-a370-4a6a-8b17-86ef3e9dc365"]
+  },
+  {
+    "id": "d2ae8237-a370-4a6a-8b17-86ef3e9dc365",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["b7ca5192-9815-4550-a4c7-d40b66318cbd", "6b379f88-c66e-43d1-93b3-9737de13bcbf"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Define complete positive, negative, structural, bounded-state, deletion, and non-overreach evidence before implementation.",
+    "description": "Scope: Validation.md and test/gate discovery. Context: token acceptance cannot prove one arrow interface, nominal family identity, lazy exact-once recovery, category-safe fallback, result joins, propagation, or structural deletion. Target: map every DFS/OCS requirement to source, type, IR, backend, structural, docs, and policy-boundary evidence. Design Considerations: use arbitrary identifiers, side-effect counters, distinct categories, and parenthesized direction composition; verify left-to-right data direction without asserting source-before-endpoint preparation. Design Value: makes semantic convergence and absence of runtime/compatibility structures measurable. Constraints & Risks: tests must conform to accepted Q02/Q03-F without becoming their implementation authority and cannot freeze Q04/Q09.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every DFS/OCS label to executable or static evidence."},
+      {"checked": false, "text": "The matrix covers endpoint families, Unit success, arbitrary family(binding), safe fallback, joins, propagation, exact-once behavior, ordinary binding, and category separation."},
+      {"checked": false, "text": "Q01 deletion searches cover task-target, bare-freeze, wildcard discard, hard-coded families, repair/coercion, and positive compatibility fixtures across every layer; a Q03-F receipt separately proves complete ambient-state deletion."},
+      {"checked": false, "text": "Standing compiler/document/Better Plan gates and non-goal audits are included."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map directional completion validation", "target": "styio-nightly"},
+    "next": ["ec3bfe2c-7d00-457e-9ab0-34d5cda00e9c"]
+  },
+  {
+    "id": "ec3bfe2c-7d00-457e-9ab0-34d5cda00e9c",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["b7ca5192-9815-4550-a4c7-d40b66318cbd", "6b379f88-c66e-43d1-93b3-9737de13bcbf", "d2ae8237-a370-4a6a-8b17-86ef3e9dc365"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the single directional, endpoint, completion-summary, settlement, binding, IR, backend, and deletion architecture.",
+    "description": "Scope: Architecture.md and interface/scaffold decisions. Context: current nodes combine task target declaration, string families, discard booleans, repeated inference, and backend repair. Target: use one DirectionalFlow node, typed endpoint interface, interned FamilyId, canonical inline CompletionSet, memoized OperationSummary, syntax-only family/binder AST, Sema-owned algebra, verified IR, direct bounded branches, and one-shot deletion. Design Considerations: dense bit-set algebra is separate from deterministic diagnostic order; logical Unit/completion state is separate from physical payload. Design Value: one cross-layer proof model replaces parser/backend special cases at O(words) set cost. Constraints & Risks: no keyword, dynamic registry, hash-order semantics, managed runtime, compatibility node, or adjacent-policy default.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines module ownership, typed facts, algorithms/data structures, dependency direction, complexity, deletion, and unresolved inputs."},
+      {"checked": false, "text": "Directional operation, endpoint, OperationSummary, settlement, and ordinary binding remain separate verified facts through IR."},
+      {"checked": false, "text": "The design removes task-target/discard and Q01-local repair state without removing valid generic direction or settlement, consumes Q03-F Outcome transport, and does not re-own ambient-state deletion."},
+      {"checked": false, "text": "No managed runtime, dynamic endpoint/family registry, hidden Result, default repair, or speculative policy is introduced."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design directional completion architecture", "target": "styio-nightly"},
+    "next": ["9291a1bb-9c87-4a69-bbf4-372d97b02f2d"]
+  },
+  {
+    "id": "9291a1bb-9c87-4a69-bbf4-372d97b02f2d",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["ec3bfe2c-7d00-457e-9ab0-34d5cda00e9c"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Converge grammar and AST on one direction node and one syntax-only settlement wrapper while deleting specialized target and discard routes.",
+    "description": "Scope: tokenizer assertions, Parser/NewParserExpr, directional/settlement AST ownership, visitors/clones/repr, diagnostics, and frontend tests. Context: ?| lookahead dispatches to task await; ResourceEffect admits string arms and ellipsis discard. Target: parse generic direction once, parse family with optional identifier binder before =>, preserve spans, keep arbitrary names as identifiers, represent operation/arms/fallback without semantic flags, and delete await-target, source-less freeze, and discard routes in one migration. Design Considerations: local syntax lookahead never resolves family meaning; parenthesized composition avoids deciding precedence. Design Value: makes keywords, false task binders, and wildcard discard structurally impossible. Constraints & Risks: retain generic parser recovery infrastructure; do not add public family/signature declarations.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-008", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-010", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "All accepted endpoints construct one directional AST interface and all settlement arms use syntax-only ordinary identifiers with optional binders."},
+      {"checked": false, "text": "Generic settlement wraps operations and ordinary bindings consume the expression result."},
+      {"checked": false, "text": "Await-target lookahead/parser, CreateAwait/declare-target/await flags, bare-freeze, ellipsis discard, discard AST state, and positive fixtures are absent."},
+      {"checked": false, "text": "Source spans, parser recovery, arbitrary identifier tests, safe final fallback grammar, and valid generic arrows remain positive."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(frontend): unify directional completion syntax", "target": "styio-nightly"},
+    "next": ["cc43d138-3a1a-4d4d-8d6f-7134e39ed24e"]
+  },
+  {
+    "id": "cc43d138-3a1a-4d4d-8d6f-7134e39ed24e",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["9291a1bb-9c87-4a69-bbf4-372d97b02f2d"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement one endpoint-dispatched direction rule and the complete static operation/settlement algebra in Sema.",
+    "description": "Scope: type/symbol infrastructure, TypeInfer, endpoint contracts, branch scopes, diagnostics, caches, tests, and IR-facing facts. Context: FlowBind mixes target declaration and task state while ResourceEffect uses hard-coded strings, discard, and use-site coercion. Target: intern family IDs, memoize success/completion summaries, infer Unit direction, require existing capable destinations, enforce payload shape/local scope, subtract/union canonical sets, filter catch-all categories, join all normal results, and propagate unhandled/recovery completions. Design Considerations: small bit sets avoid repeated string scans and duplicate checks; diagnostics enumerate stable ordinals. Design Value: one static authority replaces backend re-inference while consuming Q03-F's bounded Outcome interface. Constraints & Risks: implementation of the accepted Q02-BC/Q02-SIG/Q02-INF callable contract and principal inference belongs to its separate plan; accepted Q03-F EvaluationFacts, evaluation DAG/CFG, ordering diagnostics, Outcome ABI, and ambient-state deletion belong to its dedicated plan; Q04 ownership and Q09 escalation also remain outside this node.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Representative endpoint families use one direction checker and successful direction always has Unit success."},
+      {"checked": false, "text": "Settlement consumes one memoized OperationSummary and proves exact match, payload, safe fallback, joins, propagation, categories, and local exact-once control."},
+      {"checked": false, "text": "Ordinary binding consumes the final normal type through mandatory RHS; settlement publishes no target."},
+      {"checked": false, "text": "Task-only target, discard, hard-coded family, and default/Optional/Unit repair branches/tests are absent; Q01 paths consume Q03-F Outcome facts and never consult ambient state."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): type directional operation completion", "target": "styio-nightly"},
+    "next": ["186fb203-6597-40f2-9c70-49012f0278d3"]
+  },
+  {
+    "id": "186fb203-6597-40f2-9c70-49012f0278d3",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["cc43d138-3a1a-4d4d-8d6f-7134e39ed24e"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Preserve verified directional and completion summaries through IR/lowering/backend with bounded direct control flow.",
+    "description": "Scope: StyioIR, verifier/walker/optimizer, lowering, codegen, endpoint/task/resource adapters, Q01 local control edges, and tests. Context: current lowering carries await/discard flags and backend repairs results through ad hoc blocks and runtime-error state. Target: lower one directional operation, resolved family IDs, typed payload edges, success/join/remaining sets, exact-once local branches, Unit success, and upstream completion preservation; delete specialized flags, discard blocks, and Q01 repair/coercion, then consume Q03-F's bounded Outcome ABI. Design Considerations: backend consumes Sema proof; logical Unit/completion state is separate from physical storage, whose cross-producer ABI and ambient-state deletion are Q03-F-owned. Design Value: predictable direct control flow without duplicate runtime machinery. Constraints & Risks: no unwinder, heap exception, dynamic table/list, truncation, implicit retry, scheduling policy, default return, or Q01-owned Outcome ABI.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "IR/verifier/lowering/backend preserve separate direction, endpoint, OperationSummary, settlement, and ordinary binding facts."},
+      {"checked": false, "text": "Direct bounded branches preserve exact families, payload types, safe fallback, join type, remaining set, and exact-once execution."},
+      {"checked": false, "text": "Await/declare-target, source-less freeze, discard, hard-coded family, and default repair routes plus positive fixtures are absent; Q01 has no ambient-state consumer and links the Q03-F global-deletion receipt."},
+      {"checked": false, "text": "No managed runtime or unresolved scheduling/ownership/backpressure/cancellation policy appears in IR or backend helpers."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ir): lower bounded directional completion", "target": "styio-nightly"},
+    "next": ["4c981ffe-859e-4490-94f4-1c70742455c4"]
+  },
+  {
+    "id": "4c981ffe-859e-4490-94f4-1c70742455c4",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["9291a1bb-9c87-4a69-bbf4-372d97b02f2d", "cc43d138-3a1a-4d4d-8d6f-7134e39ed24e", "186fb203-6597-40f2-9c70-49012f0278d3"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge fixtures, tooling, runbooks, active language docs, and generated artifacts on D21/Q01-A.",
+    "description": "Scope: task/resource/operation/flow fixtures, IDE/editor/formatter mirrors, design SSOT, decision report/ledger, runbooks, generated indexes, and plan mappings. Context: positives and prose still protect task-target, discard, keyword-like family strings, ambient failure assumptions, and old arrow labels. Target: migrate result capture to ordinary binding, publish arbitrary identifier-based arms, retain generic direction/settlement evidence, delete incompatible Q01 positives, link Q03-F as the Outcome/ambient-deletion owner, record implementation status honestly, and regenerate artifacts. Design Considerations: SSOT owns semantics and tests follow operation/endpoint/wrapper boundaries. Design Value: prevents documentation or tooling from recreating removed compiler forks. Constraints & Risks: no valid arrow/settlement deletion, historical compatibility mode, duplicate Q03-F ownership, or adjacent-policy claim.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Active SSOT, syntax/tooling mirrors, runbooks, and plans state one arrow meaning and the full Q01-A algebra with no family keyword."},
+      {"checked": false, "text": "Examples use ordinary result binding and arbitrary family(binding) identifiers; valid generic direction and settlement remain."},
+      {"checked": false, "text": "Task-target, bare-freeze, discard, keyword-like, and compatibility positives/explanations are absent; ambient-failure prose points to Q03-F's Outcome/deletion owner rather than a Q01 implementation."},
+      {"checked": false, "text": "Syntax convergence, generated indexes, docs audit/lifecycle, local-information, and plan validation pass."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge directional operation completion", "target": "styio-nightly"},
+    "next": ["eecd0a19-e278-49f1-b9d0-734bc033e0cd"]
+  },
+  {
+    "id": "eecd0a19-e278-49f1-b9d0-734bc033e0cd",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["d2ae8237-a370-4a6a-8b17-86ef3e9dc365", "186fb203-6597-40f2-9c70-49012f0278d3", "4c981ffe-859e-4490-94f4-1c70742455c4"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove complete D21/Q01-A behavior and every specialized-path deletion on one head commit.",
+    "description": "Scope: execute and record every Validation.md mapping; fixes route to their owning node. Context: one layer can appear unified while another retains target/discard flags, string families, repair, Q01 ambient consumers, or positive compatibility tests. Target: run all standing and requirement-specific checks, record evidence per DFS/OCS label, prove Unit direction, ordinary binding, exact nominal settlement, categories, once-only recovery, static propagation, bounded state, Q03-F data-direction/preparation-order separation and Outcome integration, and non-overreach, then synchronize Better Plan state. Design Considerations: validate source, types, IR, backend, diagnostics, Q01 deletion, docs, performance shape, policy boundaries, and the Q03-F ambient-deletion receipt together. Design Value: turns owner decisions into one auditable compiler contract. Constraints & Risks: acceptance cannot preserve compatibility, duplicate accepted Q02/Q03-F implementations, or implement Q04/Q09.",
+    "requirements": ["REQ-DFS-001", "REQ-DFS-002", "REQ-DFS-003", "REQ-DFS-004", "REQ-DFS-005", "REQ-DFS-006", "REQ-DFS-007", "REQ-DFS-008", "REQ-OCS-001", "REQ-OCS-002", "REQ-OCS-003", "REQ-OCS-004", "REQ-OCS-005", "REQ-OCS-006", "REQ-OCS-007", "REQ-OCS-008", "REQ-OCS-009", "REQ-OCS-010", "REQ-OCS-011", "REQ-OCS-012"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Parser, AST, Sema, IR, lowering, backend, endpoints, settlement, binding, security, syntax, docs, lifecycle, local-information, and plan checks pass on one head."},
+      {"checked": false, "text": "Every DFS/OCS requirement has positive, negative, structural, documentation, bounded-state, and non-goal evidence."},
+      {"checked": false, "text": "No task-target, bare-freeze, wildcard-discard, hard-coded-family, Q01-local repair/ambient consumer, or positive compatibility implementation remains while valid generic direction/settlement remains; the Q03-F receipt proves complete ambient-state deletion."},
+      {"checked": false, "text": "Every residual arrow/settlement/error match is classified and every adjacent undecided question is routed rather than implemented."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate directional operation completion", "target": "styio-nightly"},
+    "next": []
+  }
+]

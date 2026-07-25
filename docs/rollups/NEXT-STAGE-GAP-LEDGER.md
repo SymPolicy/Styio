@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-20
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -35,6 +35,7 @@
 | CLI / Nano | Bootstrap nano contract exists; full package lifecycle does not | Keep `styio` limited to compiler contracts and handoff surfaces |
 | IDE / LSP | Core semantic services exist, but stdio runtime drain and several LSP methods are still absent | Close operational gaps before expanding host-facing promises |
 | Tests / Quality | Core suites exist, M6 active acceptance now uses Topology v2 syntax, and resource-topology safety coverage is registered, but negative-path package and next-stage migration coverage still need expansion | Coverage closure must run in parallel with implementation closure |
+| Functional evaluation / effect order | `Q03-F` is design-approved, but no implementation receipt yet proves canonical evaluation facts, a typed dependency/effect DAG, conflict diagnostics, verified CFG lowering, or separately gated optimizer rights | Execute one dedicated fail-closed migration; do not let parser traversal, AST child order, backend scheduling, or runtime error state become the language contract |
 
 ## 4. Responsibility Split: `styio` vs `styio-pafio`
 
@@ -54,6 +55,7 @@
 | Nightly expression parser remains a constrained subset | High | Unsupported continuation guard and explicit rejections such as dot-chain-after-call still exist in [src/StyioParser/NewParserExpr.cpp](../../src/StyioParser/NewParserExpr.cpp) | Frontend, Test Quality | Convert unsupported paths into explicit checkpoint queue; each removed rejection must ship with parity tests and shadow gate evidence |
 | Topology v2 resource declaration syntax is still not the running compiler path | High | Target design now uses `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...`, `list[T]`, and `expr -> @name`; the compiler still needs the parser/type migration tracked by [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md) | Frontend, Sema / IR, Docs / Ecosystem | Treat Topology v2 as a dedicated migration milestone, not an incidental syntax tweak |
 | Handle / capability / failure-type unification is still target design rather than active compiler behavior | Medium | Design doc explicitly says the model is not fully implemented and keeps remaining capability/protocol special cases in [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md); typed stdin ingestion is no longer evidence of an active AST split | Frontend, Sema / IR, Codegen / Runtime | Decide whether next stage closes this model or deliberately continues with local special-case patches |
+| Q03-F source-order neutrality is not yet a frontend contract | High | [Styio Functional Evaluation and Effect Ordering](../design/Styio-Functional-Evaluation-and-Effect-Ordering.md) approves strict prerequisites without an implicit sibling timeline, but there is no implementation receipt showing stable child identity/source ranges and parser-neutral ordering facts | Frontend, Sema / IR, IDE / LSP | Preserve source ranges, stable child identity, and source ordinals for diagnostics while ensuring parser traversal and precedence never become evaluation-time edges |
 
 ### 5.2 Sema / IR
 
@@ -62,6 +64,7 @@
 | Placeholder lowering remains widespread | High | Representative `SGConstInt(0)` placeholders still exist for multiple AST kinds in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Codegen / Runtime, Test Quality | Replace silent placeholder lowering with real lowering or explicit typed failure; do not keep placeholder nodes on active execution paths |
 | Type inference coverage remains structurally incomplete | High | Empty visitors still exist for active AST families such as `CommentAST`, `InfiniteAST`, `FmtStrAST`, `ForwardAST`, and anonymous functions in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) | Sema / IR, Test Quality | Build an explicit inventory of empty visitors and classify each as dead syntax, intentional no-op, or implementation debt |
 | State inline clone path still has unsupported-node fallthrough | Medium | Unsupported AST fallback remains in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Test Quality | Continue shrinking the unsupported clone surface until state-helper inlining is total for accepted language forms |
+| Q03-F has no canonical `EvaluationFacts` / operation summary or typed evaluation DAG implementation receipt | High | The accepted owner requires safe-pure/order-sensitive classification, explicit dependency/control/resource edges, static rejection of unordered sensitive siblings, completion-stop edges, and four distinct optimizer rights; the current [IM-D1 inventory](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md) proves tree walking and pass gates only | Sema / IR, Frontend, Codegen / Runtime, IDE / LSP, Test Quality | Introduce one immutable facts interface shared by Sema, verifier, optimizer, diagnostics, and IDE; build a typed DAG and reject missing order edges before lowering, with Unknown classified conservatively |
 
 ### 5.3 Codegen / Runtime
 
@@ -70,6 +73,7 @@
 | M7 multi-stream processing is not complete end-to-end | High | `IterSeqAST` exists in parser output in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp), but type inference is empty in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) and IR lowering is still a placeholder in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Frontend, Sema / IR, Codegen / Runtime | Pick one accepted M7 slice and carry it through parser, sema, lowering, runtime, and milestone tests in one checkpoint chain |
 | Zip lowering still supports only a narrow source set | High | Unsupported source combinations still throw in [src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) | Codegen / Runtime, Sema / IR, Test Quality | Expand supported combinations according to M7 acceptance order, not ad hoc one-off cases |
 | Some accepted runtime-oriented syntax still depends on special-case routing rather than a unified protocol | Medium | This is reflected both in current parser/analyzer shape and in the still-target-only capability design [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md) | Codegen / Runtime, Sema / IR | Use next-stage runtime work to reduce parser-shape-driven behavior branching |
+| Q03-F DAG-to-CFG lowering and completion-stop/publication preservation are implementation-pending | High | No current rollup receipt proves that strict prerequisites, construct-specific lazy edges, Block sequence/stop, mandatory exits, publication barriers, and directional-transfer prerequisite independence survive one verified lowering path | Codegen / Runtime, Sema / IR, Test Quality | Lower only verified Q03-F DAG facts to deterministic CFG; keep exact-once, lazy selection, mandatory exits, no rollback, and publication barriers without adding a managed runtime, ambient error channel, or transaction log |
 
 ### 5.4 CLI / Nano / `pafio` Handoff
 
@@ -86,6 +90,7 @@
 |-----|----------|------------------|--------------|------------------------|
 | LSP surface is still intentionally incomplete | Medium | Current limits still list local-only, single-workspace behavior and missing `rename`, `codeAction`, and `inlayHint` in [../external/for-ide/LSP.md](../external/for-ide/LSP.md); server capabilities stop at completion/hover/definition/references/symbols/semantic tokens in [src/StyioServices/StyioLSP/Server.cpp](../../src/StyioServices/StyioLSP/Server.cpp) | IDE / LSP, Docs / Ecosystem | Expand the surface only after runtime drain and semantic identity paths remain stable under tests |
 | Perf budget enforcement is split between unit and dedicated Release harnesses | Low | `StyioIdePerf.EnforcesFrozenLatencyBudgets` skips non-Release runs in [tests/ide/styio_ide_test.cpp](../../tests/ide/styio_ide_test.cpp), with operational guidance in [../teams/PERF-STABILITY-RUNBOOK.md](../teams/PERF-STABILITY-RUNBOOK.md) | IDE / LSP, Perf / Stability | Preserve the dedicated Release gate, but keep the distinction visible so teams do not mistake Debug green for perf closure |
+| Q03-F conflict diagnostics and semantic facts are not yet an IDE contract | Medium | The accepted owner requires both conflicting source ranges and the missing ordering edge, but no implementation receipt or catalog gate proves stable compiler-owned facts for hover, diagnostics, or safe fix-its | IDE / LSP, Sema / IR, Test Quality | Publish immutable Q03-F facts; diagnose both siblings, suggest consecutive Block bind/settle steps, and mention task constructs only when the author intends concurrency |
 
 ### 5.6 Tests / Quality / Perf
 
@@ -94,6 +99,7 @@
 | Next-stage migration tests need to stay tied to active syntax | Medium | [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) now treats M6 positive coverage as Topology v2 resource syntax and keeps retired state-family spellings only as negative migration diagnostics | Test Quality, Frontend, Sema / IR | Add new positive coverage only for active syntax; keep retired spellings in negative tests with stable migration diagnostics |
 | Package and contract negative-path testing still lags behind implementation branches | Medium | Nano create/publish guards, marker parsing, and blob verification are present in code but not closed by matching test density | Test Quality, CLI / Nano | Treat contract-edge coverage as release-blocking for any future nano handoff changes |
 | Broadened ignore baselines can still hide future tracked repro fixtures outside the frozen negate roots | Low | Root ignore rules now absorb cache, `tmp/`, `build-*`, and `*.tmp` / `*.log` style paths in [../../.gitignore](../../.gitignore), but `docs/**` and `tests/**` now have explicit negate rules and are checked by [../../scripts/repo-hygiene-gate.py](../../scripts/repo-hygiene-gate.py) | Docs / Ecosystem, Test Quality | Keep the shared ignore baseline, extend explicit negate rules before adding new tracked repro roots outside `docs/**` or `tests/**`, and do not rely on review memory alone |
+| Q03-F acceptance matrix is registered but has no green implementation evidence | High | [TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) records the required pending family for strict/exact-once prerequisites, pure-topology invariance, missing-edge failures, Block stop/mandatory exits/no rollback, lazy selection, transfer preparation, optimizer-right gates, and const/runtime parity | Test Quality, Frontend, Sema / IR, Codegen / Runtime, IDE / LSP, Perf / Stability | Land the whole matrix with the one-shot migration; expected-red or research tests may guide work but cannot be reported as accepted implementation |
 
 ### 5.7 Closed Since Previous Ledger
 
@@ -110,6 +116,7 @@ Start the next stage from checkpoint-sized implementation slices. Do not recreat
 
 | Checkpoint | First output | Owner path | Required proof |
 |------------|--------------|------------|----------------|
+| Q03-F0 | Freeze the dedicated implementation package around one `EvaluationFacts`/operation-summary interface, typed DAG edge vocabulary, diagnostic contract, CFG lowering boundary, and four independent optimizer rights | Sema / IR lead with Frontend, Codegen / Runtime, IDE / LSP, Test Quality, Perf / Stability | Owner-plan validation, focused facts/DAG/verifier tests, no compatibility mode, and explicit evidence that `->` data direction does not order source/endpoint preparation |
 | P0 | Inventory active Sema/lowering placeholders by AST family and classify each as dead syntax, intentional no-op, or implementation debt | W1 / Sema / IR | Focused inventory diff plus `python3 scripts/docs-audit.py` |
 | P1 | Retire one placeholder cluster by implementing real lowering or fail-closed diagnostics | W1 / Sema / IR + Codegen / Runtime | Targeted unit tests, affected `styio_pipeline` cases, and `security` when diagnostics or ownership change |
 | P2 | Carry one M7 stream/zip source combination through parser, sema, lowering, runtime, and tests | W2 / Frontend + Sema / IR + Codegen / Runtime | M7 milestone case, five-layer evidence, and parser shadow gates |
@@ -122,6 +129,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 
 | Queue | Scope | Primary teams | Depends on | Minimum gate |
 |-------|-------|---------------|------------|--------------|
+| W0 | Execute Q03-F as one semantic-authority migration: add shared facts/DAG/CFG/diagnostics/optimizer rights and delete every implicit traversal/scheduling authority in the same lifecycle | Sema / IR, Frontend, Codegen / Runtime, IDE / LSP, Test Quality, Perf / Stability | Dedicated Q03-F implementation plan | Required Q03-F catalog family, verifier/optimizer structural checks, const/runtime parity, docs and migration-ledger closure |
 | W1 | Inventory and retire active sema/lowering placeholders | Sema / IR, Codegen / Runtime, Test Quality | None | targeted unit coverage plus affected milestone cases |
 | W2 | Carry one M7 stream/zip slice end-to-end | Frontend, Sema / IR, Codegen / Runtime, Test Quality | W1 for touched nodes | milestone tests, five-layer checks, and relevant runtime/security coverage |
 | W4 | Harden the delivered `compile_plan` producer contract for `pafio` handoff | CLI / Nano, Docs / Ecosystem, `styio-pafio` coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
@@ -142,6 +150,6 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 ## 9. Immediate Stage Conclusion
 
 1. The repository is not 鈥渦nfinished everywhere鈥? it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
-2. The deepest unfinished work is concentrated in compiler completion debt: parser subset gaps, sema/type/lowering placeholders, M7 runtime closure, and Topology v2 migration debt.
+2. The deepest unfinished work is concentrated in compiler completion debt: the approved-but-unimplemented Q03-F evaluation/effect-order migration, parser subset gaps, sema/type/lowering placeholders, M7 runtime closure, and Topology v2 migration debt.
 3. Package-manager expectations must stay split cleanly: `styio` now owns the compiler-side compile-plan contract baseline and its compatibility maintenance, but not a full package-manager product surface.
 4. IDE next-stage work should prioritize operational closure over feature count: drain semantics correctly first, then expand methods.

@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-07-11
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -320,7 +320,7 @@ Group includes with section comments:
 
 ## 5. How to Add a New Token
 
-When the language design introduces a new symbol (e.g., `??`, `<:`, `||>`):
+When the language design introduces a new symbol (for example `<:` or `||>`):
 
 ### Step 1: Define Token Type
 
@@ -328,7 +328,6 @@ In `src/StyioToken/Token.hpp`, add to the `StyioTokenType` enum:
 
 ```cpp
 TOK_NEW_SYMBOL = /* next available value */,  // spelling
-TOK_DBQUESTION = /* next available value */,   // ??
 ```
 
 ### Step 2: Add to Token Map
@@ -639,8 +638,8 @@ When showing Styio code examples, use the canonical "Golden Cross" strategy as t
 ```
 @ma5 : f64|..2|, @ma20 : f64|..2| := {
     @binance("BTCUSDT") >> #(p) => {
-        p[avg, 5]  -> @ma5
-        p[avg, 20] -> @ma20
+        avg(p, 5)  -> @ma5
+        avg(p, 20) -> @ma20
 
         is_golden =
             @ma5[-2] <= @ma20[-2] &&
@@ -803,11 +802,11 @@ Features from the design documents and their current implementation state:
 | Continue (`>>...` standalone) | §5.6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
 | Stream Zip (`&`) | §9.1 | — | — | — | — | — | — | **Not Started** |
 | Snapshot Pull (`<< @res`) | §9.2 | — | — | — | — | — | — | **Not Started** |
-| Selector intrinsics (`[avg,n]`, `[max,n]`) | Intrinsics §2 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **Partial: avg/max pulse-state slice only** |
+| Series intrinsics (`avg(p,n)`, `max(p,n)`; removed bracket spelling `[avg,n]` is parser compat debt) | Intrinsics §2 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **Partial: avg/max pulse-state slice only** |
 | Matrix helper intrinsics (`mat_*`, `matmul`, `transpose`, `dot`, `norm`) | Intrinsics / matrix design | ✅ | ordinary calls | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Diagnostic `??` | §12.3 | — | — | — | — | — | — | **Not Started** |
+| Retired `??` | §12.3 | Legacy token pending deletion | Rejected | — | — | — | — | **D02 decided: no value fallback/coalescing or diagnostic-extract role; delete the orphan token route** |
 | Anonymous Ledger | §8.6 | — | — | — | — | — | — | **Not Started** |
-| Context capture `$(...)` | §4.3 | — | — | — | — | — | — | **Not Started** |
+| Derived binding `name := $(deps) => expr` | §5.3 | — | — | — | — | — | — | **Not Started** |
 | Yield `<|` | §5.7 | — | — | — | — | — | — | **Not Started** |
 | Infinite generator `[...]` | §5.2 | — | — | — | — | — | — | **Not Started** |
 | Guard `?(expr)` | §5.3 | — | — | — | — | — | — | **Not Started** |

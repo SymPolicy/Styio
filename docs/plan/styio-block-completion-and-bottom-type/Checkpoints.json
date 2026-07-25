@@ -1,0 +1,160 @@
+[
+  {
+    "id": "9707df30-6f17-4d1c-9ee0-798c7b143a06",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Confirm the frozen Block completion and bottom-type delivery contract without importing adjacent unresolved decisions.",
+    "description": "Scope: Requirements.md and the O01-Q02..Q05/O05-Q01/P01.11-A decision trace only. Context: the owner has frozen reachable Block fallthrough as unit, incompatible T/unit joins as errors, one strict current-Block yield surface, structural reachability errors, Unit-only consumer typing, and contextual built-in never. Target: keep REQ-BC-001..REQ-BC-007 complete, source-observable, and explicitly bounded away from optional layout, Default, generic Unit/ABI work, and the separately frozen Block-exit protocol delivered by child plans. Design Considerations: requirements describe final behavior rather than implementation phases; every later node must cite the stable labels and expose the typed candidate boundary consumed by the exit child. Design Value: prevents implementation details from silently reopening or extending an owner decision. Constraints & Risks: if an owning child contract changes an interface dependency, update Requirements.md and all mappings before source work; do not duplicate child implementation here.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md states users, scope, non-goals, constraints, and final acceptance for REQ-BC-001..REQ-BC-007."},
+      {"checked": false, "text": "Every requirement traces to a frozen decision and makes no choice for the explicitly excluded adjacent clusters."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze block completion requirements", "target": "styio-nightly"},
+    "next": ["0c2b53bf-f152-4620-8e60-136865a7fff6"]
+  },
+  {
+    "id": "0c2b53bf-f152-4620-8e60-136865a7fff6",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["9707df30-6f17-4d1c-9ee0-798c7b143a06"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Verify repository gaps and comparable language/compiler experience for the completion algebra.",
+    "description": "Scope: Evidence.md plus read-only inspection of Token, Parser, AST, Sema, IR, lowering, codegen, tests, and active docs. Context: the current implementation conflates lexical Block yield with function return, lacks Unit-only consumer typing, delegates reachability to backend termination, and contains undefined/i64/default repair paths. Target: cite exact current symbols, contradictions, open-source compiler patterns, and failure lessons that justify each requirement, including the Rust/Kotlin target-resolution and Java structural-reachability experience. Design Considerations: compare rustc-style bottom/join behavior and LLVM unreachable semantics while keeping Styio's symbol-first surface; distinguish evidence from inference. Design Value: keeps the architecture grounded and exposes migration debt before code changes. Constraints & Risks: external examples inform failure avoidance but never override the frozen Styio contract.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites all current implementation paths that synthesize, infer, lower, or document Block results and never-like divergence."},
+      {"checked": false, "text": "Primary language/compiler sources document unit, bottom-type joins, never fallback failure, and backend unreachable behavior."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground block completion evidence", "target": "styio-nightly"},
+    "next": ["96199f1b-b85e-4921-8cd1-82a34afbe1d5"]
+  },
+  {
+    "id": "96199f1b-b85e-4921-8cd1-82a34afbe1d5",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["9707df30-6f17-4d1c-9ee0-798c7b143a06", "0c2b53bf-f152-4620-8e60-136865a7fff6"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Define positive, negative, IR, tooling, and convergence evidence before implementation.",
+    "description": "Scope: Validation.md and test/gate discovery only. Context: result semantics can appear correct in parser tests while Sema, nested control flow, IR, codegen, formatter, or docs still disagree. Target: map every REQ-BC label to executable tests, static inspections, generated-artifact gates, and final end-to-end checks. Design Considerations: pair every accepted behavior with adjacent rejection coverage and require source spans/diagnostic codes; cover nested Blocks and optimizer behavior. Design Value: prevents a shallow parser-only implementation from being declared complete. Constraints & Risks: commands must name existing gate families or explicitly identify tests to add; no criterion may rely only on prose review.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every REQ-BC label to at least one real executable or static check."},
+      {"checked": false, "text": "The matrix covers nested Blocks, both yield spellings, explicit Unit yield, Unit-only consumers, structural reachability, incompatible joins, divergence, tokenizer behavior, diagnostics, IR verification, codegen, docs, and removal of obsolete tests."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map block completion validation", "target": "styio-nightly"},
+    "next": ["00d121b4-e02f-4255-be6b-ff5c4600f82b"]
+  },
+  {
+    "id": "00d121b4-e02f-4255-be6b-ff5c4600f82b",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["9707df30-6f17-4d1c-9ee0-798c7b143a06", "0c2b53bf-f152-4620-8e60-136865a7fff6", "96199f1b-b85e-4921-8cd1-82a34afbe1d5"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the linear completion-summary, AST, IR, and module-boundary architecture.",
+    "description": "Scope: Architecture.md and interface/scaffold decisions; no feature behavior is claimed complete. Context: ReturnAST, recursive tail inspection, SGReturn, and default backend values currently collapse distinct lexical and function boundaries. Target: define canonical Unit/Never identities, a memoized O(nodes+edges) BlockSummary join algebra, one BlockYieldAST for both spellings, explicit BlockConsumer value/Unit-only typing, structural reachability, a distinct IR Block-result/candidate form, and an outer function adapter that the Block-exit child can consume. Design Considerations: use an algebraic flow summary and verifier boundary; keep AST syntax-only, Sema authoritative, dependencies one-way, and parsing pattern-free. Design Value: one completion data model removes repeated scans, prevents value discard, and prevents backend repair. Constraints & Risks: do not choose optional, generic-Unit, task, cleanup scheduling, fixed failure storage, or public ABI representation here; update architecture first if implementation needs a new cross-module interface.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines module ownership, dependency direction, interfaces, patterns, file ownership, and the total completion join law."},
+      {"checked": false, "text": "The architecture separates lexical Block yield from function return and explains why each new abstraction earns its complexity."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design block completion architecture", "target": "styio-nightly"},
+    "next": ["dfb4fc64-4a7f-4094-a556-e8e82f215772"]
+  },
+  {
+    "id": "dfb4fc64-4a7f-4094-a556-e8e82f215772",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["00d121b4-e02f-4255-be6b-ff5c4600f82b"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge contextual Unit/Never typing and lexical Block-yield parsing/AST.",
+    "description": "Scope: src/StyioToken/Token.hpp, src/StyioAST/AST*.hpp, src/StyioParser/*, and parser/tokenizer tests. Context: identifiers already tokenize as NAME, but Unit/Never lack canonical type alternatives and both yield spellings currently create ReturnAST. Target: add canonical contextual type identities, keep never as NAME, parse all frozen direct-body forms, replace ReturnAST with one BlockYieldAST in a complete migration, require inline |;, accept <| (), and attach every yield to its immediate lexical Block structure. Design Considerations: reuse the existing type-name path and parser authority; inline punctuation creates no semantic variant; no keyword table, alternate parser route, AST alias, or compatibility visitor. Design Value: establishes an unambiguous frontend contract for linear Sema analysis. Constraints & Risks: do not implement a never value, general tail expressions, optional layout, or cross-Block return behavior; update all frontend-owned tests atomically.",
+    "requirements": ["REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Tokenizer tests prove never remains NAME, and type parser tests accept contextual unit/never without new keyword tokens."},
+      {"checked": false, "text": "All parser/AST visitors use BlockYieldAST; ReturnAST compatibility code and frontend tests are removed."},
+      {"checked": false, "text": "Parser tests prove <| expr and |<| expr |; produce the same BlockYieldAST/current-Block owner, require inline |;, accept <| (), and preserve nested lexical ownership."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(frontend): model lexical block completion", "target": "styio-nightly"},
+    "next": ["917adda7-8440-4ede-95f6-17971417fb49"]
+  },
+  {
+    "id": "917adda7-8440-4ede-95f6-17971417fb49",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["dfb4fc64-4a7f-4094-a556-e8e82f215772"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement one memoized Sema completion analysis and deterministic Block-result joins.",
+    "description": "Scope: src/StyioSema/* and function/control-flow semantic tests. Context: current inference recursively inspects selected tails, treats empty Blocks as undefined, defaults some missing results to i64, and has no Unit-only consumer contract. Target: compute one cached BlockSummary per lexical Block, add reachable fallthrough as unit, join compatible normal exits, drop only proven never edges, type-check each yield against a ValueExpected or UnitOnly consumer, and issue source-located diagnostics for incompatible exits, missing non-unit results, invalid never construction/defaulting, structural unreachability, and Unit-only value loss. Design Considerations: use a compact exit set plus origin spans in one O(nodes+edges) traversal; canonical TypeId equality precedes joins; diagnose a region as unreachable only when every structural incoming edge has completed; no repeated subtree scans or backend repair. Design Value: makes all consumers share one proof of result type and divergence. Constraints & Risks: loops are never only when non-completion is proven; unknown control flow remains reachable/fail-closed, and no optional/default/effect rule is invented.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Sema tests prove unit fallthrough, compatible joins, join(T, never)=T, lexical nested yields, and the three direct function-body forms."},
+      {"checked": false, "text": "Negative tests prove T/unit rejection, missing non-unit result rejection, invalid never values/defaults, Unit-only <| T rejection, and structural same-Block unreachable diagnostics with stable codes/spans independent of optimization."},
+      {"checked": false, "text": "Static inspection and instrumentation prove one memoized linear completion analysis replaces recursive tail/default inference for this contract."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): enforce block completion algebra", "target": "styio-nightly"},
+    "next": ["487643c4-f140-4c7d-9526-dd56d083afa6"]
+  },
+  {
+    "id": "487643c4-f140-4c7d-9526-dd56d083afa6",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["917adda7-8440-4ede-95f6-17971417fb49"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Lower Sema-proven Block results through StyioIR and LLVM without fabricated values.",
+    "description": "Scope: src/StyioIR/*, src/StyioLowering/*, src/StyioCodeGen/*, IR verifier tests, pipeline goldens, and security tests. Context: SGReturn currently represents both lexical and function completion, empty SGBlock returns i64 zero, and failed return coercion can use a default runtime value. Target: add one distinct verified Block-result/candidate IR boundary shared by both yield spellings, adapt only the outer function body to SGReturn, emit no payload for unit/never, form PHI/control-flow joins only for compatible values, reject any Unit-only value-discard route, and emit unreachable only for Sema-proven divergence. Design Considerations: verifier failures stop before codegen; no default repair or inline-yield discriminator is allowed on Block/function-result paths; keep generic/ABI and exit-settlement representations out of scope while exposing the typed interface the child consumes. Design Value: backend structure becomes a consumer of semantic proof instead of a second inference engine. Constraints & Risks: preserve existing cleanup/resource behavior until the child performs its one-shot migration; do not partially implement a second epilogue authority in this parent.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "IR verifier tests reject malformed Block-result joins and Unit-only value discard, distinguish lexical Block completion from SGReturn, and prove both source spellings share one IR form."},
+      {"checked": false, "text": "Pipeline goldens prove unit/never produce no fabricated integer payload and compatible value joins lower correctly."},
+      {"checked": false, "text": "Code inspection proves failed Block/function result coercion cannot call a default-return repair path."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ir): lower verified block results", "target": "styio-nightly"},
+    "next": ["aba435cd-3d35-426a-a38d-27f36aa7b4a0"]
+  },
+  {
+    "id": "aba435cd-3d35-426a-a38d-27f36aa7b4a0",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["dfb4fc64-4a7f-4094-a556-e8e82f215772", "917adda7-8440-4ede-95f6-17971417fb49", "487643c4-f140-4c7d-9526-dd56d083afa6"],
+    "platform": "any",
+    "difficulty": "high",
+    "goal": "Converge active language docs, tooling mirrors, diagnostics, and fixtures on the delivered contract.",
+    "description": "Scope: Styio Language Design, EBNF, Symbol Reference, ACTIVE-SYNTAX, syntax convergence matrix, frontend/sema/test/docs runbooks, tree-sitter/editor/formatter mirrors, and affected fixtures. Context: active docs and tests still include cross-function wording for nested <| and have no complete Unit/Never join contract. Target: publish one canonical explanation and example set, update tooling to the final AST/type facts, migrate positive fixtures, delete obsolete executable expectations after stable diagnostics are covered, and link the child plans that own adjacent frozen representation/exit contracts. Design Considerations: language SSOT owns semantics; tooling mirrors syntax; indexes/gates are regenerated rather than hand-diverged. Design Value: prevents the old behavior from surviving as documentation or acceptance debt. Constraints & Risks: do not duplicate child Unit/ABI/exit protocol details or document still-open optional/default/effect syntax answers, and do not preserve old behavior under legacy/compat labels.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "All active SSOT and tooling mirrors state the same lexical Block, dual-spelling normalization, mandatory inline terminator, explicit Unit yield, Unit-only consumer, structural reachability, unit, never, and join rules."},
+      {"checked": false, "text": "Obsolete cross-Block return fixtures/tests are migrated or removed, with only current negative diagnostics retained."},
+      {"checked": false, "text": "Syntax convergence, docs index, docs audit, docs lifecycle, and local-information gates pass."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(language): converge block completion contract", "target": "styio-nightly"},
+    "next": ["566cbdbb-5fc2-4ccc-875c-4b209c811e70"]
+  },
+  {
+    "id": "566cbdbb-5fc2-4ccc-875c-4b209c811e70",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["96199f1b-b85e-4921-8cd1-82a34afbe1d5", "487643c4-f140-4c7d-9526-dd56d083afa6", "aba435cd-3d35-426a-a38d-27f36aa7b4a0"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove the complete Block completion and bottom-type contract on one head commit.",
+    "description": "Scope: execution and evidence recording for every Validation.md mapping; source changes only route back to the owning implementation node. Context: frontend, Sema, IR, backend, docs, and tooling can each pass locally while disagreeing end to end. Target: run all standing and REQ-specific checks on one commit, classify every obsolete ReturnAST/cross-Block-return match, record evidence per REQ-BC label, and synchronize Better Plan state. Design Considerations: validate source behavior, diagnostics, IR structure, runtime output, tooling, and generated docs together. Design Value: turns the owner decision into auditable delivery evidence rather than a documentation-only claim. Constraints & Risks: acceptance targets may not be weakened to accommodate implementation; any unresolved adjacent policy remains out of scope and fail-closed.",
+    "requirements": ["REQ-BC-001", "REQ-BC-002", "REQ-BC-003", "REQ-BC-004", "REQ-BC-005", "REQ-BC-006", "REQ-BC-007"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Build, language_feature, styio_pipeline, security, parser-shadow, syntax-convergence, documentation, lifecycle, local-information, and plan validators pass on one head commit."},
+      {"checked": false, "text": "Every REQ-BC label has recorded positive/negative or static evidence from Validation.md."},
+      {"checked": false, "text": "No compatibility implementation, inline-specific AST/IR path, Unit-only value discard, obsolete acceptance fixture, fabricated return value, or contradictory active documentation remains."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate block completion contract", "target": "styio-nightly"},
+    "next": []
+  }
+]

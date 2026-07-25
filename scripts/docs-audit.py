@@ -22,6 +22,12 @@ LAST_UPDATED_RE = re.compile(r"^(?:\*\*Last updated:\*\*|\[EN\] Last updated:)\s
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 DATE_FILE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$")
 ADR_FILE_RE = re.compile(r"^ADR-[0-9]{4}-[a-z0-9-]+\.md$")
+DRAFT_DOC_SUFFIX = "-Draft.md"
+DRAFT_STATUS_RE = re.compile(
+    r"^\*\*Status:\*\*\s+"
+    r"(?:Draft\b|(?:Pending|Awaiting)(?:\s+(?:language-)?owner)?\s+decision\b)",
+    re.I | re.M,
+)
 APPROVED_ADR_MARKDOWN = {"README.md", "INDEX.md", "IMPLEMENTED-DECISIONS.md"}
 BENCHMARK_REPORT_SUMMARY_RE = re.compile(r"^benchmark/reports/[^/]+/summary\.md$")
 APPROVED_TEST_DOC_NAMES = {"README.md", "REGRESSION-TEMPLATE.md"}
@@ -736,6 +742,27 @@ def check_naming(errors: List[str]) -> None:
     for path in (DOCS / "adr").glob("*.md"):
         if path.name not in APPROVED_ADR_MARKDOWN and not ADR_FILE_RE.match(path.name):
             errors.append(f"invalid ADR filename: {path.relative_to(ROOT)}")
+    for path in iter_docs():
+        if is_archive_doc(path):
+            continue
+        rel = path.relative_to(ROOT)
+        head = "\n".join(path.read_text(encoding="utf-8").splitlines()[:16])
+        has_draft_suffix = path.name.endswith(DRAFT_DOC_SUFFIX)
+        has_draft_status = DRAFT_STATUS_RE.search(head) is not None
+        is_active_review = (
+            rel.parent == Path("docs/review")
+            and path.name not in {"README.md", "INDEX.md"}
+        )
+        if (has_draft_status or is_active_review) and not has_draft_suffix:
+            errors.append(
+                "document awaiting a decision must end in -Draft.md: "
+                f"{rel}"
+            )
+        if has_draft_suffix and not has_draft_status:
+            errors.append(
+                "document ending in -Draft.md must declare top-level "
+                f"'**Status:** Draft': {rel}"
+            )
 
 def check_metadata(errors: List[str]) -> None:
     for path in iter_docs():

@@ -100,5 +100,161 @@
     "goal": "Close algorithmic optimization acceptance with real benchmark, sanitizer, TypeTable/SymbolInterner, ReadyQueue, and remote CI evidence.",
     "description": "Merges the algorithm audit, local closeout, CI audit, and remote acceptance reports into one current execution graph; local correctness/evidence paths exist, but speedup and release readiness remain unproven.",
     "checkpoints": "algorithmic-optimization-acceptance/Checkpoints.json"
+  },
+  {
+    "id": "ebb9b322-663e-44b1-a45f-bb2230d61e85",
+    "status": "pending",
+    "title": "Styio Block Completion and Bottom Type",
+    "directory": "styio-block-completion-and-bottom-type",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Block-Completion-and-Bottom-Type-Plan.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "docs/design/syntax/ACTIVE-SYNTAX.md"
+    ],
+    "goal": "Deliver the frozen lexical-Block completion algebra, strict current-Block yield contract, and public never type through one compiler and source contract.",
+    "description": "Covers unit fallthrough, fail-closed normal-result joins, contextual built-in never, one AST and target for both current-Block yield spellings, explicit Unit yield, structural reachability errors, Unit-only consumer typing, function-body result adaptation, removal of fabricated return values, and cross-layer conformance without implementing adjacent Optional/default/effect/ABI work.",
+    "checkpoints": "styio-block-completion-and-bottom-type/Checkpoints.json"
+  },
+  {
+    "id": "764221b5-dad2-478a-8cfa-30a342de7dcb",
+    "status": "pending",
+    "title": "Styio Unit Zero-Payload Boundaries",
+    "directory": "styio-block-completion-and-bottom-type/unit-zero-payload-boundaries",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/styio-block-completion-and-bottom-type/unit-zero-payload-boundaries/Plan.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "docs/design/syntax/ACTIVE-SYNTAX.md"
+    ],
+    "goal": "Deliver first-class Unit across generics, collections, tasks/effects, and explicit ABI adapters without deriving logical state from payload storage.",
+    "description": "Child of the Block Completion plan; owns frozen O01-Q10..Q12 and the mandatory logical-count/state versus physical-payload separation.",
+    "checkpoints": "styio-block-completion-and-bottom-type/unit-zero-payload-boundaries/Checkpoints.json"
+  },
+  {
+    "id": "d230d674-f479-4497-903f-5318d0549995",
+    "status": "pending",
+    "title": "Styio Block Exit Publication and Settlement",
+    "directory": "styio-block-completion-and-bottom-type/block-exit-publication-and-settlement",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/styio-block-completion-and-bottom-type/block-exit-publication-and-settlement/Plan.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-Resource-Topology.md",
+      "docs/design/syntax/BLOCK_COMPLETION.md",
+      "docs/specs/AGENT-SPEC.md"
+    ],
+    "goal": "Deliver ordinary Block-result publication after deterministic lexical settlement with bounded typed failure preservation and no managed runtime or new source syntax.",
+    "description": "Child of the Block Completion plan; owns frozen P01.12-A..B/O05-Q06 through one static exit-action graph, compiler-sized fixed failure storage, and complete exit-path convergence.",
+    "checkpoints": "styio-block-completion-and-bottom-type/block-exit-publication-and-settlement/Checkpoints.json"
+  },
+  {
+    "id": "80c2bb54-bee1-41a1-856e-d1c6703cea83",
+    "status": "pending",
+    "title": "Styio Explicit Binding Initialization",
+    "directory": "styio-explicit-binding-initialization",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Explicit-Binding-Initialization-Plan.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "docs/design/syntax/ACTIVE-SYNTAX.md"
+    ],
+    "goal": "Deliver the frozen explicit-first-value ordinary binding rule and remove every implicit default-synthesis route.",
+    "description": "Covers mandatory RHS syntax, absence of implicit Default or hidden uninitialized state, supplied-binder/schema/protocol boundaries, parser and AST invariants, Sema/IR enforcement, fixture migration, deletion of synthesized-default code and tests, and cross-layer conformance without deciding raw storage, record defaults, or topology initialization.",
+    "checkpoints": "styio-explicit-binding-initialization/Checkpoints.json"
+  },
+  {
+    "id": "9bd3491b-5e2c-4067-97fc-625fe469d203",
+    "status": "pending",
+    "title": "Styio Optional Absence Boundary",
+    "directory": "styio-optional-absence-boundary",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Optional-Absence-Boundary-Plan.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "docs/design/syntax/ACTIVE-SYNTAX.md"
+    ],
+    "goal": "Deliver canonical ? | T absence with a real discriminant and remove every ordinary value fallback/coalescing implementation while preserving grammar-anchored effect settlement.",
+    "description": "Owns frozen O01-Q01/O01-Q06..Q07 and P01.13-B/D02: structural Optional type identity, canonical empty/present values, full payload-domain preservation, deletion of bare-pipe/??/undefined-as-absence paths, and positive protection for type, guard, and leading ?| settlement roles.",
+    "checkpoints": "styio-optional-absence-boundary/Checkpoints.json"
+  },
+  {
+    "id": "2e4b3735-5087-4ab8-bc51-2c5c1f63e069",
+    "status": "pending",
+    "title": "Styio Directional Flow and Operation Settlement",
+    "directory": "styio-directional-flow-and-settlement",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Directional-Flow-and-Settlement-Plan.md",
+      "docs/design/Styio-Operation-Completion-and-Settlement.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "docs/design/syntax/ACTIVE-SYNTAX.md"
+    ],
+    "goal": "Deliver one graphical left-to-right data-flow contract and the accepted Q01-A static completion algebra through one generic ?| migration.",
+    "description": "Single implementation owner for frozen P01.14-A/D21 and Q01-A: one typed directional operation with Unit success, finite nominal completion families, ordinary identifier-based family(binding) arms, safe exact-once recovery, static propagation, Q01-local direct control flow, ordinary result binding, preservation of generic transfers, and one-shot deletion of task-target, bare-freeze, wildcard-discard, hard-coded-family, repair, and compatibility routes. It consumes the Q03-F bounded Outcome ABI; Q03-F alone owns complete global/TLS/JIT/CLI ambient-state deletion.",
+    "checkpoints": "styio-directional-flow-and-settlement/Checkpoints.json"
+  },
+  {
+    "id": "5a5ec867-9998-4e78-9111-761cad834754",
+    "status": "pending",
+    "title": "Styio Callable Principal Inference",
+    "directory": "styio-callable-principal-inference",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Callable-Principal-Inference-Plan.md",
+      "docs/design/Styio-Callable-Principal-Inference.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-Operation-Completion-and-Settlement.md",
+      "docs/design/Styio-Language-Decision-Ledger.md"
+    ],
+    "goal": "Deliver the approved Q02-INF definition-site principal constrained inference contract through independent call instantiation and deterministic concrete specialization.",
+    "description": "Owns scoped type terms and constraints, safe rank-1 generalization for eligible final local/private callable values, stable scheme rebinding, per-use fresh instantiation, Q05-owned closed operator relation integration, concrete monomorphization and resource gates, concrete-only SGIR/backend emission, shared IDE/cache facts, and one-shot deletion of first-use AST mutation and backend type defaults.",
+    "checkpoints": "styio-callable-principal-inference/Checkpoints.json"
+  },
+  {
+    "id": "a0063a94-8e76-4121-937a-0a43fa94b8d1",
+    "status": "pending",
+    "title": "Styio Exact Literals and Built-in Add",
+    "directory": "styio-exact-literals-and-builtin-add",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Exact-Literals-and-Builtin-Add-Plan.md",
+      "docs/design/Styio-Exact-Literals-and-Builtin-Add.md",
+      "docs/design/Styio-Callable-Principal-Inference.md",
+      "docs/design/Styio-Operation-Completion-and-Settlement.md"
+    ],
+    "goal": "Deliver the accepted exact-literal materialization and closed scalar Add contract through one bounded compiler implementation.",
+    "description": "Owns exact integer and decimal facts with deterministic resource gates, failure-closed materialization and late defaults, the immutable i8 through i128 and f32/f64 Add catalog, the narrow Q02 query seam, checked integer overflow completion, strict IEEE floating execution, constant/runtime identity, tooling and cache facts, and one-shot removal of promotion, coercion, host-folding, and backend-default paths.",
+    "checkpoints": "styio-exact-literals-and-builtin-add/Checkpoints.json"
+  },
+  {
+    "id": "ca5e328f-b725-4af7-b857-7c979bb3a393",
+    "status": "pending",
+    "title": "Styio Functional Evaluation and Effect Ordering",
+    "directory": "styio-functional-evaluation-and-effect-ordering",
+    "source_files": [
+      "docs/review/STYIO-SYNTAX-DECISION-REVIEW-Draft.md",
+      "docs/plan/Styio-Functional-Evaluation-and-Effect-Ordering-Plan.md",
+      "docs/design/Styio-Functional-Evaluation-and-Effect-Ordering.md",
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-Operation-Completion-and-Settlement.md",
+      "docs/design/Styio-Language-Decision-Ledger.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "docs/design/syntax/ACTIVE-SYNTAX.md"
+    ],
+    "goal": "Deliver the approved Q03-F strict-value, dependency-graph, explicit effect/completion ordering, exact-once, lazy-control, bounded Outcome, and proof-scoped optimization contract.",
+    "description": "Sole implementation owner for EvaluationFacts, once-only ENF, typed evaluation DAG/CFG, Q01 directional-node ordering integration, lazy branches, the compiler/generated-code bounded Outcome ABI, generated/native producer migration, complete global/TLS/codegen/JIT/CLI ambient-state deletion, four independent optimizer rights, diagnostics, and structural convergence. Q01 remains the sole owner of canonical directional/settlement syntax and nodes, OperationSummary, local settlement algebra, and legacy FlowBind/redirect deletion.",
+    "checkpoints": "styio-functional-evaluation-and-effect-ordering/Checkpoints.json"
   }
 ]

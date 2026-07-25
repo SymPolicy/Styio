@@ -1,0 +1,325 @@
+[
+  {
+    "id": "261337d2-1619-4cb5-9503-b3fc30a24dba",
+    "status": "pending",
+    "role": "product_requirements",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the accepted Q03-F product contract, cross-plan ownership, migration constraints, and observable acceptance target.",
+    "description": "Scope: Requirements.md and the accepted Q03-F owner. Context: current traversal, lowering, ambient error state, and optimizer behavior disagree and Q01 already owns canonical direction/settlement syntax and algebra. Target: keep REQ-FEO-001 through REQ-FEO-019 complete, observable, and bounded; keep OperationSummary at success_type/completion_set; make Q03 the sole owner of EvaluationFacts, the cross-producer Outcome ABI, and ambient-error deletion. Design Considerations: strictness, ordering, completion, totality, observability, and transform rights are separate facts. Design Value: prevents either current code or an adjacent lifecycle from becoming a second Q03 authority. Constraints & Risks: no new syntax, managed runtime, automatic concurrency, feature flag, compatibility layer, or Q01 parser/AST ownership duplication.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-002", "REQ-FEO-003", "REQ-FEO-004", "REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-007", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-010", "REQ-FEO-011", "REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-014", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Requirements.md defines users, observable outcomes, constraints, non-goals, and final acceptance for REQ-FEO-001 through REQ-FEO-019."},
+      {"checked": false, "text": "OperationSummary remains exactly success_type/completion_set and every Q03 fact is assigned to independent EvaluationFacts."},
+      {"checked": false, "text": "Q01 exclusively owns canonical direction/settlement shape and legacy direction deletion; Q03 owns only ordering integration and creates no adapter."},
+      {"checked": false, "text": "Q03 is explicitly the sole owner of the cross-producer Outcome ABI and full global/TLS/JIT/CLI ambient-error deletion."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): freeze Q03-F requirements", "target": "styio-nightly"},
+    "next": ["ee01e9dd-4dcb-41c4-a44d-df3dd6a69c5e"]
+  },
+  {
+    "id": "ee01e9dd-4dcb-41c4-a44d-df3dd6a69c5e",
+    "status": "pending",
+    "role": "evidence",
+    "prerequisites": ["261337d2-1619-4cb5-9503-b3fc30a24dba"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Inventory every fact, traversal, inlining, graph, lazy, outcome, ambient-state, optimizer, test, and documentation path before migration.",
+    "description": "Scope: Evidence.md plus read-only Sema, AST-to-IR, resource-topology, IR/verifier, codegen, existing error-state, JIT, driver, test, and gate inspection. Context: EffectKind is orphaned, optimizer speculation is node-kind based, resource methods clone argument ASTs, selection nodes can be eager, and completion uses ambient state. Target: classify retained Q01 interfaces, Q03 implementation gaps, three outcome producer domains, Q03 deletion targets, and Q01 prerequisite blockers. Design Considerations: use repository symbols and official LLVM/MLIR practice as evidence without importing their semantics. Design Value: prevents incomplete producer migration and ownership overlap. Constraints & Risks: Q01-owned FlowBind/redirect deletion is evidence/prerequisite only, never Q03 work.",
+    "requirements": ["REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-007", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-010", "REQ-FEO-011", "REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-014", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Evidence.md cites current fact/optimizer, resource-method cloning, directional prerequisite, eager lazy, ambient-state, producer, JIT/CLI, test, and gate paths."},
+      {"checked": false, "text": "Every ambient setter/consumer and producer helper is assigned to one of the three Q03 outcome migration domains or the final deletion node."},
+      {"checked": false, "text": "Official MLIR/LLVM evidence supports separate effects/speculation and versioned dependencies without overriding Styio semantics."},
+      {"checked": false, "text": "Q01 legacy-direction matches are routed as an external prerequisite and no Q03 compatibility implementation is proposed."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): ground Q03-F evidence", "target": "styio-nightly"},
+    "next": ["54cd690d-20ae-436d-a531-04d247841a10"]
+  },
+  {
+    "id": "54cd690d-20ae-436d-a531-04d247841a10",
+    "status": "pending",
+    "role": "validation_matrix",
+    "prerequisites": ["261337d2-1619-4cb5-9503-b3fc30a24dba", "ee01e9dd-4dcb-41c4-a44d-df3dd6a69c5e"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Fix exact-once, graph, CFG, outcome, optimizer, structural-zero, performance, and non-overreach validation before implementation.",
+    "description": "Scope: Validation.md and test/gate discovery. Context: one execution output cannot prove absence of an operand timeline, correct lazy non-execution, explicit completion transport, or transform legality. Target: map every FEO requirement to executable and static evidence under the catalog label functional_evaluation. Design Considerations: use counters, graph mutation negatives, fixed-seed alternate schedules, ABI layout oracles, per-right blockers, scoped structural searches, and operation-count benchmarks. Design Value: makes semantic convergence and complete deletion measurable. Constraints & Risks: Q01 canonicalization is linked as a prerequisite receipt and is not repeated as Q03 deletion work.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-002", "REQ-FEO-003", "REQ-FEO-004", "REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-007", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-010", "REQ-FEO-011", "REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-014", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Validation.md maps every FEO label to executable and structural evidence before source implementation."},
+      {"checked": false, "text": "Focused slices and CTest use the existing functional_evaluation label and tests/features/functional_evaluation catalog directory."},
+      {"checked": false, "text": "The matrix covers exact-once 0/1/N use, every edge kind, lazy branches, all outcome domains, four rights, verifier mutation, determinism, and graph complexity."},
+      {"checked": false, "text": "Structural zero explicitly deletes obsolete Q03 tests/fixtures/CMake/CTest/CI gates while Q01 fork deletion remains a linked prerequisite receipt."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): map Q03-F validation", "target": "styio-nightly"},
+    "next": ["92fae053-d50e-49d9-b7ac-a9e58064c956"]
+  },
+  {
+    "id": "92fae053-d50e-49d9-b7ac-a9e58064c956",
+    "status": "pending",
+    "role": "architecture_scaffold",
+    "prerequisites": ["261337d2-1619-4cb5-9503-b3fc30a24dba", "ee01e9dd-4dcb-41c4-a44d-df3dd6a69c5e", "54cd690d-20ae-436d-a531-04d247841a10"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Freeze the unique EvaluationFacts, ENF, typed DAG/IR/CFG, generated-code Outcome ABI, optimizer-right, and deletion architecture.",
+    "description": "Scope: Architecture.md and shared interface decisions. Context: current layers derive order and errors independently. Target: define immutable facts separate from OperationSummary, exact-once ValueRefs, versioned region dependencies, deterministic linear scheduler, verified lazy/completion CFG, bounded generated-code outcomes, three producer domains, complete ambient deletion, and four derived rights. Design Considerations: stable IDs, finite lattices, SCC fixed points, O(V+E) graph work, caller-owned payload storage, verifier recomputation, and cross-session isolation. Design Value: one proof model replaces traversal and ambient side channels. Constraints & Risks: no Q01 AST/matcher duplication, managed runtime, heap exception, dynamic registry, feature flag, compatibility path, or backend repair.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-002", "REQ-FEO-003", "REQ-FEO-004", "REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-007", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-010", "REQ-FEO-011", "REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-014", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Architecture.md defines fact ownership, data structures, algorithms, complexity, interfaces, cache/isolation, errors, outcome layout, optimizer proofs, and deletion order."},
+      {"checked": false, "text": "OperationSummary has no Q03 fields and EvaluationFacts rights are derived and verifier-recomputable."},
+      {"checked": false, "text": "The Outcome ABI is explicitly a compiler/generated-code bounded return convention, not a language type or managed runtime."},
+      {"checked": false, "text": "Q01/Q03 directional and settlement ownership plus Q03 sole Outcome/global-state ownership are unambiguous."}
+    ],
+    "commit": {"repository": ".git", "message": "docs(plan): design Q03-F architecture", "target": "styio-nightly"},
+    "next": ["8dc6dd31-9259-4727-b244-ea6c330b827e"]
+  },
+  {
+    "id": "8dc6dd31-9259-4727-b244-ea6c330b827e",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["92fae053-d50e-49d9-b7ac-a9e58064c956"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement the sole Q03-F fact domain while preserving the two-field Q01/Q02 OperationSummary.",
+    "description": "Scope: compiler-owned EvaluationFacts types, intern tables, stable IDs/fingerprints, access rows, return/termination facts, observability, Unknown, composition, and unit tests. Context: EffectKind is orphaned and a pure flag cannot prove speculation or deletion. Target: create one immutable domain referenced by Sema/IR/IDE/optimizer, with rights derived rather than asserted. Design Considerations: compact canonical rows, dense session IDs, stable serialized fingerprints, finite lattices, no raw pointers or hash-order output. Design Value: gives every downstream phase one fail-closed proof source. Constraints & Risks: do not alter OperationSummary, create a second completion set, enable optimizations early, or retain a second new fact domain.",
+    "requirements": ["REQ-FEO-005", "REQ-FEO-017", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "EvaluationFacts, EffectRow, ReturnBehavior, Observability, stable IDs/fingerprints, and conservative Unknown have focused unit tests."},
+      {"checked": false, "text": "OperationSummary still owns only success_type and completion_set and Q03 stores only an ID/reference to it."},
+      {"checked": false, "text": "Optimization rights are derived query results and cannot be forged by AST/IR construction."},
+      {"checked": false, "text": "No new compatibility fact table or pointer/hash/session-order serialization exists."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): add Q03-F evaluation facts", "target": "styio-nightly"},
+    "next": ["b25e98b7-ba3d-40f5-b9cf-959b0ca9c89f"]
+  },
+  {
+    "id": "b25e98b7-ba3d-40f5-b9cf-959b0ca9c89f",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["8dc6dd31-9259-4727-b244-ea6c330b827e"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Compute, intern, diagnose, cache, and publish one EvaluationFacts record for every typed computation.",
+    "description": "Scope: Sema catalogs/composition, Q02 concrete-call integration, call-graph SCC fixed points, native/FFI/resource/endpoint descriptors, diagnostics, IDE/cache publication, and tests. Context: no current unified summary feeds every layer. Target: bottom-up facts with deterministic finite-lattice call closure and Unknown-native fail-closed behavior. Design Considerations: stable semantic IDs, canonical unions, fixed iteration order and gates, no AST mutation, and separate definition/call facts. Design Value: eliminates backend and optimizer inference from node shape. Constraints & Risks: Q01 computes OperationSummary/family algebra; Q02 computes instances; Q03 only composes evaluation facts and cannot narrow public completion contracts.",
+    "requirements": ["REQ-FEO-003", "REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-017", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every typed node and concrete call instance publishes exactly one immutable EvaluationFactId."},
+      {"checked": false, "text": "Recursive SCC summaries converge deterministically and Unknown/native facts remain conservative."},
+      {"checked": false, "text": "Sema reports unordered order-sensitive siblings with both ranges and no arbitrary order edge."},
+      {"checked": false, "text": "IDE/cache/IR consume the same facts and no AST mutation or backend re-inference remains."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(sema): infer Q03-F summaries", "target": "styio-nightly"},
+    "next": ["499fbb2f-688e-435a-a9ea-c1fd61ed4cd3"]
+  },
+  {
+    "id": "499fbb2f-688e-435a-a9ea-c1fd61ed4cd3",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["8dc6dd31-9259-4727-b244-ea6c330b827e", "b25e98b7-ba3d-40f5-b9cf-959b0ca9c89f"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Normalize every strict prerequisite into one logical ValueRef and remove AST-substitution evaluation duplication.",
+    "description": "Scope: general typed-AST-to-ENF normalization, callee/receiver/argument/operand/composite/base/index/condition/scrutinee value definitions, resource-method inlining, source spans, and tests. Context: resource methods clone argument ASTs and direct child toStyioIR calls can rely on C++ evaluation order. Target: one definition per logical evaluation and parameter-to-ValueRef environments, including unused and repeated parameters. Design Considerations: normalization creates graph definitions rather than an ordered prefix list; compiler visit order is not a semantic edge. Design Value: makes exact-once behavior structural before scheduling. Constraints & Risks: consume Q01 nodes only through their landed interface; do not create parser/AST replacements, a legacy-direction adapter, thunks, or a second lowering path.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-002", "REQ-FEO-007", "REQ-FEO-010", "REQ-FEO-011", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "ENF assigns one ValueRef/definition to every strict prerequisite while preserving source and semantic identity."},
+      {"checked": false, "text": "Resource receiver/arguments execute exactly once for zero, one, and repeated parameter references."},
+      {"checked": false, "text": "Source child expressions are not substituted/cloned into resource-method bodies and unspecified C++ call-argument order is not semantic."},
+      {"checked": false, "text": "There is one ENF lowering path with no thunk, compatibility normalizer, or Q01 AST duplication."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(lowering): normalize exact-once ENF", "target": "styio-nightly"},
+    "next": ["480b3a6a-6d6c-4ed7-8795-56aa91ff0a38"]
+  },
+  {
+    "id": "480b3a6a-6d6c-4ed7-8795-56aa91ff0a38",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["8dc6dd31-9259-4727-b244-ea6c330b827e", "b25e98b7-ba3d-40f5-b9cf-959b0ca9c89f", "499fbb2f-688e-435a-a9ea-c1fd61ed4cd3"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Build, schedule, lower, and verify one typed evaluation DAG/IR/CFG with explicit value, control, completion, resource, cleanup, and publication dependencies.",
+    "description": "Scope: graph nodes/edges, resource-topology adapter, per-region versions, conflict/cycle reporting, deterministic Kahn scheduling, typed IR successors/regions/tokens, verifier, graph dumps, mutation tests, and benchmarks. Context: resource topology validates selected relationships but is not a general scheduler and repeated scans risk quadratic behavior. Target: Data, ControlLazy, CompletionStop, OrderedEffect, ExplicitHB, OwnershipBorrowDrop, Consume, Commit, and Backpressure edges with O(V+E) build/schedule/verify apart from declared alias queries. Design Considerations: last-writer/reader-epoch state, stable adjacency/FIFO ready order, exact completion successor conservation, and verifier recomputation. Design Value: turns Q03 semantics into one executable proof graph. Constraints & Risks: no arbitrary sibling edge, source-order fallback, second resource scheduler, backend repair, or test-only scheduler in production.",
+    "requirements": ["REQ-FEO-002", "REQ-FEO-003", "REQ-FEO-004", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every required edge kind, RAW/WAR/WAW version, Block stop, cleanup, commit, and publication relation has positive and negative tests."},
+      {"checked": false, "text": "Stable Kahn scheduling is deterministic and linear in nodes/edges while alternate fixed-seed test schedules preserve safe-pure semantics."},
+      {"checked": false, "text": "Typed IR carries unique values, facts, normal/completion successors, lazy regions, resource versions, and verified joins."},
+      {"checked": false, "text": "Verifier mutation corpus rejects missing edges/successors, forged facts/rights, eager lazy entry, early publication, and backend repair."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ir): add typed Q03-F evaluation graph", "target": "styio-nightly"},
+    "next": ["6a4516a7-b724-4ab9-b521-17f109387dc3", "4a3d042d-e4e1-4a57-91ce-154ae4fe93df", "b7529684-dabf-4759-8964-83aec85857ff"]
+  },
+  {
+    "id": "6a4516a7-b724-4ab9-b521-17f109387dc3",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["499fbb2f-688e-435a-a9ea-c1fd61ed4cd3", "480b3a6a-6d6c-4ed7-8795-56aa91ff0a38"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Integrate Q03 exact-once and ordering facts with the Q01 canonical directional node without duplicating its frontend or algebra.",
+    "description": "Scope: the landed Q01 directional-node interface, ENF, DAG/CFG, transfer/commit ordering, verifier, diagnostics, and functional_evaluation tests. Context: Q01 exclusively owns parser/AST/Sema/IR canonical shape and deletion of FlowBind/task-target/arrow redirect. Target: evaluate source and endpoint once, add two independent prerequisites, run transfer only after normal readiness, and reject unordered order-sensitive preparations. Design Considerations: the arrow direction is data direction, not preparation order; Q01 supplies Unit/endpoint/completion facts. Design Value: realizes the accepted Q03 ordering rule without a second directional implementation. Constraints & Risks: this checkpoint remains pending until the Q01 canonical receipt exists and may not create a legacy adapter or perform Q01-owned deletion.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-003", "REQ-FEO-007", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-010", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "A recorded Q01 receipt identifies the one canonical directional/settlement interface and its completed legacy-fork deletion."},
+      {"checked": false, "text": "Source and endpoint each have one ValueRef and independent data prerequisites; no implicit source-before-endpoint edge exists."},
+      {"checked": false, "text": "Transfer runs once after both normal values, preserves Q01 Unit/completion facts, and carries commit/backpressure edges."},
+      {"checked": false, "text": "Unordered order-sensitive preparations fail; prebound variants pass; no Q03 parser/AST/legacy adapter or Q01-owned deletion is introduced."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(ir): integrate directional evaluation order", "target": "styio-nightly"},
+    "next": ["9e2c8507-537a-4fa3-b769-47069c3f5dd5"]
+  },
+  {
+    "id": "4a3d042d-e4e1-4a57-91ce-154ae4fe93df",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["480b3a6a-6d6c-4ed7-8795-56aa91ff0a38", "6a4516a7-b724-4ab9-b521-17f109387dc3"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Lower every source-defined lazy/selecting construct through explicit exact-once CFG and remove Q03-owned eager selection paths.",
+    "description": "Scope: short-circuit booleans, conditional/match/guard/fallback, Q01-resolved settlement successors, typed merges, completion propagation, lowering/codegen, verifier, tests, and deletion. Context: SGFallback/SGWaveMerge/SGGuardSelect and resource-effect lowering can prepare alternatives eagerly. Target: evaluate each decision/scrutinee/operation once and only the selected continuation, with typed phi/block arguments and explicit completion exits. Design Considerations: consume Q01 family/arm matching and local direct edges; Q03 owns surrounding lazy scheduling/CFG only. Design Value: makes unselected non-execution structural and optimizable safely. Constraints & Risks: LLVM select is allowed only for already-computed unconditional values; no second settlement AST/matcher, eager compatibility node, implicit retry, or handler runtime.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-004", "REQ-FEO-009", "REQ-FEO-011", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Condition/scrutinee/operation executes once and only the selected branch/guard/recovery executes at O0/O2/O3."},
+      {"checked": false, "text": "Q01-resolved settlement success, named arms, fallback, propagation, and joins are consumed without recreating matching algebra."},
+      {"checked": false, "text": "Typed CFG/phi and verifier preserve lazy, completion-stop, cleanup, and publication edges."},
+      {"checked": false, "text": "Source-reachable eager Q03 selection code/tests/gates are removed and no both-input-before-select compatibility path remains."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(ir): lower lazy constructs to CFG", "target": "styio-nightly"},
+    "next": ["9e2c8507-537a-4fa3-b769-47069c3f5dd5"]
+  },
+  {
+    "id": "b7529684-dabf-4759-8964-83aec85857ff",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["8dc6dd31-9259-4727-b244-ea6c330b827e", "480b3a6a-6d6c-4ed7-8795-56aa91ff0a38"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Implement the sole compiler/generated-code bounded Outcome ABI and adapter verification contract.",
+    "description": "Scope: OutcomeLayout, stable local family ordinals, bounded discriminator widths, direct SSA/aggregate results, caller-owned typed success/payload out locations, cleanup ownership, generated/native/FFI adapter interfaces, top-level EntryOutcome, and tests. Context: generated/native producer helpers currently report failure through ambient state and Q01 needs a transport it can consume. Target: one compile-time convention generated from OperationSummary with discriminator 0 for success and finite family ordinals for completion. Design Considerations: zero-payload families allocate nothing; branch payload storage is compiler-sized; direct calls may use CFG/multiple values while C boundaries use status/out parameters. Design Value: explicit bounded control flow without a managed runtime. Constraints & Risks: Q03 is sole ABI owner; Q01 supplies facts only; no source Result, heap exception, string family lookup, dynamic registry, TLS/global state, unwinder, or hidden allocation.",
+    "requirements": ["REQ-FEO-005", "REQ-FEO-009", "REQ-FEO-012", "REQ-FEO-016", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "OutcomeLayout is generated from canonical OperationSummary/family order and has bounded verified discriminator and typed storage."},
+      {"checked": false, "text": "Direct generated and C/native/FFI boundary conventions round-trip success, zero-payload completion, and typed-payload completion."},
+      {"checked": false, "text": "EntryOutcome exposes top-level status directly and cleanup ownership is explicit in CFG."},
+      {"checked": false, "text": "No language type, managed runtime, heap exception, dynamic registry, string lookup, ambient state, or alternate Q01 ABI is introduced."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(codegen): add bounded generated outcome ABI", "target": "styio-nightly"},
+    "next": ["5fbe2be9-ddcf-450e-8647-6a4a05b5dc8d", "21b87cee-e135-4183-9e2e-a0aa3aed8249", "c069a26a-a57f-4a97-addd-afa50602c426"]
+  },
+  {
+    "id": "5fbe2be9-ddcf-450e-8647-6a4a05b5dc8d",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["b7529684-dabf-4759-8964-83aec85857ff"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Migrate numeric, parse, container, dictionary/list, and matrix outcome producers to the bounded ABI.",
+    "description": "Scope: value-domain helper declarations/implementations, operation descriptors, lowering/codegen calls, constant/generated parity, tests, and owned ambient setters/sentinels. Context: value helpers can signal failure through shared state or normal sentinels. Target: return explicit success/family/payload for checked arithmetic, parse/materialization, bounds/shape/resource, list/dict/container, and matrix failures. Design Considerations: false/zero/empty are normal successes; Q05 strict FP/checked arithmetic and Q01 family sets remain authoritative. Design Value: makes value-domain completion composable in CFG. Constraints & Risks: no new operation relation, coercion, sentinel, global setter, string family, hidden allocation, or cross-domain file/task change.",
+    "requirements": ["REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every source-reachable numeric/parse/container/matrix producer has an explicit bounded outcome signature and consumer."},
+      {"checked": false, "text": "Zero, false, and empty success remain distinguishable from every completion family/payload."},
+      {"checked": false, "text": "Constant and generated paths agree on values/completions and preserve checked/strict numerical rules."},
+      {"checked": false, "text": "Owned ambient setters, sentinels, string-family transport, obsolete positives, and compatibility gates are absent."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(native): migrate value outcome producers", "target": "styio-nightly"},
+    "next": ["9e2c8507-537a-4fa3-b769-47069c3f5dd5"]
+  },
+  {
+    "id": "21b87cee-e135-4183-9e2e-a0aa3aed8249",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["b7529684-dabf-4759-8964-83aec85857ff"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Migrate file, stdio, resource, cleanup, commit, and admitted backpressure outcome producers to the bounded ABI.",
+    "description": "Scope: resource-domain helper declarations/implementations, accesses, codegen call sites, cleanup/commit paths, tests, and owned ambient setters. Context: resource failures currently rely on ambient state and logical pending writes need verified barriers. Target: explicit outcomes for acquire/read/write/flush/close/snapshot/commit/drop and admitted backpressure while preserving region versions, partial progress rules, cleanup, and Block publication. Design Considerations: resource families own concrete protocols; Q03 transports their declared outcome and edges. Design Value: makes resource failure and cleanup visible to the same CFG. Constraints & Risks: no new resource policy, scheduling/fairness rule, global setter, silent log-and-continue, compatibility ABI, or changes to other producer domains.",
+    "requirements": ["REQ-FEO-004", "REQ-FEO-008", "REQ-FEO-012", "REQ-FEO-014", "REQ-FEO-016", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every source-reachable file/resource/cleanup/backpressure producer has explicit outcome transport and matching CFG consumers."},
+      {"checked": false, "text": "Region versions, commit/flush/close barriers, cleanup ownership, and publication remain verified on success and completion."},
+      {"checked": false, "text": "Partial-progress and every declared failure case preserve the resource owner's contract without ambient polling."},
+      {"checked": false, "text": "Owned ambient setters, silent continuation, obsolete positives, and compatibility gates are absent."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(native): migrate resource outcome producers", "target": "styio-nightly"},
+    "next": ["9e2c8507-537a-4fa3-b769-47069c3f5dd5"]
+  },
+  {
+    "id": "c069a26a-a57f-4a97-addd-afa50602c426",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["b7529684-dabf-4759-8964-83aec85857ff"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Migrate generated calls, tasks, native helpers, and FFI adapters to the bounded Outcome ABI.",
+    "description": "Scope: generated call ABI, task create/run/join/settle, native declarations/helpers, FFI adapters, lowering/codegen, cleanup, Unknown facts, tests, and owned ambient bridges. Context: calls/tasks/natives can fabricate defaults or set shared error state, and Unknown behavior is unsafe to optimize. Target: explicit normal/completion return across every execution boundary with accepted join/settlement edges and conservative unmodeled native facts. Design Considerations: scheduling/fairness/cancellation stay with their owners; adapters expose honest status/out layouts. Design Value: closes the last cross-frame completion channel before global deletion. Constraints & Risks: no fabricated i64/Undefined, implicit errno/string subcode, ambient bridge, new scheduler, or changes to value/resource producers.",
+    "requirements": ["REQ-FEO-006", "REQ-FEO-009", "REQ-FEO-012", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Generated calls, task lifecycle/settlement, native helpers, and FFI adapters all return explicit bounded outcomes."},
+      {"checked": false, "text": "Accepted task join/settlement and cleanup edges survive normal and completion paths without inventing scheduling policy."},
+      {"checked": false, "text": "Unknown native behavior remains conservative and no fabricated Undefined/i64 or implicit errno/string family is used."},
+      {"checked": false, "text": "Owned ambient bridges, obsolete positives, and compatibility gates are absent."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(native): migrate execution outcome producers", "target": "styio-nightly"},
+    "next": ["9e2c8507-537a-4fa3-b769-47069c3f5dd5"]
+  },
+  {
+    "id": "9e2c8507-537a-4fa3-b769-47069c3f5dd5",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["6a4516a7-b724-4ab9-b521-17f109387dc3", "4a3d042d-e4e1-4a57-91ce-154ae4fe93df", "5fbe2be9-ddcf-450e-8647-6a4a05b5dc8d", "21b87cee-e135-4183-9e2e-a0aa3aed8249", "c069a26a-a57f-4a97-addd-afa50602c426"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "As Q03 sole owner, delete ambient global/TLS error authority and converge backend, JIT, native wrapper, and CLI on explicit EntryOutcome.",
+    "description": "Scope: RuntimeState error fields/APIs, ExternLib exports, string-family matching, codegen guards, resource-effect guard state, JIT symbols, generated native wrapper, driver clear/poll/report/events, tests, build registration, and docs. Context: all producer domains now return bounded outcomes, so ambient state is both redundant and semantically dangerous. Target: direct outcome-to-CFG/diagnostic propagation and complete structural deletion of every error side channel. Design Considerations: logging remains semantically independent; one top-level EntryOutcome drives JIT/CLI/native status. Design Value: removes hidden temporal coupling and makes completion local and verifiable. Constraints & Risks: no feature flag, shadow TLS, old ABI shim, string matching, global poll, sentinel repair, or retained positive compatibility test/gate.",
+    "requirements": ["REQ-FEO-004", "REQ-FEO-009", "REQ-FEO-011", "REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-014", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Ambient error global/TLS fields, snapshots, set/clear/has/last/match/take APIs, and all producer calls are absent."},
+      {"checked": false, "text": "Codegen guard helpers/state, JIT error symbols, generated-wrapper declarations/polling, and CLI clear/poll/report paths are absent."},
+      {"checked": false, "text": "JIT, native wrapper, CLI events/diagnostics, settlement, and unhandled completion consume explicit EntryOutcome only."},
+      {"checked": false, "text": "Obsolete ambient-error tests, expected files, CMake/CTest/CI gates, docs, and compatibility ABI are deleted in the same migration."}
+    ],
+    "commit": {"repository": ".git", "message": "refactor(codegen): remove ambient error authority", "target": "styio-nightly"},
+    "next": ["e05b55ef-96d1-4bda-8846-4db6e000cbf5"]
+  },
+  {
+    "id": "e05b55ef-96d1-4bda-8846-4db6e000cbf5",
+    "status": "pending",
+    "role": "implementation",
+    "prerequisites": ["8dc6dd31-9259-4727-b244-ea6c330b827e", "b25e98b7-ba3d-40f5-b9cf-959b0ca9c89f", "480b3a6a-6d6c-4ed7-8795-56aa91ff0a38", "9e2c8507-537a-4fa3-b769-47069c3f5dd5"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Enable reorder-exact-once, speculate, duplicate, and elide only through independent verified proofs.",
+    "description": "Scope: optimizer queries/passes, CSE/DCE/inlining/folding/reassociation/fusion/resource coalescing, LLVM attributes/flags, verifier hooks, tests, and deletion of old heuristics. Context: current node-kind speculation and orphan EffectKind conflate transformations and miss completion/totality/identity/resource facts. Target: four named rights with context-specific proof, same-version equivalence, strict numeric preservation, and transformation receipts. Design Considerations: rights are derived/recomputed, exact-once is distinct from speculation, and backend contracts may be stronger than Styio facts. Design Value: enables safe optimization without weakening language order or failure. Constraints & Risks: no pure blanket, AST-class heuristic, forged flag, fast-math/reassociation for strict rows, checked-overflow erasure, lazy forcing, or optimization before verifier success.",
+    "requirements": ["REQ-FEO-002", "REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Each of the four rights has independent positive/negative tests and optimizer output names the right consumed."},
+      {"checked": false, "text": "Completion, divergence/trap, identity/allocation/lifetime/count, resource versions, native/volatile, cleanup, commit, publication, and strict numeric blockers are enforced."},
+      {"checked": false, "text": "CSE/DCE/rematerialization/inlining/folding/resource coalescing use facts, equivalence, versions, and exact parent contracts."},
+      {"checked": false, "text": "The orphan EffectKind enum, node-kind speculation heuristics, forbidden backend attributes/flags, obsolete tests, and compatibility gates are removed."}
+    ],
+    "commit": {"repository": ".git", "message": "feat(optimizer): enforce Q03-F rights", "target": "styio-nightly"},
+    "next": ["7dcb2f8e-e02e-46af-9fe7-2766266f3c2a"]
+  },
+  {
+    "id": "7dcb2f8e-e02e-46af-9fe7-2766266f3c2a",
+    "status": "pending",
+    "role": "final_validation",
+    "prerequisites": ["54cd690d-20ae-436d-a531-04d247841a10", "6a4516a7-b724-4ab9-b521-17f109387dc3", "4a3d042d-e4e1-4a57-91ce-154ae4fe93df", "9e2c8507-537a-4fa3-b769-47069c3f5dd5", "e05b55ef-96d1-4bda-8846-4db6e000cbf5"],
+    "platform": "any",
+    "difficulty": "deep",
+    "goal": "Prove complete Q03-F behavior and structural zero for every Q03-owned legacy implementation, test, fixture, gate, and document on one revision.",
+    "description": "Scope: execute every Validation.md mapping, full structural inventory, Q01 prerequisite receipt, focused/full tests, fuzz/stress/sanitizer/security, graph benchmarks, tooling/docs, and Better Plan state. Context: source can appear migrated while eager nodes, ambient ABI, heuristic optimizers, compatibility tests, or CI gates still preserve old behavior. Target: one-revision receipts for all FEO labels, exact-once/DAG/CFG/outcome/right behavior, Q03 source/test/gate deletion, determinism, and performance. Design Considerations: functional_evaluation is the sole feature label; every remaining search match is classified. Design Value: prevents partial migration and long-lived dead authority. Constraints & Risks: do not re-own Q01 fork deletion; link its receipt, remove every Q03-owned old test/gate, and do not mark complete with a compatibility exception.",
+    "requirements": ["REQ-FEO-001", "REQ-FEO-002", "REQ-FEO-003", "REQ-FEO-004", "REQ-FEO-005", "REQ-FEO-006", "REQ-FEO-007", "REQ-FEO-008", "REQ-FEO-009", "REQ-FEO-010", "REQ-FEO-011", "REQ-FEO-012", "REQ-FEO-013", "REQ-FEO-014", "REQ-FEO-015", "REQ-FEO-016", "REQ-FEO-017", "REQ-FEO-018", "REQ-FEO-019"],
+    "acceptance_criteria": [
+      {"checked": false, "text": "Every FEO requirement has source, fact, graph/CFG, generated/native outcome, optimizer, structural, documentation, and non-goal evidence on one revision."},
+      {"checked": false, "text": "All obsolete Q03 ENF/DAG/CFG/outcome/effect/error implementations, positive legacy tests, fixtures, expected files, CMake/CTest/CI gates, docs, runbooks, and generated entries are deleted."},
+      {"checked": false, "text": "The Q01 canonical-direction receipt is linked and no Q03 parser/AST/legacy adapter or duplicate settlement algebra exists."},
+      {"checked": false, "text": "functional_evaluation focused/full tests, verifier negatives, fuzz/stress, supported sanitizer/security, deterministic graph/ABI/cache checks, performance budgets, docs/lifecycle/local-information, and Better Plan validation pass."}
+    ],
+    "commit": {"repository": ".git", "message": "test(language): validate Q03-F structural convergence", "target": "styio-nightly"},
+    "next": []
+  }
+]

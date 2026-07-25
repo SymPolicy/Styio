@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-20
 
 ## Default Read Order
 
@@ -25,6 +25,7 @@
 4. Repository docs now distinguish active maintenance docs (`docs/design`, `docs/specs`, `docs/teams`, root `workflows/`, current `docs/rollups/`) from Git-history provenance and the minimal `docs/archive/` lifecycle shell.
 5. File governance is now on the shared three-repo baseline: root `.gitignore` freezes the common ignore floor, `docs/**` and `tests/**` temp/build-style tracked fixtures use explicit negate rules, and `scripts/repo-hygiene-gate.py` checks both the patterns and the key governance doc links.
 6. Standard-library governance is manifest-first: `library/manifest.json` currently has only `std.resource` active, backed by `share/styio/prelude/resources.styio` and resource/stdin/stdout evidence. Matrix helper calls and series `avg/max` selectors are compiler intrinsics, not active `std.*` modules.
+7. `Q03-F` functional evaluation and effect ordering is design-approved: ordinary values are strict, independent safe-pure siblings have dependency order rather than an author-visible source timeline, lexical Block items order observable work, and unordered order-sensitive siblings fail closed. For `source -> endpoint`, left-to-right is data direction only; source value and endpoint capability are independent prerequisites. The normative owner is [Styio Functional Evaluation and Effect Ordering](../design/Styio-Functional-Evaluation-and-Effect-Ordering.md). Compiler implementation remains pending.
 
 ## Current Development Front
 
@@ -37,6 +38,7 @@
 
 7. The next performance checkpoint is Algorithmic Optimization C (parser Pratt / precedence table), after the P0 placeholder inventory and canonical topology prerequisites are represented; it must preserve accepted grammar, no-fallback parser authority, and stable diagnostics.
 8. Hash-tag iterator routes are retired by owner decision and stay fail-closed with stable migration diagnostics; duplicate `@stdin & @stdin` zip stays fail-closed until an explicit tee/buffer or duplicate-driver design is accepted.
+9. Q03-F implementation is a dedicated one-shot migration, not an extension of the Q01 settlement or Q05 numeric plans. It must consume Q01's unchanged `OperationSummary`, introduce canonical `EvaluationFacts`, lower a typed evaluation DAG to verified CFG, diagnose missing edges, and prove reorder/speculate/duplicate/elide rights separately while deleting every route that treats parser traversal, AST child order, backend instruction scheduling, or ambient runtime failure as semantic authority. The accepted design text does not mark any implementation checkpoint complete.
 
 ## Active Gates
 
@@ -58,3 +60,4 @@
 2. Resource topology migration must keep design, parser/sema/lowering work, and test catalog updates in one checkpoint path.
 3. Benchmarking is now structured, but meaningful comparisons still depend on keeping parser shadow/five-layer gates green alongside the perf route.
 4. Shared ignore/fixture governance is only frozen for current tracked roots; any future repro root outside `docs/**` or `tests/**` still needs explicit negate rules before files land.
+5. Until the Q03-F migration lands, current AST traversal, Sema/lowering visitation, optimizer traversal, and backend scheduling can accidentally appear to define evaluation order. Those implementation accidents must not be documented or tested as language behavior; potentially order-sensitive sibling work must remain fail-closed rather than inherit a convenient current order.

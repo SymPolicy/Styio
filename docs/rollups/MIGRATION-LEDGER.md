@@ -2,7 +2,7 @@
 
 **Purpose:** Track every active historical-compatibility migration so the project can reduce historical burden checkpoint by checkpoint without losing visibility on the still-open seams. Each row has an explicit completion signal so the seam can be retired the day its closure conditions are met.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-20
 
 > Search code, scripts, and docs for `MIGRATION-NEEDED:` to find every site annotated under this ledger.
 
@@ -12,6 +12,7 @@
 2. When closing a migration, remove the matching `MIGRATION-NEEDED:` markers from the code, then drop the row from this ledger.
 3. Each row links to its owner runbook and to the file it lives in. Owners are responsible for keeping the row honest.
 4. This ledger does not replace `NEXT-STAGE-GAP-LEDGER.md`. Migrations carry both an end-state plan (here) and any open implementation gap (there) only when the gap is broader than the migration itself.
+5. An accepted semantic-authority change may use this ledger only when delivery must remove every old implicit behavior in one lifecycle. It does not create a compatibility mode: the row closes only after the new contract is complete and the accidental old authority is gone.
 
 ## Open Migrations
 
@@ -26,6 +27,7 @@
 | M-AUDIT-01 | Stale 2026-04-22 audit reports | Docs / Ecosystem | `docs/audit/EXTERNAL-AUDIT-2026-04-22.md`, `docs/audit/agent-findings/nightly-compiler-2026-04-22.md`, `docs/audit/agent-findings/nightly-ide-parser-2026-04-22.md`, `docs/audit/agent-findings/nightly-sema-codegen-2026-04-22.md` | Apply all four sub-steps in the same commit: (1) verify each finding is closed against `docs/adr/IMPLEMENTED-DECISIONS.md` and the matching `docs/rollups/IM-D*` inventory; (2) record the closure rows in `docs/archive/ARCHIVE-MANIFEST.json`; (3) regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm` the four files listed in the Site(s) cell. |
 | M-PLAN-01 | Spio dual-channel plan absorption | Docs / Ecosystem | `docs/plan/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md` ("Repo-local baseline completed.") | Apply all sub-steps in the same commit: (1) lift residual hardening rules into [`../plan/Styio-Ecosystem-Delivery-Master-Plan.md`](../plan/Styio-Ecosystem-Delivery-Master-Plan.md) phase tables; (2) confirm the `styio-spio` SSOT covers the cross-repo contract; (3) record closure in `docs/archive/ARCHIVE-MANIFEST.json` and regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm docs/plan/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md`. |
 | M-PLAN-02 | `docs/history/2026-05-19.md` snapshot | Docs / Ecosystem | `docs/history/2026-05-19.md` (single dated note explicitly referenced by `NEXT-STAGE-GAP-LEDGER.md`) | The owning ledger row closes; the snapshot is archived through the manifest and removed. |
+| M-Q03-01 | Q03-F evaluation/effect-order semantic-authority migration | Sema / IR, Frontend, Codegen / Runtime, IDE / LSP, Test Quality, Perf / Stability | Audit and migrate the evaluation-sensitive surfaces in `src/StyioSema/TypeInfer.cpp`, `src/StyioLowering/AstToStyioIR.cpp`, `src/StyioIR/StyioIRWalker.hpp`, `src/StyioLowering/StyioIROptimizer.cpp`, `src/StyioCodeGen/CodeGenG.cpp`, and their compiler-owned diagnostic/IDE fact consumers under the dedicated Q03-F implementation plan. Current traversal or instruction order is inventory evidence only, never accepted semantics. | One immutable `EvaluationFacts`/operation-summary contract and typed evaluation DAG feed verified CFG lowering; unordered order-sensitive siblings fail with stable two-range/missing-edge diagnostics; Block stop, mandatory exits, publication, lazy selection, and `->` source/endpoint prerequisite independence pass the Q03-F catalog; reorder/speculate/duplicate/elide rights are independently verified; every implicit traversal/scheduling authority is deleted with no compatibility flag or alternate runtime path. |
 
 ## Recently Closed (2026-06-28 implementation-gap pass)
 

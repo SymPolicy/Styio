@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-07-11
 
 ## Mission
 
@@ -30,7 +30,8 @@ Primary paths:
 7. When conditional-loop syntax changes, keep compiler parser tests, [../design/Styio-EBNF.md](../design/Styio-EBNF.md), language design docs, and symbol reference aligned; the active form is `[...] >> ?(condition) => { ... }`.
 8. Generated support headers may be edited only for repository-public wording cleanup or regenerated artifact hygiene; keep those edits narrow and rerun grammar/IDE gates when behavior changes.
 9. Tree-sitter and fallback syntax snapshots are non-authoritative editor aids. Accepted grammar must be proven through the hand-written nightly compiler parser and [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), not by Tree-sitter success.
-10. Range editing support must distinguish naked `start..end` as `range_expr` from bracketed `[start..end]` as `materialized_range`; do not let `[start..end]` collapse to a one-element `list_literal`, and keep `[start..end..step]` reserved rather than an active editor grammar form.
+10. Range editing support must distinguish naked `start..end` as `range_expr` from bracketed `[start..end]` as `materialized_range`; do not let `[start..end]` collapse to a one-element `list_literal`, and keep `[start..end..step]` removed/rejected rather than an active editor grammar form.
+11. `Q03-F` adds no token, production, precedence level, or CST node. Tree-sitter associativity, child order, traversal order, and error-recovery order describe syntax only and must never be exposed as evaluation timing. Preserve distinct child ranges for calls, operators, selectors, composites, match, guards, and settlement so compiler/IDE diagnostics can point to both unordered order-sensitive prerequisites; keep short-circuit and selected-arm structure visible without simulating Sema's evaluation graph.
 
 ## Change Classes
 

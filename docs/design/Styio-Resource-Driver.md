@@ -2,7 +2,7 @@
 
 **Purpose:** `@protocol(...)` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-07-16
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -55,12 +55,22 @@ struct ResourceIntent {
     bool is_sink;                   // true if used with << or ->
 };
 
+enum class TickPresence {
+    Present,
+    OptionalEmpty,                  // legal only for a declared ? | T item
+};
+
 struct TickData {
     uint64_t timestamp_ns;          // Nanosecond-precision timestamp
     const void* data;               // Pointer to raw payload
     size_t data_size;               // Size of payload in bytes
-    bool is_undefined;              // true if this tick represents @
-    uint32_t reason_code;           // Diagnostic code (debug mode)
+    TickPresence presence;          // Physical tag, never inferred from payload bytes
+    uint32_t diagnostic_reason_code; // Debugger-only provenance; semantically inert
+};
+
+struct DriverFailure {
+    uint32_t reason_code;           // Typed resource-effect diagnostic code
+    std::string message;
 };
 
 class IStyioDriver {
@@ -76,7 +86,9 @@ public:
     // Phase 2a: Source mode — called by runtime to poll or receive data
     // Driver calls `emit_tick` to push data into the Styio pipeline.
     // This runs on a dedicated I/O thread managed by the runtime.
-    virtual void start_pump(std::function<void(const TickData&)> emit_tick) = 0;
+    virtual void start_pump(
+        std::function<void(const TickData&)> emit_tick,
+        std::function<void(const DriverFailure&)> emit_failure) = 0;
 
     // Phase 2b: Sink mode — called when data flows into the resource via << or ->
     virtual void on_receive(const TickData& data) = 0;
@@ -93,6 +105,12 @@ public:
     virtual bool is_healthy() const = 0;
 };
 ```
+
+`TickPresence::OptionalEmpty` is a transport tag for an item whose declared
+source type is `? | T`; the adapter materializes `(?)` and never exposes the
+tag as an ordinary `T` payload. `DriverFailure` is a separate typed
+resource-effect route. Diagnostic reason fields are internal provenance only
+and cannot participate in Styio value semantics.
 
 ### 3.2 Registration Macro
 
@@ -236,7 +254,8 @@ When no protocol prefix is provided (`@{"data"}` or `@("localhost:8080")`), the 
 2. Check if the string looks like `host:port` → try TCP connection
 3. Check if the string is a file path → try `file` driver
 4. Check file extension (`.csv`, `.json`, `.parquet`) → try format-specific driver
-5. If all probes fail → emit `@` with diagnostic reason
+5. If all probes fail → report a subscribe-time resource failure with its
+   diagnostic reason; do not fabricate a value or Optional empty
 
 In **strict mode**, auto-detection is disabled. All resources must specify their protocol explicitly.
 
@@ -270,15 +289,24 @@ If `on_subscribe` returns false, the runtime:
 ### 10.2 Pump-Time Errors
 
 If a driver encounters an error during streaming (network timeout, corrupt data):
-1. Emit a tick with `is_undefined = true` and a `reason_code`
-2. The Styio pipeline receives `@` with tainted metadata
-3. The pipeline continues operating (graceful degradation via `@` propagation)
+1. Report `DriverFailure` through the resource-effect channel; do not encode the
+   failure as `TickData`.
+2. The leading `?|` settlement boundary decides whether the typed failure is
+   raised, handled by name, or recovered by its anchored fallback.
+3. Only a protocol whose declared item type is `? | T` may emit
+   `TickPresence::OptionalEmpty`; the source value is `(?)`, and an ordinary
+   `T` pipeline can never receive that state.
+
+`diagnostic_reason_code` on a legitimate Optional-empty tick is debugger-only
+provenance. Source code cannot read it, compare it, branch on it, or use it to
+change release behavior; it never converts missing data into a failure or a
+failure into missing data.
 
 ### 10.3 Reason Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | No error (healthy `@` — data legitimately absent) |
+| 0 | No failure; legitimate absence is instead the typed Optional-empty state |
 | 1 | Network timeout |
 | 2 | Connection refused |
 | 3 | Schema mismatch (field not found) |

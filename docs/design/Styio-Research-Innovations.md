@@ -2,7 +2,7 @@
 
 **Purpose:** 论文向研究假设与证据清单；**不**作为语言实现或语义的规范依据（实现见 `../specs/AGENT-SPEC.md`，语义见 `Styio-Language-Design.md`），也不作为产品、性能或外部系统比较声明。
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-07-16
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -94,7 +94,7 @@ Construct a scenario where two state references are read in the same expression.
 
 ---
 
-## Innovation Point 3: Algebraic Absence Without Monads
+## Innovation Point 3: Typed Algebraic Absence Without Bare-Pipe Coalescing
 
 ### The Problem
 
@@ -106,25 +106,36 @@ Missing data is pervasive in real-world streams (network drops, sensor failures,
 
 ### Styio's Contribution
 
-Styio introduces runtime `@` as an **algebraic absence value** that:
+Styio places algebraic absence behind the explicit static boundary `? | T`:
 
-- Propagates through supported value families as runtime absence, not as a user-authored bare source literal
-- Keeps the common value representation outside user-authored wrapper types where the compiler path supports it
-- Carries **diagnostic metadata** in debug mode (reason code, source location)
-- Can be intercepted at any value point via `|` (value fallback) or `??` (diagnostic extract). Resource-effect fallback is separate: `?| resource_operation` settles in place and raises immediately on failure, while `?| resource_operation | fallback` recovers through type inference.
+- an ordinary `T` has no empty value
+- `(?)` is the source-level empty value of an Optional union
+- a present `T` value inhabits `? | T` without a user-visible wrapper constructor
+- supported operations may propagate typed absence, while debugger/runtime
+  diagnostics may render internal provenance without exposing it as a
+  source-language value
 
-**Formal algebra:**
+The frontend deliberately has no generic binary `|` expression. `a | b`,
+`true | false`, `0 | 1`, and longer chains are syntax errors before type or
+purity analysis. Single `|` remains available only in grammar-anchored roles:
+type union, guard else, and handler/fallback separators after leading `?|`.
 
-For any supported binary operation \(\oplus\), values \(a, b\), and runtime absence \(@\):
+Styio also rejects `a ?? b`: D02 is closed with no ordinary value-level
+fallback/coalescing operator. `??` has no accepted token, grammar, or semantic
+role; the orphan token path and earlier diagnostic-extraction interpretation
+are removed rather than retained for future overloading.
 
-\[a \oplus @ = @\]
-\[@ \oplus b = @\]
-\[@ \oplus @ = @\]
+**Formal type boundary:**
 
-The `|` operator provides recovery:
+For a non-optional type `T`, its ordinary value domain and the empty state are
+disjoint. `Values(? | T)` is exactly the union of the empty state and
+`Values(T)`.
 
-\[@ \mid d = d\]
-\[a \mid d = a \quad (\text{when } a \neq @)\]
+There is deliberately no value-coalescing equation, precedence tier, or chain
+law because the language does not expose that operation. Resource-effect
+recovery remains separate: `?| resource_operation` settles in place and raises
+on unhandled failure, while its anchored `| fallback` branch handles only that
+effect boundary and is not an ordinary value operator.
 
 **Evidence required before external comparison:**
 
@@ -228,13 +239,13 @@ Benchmark a cross-exchange arbitrage strategy that combines a 100Hz price feed w
 Candidate application areas for evaluation:
 
 - **IoT edge computing:** Sensor fusion with heterogeneous sampling rates
-- **Autonomous systems:** Real-time decision pipelines with fail-safe `@` propagation
+- **Autonomous systems:** Real-time decision pipelines with statically typed `? | T` propagation
 - **Log analytics:** High-throughput ETL with intent-pushed column pruning
 - **Game engines:** Frame-locked state updates with deterministic replay
 
 ### 6.2 Formal Verification
 
-The algebraic properties of `@` and the determinism of pulse frame locking define candidate proof obligations:
+The algebraic properties of `? | T` and the determinism of pulse frame locking define candidate proof obligations:
 
 - stale-data checks for frame-locked reads
 - missing-data propagation checks for accumulators
@@ -301,7 +312,9 @@ Acknowledging limitations keeps the paper evidence-scoped.
 
 Research statements about originality, performance, safety, or external systems require a literature review, source citations, and repository evidence. Until that evidence exists, this document records hypotheses only.
 
-The same rule applies to algebraic absence and diagnostic tainting: describe the implemented semantics first, then publish only measured benefits.
+The same rule applies to algebraic absence and semantically inert diagnostic
+provenance: describe the implemented behavior first, do not imply a
+source-level extraction operator, and publish only measured benefits.
 
 ### On Potential Reviewers' Concerns
 

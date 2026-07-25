@@ -2,7 +2,7 @@
 
 **Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-07-16
 
 **Status:** resource topology source syntax plus current compiler-owned RTG validation.
 **Supersedes:** retired state-resource state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
@@ -16,8 +16,11 @@ Global, persistent resources must not look like local function calls. The active
 
 - **Resource identity:** `@name` is a resource object or resource entry, not a scalar latest value.
 - **Value shape:** type expressions define scalar, tuple, fixed-length, recent-window, and unbounded sequence shapes.
-- **Flow:** `->` writes into sinks; `<<` explicitly copies resources or snapshots; every block-entry surface such as `>>`, `=>`, `?=`, active `||>`, and reserved `|>` when activated enters a snapshot-backed resource context and commits at block exit.
-- **Scope:** globally visible `@name` resources belong at program root unless a future scoped-resource rule says otherwise.
+- **Flow:** `->` writes into sinks; `<<` explicitly copies resources or snapshots; every block-entry surface such as `>>`, `=>`, `?=`, active `||>`, and resource sessions `|?|` enters a snapshot-backed resource context and commits at block exit. Settlement-forward `|>` after a session transfers settlement responsibility.
+- **Scope:** globally visible `@name` topology nodes belong at program root
+  (§4.1). Resource *sessions* (`|?| { ... }`, §4.2) are the settled explicit
+  scope for local handles and anchors; they do not authorize local topology
+  declarations. Scoped subtopology remains a separate fail-closed reserve.
 
 ---
 
@@ -29,9 +32,13 @@ The running compiler also reserves top-level `@import { ... }` as a module decla
 
 | Role | Meaning | Typical surface form |
 |------|---------|----------------------|
-| **A. Honest missing** | Runtime absence produced by resources/intrinsics | no active source-level bare `@` |
-| **B. Resource anchor** | External driver / file / exchange handle | `@file(...)`, `@binance(...)`, `@stdin` |
-| **C. Named resource object** | Persistent resource, sequence, stream, snapshot slot, or topology output | `@price : f64|..10| := { ... }` |
+| **A. Resource anchor** | External driver / file / exchange handle | `@file(...)`, `@binance(...)`, `@stdin` |
+| **B. Named resource object** | Persistent resource, sequence, stream, snapshot slot, or topology output | `@price : f64|..10| := { ... }` |
+
+`@` has no missing-value role. A driver result that may be absent must expose
+`? | T` in its static value shape and produces `(?)` for the empty branch.
+Debugger-only provenance may use an internal display marker, but that marker is
+not source syntax, resource identity, payload, or observable value state.
 
 Host-provided resource anchors are explicit resource subjects. User code may operate them through
 their declared capabilities, including explicit release/close when the resource family provides
@@ -112,8 +119,8 @@ Multiple resources may share one driver:
 ```styio
 @ma5 : f64|..2|, @ma20 : f64|..2| := {
   @file("tests/features/state_resources/data/prices.txt") >> #(p) => {
-    p[avg, 5]  -> @ma5
-    p[avg, 20] -> @ma20
+    avg(p, 5)  -> @ma5
+    avg(p, 20) -> @ma20
   }
 }
 ```
@@ -126,6 +133,126 @@ Internal resource prelude declarations may still use the function-body form:
 ```
 
 This form defines built-in resource identity in Styio source. Runtime code may provide the substrate that the body lowers to, but it must not introduce a resource through an ungoverned C++ name registry.
+
+### 4.1 Scope rule: topology root-only; sessions are handles-only
+
+**Active rule for topology.** `@name` topology declarations are top-level only.
+Declaring a named topology resource inside any local block — including inside
+a `|?|` session — is rejected with the standing diagnostic: `The global
+resource cannot be initialized in a local block.` The rule and the diagnostic
+stay exactly as they are today.
+
+**Three tiers.** Named topology nodes (`@name : Type := ...`) are root-only.
+Local resource *handles* and inline *anchors* are the lifetime surface:
+`f <- @file(...)`, `@file(...) >> #(line) => { ... }`. Resource sessions
+(§4.2) give those handles an explicit structured-concurrency and settlement
+boundary. They do **not** authorize local topology nodes.
+
+**Reserved (separate from sessions): scoped subtopology.** Fail-closed. A
+future activation may allow `@name` inside a strictly limited class of
+session-shaped scopes under static multiplicity, no-escape, no-external-
+reference, no-shadowing, and permanent exclusion of per-pulse closure bodies.
+That direction remains blocked until its own design is pinned; §4.2 does not
+activate it. Resources as first-class dynamic values stay permanently
+rejected.
+
+**Visibility rationale.** Root-only topology was chosen so readers can see
+where every topology node lives. First-party tooling (IDE, highlighting,
+debugger) is accepted as partial compensation for session-local *handles*;
+it does not relax the topology root-only rule.
+
+### 4.2 Resource session: `|?| { ... }`
+
+Settled design; parser-pending and fail-closed until implementation evidence
+lands. There is no `session` keyword: `|?| { ... }` *is* the session.
+
+**One construct, four roles.** An explicit `|?|` session is simultaneously:
+
+1. the qualifying resource scope for local handles and anchors,
+2. the structured join boundary for accepted owned-child/task features,
+3. a settleable resource operation, and
+4. a stage that may defer settlement through `|>`.
+
+**Placement (two surfaces, not one).**
+
+- **Mid-transfer stage:** `|?|` sits between execution symbols, for example
+  `# f => |?| { ... } |!|(cleanup) => handler` or `# f := |?| { ... } |> g`.
+  `|?|` is not a statement opener by itself.
+- **Statement-start settlement:** `?|` opens the statement and settles the
+  session, for example `?| |?| { ... } | cleanup => handler` or
+  `?| |?| { ... } |> next |> cleanup => handler`.
+
+Examples:
+
+```styio
+# f => |?| {
+    h <- @file("log.txt")
+    h.write("ok")
+} |!|(cleanup) => report_cleanup()
+
+# f := |?| {
+    h <- @file("log.txt")
+} |> g
+
+?| |?| {
+    h <- @file("log.txt")
+} |> next |> cleanup => handler
+
+a => |?| {
+    h <- @file("log.txt")
+} |> b |> c |> cleanup => handler
+```
+
+**Body whitelist (conservative, settled).** Session bodies may acquire and use
+**handles and anchors only** (`h <- @file(...)`, inline `@file(...)`, standard
+streams, destroy sink). They may **not** declare topology nodes
+(`@name : Type`). That keeps the standing local-block topology diagnostic
+intact.
+
+**Exit and settlement.**
+
+1. **Default Close.** With no `|!|` and no deferred `|> ... |> cleanup`
+   chain, owned close-capable handles release in reverse acquisition order at
+   session exit (ordinary RAII Close).
+2. **Special exit: `|!|(cleanup)` / `|!|(ResourceCleanupFailure)`.** Marks
+   session-exit special handling for the cleanup effect family. The effect
+   name aligns with the existing `cleanup` / `ResourceCleanupFailure` family;
+   this is not a Java-style universal `Exception` catch-all.
+3. **Deferred settlement: `|>`.** After the session leaves, settlement may be
+   forwarded through one or more stages and settled at a later suitable site:
+   `?| |?| { ... } |> next |> cleanup => handler`. `|>` is activated for this
+   settlement / control transfer role (it is no longer a blank reserved
+   symbol). `|<-` remains reserved.
+4. **Effect-first obligation.** If any resource family acquired in the session
+   has a fallible release, the compiler requires the session to be settled —
+   either by `|!|(cleanup)`, by a statement-start `?| ... | cleanup =>`, or by
+   a deferred `|> ... |> cleanup =>` chain. When every release is infallible,
+   a bare session with default Close is allowed.
+5. **Bounded multi-completion preservation.** The primary body completion keeps
+   priority; cleanup completions occupy compiler-sized typed secondary slots and
+   do not erase one another; reverse-order release continues so every declared
+   cleanup completion remains available to the enclosing static settlement.
+6. **Unhandled completion propagation.** If a fallible session is not settled at
+   that site, its remaining nominal completion families become part of the
+   enclosing operation or callable's static completion set. Only an explicit
+   outermost program boundary may reject/report a still-unhandled family. There
+   is no ambient program-level failure channel or dynamic propagation runtime.
+
+**Escape discipline (Rust `thread::scope` layering, settled).**
+
+1. Return, move-out, and store-into-outer-container of session-owned handles
+   are statically rejected (affine ownership).
+2. `||>` tasks spawned inside the session are joined at session exit.
+3. This session contract does not activate continuation capture, resume, or
+   discontinue semantics. If a continuation feature is admitted later, its
+   session-exit behavior requires that feature's own owner decision.
+4. v1 provides no Swift-style detached escape hatch. Work that must outlive
+   the session must use root-declared resources.
+
+**Snapshot / commit.** `|?| { ... }` is a block-entry surface: it opens a
+resource snapshot at entry and commits at the matching `}`. Chained
+`|>` stages after the session are settlement transfer, not additional
+topology snapshot scopes, unless a stage itself enters a new block.
 
 ---
 
@@ -157,8 +284,9 @@ all    = @price[...]
 `<-` is for acquiring or receiving from a resource entry. It is not the general resource-copy operator. A resource already bound to `l` must not be copied as `l1 <- l`; use `l1 << l`.
 
 Every block-entry surface enters a resource snapshot context at its operator boundary. This includes
-`>>`, `=>`, `?=`, active `||>`, and the reserved `|>` family if it later becomes a block-entry
-surface. The block operates on the snapshot rather than sharing mutable access to the original
+`>>`, `=>`, `?=`, active `||>`, and resource sessions `|?| { ... }`. Settlement-forward `|>`
+after a session transfers settlement responsibility and is not itself a topology snapshot scope
+unless a stage enters a new block. The block operates on the snapshot rather than sharing mutable access to the original
 resource context. When the block reaches `}`, the compiler commits the snapshot result back to the
 source resource context for that stage. This rule covers resource state and resource effects;
 ordinary lexical value scoping keeps its existing language rules.
@@ -176,6 +304,15 @@ optimization and topology reasoning can keep room to fuse, reorder, or remove no
 intermediate writes. Barriers that force commit include same-resource reads, explicit snapshots,
 iteration by another consumer, `flush`, `close`, resource-family release/commit hooks, explicit
 happens-before edges, and block exit.
+
+Accepted Q03-F sequencing distinguishes this logical effect graph from physical
+instruction order. Lexical Block items order order-sensitive logical events,
+while a pending write may still be fused, reordered, or removed when RTG proves
+the same final state at every barrier. For `source -> endpoint`, source value and
+endpoint capability are independent transfer prerequisites; the arrow's data
+direction never substitutes for an RTG happens-before edge between their
+preparation. See
+[Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md) §6/§8.
 
 ---
 
@@ -205,9 +342,13 @@ Rules:
 
 ---
 
-## 7. Intrinsics and hidden state (`p[avg, n]`)
+## 7. Intrinsics and hidden state (`avg(p, n)`)
 
-Design target: user code may write `p[avg, 20]` or a helper such as `get_ma(p, 20)`. The compiler:
+User code writes the ordinary call `avg(p, 20)` (or a user-defined helper such
+as `get_ma(p, 20)`). The removed word-mode selector spelling `p[avg, 20]` is
+parser compatibility debt: selectors are a pure-symbol algebra, and named
+computations live in the library namespace, recognized as compiler intrinsics
+during semantic analysis. The compiler:
 
 1. Fingerprints the triple `(source, avg, 20)` for deduplication.
 2. Allocates implicit ledger slots for the raw samples and running state required by the intrinsic.
@@ -236,8 +377,8 @@ shown numeric family.
 ```styio
 @ma5 : f64|..2|, @ma20 : f64|..2| := {
   @file("tests/features/state_resources/data/prices.txt") >> #(p) => {
-    p[avg, 5]  -> @ma5
-    p[avg, 20] -> @ma20
+    avg(p, 5)  -> @ma5
+    avg(p, 20) -> @ma20
 
     is_golden =
       @ma5[-2] <= @ma20[-2] &&
@@ -250,7 +391,7 @@ shown numeric family.
 }
 ```
 
-The example uses `|..2|` because it needs the previous and current published values. The intrinsic `p[avg, 20]` still owns its required raw-history storage.
+The example uses `|..2|` because it needs the previous and current published values. The intrinsic `avg(p, 20)` still owns its required raw-history storage.
 
 ---
 
@@ -285,7 +426,7 @@ then maps them onto resource topology instead of copying another language's surf
 | Automatic cleanup at scope exit | C++ RAII and resource handles; C# `using`; Java try-with-resources; Python `with` | Owned close-capable resources receive compiler-owned scope-exit drop edges. User code may call `.close()`, but language safety does not depend on remembering it |
 | Deterministic cleanup order | Java/C# multi-resource cleanup and Go `defer` use deterministic cleanup ordering | Styio must keep scope-exit drops deterministic. When multiple owned resources are in one scope, later acquisitions release before earlier acquisitions unless RTG establishes a stricter dependency |
 | Explicit method contract for cleanup | Java `AutoCloseable`, C# `IDisposable`, Python context manager protocol | Resource methods are resolved statically. Unknown methods, property-as-method calls, wrong arity, and final-binding overrides are compile errors |
-| Exception/error behavior is part of the resource contract | Java suppressed close exceptions; C# disposal through `try/finally`; Python `__exit__` receives exception state | Cleanup failure is a typed resource effect with a distinct `ResourceCleanupFailure` family. `?\| resource_operation` without fallback raises immediately, and `?\| resource_operation \| fallback` recovers explicitly through type inference |
+| Failure behavior is part of the resource contract | Java suppressed close exceptions; C# disposal through `try/finally`; Python `__exit__` receives exception state | A cleanup operation exposes a finite nominal completion family and cannot silently lose a physical failure. Exact `family` / `family(binding)` settlement arms, recoverable-failure fallback, result join, and propagation follow the accepted operation-completion design. The resource family owns only when its physical state escalates into that family and the payload it supplies. |
 | Concurrent mutation must be visible to the type/checking layer | Static alias-control and reference-capability systems prevent unsafe simultaneous access patterns | RTG rejects unordered exclusive resource accesses unless an explicit `=>` happens-before edge orders the accesses. Block-entry surfaces use snapshots instead of shared mutable access to the original resource context |
 | Dynamic convenience is acceptable only below a static safety boundary | Python/Go make cleanup easy but rely more on runtime discipline | Styio may keep convenient `@("path").close()` calls, but consuming status must be known from the method table before lowering |
 
