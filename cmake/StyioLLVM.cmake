@@ -1,5 +1,4 @@
 find_package(ZLIB QUIET)
-find_package(zstd CONFIG QUIET)
 find_package(LibXml2 QUIET)
 find_package(LLVM 18.1.0 REQUIRED CONFIG)
 
