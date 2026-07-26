@@ -2,6 +2,12 @@
 
 **Purpose:** `@protocol(...)` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
 
+**D3 authority:** [Styio Structured Resources and
+Concurrency](./Styio-Structured-Resources-and-Concurrency.md) owns language
+semantics. This driver draft must expose bounded pressure, terminal states,
+fallible cleanup, and affine local lease/subscription obligations rather than
+silently overriding them.
+
 **Last updated:** 2026-07-16
 
 **Version:** 1.0-draft  
@@ -216,7 +222,9 @@ db >> #(row) => { ... }        // iterate rows/ticks one pulse at a time
 
 ### 6.1 Source Drivers
 
-Each source driver's `start_pump` runs on a **dedicated I/O thread**. The `emit_tick` callback is thread-safe and transfers data to the main computation thread via a lock-free ring buffer.
+An implementation may run a source pump on an I/O thread. Any cross-thread
+queue has a declared finite capacity and pressure policy; a lock-free ring
+buffer is one implementation option, not language semantics.
 
 ```
 ┌──────────────┐    lock-free     ┌──────────────┐
@@ -227,7 +235,10 @@ Each source driver's `start_pump` runs on a **dedicated I/O thread**. The `emit_
 
 ### 6.2 Sink Drivers
 
-`on_receive` is called from the compute thread but must be **non-blocking**. Drivers should internally buffer writes and flush asynchronously (e.g., using a background write thread or `io_uring`/IOCP).
+`on_receive` may decline, suspend, or publish pending/pressure according to its
+protocol. A driver cannot satisfy the contract by hiding an unbounded write
+buffer. Asynchronous flushing must remain bounded and participate in scope-exit
+obligations.
 
 ### 6.3 Snapshot Pulls
 
@@ -240,7 +251,10 @@ in new design text.
 
 ## 7. Resource Singleton Rule
 
-The runtime enforces a **singleton constraint**: regardless of how many times `@binance("BTCUSDT")` appears in code, only **one** physical WebSocket connection is established. All references share the same driver instance.
+The runtime may deduplicate a physical root driver identity, but each
+source-level local lease/subscription remains an independently tracked affine
+obligation. Deduplication never turns owning handles into implicitly shared
+source values or creates automatic broadcast.
 
 The compiler detects duplicate resource identifiers during analysis and merges them.
 

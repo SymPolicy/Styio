@@ -4,7 +4,7 @@
 dependency-only pure computation, explicit effect/completion sequencing, Block
 stop edges, directional-transfer prerequisites, and optimization rights.
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 **Status:** Design accepted; implementation pending. This document is the
 unique focused semantic owner for Q03-F. Current parser, AST traversal, Sema,
@@ -12,7 +12,7 @@ SGIR, LLVM emission, runtime error state, tests, or optimizer behavior are not
 language authority.
 
 **Implementation owner:** [Styio Functional Evaluation and Effect Ordering
-Plan](../plan/Styio-Functional-Evaluation-and-Effect-Ordering-Plan.md).
+plan](../plan/styio-functional-evaluation-and-effect-ordering/Requirements.md).
 
 ## 1. Accepted model
 
@@ -238,6 +238,13 @@ both input values are ready. An `overflow` completion publishes no numeric
 result. If both operand computations are themselves order-sensitive and no
 edge orders them, the expression is rejected before lowering.
 
+For accepted checked scalar conversion, the left expression is one strict
+prerequisite evaluated exactly once. The selected `:>` row runs only after that
+value exists. Empty-completion rows may be proven total; a row admitting
+`out_of_range`, `inexact`, or `non_finite` publishes no target value on that
+completion edge. Constant knowledge does not replace the edge with a different
+optimization-only error.
+
 ### 5.2 Callable application
 
 The callee/receiver and every strict argument are prerequisites of the call
@@ -290,9 +297,10 @@ direct expression is rejected. The author prepares them in consecutive Block
 items in the desired order, then performs the transfer.
 
 Endpoint protocols may add capability, ownership, completion, backpressure,
-commit, and cleanup edges without changing the arrow's meaning. Q04 owns copy,
-move, borrow, and capture; resource families own their concrete endpoint
-protocols.
+commit, and cleanup edges without changing the arrow's meaning. Accepted
+Q04-Core owns copy, consume, borrow, capture, post-state, and drop facts through
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md);
+resource families own their concrete endpoint protocol rows.
 
 ## 7. Lazy and selecting constructs
 
@@ -312,7 +320,8 @@ The scrutinee is evaluated exactly once. Arm lexical priority, pattern test,
 guard, and selected body form control dependencies. A guard is evaluated only
 after its pattern matches; a false guard continues to the next admitted arm;
 a completing guard propagates its completion. Pattern legality, overlap,
-exhaustiveness, and ownership remain with Q07/Q04.
+exhaustiveness, and partial-move details remain with Q07, consuming the
+accepted Q04-Core place/ownership facts.
 
 ### 7.3 Settlement
 
@@ -383,6 +392,7 @@ consume these facts. They must preserve:
 
 - strict IEEE floating semantics and approved signed-zero/NaN behavior;
 - checked integer overflow and its completion edge;
+- checked scalar-conversion exactness and its precise completion family;
 - exact-once order-sensitive operations;
 - lazy/unselected branch non-execution;
 - completion-stop, ownership/drop, commit, cleanup, and publication edges.
@@ -430,9 +440,18 @@ recommend an unapproved sequencing operator.
 
 Q03-F does not decide:
 
-- value copy/move/borrow/capture, view lifetime, or endpoint ownership (Q04);
-- remaining arithmetic relations, conversions, aliases, or NaN comparison
-  policy (remaining Q05);
+- value copy/consume/borrow/capture, view lifetime, endpoint ownership, and
+  lexical drop policy are supplied by accepted
+  [Q04-Core](./Styio-Ownership-Capture-and-Capability.md);
+- numeric widening, arithmetic/comparison rows, compound assignment, rounding,
+  and completion sets are supplied by accepted
+  [Q05-NUMERIC-OPS](./Styio-Builtin-Numeric-Operators-and-Inference.md);
+  checked scalar conversion is supplied by
+  [Q05-SCALAR-CONV](./Styio-Checked-Scalar-Conversion.md), and the Euclidean
+  signed-integer invariant by
+  [Q05-INT-DIVREM](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md);
+  intentionally lossy named conversions, unsigned/platform aliases, and NaN
+  bit-level/total-order policy remain later Q05 work;
 - Unicode/text units (Q06);
 - record/pattern legality, partial moves, or exhaustiveness (Q07);
 - collection index/slice/iterator protocol (Q08);

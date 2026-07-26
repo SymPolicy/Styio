@@ -2,25 +2,37 @@
 
 **Purpose:** Define the accepted `Q02-INF` rule for definition-site principal inference of eligible callable bindings, including generalization, instantiation, rebinding, diagnostics, and later type-system boundaries.
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
-**Status:** Accepted owner decision `Q02-INF` on 2026-07-19.
+**Status:** Accepted owner decision `Q02-INF` on 2026-07-19, revised by
+accepted `F1-INFERRED-ABSTRACTION` on 2026-07-26.
 
 **See also:** [Styio Language Design](./Styio-Language-Design.md) section 5.1,
 [Styio Operation Completion and Settlement](./Styio-Operation-Completion-and-Settlement.md)
-section 1, [Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
+section 1, [Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md),
+[Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md),
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md),
+[Styio Euclidean Signed-Integer Division and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md),
+[Styio Inferred Abstraction and Explicit
+Conformance](./Styio-Inferred-Abstraction-and-Explicit-Conformance.md),
 and [Styio Language Decision Ledger](./Styio-Language-Decision-Ledger.md).
 
 ## 1. Scope and authority
 
-This document is the sole detailed semantic owner for compiler-internal
-callable principal inference. The language design, grammar, symbol reference,
-and active-syntax map contain only summary mirrors of this decision.
+This document and [Styio Inferred Abstraction and Explicit
+Conformance](./Styio-Inferred-Abstraction-and-Explicit-Conformance.md) jointly
+own callable principal inference and its accepted public-publication boundary.
+The language design, grammar, symbol reference, and active-syntax map contain
+only summary mirrors.
 
 `Q02-INF` applies to omitted callable type information in an eligible binding.
-It does not add author-written generics, constraints, traits, overloads, or a
-runtime type-class dictionary. It also does not change the accepted callable
-source grammar.
+Styio deliberately adds no author-written generic parameter list or repeated
+constraint clause. Capability requirements may include resolved nominal
+protocols inferred from body operations, while concrete user conformance
+remains explicit and coherent. There is no runtime type-class dictionary and
+the callable source grammar gains no generic declaration production.
 
 The compiler may describe an inferred scheme with notation such as:
 
@@ -39,34 +51,37 @@ An inferred callable scheme consists of:
 - an ordered parameter-type vector `P1 ... Pm`;
 - one success type `R`;
 - one concrete finite completion-family upper bound `C`;
-- a finite normalized set `K` of compiler-known closed constraints; and
+- a finite normalized set `K` of closed built-in relations and resolved
+  nominal protocol requirements; and
 - zero or more type variables quantified only at the scheme's outermost level.
 
 Outermost-only quantification makes this rank-1 inference. The completion
-component is never a quantified row, and constraints can refer only to the
-compiler's closed built-in relation catalog.
+component is never a quantified row.
 
 ## 2. Eligibility and explicit boundaries
 
 Automatic rank-1 generalization is permitted only when every condition below
 holds:
 
-1. the binding is lexical-local or module-private;
-2. it is a final callable binding formed with `# name := callable_value`;
-3. the right side is a callable value, not an arbitrary value later discovered
+1. it is a final callable binding formed with `# name := callable_value`;
+2. the right side is a callable value, not an arbitrary value later discovered
    to be callable;
-4. the definition is non-recursive, including absence from a recursive
+3. the definition is non-recursive, including absence from a recursive
    strongly connected component;
-5. it is not a public/exported, native/FFI, or typed protocol boundary; and
-6. capture analysis proves the callable value capture-safe.
+4. it is not a native/FFI or typed protocol ABI boundary;
+5. capture analysis proves the callable value capture-safe; and
+6. if exported, the solved scheme and finite completion bound can be
+   serialized as one stable canonical module-interface contract.
 
 Eligibility fails closed. In particular, lack of a capture-safety proof is not
-permission to generalize. `Q04` owns the capture, borrowing, transfer, and
-escape rules that establish that proof.
+permission to generalize. Accepted Q04-Core defines the proof: only no capture
+or immutable value-semantic snapshot captures produce `capture_safe=true`.
+Owner, borrow/view, resource, task, mutable-binding, and unknown captures do
+not qualify. The normative rule is
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
 
-`Q10` owns the source spelling and resolution of visibility. `Q02-INF` only
-consumes the resolved fact that a definition is lexical-local or module-private
-and is not an exported boundary; it introduces no privacy/export modifier.
+`D4-MODULES` owns visibility and canonical module-interface identity.
+`Q02-INF` introduces no privacy/export modifier.
 
 An eligible definition may omit parameter annotations. If it omits the entire
 `: T` callable contract, the compiler infers both the success type and the
@@ -74,11 +89,13 @@ finite completion bound. If the author writes `: T`, that result type is an
 immediate expected constraint and the missing completion clause still means an
 empty bound in every scope; it never requests hidden completion inference.
 
-Public/exported, recursive, native/FFI, and typed protocol-boundary callables
-must source-declare every parameter type, the success type, and the finite
-completion upper bound. A pure boundary writes `: T`, whose bound is empty. A
-boundary admitting completions writes `: T ?| {family, ...}`. An internal
-inferred scheme must never be published as an invisible public ABI.
+An eligible public/exported callable may omit the contract only when the
+compiler publishes its unique solved scheme and finite completion bound in the
+canonical module interface. Dependants consume that interface fact and do not
+reanalyse the body. Recursive, native/FFI, and typed protocol-boundary
+callables must source-declare every parameter type, success type, and finite
+completion upper bound. An inferred scheme must never remain an invisible or
+call-order-dependent public ABI.
 
 ## 3. Definition-site constraint solving
 
@@ -149,15 +166,18 @@ add_five : forall T. Fn(T) -> OperationSummary(T, {overflow})
            where Add(T, IntegerLiteral(5), T, Completion(T))
 ```
 
-Accepted decision `Q05-LIT-ADD`, owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
-now closes that relation. `T` ranges over the finite admitted scalar rows, the
-integer literal remains exact until it materializes to `T`, and the selected row
-returns `T`. Integer rows admit `{overflow}` and floating rows admit `{}`, so the
-stable generalized scheme uses their conservative union `{overflow}`. `Add` and
-`IntegerLiteral` are not author-writable capabilities. `Completion(T)` is the
-closed relation's finite projection, not a completion-row variable, and no
-backend-preferred integer type determines the scheme.
+The exact term is owned by [Styio Exact Numeric
+Literals](./Styio-Exact-Literals-and-Builtin-Add.md), while accepted
+`Q05-NUMERIC-OPS`, owned by [Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md), closes the
+operator relation. `T` ranges over the finite admitted scalar rows, the integer
+literal remains exact until it materializes to `T`, and the selected row
+returns `T`. Integer rows admit `{overflow}` and floating rows admit `{}`, so
+the stable generalized scheme uses their conservative union `{overflow}`.
+`Add` and `IntegerLiteral` are not author-writable capabilities.
+`Completion(T)` is the closed relation's finite projection, not a
+completion-row variable, and no backend-preferred integer type determines the
+scheme.
 
 ## 5. Fresh instantiation
 
@@ -209,8 +229,10 @@ The diagnostic site follows the failed obligation:
 - failure of concrete arguments, literal representability, or a built-in
   relation after fresh instantiation is reported at that call;
 - failure to implement an established scheme is reported at the rebinding; and
-- a public/exported, native/FFI, recursive, or typed protocol boundary missing
-  explicit parameter/result/completion facts is reported at that boundary.
+- a native/FFI, recursive, or typed protocol boundary missing explicit
+  parameter/result/completion facts is reported at that boundary; an exported
+  eligible definition whose inferred contract cannot be canonically published
+  is reported at its definition/export.
 
 Diagnostics may show the canonical scheme and the origins of constraints, but
 must label `forall`, `Add`, `Literal`, and similar displays as inferred
@@ -234,25 +256,58 @@ For an omitted eligible local/private contract, definition analysis infers the
 whole operation summary. For a written contract, the implementation's actual
 set must remain a subset of the written upper bound.
 
-Accepted `Q05-LIT-ADD` supplies the concrete example of this rule: its closed
-integer rows contribute `{overflow}`, its floating rows contribute `{}`, and a
-scheme spanning both uses the finite conservative union `{overflow}`. A
-particular floating instantiation does not shrink that visible scheme. Other
-built-in relations must likewise receive a separately accepted finite bound or
-remain invalid; `Q02-INF` never introduces a completion-row variable.
+Accepted `Q05-NUMERIC-OPS` supplies the concrete examples of this rule. Its
+integer `+ - *` rows contribute `{overflow}`, integer `/` contributes
+`{divide_by_zero, overflow}`, integer `%` contributes `{divide_by_zero}`, and
+floating/mixed arithmetic or every numeric comparison contributes `{}`. A
+scheme spanning rows uses their finite conservative union; one concrete
+instantiation does not shrink that visible scheme. `Q02-INF` never introduces
+a completion-row variable.
+
+The retained `Q05-SCALAR-CONV` relation is also closed. In a definition
+such as `# to_i32 := (x) => x :> i32`, Q02 may retain the compiler-owned
+`Convert(Source, i32, i32, CompletionSet)` constraint. Candidate sources come
+only from the seven accepted scalar rows and the stable scheme uses their
+finite conservative completion union. A later concrete source cannot add a row
+or silently narrow that visible bound.
+
+The retained Euclidean invariant may be displayed as
+`IntDiv(I, J, WiderInt(I,J), {divide_by_zero, overflow})` or
+`IntRem(I, J, WiderInt(I,J), {divide_by_zero})`; `I` and `J` range only over
+the five accepted signed integers. The distinct finite masks remain stable
+through generalization and fresh instantiation. Q02 neither invents a row nor
+derives remainder's completion set from division.
 
 ## 9. Ownership boundaries
 
-- **`Q04`:** defines capture safety, borrowing, ownership, transfer, and escape.
-  `Q02-INF` consumes only a proven capture-safe result and otherwise rejects
+- **`Q04-Core`:**
+  [Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md)
+  defines capture safety, borrowing, ownership, transfer, and escape.
+  `Q02-INF` consumes only its proven `capture_safe` result and otherwise rejects
   implicit generalization.
-- **`Q05-LIT-ADD`:**
-  [Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md)
-  defines exact integer/decimal materialization, the closed scalar `+`
-  operand/result rows, late concrete defaults, integer `overflow`, strict
-  floating behavior, and the finite generalized completion union. Other
-  operators, explicit conversions, and remaining NaN policy stay with later
-  `Q05`; `Q02-INF` only preserves and solves accepted closed facts.
+- **Exact numeric literals:**
+  [Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md)
+  defines exact integer/decimal materialization, late concrete defaults, and
+  compiler resource boundaries.
+- **`Q05-NUMERIC-OPS`:**
+  [Styio Built-in Numeric Operators and
+  Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md) defines
+  lossless widening, all admitted unary/binary/comparison result rows,
+  completion projections, mixed rounding, compound assignment, and finite
+  generalized unions.
+- **`Q05-SCALAR-CONV`:**
+  [Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md)
+  defines the `:>` source form, seven-type conversion rows, exact-success
+  predicate, `out_of_range`/`inexact`/`non_finite` completion projections, and
+  conservative generalized union.
+- **Retained `Q05-INT-DIVREM` invariant:**
+  [Styio Euclidean Signed-Integer Division and
+  Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md)
+  defines the Euclidean invariant, `divide_by_zero`/`overflow` projections,
+  remainder's independent `MIN_W%-1` success, and conservative generalized
+  bounds. Intentionally lossy named conversion operations, unsigned/platform
+  types, and remaining NaN bit-level policy stay with later `Q05`;
+  `Q02-INF` only preserves and solves accepted closed facts.
 - **`F02`:** owns any future author-written quantification or constraints,
   public generic contracts, user-defined capability/operator instances and
   their coherence, higher-order polymorphism, higher-rank polymorphism, and

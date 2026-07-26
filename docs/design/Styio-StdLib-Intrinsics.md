@@ -2,7 +2,7 @@
 
 **Purpose:** Record compiler-owned intrinsic surfaces with implementation evidence, and keep deferred algorithm ideas separate from standard-library promises.
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 ---
 
@@ -18,16 +18,18 @@ they have source, tests, diagnostics, and manifest evidence.
 
 ### Closed semantic relations and prelude identities
 
-Accepted `Q05-LIT-ADD` is owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md).
-Its finite scalar `Add` table is compiler-owned but is not a callable intrinsic,
-public trait, overload set, or standard-library API: authors continue to write
-the existing `+` operator. Constant evaluation, Sema, lowering, and runtime
-helpers must implement the same closed rows and may not expand them from helper
-availability.
+Exact literal terms are owned by [Styio Exact Numeric
+Literals](./Styio-Exact-Literals-and-Builtin-Add.md), and accepted
+`Q05-NUMERIC-OPS` is owned by [Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md). Its finite
+widening, arithmetic, comparison, conversion-integration, and compound rows
+are compiler-owned but are not callable intrinsics, public traits, overload
+sets, or standard-library APIs. Constant evaluation, Sema, lowering, and
+runtime helpers must implement the same closed rows and may not expand them
+from helper availability.
 
 The prelude supplies one nominal payload-free completion-family identity named
-`overflow` for checked signed-integer `Add`. It is not a function, intrinsic,
+`overflow` for checked signed-integer operations. It is not a function, intrinsic,
 keyword, token, exception class, or manifest-promoted module API. The ordinary
 identifier is resolved in completion contracts and settlement arms; its
 semantic existence does not authorize editing `library/manifest.json` or
@@ -87,10 +89,10 @@ runtime helper selection, and fail-closed diagnostics before codegen. They are n
 `std.collections` APIs until a standard-library promotion record updates `library/manifest.json`
 and the catalog.
 
-These implementation surfaces do not add matrices to the closed scalar `Add`
-table, freeze mixed-kind matrix coercion, or prove a general matrix `+`/`-`/`*`
-language relation. Those semantics remain deferred to their later `Q05`/`Q08`
-owner decision even where named helpers currently execute.
+These implementation surfaces do not add matrices to the closed scalar numeric
+operator catalog, freeze mixed-kind matrix coercion, or prove a general matrix
+`+`/`-`/`*` language relation. Those semantics remain deferred to their later
+`Q05`/`Q08` owner decision even where named helpers currently execute.
 
 ### IO Helper Intrinsics
 

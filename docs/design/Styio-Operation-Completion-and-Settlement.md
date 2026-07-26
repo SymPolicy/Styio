@@ -4,10 +4,11 @@
 observable semantics of `?|` settlement without introducing a managed exception
 runtime or an ordinary `Result` wrapper.
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 **Status:** Accepted decisions `Q01-A`, `Q02-BC`, `Q02-SIG`, `Q02-INF`, and the
-completion-facing integration of `Q05-LIT-ADD` through 2026-07-20.
+completion-facing integration of retained literal/conversion/Euclidean
+subcontracts and unified `Q05-NUMERIC-OPS` through 2026-07-26.
 
 ## 1. Scope and terms
 
@@ -23,12 +24,14 @@ or permission to add a managed unwinder. A pure operation has an empty
 completion-family set. A successful no-payload operation has success type
 `unit` and produces the real value `()`.
 
-Owner decision `Q02-BC` requires public, recursive, native/FFI, and typed
-protocol-boundary callables to expose a finite completion-family upper bound in
-their source contract. A definition's actual completion set must be a subset of
-that bound. Every caller must settle a family or propagate it into its own
-admitted boundary contract; omission never authorizes a dynamic or ambient
-escape path.
+Owner decisions `Q02-BC` and `F1-INFERRED-ABSTRACTION` require every callable
+boundary to expose one finite completion-family upper bound in its canonical
+contract. An eligible final, non-recursive public callable may have that
+contract inferred at its definition and published in the module interface.
+Recursive, native/FFI, and typed protocol ABI boundaries must still write it
+in source. A definition's actual completion set must be a subset of the bound.
+Every caller settles a family or propagates it; omission never authorizes a
+dynamic or ambient escape path.
 
 `Q02-SIG` fixes the source contract spelling:
 
@@ -45,10 +48,12 @@ escape path.
   non-family names, an empty `?| {}`, and a trailing comma are rejected.
 - A written `: T` without a completion clause always declares an empty bound,
   regardless of scope. It never requests completion inference.
-- Only an eligible non-boundary lexical-local or module-private callable that
-  omits the entire `: T` contract may infer the complete
-  `OperationSummary(success_type, completion_set)`.
-- Required boundary callables cannot omit the contract. The spelling adds no
+- An eligible final, non-recursive callable that omits the entire `: T`
+  contract may infer the complete
+  `OperationSummary(success_type, completion_set)`, including for stable
+  publication at a public module boundary.
+- Recursive, native/FFI, and typed protocol ABI boundaries cannot omit the
+  contract. The spelling adds no
   keyword or token: `?|`, braces, and commas already exist and are selected by
   callable-signature grammar context.
 
@@ -57,12 +62,31 @@ generalization, fresh instantiation, and rebinding is
 [Styio Callable Principal Inference](./Styio-Callable-Principal-Inference.md).
 For completion purposes, every inferred scheme still contains one stable
 concrete finite completion bound; it never contains a completion-row variable.
-Concrete built-in literal/`Add` contributions are now owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md):
-checked signed-integer rows admit `{overflow}`, floating rows admit `{}`, and a
-generalized constraint spanning both uses the finite conservative union
-`{overflow}`. Statically known integer overflow takes the same completion edge
-as runtime checked addition.
+Exact literal constraints are owned by
+[Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md);
+concrete built-in operator rows and their completion masks are owned by
+[Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md). For example,
+checked signed-integer addition admits `{overflow}`, floating addition admits
+`{}`, and a generalized addition constraint spanning both uses the finite
+conservative union `{overflow}`. Statically known integer overflow takes the
+same completion edge as runtime checked addition.
+
+Checked built-in scalar conversion is owned by
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md).
+Every concrete `Source :> Target` row contributes only its precise finite
+subset of `{out_of_range, inexact, non_finite}`; a generalized closed
+conversion constraint uses the conservative union of its legal rows. A known
+conversion failure takes the same named completion edge as runtime conversion.
+
+Accepted signed-integer division and remainder are owned by
+[Styio Euclidean Signed-Integer Division and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md).
+Each concrete `/` row contributes
+`{divide_by_zero, overflow}` and each `%` row contributes
+`{divide_by_zero}`. A known zero divisor or unrepresentable quotient takes the
+same named completion edge as runtime execution; `MIN_T % -1` succeeds with
+zero and never acquires an overflow completion.
 
 ## 2. Completion-family names are identifiers
 
@@ -88,6 +112,19 @@ family(binding) => recovery
 The prelude's `overflow` family is the accepted payload-free arithmetic
 completion identity. It is still an ordinary resolved identifier rather than a
 keyword: `overflow => recovery` is valid, while `overflow(binding)` is invalid.
+
+The prelude's `divide_by_zero` family is likewise a payload-free ordinary
+identifier. Its accepted use by signed-integer `/` and `%`, and the operations'
+different completion masks, belong to
+[Styio Euclidean Signed-Integer Division and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md).
+`divide_by_zero(binding)` is invalid.
+
+The prelude's `out_of_range`, `inexact`, and `non_finite` checked-conversion
+families are likewise payload-free ordinary identifiers. Their exact
+classification order and source/target matrix belong to
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md);
+settlement cannot bind a payload to any of them.
 
 For example, if a protocol declares a family named `io`, then these names are
 ordinary identifiers rather than fixed language words:
@@ -120,7 +157,8 @@ Its completion contract is now fixed:
 
 Endpoint protocols may contribute completion families, capability checks, and
 lowering rules without changing the arrow's meaning or success type. Copy,
-move, borrow, and capture remain owned by `Q04`. Q03-F ordering is owned by
+consume, borrow, capture, and ownership post-states are owned by accepted
+[Q04-Core](./Styio-Ownership-Capture-and-Capability.md). Q03-F ordering is owned by
 [Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md):
 source value and endpoint capability are independent transfer prerequisites,
 and arrow direction does not order their preparation.
@@ -191,6 +229,8 @@ error channel exists.
 | EOF | Normal data-source terminal family, distinct from absence | Exact named arm or propagation; never bare fallback |
 | Recoverable failure | Nominal typed failure family | Exact named arm or trailing catch-all fallback |
 | Checked integer overflow | Prelude's payload-free nominal `overflow` family | Exact `overflow` arm or propagation; payload binding is invalid |
+| Signed-integer division/remainder | Exact row subset of payload-free `divide_by_zero` and `overflow`; remainder excludes `overflow` | Exact named arm or propagation; payload binding is invalid |
+| Checked scalar conversion | Precise payload-free subset of `out_of_range`, `inexact`, and `non_finite` | Exact named arm or propagation; payload binding is invalid |
 | Cancellation | Control-terminal family | Exact named arm only when protocol admits it, otherwise propagation |
 | Shutdown | Control-terminal family | Exact named arm only when protocol admits it, otherwise propagation |
 | Fatal/trap | Non-recoverable termination | Outside `?|` |
@@ -257,7 +297,7 @@ fallback value.
 - Frozen decision index:
   [Styio-Language-Decision-Ledger.md](./Styio-Language-Decision-Ledger.md).
 - Single implementation/migration owner:
-  [Directional Flow and Operation Settlement Plan](../plan/Styio-Directional-Flow-and-Settlement-Plan.md).
+  [Directional Flow and Operation Settlement](../plan/styio-directional-flow-and-settlement/Requirements.md).
 
 Accepted decision `Q02-INF`, owned by
 [Styio Callable Principal Inference](./Styio-Callable-Principal-Inference.md),
@@ -265,9 +305,18 @@ now fixes local/private callable inference, stable rebinding, fresh
 instantiation, and failure-closed behavior. Accepted Q03-F evaluation and
 effect-order semantics are owned by
 [Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md);
-`Q04` owns copy/move/borrow/capture; accepted `Q05-LIT-ADD` is owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
-while remaining numeric operators/conversions/NaN policy stay deferred; `Q09`
-owns resource-family escalation, buffering, and pressure policy; and `F02` owns
-author-written generics and completion rows. None may redefine this completion
-algebra implicitly.
+accepted [Q04-Core](./Styio-Ownership-Capture-and-Capability.md) owns
+copy/consume/borrow/capture and ownership post-states; [Styio Exact Numeric
+Literals](./Styio-Exact-Literals-and-Builtin-Add.md) owns exact terms,
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md) owns
+`:>`, and
+[Styio Euclidean Signed-Integer Division and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md) owns the
+signed Euclidean invariant. Accepted [Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md) owns every
+numeric result/completion row, lossless widening, mixed comparison, and
+compound assignment. Intentionally lossy named conversions, unsigned/platform
+types, and remaining NaN bit-level policy stay deferred; `Q09` owns resource-family
+escalation, buffering, and pressure policy; and `F02` owns author-written
+generics and completion rows. None may redefine this completion algebra
+implicitly.

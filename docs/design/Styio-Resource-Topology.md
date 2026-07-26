@@ -2,11 +2,14 @@
 
 **Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-07-26
 
 **Status:** resource topology source syntax plus current compiler-owned RTG validation.
 **Supersedes:** retired state-resource state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
-**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: resource topology), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
+**See also:** [Styio Structured Resources and
+Concurrency](./Styio-Structured-Resources-and-Concurrency.md),
+[`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: resource topology),
+[`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 
@@ -58,8 +61,8 @@ make the resource borrow-only.
 | `i64`, `f64`, `bool`, `char` | Scalar types |
 | `string` | Character sequence type |
 | `(A, B)` | Pair / tuple type |
-| `list[T]` | Unbounded sequence of `T` |
-| `dict[K, V]` | Unbounded sequence of key-value pairs `(K, V)` with dictionary semantics |
+| `list[T]` | Materialized ordered value collection of `T` |
+| `dict[K, V]` | Materialized deterministic map value |
 | `T|n|` | Exactly `n` values of type `T` |
 | `T|..n|` | Recent-window sequence that keeps the latest `n` values of type `T` |
 | `T..`, `T...` | Unbounded repetition of `T`; two or more dots are equivalent in type suffix position |
@@ -75,32 +78,13 @@ i64...      // same as i64..
 
 ### 3.2 Type construction rules
 
-The standard collection forms are specified through type-pattern rewrite rules:
+Materialized collections, repetition/stream shapes, and text are distinct
+canonical types. `list[T]` is not `T..`, `dict[K,V]` is not `(K,V)..`, and
+`string` is not `char..`. No type-pattern rewrite may collapse these semantic
+categories.
 
-```styio
-__ : list[T] := T..
-__ : string := char..
-__ : dict[K, V] := (K, V)..
-```
-
-Rules:
-
-- `__`, `___`, and any placeholder with two or more underscores mark a type rewrite rule.
-- `_` remains available for value-level wildcard/ignored binding.
-- These rewrites only apply in type position.
-- Prefer `list[string]` when the source intent is a sequence of strings; raw `string..` is visually ambiguous because `string` is already sequence-shaped.
-- The canonical fixed-length form is `T|n|`. A spelling like `list[i64]|10|` should normalize to `i64|10|` and should not be used in examples.
-
-Examples:
-
-```styio
-list[i64] == i64..
-string == char..
-dict[string, string] == (string, string)..
-
-i64|2|              // (i64, i64)
-(string, string)|2| // ((string, string), (string, string))
-```
+`T|n|` remains the direct exact-length form. Consequently
+`list[i64]|10|` means ten list values, while `i64|10|` means ten integers.
 
 ---
 
@@ -401,7 +385,7 @@ The example uses `|..2|` because it needs the previous and current published val
 |------|--------|
 | Retired state-resource state family | **Retired**; active tests use negative migration fixtures |
 | `@name : Type|n|`, `@name : Type|..n|`, `T..` / `T...` | **Implemented for resource declarations and selectors covered by feature tests** |
-| Type parameters as `list[T]` / `dict[K, V]` | **Implemented for type-shape normalization covered by tests** |
+| Type arguments as `list[T]` / `dict[K, V]` | **Syntax implemented; any implementation path that normalizes them to `T..` / `(K,V)..` is D2 migration debt** |
 | `__ : TypePattern := TypeExpr` type rewrite rules | **Implemented for type-position rewrite coverage** |
 | Top-level multi-resource `@a : T, @b : U := { driver }` | **Target syntax**; current compiler only has partial internal prelude resource declarations |
 | `expr -> @resource` as topology sink write | **Partially covered** by existing redirect/resource-write surfaces; strict topology semantics TBD |

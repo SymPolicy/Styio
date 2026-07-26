@@ -2,10 +2,15 @@
 
 **Purpose:** 为 Styio 的资源值、`@stdin/@stdout`、`<<`、可迭代对象、以及默认失败处理建立统一的设计级类型系统；该文档定义目标模型，不等同于当前实现。
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 **Status:** Target design — not fully implemented in the current compiler.  
 **See also:** [`Styio-Language-Design.md`](./Styio-Language-Design.md), [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
+
+Accepted `D3-RESOURCES` in [Styio Structured Resources and
+Concurrency](./Styio-Structured-Resources-and-Concurrency.md) is authoritative
+where this older target draft differs. In particular, capability and protocol
+state do not by themselves make a value an affine owner.
 
 ---
 
@@ -35,10 +40,12 @@ design discussion until this priority is explicitly changed.
 
 ## 2. Design goals
 
-1. Give every resource-like value a single conceptual type family.
+1. Give every resource-like value a common capability description without
+   collapsing its value/owner/borrow classification.
 2. Distinguish **iterable** from **non-iterable** statically.
 3. Make `<<` mean one thing: **feed items into the left side one by one**.
-4. Preserve Styio’s resource flavor: values behave like OS handles with protocol state.
+4. Preserve protocol state while distinguishing values, affine owners, and
+   lexical borrows.
 5. Avoid mandatory user-visible `unwrap`; failed operations should still be typed, but default handling should abort with diagnostics.
 6. Support destructive update safely for unique resources and materialized collections.
 
@@ -49,7 +56,7 @@ design discussion until this priority is explicitly changed.
 Styio should model resource-bearing values as a typed handle family:
 
 ```text
-Handle<Rep, Item, Caps, State>
+Handle<Rep, Item, Caps, State, OwnerKind, ExitObligation>
 ```
 
 Where:
@@ -58,14 +65,18 @@ Where:
 - `Item` is the element type produced, consumed, or stored by the handle.
 - `Caps` is a compile-time capability set.
 - `State` is the current protocol state.
+- `OwnerKind` is value, affine owner, or lexical borrow/view.
+- `ExitObligation` records close, release, consume, join/settle, or none.
 
 Examples:
 
 - `@stdin : Handle<fd, string, {pull, iter, close}, open>`
 - `@stdout : Handle<fd, string, {push, close}, open>`
-- `list[i32] : Handle<ptr, i32, {iter, push, index, sized, collect}, materialized>`
-- `matrix[f64] : Handle<matrix, f64, {index, sized, clone, close}, materialized>`
-- `range[i64] : Handle<imm, i64, {iter}, materialized>`
+- `list[i32]` and `matrix[f64]` are materialized values unless their semantic
+  elements contain an owner; allocation does not make them affine.
+- `range[i64]` is a value.
+- an exclusive cursor/subscription is an affine handle with a settle/close
+  obligation.
 
 This notation is **design-level**, not fixed user syntax. The important part is the separation of concerns.
 
@@ -123,14 +134,14 @@ The accepted capability baseline supports exactly these public capabilities:
 | `close` | Has an explicit close / release protocol |
 
 The compiler-closed constraint relations consumed by `Q02-INF` are not members
-of this public handle/resource capability set. In particular, accepted
-`Q05-LIT-ADD` is owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md):
-its internal `Add`/literal relation is a finite compiler table, and its
-`overflow` name is a nominal operation completion family, not a handle
-capability. Neither creates structural duck typing or user-definable
-capability/operator instances. Any future author-written instances or
-constraints require the separate `F02` admission decision.
+of this public handle/resource capability set. Exact terms are owned by
+[Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md), and
+accepted [Q05-NUMERIC-OPS](./Styio-Builtin-Numeric-Operators-and-Inference.md)
+owns the finite operator/widening catalog. Internal relation names and nominal
+operation completions such as `overflow` are not handle capabilities. Neither
+creates structural duck typing or user-definable capability/operator
+instances. Any future author-written instances or constraints require the
+separate `F02` admission decision.
 
 ### 5.2 Derived concepts
 
