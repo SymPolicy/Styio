@@ -2,7 +2,7 @@
 
 **Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -32,8 +32,7 @@ The lexer follows the **Maximal Munch Principle**: when multiple token interpret
 
 ```ebnf
 digit          = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
-letter         = 'a'..'z' | 'A'..'Z' | '_' ;
-identifier     = letter { letter | digit } ;
+identifier     = xid_start { xid_continue } ;
 ```
 
 ### 2.2 Literals
@@ -42,18 +41,26 @@ identifier     = letter { letter | digit } ;
 int_literal    = [ '-' ] digit { digit } ;
 float_literal  = [ '-' ] digit { digit } '.' digit { digit } ;
 string_literal = '"' { any_char_except_dquote | escape_seq } '"' ;
-char_literal   = "'" ( any_char_except_squote_or_backslash | char_escape_seq ) "'" ;
+char_literal   = "'" { any_char_except_squote_or_backslash | char_escape_seq } "'" ;
 escape_seq     = '\' ( 'n' | 't' | 'r' | '\' | '"' | '0' ) ;
 char_escape_seq = '\' ( 'n' | 't' | 'r' | '0' | '\' | '\'' ) ;
 ```
 
+Identifiers use Unicode XID start/continue classes and NFC identity. Dangerous
+invisible controls and same-scope confusable collisions are rejected
+semantically; Emoji are text but not identifiers. A `char_literal` must decode
+to exactly one Unicode extended grapheme cluster, not merely one scalar.
+`string_literal` must decode to valid UTF-8 and may contain U+0000.
+
 `int_literal` and `float_literal` are source grammar categories, not concrete
-storage types. Their accepted exact-value, fail-closed materialization, late
-`i64`/`f64` default, and closed scalar `Add` semantics are owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md).
-That semantic decision does not add a suffix, radix, separator, exponent,
-keyword, token, or production; only spellings present in this grammar are
-accepted.
+storage types. Their accepted exact-value, fail-closed materialization, and late
+`i64`/`f64` default are owned by
+[Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md).
+Built-in operator admission and result inference are owned separately by
+[Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md). Neither
+semantic decision adds a suffix, radix, separator, exponent, keyword, token, or
+production; only spellings present in this grammar are accepted.
 
 ### 2.3 Core Compound Symbols
 
@@ -66,7 +73,7 @@ TOK_AT             = '@' ;
 (* Retired state-reference prefix: `$` before an identifier is a parse error *)
 TOK_DOLLAR         = '$' ;
 
-(* Derived-binding capture head `$(`; design-accepted, parser pending *)
+(* Derived-binding dependency head `$(`; design-accepted, parser pending *)
 TOK_DOLLAR_PAREN   = '$(' ;
 
 (* Rightward directional transfer plus the separately defined left-arrow token *)
@@ -103,6 +110,9 @@ TOK_IO_BUF         = '>_' ;
 (* Binding *)
 TOK_BIND           = ':=' ;
 
+(* Checked built-in scalar conversion *)
+TOK_SCALAR_CONVERT = ':>' ;
+
 (* Resource copy / compatibility pull *)
 TOK_SHIFT_BACK     = '<<' ;
 
@@ -119,7 +129,6 @@ TOK_MINUS          = '-' ;
 TOK_STAR           = '*' ;
 TOK_SLASH          = '/' ;
 TOK_PERCENT        = '%' ;
-TOK_POWER          = '**' ;
 TOK_EQ             = '==' ;
 TOK_NEQ            = '!=' ;
 TOK_GT             = '>' ;
@@ -179,6 +188,7 @@ program            = { top_level_statement [ statement_sep ] } EOF ;
 statement_sep      = ';' | '|;' ;
 
 top_level_statement = import_declaration
+                    | export_declaration
                     | type_rewrite_decl
                     | resource_slot_decl
                     | internal_resource_decl
@@ -205,21 +215,34 @@ statement          = declaration
 
 ```ebnf
 import_declaration = '@' 'import' '{'
-                     import_path { import_separator import_path }
+                     import_item { ',' import_item } [ ',' ]
                      '}' ;
 
-import_separator  = ',' | ';' ;
+import_item       = module_path [ 'as' identifier ]
+                  | module_path '::' '{'
+                    import_member { ',' import_member } [ ',' ] '}' ;
 
-import_path       = identifier { '/' identifier }
-                  | identifier { '.' identifier } ;
+import_member     = identifier [ 'as' identifier ] ;
+
+export_declaration = '@' 'export' '{'
+                     export_item { ',' export_item } [ ',' ]
+                     '}' ;
+
+export_item       = qualified_name [ 'as' identifier ] ;
+
+module_path       = identifier { '/' identifier } ;
+qualified_name    = identifier { '::' identifier } ;
 ```
 
 Notes:
 
 1. `@import` is only valid at file top level.
 2. `/` is the native package/module path spelling.
-3. `.` is accepted compatibility syntax and is normalized to slash form internally.
-4. One import item must not mix `/` and `.`.
+3. `@export` is only valid at file top level.
+4. Dot-separated paths, semicolon separators, glob imports, and empty lists
+   are rejected.
+5. `as`, `import`, and `export` are contextual in these `@` declarations; they
+   add no globally reserved type name.
 
 ### 4.2 Callable / Operation-Channel Binding
 
@@ -228,10 +251,10 @@ declaration        = callable_decl ;
 
 callable_decl      = '#' identifier callable_decl_tail ;
 
-callable_decl_tail = [ callable_contract ] [ capture_list ]
+callable_decl_tail = [ callable_contract ]
                      ( bind_op callable_body
                      | '=>' callable_tail )
-                   | '(' [ param_list ] ')' [ callable_contract ] [ capture_list ]
+                   | '(' [ param_list ] ')' [ callable_contract ]
                      ( bind_op callable_tail
                      | '=>' callable_tail
                      | '?=' match_body ) ;
@@ -251,8 +274,6 @@ callable_body      = [ '#' ] function_body ;
 
 callable_tail      = block | expression ;
 
-capture_list       = '$' '(' identifier { ',' identifier } ')' ;
-
 function_body      = '(' [ param_list ] ')' [ '=>' ] callable_tail ;
 
 param_list         = param { ',' param } ;
@@ -267,15 +288,9 @@ optional_type      = '?' '|' type_expr
 
 suffixed_type      = type_primary { type_suffix } ;
 
-type_primary       = scalar_type
-                   | identifier [ '[' type_arg_list ']' ]
+type_primary       = identifier [ '[' type_arg_list ']' ]
                    | '(' type_expr ')'
                    | tuple_type ;
-
-scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
-                   | 'f32' | 'f64'
-                   | 'bool' | 'char' | 'string' | 'byte'
-                   | 'matrix' | 'unit' | 'never' ;
 
 type_arg_list      = type_expr { ',' type_expr } ;
 
@@ -324,9 +339,10 @@ Notes:
 9. The family list is non-empty and has no trailing comma. A callable contract
    written as `: T` with no completion clause always declares the empty upper
    bound; `?| {}` is redundant and rejected.
-10. Only an eligible non-boundary lexical-local or module-private callable that
-    omits the entire `callable_contract` may infer its complete operation
-    summary. Public/exported, recursive, native/FFI, and typed protocol-boundary
+10. An eligible final, capture-safe, non-recursive callable that omits the
+    entire `callable_contract` may infer its complete operation summary,
+    including a public callable whose canonical contract can be published in
+    the module interface. Recursive, native/FFI, and typed protocol ABI
     callables require every parameter type and the callable contract. Writing
     `: T` never asks the compiler to infer hidden completion families.
 11. Eligibility requires a capture-safe, final `:=`, non-recursive callable
@@ -341,15 +357,29 @@ Notes:
     requires a complete explicit contract.
 14. Compiler displays such as `forall T`,
     `Add(T, IntegerLiteral(5), T, Completion(T))`, and type
-    variables are metalanguage, not source. The concrete closed relation is
-    owned by
-    [Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
-    while `F02` owns any future author-written generic or completion-row
-    surface.
-15. `overflow` is a payload-free prelude completion-family identifier, not a
-    keyword. Checked integer `+`, strict floating `+`, literal defaulting, and
-    compile-time completion edges are semantic rules and add no token or
-    production.
+    variables are metalanguage, not source. Exact literal terms are owned by
+    [Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md);
+    the concrete closed operator relations are owned by
+    [Styio Built-in Numeric Operators and
+    Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md). There is no
+    authored generic parameter list or repeated constraint-clause production;
+    capability needs may be inferred, while concrete user conformance is
+    explicit. Completion-row syntax remains unadmitted.
+15. `overflow` and `divide_by_zero` are payload-free prelude
+    completion-family identifiers, not keywords. Checked integer arithmetic,
+    strict IEEE floating arithmetic, literal defaulting, and compile-time
+    completion edges are semantic rules and add no token or production.
+16. Q04-Core adds no callable capture-list production. A closure's snapshot,
+    borrow, or consume capture mode is inferred uniquely from semantic type,
+    use, escape, and capability facts; ambiguous or unknown cases fail closed.
+    The detailed rule is owned by
+    [Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
+17. `$(` remains accepted only in the `derived_binding` dependency head in
+    section 5. That list declares frame dependencies; it is not a closure
+    capture-mode annotation.
+18. For Q02-INF, only no capture or immutable value-semantic snapshot captures
+    satisfy `capture_safe`. Owner, borrow/view, resource, task, mutable, and
+    unknown captures do not qualify for automatic generalization.
 
 ### 4.3 Type Rewrite Declaration
 
@@ -359,13 +389,9 @@ type_rewrite_decl  = type_placeholder ':' type_expr ':=' type_expr ;
 type_placeholder   = '__' { '_' } ;              (* two or more underscores *)
 ```
 
-Examples:
-
-```styio
-__ : list[T] := T..
-__ : string := char..
-__ : dict[K, V] := (K, V)..
-```
+Type rewrites cannot equate distinct semantic categories such as
+`list[T]` with `T..`, `string` with `char..`, or `dict[K,V]` with
+`(K,V)..`.
 
 ### 4.4 Schema Declaration
 
@@ -397,6 +423,13 @@ analysis distinguishes them from the symbol table. `:=` creates a final binding
 and cannot rebind an existing name. The RHS `expression` is mandatory in every
 ordinary case: `name : T` is not a production and is rejected rather than
 creating zero, Unit, absence, an uninitialized slot, or an implicit default.
+
+Binding mutability is orthogonal to Q04 ownership. `:=` does not make an
+occupant copyable, and `=` does not make it movable. For a non-consuming
+rebind, the RHS first returns normally, then the new occupant is installed and
+the displaced owner drops after its last borrow. A drop completion does not
+roll back the installed new occupant. If the RHS consumes the old binding, the
+source is unavailable after that consume edge and no later recovery revives it.
 
 Typed binder positions are owned by their enclosing productions rather than by
 `ordinary_binding`. For example, parameters and pattern/iteration binders
@@ -577,6 +610,11 @@ valid generic directional transfer such as `job -> answer`, nor with settlement
 of such a transfer: `?| job -> answer | fallback` groups as
 `?| (job -> answer) | fallback`.
 
+Q04-Core adds no task-capture grammar. A structured task snapshot-copies
+value-semantic captures, consumes an owner only under one uniquely admitted
+mode, and borrows only when a static join/lifetime proof ends the task before
+owner consume/drop without conflicting access. Detached escape is not admitted.
+
 ### 7.5 Resource Session
 
 ```ebnf
@@ -612,7 +650,7 @@ effect_name        = identifier ;  (* cleanup, ResourceCleanupFailure, … *)
 |-------|-----------|---------------|
 | 1 (highest) | `()`, `[]`, `.` | Left |
 | 2 | Unary: `!`, `-`, `^...` | Right |
-| 3 | `**` | Right |
+| 3 | `:>` | Non-associative |
 | 4 | `*`, `/`, `%` | Left |
 | 5 | `+`, `-` | Left |
 | 6 | `>`, `<`, `>=`, `<=` | Left |
@@ -620,7 +658,7 @@ effect_name        = identifier ;  (* cleanup, ResourceCleanupFailure, … *)
 | 8 | `&&` | Left |
 | 9 | `\|\|` | Left |
 | 10 | `>>`, `?=` | Left |
-| 11 (lowest) | `=`, `+=`, etc. | Right |
+| 11 (lowest) | `=`, `+=`, `-=`, `*=`, `/=` | Right |
 
 Precedence and associativity determine only the parse tree. They never create
 an operand-evaluation timeline. Q03-F separately requires strict prerequisites,
@@ -686,12 +724,18 @@ transfer_destination
    must independently resolve to a legal writable endpoint. Successful transfer
    has result `() : unit`; it never yields an implicit source, destination, or
    receipt. The endpoint protocol determines compatibility, completion families,
-   and lowering. Q03-F fixes preparation ordering without adding grammar:
+   lowering, and exactly one `copy`, `borrow`, or `consume` input mode with
+   ownership post-states for every normal/completion exit. The arrow glyph
+   never selects that mode. Missing or ambiguous protocol facts fail closed;
+   a committed consume makes the source unavailable and later completion does
+   not revive it. Q03-F fixes preparation ordering without adding grammar:
    source value and endpoint capability are independent prerequisites of the
    transfer, so arrow direction does not imply source-before-endpoint
    preparation. Two order-sensitive preparations require prior Block items.
-   This rule still does not decide ownership, backpressure scheduling, chaining,
-   or arrow associativity.
+   Q04 ownership is owned by
+   [Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md);
+   this rule still does not decide backpressure scheduling, chaining, or arrow
+   associativity.
 
    `?|` is orthogonal: it settles the complete `settleable_operation`. Therefore
    `?| source -> destination | fallback` is always
@@ -721,9 +765,12 @@ relational_expr    = additive_expr { ( '>' | '<' | '>=' | '<=' ) additive_expr }
 
 additive_expr      = multiplicative_expr { ( '+' | '-' ) multiplicative_expr } ;
 
-multiplicative_expr = power_expr { ( '*' | '/' | '%' ) power_expr } ;
+multiplicative_expr = conversion_expr
+                      { ( '*' | '/' | '%' ) conversion_expr } ;
 
-power_expr         = unary_expr [ '**' power_expr ] ;
+conversion_expr    = unary_expr [ ':>' scalar_conversion_type ] ;
+
+scalar_conversion_type = identifier ;
 
 unary_expr         = ( '!' | '-' ) unary_expr
                    | postfix_expr ;
@@ -758,6 +805,36 @@ member_access      = '.' identifier ;
 
 expression_list    = expression { ',' expression } ;
 ```
+
+`:>` is one contiguous token. It opens a type context only on its right and
+does not give scalar type names an expression-head or callable role. Its
+optional single suffix makes an unparenthesized chain such as
+`value :> i64 :> i128` a syntax error. It binds more tightly than every
+binary/control form but less tightly than unary and postfix forms, so
+`left :> i64 + right` is `(left :> i64) + right`; converting the sum requires
+`(left + right) :> i64`. Exact-success rules, the closed type-pair completion
+matrix, and rejected `T(expr)`/`cast[T]` alternatives are owned by
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md).
+Sema requires the resolved canonical target identity to be one of
+`i8`…`i128`, `u8`…`u128`, `f32`, or `f64`; these spellings remain ordinary
+type-namespace identifiers rather than lexer keywords.
+
+`**` has no token or grammar production. A contiguous `**` source run is
+therefore not a power operator, and two adjacent `*` tokens do not form a
+legal expression.
+
+The built-in numeric meanings of unary `-`, infix `+ - * / %`, comparisons,
+and `+= -= *= /=` are selected from the accepted finite numeric catalog.
+That catalog owns lossless widening, mixed integer/floating inference,
+single-rounding mixed arithmetic, strict-IEEE floating division, exact mixed
+comparison, exact completion rows, and transactional compound assignment.
+Floating or mixed `%`, unary `+`, increment/decrement, numeric bitwise/shift
+forms, `%=` and power have no row or production. Complete semantics are owned
+by [Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md); the Euclidean
+signed-integer invariant is owned by [Styio Euclidean Signed-Integer Division
+and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md).
 
 Calls, ordinary operators, selectors, and expression lists are strict: every
 required child must produce its value before the parent operation starts.
@@ -1067,8 +1144,7 @@ driver_block_topology    = "{" stream_topology "}" ;
 ```ebnf
 type_topology            = type_primary { type_suffix } ;
 
-type_primary       = scalar_type
-                   | identifier "[" type_arg_list "]"
+type_primary       = identifier [ "[" type_arg_list "]" ]
                    | "(" type_topology "," type_topology { "," type_topology } ")" ;
 
 type_arg_list      = type_topology { "," type_topology } ;
@@ -1079,7 +1155,6 @@ type_suffix        = "|" expression "|"            (* T|n| exact length *)
 
 dot_run            = ".." { "." } ;                (* two or more dots normalize *)
 
-scalar_type        = "f64" | "i64" | "bool" | "char" | "string" ;
 ```
 
 ### B.3 Type rewrite rules
@@ -1089,13 +1164,8 @@ type_rewrite_topology    = type_placeholder ":" type_topology ":=" type_topology
 type_placeholder   = "__" { "_" } ;
 ```
 
-Examples:
-
-```styio
-__ : list[T] := T..
-__ : string := char..
-__ : dict[K, V] := (K, V)..
-```
+Topology type rewrites cannot collapse materialized collections, streams, or
+text into one another.
 
 ### B.4 Resource write vs assignment (strict topology mode)
 

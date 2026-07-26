@@ -2,7 +2,7 @@
 
 **Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -50,7 +50,7 @@ The language follows a "write less, get convenience; write more, get speed" mode
   compiler infers from surrounding constraints. Exact numeric literals remain
   unmaterialized inside a generalizable callable scheme; at a concrete
   unconstrained value boundary they default once to `i64` or `f64` under
-  [Q05-LIT-ADD](./Styio-Exact-Literals-and-Builtin-Add.md).
+  [exact-literal rules](./Styio-Exact-Literals-and-Builtin-Add.md).
 - Add explicit types → compiler generates optimized, specialized instructions
 - Omit resource protocol → runtime probes automatically
 - Specify protocol (e.g., `@file`, `@mysql`) → static dispatch without runtime probing
@@ -79,6 +79,9 @@ duplicate, and elide rights; `pure` by itself never authorizes all four.
 The complete normative contract, construct matrix, runtime-free lowering
 boundary, diagnostics, and rejected alternatives are owned by
 [Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md).
+Ownership, aliasing, capture, endpoint modes, and lexical drop edges are
+separate accepted inputs owned by
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
 
 ---
 
@@ -90,37 +93,140 @@ boundary, diagnostics, and rejected alternatives are owned by
 |------|------|-------------|
 | `bool` | 1 | Boolean |
 | `i8`, `i16`, `i32`, `i64`, `i128` | 8–128 | Signed integers |
+| `u8`, `u16`, `u32`, `u64`, `u128` | 8–128 | Unsigned integers |
 | `f32`, `f64` | 32, 64 | IEEE 754 floating point |
-| `char` | variable | Unicode character |
-| `string` / `str` | variable | UTF-8 string |
-| `byte` | 8 | Raw byte |
+| `scalar` | 32-bit domain | Unicode scalar value |
+| `char` | variable | One Unicode extended grapheme cluster |
+| `string` | variable | Valid length-aware UTF-8 text |
 
-### 3.2 Exact Numeric Literals, Built-in `Add`, and Late Defaults
+`bytes`, `bits`, and `blob` are ordinary optional prelude/library types, not
+primitive keywords. There is no scalar `byte`; octets use `u8`. Text and
+binary semantics are owned by [Styio Unicode Text and Binary
+Values](./Styio-Unicode-Text-and-Binary.md).
 
-Accepted decision `Q05-LIT-ADD` is defined in
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
-the sole detailed semantic owner. Integer and decimal literals preserve their
-exact mathematical value before materialization. Context selects a concrete
-type first; materialization then fails closed on an out-of-range integer,
-inexact integer-to-float conversion, forbidden decimal-to-integer conversion,
-or a finite decimal that would become infinity.
+All type names, including the names in this table, are ordinary identifiers in
+the type namespace. Lexer spelling does not grant built-in behavior; canonical
+resolved identity does. A prelude short name may be shadowed without making a
+type callable or changing the hidden canonical type.
 
-The compiler-owned scalar `Add` table is closed over `i8` through `i128`, `f32`,
-and `f64`. Two already concrete operands must have the same type; an exact
-literal may materialize symmetrically to the other operand's concrete type, and
-the selected row uniquely returns that type. There is no C-style common-type
-promotion. At an otherwise unconstrained concrete value boundary only, an
-integer expression defaults once to `i64` and a decimal expression to `f64`.
-No default occurs inside a generalizable callable scheme.
+### 3.2 Exact Numeric Literals and Late Defaults
 
-Signed-integer `Add` is checked and admits the payload-free prelude completion
-family `overflow`; floating `Add` has an empty completion bound and strict IEEE
-behavior. Constant and runtime evaluation use the same relation. A generalized
-constraint spanning integer and floating rows has the conservative finite upper
-bound `{overflow}`, and statically known overflow takes that same completion
-edge rather than becoming a new syntax-error class. This decision adds no token
-or grammar production; matrix/text operations, conversions, other arithmetic,
-and remaining NaN policy stay with their deferred owners.
+Accepted exact-literal semantics are defined in [Styio Exact Numeric
+Literals](./Styio-Exact-Literals-and-Builtin-Add.md), the sole detailed owner.
+Integer and decimal literal terms preserve their exact mathematical value
+before materialization. Context selects a concrete type first; materialization
+then fails closed on an out-of-range integer, inexact integer-to-float
+conversion, forbidden decimal-to-integer conversion, or a finite decimal that
+would become infinity.
+
+At an otherwise unconstrained concrete value boundary only, an integer term
+defaults once to `i64` and a decimal term to `f64`. No default occurs inside an
+eligible generalizable callable scheme. A sign attached to a numeric literal
+belongs to the exact term before materialization; runtime unary negation is a
+separate operator row. These rules add no author-visible constraint syntax or
+grammar form. The former `Q05-LIT-ADD` operator table is superseded by
+`Q05-NUMERIC-OPS` in §3.2.2.
+
+#### 3.2.1 Checked Explicit Scalar Conversion
+
+Accepted decision `Q05-SCALAR-CONV` is defined in
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md), the
+sole detailed semantic owner. Its only source form is:
+
+```styio
+value :> i64
+```
+
+`:>` is a contiguous, non-associative operator. Its left side is one value
+expression; its right side enters a closed type context containing only
+`i8`…`i128`, `u8`…`u128`, `f32`, and `f64`. It binds below postfix and unary
+forms but above every ordinary binary/control form.
+Consequently `left :> i64 + right` is `(left :> i64) + right`, while conversion
+of the whole sum requires `(left + right) :> i64`.
+
+The type name does not become an expression-head form, callable, constructor,
+or keyword-like special call. `i64(value)` and `cast[i64](value)` remain
+invalid. Total lossless ordinary widening and heterogeneous numeric operator
+rows are separate compiler relations; neither is an inserted `:>` conversion.
+
+An exact literal on the left continues to use the accepted materialization
+table. A concrete runtime scalar succeeds only when the target preserves the
+required value and value-class facts. Cross-format NaN conversion succeeds
+when it preserves the NaN class; payload, sign, and signaling state are
+unspecified. Failure produces exactly one payload-free prelude completion
+family in deterministic order:
+
+- `non_finite` for a NaN or infinity that the selected row cannot convert;
+- `out_of_range` for a finite value outside the target range; or
+- `inexact` for an in-range value that would lose a fractional part, precision,
+  or negative-zero identity.
+
+Each concrete source/target row carries only the families it can actually
+produce. Same-type identity and every total lossless widening are
+completion-free; integer narrowing admits `{out_of_range}`; relevant
+integer-to-float rows admit `{inexact}`; `f32 :> f64` has `{}`, `f64 :> f32`
+has `{out_of_range, inexact}`, and float-to-integer rows use their precise
+finite subsets. Infinity and signed zero are preserved between float formats.
+
+The left value is evaluated exactly once. Constant and runtime conversion use
+the same row and completion edge. Expected types, parameters, returns, and
+branch joins may apply only the total lossless widening relation defined in
+§3.2.2; no LLVM cast, optimization, or context may insert a checked or silently
+lossy conversion or change its failure classification. Deliberately lossy
+round/truncate/saturate/wrap operations require later independent Q05
+admission.
+
+#### 3.2.2 Built-in Numeric Operators and Inference
+
+Accepted decision `Q05-NUMERIC-OPS` is defined in [Styio Built-in Numeric
+Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md), the sole
+detailed owner for the finite numeric catalog, lossless widening, mixed
+arithmetic, exact comparison, completion rows, and compound assignment.
+
+The runtime domain contains both fixed signed and unsigned integer families
+and the two IEEE binary floats in §3.1. Ordinary value flow uses only the
+owner document's total lossless `Widen` relation.
+
+Same-signedness integer arithmetic uses the wider width. Mixed
+signed/unsigned arithmetic uses the smallest fixed signed type that represents
+both complete input domains; if none exists, that arithmetic row is a type
+error. In particular, `i64 + u64 -> i128`, while arithmetic between `u128`
+and any signed type has no fixed common row. Every numeric pair remains
+exactly comparable.
+
+Float/mixed `+ - * /` selects the closed result table in the owner document.
+It combines the exact mathematical integer with the exact dyadic float value
+and rounds exactly once to the inferred format using round-to-nearest,
+ties-to-even. It is not cast-then-operate.
+
+Floating and mixed rows use strict IEEE classes, gradual underflow, and empty
+completion sets. Float division by zero produces the corresponding infinity,
+signed zero, or NaN value rather than a completion. Implementations may not
+use host rounding modes, FTZ/DAZ, result-changing fast-math, reassociation, or
+FMA contraction without proving bit identity.
+
+All numeric comparisons compare represented mathematical values exactly.
+Integer/float comparison never first casts the integer to a float. Integer
+zero and both floating signed zeros compare equal. If either operand is NaN,
+`==` is false, `!=` is true, and every relational result is false.
+
+Signed-integer `/` and `%` first widen to their result type and then use the
+Euclidean invariant `a = q*b+r`, `0 <= r < abs(b)`. `/` returns `q`; `%`
+returns nonnegative `r`. `MIN_W / -1` completes with `overflow`, while
+`MIN_W % -1` succeeds with zero. The complete invariant is retained by [Styio
+Euclidean Signed-Integer Division and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md).
+
+`+=`, `-=`, `*=`, and `/=` read the old mutable place and RHS once, select the
+underlying row, require the successful result to flow losslessly back to the
+place type, and commit exactly one write only on success; a completion leaves
+the old value installed and success yields `unit`.
+
+There is no unary `+`, increment/decrement, numeric truthiness, numeric
+bitwise/shift/XOR role, floating or mixed `%`, `%=`, power `**`, `**=`, open
+overload search, or user-defined operator row. Constant and runtime evaluation
+must select the same row and produce the same result or completion.
 
 ### 3.3 Type Annotations
 
@@ -222,7 +328,7 @@ states nullable or non-null behavior. Source Unit is not exported as a C object
 or parameter, and optional unions acquire no implicit C layout.
 
 **Implementation status:** design accepted; delivery and deletion gates are in
-[`unit-zero-payload-boundaries/Plan.md`](../plan/styio-block-completion-and-bottom-type/unit-zero-payload-boundaries/Plan.md).
+[`unit-zero-payload-boundaries/Requirements.md`](../plan/styio-block-completion-and-bottom-type/unit-zero-payload-boundaries/Requirements.md).
 
 ### 3.4 Matrix Values
 
@@ -237,14 +343,15 @@ m: matrix = [[1,0],[0,1]]
 Matrix binding rules:
 
 - rows must be non-empty and rectangular
-- elements must be numeric; mixed concrete element kinds do not gain an implicit
-  promotion from the scalar `Q05-LIT-ADD` decision and fail closed until a
-  separate matrix conversion policy is accepted
+- elements must be numeric; the scalar `Q05-NUMERIC-OPS` widening and operator
+  catalog does not automatically choose a common matrix element kind, so mixed
+  concrete elements fail closed until a separate matrix conversion policy is
+  accepted
 - statically known dimensions are preserved in the inferred type
 - shape mismatches are semantic errors before lowering
 - `m[row][col]` reads one element, while `m[row]` materializes a list row
 
-The scalar `Add` table does not admit matrix operands. Matrix `+`, `-`, `*`,
+The scalar numeric catalog does not admit matrix operands. Matrix `+`, `-`, `*`,
 mixed-kind coercion, and scalar/matrix arithmetic remain deferred to a separate
 `Q05`/`Q08` relation. Existing named helpers such as `mat_add`, `matmul`,
 `transpose`, and `mat_set` remain tracked compiler/standard-library surfaces;
@@ -292,36 +399,75 @@ source syntax, payload, type identity, equality state, or a branch condition,
 and it has no extraction operator. In particular, `??` is not a
 diagnostic-extraction spelling.
 
+### 3.6 Data Shapes, Collections, and Views
+
+Accepted decisions `D1-DATA` and `D2-COLLECTIONS` are owned by
+[Styio Data and Collection Model](./Styio-Data-and-Collection-Model.md).
+
+Tuples are structural ordered products. Declared records and variants are
+nominal, and FFI/layout adaptation is explicit rather than inferred from
+matching fields. Construction and patterns preserve the same identities;
+closed variant matches are exhaustive, and owner/borrow facts propagate
+through destructuring without implicit copy or discard.
+
+Materialized collections use recursive value semantics and deterministic
+order. Ordinary slices are stable value snapshots; explicitly requested views
+are lexical borrows. Iterators/streams are distinct from collections and carry
+their own yield, completion, invalidation, borrowing, and consumption facts.
+`list[T]` is not an alias for `T..`.
+
+Text and binary domain values follow
+[Styio Unicode Text and Binary Values](./Styio-Unicode-Text-and-Binary.md).
+Codec/decode/schema mapping belongs to explicitly imported standard-library
+modules, not the prelude.
+
 ---
 
 ## 4. Module Imports
 
-Styio uses explicit top-level imports to declare module dependencies across `.styio` files.
+The accepted module identity, visibility, initialization, and coherence model
+is owned by [Styio Module and Extension
+Model](./Styio-Module-and-Extension-Model.md).
 
 ### 4.1 Import Declaration
 
 ```text
-@import { styio/mod, styio.mod; core }
+@import {
+    std/text as text,
+    app/model::{User, Role},
+}
+
+@export {
+    User,
+    create_user,
+}
 ```
 
 Rules:
 
 - `@import` is only valid at file top level.
 - `/` is the native package and module path separator.
-- `.` is accepted as a compatibility spelling and is normalized to slash form internally.
-- A single import item must not mix `.` and `/`.
-- `,` and `;` are equivalent separators between import items.
-- Empty import lists, trailing separators, and the legacy leading string-list form such as `["pkg"]` are syntax errors.
+- a module import binds a module namespace; members enter scope only through an
+  explicit selective import;
+- aliases and re-exports are explicit;
+- lists use commas and permit a trailing comma;
+- dot paths, semicolon separators, glob imports, and empty lists are errors;
+- declarations are module-private unless explicitly named by `@export`.
 
 ### 4.2 Resolution Semantics
 
-Each import item creates one explicit import fact for the current file. The IDE and HIR layers expose these facts in canonical slash form, so `styio.mod` and `styio/mod` both resolve as `styio/mod` internally.
+Each import item creates one explicit import fact for the current file.
+Canonical declaration identity contains resolved package source/name/version,
+slash module path, namespace, and declaration name. Aliases do not change it.
 
 Import resolution remains explicit:
 
 - bare package paths are resolved through the project-aware import lookup rules
 - `.styio` is tried when the import candidate does not already name a Styio file
 - unresolved imports stay unresolved instead of binding to unrelated same-text symbols elsewhere in the workspace
+- version 1 rejects cyclic module dependencies and implicit effectful top-level
+  initialization;
+- import order and backend declaration order never resolve ambiguity.
 
 ---
 
@@ -358,12 +504,12 @@ cannot be redefined by `=` or `:=`.
 
 #### 5.1.1 Completion boundary contract
 
-Public, recursive, native/FFI, and typed protocol-boundary callables must expose
-a finite upper bound of nominal completion families in their source contract.
-The implementation body may produce a strict subset of that bound, but any
-family outside it is a definition-site error. A caller either settles each
-relevant family with the operation-settlement construct or propagates the
-unhandled family into its own admitted boundary contract.
+Every callable boundary exposes a finite upper bound of nominal completion
+families in its canonical contract. An eligible public final callable may
+infer and publish that bound; recursive, native/FFI, and typed protocol ABI
+boundaries write it in source. The implementation body may produce a strict
+subset, but any family outside the bound is a definition-site error. A caller
+settles each relevant family or propagates it into its own admitted contract.
 
 This is a static callable-type fact, not a returned union value, hidden
 `Result`, exception object, or ambient program-level channel. Its accepted
@@ -380,9 +526,11 @@ family identifiers. Its braces are signature grammar, not a runtime set/dict or
 Block. Duplicate families, non-family names, `?| {}`, and a trailing comma are
 rejected. Whenever an author writes `: T`, omission of the completion clause
 means the empty upper bound in every scope; it never means “infer completions”.
-Only an eligible non-boundary lexical-local or module-private callable that
-omits the entire `: T` contract may infer the complete success type and
-completion set. Required boundary callables cannot omit that contract.
+A capture-safe final, non-recursive callable that omits the entire `: T`
+contract may infer a unique principal success type and finite completion set.
+This includes a public callable when the compiler can publish that stable
+canonical contract in the module interface. Recursive, native/FFI, and typed
+protocol ABI boundaries cannot omit their required concrete contracts.
 
 Resources keep their visible `@` identity. A direct resource atom is not a
 valid right side for a `#` binding:
@@ -398,21 +546,35 @@ definitions use the `@family::member` forms described in the resource section.
 
 Accepted decision `Q02-INF` is defined in
 [Styio Callable Principal Inference](./Styio-Callable-Principal-Inference.md),
-the sole detailed semantic owner. In summary, only a capture-safe, final `:=`,
-non-recursive, non-boundary lexical-local or module-private callable value can
-receive automatic principal constrained rank-1 generalization. The definition
-site generalizes only variables not free in its lexical environment; every use
-gets a fresh instance, and neither first use, future calls, defaults, `any`, nor
-backend choices may determine the scheme.
+the sole detailed semantic owner. A capture-safe, final `:=`, non-recursive
+callable value can receive automatic principal constrained rank-1
+generalization, including at a public boundary when its canonical inferred
+contract is uniquely publishable. The definition site generalizes only
+variables not free in its lexical environment; every use gets a fresh
+instance, and neither first use, future calls, defaults, `any`, import order,
+nor backend choices may determine the scheme.
 
-`# f = ...` only rebinds an existing stable scheme, while all required
-boundaries remain explicit. Internal scheme and closed-constraint notation is
-metalanguage rather than Styio source. The accepted closed literal/`Add`
-contract is owned by
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md),
-while `F02` owns any future author-written generics, constraints, user
-instances, higher-rank polymorphism, or completion rows. Neither decision adds
-a token or EBNF production.
+`# f = ...` only rebinds an existing stable scheme. Recursive, native/FFI, and
+typed protocol ABI boundaries remain explicit. Internal scheme and constraint
+notation is metalanguage rather than Styio source. [Styio Exact Numeric
+Literals](./Styio-Exact-Literals-and-Builtin-Add.md) owns exact literal terms;
+the accepted finite operator constraints are owned by [Styio Built-in Numeric
+Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md). Styio has no
+authored generic parameter list or repeated author-written constraint clause.
+Capability needs are inferred from the body; concrete user-type conformance is
+explicit and coherent under [Styio Inferred Abstraction and Explicit
+Conformance](./Styio-Inferred-Abstraction-and-Explicit-Conformance.md).
+Higher-rank polymorphism, higher-kinded types, specialization, and completion
+rows remain unadmitted.
+
+Q04-Core now fixes the `capture_safe` proof consumed here: only a callable with
+no captures or immutable value-semantic snapshot captures may pass automatic
+generalization. An owner, borrow/view, resource, task, mutable binding, or
+unknown capture fails that eligibility gate. This does not make every
+explicitly contracted closure with such a capture illegal. The full capture
+and ownership rule is owned by
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
 
 ### 5.2 Pulse Closures
 
@@ -523,6 +685,37 @@ Interaction:
 Status: design-accepted surface. The parser does not implement derived
 bindings; every occurrence fails closed until parser, Sema (graph and effect
 checks), lowering, and test evidence land.
+
+### 5.4 Ownership, Capture, and Capability
+
+Styio uses the accepted Q04-Core model: representation-independent value
+semantics, affine owners, lexical borrows/views, compiler-derived capture, and
+endpoint-owned transfer protocols. No source `copy`, `move`, `borrow`,
+lifetime, capture-list, or capability-constraint syntax is added.
+
+`:=` and `=` decide only whether a name may be rebound. They do not decide
+whether the occupant copies, moves, or borrows. Value copy may use any
+identity-unobservable representation; an owner never copies implicitly,
+regardless of size. A borrow cannot outlive its owner, cross an unproved task
+join, or be retained by an endpoint.
+
+Closure and structured-task capture modes are derived uniquely from semantic
+type, actual use, escape class, and capability. Ambiguous or unknown capture
+fails closed. For `left -> right`, the endpoint protocol—not the arrow
+glyph—declares exactly one `copy`, `borrow`, or `consume` mode and the ownership
+post-state of every normal or completion exit. A committed consume makes the
+source unavailable and never rolls it back.
+
+Each untransferred owner contributes exactly one lexical drop/close obligation.
+Last-borrow, structured-join, commit, and resource-specific dependencies order
+those obligations; otherwise stable reverse registration order applies.
+Ownership facts enter Q03-F `EvaluationFacts` and its DAG, never Q01-A
+`OperationSummary`.
+
+The complete normative contract is
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
+The `$(deps)` list of a derived binding remains a frame-dependency list and is
+not a closure capture-mode annotation.
 
 ---
 
@@ -767,6 +960,12 @@ block-entry operation with `?| block_entry_operation | fallback`. A trailing
 
 `||> { ... }` constructs one scheduled task. `||> [ name := { ... } ... ]`
 launches a group of independent task blocks and binds each name to its task handle.
+
+Structured tasks snapshot-copy value-semantic captures. They may consume an
+owner only when one unique permitted consume mode is proven, and may borrow
+only when a static join edge proves the task ends before owner consume/drop
+without conflicting access. No detached escape is admitted by this rule. See
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
 
 ```styio
 ||> [
@@ -1017,6 +1216,14 @@ typing contracts are defined independently.
 
 ## 8. Resource System
 
+The accepted capability, ownership, stream, pressure, cancellation, and scope
+model is owned by [Styio Structured Resources and
+Concurrency](./Styio-Structured-Resources-and-Concurrency.md). Resource,
+stream, and task are not automatically synonymous with affine owner; a value
+is affine only when it carries a unique observable release, consumption, or
+join obligation. Version 1 has no detached task escape, no implicit broadcast,
+and no hidden unbounded queue.
+
 ### 8.1 Resource Identifiers: `@`
 
 Resources are accessed via the `@` prefix:
@@ -1043,7 +1250,7 @@ f <- @file("readme.txt")
 ### 8.3 Reading: `>>`
 
 ```
-f >> #(chunk: [byte; 4096]) => { buf += chunk }
+f >> #(chunk: [u8; 4096]) => { buf += chunk }
 ```
 
 For resource reads, `>>` treats the left resource handle as an iterable source and pushes each produced chunk or line as a pulse into the right-side closure.
@@ -1058,17 +1265,24 @@ For resource reads, `>>` treats the left resource handle as an iterable source a
 
 Resources are automatically released when their enclosing scope ends. The
 compiler inserts cleanup code at every exit path, including normal scope exit,
-loop `^` / `>>` control-flow exits, and `<|` returns. Current implementation
-evidence covers tracked file handles for those paths. It also covers the
-default file flex-rebind cleanup boundary: before `name = @file(...)`
-overwrites an existing tracked file handle, codegen closes the old handle,
-checks the cleanup error channel, and stops before the new acquire or later
-statements if cleanup failed. Statement-shaped file rebind can now install an
-explicit settlement site with `?| name = @file(...) | fallback` or named
-handlers; under that wrapper, the old-handle cleanup error remains on the
-resource-effect channel instead of continuing into the replacement open.
-Broader resource-family cleanup and source-level fallback recovery for implicit
-cleanup remain staged implementation work.
+loop `^` / `>>` control-flow exits, and `<|` returns.
+
+Q04-Core fixes the source contract for rebinding an owner. A non-consuming RHS
+is evaluated while the old owner remains installed. After normal RHS
+completion, the new occupant is installed atomically; the displaced owner is
+then dropped after its last borrow. A completion from that drop propagates
+without rolling back the installed new occupant. If the RHS itself consumes
+the old binding, the source becomes unavailable at the consume edge and is
+never revived by later recovery. Current codegen paths that close a tracked
+file before evaluating or installing the replacement are migration evidence,
+not language authority.
+
+Every untransferred owner contributes one drop/close obligation. Real
+last-borrow, structured-join, commit, flush, and close dependencies take
+priority; independent obligations use stable reverse registration order.
+Fallible cleanup remains an ordinary finite completion contract, never an
+ambient exception channel. Full rules:
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
 
 ### 8.6 Directional Transfer Axiom: `->`
 
@@ -1090,8 +1304,15 @@ lowering. The right side never declares a name: an identifier destination must
 already exist and have the required write capability, while another destination
 expression must independently resolve to a legal endpoint. A successful
 directional transfer always produces `() : unit`; it never implicitly returns
-the source, destination, or a receipt. Ownership, backpressure scheduling,
-multi-edge chaining, and arrow associativity remain with their focused owners.
+the source, destination, or a receipt. The endpoint protocol declares exactly
+one `copy`, `borrow`, or `consume` input mode plus source/endpoint ownership
+post-states for normal and completion exits. The arrow glyph never chooses
+that mode or inserts a clone; missing or ambiguous protocol facts fail closed.
+At a consume commit the source becomes moved/unavailable and later completion
+does not revive it. These ownership rules are owned by
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md).
+Backpressure scheduling, multi-edge chaining, and arrow associativity remain
+with their focused owners.
 Evaluation ordering is fixed by Q03-F: source value and endpoint capability are
 independent prerequisites of transfer, so arrow direction does not imply
 source-before-endpoint preparation. If both preparations are order-sensitive,
@@ -1240,15 +1461,19 @@ i64..       // unbounded i64 sequence
 i64...      // same as i64..
 ```
 
-### 9.3 Type-Level Collection Sugar
+### 9.3 Collection and Repetition Types
 
 Collection types are ordinary type-position forms:
 
 ```styio
-__ : list[T] := T..
-__ : string := char..
-__ : dict[K, V] := (K, V)..
+list[T]
+dict[K, V]
+T..
 ```
+
+`list[T]` and `dict[K,V]` are materialized value collections. `T..` is an
+unbounded repetition/stream shape. They are not type rewrites or aliases.
+Likewise, `string` is a valid UTF-8 text value rather than `char..`.
 
 Examples:
 
@@ -1261,7 +1486,8 @@ Examples:
 @logs  : list[string] := ...
 ```
 
-`list[i64]|10|` is not the canonical spelling for ten integers; it normalizes to `i64|10|`. Prefer the direct length form.
+`list[i64]|10|` means ten list values and does not normalize to `i64|10|`.
+Use the direct length form when ten integers are intended.
 
 ### 9.4 Resource Flow and Copy
 

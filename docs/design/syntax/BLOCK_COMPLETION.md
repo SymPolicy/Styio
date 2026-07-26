@@ -111,5 +111,5 @@ contract.
   §6.7.
 - Token lookup: [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md).
 - Implementation checkpoints and evidence:
-  [Styio Block Completion and Bottom Type Plan](../../plan/Styio-Block-Completion-and-Bottom-Type-Plan.md)
+  [Styio Block Completion and Bottom Type](../../plan/styio-block-completion-and-bottom-type/Requirements.md)
   and its Block-exit child plan.

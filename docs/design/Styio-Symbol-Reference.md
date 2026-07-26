@@ -2,7 +2,7 @@
 
 **Purpose:** 各符号的 **lexer token 名与物理含义速查表**；完整语义与章节论证见 [`Styio-Language-Design.md`](./Styio-Language-Design.md)。实现 `enum class TokenKind` 时以本文与 EBNF 对照。
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-26
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28
@@ -15,11 +15,11 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Physical Semantics |
 |--------|------|----------------|-------------------|
-| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** resource topology resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Bare `@` is a parse error and never denotes value absence; Optional empty is `(?)`, `[?]`, or `{?}` under `? \| T`. |
+| `@` | Resource / Top-Level Directive Anchor | `TOK_AT` | **At file top before contextual `import` or `export`:** explicit module declaration. **Before identifier + `:`:** resource topology declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Bare `@` is a parse error and never denotes value absence. |
 | `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Scalar write: `expr -> @stdout`; iterable write: `items >> @stdout`. |
 | `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Scalar write: `expr -> @stderr`; iterable write: `items >> @stderr`. |
 | `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Internal declaration forms use `@ stdin := #() => { ... }` with `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
-| `$` | Capture / Format Prefix | `TOK_DOLLAR` | **Before `(`:** capture list in function declaration context. **Before string:** format string. **Before identifier:** retired state-resource state reference, parse error. New topology text reads resources through `@name[...]`. |
+| `$` | Derived-Dependency / Format Prefix | `TOK_DOLLAR` | **As `name := $(deps) => expr`:** opens the derived binding's explicit frame-dependency list; this is not a closure capture-mode annotation. **Before string:** format string. **Before identifier:** retired state-resource state reference, parse error. A callable capture list is not Q04-Core syntax. |
 
 ---
 
@@ -28,12 +28,12 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Symbol | Name | C++ Token Kind | Semantics | Example |
 |--------|------|----------------|-----------|---------|
 | `>>` | Pipe / Iterate / Resource-Write Shorthand | `ITERATOR` | **Before iterator tail:** treat the left side as an iterable or pulse source, advance it one item at a time, and push each item as a pulse into the right-side channel/consumer; enter a block-entry snapshot when the consumer is a block. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, `@stderr`, or `@file(...)`:** iterable text serialization only, one item per pulse; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only for data flow. Multi-role service (pipe / resource write / continue) is a settled design requirement; disambiguation is compiler-owned context logic and the roles will not be split across symbols. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
-| `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block and enter a task snapshot context. **Before `[`:** launch independent task blocks and bind each entry name to a task handle; each entry block is its own snapshot/commit stage. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
+| `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block and enter a task snapshot context. **Before `[`:** launch independent task blocks and bind each entry name to a task handle; each entry block is its own snapshot/commit stage. Q04-Core infers captures without new syntax: snapshot-copy values, uniquely admitted consume for owners, and borrow only across a proven structured join/lifetime edge. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
 | `?\|` | Operation Settlement / Callable Completion Bound | `AWAIT_PIPE` *(legacy enum name)* | **Expression start:** settle exactly one complete operation. Success bypasses recovery; one matching arm runs lazily once; no implicit retry; unhandled families propagate. **After a callable result annotation:** `?\| {io, parse}` declares a non-empty finite completion-family upper bound. Its comma list contains ordinary family identifiers and is not a runtime set/dict, union, fallback, or handler. `: T` without this clause always declares the empty bound; `?\| {}`, duplicates, non-family names, and trailing commas are rejected. The contiguous token is distinct from spaced Optional `? \| T`. | `answer = ?\| job \| fallback`, `# read : f64 ?\| {io, parse} := (path: string) => { ... }` |
 | `\|?\|` | Resource Session Marker | `TOK_SESSION_MARK` | Explicit resource session block; no `session` keyword. Mid-transfer placement only (execution symbols before and after). Body: handles and anchors only; topology `@name : Type` stays rejected. Design-accepted; parser-pending. | `# f => \|?\| { h <- @file("log.txt") } \|> g` |
 | `\|!\|` | Session Exit Special Handling | `TOK_SESSION_EXIT` | `|!|(cleanup)` / `|!|(ResourceCleanupFailure)` marks session-exit special handling for the cleanup effect family. Absent `|!|` and absent deferred cleanup chain → default Close. Not a universal exception catch-all. Design-accepted; parser-pending. | `... \|?\| { ... } \|!\|(cleanup) => report()` |
 | `\|>` | Settlement Forward | `TOK_SETTLE_FWD` | After a `|?|` session leaves, forward settlement or control to the next stage. Activated for this role; `|<-` remains reserved. Design-accepted; parser-pending. | `# f := \|?\| { ... } \|> g` |
-| `->` | Directional Transfer | `TOK_ARROW_RIGHT` | Flow the value produced at the left location/action into the destination/location/receiver endpoint drawn on the right. This describes data direction, not an affine ownership move. The right side never declares a name and must independently resolve as a writable endpoint. Successful transfer produces `() : unit`, never an implicit source, destination, or receipt. Source value and endpoint capability are independent prerequisites; arrow direction does not impose source-before-endpoint preparation. Two order-sensitive preparations must first be sequenced as Block items. Endpoint kinds may determine capabilities, completion families, ownership action, and lowering without changing the arrow's meaning. | `operation -> result`, `job -> answer`, `ma5 -> @database(...)` |
+| `->` | Directional Transfer | `TOK_ARROW_RIGHT` | Flow the value produced at the left location/action into the destination/location/receiver endpoint drawn on the right. The right side never declares a name and must independently resolve as writable. Success produces `() : unit`, never an implicit source, destination, or receipt. Source value and endpoint capability are independent prerequisites; arrow direction does not impose preparation order. The endpoint protocol declares exactly one `copy`, `borrow`, or `consume` mode and ownership post-state for every normal/completion exit; the glyph does not select a mode. Missing or ambiguous rows fail closed, and a committed consume is never rolled back. | `operation -> result`, `job -> answer`, `ma5 -> @database(...)` |
 | `<-` | Acquire / Pull | `TOK_ARROW_LEFT` | Extract or acquire from a resource; used in expanded stdin symbolic definition as `<\| <- [>_]`. | `f <- @file("data.txt")` |
 | `<<` | Copy / Snapshot / Compatibility Pull | `TOK_SHIFT_BACK` | Explicit resource copy or snapshot, e.g. `snapshot << @price[...]`. Retired history-probe selector families remain rejected. **`(<< @res)`:** compatibility instant pull only. Deliberately low-priority surface by settled decision: type-directed unification of `<<` is deferred with no active convergence work scheduled. |
 | `<\|` | Lexical Block Yield | `YIELD_PIPE` | **Statement start:** complete only the immediately owning lexical Block with the expression value. It never crosses a parent Block; only the outer function-body Block result becomes a function result. The infix apply-pipe spelling is removed. | `<\| x * x` |
@@ -49,8 +49,11 @@ means left-to-right preparation time. `?|` is orthogonal and settles the whole
 operation; it never changes the arrow's meaning. The accepted completion
 contract fixes Unit success and an independently valid destination; Q03-F in
 [Functional Evaluation and Effect Ordering](./Styio-Functional-Evaluation-and-Effect-Ordering.md)
-fixes the dependency/order boundary. Chaining, associativity, ownership, and
-backpressure scheduling remain with their focused owners.
+fixes the dependency/order boundary. Q04-Core in
+[Styio Ownership, Capture, and Capability](./Styio-Ownership-Capture-and-Capability.md)
+fixes endpoint mode, ownership post-state, borrow, consume, and drop facts.
+Chaining, associativity, and backpressure scheduling remain with their focused
+owners.
 
 ---
 
@@ -112,13 +115,13 @@ Q03-F static error and must be prepared in consecutive Block items.
 
 | Symbol | Name | C++ Token Kind | Semantics |
 |--------|------|----------------|-----------|
-| `=` | Mutable Binding | `TOK_ASSIGN` | Bind or rebind a mutable name; an RHS expression is mandatory. Under `#`, a bare `# f = ...` only rebinds an already established stable callable scheme. An initial mutable callable requires a complete explicit contract. |
-| `:=` | Final Binding | `TOK_BIND` | Bind a final name with a mandatory RHS expression. Under `#`, binds a final callable or operation-channel endpoint that cannot be redefined; only an otherwise eligible final callable value may receive automatic principal rank-1 generalization. |
+| `=` | Mutable Binding | `TOK_ASSIGN` | Bind or rebind a mutable name; an RHS expression is mandatory. Mutability is orthogonal to the occupant's value/owner/borrow classification. A non-consuming rebind installs the normally returned new occupant before dropping the old owner after its last borrow; old-drop completion does not roll back the new value. Under `#`, a bare `# f = ...` only rebinds an established stable callable scheme. |
+| `:=` | Final Binding | `TOK_BIND` | Bind a final name with a mandatory RHS expression. Finality does not make an owner copyable or prevent its consume. Under `#`, binds a final callable or operation-channel endpoint that cannot be redefined; only an otherwise eligible final callable value may receive automatic principal rank-1 generalization. |
 | `name := $(deps) => expr` | Derived Binding | `TOK_BIND` + `TOK_DOLLAR_PAREN` + `TOK_FAT_ARROW` | Frame-committed derived slot: writes to captured variables mark it dirty; recomputation runs at pulse-frame commit in topological order, at most once per frame; within a frame the value is constant; the value decays to a plain value at use. Governed by the fail-closed whitelist in Language Design §5.3 (module-scope only, pure single-expression body, static graph, no task-block reads). Design-accepted; parser pending; fails closed. |
-| `+=` | Aggregate Assign | `TOK_PLUS_ASSIGN` | Accumulate (semi-ring fold in stream context) |
-| `-=` | Subtract Assign | `TOK_MINUS_ASSIGN` | Subtract-accumulate |
-| `*=` | Multiply Assign | `TOK_STAR_ASSIGN` | Multiply-accumulate |
-| `/=` | Divide Assign | `TOK_SLASH_ASSIGN` | Divide-accumulate |
+| `+=` | Numeric Add Assign | `TOK_PLUS_ASSIGN` | Numeric read-modify-write using the accepted `+` row. Read the old value and evaluate the RHS once each; commit once only after successful lossless flow back to the target type; success is `unit`, completion leaves the target unchanged. |
+| `-=` | Numeric Subtract Assign | `TOK_MINUS_ASSIGN` | Numeric read-modify-write using the accepted `-` row with the same exact-once, lossless-flow-back, success-commit, and completion-no-write contract. |
+| `*=` | Numeric Multiply Assign | `TOK_STAR_ASSIGN` | Numeric read-modify-write using the accepted `*` row with the same exact-once, lossless-flow-back, success-commit, and completion-no-write contract. |
+| `/=` | Numeric Divide Assign | `TOK_SLASH_ASSIGN` | Numeric read-modify-write using the accepted `/` row with the same exact-once, lossless-flow-back, success-commit, and completion-no-write contract. |
 
 `name : T` is not an ordinary declaration form. `:` may annotate an ordinary
 binding only when `=` or `:=` and an explicit RHS follow. A missing RHS never
@@ -135,8 +138,8 @@ not introduce a typed target declaration.
 
 | Symbol | Name | Semantics |
 |--------|------|-----------|
-| `#` | Callable / Operation-Channel Binding Prefix | Marks the binding target as callable or operable and combines with `=` or `:=`. It is not a resource prefix; resource identities stay in the `@` family. With `:=`, an eligible capture-safe, non-recursive, non-boundary lexical-local or module-private callable value may infer a stable principal scheme. |
-| `:` | Type Annotation | Binds a type to an identifier in its enclosing construct (`a: i32` as a parameter, `x: i32 = 1` as an ordinary binding, `# f : f32 = ...` as a callable binding). In a callable contract, `: T` without `?\| {...}` always asserts an empty completion bound; only an eligible lexical-local or module-private callable omitting the entire contract may infer its operation summary. Required boundaries remain explicit. It does not make bare `name: T` an ordinary declaration. |
+| `#` | Callable / Operation-Channel Binding Prefix | Marks the binding target as callable or operable and combines with `=` or `:=`. It is not a resource prefix. With `:=`, an eligible capture-safe, non-recursive callable value may infer a stable principal scheme, including for canonical public-interface publication. There is no authored generic parameter list or callable capture list. |
+| `:` | Type Annotation | Binds a type to an identifier in its enclosing construct (`a: i32` as a parameter, `x: i32 = 1` as an ordinary binding, `# f : f32 = ...` as a callable binding). In a callable contract, `: T` without `?\| {...}` always asserts an empty completion bound; an eligible callable omitting the entire contract may infer its operation summary. Recursive, native/FFI, and typed protocol ABI boundaries remain explicit. It does not make bare `name: T` an ordinary declaration. |
 | `T ?\| {family, ...}` | Callable Completion Upper Bound | After a callable's normal result type, declares a finite non-empty set of nominal families that may cross the boundary. Braces/commas are static signature structure, not a value-level set, dict, Block, or union. Family names remain identifiers. |
 | `[]` | Type Argument List | In type position, applies type arguments: `list[i64]`, `dict[string, string]` |
 | `? \| T` | Optional Union Type | The only type-level absence boundary. Repeated absence normalizes (`? \| (? \| T) == ? \| T`); `? \| unit` retains absent and present-`()` states even though Unit has no payload bytes. |
@@ -144,7 +147,7 @@ not introduce a typed target declaration.
 | `never` | Bottom Type Name | Ordinary `NAME("never")` interpreted contextually in type position. Has no values, literal, or default and denotes only proven non-completion. It joins as `join(T, never) = T` and is never an inference fallback. |
 | `()` | Unit Value | The sole value of `unit`. A reachable natural Block fallthrough also produces this value. It is not absence or an empty argument list when parsed in value position. |
 | `(?)`, `[?]`, `{?}` | Optional Empty Value | Three exact delimiter variants of the same empty Optional branch. They require an expected or joined payload type; none is a distinct empty kind or a default for ordinary `T`. |
-| `__ : T := U` | Type Rewrite Rule | Two or more underscores define a type-pattern rewrite, e.g. `__ : list[T] := T..` |
+| `__ : T := U` | Type Rewrite Rule | Two or more underscores define a type-pattern rewrite; rewrites cannot collapse materialized collections, streams, and text into one semantic category. |
 | `T\|n\|` | Exact Length Type | Sequence/cardinality type with exactly `n` values of `T` |
 | `T\|..n\|` | Recent Length Type | Recent-window type that keeps the latest `n` values of `T` |
 | `T..` / `T...` | Infinite Repetition Type | Unbounded repetition of `T`; two or more dots are equivalent |
@@ -154,9 +157,13 @@ Principal inference has no source glyph of its own. Compiler displays such as
 `forall T` or `Add(T, IntegerLiteral(5), T, Completion(T))` are diagnostic
 metalanguage, not author syntax. The complete rule is owned by
 [Styio Callable Principal Inference](./Styio-Callable-Principal-Inference.md):
-[Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md)
-supplies the accepted closed built-in literal/`Add` relation, while `F02` owns
-any future author-written generic/constraint or completion-row surface.
+[Styio Exact Numeric Literals](./Styio-Exact-Literals-and-Builtin-Add.md)
+supplies literal terms and materialization, [Styio Built-in Numeric Operators
+and Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md) supplies the
+accepted finite numeric relations. Styio has no authored generic parameter
+list or repeated constraint clause; capability requirements are inferred and
+concrete user conformance is explicit. Higher-rank and completion-row surfaces
+remain unadmitted.
 
 ---
 
@@ -164,11 +171,11 @@ any future author-written generic/constraint or completion-row surface.
 
 | Symbol | Name | Precedence |
 |--------|------|------------|
-| `**` | Power | 704 |
+| `:>` | Checked Scalar Convert | 705 (non-associative) |
 | `*` | Multiply | 703 |
 | `/` | Divide | 703 |
 | `%` | Modulo | 703 |
-| `+` | Closed Built-in Add | 702 |
+| `+` | Numeric Add | 702 |
 | `-` | Subtract / Numeric Sign | 702 |
 | `>` | Greater Than | 502 |
 | `<` | Less Than | 502 |
@@ -180,22 +187,55 @@ any future author-written generic/constraint or completion-row surface.
 | `\|\|` | Logical OR | 400 |
 | `!` | Logical NOT | 999 (unary) |
 
-`+` keeps its existing token and precedence. Its accepted scalar relation is
-closed over `i8` through `i128`, `f32`, `f64`, and exact literals materializable
-to those types. Concrete operands must be the same type; an exact literal may
-materialize symmetrically to the other concrete operand; the result is that
-type. Checked integer addition admits the payload-free prelude completion
-identifier `overflow`, while floating addition has an empty completion bound
-and strict IEEE behavior. Exact-literal materialization, late `i64`/`f64`
-defaults, the cross-row generic `{overflow}` union, and constant/runtime
-equivalence are owned
-by [Styio Exact Literals and Built-in Add](./Styio-Exact-Literals-and-Builtin-Add.md).
+`:>` is one contiguous token. It takes a value expression on the left and
+opens a closed numeric-scalar type context on the right:
 
-The `-` glyph in a signed literal participates in that literal's exact value;
-this does not freeze the separately deferred binary subtraction relation.
-`IntegerLiteral`, `DecimalLiteral`, `Add`, and `Completion` remain compiler
-metalanguage, and `overflow` remains an ordinary identifier rather than a
-keyword or token.
+```styio
+value :> i64
+```
+
+It is lower precedence than postfix and unary forms, higher than every
+binary/control form, and non-associative. The resolved target identity is one
+of `i8`…`i128`, `u8`…`u128`, `f32`, or `f64`; these are ordinary type names,
+not callable or expression-head forms. Exact-success rules and the finite
+`out_of_range`, `inexact`, and
+`non_finite` completion matrix are owned by
+[Styio Checked Scalar Conversion](./Styio-Checked-Scalar-Conversion.md).
+`T(expr)`, `cast[T]`, implicit narrowing, and silently lossy ordinary value
+flow are not alternate roles. Lossless widening is a distinct, accepted
+compiler relation and is never spelled `:>`.
+
+The admitted concrete numeric domain is `i8`…`i128`, `u8`…`u128`, `f32`, and
+`f64`. Same-signedness integer arithmetic uses the wider width. Mixed
+signed/unsigned arithmetic uses the smallest fixed signed type representing
+both complete domains and is rejected when no such type exists. Mixed
+integer/float `+ - * /` uses exact integer and dyadic-float inputs followed by
+one round-to-nearest-ties-even result rounding, not an inserted `:>`
+conversion. Floating or mixed `%` has no row.
+Integer `+ - *` are checked with `{overflow}`; integer `/` has
+`{divide_by_zero, overflow}` and `%` has `{divide_by_zero}` under the Euclidean
+invariant. Floating and mixed rows use strict IEEE classes and gradual
+underflow; their `/` is total and `%` is absent.
+
+All six comparisons accept every numeric pair and compare the represented
+mathematical values exactly without first casting an integer to a float.
+Unordered NaN gives `== false`, `!= true`, and every relational result false;
+signed zeros compare equal. Unary `-` is checked for signed-integer minimum and
+IEEE for floats. `!`, `&&`, and `||` remain `bool`-only, with short-circuiting
+for the binary forms. The four compound assignments use their underlying
+binary row and require its successful result to flow losslessly back to the
+target type. There is no unary `+`, `++`, `--`, numeric truthiness, numeric
+bitwise/shift/XOR row, `%=` or power operator.
+
+The exact tables, completion bounds, constant/runtime identity, and
+optimization constraints are owned by [Styio Built-in Numeric Operators and
+Inference](./Styio-Builtin-Numeric-Operators-and-Inference.md). Exact literal
+terms and materialization are owned by [Styio Exact Numeric
+Literals](./Styio-Exact-Literals-and-Builtin-Add.md); the Euclidean invariant
+is owned by [Styio Euclidean Signed-Integer Division and
+Remainder](./Styio-Euclidean-Signed-Integer-Division-and-Remainder.md).
+`IntegerLiteral`, `DecimalLiteral`, and catalog relation names remain compiler
+metalanguage; completion-family names remain ordinary identifiers.
 
 Operator precedence builds the expression tree; it is not evaluation order.
 Ordinary binary operands are strict prerequisites without an implicit
@@ -210,6 +250,7 @@ operand runs only when selected and at most once.
 | Symbol | Name | Semantics |
 |--------|------|-----------|
 | `??` | Removed Value Spelling | D02 is closed with no ordinary value-level fallback/coalescing operator. `??` has no token, grammar, diagnostic-extraction, or fallback role in the target language; the orphan `TOK_DBQUESTION` implementation path must be deleted and every source use rejected. |
+| `**` | Removed Power Spelling | No token, grammar production, or numeric row. A contiguous run lexes as adjacent `*` tokens and is rejected as a malformed expression. |
 | `!(expr)` | Channel Selector | **Before `-> ( >_ )`:** selects stderr channel (fd 2) instead of stdout (fd 1). In other contexts, `!` remains logical NOT. |
 
 ---
@@ -244,6 +285,9 @@ operand runs only when selected and at most once.
 | `[start..end..step]` | Removed step range spelling; the parser rejects it |
 | `T..` / `T...` in type position | Infinite repetition type suffix |
 | `T|n|` / `T|..n|` in type position | Exact-length or recent-window type suffix |
+| `value :> i64` | Checked scalar conversion; `:>` is one token and opens the closed scalar-type context on its right |
+| `value : > i64` | Not scalar conversion; whitespace splits `:` and `>`, so the form is rejected |
+| `i64(value)` | Rejected type-as-call conversion spelling; `i64` receives no callable/expression-head role |
 | `(<- @res)` in parens | Immediate pull |
 | `(<< @res)` in parens | Legacy compatibility pull |
 | `.pressure` after a resource expression, before `>>` | Pressure observer stream. `pressure` is a Sema-recognized member attribute, not a grammar word. Delivery is a single-slot conflated latest-wins level sensor; pulses fire only on hysteresis state transitions; payload is a prelude read-only struct (`pending`/`limit`/`peak`). All current families fail closed with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED` |
@@ -264,8 +308,9 @@ Styio has many symbolic constructs, so symbol docs group them by leading-charact
 - **`<` family:** `<`, `<<`, `<=`, `<-`, `<|`, `<~` (reserved), `<:`
 - **`|` family:** anchored `|`, `||`, `|]`, `|<|`, `|;`
 - **`@` family:** resource declarations, resource atoms, anonymous resources, and retired state-family prefixes
-- **`$` family:** capture lists, format strings, and retired state-reference prefixes
+- **`$` family:** derived-binding dependency heads, format strings, and retired state-reference prefixes; callable capture lists are rejected
 - **`?` family:** `?`, `?=`, and `?(...)`; adjacent `??` is a removed spelling, not a compound token
+- **`:` family:** `:`, `:=`, and checked scalar conversion `:>`
 
 The lexer should process these families using a **trie-based dispatch** after reading the first character. This avoids the combinatorial explosion of a flat switch-case.
 
@@ -279,6 +324,7 @@ TOK_WAVE_RIGHT,      // ~> reserved
 TOK_DOLLAR_PAREN,    // $(
 TOK_DOLLAR_STRING,   // $"..."
 TOK_AMPERSAND,       // & (stream zip)
+TOK_SCALAR_CONVERT,  // :> checked scalar conversion
 TOK_BREAK,           // ^...^ normalized to nearest-loop break
 TOK_CONTINUE,        // >>...> standalone continue; count ignored
 ```
