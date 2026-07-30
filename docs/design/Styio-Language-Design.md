@@ -2,7 +2,7 @@
 
 **Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), and `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -327,6 +327,25 @@ numbers := make_empty[i64]()             // invalid: no call-site type arguments
 If arguments and expected context do not determine one unique instance, the
 call is rejected as underconstrained. Diagnostics may request a concrete
 surrounding annotation, but must not suggest a callable type-argument list.
+
+#### 5.1.4 Effect-Aware Generalization
+
+Definition-site generalization is available only to a final callable whose
+free environment is closed and whose reachable body is proven pure. Sema
+computes a conservative summary for each final callable and propagates output,
+resource, task, handler, native, capture, and unknown effects through direct
+call dependencies. An unsupported operation or unresolved callee is unknown,
+not implicitly pure.
+
+An effectful or capture-dependent callable remains monomorphic. Its first
+checked concrete argument relation fixes the callable instance, and a later
+conflicting use is rejected with the callable's canonical effect summary before
+lowering. This retains deterministic execution without duplicating effects
+behind silently inferred polymorphism.
+
+The summary is compiler-owned semantic metadata. Styio currently has no source
+effect-row syntax, purity annotation, native-purity assertion, or effect
+polymorphism; those require their own feature decisions.
 
 Resources keep their visible `@` identity. A direct resource atom is not a
 valid right side for a `#` binding:

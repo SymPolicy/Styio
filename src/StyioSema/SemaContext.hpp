@@ -519,6 +519,31 @@ public:
     std::string canonical_relation;
   };
 
+  enum class CallableEffectKind : std::uint32_t {
+    None = 0,
+    Output = 1u << 0,
+    Resource = 1u << 1,
+    Task = 1u << 2,
+    Handler = 1u << 3,
+    Native = 1u << 4,
+    Capture = 1u << 5,
+    Unknown = 1u << 6,
+  };
+
+  struct CallableEffectSummary
+  {
+    std::uint32_t effect_bits = 0;
+    bool closed = true;
+    bool relation_seed = false;
+    std::vector<std::string> captures;
+    std::vector<std::string> direct_callees;
+    std::string canonical = "pure";
+
+    bool proven_pure() const {
+      return closed && effect_bits == 0;
+    }
+  };
+
   struct CallableSpecialization
   {
     std::string source_name;
@@ -847,6 +872,15 @@ public:
     std::string_view name
   ) const;
 
+  const CallableEffectSummary* find_callable_effect_summary(
+    std::string_view name
+  ) const;
+
+  void enforce_effect_monomorphic_instance(
+    std::string_view name,
+    const std::vector<StyioDataType>& arg_types
+  );
+
   CallableSpecialization instantiate_callable_type_scheme(
     FuncCallAST* call,
     const std::vector<StyioDataType>& arg_types
@@ -920,6 +954,9 @@ protected:
   std::vector<styio::session::SymbolId> active_function_body_sid_stack_;
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
   std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
+  std::unordered_map<std::string, CallableEffectSummary> callable_effect_summaries_;
+  std::unordered_map<std::string, std::vector<StyioDataType>>
+    effect_monomorphic_instances_;
   std::unordered_map<std::string, std::vector<CallableSpecialization>> callable_specializations_;
   std::unordered_set<std::string> active_callable_specialization_checks_;
   std::optional<CallableSpecialization> active_callable_specialization_;

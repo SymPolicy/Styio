@@ -2,7 +2,7 @@
 
 **Purpose:** Provide a compact composed authoring map for current Styio syntax; feature-level authority lives in [features/](./features/), while shared grammar, token, and semantic invariants stay in the cross-feature design documents.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Reading Contract
 
@@ -57,6 +57,12 @@ provisional type variables. After a stable solution, eligible final bindings
 may be generalized and published, so ordinary generic recursion remains
 available. A recursive edge that needs the same member at a different
 instantiation is rejected as polymorphic recursion.
+
+Generalization also requires a closed, proven-pure callable body. Output,
+resource, task, handler, native, captured-environment, and unknown effects
+propagate through direct calls. A callable with any such summary remains
+monomorphic; a later use at a conflicting concrete type is rejected before
+lowering. Effect-row source syntax and purity annotations are not active.
 
 Type-variable names shown by the compiler or an IDE are explanatory metadata,
 not source declarations. Concrete annotations remain available for monomorphic
