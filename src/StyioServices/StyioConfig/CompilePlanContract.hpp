@@ -3,7 +3,6 @@
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 
 namespace styio::config {
 
@@ -12,7 +11,6 @@ struct CompilePlanRequest
   std::filesystem::path plan_path;
   int plan_version = 0;
   std::string intent;
-  std::string build_mode;
   std::filesystem::path workspace_root;
   std::string entry_package_id;
   std::string entry_target_kind;
@@ -26,12 +24,6 @@ struct CompilePlanRequest
   bool emit_styio_ir = false;
   bool emit_llvm_ir = false;
 };
-
-std::string_view
-default_build_mode_name();
-
-bool
-is_supported_build_mode(std::string_view build_mode);
 
 bool
 probe_compile_plan_diag_dir(

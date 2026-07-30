@@ -137,13 +137,6 @@ source_build_info_json(const SourceBuildInfoOptions& options) {
     {"edition_max", options.edition_max},
     {"official_source_origin", default_source_origin()},
     {"source_channels", source_channel_entries()},
-    {"supported_build_modes", llvm::json::Array{std::string(default_build_mode_name())}},
-    {"compile_plan_profile_contract", llvm::json::Object{
-      {"path", "profile.build_mode"},
-      {"default_build_mode", std::string(default_build_mode_name())},
-      {"accepted_build_modes", llvm::json::Array{std::string(default_build_mode_name())}},
-      {"legacy_missing_build_mode_defaults_to", std::string(default_build_mode_name())},
-    }},
     {"source_overrides", llvm::json::Object{
       {"source_root", true},
       {"source_rev", true},
@@ -160,7 +153,7 @@ source_build_info_json(const SourceBuildInfoOptions& options) {
     {"symbol_registry", std::move(symbol_registry)},
     {"notes", llvm::json::Array{
       "machine-info remains the binary-channel handshake contract",
-      "source-build-info describes the official source layout consumed by spio build",
+      "source-build-info describes Styio's own official source layout",
     }},
   };
 

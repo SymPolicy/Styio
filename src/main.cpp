@@ -4144,8 +4144,6 @@ styio_render_compile_plan_unit_payload_latest(
           << styio_json_escape(request.entry_target_name)
           << "\",\"intent\":\""
           << styio_json_escape(intent)
-          << "\",\"build_mode\":\""
-          << styio_json_escape(request.build_mode)
           << "\",\"file\":\""
           << styio_json_escape(request.entry_file.string())
           << "\"";
@@ -4226,7 +4224,6 @@ styio_write_compile_plan_receipt_latest(
           << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
           << ",\"plan_version\":" << request.plan_version
           << ",\"intent\":\"" << styio_json_escape(request.intent) << "\""
-          << ",\"build_mode\":\"" << styio_json_escape(request.build_mode) << "\""
           << ",\"session_id\":\"" << styio_json_escape(session_id) << "\""
           << ",\"executed\":" << (executed ? "true" : "false")
           << ",\"wall_time_ms\":" << wall_time_ms
@@ -4534,7 +4531,7 @@ styio_native_build_write_compile_plan_latest(
   plan
     << "{\n"
     << "  \"plan_version\": 1,\n"
-    << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \""
+    << "  \"generated_by\": {\"tool\": \"styio\", \"version\": \""
     << styio_json_escape(STYIO_PROJECT_VERSION) << "\"},\n"
     << "  \"intent\": \"build\",\n"
     << "  \"workspace_root\": \"" << styio_json_escape(input_path.parent_path().string()) << "\",\n"
@@ -4545,7 +4542,7 @@ styio_native_build_write_compile_plan_latest(
     << "    \"file\": \"" << styio_json_escape(input_path.string()) << "\"\n"
     << "  },\n"
     << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-    << "  \"profile\": {\"name\": \"native\", \"build_mode\": \"minimal\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
+    << "  \"profile\": {\"name\": \"native\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
     << "  \"packages\": [{\"id\": \"styio/native-build@0\"}],\n"
     << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"styio/native-build@0\"]},\n"
     << "  \"outputs\": {\n"
@@ -5767,7 +5764,6 @@ main(
     {
       std::ostringstream payload;
       payload << "{\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
-              << "\",\"build_mode\":\"" << styio_json_escape(compile_plan_request->build_mode)
               << "\",\"file\":\"" << styio_json_escape(fpath) << "\"}";
       styio_emit_runtime_event_latest(
         "compile.started",
@@ -5830,10 +5826,7 @@ main(
       std::ostringstream payload;
       payload << "{\"intent\":\""
               << styio_json_escape(intent != nullptr ? *intent : "")
-              << "\",\"build_mode\":\""
-              << styio_json_escape(
-                   request != nullptr ? request->build_mode : std::string("minimal"))
-               << "\",\"file\":\""
+              << "\",\"file\":\""
               << styio_json_escape(file_path != nullptr ? *file_path : "")
               << "\",\"executed\":"
               << ((executed != nullptr && *executed) ? "true" : "false");
