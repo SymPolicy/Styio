@@ -102,6 +102,7 @@ Key SSOTs:
 67. Keep native macOS build and CI documentation reproducible without recording machine-specific paths: resolve keg-only Homebrew package prefixes with `brew --prefix`, resolve the active SDK with `xcrun`, and keep the selected LLVM 18.1.x, CMake/CTest, Python, ICU, and Node lines aligned across the root READMEs, repository build guide, IDE build guide, bootstrap plan, and macOS CI lane.
 68. Treat the keyword-free lexical contract as its own feature SSOT: every word remains `NAME`, exact spelling checks belong only to symbol-anchored contexts, and feature or teaching docs must not invent a keyword class.
 69. Keep callable type-system decisions distributed by feature: definition-site principal relations, recursive SCC inference, and context-driven use-site instantiation each own a separate syntax-feature SSOT and dependency edge. A consolidated decision agenda may compose unresolved questions and external references, but it must link to the owning draft feature SSOTs instead of becoming a competing language authority.
+70. When the language owner approves a composed decision agenda, update every owning feature SSOT from `review` to `accepted` first, preserve independent delivery states and dependency edges, then revise the agenda into a non-authoritative approval record and regenerate the syntax-feature graph.
 
 ## Change Classes
 

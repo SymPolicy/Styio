@@ -2,7 +2,7 @@
 
 **Purpose:** Decide whether inferred callable variables may range over resource, stream, task, matrix, and other ownership- or representation-sensitive handle families.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Feature Contract
 
@@ -11,11 +11,11 @@ schema_version = 1
 id = "core.capability-polymorphic-handles"
 title = "Capability-Polymorphic Handles"
 kind = "capability-type-semantics"
-decision_state = "review"
+decision_state = "accepted"
 delivery_state = "not_started"
 owner = "Sema / Resource Topology"
 syntax = "No new source form proposed; this decision governs the universe of inferred relation variables."
-resolution = "Owner review pending: choose which value families may inhabit generalized variables and which capability, effect, ownership, and shape facts a scheme must carry."
+resolution = "Generalized variables admit plain immutable scalar values and pure materialized collections only; resource, stream, task, matrix, and ownership-sensitive handles remain monomorphic."
 golden_cases = []
 
 [documents]
@@ -36,8 +36,8 @@ topology-contract = "docs/design/Styio-Resource-Topology.md"
 [dependencies]
 requires = [
   { id = "core.inferred-callable-relation", decision_state = "accepted", delivery_state = "converged" },
-  { id = "core.effect-aware-callable-generalization", decision_state = "review", delivery_state = "not_started" },
-  { id = "core.constrained-callable-relations", decision_state = "review", delivery_state = "not_started" },
+  { id = "core.effect-aware-callable-generalization", decision_state = "accepted", delivery_state = "not_started" },
+  { id = "core.constrained-callable-relations", decision_state = "accepted", delivery_state = "not_started" },
   { id = "resource.slot-declaration", decision_state = "accepted", delivery_state = "converged" },
   { id = "task.single-task", decision_state = "accepted", delivery_state = "converged" },
 ]
@@ -48,20 +48,13 @@ supersedes = []
 after = ["core.effect-aware-callable-generalization", "core.constrained-callable-relations"]
 ```
 
-## Decision Needed
+## Decision
 
-Choose which concrete families may substitute for an inferred variable and
-which facts must travel with it: cloneability, ownership, consume-once state,
-send/sync capability, effect family, resource shape, matrix element/shape, and
-runtime representation.
-
-## Recommendation
-
-Initially admit plain immutable scalar values and materialized pure collections.
-Keep resources, streams, tasks, and ownership-sensitive handles monomorphic
-until capability/effect/linearity constraints participate in schemes and
-resource topology can validate each concrete instance. Admit matrices only
-after element and shape constraints use one canonical type representation.
+Generalized variables initially admit plain immutable scalar values and pure
+materialized lists and dictionaries. Resources, streams, tasks, matrices, and
+ownership-sensitive handles remain monomorphic until capability, effect, and
+linearity facts participate in schemes and resource topology can validate each
+concrete instance.
 
 ## Safety Boundary
 

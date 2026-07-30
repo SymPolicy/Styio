@@ -2,7 +2,7 @@
 
 **Purpose:** Decide whether a generalized callable may remain polymorphic when passed, stored, captured, or returned as a first-class value.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Feature Contract
 
@@ -11,11 +11,11 @@ schema_version = 1
 id = "core.higher-order-callable-polymorphism"
 title = "Higher-Order Callable Polymorphism"
 kind = "callable-value-semantics"
-decision_state = "review"
+decision_state = "accepted"
 delivery_state = "not_started"
 owner = "Sema / IR"
 syntax = "No new source form selected; existing callable/value positions require an explicit semantic boundary."
-resolution = "Owner review pending: keep first-class callable values monomorphic or introduce higher-rank checking and a typed closure representation."
+resolution = "Keep inferred schemes available only to direct named calls; any passed, stored, captured, or returned callable value must freeze to one concrete monomorphic function type."
 golden_cases = []
 
 [documents]
@@ -36,8 +36,8 @@ ir-contract = "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
 [dependencies]
 requires = [
   { id = "core.inferred-callable-relation", decision_state = "accepted", delivery_state = "converged" },
-  { id = "core.effect-aware-callable-generalization", decision_state = "review", delivery_state = "not_started" },
-  { id = "core.constrained-callable-relations", decision_state = "review", delivery_state = "not_started" },
+  { id = "core.effect-aware-callable-generalization", decision_state = "accepted", delivery_state = "not_started" },
+  { id = "core.constrained-callable-relations", decision_state = "accepted", delivery_state = "not_started" },
 ]
 requires_any = []
 extends = ["core.inferred-callable-relation"]
@@ -46,18 +46,15 @@ supersedes = []
 after = ["core.effect-aware-callable-generalization", "core.constrained-callable-relations"]
 ```
 
-## Decision Needed
+## Decision
 
-Decide whether a named generalized callable keeps its scheme when it becomes a
-value, or whether value position instantiates and freezes one monomorphic
-function type. Also decide whether captured local callables may generalize.
+Inferred schemes are available only at direct named call sites. Passing,
+storing, capturing, or returning a callable first requires one concrete
+monomorphic function type supplied by the surrounding context. A capturing
+local callable is not generalized.
 
-## Recommendation
-
-Keep the current accepted feature limited to direct named calls. A callable
-that is passed, stored, captured, or returned first instantiates to one concrete
-monomorphic function type. Reopen generalized values only after typed callable
-IR, closure environment ownership, effect summaries, and a deliberate
+Generalized callable values may be reconsidered only after typed callable IR,
+closure-environment ownership, effect summaries, and a deliberate
 bidirectional higher-rank checking rule exist.
 
 ## Diagnostic Boundary

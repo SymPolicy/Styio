@@ -2,7 +2,7 @@
 
 **Purpose:** Decide when a callable that performs or captures effects may be generalized and how future effect information participates in its inferred scheme.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Feature Contract
 
@@ -11,11 +11,11 @@ schema_version = 1
 id = "core.effect-aware-callable-generalization"
 title = "Effect-Aware Callable Generalization"
 kind = "callable-type-semantics"
-decision_state = "review"
+decision_state = "accepted"
 delivery_state = "not_started"
 owner = "Sema / Type System"
 syntax = "No new source syntax proposed; this decision governs eligibility of final callable bindings for generalization."
-resolution = "Owner review pending: choose a purity/value restriction now and the boundary for a future inferred effect-row extension."
+resolution = "Generalize only closed, proven-pure final callable bodies; unknown or effectful bodies remain monomorphic, while inferred effect rows are reserved for a later feature."
 golden_cases = []
 
 [documents]
@@ -44,25 +44,16 @@ supersedes = []
 after = []
 ```
 
-## Decision Needed
+## Decision
 
-Choose whether generalization is:
+Styio adopts a two-stage rule. A call-graph member is generalizable only when
+its free environment is closed and every reachable operation is proven pure.
+Mutable captures, resource operations, task operations, fallback/handler
+operations, unclassified native calls, and unknown callee summaries fail
+closed to the existing monomorphic callable path.
 
-1. restricted to closed, proven-pure final callable bodies;
-2. based on a relaxed syntactic value restriction; or
-3. immediately extended with inferred effect rows.
-
-The decision must classify mutable captures, resource acquire/read/write/close,
-task launch/await, fallback handlers, native calls, and calls whose effects are
-not yet summarized.
-
-## Recommendation
-
-Adopt option 1 now and preserve option 3 as an explicit extension. A call graph
-member is generalizable only when its free environment is closed and every
-reachable operation is proven pure. Unknown effect facts fail closed. Later,
-compiler-owned effect rows can make safe effect polymorphism more expressive
-without adding authored generic syntax.
+Compiler-owned inferred effect rows remain an explicit later extension. They
+must not be simulated by syntactic exceptions or implicit trust annotations.
 
 ## Prerequisite Boundary
 

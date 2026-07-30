@@ -2,7 +2,7 @@
 
 **Purpose:** Decide the module-interface facts and generic-body availability required for separately compiled callers to instantiate an exported inferred callable safely.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Feature Contract
 
@@ -11,11 +11,11 @@ schema_version = 1
 id = "core.callable-interface-scheme-publication"
 title = "Callable Interface Scheme Publication"
 kind = "module-type-interface"
-decision_state = "review"
+decision_state = "accepted"
 delivery_state = "not_started"
 owner = "Sema / Modules"
 syntax = "Existing callable export/import forms; no authored generic interface syntax proposed."
-resolution = "Owner review pending: choose published scheme/body/effect/ABI metadata and define which compilation unit owns downstream instances."
+resolution = "Publish the canonical scheme, checked typed body, effect/capability summary, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected."
 golden_cases = []
 
 [documents]
@@ -37,7 +37,7 @@ module-contract = "docs/design/Styio-EBNF.md"
 requires = [
   { id = "core.import-declaration", decision_state = "accepted", delivery_state = "converged" },
   { id = "core.inferred-callable-relation", decision_state = "accepted", delivery_state = "converged" },
-  { id = "core.effect-aware-callable-generalization", decision_state = "review", delivery_state = "not_started" },
+  { id = "core.effect-aware-callable-generalization", decision_state = "accepted", delivery_state = "not_started" },
 ]
 requires_any = []
 extends = ["core.inferred-callable-relation"]
@@ -46,22 +46,14 @@ supersedes = []
 after = ["core.effect-aware-callable-generalization"]
 ```
 
-## Decision Needed
+## Decision
 
-Choose whether an exported generic interface contains only a canonical scheme
-or also a checked typed body, effect/capability summary, dependency hashes, and
-ABI/lowering facts needed for downstream specialization.
-
-The decision must also define behavior for an exported generic callable with no
-local call sites and for recursive edges that cross module boundaries.
-
-## Recommendation
-
-Publish the canonical scheme, checked typed-body representation or equivalent
-reproducible body, effect/capability summary, and stable dependency/ABI digests.
-Validate the body in the defining module even when unused. Let the consuming
-compilation unit specialize it, while a deterministic ownership/linkage policy
-deduplicates instances. Reject cross-module recursive SCCs in the first slice.
+An exported generic interface publishes its canonical scheme, checked typed
+body representation or equivalent reproducible body, normalized
+effect/capability summary, and stable dependency and ABI digests. The defining
+module validates the body even without local instances. A consuming compilation
+unit may specialize it under deterministic ownership. Cross-module recursive
+SCCs are rejected in this slice.
 
 ## Compatibility Boundary
 
