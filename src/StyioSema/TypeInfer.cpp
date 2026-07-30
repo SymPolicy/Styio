@@ -526,6 +526,111 @@ walk_callable_expression(
     for (auto* expression : print->exprs) {
       walk_callable_expression(expression, visit);
     }
+    return;
+  }
+  if (auto* anonymous = dynamic_cast<AnonyFuncAST*>(ast)) {
+    walk_callable_expression(anonymous->getThenExpr(), visit);
+    return;
+  }
+  if (auto* task = dynamic_cast<TaskBlockAST*>(ast)) {
+    walk_callable_expression(task->getBody(), visit);
+    return;
+  }
+  if (auto* group = dynamic_cast<TaskGroupLaunchAST*>(ast)) {
+    for (auto* entry : group->getEntries()) {
+      walk_callable_expression(entry, visit);
+    }
+    return;
+  }
+  if (auto* flow = dynamic_cast<FlowBindAST*>(ast)) {
+    walk_callable_expression(flow->getSource(), visit);
+    walk_callable_expression(flow->getFallback(), visit);
+    return;
+  }
+  if (auto* iterator = dynamic_cast<IteratorAST*>(ast)) {
+    walk_callable_expression(iterator->collection, visit);
+    for (auto* following : iterator->following) {
+      walk_callable_expression(following, visit);
+    }
+    return;
+  }
+  if (auto* zip = dynamic_cast<StreamZipAST*>(ast)) {
+    walk_callable_expression(zip->getCollectionA(), visit);
+    walk_callable_expression(zip->getCollectionB(), visit);
+    for (auto* following : zip->getFollowing()) {
+      walk_callable_expression(following, visit);
+    }
+  }
+}
+
+[[noreturn]] void
+reject_generalized_callable_value_escape(const std::string& name) {
+  throw StyioTypeError(
+    "inferred callable `" + name
+    + "` cannot be used as a value; inferred schemes are available only "
+      "to direct named calls, and a value-position boundary requires one "
+      "concrete monomorphic callable type"
+  );
+}
+
+void
+validate_generalized_callable_value_positions(
+  MainBlockAST* ast,
+  const std::unordered_map<std::string, CallableTypeScheme>& schemes
+) {
+  if (ast == nullptr || schemes.empty()) {
+    return;
+  }
+
+  auto validate_tree = [&](StyioAST* root, std::unordered_set<std::string> locals)
+  {
+    std::unordered_set<const StyioAST*> non_value_names;
+    walk_callable_expression(
+      root,
+      [&](StyioAST* node)
+      {
+        if (auto* attribute = dynamic_cast<AttrAST*>(node)) {
+          non_value_names.insert(attribute->attr);
+        }
+        if (auto* access = dynamic_cast<ListOpAST*>(node)) {
+          non_value_names.insert(access->getList());
+        }
+        if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+          locals.insert(bind->getNameAsStr());
+        }
+        else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+          locals.insert(bind->getName());
+        }
+
+        auto* name = dynamic_cast<NameAST*>(node);
+        if (name == nullptr
+            || non_value_names.count(name) != 0
+            || locals.count(name->getAsStr()) != 0
+            || schemes.count(name->getAsStr()) == 0) {
+          return;
+        }
+        reject_generalized_callable_value_escape(name->getAsStr());
+      });
+  };
+
+  for (auto* statement : ast->getStmts()) {
+    if (auto* function = dynamic_cast<FunctionAST*>(statement)) {
+      std::unordered_set<std::string> locals;
+      for (auto* param : function->params) {
+        locals.insert(param->getNameAsStr());
+      }
+      validate_tree(function->func_body, std::move(locals));
+      continue;
+    }
+    if (auto* function = dynamic_cast<SimpleFuncAST*>(statement)) {
+      std::unordered_set<std::string> locals;
+      for (auto* param : function->params) {
+        locals.insert(param->getNameAsStr());
+      }
+      validate_tree(function->ret_expr, std::move(locals));
+      continue;
+    }
+    validate_tree(statement, {});
   }
 }
 
@@ -4195,6 +4300,10 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   for (std::size_t i = 0; i < components.size(); ++i) {
     infer_component(i);
   }
+
+  validate_generalized_callable_value_positions(
+    ast,
+    callable_type_schemes_);
 }
 
 const StyioSemaContext::CallableTypeScheme*
@@ -4582,6 +4691,10 @@ void
 StyioSemaContext::typeInfer(NameAST* ast) {
   if (is_consumed_resource_name(ast->getSymbolId(), ast->getAsStr())) {
     throw StyioTypeError("use-after-destroy: resource `" + ast->getAsStr() + "` was already destroyed");
+  }
+  if (find_local_binding_type(ast->getSymbolId(), ast->getAsStr()) == nullptr
+      && find_callable_type_scheme(ast->getAsStr()) != nullptr) {
+    reject_generalized_callable_value_escape(ast->getAsStr());
   }
 }
 
@@ -5201,7 +5314,16 @@ StyioSemaContext::typeInfer(SizeOfAST* ast) {
 
 void
 StyioSemaContext::typeInfer(ListOpAST* ast) {
-  ast->getList()->typeInfer(this);
+  auto* selected_name = dynamic_cast<NameAST*>(ast->getList());
+  const bool generalized_scheme_selector =
+    selected_name != nullptr
+    && find_local_binding_type(
+         selected_name->getSymbolId(),
+         selected_name->getAsStr()) == nullptr
+    && find_callable_type_scheme(selected_name->getAsStr()) != nullptr;
+  if (!generalized_scheme_selector) {
+    ast->getList()->typeInfer(this);
+  }
   if (ast->getSlot1()) {
     ast->getSlot1()->typeInfer(this);
   }

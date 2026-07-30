@@ -87,6 +87,13 @@ numeric-only relation variable may default to `i64` only after relation and
 constraint solving. Empty `[]` and `dict {}` never receive a fabricated element
 or value type: supply a surrounding `list[T]` or `dict[K,V]` annotation.
 
+An inferred scheme remains attached to direct named calls only. `identity(1)`
+may instantiate a fresh relation, but a bare `identity` used as a stored,
+passed, returned, collected, or captured value is rejected in Sema. Such a
+value position must first provide one concrete monomorphic callable type; the
+current grammar and StyioIR expose no typed callable-value boundary, so they do
+not silently lower a scheme to an untyped function pointer.
+
 ## Types
 
 | Shape | Meaning |

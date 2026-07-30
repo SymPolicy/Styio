@@ -321,6 +321,11 @@ Notes:
     `call`; it is never reinterpreted as callable specialization. It is rejected
     when the selected target is not indexable or the selector expression is
     otherwise invalid.
+14. An inferred callable scheme is consumed only by a direct named `call`.
+    A bare scheme name in an argument, binding, return, collection, or captured
+    value position requires one concrete monomorphic callable-value boundary.
+    The current grammar and StyioIR expose no such boundary, so these escapes
+    are semantic errors rather than implicit generalized function values.
 
 ### 4.3 Type Rewrite Declaration
 

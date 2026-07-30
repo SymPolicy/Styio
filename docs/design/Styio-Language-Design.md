@@ -399,6 +399,30 @@ unknown := []                            // rejected: no element type
 The missing-context diagnostic identifies the empty literal that needs an
 annotation and remains distinct from an unsatisfied operator constraint.
 
+#### 5.1.7 Higher-Order Callable Value Boundary
+
+An inferred callable scheme is available only through a direct named call.
+Writing the callable name as an ordinary value does not carry its generalized
+relation into a binding, argument, return value, collection, or captured task
+environment:
+
+```styio
+# identity := (value) => value
+answer := identity(42)       // accepted direct named call
+stored := identity           // rejected generalized callable value
+```
+
+Every callable value boundary must first establish one concrete monomorphic
+callable type. The current source grammar and StyioIR do not yet expose that
+typed callable-value boundary, so a bare reference to a generalized callable
+fails in Sema. The diagnostic identifies the value-position escape and directs
+the author back to a direct named call; it never suggests `forall`, `[T]`, or
+call-site type arguments.
+
+This boundary is deliberately narrower than higher-rank polymorphism. Typed
+closure environments, monomorphic callable-value execution, rank-2 callbacks,
+polymorphic fields, and impredicative containers require separate features.
+
 ### 5.2 Pulse Closures
 
 Used within stream pipes:

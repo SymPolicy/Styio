@@ -80,6 +80,7 @@ Primary paths:
 54. Effect-aware callable coverage must pair a successful single effectful instance with rejection of a conflicting second instance, prove effect propagation through at least one direct-call edge, and cover a captured free environment. Keep the expected diagnostic anchored to the canonical effect summary rather than incidental type-inference internals.
 55. Callable-constraint coverage must execute integer and floating numeric instances, scalar and lexical string comparisons, list and dictionary indexing, and at least one transitive scheme edge. Pair each currently emitted constraint family with an unsatisfied-instance golden whose oracle names the canonical constraint and concrete rejected type.
 56. Literal-defaulting coverage must pair canonical numeric execution with contextual empty list/dictionary acceptance and direct missing-context failures. Keep empty-collection tests non-defaulting, and prove that a relation fixed by an integer literal rejects a floating instance instead of widening silently.
+57. Callable-value boundary coverage must retain a successful direct named multi-instance call and separate failures for stored, passed, returned, and task-captured generalized scheme names. Anchor all failures to the same Sema diagnostic about the missing concrete monomorphic callable-value boundary; a backend failure is not acceptable evidence.
 
 ## Change Classes
 
