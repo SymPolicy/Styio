@@ -1,8 +1,8 @@
 # Callable Type Decision Agenda — 2026-07-30
 
-**Purpose:** Compose the unresolved callable-type decisions discovered while delivering approved inferred generics, summarize primary-source research, and present an ordered owner-review agenda without replacing the owning feature SSOTs.
+**Purpose:** Compose the callable-type decisions discovered while delivering inferred generics, preserve their primary-source research basis, and show their ordered implementation dependencies without replacing the owning feature SSOTs.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Authority Boundary
 
@@ -15,9 +15,9 @@ foundations are:
 3. [Recursive Callable Group](./features/core-recursive-callable-group.md)
 4. [Context-Driven Call Instantiation](./features/core-context-driven-call-instantiation.md)
 
-The seven review branches below are intentionally `review/not_started`. An
-owner answer changes the corresponding feature SSOT first; this agenda is then
-updated as a composed view.
+The language owner approved D1–D7 on 2026-07-31. Their owning feature documents
+are now `accepted/not_started`; this agenda records the approved composition
+while implementation and delivery evidence advance independently in each SSOT.
 
 ## Research Basis
 
@@ -88,18 +88,14 @@ flowchart TD
     Q7 --> I
 ```
 
-## Consolidated Owner Questions
+## Approved Owner Decisions
 
 ### D1 — Effect-aware generalization
 
 Owning SSOT:
 [Effect-Aware Callable Generalization](./features/core-effect-aware-callable-generalization.md)
 
-Question: should Styio adopt a two-stage rule in which the current compiler
-generalizes only closed, proven-pure final callable bodies, while effect-row
-polymorphism is a later extension?
-
-Recommendation: **approve the two-stage rule**. Treat resource access, task
+Decision: **adopt the two-stage rule**. Treat resource access, task
 operations, fallback/handler operations, mutation capture, and unclassified
 native calls as non-generalizable until Sema owns an effect summary. This is
 conservative like OCaml/GHC today, but leaves a deliberate Koka-style effect-row
@@ -110,11 +106,7 @@ extension instead of permanently tying polymorphism to syntax.
 Owning SSOT:
 [Constrained Callable Relations](./features/core-constrained-callable-relations.md)
 
-Question: when an inferred variable is used by `+`, comparison, indexing, or a
-capability operation, should the scheme carry a closed compiler-owned
-constraint set, or should Styio introduce user-defined traits/type classes?
-
-Recommendation: **start with closed compiler-owned constraints** such as
+Decision: **start with closed compiler-owned constraints** such as
 numeric, comparable, indexable, iterable, and cloneable. Do not add source
 instance declarations yet. This preserves coherence, avoids a keyword/typeclass
 surface, and can reuse current capability facts. Open user instances require a
@@ -125,10 +117,7 @@ separate coherence and module-resolution decision.
 Owning SSOT:
 [Ambiguous Literal Defaulting](./features/core-ambiguous-literal-defaulting.md)
 
-Question: should unresolved numeric literals or empty collection elements
-receive defaults?
-
-Recommendation: **keep empty collections non-defaulting and context-required**.
+Decision: **keep empty collections non-defaulting and context-required**.
 For numeric literals, first normalize the scalar-width contract, then apply one
 documented final defaulting phase; do not default during unification. Until
 that prerequisite closes, ambiguous constrained calls should fail with a
@@ -139,11 +128,7 @@ surrounding-annotation diagnostic.
 Owning SSOT:
 [Callable Interface Scheme Publication](./features/core-callable-interface-scheme-publication.md)
 
-Question: should an exporting module publish only a canonical type scheme, or
-also a checked generic body/effect-capability summary that downstream modules
-can specialize?
-
-Recommendation: **publish the canonical scheme, effect/capability summary,
+Decision: **publish the canonical scheme, effect/capability summary,
 checked typed-body representation or equivalent reproducible body, and stable
 dependency/ABI digests**. The defining module must validate the generic body
 even when it has no local instances. Initially reject cross-module recursive
@@ -154,10 +139,7 @@ SCCs rather than making module compilation mutually dependent.
 Owning SSOT:
 [Callable Specialization Policy](./features/core-callable-specialization-policy.md)
 
-Question: should instance collection be eager, lazy, or hybrid, and what should
-happen when instance growth becomes excessive?
-
-Recommendation: **use lazy reachability for release artifacts, deterministic
+Decision: **use lazy reachability for release artifacts, deterministic
 single-owner placement, and content-addressed reuse**. Add a hard recursion
 ceiling and a high safety ceiling for pathological instance growth, with a
 diagnostic that prints the instance path. Gather telemetry before making a
@@ -169,10 +151,7 @@ source-level explicit instantiation.
 Owning SSOT:
 [Higher-Order Callable Polymorphism](./features/core-higher-order-callable-polymorphism.md)
 
-Question: may an inferred generic callable be passed, stored, or returned while
-remaining polymorphic?
-
-Recommendation: **keep the accepted slice limited to direct named calls**.
+Decision: **keep the accepted slice limited to direct named calls**.
 Passing or storing a callable should first freeze one concrete monomorphic
 function type. Reopen generalized callable values only after closure capture,
 typed callable IR, effect summaries, and a deliberate higher-rank checking rule
@@ -183,17 +162,14 @@ exist.
 Owning SSOT:
 [Capability-Polymorphic Handles](./features/core-capability-polymorphic-handles.md)
 
-Question: may ordinary type variables range over resource, stream, task,
-matrix, or other owned handle families?
-
-Recommendation: **initially restrict generalized variables to plain immutable
+Decision: **initially restrict generalized variables to plain immutable
 value families and materialized pure collections**. Keep resources, streams,
 tasks, and ownership-sensitive handles monomorphic until schemes can carry
 capability, effect, send/sync, consume, and lifetime facts. Admit matrix
 polymorphism only after element and shape constraints have one canonical type
 representation.
 
-## Dependency Order for Approval
+## Dependency Order for Delivery
 
 The smallest stable approval order is:
 
@@ -203,5 +179,6 @@ The smallest stable approval order is:
 4. D4 after D1, with D7's representation boundary recorded.
 5. D5 after D4 establishes ownership and body availability.
 
-Approving a later item does not implicitly approve its prerequisites. The
-syntax-feature gate derives blocked state from these edges.
+Every item is approved, but a later item cannot converge before its required
+delivery prerequisites. The syntax-feature gate derives blocked state from
+these edges.

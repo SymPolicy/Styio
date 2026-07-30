@@ -2,7 +2,7 @@
 
 **Purpose:** Decide how inferred callable variables record requirements introduced by operators, comparisons, collection operations, and capabilities that plain equality unification cannot express.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Feature Contract
 
@@ -11,11 +11,11 @@ schema_version = 1
 id = "core.constrained-callable-relations"
 title = "Constrained Callable Relations"
 kind = "callable-type-semantics"
-decision_state = "review"
+decision_state = "accepted"
 delivery_state = "not_started"
 owner = "Sema / Type System"
 syntax = "No source constraint syntax proposed; constraints would initially be inferred from ordinary expressions."
-resolution = "Owner review pending: choose closed compiler-owned capability constraints or an open user-extensible trait/type-class system."
+resolution = "Infer a closed compiler-owned constraint vocabulary from ordinary expressions; do not add user-defined traits, instances, or source constraint syntax."
 golden_cases = []
 
 [documents]
@@ -45,25 +45,18 @@ supersedes = []
 after = []
 ```
 
-## Decision Needed
-
-Choose the constraint vocabulary and its coherence owner for relations such as:
+## Decision
 
 ```styio
 # double := (value) => value + value
 # first := (items) => items[0]
 ```
 
-Plain HM equality cannot infer these definitions without knowing which types
-support `+` or indexing.
-
-## Recommendation
-
-Begin with a closed compiler-owned set derived from existing type and capability
-facts: numeric, comparable, indexable, iterable, cloneable, and any future
-resource-specific facts approved elsewhere. Keep constraints in semantic
-metadata and diagnostics; do not add user-defined instances or source-level
-trait declarations in this feature.
+The compiler owns a closed, normalized constraint vocabulary derived from
+existing type and capability facts: numeric, comparable, indexable, iterable,
+and cloneable. Constraints remain semantic metadata checked at instantiation.
+There are no user-defined instances, orphan rules, authored constraint clauses,
+or source-level trait declarations in this feature.
 
 ## Prerequisite Boundary
 

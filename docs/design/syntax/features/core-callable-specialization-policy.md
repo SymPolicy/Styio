@@ -2,7 +2,7 @@
 
 **Purpose:** Decide reachability, ownership, caching, linkage, and growth controls for concrete callable instances.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Feature Contract
 
@@ -11,11 +11,11 @@ schema_version = 1
 id = "core.callable-specialization-policy"
 title = "Callable Specialization Policy"
 kind = "generic-codegen-policy"
-decision_state = "review"
+decision_state = "accepted"
 delivery_state = "not_started"
 owner = "Lowering / Codegen"
 syntax = "No source-level explicit-instantiation syntax proposed."
-resolution = "Owner review pending: choose lazy/eager collection, deterministic instance ownership, cache keys, and failure behavior for excessive instance growth."
+resolution = "Collect only reachable instances, assign deterministic single-owner symbols, key reuse by canonical semantic and backend digests, and fail closed at recursive or pathological growth ceilings."
 golden_cases = []
 
 [documents]
@@ -36,7 +36,7 @@ current-semantic-contract = "docs/design/Styio-Language-Design.md"
 [dependencies]
 requires = [
   { id = "core.context-driven-call-instantiation", decision_state = "accepted", delivery_state = "converged" },
-  { id = "core.callable-interface-scheme-publication", decision_state = "review", delivery_state = "not_started" },
+  { id = "core.callable-interface-scheme-publication", decision_state = "accepted", delivery_state = "not_started" },
 ]
 requires_any = []
 extends = ["core.context-driven-call-instantiation"]
@@ -45,23 +45,14 @@ supersedes = []
 after = ["core.callable-interface-scheme-publication"]
 ```
 
-## Decision Needed
+## Decision
 
-Choose:
-
-1. lazy, eager, or hybrid instance collection;
-2. the compilation unit that owns an instance;
-3. which scheme/body/backend facts enter the cache and symbol key; and
-4. warning and failure behavior for recursive or combinatorial instance growth.
-
-## Recommendation
-
-Use a lazy reachable mono-item graph for normal builds, deterministic
-single-owner placement, and content-addressed reuse keyed by the canonical
-relation plus checked body, dependency, target, and ABI digests. Add a hard
+Normal builds collect a lazy reachable mono-item graph. Each instance receives
+one deterministic owner and a content-addressed identity derived from its
+canonical relation, checked body, dependencies, target, and ABI facts. A hard
 recursive-instantiation ceiling and a high pathological-growth safety ceiling
-with an instance-path diagnostic. Gather telemetry before fixing a normal
-code-size warning threshold.
+fail with an instance-path diagnostic. A normal code-size warning threshold
+remains telemetry-driven rather than part of the language contract.
 
 ## Runtime Boundary
 

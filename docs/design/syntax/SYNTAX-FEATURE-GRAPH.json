@@ -32,7 +32,7 @@
       "title": "Ambiguous Literal Defaulting",
       "kind": "type-defaulting",
       "syntax": "Ordinary numeric and collection literals; no callable type-argument syntax.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -61,7 +61,7 @@
       },
       "document": "docs/design/syntax/features/core-ambiguous-literal-defaulting.md",
       "owner": "Sema / Type System",
-      "resolution": "Owner review pending: decide which ambiguous literal variables may default, at what phase, and to which canonical scalar types.",
+      "resolution": "Never default empty collections; normalize numeric literals to the canonical scalar-width contract and default unresolved numeric-only variables once in a final expression-local phase.",
       "dependencies": {
         "requires": [
           {
@@ -71,7 +71,7 @@
           },
           {
             "id": "core.constrained-callable-relations",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           }
         ],
@@ -239,7 +239,7 @@
       "title": "Callable Interface Scheme Publication",
       "kind": "module-type-interface",
       "syntax": "Existing callable export/import forms; no authored generic interface syntax proposed.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -268,7 +268,7 @@
       },
       "document": "docs/design/syntax/features/core-callable-interface-scheme-publication.md",
       "owner": "Sema / Modules",
-      "resolution": "Owner review pending: choose published scheme/body/effect/ABI metadata and define which compilation unit owns downstream instances.",
+      "resolution": "Publish the canonical scheme, checked typed body, effect/capability summary, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected.",
       "dependencies": {
         "requires": [
           {
@@ -283,7 +283,7 @@
           },
           {
             "id": "core.effect-aware-callable-generalization",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           }
         ],
@@ -346,7 +346,7 @@
       "title": "Callable Specialization Policy",
       "kind": "generic-codegen-policy",
       "syntax": "No source-level explicit-instantiation syntax proposed.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -375,7 +375,7 @@
       },
       "document": "docs/design/syntax/features/core-callable-specialization-policy.md",
       "owner": "Lowering / Codegen",
-      "resolution": "Owner review pending: choose lazy/eager collection, deterministic instance ownership, cache keys, and failure behavior for excessive instance growth.",
+      "resolution": "Collect only reachable instances, assign deterministic single-owner symbols, key reuse by canonical semantic and backend digests, and fail closed at recursive or pathological growth ceilings.",
       "dependencies": {
         "requires": [
           {
@@ -385,7 +385,7 @@
           },
           {
             "id": "core.callable-interface-scheme-publication",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           }
         ],
@@ -444,7 +444,7 @@
       "title": "Capability-Polymorphic Handles",
       "kind": "capability-type-semantics",
       "syntax": "No new source form proposed; this decision governs the universe of inferred relation variables.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -474,7 +474,7 @@
       },
       "document": "docs/design/syntax/features/core-capability-polymorphic-handles.md",
       "owner": "Sema / Resource Topology",
-      "resolution": "Owner review pending: choose which value families may inhabit generalized variables and which capability, effect, ownership, and shape facts a scheme must carry.",
+      "resolution": "Generalized variables admit plain immutable scalar values and pure materialized collections only; resource, stream, task, matrix, and ownership-sensitive handles remain monomorphic.",
       "dependencies": {
         "requires": [
           {
@@ -484,12 +484,12 @@
           },
           {
             "id": "core.effect-aware-callable-generalization",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           },
           {
             "id": "core.constrained-callable-relations",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           },
           {
@@ -651,7 +651,7 @@
       "title": "Constrained Callable Relations",
       "kind": "callable-type-semantics",
       "syntax": "No source constraint syntax proposed; constraints would initially be inferred from ordinary expressions.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -678,7 +678,7 @@
       },
       "document": "docs/design/syntax/features/core-constrained-callable-relations.md",
       "owner": "Sema / Type System",
-      "resolution": "Owner review pending: choose closed compiler-owned capability constraints or an open user-extensible trait/type-class system.",
+      "resolution": "Infer a closed compiler-owned constraint vocabulary from ordinary expressions; do not add user-defined traits, instances, or source constraint syntax.",
       "dependencies": {
         "requires": [
           {
@@ -861,7 +861,7 @@
       "title": "Effect-Aware Callable Generalization",
       "kind": "callable-type-semantics",
       "syntax": "No new source syntax proposed; this decision governs eligibility of final callable bindings for generalization.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -888,7 +888,7 @@
       },
       "document": "docs/design/syntax/features/core-effect-aware-callable-generalization.md",
       "owner": "Sema / Type System",
-      "resolution": "Owner review pending: choose a purity/value restriction now and the boundary for a future inferred effect-row extension.",
+      "resolution": "Generalize only closed, proven-pure final callable bodies; unknown or effectful bodies remain monomorphic, while inferred effect rows are reserved for a later feature.",
       "dependencies": {
         "requires": [
           {
@@ -1149,7 +1149,7 @@
       "title": "Higher-Order Callable Polymorphism",
       "kind": "callable-value-semantics",
       "syntax": "No new source form selected; existing callable/value positions require an explicit semantic boundary.",
-      "decision_state": "review",
+      "decision_state": "accepted",
       "delivery_state": "not_started",
       "readiness": "incomplete",
       "readiness_details": {
@@ -1179,7 +1179,7 @@
       },
       "document": "docs/design/syntax/features/core-higher-order-callable-polymorphism.md",
       "owner": "Sema / IR",
-      "resolution": "Owner review pending: keep first-class callable values monomorphic or introduce higher-rank checking and a typed closure representation.",
+      "resolution": "Keep inferred schemes available only to direct named calls; any passed, stored, captured, or returned callable value must freeze to one concrete monomorphic function type.",
       "dependencies": {
         "requires": [
           {
@@ -1189,12 +1189,12 @@
           },
           {
             "id": "core.effect-aware-callable-generalization",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           },
           {
             "id": "core.constrained-callable-relations",
-            "decision_state": "review",
+            "decision_state": "accepted",
             "delivery_state": "not_started"
           }
         ],
