@@ -106,6 +106,7 @@ Key SSOTs:
 71. When an approved callable-type feature converges, advance only its owning feature SSOT, attach checked implementation and golden evidence, update the compact language/test views and owning team runbooks, then regenerate the dependency graph so downstream readiness follows from the distributed authorities.
 72. Keep callable constraints and literal defaulting in separate feature SSOTs even when they share one solver pipeline. The constraint document owns the closed capability vocabulary and satisfiability evidence; the defaulting document owns canonical scalar defaults and the rule that empty collections require context.
 73. Keep higher-order callable policy in its own feature SSOT. Shared language views must distinguish direct named scheme instantiation from callable-value execution and must state honestly when the grammar or StyioIR lacks a concrete monomorphic callable-value boundary; do not imply rank-2, closure, or function-pointer support from negative escape coverage.
+74. Keep capability-polymorphic handle policy in its own feature SSOT and link it to both handle-capability and resource-topology authorities. Shared views must distinguish admitted pure materialized collections from rejected stateful handles and state that checking precedes relation normalization; do not imply lifetime, linearity, send/sync, or matrix-shape polymorphism.
 
 ## Change Classes
 

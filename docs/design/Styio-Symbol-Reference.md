@@ -140,6 +140,11 @@ named call such as `identity(1)`. Bare storage, argument, return, or capture
 positions require a concrete monomorphic callable-value boundary, which is not
 active source syntax in the current StyioIR slice.
 
+No symbol introduces handle polymorphism. Inferred relation variables admit
+plain scalars and recursively plain materialized `list`/`dict` values only.
+`@` resources, streams, files, tasks, matrices, topology resources, and other
+capability-sensitive handles stay concrete and monomorphic.
+
 ---
 
 ## 8. Arithmetic & Logic

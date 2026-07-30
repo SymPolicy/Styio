@@ -1010,6 +1010,19 @@ callable_term_contains_variable(
   return false;
 }
 
+std::optional<std::uint32_t>
+first_callable_term_variable(const CallableTypeTerm& term) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return term.variable;
+  }
+  for (const auto& argument : term.arguments) {
+    if (auto variable = first_callable_term_variable(argument)) {
+      return variable;
+    }
+  }
+  return std::nullopt;
+}
+
 bool
 callable_constraint_contains_variable(
   const CallableTypeConstraint& constraint,
@@ -3448,12 +3461,84 @@ infer_numeric_string_coercion(StyioSemaContext* an, BinOpAST* ast, StyioAST* lhs
 }
 
 bool
+callable_generalization_domain_accepts(const StyioDataType& type) {
+  constexpr std::uint32_t stateful_capabilities =
+    styio_caps(StyioTypeCapability::Readable)
+    | styio_caps(StyioTypeCapability::Writable)
+    | styio_caps(StyioTypeCapability::Pull)
+    | styio_caps(StyioTypeCapability::Push)
+    | styio_caps(StyioTypeCapability::Close)
+    | styio_caps(StyioTypeCapability::Send)
+    | styio_caps(StyioTypeCapability::Sync);
+  if (type.isUndefined()
+      || type.is_resource_type
+      || type.resource_shape != StyioResourceShapeKind::None
+      || type.has_std_stream_kind
+      || (type.capabilities & stateful_capabilities) != 0) {
+    return false;
+  }
+
+  if (styio_is_list_type(type)) {
+    return type.handle_family == StyioHandleFamily::List
+           && type.state == StyioTypeState::Materialized
+           && callable_generalization_domain_accepts(
+             styio_data_type_from_name(
+               styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    return type.handle_family == StyioHandleFamily::Dict
+           && type.state == StyioTypeState::Materialized
+           && callable_generalization_domain_accepts(
+             styio_data_type_from_name(
+               styio_dict_key_type_name(type)))
+           && callable_generalization_domain_accepts(
+             styio_data_type_from_name(
+               styio_dict_value_type_name(type)));
+  }
+  if (type.handle_family != StyioHandleFamily::None
+      || type.state != StyioTypeState::None
+      || type.capabilities != 0) {
+    return false;
+  }
+
+  switch (type.option) {
+    case StyioDataTypeOption::Bool:
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::Float:
+    case StyioDataTypeOption::Decimal:
+    case StyioDataTypeOption::Char:
+    case StyioDataTypeOption::String:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool
 match_callable_term_to_concrete(
   const CallableTypeTerm& pattern,
   const StyioDataType& concrete_input,
   std::unordered_map<std::uint32_t, StyioDataType>& bindings,
   const std::string& context
 ) {
+  if (auto variable = first_callable_term_variable(pattern)) {
+    if (concrete_input.isUndefined()) {
+      throw StyioTypeError(
+        "inferred relation variable '" + std::to_string(*variable)
+        + " is underconstrained in " + context
+        + "; add a concrete surrounding annotation"
+      );
+    }
+    if (!callable_generalization_domain_accepts(concrete_input)) {
+      throw StyioTypeError(
+        "inferred relation variable '" + std::to_string(*variable)
+        + " cannot range over type `" + concrete_input.name + "` in "
+        + context + "; generalized callable variables admit only immutable "
+          "scalar values and pure materialized list/dict types"
+      );
+    }
+  }
+
   StyioDataType concrete =
     normalize_callable_concrete_type(concrete_input);
   switch (pattern.kind) {

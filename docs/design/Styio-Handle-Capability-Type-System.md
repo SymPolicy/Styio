@@ -136,6 +136,25 @@ So Styio should check:
 - `.length` and `.size` require `Sized`
 - `<<` requires a left-hand sink with `push` or `collect`
 
+### 5.3 Inferred callable generalization boundary
+
+The implemented inferred-callable domain does not generalize over arbitrary
+`Handle<Rep, Item, Caps, State>` values. A relation variable admits plain
+immutable scalar representations plus exact materialized `list` and `dict`
+families whose nested types recursively satisfy the same rule.
+
+File and standard-stream handles, tasks, matrices, topology resources,
+resource-shaped sequences, range handles, and other stateful or
+representation-sensitive families remain monomorphic. Sema applies this
+predicate to the original `StyioDataType` before relation normalization, so
+resource shape, typestate, family, and capabilities cannot be erased by a
+collection-shaped spelling.
+
+This is an implemented safety boundary, not capability-polymorphic source
+syntax. Capability rows, send/sync constraints, consumption and lifetime
+facts, matrix element/shape variables, and generic resource methods remain
+future type-system work.
+
 ---
 
 ## 6. Typestate

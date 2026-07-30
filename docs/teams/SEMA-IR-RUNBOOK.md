@@ -102,6 +102,7 @@ High-value docs:
 66. Literal defaulting is a final expression-local phase. Normalize unannotated integer and floating literals to `i64` and `f64`, default only still-unresolved numeric-only relation variables to `i64`, and never invent an element/value type for an empty list or dictionary. Contextual list/dict types must flow into empty literals before their own inference; otherwise report the literal as underconstrained.
 67. Comparison IR must carry operand types. String equality and ordering compare lexical string values, not pointer identity; scalar comparison paths remain selected from the concrete operand family established by Sema.
 68. Keep generalized callable schemes on the direct named-call path. After scheme preparation, reject a scheme name used as an ordinary binding, argument, return, collection, or captured value unless a future feature provides one concrete monomorphic callable-value type. The current StyioIR has no typed closure/function-value representation, so never lower such an escape as an untyped pointer or backend placeholder.
+69. Match a scheme variable only against the closed generalization domain: plain scalar values and recursively plain materialized list/dict types. Inspect the original concrete `StyioDataType` before normalization and reject resource shape, typestate, capabilities, matrix/task/file/stream/range families, user-defined representations, and nested sensitive handles before specialization.
 
 ## Change Classes
 

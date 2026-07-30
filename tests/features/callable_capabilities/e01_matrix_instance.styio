@@ -1,0 +1,3 @@
+# identity := (value) => value
+value: matrix := [[1, 2], [3, 4]]
+>_(identity(value))
