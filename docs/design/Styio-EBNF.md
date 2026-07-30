@@ -1,8 +1,8 @@
 # Styio Formal Grammar (EBNF)
 
-**Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
+**Purpose:** Define the composed lexical and grammar EBNF for Styio; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), resource-topology narrative lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), and shared semantic principles live in [`Styio-Language-Design.md`](./Styio-Language-Design.md).
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-07-30
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -27,6 +27,23 @@
 ## 2. Lexical Grammar
 
 The lexer follows the **Maximal Munch Principle**: when multiple token interpretations are possible, the longest valid match wins.
+
+### 2.0 Keyword-Free Token Contract
+
+Styio defines no keyword token kind. Every word-shaped token is emitted as
+`NAME`; primitive and user type names use that same token kind.
+
+A quoted alphabetic spelling in this document is therefore an exact-spelling
+predicate over `NAME`, not a reserved lexer terminal. Such a predicate is
+allowed only after a leading symbol and structural position have already opened
+the containing grammar family. For example, `@` followed by `NAME("import")`
+may open a top-level import declaration, but `import` remains an ordinary
+identifier elsewhere. `true` and `false` are expression-context literal
+spellings recognized from `NAME`, not keyword tokens.
+
+No production may introduce a fixed word as an unanchored declaration,
+control-flow, or operator head. This lexical contract is owned semantically by
+[Styio-Language-Design.md](./Styio-Language-Design.md) section 1.1.1.
 
 ### 2.1 Character Sets
 
@@ -177,8 +194,7 @@ statement          = declaration
                    | resource_order_stmt
                    | match_bind_expr
                    | flow_pipeline
-                   | expression_stmt
-                   | schema_def ;
+                   | expression_stmt ;
 ```
 
 ---
@@ -200,7 +216,9 @@ import_path       = identifier { '/' identifier }
 
 Notes:
 
-1. `@import` is only valid at file top level.
+1. `@import` is only valid at file top level. `import` is lexed as `NAME`;
+   its spelling is inspected only after top-level `@` has opened this
+   declaration family.
 2. `/` is the native package/module path spelling.
 3. `.` is accepted compatibility syntax and is normalized to slash form internally.
 4. One import item must not mix `/` and `.`.
@@ -275,6 +293,34 @@ Notes:
    `# sink = @stdout` is invalid because `@stdout` must stay visibly a resource.
    Native `@ extern(...)` import bindings are the separate native-callable import
    form, not resource aliasing.
+5. The brackets in `type_primary` are type application in type position, as in
+   `list[i64]`; they do not create callable generic parameters.
+6. `callable_decl` deliberately has no production between `identifier` and
+   `callable_decl_tail` for a generic binder. Therefore `# name[T] ...` is a
+   syntax error.
+7. An eligible final, non-recursive callable receives one compiler-inferred
+   principal rank-1 type relation at its definition site. Compiler-generated
+   type-variable names may be published in module-interface metadata but are
+   not source tokens.
+8. A source annotation such as `: T` refers to an existing type named `T`; it
+   never declares an implicit generic variable. Concrete parameter and result
+   annotations remain valid for monomorphic contracts.
+9. A recursive call-graph component is inferred as one group. Each member has
+   one provisional monotype, and every reference from inside the group reuses
+   that member's same provisional type variables.
+10. After a recursive group has one stable solution, each eligible final
+    binding may be generalized and its principal rank-1 relation published.
+    This permits ordinary inferred generic recursion.
+11. An internal recursive edge that requires the same member at a different
+    instantiation is polymorphic recursion and is rejected. Diagnostics report
+    the conflicting instantiations instead of requesting `[T]`.
+12. Callable invocation has no explicit type-argument production. Instances are
+    selected only by ordinary arguments and the concrete expected type supplied
+    by the surrounding context.
+13. In value position, `name[T](...)` remains an ordinary `selector` followed by
+    `call`; it is never reinterpreted as callable specialization. It is rejected
+    when the selected target is not indexable or the selector expression is
+    otherwise invalid.
 
 ### 4.3 Type Rewrite Declaration
 
@@ -290,16 +336,6 @@ Examples:
 __ : list[T] := T..
 __ : string := char..
 __ : dict[K, V] := (K, V)..
-```
-
-### 4.4 Schema Declaration
-
-```ebnf
-schema_def         = '#' identifier ':=' 'schema' '{'
-                       { schema_field }
-                     '}' ;
-
-schema_field       = '@' '[' ( integer | identifier ) ']' identifier ;
 ```
 
 ---
@@ -499,6 +535,12 @@ member_access      = '.' identifier ;
 expression_list    = expression { ',' expression } ;
 ```
 
+The `selector` followed by `call` sequence does not create callable type
+arguments. For example, `identity[i64](1)` follows ordinary value-position
+postfix parsing and is never a generic instantiation. A generic callable use is
+instantiated from call arguments and its concrete expected result context; an
+underconstrained call is rejected instead of accepting authored type arguments.
+
 `range_expr` is the naked expression-level range form, such as `start..end`.
 It is not a list literal. Step range spelling such as `start..end..step` is
 reserved, not active syntax, and not canonical.
@@ -538,6 +580,9 @@ primary_expr       = identifier
                    | '?' '(' expression ')'        (* guard condition prefix; followed by => for value selection *)
                    | block ;
 ```
+
+`true` and `false` are tokenized as `NAME` and interpreted as Boolean literal
+spellings only in expression context. They do not create keyword tokens.
 
 ---
 
@@ -731,7 +776,7 @@ pending writes, resource block snapshots, consuming methods, and commit boundari
 program_topology         = { top_level_decl_topology } EOF ;
 
 top_level_decl_topology  = resource_decl_topology
-                   | (* existing: function, schema, stmt … *) ;
+                   | (* existing callable and statement forms *) ;
 
 resource_decl_topology   = "@" identifier ":" type_topology
                      { "," "@" identifier ":" type_topology }

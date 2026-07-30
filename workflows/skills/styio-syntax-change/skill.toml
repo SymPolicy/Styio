@@ -2,10 +2,12 @@
 name = "styio-syntax-change"
 display_name = "Styio Syntax Change"
 description = "Use when adding, changing, or reserving Styio syntax, operators, tokens, grammar, parser behavior, IDE highlighting, semantic lowering, or syntax-facing docs/tests in styio-nightly."
-last_updated = "2026-06-28"
+last_updated = "2026-07-30"
 
 workflow = [
-  "state accepted syntax shape with one or two executable examples",
+  "create or update exactly one distributed feature SSOT and state canonical reserved and rejected examples",
+  "declare document roles dependencies prerequisites owner and lifecycle states",
+  "run the syntax feature graph generator and state gate before implementation",
   "check references/syntax-change-surface.md",
   "update token definitions and both tokenizers before parser behavior",
   "update the authoritative nightly parser path and keep retired parser-route audit evidence non-authoritative",
@@ -16,6 +18,9 @@ workflow = [
 ]
 
 constraints = [
+  "treat the feature Markdown document as the feature SSOT and generated graphs as read-only projections",
+  "do not advance implementation unless decision is accepted and derived readiness is ready",
+  "declare every dependency and prerequisite instead of relying on document reading order",
   "prefer existing parser helpers and AST shapes",
   "do not accept new syntax through retired fallback routes",
   "hide internal sentinel names behind typed errors",
@@ -25,6 +30,8 @@ constraints = [
 ]
 
 completion_report = [
+  "feature SSOT path and lifecycle states",
+  "dependency and prerequisite closure",
   "accepted forms and reserved forms",
   "supported lowering vs fail-closed paths",
   "docs updated",

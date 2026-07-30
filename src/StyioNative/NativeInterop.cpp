@@ -1,7 +1,6 @@
 #include "NativeInterop.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cctype>
@@ -819,19 +818,6 @@ push_unique_path(std::vector<std::filesystem::path>& paths, std::filesystem::pat
   }
 }
 
-std::filesystem::path
-current_executable_dir() {
-#if defined(__linux__)
-  std::array<char, 4096> buf{};
-  const ssize_t len = ::readlink("/proc/self/exe", buf.data(), buf.size() - 1);
-  if (len > 0) {
-    buf[static_cast<size_t>(len)] = '\0';
-    return std::filesystem::path(buf.data()).parent_path();
-  }
-#endif
-  return {};
-}
-
 std::vector<std::filesystem::path>
 candidate_native_toolchain_roots() {
   std::vector<std::filesystem::path> roots;
@@ -844,7 +830,7 @@ candidate_native_toolchain_roots() {
   }
 
   const std::string relative_dir = STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR;
-  const std::filesystem::path exe_dir = current_executable_dir();
+  const std::filesystem::path exe_dir = styio::platform::current_executable_dir();
   if (!relative_dir.empty() && !exe_dir.empty()) {
     push_unique_path(roots, exe_dir / relative_dir);
     push_unique_path(roots, exe_dir.parent_path() / relative_dir);
@@ -1168,6 +1154,16 @@ native_shared_compile_argv(
     "-O2",
     "-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
     "-D_CRT_SECURE_NO_WARNINGS",
+    source_path.string(),
+    "-o",
+    shared_path.string(),
+  };
+#elif defined(__APPLE__)
+  return {
+    compiler.command,
+    "-dynamiclib",
+    "-fPIC",
+    "-O2",
     source_path.string(),
     "-o",
     shared_path.string(),

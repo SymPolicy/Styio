@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-30
 
 ## Mission
 
@@ -57,6 +57,7 @@ Key handoff document:
 25. When generated nano CMake needs Windows toolchain discovery paths, derive them from CMake inputs or process environment variables instead of emitting machine-specific absolute roots in `src/main.cpp`.
 26. Compile-plan validation diagnostics must keep service-facing field names stable. Relative `entry.file` reports `file`, relative `outputs.artifact_dir` reports `artifact_dir`, and `outputs.diag_dir` keeps the fully qualified field because invalid diagnostics sinks cannot be written safely.
 27. Windows `styio build` native executable linking must keep LLVM 18 viable with newer MSVC STL headers by emitting the established compiler/STL compatibility define and CRT warning define through the generated Clang command. Do not solve this in CTest with a machine-specific Visual Studio path.
+28. Treat Pafio as the external compile-plan producer. Keep `generated_by.tool` / `generated_by.version` validation, machine-info capability advertisement, CLI contract tests, and the Pafio handoff document aligned; unsupported producer identities must fail closed instead of entering a compatibility path.
 
 ## Change Classes
 

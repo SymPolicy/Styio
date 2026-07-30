@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-30
 
 ## Mission
 
@@ -42,7 +42,7 @@ Primary paths:
 16. When generic/container function type annotations change, cover both parser-route acceptance and a lowering/codegen case for the smallest supported runtime family, so `list[T]` or `dict[K,V]` annotations cannot parse while call lowering regresses.
 17. When a collection annotation adds contextual validation, pair the positive runtime smoke with a negative semantic test and an untyped-control case proving ordinary nested lists keep their prior behavior.
 18. When control-flow spellings change, keep milestone stdout goldens and security/codegen regressions together: `^...` must prove nearest-loop behavior, and nested `<| expr` returns must prove they exit the enclosing function.
-19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L milestone`.
+19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L golden_standard`.
 20. Native interop acceptance must include parser-only top-level guards and executable milestone goldens that prove C/C++ source is compiled, linked, loaded, and called through the JIT.
 21. When tests create custom AST nodes or compiler-stage visitors, use the split visitor signatures: `typeInfer(StyioSemaContext*)` and `toStyioIR(AstToStyioIRLowerer*)`.
 22. Put C++ reference equivalence cases under `tests/algorithms/<case>/`; keep the C++ oracle, Styio program, and per-case random-input test driver in that directory, with only shared runner code under `tests/algorithms/.common/`.
@@ -69,8 +69,12 @@ Primary paths:
 43. Writable-resource iterable write changes must assert the lowered runtime shape, not just parse/typecheck success. Cover list/string-line and dict-value sources so tests can prove `>> @stdout` and `>> @file(...)` emit per-item pulse writes instead of collapsing the container through whole-value stringification.
 44. Scalar file-write fixture changes must keep `-> @file(...)` for whole-value writes and reserve `>> @file(...)` for iterable pulse writes. Expression-match fixture branches must end in `<| expr` or an equivalent final value so AST, IR, and LLVM tests follow the current return contract.
 45. Range syntax coverage must keep `[start..end]` as the positive materialized range source, assert that `[start..end]` parses as `RangeAST` rather than a one-element `ListAST`, and preserve `[start..end..step]` only as reserved-syntax negative coverage.
-45. Windows-native tests that execute `styio.exe` through `_popen` must use `windows_popen_command_latest(...)` or an equivalent `cmd.exe` wrapper instead of POSIX single-quote commands. Compile-plan JSON fixtures must write Windows paths with `generic_string()` so early diagnostic-sink probing sees valid JSON.
-46. Callable binding changes need paired parser and semantic evidence: parse `# name = #(args) => ...` and `# name := #(args) => ...`, reject direct resource RHS forms such as `# sink = @stdout`, execute mutable rebinding so the latest callable body wins, and assert final-binding redefinition failures. Do not treat anonymous function-value IR support as covered by these binding tests.
+46. Windows-native tests that execute `styio.exe` through `_popen` must use `windows_popen_command_latest(...)` or an equivalent `cmd.exe` wrapper instead of POSIX single-quote commands. Compile-plan JSON fixtures must write Windows paths with `generic_string()` so early diagnostic-sink probing sees valid JSON.
+47. Callable binding changes need paired parser and semantic evidence: parse `# name = #(args) => ...` and `# name := #(args) => ...`, reject direct resource RHS forms such as `# sink = @stdout`, execute mutable rebinding so the latest callable body wins, and assert final-binding redefinition failures. Do not treat anonymous function-value IR support as covered by these binding tests.
+48. Every focused CTest command used as CI or checkpoint evidence must name a currently registered test or label and pass `--no-tests=error`; selecting zero tests is a gate failure, not a successful smoke result.
+49. macOS coverage must select clang, clang++, llvm-cov, and llvm-profdata from one validated LLVM 18.1.x prefix and configure the SDK returned by `xcrun`. Do not mix AppleClang profile data with upstream LLVM coverage tools or hardcode a Homebrew installation path.
+50. Native macOS acceptance must build and execute the platform internal test, native interop fixtures, bootstrap plan smoke, LSP framing smoke, and the selected compiler/service labels. A configuration-only result does not close platform adaptation.
+51. Syntax-feature lifecycle tests must cover a ready projection, dependency-cycle rejection, downstream staleness after a prerequisite feature blocks, and rejection of delivery progress before language-owner acceptance. Each converged feature SSOT must name a checked-in golden case with its expected oracle.
 
 ## Change Classes
 
@@ -83,33 +87,43 @@ Primary paths:
 Common commands:
 
 ```bash
-ctest --test-dir build/default -L milestone
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L resource_topology
-ctest --test-dir build/default -R '^parser_shadow_gate_'
-ctest --test-dir build/default -L algorithm_equivalence
+ctest --test-dir build/default -L golden_standard --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
+ctest --test-dir build/default -L algorithm_equivalence --output-on-failure --no-tests=error
 ```
 
 Fuzz smoke:
 
 ```bash
-ctest --test-dir build/fuzz -L fuzz_smoke
+ctest --test-dir build/fuzz -L fuzz_smoke --output-on-failure --no-tests=error
 ```
 
 `fuzz_smoke` 当前走独立 corpus-replay smoke binaries，而不是直接把 PR 门禁绑在 libFuzzer main 的启动行为上；真正的 libFuzzer 目标仍保留给手动/夜间深跑。
+
+Native macOS platform and coverage evidence:
+
+```bash
+LLVM_PREFIX="$(brew --prefix llvm@18)"
+ctest --test-dir build/macos -R '^styio_platform_internal_test$|^native_interop_' --output-on-failure --no-tests=error
+scripts/coverage-gate.sh --build-dir build/coverage-macos --llvm-prefix "$LLVM_PREFIX"
+```
 
 Docs and recovery:
 
 ```bash
 python3 tests/workflow_scheduler_test.py
+python3 tests/syntax_feature_state_gate_test.py
+python3 scripts/syntax-feature-state-gate.py
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-audit.py
 ./scripts/checkpoint-health.sh --no-asan
 ```
 
 `checkpoint-health.sh` is allowed to reconfigure the requested build dir; maintenance changes to that recovery path must preserve a clean build-dir handoff instead of leaking configure logs into later commands. The default local variant is `build/default/`; use `--build-dir build/<variant>` for another configured variant.
-同一脚本在 normal leg 里必须显式构建 `styio_security_test` 后再跑 `ctest -L security`；空标签返回 0 不能算通过。
+同一脚本在 normal leg 里必须显式构建 `styio_security_test` 后再跑 `ctest -L security`；所有定向 CTest 都必须使用 `--no-tests=error`，空标签或空正则选择不能算通过。
 离线恢复时，`tests/CMakeLists.txt` 和顶层 `CMakeLists.txt` 现在会优先复用本地已有的 `googletest` / `tree_sitter_runtime` source checkout，避免首次恢复因 FetchContent 远端不可达而卡死。
 
 ## Cross-Team Dependencies

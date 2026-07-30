@@ -2,7 +2,7 @@
 
 **Purpose:** Compress implemented architecture and workflow decisions that no longer need one file per decision in the current tree; exact previous ADR wording is available from Git history when needed.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-30
 
 ## Reading Contract
 
@@ -15,6 +15,7 @@
 | Area | Implemented decision summary | Owning active docs |
 |------|------------------------------|--------------------|
 | Checkpoint delivery | Checkpoints, generated indexes, docs audit, lifecycle validation, team docs gates, and delivery gates are part of the normal delivery floor. | [workflow assets](../../workflows/INDEX.md), [team runbooks](../teams/INDEX.md), [current state](../rollups/CURRENT-STATE.md) |
+| Distributed syntax-feature authority | Each language feature owns one long-lived Markdown SSOT with embedded machine-readable state, dependencies, prerequisites, implementation ownership, and evidence. Cross-feature specifications remain shared invariants; indexes, the active syntax map, and the JSON graph are composed views. | [feature SSOT contract](../design/syntax/features/README.md), [syntax design boundary](../design/syntax/README.md), [syntax change workflow](../../workflows/ADD-SYNTAX-WITH-SKILLS.md) |
 | Diagnostics and runtime errors | CLI/runtime diagnostics use structured outputs, stable runtime error categories, last-error plumbing, and fail-closed behavior for unsupported active paths. | [agent spec](../specs/AGENT-SPEC.md), [test catalog](../../workflows/TEST-CATALOG.md), [codegen/runtime runbook](../teams/CODEGEN-RUNTIME-RUNBOOK.md) |
 | AST ownership and memory | AST nodes, parser attachments, inline substitution, and clone paths use explicit ownership boundaries; unsupported ownership paths must be tested or rejected instead of silently borrowed. | [sema/IR runbook](../teams/SEMA-IR-RUNBOOK.md), [test catalog](../../workflows/TEST-CATALOG.md), [agent spec](../specs/AGENT-SPEC.md) |
 | Parser migration | The compiler is nightly-first, with shadow gates, fallback metrics, internal bridge tracking, parser legacy-entry audit, and route statistics used to control migration risk. | [frontend runbook](../teams/FRONTEND-RUNBOOK.md), [test catalog](../../workflows/TEST-CATALOG.md), [checkpoint workflow](../../workflows/CHECKPOINT-WORKFLOW.md) |

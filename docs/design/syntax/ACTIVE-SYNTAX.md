@@ -1,14 +1,15 @@
 # Active Syntax Map
 
-**Purpose:** Provide the compact authoring map for current Styio syntax; grammar authority stays in [../Styio-EBNF.md](../Styio-EBNF.md), token authority stays in [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md), and semantics stay in the owning design documents.
+**Purpose:** Provide a compact composed authoring map for current Styio syntax; feature-level authority lives in [features/](./features/), while shared grammar, token, and semantic invariants stay in the cross-feature design documents.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-30
 
 ## Reading Contract
 
-1. This page lists canonical authoring forms and the active implementation-facing compatibility surface.
+1. This page lists canonical authoring forms and the active implementation-facing compatibility surface; it is a composed view, not a feature SSOT.
 2. It is not a catalog of retired syntax. Historical spellings are recovered from Git history only when needed for migration archaeology.
 3. Positive examples in `example/` and `tests/` should use the canonical forms below unless a test is explicitly a compatibility or negative migration fixture.
+4. Start lifecycle, dependency, prerequisite, or evidence changes in the owning [feature SSOT](./features/README.md), then regenerate this collection's indexes and feature graph.
 
 ## Core Forms
 
@@ -17,7 +18,7 @@
 | Imports | `@import { pkg/module }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Final binding | `name := expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Mutable binding | `name = expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
-| Callable binding | `# name : T := (arg: U) => { ... }`, `# name = #(arg: U) => expr` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Callable binding | `# identity := (value) => value`, `# name : i64 := (arg: i64) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Match sugar | `#(name = expr) ?= { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Return/export | `<| expr` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
@@ -43,6 +44,31 @@ plain `def` keyword. The right side of a `#` binding must be a callable body or
 operation-channel body. Resource identities remain visibly in the `@` family, so
 `# sink = @stdout` is invalid; use `expr -> @stdout`, `items >> @stdout`, or a
 resource-family declaration when the target is a resource.
+
+Callable generics are inference-owned. Authors never place a generic parameter
+list after a callable name: `# name[T] ...` is invalid. Eligible final,
+non-recursive definitions receive one stable principal rank-1 relation at the
+definition site; the compiler may publish that relation as module-interface
+metadata and instantiate it freshly at each use.
+
+A recursive call-graph component is solved as one group with one provisional
+monotype per member. Internal recursive references must reuse the same
+provisional type variables. After a stable solution, eligible final bindings
+may be generalized and published, so ordinary generic recursion remains
+available. A recursive edge that needs the same member at a different
+instantiation is rejected as polymorphic recursion.
+
+Type-variable names shown by the compiler or an IDE are explanatory metadata,
+not source declarations. Concrete annotations remain available for monomorphic
+contracts, and `: T` always refers to an already defined type named `T`.
+
+Callable uses are instantiated only from ordinary arguments and the concrete
+expected type supplied by their surrounding context. Call-site type arguments
+do not exist: write `identity(1)`, not `identity[i64](1)`. In value position,
+`[]` remains an ordinary selector/index and is never reinterpreted as generic
+specialization. If a call remains underconstrained, add a concrete annotation
+to its surrounding binding or expression; do not add a callable type-argument
+list.
 
 ## Types
 

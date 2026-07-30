@@ -1,8 +1,8 @@
 # Styio Documentation Policy
 
-**Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
+**Purpose:** Define where development Markdown belongs, how distributed and cross-feature SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-30
 
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
 
@@ -50,6 +50,11 @@ When touching an existing non-English development document, do not add more non-
 - 一个功能不允许拆成多个平行解释文档；除非各文件分别拥有不同 artifact class，例如 design SSOT、test catalog、team runbook、workflow 或 external handoff。
 - ADR 记录当前决策，不记录旧决策与新决策的并置历史。若已有 active ADR 覆盖同一决策边界，更新原 ADR 的当前 `Decision`；旧文本由 Git history 提供。
 
+Distributed syntax-feature SSOT documents are the intentional exception to
+the one-feature/one-explanation warning: each document owns one durable
+feature boundary, while shared grammar, token, and semantic invariants remain
+in cross-feature design documents.
+
 ### 0.3 「三处规则」：去重后再引用
 
 若 **三篇及以上** 文档对**同一细节或同一功能**作出**实质性解释**（不仅是「详见某某」式单向链接），则必须：
@@ -62,9 +67,10 @@ When touching an existing non-English development document, do not add more non-
 
 | 主题 | 权威文档 | 其它文档应 |
 |------|----------|------------|
-| 语言语义与章节结构 | `../design/Styio-Language-Design.md` | 链到章节，避免大段复述 |
-| 词法与文法 EBNF | `../design/Styio-EBNF.md` | 链接 |
-| 符号 ↔ lexer token 名 | `../design/Styio-Symbol-Reference.md` | 链接 |
+| Feature-specific syntax, semantics, lifecycle, dependencies, prerequisites, and evidence map | `../design/syntax/features/<feature-id>.md` | Update the owning feature SSOT first; consume the generated graph only as a composed view |
+| Cross-feature semantic principles and section structure | `../design/Styio-Language-Design.md` | Link to the shared invariant; do not duplicate feature lifecycle facts |
+| Composed lexical and grammar EBNF | `../design/Styio-EBNF.md` | Link; the owning feature SSOT records why the rule applies |
+| Shared symbol ↔ lexer token names | `../design/Styio-Symbol-Reference.md` | Link; the owning feature SSOT records the feature boundary |
 | `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `../design/Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
 | 当前实现缺口与跨团队排期 | `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 链接，不另建平行 backlog |
 | 集成测试路径、`ctest` 命令 | `../../workflows/TEST-CATALOG.md` | 链接 |

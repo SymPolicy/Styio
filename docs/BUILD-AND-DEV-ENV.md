@@ -2,24 +2,31 @@
 
 **Purpose:** Provide the repository-level entry point for preparing environment dependencies on a fresh machine and finding the next subsystem-specific docs.
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-07-28
 
 ## Who This Is For
 
-1. Contributors preparing `styio-nightly` dependencies on a fresh Debian/Ubuntu VM or container.
+1. Contributors preparing `styio-nightly` dependencies on a fresh Debian/Ubuntu VM, container, or macOS host.
 2. Contributors who need the common compiler build, test, and docs-audit commands after bootstrap.
 3. IDE/LSP contributors who need the repo-level prerequisites before following `docs/external/for-ide/`.
-4. Windows contributors building and testing Styio natively with CMake, Ninja or Visual Studio, Python, and LLVM 18.x.
+4. macOS contributors building with Xcode Command Line Tools, Homebrew LLVM 18, CMake, Ninja, and Python.
+5. Windows contributors building and testing Styio natively with CMake, Ninja or Visual Studio, Python, and LLVM 18.x.
 
 ## Fresh Machine Bootstrap
 
-On a fresh Debian/Ubuntu host, start from the repository root:
+On a fresh Debian/Ubuntu or macOS host, start from the repository root:
 
 ```bash
 ./scripts/bootstrap-dev-env.sh
 ```
 
-That script installs the common native toolchain used by this repository, including `clang-18`, `lld-18`, `llvm-18-dev`, `cmake`, `ninja`, `python3`, the official Node.js `v24.15.0` LTS binary line, and a local `lit` venv for test tooling.
+The script detects the host platform. On Debian/Ubuntu it installs the `clang-18`, `lld-18`, `llvm-18-dev`, CMake, Ninja, Python, ICU, and Node.js dependencies. On macOS it requires Xcode Command Line Tools and Homebrew, then installs `llvm@18`, `cmake`, `ninja`, `python@3.13`, `node@24`, `icu4c@78`, and `pkgconf`. Both paths create the local tool venv containing the pinned CMake/CTest and `lit`.
+
+Preview the selected platform plan without installing packages:
+
+```bash
+./scripts/bootstrap-dev-env.sh --print-plan
+```
 
 Bootstrap scope:
 
@@ -29,7 +36,7 @@ Bootstrap scope:
 
 ## Standardized Baseline
 
-`styio-nightly` and `styio-spio` share the same standardized native baseline:
+`styio-nightly` and `pafio-nightly` share the same standardized native baseline:
 
 1. Development host standard: Debian `13` (`trixie`).
 2. Compiler toolchain standard: LLVM / Clang / LLD `18.1.x` via the `clang-18` package line.
@@ -37,7 +44,11 @@ Bootstrap scope:
 4. Validation Python standard: `3.13.5`.
 5. Node.js standard for grammar maintenance: `v24.15.0` LTS.
 6. Repository compatibility floor: CMake `3.20+` and C++20.
-7. CI mirror: GitHub Actions on `ubuntu-24.04`, plus Python `3.13.5` and `cmake==3.31.6` installed before validation steps.
+7. CI mirrors: the full Linux gate runs on `ubuntu-24.04`; the macOS compatibility gate runs on `macos-15` with Homebrew `llvm@18`. Both use the repository's pinned CMake/CTest and Python validation line.
+
+The Homebrew bootstrap tracks the compatible Python `3.13.x` and Node.js
+`24.x` formula series; Homebrew may advance their patch releases. The pinned
+`3.13.5` and `24.15.0` values remain the standardized validation baseline.
 
 ## Required Toolchains
 
@@ -46,6 +57,45 @@ Bootstrap scope:
 3. Python `3.13.5` for docs and lifecycle scripts in the standardized validation pipeline.
 4. Node.js `v24.15.0` LTS when regenerating the Tree-sitter grammar.
 5. Optional ICU development headers when building with `-DSTYIO_USE_ICU=ON`.
+
+## Native macOS Build
+
+Install Xcode Command Line Tools and Homebrew before running the repository bootstrap. The Homebrew LLVM formula is keg-only, so resolve its prefix instead of recording an architecture-specific installation path:
+
+```bash
+LLVM_PREFIX="$(brew --prefix llvm@18)"
+ICU_PREFIX="$(brew --prefix icu4c@78)"
+
+cmake -S . -B build/macos \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
+  -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
+  -DCMAKE_OSX_SYSROOT="$(xcrun --show-sdk-path)" \
+  -DLLVM_DIR="$LLVM_PREFIX/lib/cmake/llvm" \
+  -DCMAKE_PREFIX_PATH="$LLVM_PREFIX;$ICU_PREFIX" \
+  -DICU_ROOT="$ICU_PREFIX" \
+  -DSTYIO_ENABLE_TREE_SITTER=ON \
+  -DSTYIO_USE_ICU=ON
+
+cmake --build build/macos --parallel \
+  --target styio styio_nano styio_lspd styio_test styio_security_test \
+           styio_resource_topology_test styio_ide_test \
+           styio_algorithm_equivalence_test styio_newparser_internal_test \
+           styio_parser_internal_test styio_platform_internal_test \
+           styio_native_interop_internal_test
+ctest --test-dir build/macos -R '^styio_platform_internal_test$' --output-on-failure --no-tests=error
+ctest --test-dir build/macos -R '^native_interop_' --output-on-failure --no-tests=error
+ctest --test-dir build/macos -R '^styio_build_native_executable_stdin_echo$' --output-on-failure --no-tests=error
+ctest --test-dir build/macos -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
+ctest --test-dir build/macos -L security --output-on-failure --no-tests=error
+ctest --test-dir build/macos -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/macos -L resource_topology --output-on-failure --no-tests=error
+ctest --test-dir build/macos -L algorithm_equivalence --output-on-failure --no-tests=error
+ctest --test-dir build/macos -L ide --output-on-failure --no-tests=error
+```
+
+Set `STYIO_ENABLE_TREE_SITTER=OFF` for an offline compiler/LSP build that uses the repository-local edit-time syntax backend. Native `@extern(c)` and `@extern(c++)` blocks produce `.dylib` modules on macOS. Compiler discovery checks the explicit `STYIO_NATIVE_CC` / `STYIO_NATIVE_CXX` and `STYIO_NATIVE_TOOLCHAIN_ROOT` settings before falling back to the configured or system compiler.
 
 ## Native Windows Build
 
@@ -118,9 +168,9 @@ Stable full-compiler source-build helper:
 Run language feature and pipeline tests:
 
 ```bash
-ctest --test-dir build/default -L language_feature
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
 ```
 
 Run repo docs validation:

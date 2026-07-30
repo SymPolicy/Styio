@@ -1,7 +1,7 @@
 id = "correct-syntax-contract"
 title = "Correct Syntax Contract"
 purpose = "Correct a Styio syntax contract when compiler behavior, tests, and language specification disagree."
-last_updated = "2026-05-20"
+last_updated = "2026-07-30"
 doc = "CORRECT-SYNTAX-CONTRACT.md"
 
 triggers = [
@@ -15,16 +15,20 @@ steps = [
   "reproduce current behavior with the smallest .styio sample",
   "capture the compiler stage and exact diagnostic",
   "freeze accepted and rejected spellings before editing",
-  "inspect lexer, authoritative nightly parser, retired parser-route audit evidence, AST, Sema, lowering, docs, and tests",
+  "inspect the owning feature SSOT, dependencies, prerequisites, reverse dependencies, lexer, authoritative nightly parser, retired parser-route audit evidence, AST, Sema, lowering, shared docs, and tests",
   "decide parser-vs-Sema rejection boundary",
   "implement the narrowest change while preserving existing AST and visitor architecture",
   "add positive and negative tests",
+  "update the owning feature SSOT first and branch converged decisions through extends, supersedes, or reciprocal conflicts",
   "update EBNF, language design, symbol reference, runbooks, test catalog, and generated indexes as relevant",
+  "regenerate the syntax feature graph and resolve downstream readiness changes",
   "re-run the disputed sample and record the diagnostic",
   "run focused tests, docs gates, and diff checks",
 ]
 
 contract_surfaces = [
+  "owning distributed syntax-feature SSOT",
+  "feature dependencies, prerequisites, and reverse dependencies",
   "lexer/token names",
   "authoritative nightly parser",
   "retired parser-route audit evidence",
@@ -45,13 +49,17 @@ required_evidence = [
   "negative parser coverage for grammar-impossible syntax",
   "negative Sema coverage for syntactically valid but semantically invalid forms",
   "runtime or reference-equivalence coverage when output semantics change",
-  "EBNF and syntax docs updated",
+  "owning feature SSOT updated with decision, dependency, prerequisite, and evidence impact",
+  "EBNF and affected shared contracts updated",
+  "generated feature graph is fresh and downstream readiness is resolved",
   "owning runbooks and DOC-STATS refreshed when docs gates require them",
 ]
 
 gates = [
   "cmake --build build/default --target styio styio_test styio_security_test -j2",
   "ctest --test-dir build/default -R <focused syntax/security/runtime regex> --output-on-failure",
+  "python3 tests/syntax_feature_state_gate_test.py",
+  "python3 scripts/syntax-feature-state-gate.py",
   "python3 scripts/docs-index.py --check",
   "python3 scripts/team-docs-gate.py",
   "python3 scripts/docs-audit.py",
@@ -67,7 +75,8 @@ report = [
   "rejected spelling and reason",
   "accepted spelling and grammar rule",
   "exact compiler diagnostic",
-  "language-standard files changed",
+  "owning feature branch and language-standard files changed",
+  "downstream readiness impact",
   "focused tests and docs gates",
   "remaining parser-route, IDE snapshot, or lowering work",
 ]

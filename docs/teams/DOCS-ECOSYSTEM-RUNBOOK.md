@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-30
 
 ## Mission
 
@@ -96,9 +96,10 @@ Key SSOTs:
 61. Track valid generated-index support files and installed shared assets even when broad ignore patterns match their directories. When `docs/plan/reports/` or `share/styio/prelude/` files become required by docs audit, install layout, or source-build metadata, force-track the owned files and refresh `DOC-STATS.md` in the same change.
 62. When `>>` language docs distinguish pulse transfer from standalone continue, keep EBNF, language design, active syntax, resource docs, symbol reference, rollups, agent specs, examples, and the owning implementation runbooks aligned in the same checkpoint.
 63. When writable-resource iterable writes change between whole-value serialization and per-item pulse emission, keep resource identifier docs, EBNF, language design, active syntax, symbol reference, handle capability wording, Sema / IR ownership, and security evidence aligned in the same checkpoint.
-64. Keep `docs/design/syntax/SYNTAX-CONVERGENCE-MATRIX.json` aligned with the current feature-test layout. The matrix and `scripts/syntax-convergence-gate.py` are durable gate inputs, so do not point them back at deleted milestone paths or archived syntax drafts.
-65. Callable binding docs must teach the unified binding model consistently across active syntax, EBNF, language design, symbol reference, and the convergence matrix: `=` is mutable, `:=` is final, `#` marks a callable/operation-channel binding, and direct resource atoms such as `# sink = @stdout` stay invalid because resources remain in the visible `@` family.
+64. Keep one durable SSOT under `docs/design/syntax/features/` for each syntax feature. Update its lifecycle, dependencies, prerequisites, implementation owner, and golden evidence first; regenerate `SYNTAX-FEATURE-GRAPH.json` with `scripts/syntax-feature-state-gate.py` instead of editing the composed graph by hand or creating a parallel registry.
+65. Callable binding docs must teach the unified binding model consistently across its feature SSOT, active syntax, EBNF, language design, and symbol reference: `=` is mutable, `:=` is final, `#` marks a callable/operation-channel binding, and direct resource atoms such as `# sink = @stdout` stay invalid because resources remain in the visible `@` family.
 66. Range docs must keep naked `start..end` as the expression-level range form, bracketed `[start..end]` as the canonical materialized range source, and `[start..end..step]` as reserved/non-active wording across active syntax, EBNF, language design, symbol reference, examples, test catalog, and editor grammar notes.
+67. Keep native macOS build and CI documentation reproducible without recording machine-specific paths: resolve keg-only Homebrew package prefixes with `brew --prefix`, resolve the active SDK with `xcrun`, and keep the selected LLVM 18.1.x, CMake/CTest, Python, ICU, and Node lines aligned across the root READMEs, repository build guide, IDE build guide, bootstrap plan, and macOS CI lane.
 
 ## Change Classes
 
@@ -113,6 +114,7 @@ Documentation gates:
 ```bash
 python3 scripts/docs-index.py --write
 python3 scripts/workflow-scheduler.py check
+python3 scripts/syntax-feature-state-gate.py
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-lifecycle.py validate
 python3 scripts/ecosystem-cli-doc-gate.py

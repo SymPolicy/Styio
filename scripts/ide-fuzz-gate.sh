@@ -89,12 +89,39 @@ find_googletest_source() {
   return 1
 }
 
+llvm_prefix_is_supported() {
+  local prefix="$1" version tool tool_output tool_version
+  if [[ ! -x "$prefix/bin/llvm-config" ]] ||
+     [[ ! -x "$prefix/bin/clang" ]] ||
+     [[ ! -x "$prefix/bin/clang++" ]]; then
+    return 1
+  fi
+  version="$("$prefix/bin/llvm-config" --version 2>/dev/null || true)"
+  if [[ "$version" != 18.1.* ]]; then
+    return 1
+  fi
+
+  for tool in clang clang++; do
+    tool_output="$("$prefix/bin/$tool" --version 2>/dev/null || true)"
+    if [[ ! "$tool_output" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+      return 1
+    fi
+    tool_version="${BASH_REMATCH[1]}"
+    if [[ "$tool_version" != "$version" ]]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
 find_llvm_prefix() {
   local candidate formula
 
   if [[ -n "${STYIO_LLVM_PREFIX:-}" ]] &&
+     [[ -x "${STYIO_LLVM_PREFIX}/bin/clang" ]] &&
      [[ -x "${STYIO_LLVM_PREFIX}/bin/clang++" ]] &&
-     [[ -d "${STYIO_LLVM_PREFIX}/lib/cmake/llvm" ]]; then
+     [[ -d "${STYIO_LLVM_PREFIX}/lib/cmake/llvm" ]] &&
+     llvm_prefix_is_supported "${STYIO_LLVM_PREFIX}"; then
     printf '%s\n' "${STYIO_LLVM_PREFIX}"
     return 0
   fi
@@ -107,7 +134,10 @@ find_llvm_prefix() {
     if [[ -z "$candidate" ]]; then
       continue
     fi
-    if [[ -x "$candidate/bin/clang++" && -d "$candidate/lib/cmake/llvm" ]]; then
+    if [[ -x "$candidate/bin/clang" ]] &&
+       [[ -x "$candidate/bin/clang++" ]] &&
+       [[ -d "$candidate/lib/cmake/llvm" ]] &&
+       llvm_prefix_is_supported "$candidate"; then
       printf '%s\n' "$candidate"
       return 0
     fi
@@ -147,7 +177,7 @@ JOBS="$(detect_jobs)"
 
 if [[ "$SKIP_CONFIGURE" -ne 1 ]]; then
   if ! LLVM_PREFIX="$(find_llvm_prefix)"; then
-    echo "Unable to find a Clang/LLVM 18 toolchain for libFuzzer." >&2
+    echo "Unable to find a Clang/LLVM 18.1.x toolchain for libFuzzer." >&2
     echo "Set STYIO_LLVM_PREFIX or re-run the aggregate gate with --skip-fuzz --waiver <reason>." >&2
     exit 2
   fi
@@ -193,4 +223,4 @@ if [[ "$SKIP_CONFIGURE" -ne 1 ]]; then
 fi
 
 cmake --build "$BUILD_DIR" --target styio_fuzz_suite -j"$JOBS"
-ctest --test-dir "$BUILD_DIR" -L fuzz_smoke --output-on-failure
+ctest --test-dir "$BUILD_DIR" -L fuzz_smoke --output-on-failure --no-tests=error

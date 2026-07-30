@@ -1,8 +1,8 @@
 # Styio — Agent Development Specification
 
-**Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
+**Purpose:** Define implementation, test, and documentation rules for AI and human contributors; feature-specific language authority lives in `../design/syntax/features/`, while cross-feature grammar, token, and semantic invariants remain in the shared design specifications.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-07-30
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -322,6 +322,13 @@ Group includes with section comments:
 
 When the language design introduces a new symbol (e.g., `??`, `<:`, `||>`):
 
+This workflow is symbol-only. Never add a token kind for a word-shaped spelling.
+All words remain `NAME`; an accepted symbol-anchored production may inspect a
+`NAME` spelling only inside the grammar family already opened by that symbol.
+Before adding a token, verify the keyword-free contract in
+`../design/Styio-Language-Design.md` section 1.1.1 and
+`../design/Styio-EBNF.md` section 2.0.
+
 ### Step 1: Define Token Type
 
 In `src/StyioToken/Token.hpp`, add to the `StyioTokenType` enum:
@@ -611,7 +618,7 @@ The build is orchestrated by the top-level `CMakeLists.txt`, which delegates com
 
 ### 12.1 When to Update Docs
 
-- **New syntax or symbol:** Update `../design/Styio-Language-Design.md`, `../design/Styio-EBNF.md`, and `../design/Styio-Symbol-Reference.md`
+- **New syntax or symbol:** Create or update the owning `../design/syntax/features/<feature-id>.md` first, declare dependencies and prerequisites there, then update affected shared invariants in `../design/Styio-Language-Design.md`, `../design/Styio-EBNF.md`, and `../design/Styio-Symbol-Reference.md`
 - **New intrinsic:** Update `../design/Styio-StdLib-Intrinsics.md`
 - **New driver interface change:** Update `../design/Styio-Resource-Driver.md`
 - **Innovation-affecting change:** Verify `../design/Styio-Research-Innovations.md` still holds
@@ -675,7 +682,7 @@ Agents working on specific areas should consult:
 
 | Task | Primary Reference |
 |------|-------------------|
-| Adding syntax | `../design/Styio-EBNF.md` (grammar), `../design/Styio-Symbol-Reference.md` (tokens) |
+| Adding syntax | `../design/syntax/features/<feature-id>.md` (feature SSOT), `../design/Styio-EBNF.md` (shared grammar), `../design/Styio-Symbol-Reference.md` (shared tokens) |
 | Active syntax map | `../design/syntax/ACTIVE-SYNTAX.md` (compact authoring surface) |
 | resource topology (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
 | Implementing `@` propagation | `../design/Styio-Language-Design.md` §3.4 (Undefined type) |
@@ -691,25 +698,47 @@ Agents working on specific areas should consult:
 
 Agents MUST NOT:
 
-1. **Introduce keywords.** Styio uses symbols, not words like `if`, `while`, `for`, `return`, `fn`, `let`. The only text tokens allowed are type names (`i32`, `f64`, etc.), `schema`, `true`, `false`, and user identifiers.
+1. **Introduce keywords or word-headed grammar.** Styio reserves no word as a
+   keyword and defines no keyword token kind. Every word-shaped token remains
+   `NAME`; type names resolve in type position, `true` and `false` are
+   expression-context literal spellings, and a symbol-anchored family such as
+   top-level `@import` may inspect a following `NAME` without reserving it
+   elsewhere. Do not add bare declaration or control heads such as `type`,
+   `record`, `variant`, `protocol`, `impl`, `if`, `while`, `return`, `fn`, or
+   `let`. The historical word-based `schema` declaration is not an exception.
 
-2. **Break the Golden Cross example.** See §12.3. This example is the language's "constitution."
+2. **Introduce authored generic binders, call-site specialization, or
+   polymorphic recursion on callables.** Do not parse, document, or generate
+   `# name[T] ...`, and never reinterpret value-position `name[T](...)` as a
+   generic call. `[]` after a value remains an ordinary selector/index.
+   Non-recursive callables infer their relation at the definition site.
+   Recursive call-graph components are solved together with one provisional
+   monotype per member and may be generalized only after the component has a
+   stable solution; reject an internal recursive edge that requires a member
+   at a different instantiation. Compiler-generated type-variable names belong
+   to diagnostics and module-interface metadata, not author source. Instantiate
+   calls only from ordinary arguments and concrete expected context; reject
+   underconstrained calls instead of accepting authored type arguments. A
+   source annotation such as `: T` must resolve an existing type and must not
+   declare `T`.
 
-3. **Allocate heap memory in generated code.** All runtime state must be stack-allocated or in the pre-allocated contiguous ledger. No `malloc`, no `new`, no GC.
+3. **Break the Golden Cross example.** See §12.3. This example is the language's "constitution."
 
-4. **Modify vendored files.** `src/include/cxxopts.hpp` is third-party. Do not edit it.
+4. **Allocate heap memory in generated code.** All runtime state must be stack-allocated or in the pre-allocated contiguous ledger. No `malloc`, no `new`, no GC.
 
-5. **Use historical implementation code.** Historical implementation snapshots from Git history are reference-only. Do not include, call, or copy from them without promoting the current rule through the active implementation path.
+5. **Modify vendored files.** `src/include/cxxopts.hpp` is third-party. Do not edit it.
 
-6. **Skip visitor registration.** Every new AST node MUST be added to ALL visitor template lists. Partial registration causes hard-to-debug template errors.
+6. **Use historical implementation code.** Historical implementation snapshots from Git history are reference-only. Do not include, call, or copy from them without promoting the current rule through the active implementation path.
 
-7. **Add dependencies without justification.** New external libraries require explicit approval. Prefer header-only or vendored solutions.
+7. **Skip visitor registration.** Every new AST node MUST be added to ALL visitor template lists. Partial registration causes hard-to-debug template errors.
 
-8. **Break existing tests.** All tests must pass before and after any change. If a test must change, document why.
+8. **Add dependencies without justification.** New external libraries require explicit approval. Prefer header-only or vendored solutions.
 
-9. **Generate binary or hash content.** Never output binary blobs, extremely long hashes, or non-textual content.
+9. **Break existing tests.** All tests must pass before and after any change. If a test must change, document why.
 
-10. **Commit build artifacts or IDE-specific files.** Respect `.gitignore`.
+10. **Generate binary or hash content.** Never output binary blobs, extremely long hashes, or non-textual content.
+
+11. **Commit build artifacts or IDE-specific files.** Respect `.gitignore`.
 
 ---
 
@@ -735,7 +764,7 @@ Agents must work on the **current active front** and not skip ahead. Start from 
 
 ### What Requires Human Approval
 
-- **Any new symbol or syntax** — must be discussed and added to design docs first
+- **Any new symbol or syntax** — must start in an owning feature SSOT, record the language-owner decision, and reach `accepted` with derived readiness `ready` before delivery advances beyond `not_started`
 - **Changes to `@` propagation semantics** — this is a core language invariant
 - **Changes to the compilation pipeline stages** — the 6-stage flow is architectural
 - **New external dependencies**
