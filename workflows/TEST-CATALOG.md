@@ -2,7 +2,7 @@
 
 **Purpose:** Define the feature-based Styio test inventory, CTest labels, fixture layout, and gate commands for language acceptance coverage.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-30
 
 ---
 
@@ -39,6 +39,8 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 | Feature label | Directory | Coverage focus | Targeted command |
 |---------------|-----------|----------------|------------------|
 | `scalar_expressions` | `tests/features/scalar_expressions/` | integer/float arithmetic, precedence, strings, bindings, comparison, logic, stdout shorthand | `ctest --test-dir build/default -L scalar_expressions --output-on-failure` |
+| `keyword_free` | `tests/features/keyword_free/` | every word token remains `NAME`, keyword-like spellings remain ordinary identifiers outside symbol-anchored contexts | `ctest --test-dir build/default -L keyword_free --output-on-failure --no-tests=error` |
+| `inferred_generics` | `tests/features/inferred_generics/` | principal rank-1 callable relations, independent concrete instances, expected-result inference, self/mutual recursive SCCs, and fail-closed polymorphic-recursion/underconstraint/authored-generic diagnostics | `ctest --test-dir build/default -L inferred_generics --output-on-failure --no-tests=error` |
 | `functions` | `tests/features/functions/` | function definitions, typed returns, block bodies, call chains, no-param functions, nested calls | `ctest --test-dir build/default -L functions --output-on-failure` |
 | `control_flow` | `tests/features/control_flow/` | match expressions, defaults, loops, break, continue, factorial/fizzbuzz examples | `ctest --test-dir build/default -L control_flow --output-on-failure` |
 | `wave_dispatch` | `tests/features/wave_dispatch/` | wave merge/dispatch plus rejected fallback/noop spelling evidence | `ctest --test-dir build/default -L wave_dispatch --output-on-failure` |

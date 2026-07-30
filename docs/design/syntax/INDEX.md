@@ -17,5 +17,6 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `ACTIVE-SYNTAX.md` | [Active Syntax Map](./ACTIVE-SYNTAX.md) | Provide a compact composed authoring map for current Styio syntax; feature-level authority lives in features/, while shared grammar, token, and semantic invariants stay in the cross-feature design documents. |
+| `CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md` | [Callable Type Decision Agenda — 2026-07-30](./CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md) | Compose the unresolved callable-type decisions discovered while delivering approved inferred generics, summarize primary-source research, and present an ordered owner-review agenda without replacing the owning feature SSOTs. |
 | `CONTINUATION_TRANSFER.md` | [Continuation Transfer](./CONTINUATION_TRANSFER.md) | Define the compact syntax and one-shot lifecycle for continuation transfer. |
 | `RESOURCE_IDENTIFIERS.md` | [Resource Identifiers](./RESOURCE_IDENTIFIERS.md) | Define the current Styio resource identifier design surface as internal Styio resource declarations. |

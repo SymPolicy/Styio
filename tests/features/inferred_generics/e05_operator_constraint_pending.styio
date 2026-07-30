@@ -1,0 +1,2 @@
+# double := (value) => value + value
+>_(double(2))

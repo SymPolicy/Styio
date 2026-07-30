@@ -2023,6 +2023,13 @@ public:
   StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
   vector<StyioAST*> func_args;
+  StyioDataType expected_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  StyioDataType inferred_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  std::string lowered_callee_name_;
 
   FuncCallAST(
     NameAST* func_name,
@@ -2097,12 +2104,38 @@ public:
     return func_args;
   }
 
+  void setExpectedType(const StyioDataType& type) {
+    expected_type_ = type;
+  }
+
+  const StyioDataType& getExpectedType() const {
+    return expected_type_;
+  }
+
+  void setInferredType(const StyioDataType& type) {
+    inferred_type_ = type;
+  }
+
+  void setLoweredCalleeName(std::string name) {
+    lowered_callee_name_ = std::move(name);
+  }
+
+  const std::string& getLoweredCalleeName() const {
+    return lowered_callee_name_;
+  }
+
+  void copyInferenceMetadataFrom(const FuncCallAST& other) {
+    expected_type_ = other.expected_type_;
+    inferred_type_ = other.inferred_type_;
+    lowered_callee_name_ = other.lowered_callee_name_;
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::Call;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
   }
 };
 

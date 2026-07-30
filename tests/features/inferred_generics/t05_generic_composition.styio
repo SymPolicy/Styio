@@ -1,0 +1,4 @@
+# identity := (value) => value
+# relay := (value) => identity(value)
+>_(relay(42))
+>_(relay("relay"))

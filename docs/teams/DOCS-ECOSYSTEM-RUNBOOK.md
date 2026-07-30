@@ -100,6 +100,8 @@ Key SSOTs:
 65. Callable binding docs must teach the unified binding model consistently across its feature SSOT, active syntax, EBNF, language design, and symbol reference: `=` is mutable, `:=` is final, `#` marks a callable/operation-channel binding, and direct resource atoms such as `# sink = @stdout` stay invalid because resources remain in the visible `@` family.
 66. Range docs must keep naked `start..end` as the expression-level range form, bracketed `[start..end]` as the canonical materialized range source, and `[start..end..step]` as reserved/non-active wording across active syntax, EBNF, language design, symbol reference, examples, test catalog, and editor grammar notes.
 67. Keep native macOS build and CI documentation reproducible without recording machine-specific paths: resolve keg-only Homebrew package prefixes with `brew --prefix`, resolve the active SDK with `xcrun`, and keep the selected LLVM 18.1.x, CMake/CTest, Python, ICU, and Node lines aligned across the root READMEs, repository build guide, IDE build guide, bootstrap plan, and macOS CI lane.
+68. Treat the keyword-free lexical contract as its own feature SSOT: every word remains `NAME`, exact spelling checks belong only to symbol-anchored contexts, and feature or teaching docs must not invent a keyword class.
+69. Keep callable type-system decisions distributed by feature: definition-site principal relations, recursive SCC inference, and context-driven use-site instantiation each own a separate syntax-feature SSOT and dependency edge. A consolidated decision agenda may compose unresolved questions and external references, but it must link to the owning draft feature SSOTs instead of becoming a competing language authority.
 
 ## Change Classes
 

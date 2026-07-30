@@ -1,0 +1,5 @@
+# make_empty := () => []
+numbers : list[i64] := make_empty()
+words : list[string] := make_empty()
+>_(numbers)
+>_(words)

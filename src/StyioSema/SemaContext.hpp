@@ -5,6 +5,7 @@
 // [STL]
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -491,6 +492,44 @@ public:
 
 
 public:
+  struct CallableTypeTerm
+  {
+    enum class Kind : std::uint8_t {
+      Variable = 0,
+      Concrete,
+      List,
+      Dict,
+    };
+
+    Kind kind = Kind::Concrete;
+    std::uint32_t variable = 0;
+    StyioDataType concrete{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    std::vector<CallableTypeTerm> arguments;
+  };
+
+  struct CallableTypeScheme
+  {
+    std::string name;
+    std::vector<CallableTypeTerm> params;
+    CallableTypeTerm result;
+    std::vector<std::uint32_t> quantified_variables;
+    bool recursive_group = false;
+    std::string canonical_relation;
+  };
+
+  struct CallableSpecialization
+  {
+    std::string source_name;
+    std::string lowered_name;
+    std::vector<StyioDataType> param_types;
+    StyioDataType result_type{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    std::string canonical_key;
+  };
+
   enum class BindingValueKind : std::uint8_t {
     Unknown = 0,
     Bool,
@@ -802,6 +841,48 @@ public:
     return &method_it->second;
   }
 
+  void prepare_callable_type_schemes(MainBlockAST* ast);
+
+  const CallableTypeScheme* find_callable_type_scheme(
+    std::string_view name
+  ) const;
+
+  CallableSpecialization instantiate_callable_type_scheme(
+    FuncCallAST* call,
+    const std::vector<StyioDataType>& arg_types
+  );
+
+  const std::vector<CallableSpecialization>& callable_specializations(
+    std::string_view name
+  ) const;
+
+  bool callable_has_runtime_specializations(std::string_view name) const;
+
+  void prepare_callable_specialization_body(
+    StyioAST* def,
+    const CallableSpecialization& specialization
+  );
+
+  void activate_callable_specialization(
+    const CallableSpecialization& specialization
+  ) {
+    active_callable_specialization_ = specialization;
+  }
+
+  void clear_active_callable_specialization() {
+    active_callable_specialization_.reset();
+  }
+
+  const CallableSpecialization* active_callable_specialization(
+    std::string_view source_name
+  ) const {
+    if (!active_callable_specialization_.has_value()
+        || active_callable_specialization_->source_name != source_name) {
+      return nullptr;
+    }
+    return &*active_callable_specialization_;
+  }
+
 protected:
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;
@@ -838,6 +919,10 @@ protected:
   std::unordered_set<styio::session::SymbolId> active_function_body_inference_by_sid_;
   std::vector<styio::session::SymbolId> active_function_body_sid_stack_;
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
+  std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
+  std::unordered_map<std::string, std::vector<CallableSpecialization>> callable_specializations_;
+  std::unordered_set<std::string> active_callable_specialization_checks_;
+  std::optional<CallableSpecialization> active_callable_specialization_;
   std::string active_resource_receiver_family_;
   styio::session::TypeTable* type_table_ = nullptr;
   styio::session::SymbolInterner* type_table_symbols_ = nullptr;
