@@ -90,7 +90,7 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
 2. Test Quality must review five-layer or security golden updates.
 3. Perf / Stability must review benchmark matrix, RSS thresholds, or long-loop behavior.
 4. CLI / Nano must review runtime capability output exposed through machine-info.
-5. `pafio` / `view` consumers must review published runtime-event family additions or payload-shape changes.
+5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes.
 
 ## Handoff / Recovery
 

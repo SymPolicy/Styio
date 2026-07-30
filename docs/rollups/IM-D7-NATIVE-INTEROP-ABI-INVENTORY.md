@@ -20,7 +20,10 @@ IM-D7 owns the contract for Styio calling native code:
 - host toolchain/cache evidence, and
 - the boundary between native implementation power and Styio language guarantees.
 
-IM-D7 does not define the Styio package manager lifecycle, registry trust, vendoring, or install UX. Those remain IM-D10 and `styio-spio` concerns. IM-D7 also does not redefine IM-D5's stream determinism model; it only states how native calls enter that model as native effects.
+IM-D7 does not define Pafio project/package workflows or Styio Platform registry
+and hosted services. Those remain IM-D10 ecosystem concerns. IM-D7 also does
+not redefine IM-D5's stream determinism model; it only states how native calls
+enter that model as native effects.
 
 ## Current State
 
