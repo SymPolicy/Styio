@@ -3,48 +3,23 @@
     "id": "1253d846-e12d-46ee-a154-70fa7c517c0f",
     "status": "completed",
     "prerequisites": [],
-    "platform": "windows",
+    "platform": "all",
     "difficulty": "medium",
-    "goal": "Preserve current styio owner command rows and local contract gates.",
-    "description": "Keep styio --machine-info=json, styio check --syntax --json, styio --compile-plan, styio --source-build-info=json, and styio build rows aligned with owner docs, tests, and scripts/ecosystem-cli-doc-gate.py.",
+    "goal": "Freeze the current owner and consumer contract matrix.",
+    "description": "Replace removed project-graph and managed-toolchain rows with Pafio metadata/workflow, Styio compiler, Platform hosted, and Vityo adapter boundaries.",
     "acceptance_criteria": [
       {
         "checked": true,
-        "text": "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md names canonical styio command forms and owner/consumer docs."
+        "text": "The matrix names only current public commands and payload owners."
       },
       {
         "checked": true,
-        "text": "scripts/ecosystem-cli-doc-gate.py contains local styio machine-info, compile-plan, source-build, and syntax-check contract checks."
+        "text": "The local documentation gate validates the Pafio producer identity and external Styio boundary."
       }
     ],
     "commit": {
       "repository": ".git",
-      "message": "docs(plan): preserve styio cli contract rows",
-      "target": "styio-nightly"
-    },
-    "next": [
-      "354a5923-bd19-40a8-8d95-ed59219e48e2"
-    ]
-  },
-  {
-    "id": "354a5923-bd19-40a8-8d95-ed59219e48e2",
-    "status": "completed",
-    "prerequisites": [
-      "1253d846-e12d-46ee-a154-70fa7c517c0f"
-    ],
-    "platform": "windows",
-    "difficulty": "low",
-    "goal": "Keep the spio tool lifecycle row inside the contract body before acceptance criteria.",
-    "description": "Move the spio --json tool install/use/pin section before the final acceptance section so the matrix structure remains readable and all command rows live under the command inventory.",
-    "acceptance_criteria": [
-      {
-        "checked": true,
-        "text": "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md has section 3.6 before ## 验收条件."
-      }
-    ],
-    "commit": {
-      "repository": ".git",
-      "message": "docs(plan): normalize cli matrix section order",
+      "message": "docs(plan): freeze ecosystem machine contracts",
       "target": "styio-nightly"
     },
     "next": [
@@ -55,27 +30,26 @@
     "id": "a6cc7aeb-bf18-4601-a4c4-7fc4e7f57a69",
     "status": "in_progress",
     "prerequisites": [
-      "1253d846-e12d-46ee-a154-70fa7c517c0f",
-      "354a5923-bd19-40a8-8d95-ed59219e48e2"
+      "1253d846-e12d-46ee-a154-70fa7c517c0f"
     ],
-    "platform": "windows",
-    "difficulty": "medium",
-    "goal": "Validate cross-repository contract mirrors before closure claims.",
-    "description": "Run local ecosystem CLI doc gates and require workspace-backed spio/view mirror validation before marking cross-repo contract rows complete.",
+    "platform": "all",
+    "difficulty": "high",
+    "goal": "Validate fixed ecosystem revisions before coordinated release.",
+    "description": "Run owner-focused tests, one full regression per affected repository, and the cross-repository acceptance matrix against immutable commits.",
     "acceptance_criteria": [
       {
         "checked": false,
-        "text": "python scripts/ecosystem-cli-doc-gate.py passes locally."
+        "text": "python3 scripts/ecosystem-cli-doc-gate.py --require-workspace --json passes against the fixed revision workspace."
       },
       {
         "checked": false,
-        "text": "A workspace-backed cross-repo equivalent confirms pafio-nightly and vityo-nightly mirror docs match changed contract rows."
+        "text": "The ecosystem owner matrix records and validates every participating commit."
       }
     ],
     "commit": {
       "repository": ".git",
-      "message": "docs(plan): validate ecosystem cli contract mirrors",
-      "target": "cross-repo ecosystem plan"
+      "message": "docs(plan): close fixed ecosystem matrix",
+      "target": "cross-repository release matrix"
     },
     "next": []
   }

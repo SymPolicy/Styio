@@ -41,4 +41,4 @@
 2. Each module README must explain direct usage and link back to this manifest.
 3. Consumer-specific docs may reference these capabilities, but must not redefine their contract shape.
 4. Accepted Styio grammar is owned by the hand-written compiler parser. IDE or editor helpers must not introduce a separate grammar authority.
-5. First-party adapters for Vityo, Spio, or hosted services may expose convenience payloads only when those payloads are backed by capabilities in this manifest or by a documented future capability state; they must not create private grammar, diagnostic, or semantic authorities.
+5. First-party Vityo or hosted language-service adapters may expose convenience payloads only when those payloads are backed by capabilities in this manifest or by a documented future capability state; they must not create private grammar, diagnostic, or semantic authorities.

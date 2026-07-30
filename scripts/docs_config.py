@@ -28,7 +28,7 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/plan/reports", "Plan Reports Index", "Provide the generated inventory for `docs/plan/reports/`; these reports preserve plan evidence and follow-up notes without replacing active ADRs or rollups."),
     CollectionSpec("docs/external", "External Docs Index", "Provide the generated inventory for `docs/external/`; external handoff boundaries live in [README.md](./README.md)."),
     CollectionSpec("docs/external/for-ide", "For IDE Index", "Provide the generated inventory for `docs/external/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
-    CollectionSpec("docs/external/for-pafio", "For Pafio Index", "Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries and coordination rules for `styio-pafio` live in [README.md](./README.md)."),
+    CollectionSpec("docs/external/for-pafio", "For Pafio Index", "Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries for the system Styio compiler and Pafio project workflows live in [README.md](./README.md)."),
     CollectionSpec("docs/assets", "Assets Index", "Provide the generated inventory for `docs/assets/`; asset boundaries and reuse rules live in [README.md](./README.md)."),
     CollectionSpec("docs/assets/templates", "Template Assets Index", "Provide the generated inventory for `docs/assets/templates/`; template boundaries and reuse rules live in [README.md](./README.md)."),
     CollectionSpec("docs/adr", "ADR Index", "Provide the generated inventory for `docs/adr/`; decision-record conventions live in [README.md](./README.md)."),

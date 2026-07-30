@@ -49,7 +49,7 @@ controlled_components() {
       "src/StyioSession/",
       "src/StyioToString/",
     })},
-    {"description", "Official parser-to-codegen compiler graph consumed by spio build."},
+    {"description", "Official parser-to-codegen compiler graph for system package builders."},
   });
   components.push_back(llvm::json::Object{
     {"id", "std_symbols"},

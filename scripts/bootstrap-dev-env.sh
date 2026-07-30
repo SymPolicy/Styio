@@ -25,7 +25,7 @@ Optional environment:
   STYIO_NIGHTLY_TOOL_VENV   Python virtualenv used for lit
                             Default: $TOOL_VENV
 
-Standardized baseline shared with styio-spio:
+Standardized baseline shared with pafio-nightly:
   Debian                  $DEBIAN_STANDARD_VERSION (trixie)
   LLVM / Clang / LLD      $LLVM_STANDARD_SERIES via clang-18 toolchain packages
   clang-format            clang-format-18

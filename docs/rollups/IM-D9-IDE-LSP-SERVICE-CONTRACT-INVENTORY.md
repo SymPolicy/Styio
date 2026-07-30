@@ -12,7 +12,7 @@ IM-D9 owns the language-service maturity contract for Styio:
 - editor interaction snapshots,
 - in-process `StyioIDE` APIs,
 - public `styio_lspd` LSP behavior,
-- first-party Vityo and Spio convenience adapters,
+- first-party Vityo convenience adapters,
 - semantic caches and workspace indexes,
 - capability negotiation and degraded-mode reporting, and
 - host-facing service payloads used by IDEs, editors, CI, and package tooling.
@@ -32,7 +32,7 @@ Important observed constraints:
 5. Vityo has local fallback features for syntax interaction, symbol indexing, navigation, rename, and limited refactoring. These support product UX but are explicitly not compiler semantic authority.
 6. Vityo can disable local fallback for strict service behavior, so StyioServices must make capability gaps explicit instead of relying on silent local recovery.
 
-The conclusion is that IM-D9 must not be written as "add a few missing LSP methods." Public LSP is only one transport. The real service contract is a shared StyioServices fact layer that public LSP, in-process IDE APIs, and first-party Vityo / Spio adapters can consume at different depths.
+The conclusion is that IM-D9 must not be written as "add a few missing LSP methods." Public LSP is only one transport. The real service contract is a shared StyioServices fact layer that public LSP, in-process IDE APIs, and first-party Vityo adapters can consume at different depths.
 
 ## Accepted Authority Boundary
 
@@ -44,7 +44,7 @@ The conclusion is that IM-D9 must not be written as "add a few missing LSP metho
 | Editor syntax snapshots | Non-authoritative interaction data | Support highlighting, folding, matching tokens, local diagnostics, and editor responsiveness without defining accepted grammar |
 | Semantic cache and workspace indexes | Derived service facts | Cache and query compiler/editor facts with freshness, revision, and source metadata |
 | Public LSP | Editor-neutral transport | Advertise only methods backed by implemented `StyioIDE` behavior, docs, and tests |
-| Vityo / Spio first-party adapters | Deep convenience consumers | May consume richer CLI, C++ API, FFI, or cloud payloads when they reuse the same StyioServices facts and mark derived/fallback state |
+| Vityo first-party adapters | Deep convenience consumers | May consume richer CLI, C++ API, FFI, or hosted payloads when they reuse the same StyioServices facts and mark derived/fallback state |
 
 First-party integration is allowed to be deeper than public LSP. It is not allowed to become a separate grammar, diagnostic, or semantic authority.
 
@@ -87,19 +87,18 @@ Capability state is part of the contract. A host must be able to distinguish a f
 
 ## First-Party Adapter Rule
 
-Vityo and Spio are first-party projects, so they may have convenience adapters that are more direct than the generic external surface.
+Vityo is a first-party language-service consumer, so it may have convenience adapters that are more direct than the generic external surface. Pafio is not a language-service host; it uses only compiler capability discovery and compile-plan invocation.
 
 Allowed:
 
 1. Vityo may bind directly to in-process C++ service APIs, a future FFI facade, CLI JSONL facts, or cloud service facts.
-2. Spio may consume compile-plan, machine-info, source-build, package-adjacent, and future service discovery payloads directly.
-3. First-party adapters may request richer envelopes than public LSP if those envelopes are documented as StyioServices facts.
-4. Product-local fallback may keep the UI responsive when service facts are missing.
+2. First-party adapters may request richer envelopes than public LSP if those envelopes are documented as StyioServices facts.
+3. Product-local fallback may keep the UI responsive when service facts are missing.
 
 Not allowed:
 
-1. Vityo or Spio must not maintain an accepted grammar separate from the compiler parser.
-2. Vityo or Spio must not mint compiler diagnostic codes outside the shared diagnostic taxonomy.
+1. Vityo must not maintain an accepted grammar separate from the compiler parser.
+2. Vityo must not mint compiler diagnostic codes outside the shared diagnostic taxonomy.
 3. Product-local fallback must not report compiler semantic errors that did not come from compiler-owned facts.
 4. Public LSP capabilities must not be advertised merely because a first-party adapter can synthesize a local fallback.
 5. Missing service capabilities must not be hidden behind silent local behavior; they must be reported as derived, unavailable, unsupported, failed, protocol error, stale, or another documented state.
@@ -135,7 +134,7 @@ IM-D9 can close only when:
 1. `src/StyioServices/MANIFEST.md` lists every public CLI, IDE, LSP, and adapter-facing service capability that is actually available;
 2. every StyioServices module README describes usage, available capabilities, authority status, and public limitations;
 3. public LSP capabilities match documented `styio_lspd` behavior and tests;
-4. first-party Vityo / Spio adapters consume shared StyioServices facts instead of separate grammar, diagnostic, or semantic authorities;
+4. first-party Vityo adapters consume shared StyioServices facts instead of separate grammar, diagnostic, or semantic authorities;
 5. local or product fallback is marked as derived/fallback and can be disabled by strict hosts;
 6. syntax-validity consumers are routed to compiler parser services, not editor snapshots;
 7. semantic, navigation, and refactor payloads expose source, freshness, and capability state; and

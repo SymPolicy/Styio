@@ -5306,7 +5306,7 @@ main(
     cxxopts::value<std::string>()
   )(
     "source-build-info",
-    "Emit machine-readable source-build metadata for spio build. Supported format: json",
+    "Emit machine-readable compiler source-build metadata. Supported format: json",
     cxxopts::value<std::string>()
   )(
     "nano-create",
