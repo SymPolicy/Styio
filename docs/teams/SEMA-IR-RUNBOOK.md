@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Mission
 
@@ -97,6 +97,7 @@ High-value docs:
 61. Match lowering must preserve the statement/expression boundary. Expression matches may require implicit tail values from arms, but statement-form matches lower their arm blocks without forcing a return value so standalone control-flow and algorithm fixtures do not fail the function-return contract.
 62. Callable binding mutability is semantic state, not parser trivia. `# name = ...` may replace an earlier mutable callable binding, but `# name := ...` creates a final callable binding, and any later attempt to redefine a final binding or to final-bind over an existing callable must fail before lowering. Lowering must emit only the active top-level mutable replacement so stale earlier callable bodies cannot shadow the latest binding.
 63. Inferred callable generics are compiler-owned rank-1 schemes. Build the final-callable dependency graph once, solve each recursive SCC with one provisional monotype per member, generalize only at the definition or SCC boundary, and instantiate fresh relations from ordinary arguments plus concrete expected result types. Reject polymorphic recursion and underconstrained calls in Sema; never mutate an untyped parameter from the first call site or reinterpret value-position `[]` as generic syntax.
+64. Generalize a final callable only when its compiler-owned effect summary is closed and proven pure. Propagate output, resource, task, handler, native, capture, and unknown effects through direct-call dependencies; unsupported nodes and unresolved callees fail closed as unknown. Effectful or capture-dependent callables remain monomorphic, and conflicting later concrete instances must fail in Sema with the canonical summary before lowering.
 
 ## Change Classes
 

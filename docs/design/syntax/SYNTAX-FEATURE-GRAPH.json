@@ -262,9 +262,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "must follow non-converged feature core.effect-aware-callable-generalization"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-callable-interface-scheme-publication.md",
       "owner": "Sema / Modules",
@@ -468,7 +466,6 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "must follow non-converged feature core.effect-aware-callable-generalization",
           "must follow non-converged feature core.constrained-callable-relations"
         ]
       },
@@ -862,28 +859,12 @@
       "kind": "callable-type-semantics",
       "syntax": "No new source syntax proposed; this decision governs eligibility of final callable bindings for generalization.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-effect-aware-callable-generalization.md",
@@ -922,13 +903,21 @@
         ]
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_effects/t02_transitive_effect_summary.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "effect-contract": "docs/design/Styio-Handle-Capability-Type-System.md",
         "current-semantic-contract": "docs/design/Styio-Language-Design.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "prepare_callable_type_schemes",
         "owner": "Sema / Type System"
       },
       "documents": {
@@ -950,9 +939,21 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioSema/SemaContext.hpp"
+        ],
+        "evidence": [
+          "tests/features/callable_effects/t02_transitive_effect_summary.styio",
+          "tests/features/callable_effects/e01_effectful_second_instance.styio",
+          "tests/features/callable_effects/e02_captured_environment_second_instance.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_effects/t02_transitive_effect_summary.styio",
+        "tests/features/callable_effects/e02_captured_environment_second_instance.styio"
+      ]
     },
     {
       "id": "core.expression-precedence",
@@ -1173,7 +1174,6 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "must follow non-converged feature core.effect-aware-callable-generalization",
           "must follow non-converged feature core.constrained-callable-relations"
         ]
       },
