@@ -75,6 +75,8 @@ Primary paths:
 49. macOS coverage must select clang, clang++, llvm-cov, and llvm-profdata from one validated LLVM 18.1.x prefix and configure the SDK returned by `xcrun`. Do not mix AppleClang profile data with upstream LLVM coverage tools or hardcode a Homebrew installation path.
 50. Native macOS acceptance must build and execute the platform internal test, native interop fixtures, bootstrap plan smoke, LSP framing smoke, and the selected compiler/service labels. A configuration-only result does not close platform adaptation.
 51. Syntax-feature lifecycle tests must cover a ready projection, dependency-cycle rejection, downstream staleness after a prerequisite feature blocks, and rejection of delivery progress before language-owner acceptance. Each converged feature SSOT must name a checked-in golden case with its expected oracle.
+52. Keyword-free lexical coverage must pair a tokenizer classification test for contextual word spellings with an executable source fixture that binds keyword-like names outside symbol-anchored contexts.
+53. Inferred-callable coverage must execute independent scalar/string instances, expected-result inference for an empty container, self and mutual recursive SCCs, and paired negative fixtures for polymorphic recursion, underconstrained results, authored generic binders, and call-site type arguments. Keep every failure diagnostic in Sema or the authoritative parser so unresolved relations never become backend failures.
 
 ## Change Classes
 

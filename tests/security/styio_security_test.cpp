@@ -6995,13 +6995,17 @@ TEST(StyioTokenizerSpan, LongestMatchPrecedence) {
 }
 
 TEST(StyioTokenizerSpan, KeywordVsIdentifier) {
-  // "if", "else", "match" etc. are tokenized as NAME, not special keywords.
-  // The parser distinguishes keywords from identifiers.
-  for (const char* kw : {"if", "else", "match", "while", "for", "return", "fn"}) {
-    auto tokens = StyioTokenizer::tokenize(kw);
+  // Every word is NAME. Exact spelling is interpreted only after a
+  // symbol-anchored parser context has selected a structural production.
+  for (const char* word : {
+         "if", "else", "match", "while", "for", "return", "fn",
+         "schema", "type", "record", "variant", "protocol", "impl",
+         "import", "extern", "true", "false"
+       }) {
+    auto tokens = StyioTokenizer::tokenize(word);
     ASSERT_GE(tokens.size(), 2u);
-    EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME) << "keyword: " << kw;
-    EXPECT_EQ(tokens[0]->lexeme(), kw);
+    EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME) << "word: " << word;
+    EXPECT_EQ(tokens[0]->lexeme(), word);
     free_tokens(tokens);
   }
 }

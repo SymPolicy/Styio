@@ -1,0 +1,14 @@
+# bounce_left := (value, depth: i64) => {
+    depth ?= {
+        0 => { <| value }
+        _ => { <| bounce_right(value, depth - 1) }
+    }
+}
+# bounce_right := (value, depth: i64) => {
+    depth ?= {
+        0 => { <| value }
+        _ => { <| bounce_left(value, depth - 1) }
+    }
+}
+>_(bounce_left(9, 3))
+>_(bounce_right("done", 2))
