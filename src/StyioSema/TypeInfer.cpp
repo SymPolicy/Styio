@@ -123,8 +123,37 @@ StyioDataType const kStringType{
 
 using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
+using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
+using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
 using CallableEffectKind = StyioSemaContext::CallableEffectKind;
 using CallableEffectSummary = StyioSemaContext::CallableEffectSummary;
+
+StyioDataType
+normalize_callable_concrete_type(const StyioDataType& input) {
+  if (input.name == "int"
+      || (input.option == StyioDataTypeOption::Integer
+          && input.num_of_bit == 0)) {
+    return kI64Type;
+  }
+  if (input.name == "float"
+      || (input.option == StyioDataTypeOption::Float
+          && input.num_of_bit == 0)) {
+    return kF64Type;
+  }
+  if (styio_is_list_type(input)) {
+    StyioDataType element = normalize_callable_concrete_type(
+      styio_data_type_from_name(styio_list_elem_type_name(input)));
+    return styio_make_list_type(element.name);
+  }
+  if (styio_is_dict_type(input)) {
+    StyioDataType key = normalize_callable_concrete_type(
+      styio_data_type_from_name(styio_dict_key_type_name(input)));
+    StyioDataType value = normalize_callable_concrete_type(
+      styio_data_type_from_name(styio_dict_value_type_name(input)));
+    return styio_make_dict_type(key.name, value.name);
+  }
+  return input;
+}
 
 CallableTypeTerm
 callable_variable_term(std::uint32_t variable) {
@@ -135,7 +164,8 @@ callable_variable_term(std::uint32_t variable) {
 }
 
 CallableTypeTerm
-callable_concrete_term(const StyioDataType& type) {
+callable_concrete_term(const StyioDataType& input) {
+  StyioDataType type = normalize_callable_concrete_type(input);
   if (styio_is_list_type(type)) {
     CallableTypeTerm term;
     term.kind = CallableTypeTerm::Kind::List;
@@ -510,6 +540,7 @@ callable_node_is_in_principal_relation_subset(StyioAST* node) {
          || dynamic_cast<FmtStrAST*>(node) != nullptr
          || dynamic_cast<ListAST*>(node) != nullptr
          || dynamic_cast<DictAST*>(node) != nullptr
+         || dynamic_cast<ListOpAST*>(node) != nullptr
          || dynamic_cast<BinOpAST*>(node) != nullptr
          || dynamic_cast<BinCompAST*>(node) != nullptr
          || dynamic_cast<CondAST*>(node) != nullptr
@@ -790,6 +821,57 @@ callable_term_text(const CallableTypeTerm& term) {
   return "undefined";
 }
 
+std::string
+callable_constraint_name(CallableConstraintKind kind) {
+  switch (kind) {
+    case CallableConstraintKind::Numeric:
+      return "numeric";
+    case CallableConstraintKind::Comparable:
+      return "comparable";
+    case CallableConstraintKind::Indexable:
+      return "indexable";
+    case CallableConstraintKind::Iterable:
+      return "iterable";
+    case CallableConstraintKind::Cloneable:
+      return "cloneable";
+  }
+  return "unknown";
+}
+
+std::string
+callable_constraint_text(const CallableTypeConstraint& constraint) {
+  std::ostringstream output;
+  output << callable_constraint_name(constraint.kind) << "("
+         << callable_term_text(constraint.subject);
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    output << "," << callable_term_text(constraint.argument)
+           << "," << callable_term_text(constraint.result);
+  }
+  else if (constraint.kind == CallableConstraintKind::Iterable) {
+    output << "," << callable_term_text(constraint.result);
+  }
+  output << ")";
+  return output.str();
+}
+
+CallableTypeConstraint
+apply_callable_constraint(
+  CallableTypeUnifier& unifier,
+  const CallableTypeConstraint& input
+) {
+  CallableTypeConstraint output = input;
+  output.subject = unifier.apply(output.subject);
+  if (output.kind == CallableConstraintKind::Indexable) {
+    output.argument = unifier.apply(output.argument);
+    output.result = unifier.apply(output.result);
+  }
+  else if (output.kind == CallableConstraintKind::Iterable) {
+    output.result = unifier.apply(output.result);
+  }
+  output.canonical = callable_constraint_text(output);
+  return output;
+}
+
 void
 collect_callable_term_variables(
   const CallableTypeTerm& term,
@@ -805,6 +887,39 @@ collect_callable_term_variables(
   for (const auto& argument : term.arguments) {
     collect_callable_term_variables(argument, variables, seen);
   }
+}
+
+bool
+callable_term_contains_variable(
+  const CallableTypeTerm& term,
+  std::uint32_t variable
+) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return term.variable == variable;
+  }
+  for (const auto& argument : term.arguments) {
+    if (callable_term_contains_variable(argument, variable)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool
+callable_constraint_contains_variable(
+  const CallableTypeConstraint& constraint,
+  std::uint32_t variable
+) {
+  if (callable_term_contains_variable(constraint.subject, variable)) {
+    return true;
+  }
+  if (constraint.kind == CallableConstraintKind::Indexable
+      && callable_term_contains_variable(constraint.argument, variable)) {
+    return true;
+  }
+  return (constraint.kind == CallableConstraintKind::Indexable
+          || constraint.kind == CallableConstraintKind::Iterable)
+         && callable_term_contains_variable(constraint.result, variable);
 }
 
 CallableTypeTerm
@@ -827,13 +942,231 @@ normalize_callable_term_variables(
   return output;
 }
 
+CallableTypeConstraint
+normalize_callable_constraint_variables(
+  const CallableTypeConstraint& input,
+  std::unordered_map<std::uint32_t, std::uint32_t>& normalization
+) {
+  CallableTypeConstraint output = input;
+  output.subject =
+    normalize_callable_term_variables(output.subject, normalization);
+  if (output.kind == CallableConstraintKind::Indexable) {
+    output.argument =
+      normalize_callable_term_variables(output.argument, normalization);
+    output.result =
+      normalize_callable_term_variables(output.result, normalization);
+  }
+  else if (output.kind == CallableConstraintKind::Iterable) {
+    output.result =
+      normalize_callable_term_variables(output.result, normalization);
+  }
+  output.canonical = callable_constraint_text(output);
+  return output;
+}
+
+bool
+callable_concrete_is_numeric(const StyioDataType& input) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  return type.option == StyioDataTypeOption::Integer
+         || type.option == StyioDataTypeOption::Float;
+}
+
+bool
+callable_concrete_is_comparable(const StyioDataType& input) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  return type.option == StyioDataTypeOption::Bool
+         || type.option == StyioDataTypeOption::Integer
+         || type.option == StyioDataTypeOption::Float
+         || type.option == StyioDataTypeOption::Char
+         || type.option == StyioDataTypeOption::String;
+}
+
+void
+validate_callable_unary_constraint(
+  CallableConstraintKind kind,
+  const StyioDataType& input,
+  std::string_view constraint_text = {}
+) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  bool satisfied = false;
+  switch (kind) {
+    case CallableConstraintKind::Numeric:
+      satisfied = callable_concrete_is_numeric(type);
+      break;
+    case CallableConstraintKind::Comparable:
+      satisfied = callable_concrete_is_comparable(type);
+      break;
+    case CallableConstraintKind::Iterable:
+      satisfied = styio_type_is_iterable(type);
+      break;
+    case CallableConstraintKind::Cloneable:
+      satisfied = styio_type_is_cloneable(type);
+      break;
+    case CallableConstraintKind::Indexable:
+      satisfied = styio_type_is_indexable(type);
+      break;
+  }
+  if (!satisfied) {
+    throw StyioTypeError(
+      "callable constraint `"
+      + (constraint_text.empty()
+           ? callable_constraint_name(kind)
+           : std::string(constraint_text))
+      + "` is not satisfied by type `" + type.name + "`"
+    );
+  }
+}
+
+bool
+reduce_callable_constraint(
+  CallableTypeUnifier& unifier,
+  const CallableTypeConstraint& input
+) {
+  CallableTypeConstraint constraint =
+    apply_callable_constraint(unifier, input);
+  if (constraint.kind == CallableConstraintKind::Numeric
+      || constraint.kind == CallableConstraintKind::Comparable
+      || constraint.kind == CallableConstraintKind::Cloneable) {
+    if (constraint.subject.kind == CallableTypeTerm::Kind::Variable) {
+      return false;
+    }
+    if (constraint.subject.kind == CallableTypeTerm::Kind::List
+        || constraint.subject.kind == CallableTypeTerm::Kind::Dict) {
+      if (constraint.kind == CallableConstraintKind::Cloneable) {
+        return true;
+      }
+      throw StyioTypeError(
+        "callable constraint `"
+        + callable_constraint_name(constraint.kind)
+        + "` is not satisfied by a collection type"
+      );
+    }
+    validate_callable_unary_constraint(
+      constraint.kind,
+      constraint.subject.concrete,
+      callable_constraint_text(constraint));
+    return true;
+  }
+
+  if (constraint.subject.kind == CallableTypeTerm::Kind::List) {
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      unifier.unify(
+        constraint.argument,
+        callable_concrete_term(kI64Type),
+        "indexable list key");
+      unifier.unify(
+        constraint.result,
+        constraint.subject.arguments.at(0),
+        "indexable list result");
+      return true;
+    }
+    if (constraint.kind == CallableConstraintKind::Iterable) {
+      unifier.unify(
+        constraint.result,
+        constraint.subject.arguments.at(0),
+        "iterable list element");
+      return true;
+    }
+  }
+  if (constraint.subject.kind == CallableTypeTerm::Kind::Dict) {
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      unifier.unify(
+        constraint.argument,
+        constraint.subject.arguments.at(0),
+        "indexable dict key");
+      unifier.unify(
+        constraint.result,
+        constraint.subject.arguments.at(1),
+        "indexable dict result");
+      return true;
+    }
+  }
+  if (constraint.subject.kind != CallableTypeTerm::Kind::Concrete) {
+    return false;
+  }
+
+  StyioDataType subject =
+    normalize_callable_concrete_type(constraint.subject.concrete);
+  validate_callable_unary_constraint(constraint.kind, subject);
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    StyioDataType key = styio_is_dict_type(subject)
+                          ? styio_data_type_from_name(
+                              styio_dict_key_type_name(subject))
+                          : kI64Type;
+    StyioDataType result = styio_data_type_from_name(
+      styio_type_item_type_name(subject));
+    unifier.unify(
+      constraint.argument,
+      callable_concrete_term(key),
+      "indexable concrete key");
+    unifier.unify(
+      constraint.result,
+      callable_concrete_term(result),
+      "indexable concrete result");
+  }
+  else if (constraint.kind == CallableConstraintKind::Iterable) {
+    StyioDataType result = styio_data_type_from_name(
+      styio_type_item_type_name(subject));
+    unifier.unify(
+      constraint.result,
+      callable_concrete_term(result),
+      "iterable concrete element");
+  }
+  return true;
+}
+
+void
+reduce_callable_constraints(
+  CallableTypeUnifier& unifier,
+  std::vector<CallableTypeConstraint>& constraints
+) {
+  std::vector<CallableTypeConstraint> pending = std::move(constraints);
+  while (true) {
+    std::vector<CallableTypeConstraint> next;
+    next.reserve(pending.size());
+    bool reduced = false;
+    for (const auto& constraint : pending) {
+      if (reduce_callable_constraint(unifier, constraint)) {
+        reduced = true;
+      }
+      else {
+        next.push_back(apply_callable_constraint(unifier, constraint));
+      }
+    }
+    pending = std::move(next);
+    if (!reduced) {
+      break;
+    }
+  }
+  for (auto& constraint : pending) {
+    constraint = apply_callable_constraint(unifier, constraint);
+  }
+  constraints = std::move(pending);
+}
+
 class CallableSymbolicInfer
 {
   CallableTypeUnifier& unifier_;
   const std::unordered_map<std::string, CallableTypeScheme>& schemes_;
   const std::unordered_map<std::string, CallableMonotype>& recursive_group_;
   const std::unordered_map<std::string, StyioAST*>& all_defs_;
+  std::vector<CallableTypeConstraint>& constraints_;
   std::unordered_map<std::string, CallableTypeTerm> locals_;
+
+  void record_constraint(
+    CallableConstraintKind kind,
+    CallableTypeTerm subject,
+    CallableTypeTerm argument = {},
+    CallableTypeTerm result = {}
+  ) {
+    CallableTypeConstraint constraint;
+    constraint.kind = kind;
+    constraint.subject = unifier_.apply(subject);
+    constraint.argument = unifier_.apply(argument);
+    constraint.result = unifier_.apply(result);
+    constraint.canonical = callable_constraint_text(constraint);
+    constraints_.push_back(std::move(constraint));
+  }
 
   CallableMonotype instantiate_scheme(const CallableTypeScheme& scheme) {
     std::unordered_map<std::uint32_t, CallableTypeTerm> fresh_variables;
@@ -862,6 +1195,23 @@ class CallableSymbolicInfer
       instance.params.push_back(instantiate_term(instantiate_term, param));
     }
     instance.result = instantiate_term(instantiate_term, scheme.result);
+    for (const auto& constraint : scheme.constraints) {
+      CallableTypeConstraint instantiated = constraint;
+      instantiated.subject =
+        instantiate_term(instantiate_term, constraint.subject);
+      if (constraint.kind == CallableConstraintKind::Indexable) {
+        instantiated.argument =
+          instantiate_term(instantiate_term, constraint.argument);
+        instantiated.result =
+          instantiate_term(instantiate_term, constraint.result);
+      }
+      else if (constraint.kind == CallableConstraintKind::Iterable) {
+        instantiated.result =
+          instantiate_term(instantiate_term, constraint.result);
+      }
+      instantiated.canonical = callable_constraint_text(instantiated);
+      constraints_.push_back(std::move(instantiated));
+    }
     return instance;
   }
 
@@ -969,18 +1319,39 @@ class CallableSymbolicInfer
       return callable_concrete_term(kStringType);
     }
 
-    if (lhs.kind == CallableTypeTerm::Kind::Variable && is_numeric(rhs)) {
-      unifier_.unify(lhs, rhs, "numeric operator");
-      lhs = unifier_.apply(lhs);
+    switch (binary->getOp()) {
+      case StyioOpType::Binary_Add:
+      case StyioOpType::Binary_Sub:
+      case StyioOpType::Binary_Mul:
+      case StyioOpType::Binary_Div:
+      case StyioOpType::Binary_Pow:
+      case StyioOpType::Binary_Mod:
+        break;
+      default:
+        throw StyioTypeError(
+          "inferred callable operator is outside the closed `numeric` "
+          "constraint vocabulary"
+        );
     }
-    if (rhs.kind == CallableTypeTerm::Kind::Variable && is_numeric(lhs)) {
-      unifier_.unify(rhs, lhs, "numeric operator");
-      rhs = unifier_.apply(rhs);
+
+    if (lhs.kind == CallableTypeTerm::Kind::Variable
+        || rhs.kind == CallableTypeTerm::Kind::Variable) {
+      unifier_.unify(lhs, rhs, "numeric operator operands");
+      CallableTypeTerm operand = unifier_.apply(lhs);
+      if (operand.kind == CallableTypeTerm::Kind::Variable) {
+        record_constraint(CallableConstraintKind::Numeric, operand);
+        return operand;
+      }
+      if (is_numeric(operand)) {
+        return operand;
+      }
+      throw StyioTypeError(
+        "numeric operator requires an integer or floating-point operand"
+      );
     }
     if (!is_numeric(lhs) || !is_numeric(rhs)) {
       throw StyioTypeError(
-        "operator-constrained generic relations are not yet decidable; "
-        "add a concrete parameter annotation"
+        "numeric operator requires integer or floating-point operands"
       );
     }
     if (lhs.concrete.option == StyioDataTypeOption::Float
@@ -999,12 +1370,14 @@ public:
     CallableTypeUnifier& unifier,
     const std::unordered_map<std::string, CallableTypeScheme>& schemes,
     const std::unordered_map<std::string, CallableMonotype>& recursive_group,
-    const std::unordered_map<std::string, StyioAST*>& all_defs
+    const std::unordered_map<std::string, StyioAST*>& all_defs,
+    std::vector<CallableTypeConstraint>& constraints
   ) :
       unifier_(unifier),
       schemes_(schemes),
       recursive_group_(recursive_group),
-      all_defs_(all_defs) {
+      all_defs_(all_defs),
+      constraints_(constraints) {
   }
 
   void bind_local(const std::string& name, CallableTypeTerm type) {
@@ -1027,11 +1400,11 @@ public:
       }
       return unifier_.apply(local->second);
     }
-    if (auto* integer = dynamic_cast<IntAST*>(ast)) {
-      return callable_concrete_term(integer->getDataType());
+    if (dynamic_cast<IntAST*>(ast) != nullptr) {
+      return callable_concrete_term(kI64Type);
     }
-    if (auto* floating = dynamic_cast<FloatAST*>(ast)) {
-      return callable_concrete_term(floating->getDataType());
+    if (dynamic_cast<FloatAST*>(ast) != nullptr) {
+      return callable_concrete_term(kF64Type);
     }
     if (dynamic_cast<BoolAST*>(ast) != nullptr
         || dynamic_cast<CondAST*>(ast) != nullptr
@@ -1040,6 +1413,9 @@ public:
         CallableTypeTerm lhs = infer(comparison->getLHS());
         CallableTypeTerm rhs = infer(comparison->getRHS());
         unifier_.unify(lhs, rhs, "comparison");
+        record_constraint(
+          CallableConstraintKind::Comparable,
+          unifier_.apply(lhs));
       }
       else if (auto* condition = dynamic_cast<CondAST*>(ast)) {
         if (condition->getValue() != nullptr) {
@@ -1094,6 +1470,38 @@ public:
       return callable_dict_term(
         unifier_.apply(key),
         unifier_.apply(value));
+    }
+    if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
+      if (access->getOp() != StyioNodeType::Access_By_Index
+          || access->getSlot1() == nullptr) {
+        throw StyioTypeError(
+          "inferred callable indexable constraints currently require "
+          "single-value index access"
+        );
+      }
+      CallableTypeTerm subject = unifier_.apply(infer(access->getList()));
+      CallableTypeTerm argument = unifier_.apply(infer(access->getSlot1()));
+      if (subject.kind == CallableTypeTerm::Kind::List) {
+        unifier_.unify(
+          argument,
+          callable_concrete_term(kI64Type),
+          "list index");
+        return unifier_.apply(subject.arguments.at(0));
+      }
+      if (subject.kind == CallableTypeTerm::Kind::Dict) {
+        unifier_.unify(
+          argument,
+          subject.arguments.at(0),
+          "dict index");
+        return unifier_.apply(subject.arguments.at(1));
+      }
+      CallableTypeTerm result = unifier_.fresh();
+      record_constraint(
+        CallableConstraintKind::Indexable,
+        subject,
+        argument,
+        result);
+      return result;
     }
     if (auto* binary = dynamic_cast<BinOpAST*>(ast)) {
       return infer_numeric_binary(binary);
@@ -1499,7 +1907,9 @@ infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
     if (styio_is_list_type(existing_type)) {
       return existing_type;
     }
-    return styio_make_list_type("i64");
+    return StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
   }
 
   StyioDataType elem_type = infer_expr_type(an, els[0]);
@@ -2390,7 +2800,9 @@ infer_dict_literal_type(StyioSemaContext* an, DictAST* dict) {
     if (styio_is_dict_type(existing_type)) {
       return existing_type;
     }
-    return styio_make_dict_type("string", "i64");
+    return StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
   }
 
   for (auto const& entry : entries) {
@@ -2438,9 +2850,9 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     case StyioNodeType::Compare:
       return kBoolType;
     case StyioNodeType::Integer:
-      return static_cast<IntAST*>(expr)->getDataType();
+      return kI64Type;
     case StyioNodeType::Float:
-      return static_cast<FloatAST*>(expr)->getDataType();
+      return kF64Type;
     case StyioNodeType::NumConvert:
       return static_cast<TypeConvertAST*>(expr)->getDataType();
     case StyioNodeType::Char:
@@ -2930,41 +3342,46 @@ infer_numeric_string_coercion(StyioSemaContext* an, BinOpAST* ast, StyioAST* lhs
   return true;
 }
 
-void
+bool
 match_callable_term_to_concrete(
   const CallableTypeTerm& pattern,
-  const StyioDataType& concrete,
+  const StyioDataType& concrete_input,
   std::unordered_map<std::uint32_t, StyioDataType>& bindings,
   const std::string& context
 ) {
+  StyioDataType concrete =
+    normalize_callable_concrete_type(concrete_input);
   switch (pattern.kind) {
     case CallableTypeTerm::Kind::Variable: {
       auto [it, inserted] = bindings.emplace(pattern.variable, concrete);
-      if (inserted || it->second.equals(concrete)) {
-        return;
+      if (inserted) {
+        return true;
+      }
+      if (it->second.equals(concrete)) {
+        return false;
       }
       if (it->second.option == StyioDataTypeOption::Integer
           && concrete.option == StyioDataTypeOption::Integer) {
         if (concrete.num_of_bit == 0) {
-          return;
+          return false;
         }
         if (it->second.num_of_bit == 0) {
           it->second = concrete;
-          return;
+          return true;
         }
       }
       if (it->second.option == StyioDataTypeOption::Bool
           && concrete.option == StyioDataTypeOption::Bool) {
-        return;
+        return false;
       }
       if (it->second.option == StyioDataTypeOption::String
           && concrete.option == StyioDataTypeOption::String) {
-        return;
+        return false;
       }
       if (it->second.option == StyioDataTypeOption::Char
           && concrete.option == StyioDataTypeOption::Char
           && it->second.num_of_bit == concrete.num_of_bit) {
-        return;
+        return false;
       }
       {
         throw StyioTypeError(
@@ -2974,15 +3391,22 @@ match_callable_term_to_concrete(
         );
       }
     }
-    case CallableTypeTerm::Kind::Concrete:
-      if (!pattern.concrete.equals(concrete)
-          && !func_param_accepts_arg(pattern.concrete, concrete)) {
+    case CallableTypeTerm::Kind::Concrete: {
+      StyioDataType expected =
+        normalize_callable_concrete_type(pattern.concrete);
+      const bool same_numeric_family =
+        (expected.option == StyioDataTypeOption::Integer
+         && concrete.option == StyioDataTypeOption::Integer)
+        || (expected.option == StyioDataTypeOption::Float
+            && concrete.option == StyioDataTypeOption::Float);
+      if (!expected.equals(concrete) && !same_numeric_family) {
         throw StyioTypeError(
           "generic instance conflict in " + context + ": expected `"
-          + pattern.concrete.name + "`, got `" + concrete.name + "`"
+          + expected.name + "`, got `" + concrete.name + "`"
         );
       }
-      return;
+      return false;
+    }
     case CallableTypeTerm::Kind::List:
       if (!styio_is_list_type(concrete)) {
         throw StyioTypeError(
@@ -2990,13 +3414,12 @@ match_callable_term_to_concrete(
           + ": expected list[T], got `" + concrete.name + "`"
         );
       }
-      match_callable_term_to_concrete(
+      return match_callable_term_to_concrete(
         pattern.arguments.at(0),
         styio_data_type_from_name(styio_list_elem_type_name(concrete)),
         bindings,
         context
       );
-      return;
     case CallableTypeTerm::Kind::Dict:
       if (!styio_is_dict_type(concrete)) {
         throw StyioTypeError(
@@ -3004,20 +3427,23 @@ match_callable_term_to_concrete(
           + ": expected dict[K,V], got `" + concrete.name + "`"
         );
       }
-      match_callable_term_to_concrete(
+      {
+      bool changed = match_callable_term_to_concrete(
         pattern.arguments.at(0),
         styio_data_type_from_name(styio_dict_key_type_name(concrete)),
         bindings,
         context
       );
-      match_callable_term_to_concrete(
+      changed = match_callable_term_to_concrete(
         pattern.arguments.at(1),
         styio_data_type_from_name(styio_dict_value_type_name(concrete)),
         bindings,
         context
-      );
-      return;
+      ) || changed;
+      return changed;
+      }
   }
+  return false;
 }
 
 std::optional<StyioDataType>
@@ -3026,7 +3452,7 @@ closed_callable_term_type(const CallableTypeTerm& term) {
     case CallableTypeTerm::Kind::Variable:
       return std::nullopt;
     case CallableTypeTerm::Kind::Concrete:
-      return term.concrete;
+      return normalize_callable_concrete_type(term.concrete);
     case CallableTypeTerm::Kind::List: {
       auto element = closed_callable_term_type(term.arguments.at(0));
       return element.has_value()
@@ -3061,10 +3487,10 @@ resolve_callable_term_to_concrete(
           + "` is underconstrained; add a concrete surrounding annotation"
         );
       }
-      return binding->second;
+      return normalize_callable_concrete_type(binding->second);
     }
     case CallableTypeTerm::Kind::Concrete:
-      return pattern.concrete;
+      return normalize_callable_concrete_type(pattern.concrete);
     case CallableTypeTerm::Kind::List:
       return styio_make_list_type(
         resolve_callable_term_to_concrete(
@@ -3090,6 +3516,166 @@ resolve_callable_term_to_concrete(
   return StyioDataType{
     StyioDataTypeOption::Undefined, "undefined", 0
   };
+}
+
+std::optional<StyioDataType>
+bound_callable_term_type(
+  const CallableTypeTerm& pattern,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  switch (pattern.kind) {
+    case CallableTypeTerm::Kind::Variable: {
+      auto binding = bindings.find(pattern.variable);
+      return binding == bindings.end()
+               ? std::nullopt
+               : std::optional<StyioDataType>(
+                   normalize_callable_concrete_type(binding->second));
+    }
+    case CallableTypeTerm::Kind::Concrete:
+      return normalize_callable_concrete_type(pattern.concrete);
+    case CallableTypeTerm::Kind::List: {
+      auto element = bound_callable_term_type(
+        pattern.arguments.at(0),
+        bindings);
+      return element.has_value()
+               ? std::optional<StyioDataType>(
+                   styio_make_list_type(element->name))
+               : std::nullopt;
+    }
+    case CallableTypeTerm::Kind::Dict: {
+      auto key = bound_callable_term_type(
+        pattern.arguments.at(0),
+        bindings);
+      auto value = bound_callable_term_type(
+        pattern.arguments.at(1),
+        bindings);
+      return key.has_value() && value.has_value()
+               ? std::optional<StyioDataType>(
+                   styio_make_dict_type(key->name, value->name))
+               : std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
+bool
+solve_callable_constraint_instance(
+  const CallableTypeConstraint& constraint,
+  std::unordered_map<std::uint32_t, StyioDataType>& bindings,
+  const std::string& callable_name
+) {
+  auto subject = bound_callable_term_type(constraint.subject, bindings);
+  if (!subject.has_value()) {
+    return false;
+  }
+  const std::string context =
+    "constraint `" + callable_constraint_text(constraint)
+    + "` of `" + callable_name + "`";
+  if (constraint.kind == CallableConstraintKind::Numeric
+      || constraint.kind == CallableConstraintKind::Comparable
+      || constraint.kind == CallableConstraintKind::Cloneable) {
+    validate_callable_unary_constraint(
+      constraint.kind,
+      *subject,
+      callable_constraint_text(constraint));
+    return false;
+  }
+
+  validate_callable_unary_constraint(
+    constraint.kind,
+    *subject,
+    callable_constraint_text(constraint));
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    StyioDataType key = styio_is_dict_type(*subject)
+                          ? styio_data_type_from_name(
+                              styio_dict_key_type_name(*subject))
+                          : kI64Type;
+    StyioDataType result = styio_data_type_from_name(
+      styio_type_item_type_name(*subject));
+    bool changed = match_callable_term_to_concrete(
+      constraint.argument,
+      key,
+      bindings,
+      context);
+    changed = match_callable_term_to_concrete(
+      constraint.result,
+      result,
+      bindings,
+      context) || changed;
+    return changed;
+  }
+
+  StyioDataType element = styio_data_type_from_name(
+    styio_type_item_type_name(*subject));
+  return match_callable_term_to_concrete(
+    constraint.result,
+    element,
+    bindings,
+    context);
+}
+
+void
+solve_callable_constraint_instance(
+  const CallableTypeScheme& scheme,
+  std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  auto saturate = [&]()
+  {
+    while (true) {
+      bool changed = false;
+      for (const auto& constraint : scheme.constraints) {
+        changed =
+          solve_callable_constraint_instance(
+            constraint,
+            bindings,
+            scheme.name) || changed;
+      }
+      if (!changed) {
+        break;
+      }
+    }
+  };
+
+  saturate();
+
+  for (std::uint32_t variable : scheme.quantified_variables) {
+    if (bindings.count(variable) != 0) {
+      continue;
+    }
+    bool has_constraint = false;
+    bool numeric_only = true;
+    for (const auto& constraint : scheme.constraints) {
+      if (!callable_constraint_contains_variable(constraint, variable)) {
+        continue;
+      }
+      has_constraint = true;
+      if (constraint.kind != CallableConstraintKind::Numeric
+          || !callable_term_contains_variable(
+               constraint.subject,
+               variable)) {
+        numeric_only = false;
+        break;
+      }
+    }
+    if (has_constraint && numeric_only) {
+      bindings.emplace(variable, kI64Type);
+    }
+  }
+
+  saturate();
+  for (const auto& constraint : scheme.constraints) {
+    if (!bound_callable_term_type(constraint.subject, bindings).has_value()) {
+      throw StyioTypeError(
+        "call to `" + scheme.name + "` is underconstrained at `"
+        + callable_constraint_text(constraint)
+        + "`; add a concrete surrounding annotation"
+      );
+    }
+    (void)solve_callable_constraint_instance(
+      constraint,
+      bindings,
+      scheme.name);
+  }
 }
 
 std::string
@@ -3123,15 +3709,29 @@ apply_callable_expected_type_to_tail(
     return;
   }
   if (auto* list = dynamic_cast<ListAST*>(ast)) {
-    if (list->getElements().empty() && styio_is_list_type(expected)) {
-      list->setDataType(expected);
+    if (styio_is_list_type(expected)) {
+      list->setDataType(normalize_callable_concrete_type(expected));
+      StyioDataType element = styio_data_type_from_name(
+        styio_list_elem_type_name(expected));
+      for (auto* value : list->getElements()) {
+        apply_callable_expected_type_to_tail(value, element);
+      }
     }
     return;
   }
   if (auto* dict = dynamic_cast<DictAST*>(ast)) {
-    if (dict->getEntries().empty() && styio_is_dict_type(expected)) {
-      dict->setDataType(expected);
+    if (styio_is_dict_type(expected)) {
+      dict->setDataType(normalize_callable_concrete_type(expected));
+      StyioDataType value_type = styio_data_type_from_name(
+        styio_dict_value_type_name(expected));
+      for (const auto& entry : dict->getEntries()) {
+        apply_callable_expected_type_to_tail(entry.value, value_type);
+      }
     }
+    return;
+  }
+  if (auto* binary = dynamic_cast<BinOpAST*>(ast)) {
+    binary->setDType(normalize_callable_concrete_type(expected));
     return;
   }
   if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
@@ -3378,6 +3978,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     }
 
     CallableTypeUnifier unifier;
+    std::vector<CallableTypeConstraint> component_constraints;
     std::unordered_map<std::string, CallableMonotype> provisional;
     for (const auto& name : components[component_index]) {
       StyioAST* def = definitions.at(name);
@@ -3402,7 +4003,8 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
         unifier,
         callable_type_schemes_,
         provisional,
-        definitions);
+        definitions,
+        component_constraints);
       auto params = params_of_func_def(def);
       for (std::size_t i = 0; i < params.size(); ++i) {
         symbolic.bind_local(
@@ -3426,6 +4028,8 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
       }
     }
 
+    reduce_callable_constraints(unifier, component_constraints);
+
     const bool recursive_group =
       components[component_index].size() > 1
       || graph[components[component_index].front()].count(
@@ -3440,12 +4044,100 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
       }
       scheme.result = unifier.apply(provisional.at(name).result);
 
+      std::vector<std::uint32_t> signature_variables;
+      std::unordered_set<std::uint32_t> signature_variable_set;
+      for (const auto& param : scheme.params) {
+        collect_callable_term_variables(
+          param,
+          signature_variables,
+          signature_variable_set);
+      }
+      collect_callable_term_variables(
+        scheme.result,
+        signature_variables,
+        signature_variable_set);
+
+      for (const auto& raw_constraint : component_constraints) {
+        CallableTypeConstraint constraint =
+          apply_callable_constraint(unifier, raw_constraint);
+        bool touches_signature = false;
+        std::vector<std::uint32_t> constraint_variables;
+        std::unordered_set<std::uint32_t> seen_constraint_variables;
+        collect_callable_term_variables(
+          constraint.subject,
+          constraint_variables,
+          seen_constraint_variables);
+        if (constraint.kind == CallableConstraintKind::Indexable) {
+          collect_callable_term_variables(
+            constraint.argument,
+            constraint_variables,
+            seen_constraint_variables);
+          collect_callable_term_variables(
+            constraint.result,
+            constraint_variables,
+            seen_constraint_variables);
+        }
+        else if (constraint.kind == CallableConstraintKind::Iterable) {
+          collect_callable_term_variables(
+            constraint.result,
+            constraint_variables,
+            seen_constraint_variables);
+        }
+        for (std::uint32_t variable : constraint_variables) {
+          if (signature_variable_set.count(variable) != 0) {
+            touches_signature = true;
+          }
+          else if (touches_signature) {
+            throw StyioTypeError(
+              "cannot infer principal relation for final callable `" + name
+              + "`: constraint `" + callable_constraint_text(constraint)
+              + "` contains a hidden underconstrained variable"
+            );
+          }
+        }
+        if (!touches_signature) {
+          continue;
+        }
+        for (std::uint32_t variable : constraint_variables) {
+          if (signature_variable_set.count(variable) == 0) {
+            throw StyioTypeError(
+              "cannot infer principal relation for final callable `" + name
+              + "`: constraint `" + callable_constraint_text(constraint)
+              + "` contains a hidden underconstrained variable"
+            );
+          }
+        }
+        scheme.constraints.push_back(std::move(constraint));
+      }
+
       std::unordered_map<std::uint32_t, std::uint32_t> normalization;
       for (auto& param : scheme.params) {
         param = normalize_callable_term_variables(param, normalization);
       }
       scheme.result =
         normalize_callable_term_variables(scheme.result, normalization);
+      for (auto& constraint : scheme.constraints) {
+        constraint =
+          normalize_callable_constraint_variables(
+            constraint,
+            normalization);
+      }
+      std::sort(
+        scheme.constraints.begin(),
+        scheme.constraints.end(),
+        [](const auto& lhs, const auto& rhs)
+        {
+          return lhs.canonical < rhs.canonical;
+        });
+      scheme.constraints.erase(
+        std::unique(
+          scheme.constraints.begin(),
+          scheme.constraints.end(),
+          [](const auto& lhs, const auto& rhs)
+          {
+            return lhs.canonical == rhs.canonical;
+          }),
+        scheme.constraints.end());
 
       std::unordered_set<std::uint32_t> seen_variables;
       for (const auto& param : scheme.params) {
@@ -3483,6 +4175,15 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
         relation << callable_term_text(scheme.params[i]);
       }
       relation << ")->" << callable_term_text(scheme.result);
+      if (!scheme.constraints.empty()) {
+        relation << " where ";
+        for (std::size_t i = 0; i < scheme.constraints.size(); ++i) {
+          if (i != 0) {
+            relation << ",";
+          }
+          relation << scheme.constraints[i].canonical;
+        }
+      }
       scheme.canonical_relation = relation.str();
       callable_type_schemes_[name] = std::move(scheme);
     }
@@ -3564,10 +4265,10 @@ StyioSemaContext::instantiate_callable_type_scheme(
   }
   const CallableTypeScheme* scheme =
     find_callable_type_scheme(call->getNameAsStr());
-  if (scheme == nullptr || scheme->quantified_variables.empty()) {
+  if (scheme == nullptr) {
     throw StyioTypeError(
       "callable `" + call->getNameAsStr()
-      + "` has no inferred generic relation"
+      + "` has no inferred relation"
     );
   }
   if (arg_types.size() != scheme->params.size()) {
@@ -3596,6 +4297,7 @@ StyioSemaContext::instantiate_callable_type_scheme(
       + " of `" + call->getNameAsStr() + "`"
     );
   }
+  solve_callable_constraint_instance(*scheme, bindings);
 
   CallableSpecialization specialization;
   specialization.source_name = scheme->name;
@@ -3656,7 +4358,7 @@ StyioSemaContext::callable_has_runtime_specializations(
   std::string_view name
 ) const {
   const CallableTypeScheme* scheme = find_callable_type_scheme(name);
-  return scheme != nullptr && !scheme->quantified_variables.empty();
+  return scheme != nullptr;
 }
 
 void
@@ -4058,11 +4760,11 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   if (var_type.option == StyioDataTypeOption::Undefined) {
     switch (ast->getValue()->getNodeType()) {
       case StyioNodeType::Integer: {
-        ast->getVar()->setDataType(static_cast<IntAST*>(ast->getValue())->getDataType());
+        ast->getVar()->setDataType(kI64Type);
       } break;
 
       case StyioNodeType::Float: {
-        ast->getVar()->setDataType(static_cast<FloatAST*>(ast->getValue())->getDataType());
+        ast->getVar()->setDataType(kF64Type);
       } break;
 
       case StyioNodeType::BinOp: {
@@ -4394,11 +5096,18 @@ StyioSemaContext::typeInfer(TupleAST* ast) {
     return;
   }
 
-  StyioDataType aggregated_type = elements[0]->getDataType();
+  for (auto* element : elements) {
+    element->typeInfer(this);
+  }
+
+  StyioDataType aggregated_type = infer_expr_type(this, elements[0]);
   bool is_consistent = !aggregated_type.isUndefined();
   if (is_consistent) {
     for (size_t i = 1; i < elements.size(); i += 1) {
-      if (!sema_types_equal(this, elements[i]->getDataType(), aggregated_type)) {
+      if (!sema_types_equal(
+            this,
+            infer_expr_type(this, elements[i]),
+            aggregated_type)) {
         is_consistent = false;
         break;
       }
@@ -4444,8 +5153,15 @@ StyioSemaContext::typeInfer(ListAST* ast) {
   for (auto* elem : ast->getElements()) {
     elem->typeInfer(this);
   }
+  StyioDataType inferred = infer_list_literal_type(this, ast);
+  if (ast->getElements().empty() && inferred.isUndefined()) {
+    throw StyioTypeError(
+      "empty list literal is underconstrained; add a concrete surrounding "
+      "list annotation"
+    );
+  }
   ast->setConsistency(true);
-  ast->setDataType(infer_list_literal_type(this, ast));
+  ast->setDataType(inferred);
   maybe_intern_type(ast->getDataType());
 }
 
@@ -4457,6 +5173,12 @@ StyioSemaContext::typeInfer(DictAST* ast) {
     entry.value->typeInfer(this);
   }
   StyioDataType dict_type = infer_dict_literal_type(this, ast);
+  if (entries.empty() && dict_type.isUndefined()) {
+    throw StyioTypeError(
+      "empty dict literal is underconstrained; add a concrete surrounding "
+      "dict annotation"
+    );
+  }
   ast->setConsistency(true);
   ast->setDataType(dict_type);
   maybe_intern_type(ast->getDataType());
@@ -5034,6 +5756,17 @@ StyioSemaContext::typeInfer(BinOpAST* ast) {
          || op == StyioOpType::Binary_Mod
          || op == StyioOpType::Binary_Pow)
         && infer_numeric_string_coercion(this, ast, lhs, rhs)) {
+      return;
+    }
+    if ((op == StyioOpType::Binary_Add
+         || op == StyioOpType::Binary_Sub
+         || op == StyioOpType::Binary_Mul
+         || op == StyioOpType::Binary_Div
+         || op == StyioOpType::Binary_Mod
+         || op == StyioOpType::Binary_Pow)
+        && type_is_numeric_family(lhs_type)
+        && type_is_numeric_family(rhs_type)) {
+      ast->setDType(getMaxType(lhs_type, rhs_type));
       return;
     }
     auto lhs_hint = lhs->getNodeType();
@@ -5720,8 +6453,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     enforce_effect_monomorphic_instance(
       ast->getNameAsStr(),
       arg_types);
-    if (callable_scheme != nullptr
-        && !callable_scheme->quantified_variables.empty()) {
+    if (callable_scheme != nullptr) {
       CallableSpecialization specialization =
         instantiate_callable_type_scheme(ast, arg_types);
       prepare_callable_specialization_body(

@@ -2176,7 +2176,12 @@ TEST(StyioTypeInferenceContract, MatrixIntrinsicCallsInferShapesAndRejectBadInpu
 TEST(StyioTypeInferenceContract, CollectionSizeListOpAndParallelAssignmentEdgesStayExplicit) {
   {
     AstToStyioIRLowerer analyzer;
-    EXPECT_EQ(infer_final_bound_type(analyzer, "empty_list", ListAST::Create()).name, "list[i64]");
+    EXPECT_THROW(
+      (void)infer_final_bound_type(
+        analyzer,
+        "empty_list",
+        ListAST::Create()),
+      StyioTypeError);
     EXPECT_EQ(
       infer_final_bound_type(
         analyzer,
@@ -2184,7 +2189,12 @@ TEST(StyioTypeInferenceContract, CollectionSizeListOpAndParallelAssignmentEdgesS
         ListAST::Create({IntAST::Create("1"), FloatAST::Create("2.5")})
       ).name,
       "list[i64]");
-    EXPECT_EQ(infer_final_bound_type(analyzer, "empty_dict", DictAST::Create()).name, "dict[string,i64]");
+    EXPECT_THROW(
+      (void)infer_final_bound_type(
+        analyzer,
+        "empty_dict",
+        DictAST::Create()),
+      StyioTypeError);
     EXPECT_EQ(
       infer_final_bound_type(
         analyzer,
@@ -2198,7 +2208,7 @@ TEST(StyioTypeInferenceContract, CollectionSizeListOpAndParallelAssignmentEdgesS
 
     std::unique_ptr<StyioAST> tuple(TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")}));
     tuple->typeInfer(&analyzer);
-    EXPECT_EQ(tuple->getDataType().name, "int");
+    EXPECT_EQ(tuple->getDataType().name, "i64");
 
     std::unique_ptr<StyioAST> range(new RangeAST(IntAST::Create("0"), IntAST::Create("4"), IntAST::Create("1")));
     EXPECT_NO_THROW(range->typeInfer(&analyzer));
@@ -2758,7 +2768,7 @@ TEST(StyioTypeInferenceContract, MatrixLiteralContextAndFlowMergesCoverEdgeBranc
         "wave_then",
         WaveMergeAST::Create(BoolAST::Create(true), IntAST::Create("1"), UndefinedLitAST::Create())
       ).name,
-      "int");
+      "i64");
   }
   {
     AstToStyioIRLowerer analyzer;
@@ -2834,7 +2844,7 @@ TEST(StyioTypeInferenceContract, ExplicitSimpleFunctionReturnAndResourceCopyEdge
         "literal_result",
         FuncCallAST::Create(NameAST::Create("literal_i64"), {})
       ).name,
-      "int");
+      "i64");
   }
 
   {

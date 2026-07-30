@@ -172,6 +172,8 @@ styio_feature_stdout_golden_test(scalar_expressions "t*.styio" scalar_expression
 styio_feature_stdout_golden_test(keyword_free "t*.styio" keyword_free)
 styio_feature_stdout_golden_test(inferred_generics "t*.styio" inferred_generics)
 styio_feature_stdout_golden_test(callable_effects "t*.styio" callable_effects)
+styio_feature_stdout_golden_test(callable_constraints "t*.styio" callable_constraints)
+styio_feature_stdout_golden_test(literal_defaulting "t*.styio" literal_defaulting)
 styio_feature_stdout_golden_test(functions "t*.styio" functions)
 styio_feature_stdout_golden_test(control_flow "t*.styio" control_flow)
 styio_feature_stdout_golden_test(wave_dispatch "t*.styio" wave_dispatch)
@@ -325,6 +327,8 @@ styio_feature_stderr_failure_golden_test(state_resources state_resources)
 styio_feature_stderr_failure_golden_test(final_bindings final_bindings)
 styio_feature_stderr_failure_golden_test(inferred_generics inferred_generics)
 styio_feature_stderr_failure_golden_test(callable_effects callable_effects)
+styio_feature_stderr_failure_golden_test(callable_constraints callable_constraints)
+styio_feature_stderr_failure_golden_test(literal_defaulting literal_defaulting)
 
 # --- file resource stdout goldens + special file / exit-code cases ---
 add_test(
