@@ -1,0 +1,1 @@
+generalized callable variables admit only immutable scalar values and pure materialized list/dict types

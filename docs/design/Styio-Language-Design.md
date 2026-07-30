@@ -423,6 +423,32 @@ This boundary is deliberately narrower than higher-rank polymorphism. Typed
 closure environments, monomorphic callable-value execution, rank-2 callbacks,
 polymorphic fields, and impredicative containers require separate features.
 
+#### 5.1.8 Capability Boundary for Generalized Variables
+
+An inferred relation variable ranges only over the closed plain-value domain:
+immutable scalar families and recursively plain materialized `list` and `dict`
+types. A concrete resource, stream, file, task, matrix, topology resource,
+range handle, or other ownership- or representation-sensitive type cannot bind
+that variable:
+
+```styio
+# identity := (value) => value
+plain := identity([1, 2])          // accepted materialized list
+m: matrix := [[1, 2], [3, 4]]
+shaped := identity(m)              // rejected capability-sensitive instance
+```
+
+Sema checks the original concrete type before normalizing its callable
+relation shape. Resource topology, protocol state, handle family, capabilities,
+and nested element types therefore remain visible to the decision. A topology
+sequence cannot be normalized into an ordinary list to bypass the boundary,
+and a `list[matrix[...]]` remains rejected recursively.
+
+A callable may still use a concretely annotated handle parameter as a
+monomorphic contract. Generalized handle variables wait for schemes that can
+carry capability, effect, send/sync, consumption, lifetime, and canonical
+matrix element/shape facts.
+
 ### 5.2 Pulse Closures
 
 Used within stream pipes:

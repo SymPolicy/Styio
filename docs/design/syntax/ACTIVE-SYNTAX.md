@@ -94,6 +94,13 @@ value position must first provide one concrete monomorphic callable type; the
 current grammar and StyioIR expose no typed callable-value boundary, so they do
 not silently lower a scheme to an untyped function pointer.
 
+Generalized relation variables use a closed plain-value domain: immutable
+scalars and recursively plain materialized `list`/`dict` types. Resource,
+stream, file, task, matrix, topology-resource, range-handle, user-defined, and
+other capability-sensitive types remain monomorphic. The check precedes
+relation normalization, so a resource-shaped sequence cannot masquerade as an
+ordinary list and nested handle elements remain visible.
+
 ## Types
 
 | Shape | Meaning |

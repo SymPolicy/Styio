@@ -81,6 +81,7 @@ Primary paths:
 55. Callable-constraint coverage must execute integer and floating numeric instances, scalar and lexical string comparisons, list and dictionary indexing, and at least one transitive scheme edge. Pair each currently emitted constraint family with an unsatisfied-instance golden whose oracle names the canonical constraint and concrete rejected type.
 56. Literal-defaulting coverage must pair canonical numeric execution with contextual empty list/dictionary acceptance and direct missing-context failures. Keep empty-collection tests non-defaulting, and prove that a relation fixed by an integer literal rejects a floating instance instead of widening silently.
 57. Callable-value boundary coverage must retain a successful direct named multi-instance call and separate failures for stored, passed, returned, and task-captured generalized scheme names. Anchor all failures to the same Sema diagnostic about the missing concrete monomorphic callable-value boundary; a backend failure is not acceptable evidence.
+58. Capability-boundary coverage for inferred callables must execute scalar/list/dict instances and reject matrix, task, stream, file, topology-resource, and nested sensitive-handle instances. Keep at least one topology resource case so a later normalization change cannot erase resource shape before the generalization-domain check.
 
 ## Change Classes
 

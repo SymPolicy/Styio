@@ -326,6 +326,11 @@ Notes:
     value position requires one concrete monomorphic callable-value boundary.
     The current grammar and StyioIR expose no such boundary, so these escapes
     are semantic errors rather than implicit generalized function values.
+15. The type variables in an inferred scheme range only over immutable scalar
+    values and recursively plain materialized `list`/`dict` types. Resource,
+    stream, file, task, matrix, topology-resource, and other
+    capability-sensitive handle types remain concrete monomorphic contracts;
+    no new source capability or lifetime binder is introduced.
 
 ### 4.3 Type Rewrite Declaration
 

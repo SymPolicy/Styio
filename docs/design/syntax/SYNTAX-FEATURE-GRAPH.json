@@ -447,28 +447,12 @@
       "kind": "capability-type-semantics",
       "syntax": "No new source form proposed; this decision governs the universe of inferred relation variables.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-capability-polymorphic-handles.md",
@@ -484,12 +468,12 @@
           {
             "id": "core.effect-aware-callable-generalization",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           },
           {
             "id": "core.constrained-callable-relations",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           },
           {
             "id": "resource.slot-declaration",
@@ -522,13 +506,21 @@
         "after": []
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "capability-contract": "docs/design/Styio-Handle-Capability-Type-System.md",
         "topology-contract": "docs/design/Styio-Resource-Topology.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "callable_generalization_domain_accepts",
         "owner": "Sema / Resource Topology"
       },
       "documents": {
@@ -551,9 +543,24 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
+          "tests/features/callable_capabilities/e01_matrix_instance.styio",
+          "tests/features/callable_capabilities/e02_task_instance.styio",
+          "tests/features/callable_capabilities/e03_stream_instance.styio",
+          "tests/features/callable_capabilities/e04_file_instance.styio",
+          "tests/features/callable_capabilities/e05_nested_matrix_collection.styio",
+          "tests/features/callable_capabilities/e06_topology_resource_instance.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
+        "tests/features/callable_capabilities/e06_topology_resource_instance.styio"
+      ]
     },
     {
       "id": "core.conditional-expression",
