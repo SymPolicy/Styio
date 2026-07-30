@@ -3642,31 +3642,20 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #else
     "compile-plan-live";
 #endif
+  const char* supported_contract_versions =
+#if STYIO_NANO_BUILD
+    "{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[],\"compile_plan\":[],\"receipt\":[],\"runtime_events\":[]}";
+#else
+    "{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}";
+#endif
   std::cout
     << "{\"tool\":\"styio\""
     << ",\"compiler_version\":\"" << styio_json_escape(STYIO_PROJECT_VERSION) << "\""
     << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
     << ",\"variant\":\"" << (STYIO_NANO_BUILD ? "nano" : "full") << "\""
     << ",\"active_integration_phase\":\"" << active_integration_phase << "\""
-    << ",\"supported_contracts\":{\"machine_info\":[\"json\"],\"jsonl_diagnostics\":[\"jsonl\"],\"syntax_check\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[\"syntax-json\"]"
-#endif
-    << ",\"compile_plan\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[\"resolved-request\"]"
-#endif
-    << ",\"runtime_events\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[\"jsonl\"]"
-#endif
-    << "}"
+    << ",\"supported_contracts\":" << supported_contract_versions
+    << ",\"supported_contract_versions\":" << supported_contract_versions
     << ",\"supported_adapter_modes\":[\"cli\"]"
     << ",\"feature_flags\":{\"single_file_entry\":true"
     << ",\"jsonl_diagnostics\":true"
