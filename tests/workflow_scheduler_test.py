@@ -78,6 +78,7 @@ class WorkflowSchedulerTest(unittest.TestCase):
         self.assertIn("LOCAL-INFO-LEAK-GATE.md", table)
         self.assertIn("ADD-SYNTAX-WITH-SKILLS.md", table)
         self.assertIn("local-info-leak-worktree", table)
+        self.assertIn("syntax-feature-state", table)
         self.assertIn("runtime-surface", table)
 
 

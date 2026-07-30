@@ -2,7 +2,7 @@
 
 **Purpose:** Correct a Styio syntax contract when the compiler, tests, and language specification disagree about which form should be accepted or rejected.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-07-30
 
 **TOML:** [CORRECT-SYNTAX-CONTRACT.toml](./CORRECT-SYNTAX-CONTRACT.toml) is the machine-readable workflow definition.
 
@@ -21,6 +21,8 @@ Use this workflow when a maintainer or user reports that a Styio spelling is acc
 2. Capture the exact compiler stage and diagnostic: lexer, parser, Sema/type inference, lowering, runtime, or docs-only mismatch.
 3. Freeze the accepted spelling and rejected spelling in plain examples before editing implementation.
 4. Inspect all syntax contract surfaces:
+   - the owning `docs/design/syntax/features/<feature-id>.md`
+   - feature dependencies, prerequisites, and downstream reverse dependencies
    - lexer/token names when tokens are involved
    - authoritative nightly parser
    - retired parser route only as audit or negative evidence, not as an accepted-grammar fallback
@@ -32,9 +34,11 @@ Use this workflow when a maintainer or user reports that a Styio spelling is acc
 5. Decide the rejection boundary. Prefer parser errors for grammar-impossible forms and type errors for syntactically valid but semantically invalid forms.
 6. Implement the narrowest parser/Sema/lowering change that preserves the existing AST and visitor architecture unless the syntax contract requires a new node.
 7. Add or update positive tests for every accepted spelling and negative tests for every rejected spelling.
-8. Update the language source of truth: compact examples, EBNF, symbol reference, team runbooks, test catalog, and generated indexes as relevant.
-9. Re-run the disputed sample and record the exact diagnostic that users will see.
-10. Run focused tests first, then docs gates and whitespace checks before reporting closure.
+8. Update the owning feature SSOT first. If the correction changes a converged decision, create the appropriate `extends`, `supersedes`, or reciprocal `conflicts` branch instead of silently rewriting the old resolution.
+9. Update affected shared contracts: compact examples, EBNF, language design, symbol reference, team runbooks, test catalog, and generated indexes as relevant.
+10. Regenerate the syntax feature graph and revalidate every downstream feature whose readiness changed.
+11. Re-run the disputed sample and record the exact diagnostic that users will see.
+12. Run focused tests first, then docs gates and whitespace checks before reporting closure.
 
 ## Example Pattern
 
@@ -64,8 +68,10 @@ The old spelling is rejected by the parser because `stream_source guard '>>' con
 4. Negative parser coverage for grammar-impossible syntax.
 5. Negative Sema coverage for syntactically valid but semantically invalid forms.
 6. Runtime or reference-equivalence coverage when behavior changes execution output.
-7. EBNF and syntax docs updated in the same delivery.
-8. Owning team runbooks and `DOC-STATS.md` refreshed when docs gates require them.
+7. Owning feature SSOT updated with the decision, dependency, prerequisite, and evidence impact.
+8. EBNF and other affected shared contracts updated in the same delivery.
+9. Generated feature graph is fresh and all downstream readiness changes are resolved.
+10. Owning team runbooks and `DOC-STATS.md` refreshed when docs gates require them.
 
 ## Gates
 
@@ -74,6 +80,8 @@ Use the build directory that exists for the current checkout. Replace `build/def
 ```bash
 cmake --build build/default --target styio styio_test styio_security_test -j2
 ctest --test-dir build/default -R '<focused syntax/security/runtime regex>' --output-on-failure
+python3 tests/syntax_feature_state_gate_test.py
+python3 scripts/syntax-feature-state-gate.py
 python3 scripts/docs-index.py --check
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-audit.py
@@ -89,6 +97,6 @@ Report:
 1. Rejected spelling and why it is rejected.
 2. Accepted spelling and the owning grammar rule.
 3. Exact compiler diagnostic for the rejected form.
-4. Whether the language standard changed and which SSOT files changed.
+4. Whether the language standard changed, which feature SSOT branch owns the decision, and whether any downstream readiness changed.
 5. Focused tests and docs gates that passed.
 6. Any remaining parser-route, IDE snapshot, or lowering work that was intentionally left out.

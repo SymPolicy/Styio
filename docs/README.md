@@ -2,11 +2,11 @@
 
 **Purpose:** Define the boundary of the `docs/` tree and point readers to the generated inventory in [INDEX.md](./INDEX.md); detailed file listings live in directory-level `INDEX.md` files, not here.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-07-30
 
 ## Tree Contract
 
-1. Design-level SSOT lives in `docs/design/`.
+1. Cross-feature design SSOT lives in `docs/design/`; long-lived feature-specific syntax SSOT lives under `docs/design/syntax/features/`.
 2. Contributor, agent, repository-boundary, dependency, and documentation rules live in `docs/specs/`.
 3. Team daily-work runbooks live in `docs/teams/`.
 4. Still-active review findings live in `docs/review/`; absorbed findings use Git history.
@@ -29,7 +29,7 @@
 7. Team daily runbooks: [teams/INDEX.md](./teams/INDEX.md)
 8. Current-state rollups: [rollups/INDEX.md](./rollups/INDEX.md)
 9. Workflow assets: [assets/INDEX.md](./assets/INDEX.md)
-10. Design SSOT: [design/INDEX.md](./design/INDEX.md)
+10. Design SSOT: [design/INDEX.md](./design/INDEX.md), including the distributed [syntax feature index](./design/syntax/features/INDEX.md)
 11. IDE integration docs: [external/for-ide/INDEX.md](./external/for-ide/INDEX.md)
 12. Archive lifecycle metadata: [archive/INDEX.md](./archive/INDEX.md)
 13. Plans scope and status rules: [plan/INDEX.md](./plan/INDEX.md)

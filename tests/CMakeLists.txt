@@ -471,12 +471,21 @@ set_tests_properties(parser_legacy_entry_audit PROPERTIES
 )
 
 add_test(
-  NAME syntax_convergence_gate
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/syntax-convergence-gate.py"
+  NAME syntax_feature_state_gate
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/syntax-feature-state-gate.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
-set_tests_properties(syntax_convergence_gate PROPERTIES
-  LABELS "styio_pipeline;syntax_convergence;golden_standard"
+set_tests_properties(syntax_feature_state_gate PROPERTIES
+  LABELS "styio_pipeline;syntax_feature_state;golden_standard"
+)
+
+add_test(
+  NAME syntax_feature_state_gate_unit
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/syntax_feature_state_gate_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(syntax_feature_state_gate_unit PROPERTIES
+  LABELS "styio_pipeline;syntax_feature_state;unit"
 )
 
 function(styio_configure_windows_gtest_target target_name)
@@ -487,6 +496,45 @@ function(styio_configure_windows_gtest_target target_name)
     )
   endif()
 endfunction()
+
+add_executable(styio_platform_internal_test
+  platform_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
+)
+target_include_directories(styio_platform_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+)
+target_link_libraries(styio_platform_internal_test PRIVATE
+  GTest::gtest_main
+  ${CMAKE_DL_LIBS}
+)
+styio_configure_windows_gtest_target(styio_platform_internal_test)
+add_test(
+  NAME styio_platform_internal_test
+  COMMAND "$<TARGET_FILE:styio_platform_internal_test>"
+)
+set_tests_properties(styio_platform_internal_test PROPERTIES
+  LABELS "styio_pipeline;platform_internal;unit"
+)
+
+add_executable(styio_native_interop_internal_test
+  native_interop_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
+)
+target_include_directories(styio_native_interop_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_compile_definitions(styio_native_interop_internal_test PRIVATE
+  "STYIO_TEST_C_COMPILER=\"${STYIO_DEFINE_CMAKE_C_COMPILER}\""
+  "STYIO_TEST_CXX_COMPILER=\"${STYIO_DEFINE_CMAKE_CXX_COMPILER}\""
+)
+target_link_libraries(styio_native_interop_internal_test PRIVATE
+  GTest::gtest_main
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_native_interop_internal_test)
+styio_configure_windows_gtest_target(styio_native_interop_internal_test)
 
 add_executable(styio_test
   styio_test.cpp
@@ -634,6 +682,10 @@ add_executable(styio_security_test
   security/styio_security_test.cpp
 )
 target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
+target_compile_definitions(
+  styio_security_test
+  PRIVATE STYIO_TEST_EXPECT_ICU=$<BOOL:${STYIO_USE_ICU}>
+)
 # Security tests transitively include codegen/session headers that reference
 # LLVM types. Use the shared helper so LLVM headers stay behind the standard
 # library on Debian/libstdc++.
@@ -695,6 +747,13 @@ gtest_discover_tests(styio_parser_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
     LABELS "styio_pipeline\\;parser_internal\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+gtest_discover_tests(styio_native_interop_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "security\\;safety\\;native_interop\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 

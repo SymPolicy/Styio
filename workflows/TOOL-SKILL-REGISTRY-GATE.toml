@@ -260,6 +260,14 @@ purpose = "Configure and build the official source-build minimal compiler profil
 last_reviewed = "2026-06-28"
 
 [[tool]]
+id = "syntax-feature-state-gate"
+path = "scripts/syntax-feature-state-gate.py"
+owner = "Language / Docs"
+kind = "gate"
+purpose = "Validate distributed syntax-feature SSOT documents, lifecycle guards, dependencies, prerequisites, and the generated graph projection."
+last_reviewed = "2026-07-30"
+
+[[tool]]
 id = "team-docs-gate"
 path = "scripts/team-docs-gate.py"
 owner = "Docs / Ecosystem"
@@ -364,8 +372,8 @@ maintenance_command = "bash scripts/ide-quality-gate.sh --skip-perf --skip-fuzz 
 [[module_coverage]]
 module = "Grammar"
 runbook = "docs/teams/GRAMMAR-RUNBOOK.md"
-tool_ids = ["ide-quality-gate"]
-maintenance_command = "cd grammar/tree-sitter-styio && npx --yes tree-sitter-cli@0.26.8 generate"
+tool_ids = ["ide-quality-gate", "syntax-feature-state-gate"]
+maintenance_command = "python3 scripts/syntax-feature-state-gate.py && cd grammar/tree-sitter-styio && npx --yes tree-sitter-cli@0.26.8 generate"
 
 [[module_coverage]]
 module = "Test Quality"

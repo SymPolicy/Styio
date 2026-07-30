@@ -243,6 +243,24 @@ def command_bootstrap_scope(args: argparse.Namespace) -> int:
         for needle in required:
             if needle not in help_text:
                 return _fail(f"bootstrap --help missing {needle!r}")
+        plan_result = subprocess.run(
+            [bash, str(script), "--print-plan"],
+            cwd=str(args.repo_root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if plan_result.returncode != 0:
+            sys.stderr.buffer.write(plan_result.stderr)
+            return _fail("bootstrap-dev-env.sh --print-plan failed")
+        plan_text = plan_result.stdout.decode("utf-8", errors="replace")
+        if sys.platform == "darwin":
+            plan_needles = ["Host: macOS", "Homebrew", "llvm@18", "node@24"]
+        else:
+            plan_needles = ["Host: Debian/Ubuntu", "apt", "clang-18", "llvm-18-dev"]
+        for needle in plan_needles:
+            if needle not in plan_text:
+                return _fail(f"bootstrap --print-plan missing {needle!r}")
     return 0
 
 

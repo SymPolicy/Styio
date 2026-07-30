@@ -14587,24 +14587,37 @@ TEST(StyioSecurityNightlyParserShadow, FallsBackOnDotChainSequence) {
 }
 
 TEST(StyioSecurityUnicode, ByteClassificationIsStable) {
-  EXPECT_EQ(StyioUnicode::backend(), StyioUnicode::Backend::ASCII);
+  const auto unicode_backend = StyioUnicode::backend();
+  constexpr bool has_unicode_properties = STYIO_TEST_EXPECT_ICU != 0;
+  EXPECT_EQ(
+    unicode_backend,
+    has_unicode_properties ? StyioUnicode::Backend::ICU : StyioUnicode::Backend::ASCII);
+
   EXPECT_TRUE(StyioUnicode::is_identifier_start('a'));
   EXPECT_TRUE(StyioUnicode::is_identifier_start('Z'));
   EXPECT_TRUE(StyioUnicode::is_identifier_start('_'));
   EXPECT_FALSE(StyioUnicode::is_identifier_start('9'));
   EXPECT_FALSE(StyioUnicode::is_identifier_start(static_cast<std::uint32_t>(0x80)));
   EXPECT_TRUE(StyioUnicode::is_identifier_start(static_cast<std::uint32_t>('A')));
+  EXPECT_EQ(
+    StyioUnicode::is_identifier_start(static_cast<std::uint32_t>(0x4E2D)),
+    has_unicode_properties);
 
   EXPECT_TRUE(StyioUnicode::is_identifier_continue('9'));
   EXPECT_TRUE(StyioUnicode::is_identifier_continue('_'));
   EXPECT_FALSE(StyioUnicode::is_identifier_continue('-'));
   EXPECT_FALSE(StyioUnicode::is_identifier_continue(static_cast<std::uint32_t>(0x80)));
   EXPECT_TRUE(StyioUnicode::is_identifier_continue(static_cast<std::uint32_t>('9')));
+  EXPECT_EQ(
+    StyioUnicode::is_identifier_continue(static_cast<std::uint32_t>(0x4E2D)),
+    has_unicode_properties);
 
   EXPECT_TRUE(StyioUnicode::is_digit('7'));
   EXPECT_TRUE(StyioUnicode::is_decimal_digit(static_cast<std::uint32_t>('5')));
   EXPECT_FALSE(StyioUnicode::is_decimal_digit(static_cast<std::uint32_t>('x')));
-  EXPECT_FALSE(StyioUnicode::is_decimal_digit(static_cast<std::uint32_t>(0x660)));
+  EXPECT_EQ(
+    StyioUnicode::is_decimal_digit(static_cast<std::uint32_t>(0x660)),
+    has_unicode_properties);
   EXPECT_TRUE(StyioUnicode::is_space(' '));
   EXPECT_TRUE(StyioUnicode::is_ascii_alpha('Q'));
   EXPECT_TRUE(StyioUnicode::is_ascii_alnum('8'));

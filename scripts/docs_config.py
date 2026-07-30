@@ -20,6 +20,7 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/archive/review", "Archive Review Index", "Provide the generated inventory for `docs/archive/review/`; this is a generated entrypoint, not a retained dated-review store."),
     CollectionSpec("docs/design", "Design Index", "Provide the generated inventory for `docs/design/`; document boundaries and naming rules live in [README.md](./README.md)."),
     CollectionSpec("docs/design/syntax", "Syntax Design Index", "Provide the generated inventory for `docs/design/syntax/`; compact syntax-reference boundaries live in [README.md](./README.md)."),
+    CollectionSpec("docs/design/syntax/features", "Syntax Feature Index", "Provide the generated inventory for distributed syntax-feature SSOT documents; lifecycle, dependency, and composition rules live in [README.md](./README.md)."),
     CollectionSpec("docs/specs", "Specs Index", "Provide the generated inventory for `docs/specs/`; document boundaries and naming rules live in [README.md](./README.md)."),
     CollectionSpec("docs/specs/audit", "Audit Specs Index", "Provide the generated inventory for `docs/specs/audit/`; audit checklist ownership lives in [README.md](./README.md)."),
     CollectionSpec("docs/teams", "Teams Index", "Provide the generated inventory for `docs/teams/`; team daily-work boundaries and runbook rules live in [README.md](./README.md)."),

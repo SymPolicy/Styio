@@ -2889,14 +2889,14 @@ TEST(StyioDiagnostics, CompilePlanMalformedEntryFileWritesCliDiagnosticToDiagDir
   const CommandResult result =
     run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("compile-plan field must be a non-empty string: entry.file"), std::string::npos)
+  EXPECT_NE(result.stdout_text.find("compile-plan field must be a non-empty string: file"), std::string::npos)
     << result.stdout_text;
 
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
   const std::string diagnostics = read_text_file_latest(diag_dir / "diagnostics.jsonl");
   EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(
-    diagnostics.find("compile-plan field must be a non-empty string: entry.file"),
+    diagnostics.find("compile-plan field must be a non-empty string: file"),
     std::string::npos);
 
   fs::remove_all(root);
@@ -3029,11 +3029,11 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
   const CommandResult result =
     run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: entry.file"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: file"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
   const std::string diagnostics = read_text_file_latest(diag_dir / "diagnostics.jsonl");
   EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("compile-plan path must be absolute: entry.file"), std::string::npos);
+  EXPECT_NE(diagnostics.find("compile-plan path must be absolute: file"), std::string::npos);
 
   fs::remove_all(root);
 }

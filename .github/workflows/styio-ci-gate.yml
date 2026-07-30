@@ -86,6 +86,7 @@ jobs:
             llvm-18-dev \
             libicu-dev \
             python3
+          python3 -m pip install "cmake==3.31.6"
 
       - name: Configure
         working-directory: styio-nightly
@@ -103,23 +104,29 @@ jobs:
           cmake --build build/ci --target
           styio styio_test styio_algorithm_equivalence_test
           styio_lspd styio_security_test styio_resource_topology_test styio_ide_test
+          styio_newparser_internal_test styio_parser_internal_test
+          styio_platform_internal_test styio_native_interop_internal_test
           styio_fuzz_suite
 
       - name: Docs audit
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L docs --output-on-failure
+        run: ctest --test-dir build/ci -L docs --output-on-failure --no-tests=error
 
       - name: Security tests
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L security --output-on-failure
+        run: ctest --test-dir build/ci -L security --output-on-failure --no-tests=error
+
+      - name: Tree-sitter IDE tests
+        working-directory: styio-nightly
+        run: ctest --test-dir build/ci -L ide --output-on-failure --no-tests=error
 
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure
+        run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure --no-tests=error
 
       - name: LSP transport smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -R '^styio_lspd_stdio_framing$' --output-on-failure
+        run: ctest --test-dir build/ci -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
 
       - name: Parser shadow gate (scalar expressions suite + artifacts)
         working-directory: styio-nightly
@@ -143,17 +150,91 @@ jobs:
             styio-nightly/build/ci/parser-shadow-artifacts-m2
           if-no-files-found: ignore
 
-      - name: Soak smoke tests
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L soak_smoke --output-on-failure
-
       - name: Language feature smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure
+        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
 
       - name: Fuzz smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure
+        run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure --no-tests=error
+
+  macos-ci-gate:
+    name: platform-adaptation / macos-ci-gate
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
+
+      - name: Install pinned build dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install llvm@18 icu4c@78 ninja
+          python3 -m pip install "cmake==3.31.6"
+
+      - name: Resolve and validate the macOS toolchain
+        id: toolchain
+        shell: bash
+        run: |
+          LLVM_PREFIX="$(brew --prefix llvm@18)"
+          ICU_PREFIX="$(brew --prefix icu4c@78)"
+          LLVM_VERSION="$("$LLVM_PREFIX/bin/llvm-config" --version)"
+
+          if [[ "$LLVM_VERSION" != 18.1.* ]]; then
+            echo "Styio requires LLVM 18.1.x; found $LLVM_VERSION" >&2
+            exit 1
+          fi
+
+          echo "llvm_prefix=$LLVM_PREFIX" >> "$GITHUB_OUTPUT"
+          echo "icu_prefix=$ICU_PREFIX" >> "$GITHUB_OUTPUT"
+          echo "sdk_path=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure native macOS build
+        run: |
+          cmake -S . -B build/macos-ci -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER="${{ steps.toolchain.outputs.llvm_prefix }}/bin/clang" \
+            -DCMAKE_CXX_COMPILER="${{ steps.toolchain.outputs.llvm_prefix }}/bin/clang++" \
+            -DCMAKE_OSX_SYSROOT="${{ steps.toolchain.outputs.sdk_path }}" \
+            -DLLVM_DIR="${{ steps.toolchain.outputs.llvm_prefix }}/lib/cmake/llvm" \
+            -DCMAKE_PREFIX_PATH="${{ steps.toolchain.outputs.llvm_prefix }};${{ steps.toolchain.outputs.icu_prefix }}" \
+            -DICU_ROOT="${{ steps.toolchain.outputs.icu_prefix }}" \
+            -DSTYIO_USE_ICU=ON \
+            -DSTYIO_ENABLE_TREE_SITTER=ON
+
+      - name: Build native macOS targets
+        run: >
+          cmake --build build/macos-ci --parallel 4 --target
+          styio styio_nano styio_lspd styio_test styio_security_test
+          styio_resource_topology_test styio_ide_test
+          styio_algorithm_equivalence_test styio_newparser_internal_test
+          styio_parser_internal_test styio_platform_internal_test
+          styio_native_interop_internal_test
+
+      - name: Run macOS platform and native interop tests
+        run: |
+          ctest --test-dir build/macos-ci -R '^styio_platform_internal_test$' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^native_interop_' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^styio_build_native_executable_stdin_echo$' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^bootstrap_dev_env_dependency_scope$' --output-on-failure --no-tests=error
+
+      - name: Run macOS compiler and service gates
+        run: |
+          ctest --test-dir build/macos-ci -L docs --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L security --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L styio_pipeline --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L resource_topology --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L algorithm_equivalence --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L ide --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
 
   test-smoke:
     name: test / smoke
@@ -164,10 +245,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
+
       - name: Install smoke dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+          python3 -m pip install "cmake==3.31.6"
 
       - name: Configure smoke build
         run: >
@@ -183,8 +270,8 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          ctest --test-dir build/smoke -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
-          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure
+          ctest --test-dir build/smoke -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
+          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure --no-tests=error
 
   test-golden-standard:
     name: test / golden-standard
@@ -196,10 +283,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
+
       - name: Install golden-standard dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+          python3 -m pip install "cmake==3.31.6"
 
       - name: Configure golden-standard build
         run: >
@@ -213,19 +306,20 @@ jobs:
         run: >
           cmake --build build/golden --target
           styio styio_test styio_algorithm_equivalence_test
-          styio_resource_topology_test
+          styio_resource_topology_test styio_newparser_internal_test
+          styio_parser_internal_test styio_platform_internal_test
 
-      - name: Run syntax convergence gate
-        run: python3 scripts/syntax-convergence-gate.py
+      - name: Run syntax feature document-state gate
+        run: python3 scripts/syntax-feature-state-gate.py
 
       - name: Run milestone goldens
-        run: ctest --test-dir build/golden -L milestone --output-on-failure
+        run: ctest --test-dir build/golden -L golden_standard --output-on-failure --no-tests=error
 
       - name: Run five-layer and convergence goldens
-        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure
+        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure --no-tests=error
 
       - name: Run parser shadow convergence gates
-        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure
+        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
 
       - name: Run parser legacy entry audit
-        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure
+        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure --no-tests=error

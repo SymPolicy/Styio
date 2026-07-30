@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-30
 
 ## Default Read Order
 
@@ -10,7 +10,8 @@
 2. Current state: this file
 3. Active next-stage gap ledger: [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md)
 4. Active SSOT by topic:
-   - language/runtime semantics: [`../design/INDEX.md`](../design/INDEX.md)
+   - feature-specific language authority: [`../design/syntax/features/INDEX.md`](../design/syntax/features/INDEX.md)
+   - cross-feature language/runtime invariants: [`../design/INDEX.md`](../design/INDEX.md)
    - project/doc rules: [`../specs/INDEX.md`](../specs/INDEX.md)
    - workflow and gates: [`../../workflows/INDEX.md`](../../workflows/INDEX.md)
    - team execution: [`../teams/INDEX.md`](../teams/INDEX.md)
@@ -25,6 +26,7 @@
 4. Repository docs now distinguish active maintenance docs (`docs/design`, `docs/specs`, `docs/teams`, root `workflows/`, current `docs/rollups/`) from Git-history provenance and the minimal `docs/archive/` lifecycle shell.
 5. File governance is now on the shared three-repo baseline: root `.gitignore` freezes the common ignore floor, `docs/**` and `tests/**` temp/build-style tracked fixtures use explicit negate rules, and `scripts/repo-hygiene-gate.py` checks both the patterns and the key governance doc links.
 6. Standard-library governance is manifest-first: `library/manifest.json` currently has only `std.resource` active, backed by `share/styio/prelude/resources.styio` and resource/stdin/stdout evidence. Matrix helper calls and series `avg/max` selectors are compiler intrinsics, not active `std.*` modules.
+7. Syntax authority is document-first and distributed by feature under [`../design/syntax/features/`](../design/syntax/features/README.md). The active syntax map, generated indexes, and `SYNTAX-FEATURE-GRAPH.json` are composed views; implementation may advance only for an accepted feature whose derived readiness is ready.
 
 ## Current Development Front
 
@@ -46,6 +48,7 @@
 4. Parser authority health: syntax-check authority tests plus shadow gate / zero-fallback / zero-internal-bridges flows described in [`../../workflows/TEST-CATALOG.md`](../../workflows/TEST-CATALOG.md)
 5. Source coverage: `scripts/coverage-gate.sh --build-dir build/coverage --threshold 95`; coverage below 95% fails checkpoint health and delivery.
 6. Benchmark/perf workflow: `styio-benchmark/tools/perf-route.sh --styio-root <styio-checkout>` plus structured reports in `styio-benchmark`; Styio keeps only probe build adapters and compatibility wrappers, while migrated probe sources live in `styio-benchmark/styio-probes/`
+7. Syntax feature graph: `python3 scripts/syntax-feature-state-gate.py`; regenerate intentionally with `python3 scripts/syntax-feature-state-gate.py --write`
 
 ## Optional Provenance
 

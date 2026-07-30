@@ -1,8 +1,8 @@
 # Styio Language Design Specification
 
-**Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
+**Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), and `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-30
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -23,10 +23,38 @@ The name encodes the language's identity:
 
 | Pillar | Description |
 |--------|-------------|
-| **Pure Symbolism** | Replace natural-language keywords (`if`, `while`, `for`, `def`) with unambiguous symbolic operators (`?=`, `>>`, `#`, `@`). |
+| **Keyword-Free Pure Symbolism** | Styio reserves no word as a keyword. Symbols and structural position open grammar roles; word-shaped source text remains an identifier, a literal spelling, or a name resolved in a namespace. |
 | **Intent Awareness** | The compiler statically analyzes field access patterns and pushes intent down to resource drivers (e.g., only fetch needed database columns). |
 | **Honest Missing** | Runtime absence is represented as `@` in diagnostics and stream algebra. Source-level bare `@` is retired from active syntax; current code should obtain absence from resources or intrinsics instead of authoring it directly. |
 | **Thick Library, Thin Artifact** | Development uses a rich standard library with protocol detection and AI-assisted probing. Production builds perform dead-code elimination to produce minimal binaries. |
+
+#### 1.1.1 Keyword-Free Lexical Contract
+
+Styio has no reserved or contextual keyword token class. Every word-shaped
+source token is emitted as `NAME`. Its meaning is selected only by one of these
+already-open contexts:
+
+1. a symbol-anchored grammar family may inspect an exact `NAME` spelling after
+   the leading symbol has selected that family; for example, top-level
+   `@` + `NAME("import")` opens the import form, while `import` remains an
+   ordinary identifier everywhere that form is not open;
+2. expression context may recognize a literal spelling such as `true` or
+   `false` from `NAME`, without creating a keyword token; or
+3. a namespace-specific position may resolve an identifier as a type, value,
+   module member, completion family, resource family, or another declared name.
+
+A fixed word must never be the unanchored head of a declaration, control form,
+or operator. In particular, proposals headed by words such as `type`, `record`,
+`variant`, `protocol`, `impl`, `if`, `while`, `fn`, or `let` are outside the
+language. Quoted alphabetic spellings in the EBNF are spelling predicates over
+`NAME` inside an already symbol-anchored production; they do not reserve those
+spellings globally.
+
+Every syntax proposal must identify its symbolic opener or existing structural
+context and must include a negative example proving that any inspected word
+spelling remains an ordinary identifier outside that context. The historical
+word-based `schema` declaration is not active syntax and must not be used as
+precedent for a new declaration family.
 
 ### 1.2 Compiler Toolchain
 
@@ -202,6 +230,103 @@ and `# f := ...` is final because `:=` is final.
 does make that promise, enters the callable/operation-channel binding path, and
 allows later `# f = ...` replacement until a final `# f := ...` definition is
 used. A final callable binding cannot be redefined by `=` or `:=`.
+
+#### 5.1.1 Inferred Generic Relations for Non-Recursive Callables
+
+A non-recursive callable has one type authority: its definition, including any
+concrete parameter or result annotations. Authors never declare a generic
+parameter list after the callable name:
+
+```styio
+# identity := (value) => value       // generic relation is inferred
+# identity[T] := (value: T) => value // invalid: callable generic binders are not source syntax
+```
+
+For this rule, a callable is non-recursive when it is not part of a recursive
+strongly connected component in the call graph. An eligible final,
+non-recursive callable is inferred at its definition site to one stable
+principal rank-1 type relation. The compiler may serialize that relation in
+canonical module-interface metadata and freshly instantiate it at each use.
+Names used for inferred type variables in metadata, diagnostics, or IDE views
+are compiler-owned explanations; they are not declarations copied from source.
+
+Concrete annotations remain valid when the author wants a monomorphic
+contract:
+
+```styio
+# increment : i64 := (value: i64) => value + 1
+```
+
+An annotation name such as `T` must resolve to an existing type in the type
+namespace. It does not introduce a generic variable. If the compiler cannot
+derive one unique, stable principal relation, the definition is rejected; the
+author is not asked to repair it by adding `[T]`.
+
+#### 5.1.2 Recursive Callable Groups
+
+Recursive callables also have no authored generic parameter list. A recursive
+group is one strongly connected component of the call graph, including direct
+self-recursion and mutual recursion. While checking that group, the compiler
+assigns one provisional monotype to each member and every reference from inside
+the group reuses the same provisional type variables. All constraints for the
+group are solved together.
+
+This checking rule still permits an inferred generic result. For example, these
+are compiler type models, not Styio source syntax:
+
+```text
+accepted: length(list[A]) calls length(list[A])
+accepted: even(i64) -> bool and odd(i64) -> bool call each other
+```
+
+After the group has one stable solution, each eligible final binding is
+generalized at the group boundary and its principal rank-1 relation may be
+published in module-interface metadata. External uses then receive fresh
+instances, so the accepted `length` relation may be used once with `list[i64]`
+and elsewhere with `list[string]`.
+
+An internal recursive edge that requires a group member at a different
+instantiation is polymorphic recursion and is rejected:
+
+```text
+rejected: reshape(A) calls reshape(list[A])
+```
+
+The rejection is about changing type during the unfinished recursive
+definition, not about preventing the successfully inferred callable from being
+generic afterward. Diagnostics must report the conflicting recursive
+instantiations and must not suggest adding `[T]`.
+
+#### 5.1.3 Context-Driven Call Instantiation
+
+Callable calls never accept authored type arguments. Each use is instantiated
+only from ordinary arguments, the concrete expected type supplied by its
+surrounding expression or binding, and the callable relation published by the
+compiler:
+
+```styio
+value := identity(1)        // inferred instance: i64 -> i64
+text := identity("hello")   // inferred instance: string -> string
+value := identity[i64](1)   // invalid: not callable specialization
+```
+
+In value position, `[]` keeps its selector/index meaning. The parser and
+semantic analyzer must never reinterpret `identity[i64](1)` as a generic call;
+it is an ordinary selector followed by a call and is rejected when the target
+is not indexable or the selector expression is otherwise invalid.
+
+When only the expected result type can determine an instance, a surrounding
+concrete annotation supplies that constraint. For a callable whose inferred
+relation is `make_empty: () -> list[A]`, for example:
+
+```styio
+numbers: list[i64] := make_empty()       // valid: expected type determines A
+numbers := make_empty[i64]()             // invalid: no call-site type arguments
+```
+
+If arguments and expected context do not determine one unique instance, the
+call is rejected as underconstrained. Diagnostics may request a concrete
+surrounding annotation, but must not suggest a callable type-argument list.
 
 Resources keep their visible `@` identity. A direct resource atom is not a
 valid right side for a `#` binding:

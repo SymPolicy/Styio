@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-28
 
 ## Mission
 
@@ -42,6 +42,8 @@ Build and test targets:
 15. Keep LSP lifecycle and transport behavior byte-exact: notifications such as `initialized` must not receive JSON-RPC responses, and `styio_lspd` must keep stdio in binary mode on Windows before any LSP frame is exchanged.
 16. Keep IDE/LSP tests on the current public include roots, such as `StyioServices/StyioIDE/` and `StyioServices/StyioLSP/`; do not preserve old short include paths after source directories move.
 17. Tolerant IDE tokenization should keep full multi-character continue lexemes such as `>>>` together for editor spans, but it must not imply a different compiler semantic depth than the parser-owned nearest-loop continue.
+18. Native macOS IDE/LSP builds must use the repository-level LLVM 18.1.x prefix and explicitly resolved macOS SDK instead of architecture-specific package paths. The macOS compatibility lane must build the real `styio_lspd` and fail if the byte-level stdio framing test is not registered.
+19. Treat a macOS compatibility build configured with `STYIO_ENABLE_TREE_SITTER=OFF` as offline compiler/LSP host evidence only; Tree-sitter-enabled syntax behavior still requires the focused IDE test path.
 
 ## Change Classes
 
@@ -55,20 +57,20 @@ Minimum local commands:
 
 ```bash
 cmake --build build/default --target styio_lspd styio_ide_test
-ctest --test-dir build/default -L ide
+ctest --test-dir build/default -L ide --output-on-failure --no-tests=error
 ```
 
 When syntax backend behavior changes:
 
 ```bash
-ctest --test-dir build/default -L ide --output-on-failure
+ctest --test-dir build/default -L ide --output-on-failure --no-tests=error
 python3 scripts/docs-audit.py
 ```
 
 When runtime scheduling or LSP drain behavior changes:
 
 ```bash
-ctest --test-dir build/default -L ide --tests-regex 'StyioLspRuntime|StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure
+ctest --test-dir build/default -L ide --tests-regex 'StyioLspRuntime|StyioLspServer.RunDrainsRuntimeDiagnostics' --output-on-failure --no-tests=error
 python3 scripts/docs-audit.py
 ```
 
@@ -76,8 +78,16 @@ When LSP transport startup changes:
 
 ```bash
 cmake --build build/default --target styio_lspd
-ctest --test-dir build/default -R '^styio_lspd_stdio_framing$' --output-on-failure
+ctest --test-dir build/default -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
 python3 scripts/docs-audit.py
+```
+
+Native macOS compatibility after the repository-level configure:
+
+```bash
+cmake --build build/macos --parallel --target styio_lspd styio_platform_internal_test
+ctest --test-dir build/macos -R '^styio_platform_internal_test$' --output-on-failure --no-tests=error
+ctest --test-dir build/macos -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
 ```
 
 ## Cross-Team Dependencies

@@ -337,8 +337,7 @@ parse_compile_plan(
         *entry,
         "file",
         out_request.entry_file,
-        error_message,
-        "entry.file")) {
+        error_message)) {
     return false;
   }
   if (!(out_request.entry_target_kind == "lib"
