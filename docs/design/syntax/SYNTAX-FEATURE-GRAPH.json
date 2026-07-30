@@ -1163,28 +1163,12 @@
       "kind": "callable-value-semantics",
       "syntax": "No new source form selected; existing callable/value positions require an explicit semantic boundary.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-higher-order-callable-polymorphism.md",
@@ -1200,12 +1184,12 @@
           {
             "id": "core.effect-aware-callable-generalization",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           },
           {
             "id": "core.constrained-callable-relations",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           }
         ],
         "requires_any": [],
@@ -1228,14 +1212,22 @@
         "after": []
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_values/t01_direct_named_instances.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "current-semantic-contract": "docs/design/Styio-Language-Design.md",
         "ir-contract": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
-        "owner": "Sema / IR"
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "validate_generalized_callable_value_positions",
+        "owner": "Sema / Type System"
       },
       "documents": {
         "grammar": [
@@ -1255,9 +1247,22 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_values/t01_direct_named_instances.styio",
+          "tests/features/callable_values/e01_stored_scheme.styio",
+          "tests/features/callable_values/e02_passed_scheme.styio",
+          "tests/features/callable_values/e03_returned_scheme.styio",
+          "tests/features/callable_values/e04_captured_scheme.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_values/t01_direct_named_instances.styio",
+        "tests/features/callable_values/e04_captured_scheme.styio"
+      ]
     },
     {
       "id": "core.import-declaration",

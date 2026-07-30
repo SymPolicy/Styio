@@ -105,6 +105,7 @@ Key SSOTs:
 70. When the language owner approves a composed decision agenda, update every owning feature SSOT from `review` to `accepted` first, preserve independent delivery states and dependency edges, then revise the agenda into a non-authoritative approval record and regenerate the syntax-feature graph.
 71. When an approved callable-type feature converges, advance only its owning feature SSOT, attach checked implementation and golden evidence, update the compact language/test views and owning team runbooks, then regenerate the dependency graph so downstream readiness follows from the distributed authorities.
 72. Keep callable constraints and literal defaulting in separate feature SSOTs even when they share one solver pipeline. The constraint document owns the closed capability vocabulary and satisfiability evidence; the defaulting document owns canonical scalar defaults and the rule that empty collections require context.
+73. Keep higher-order callable policy in its own feature SSOT. Shared language views must distinguish direct named scheme instantiation from callable-value execution and must state honestly when the grammar or StyioIR lacks a concrete monomorphic callable-value boundary; do not imply rank-2, closure, or function-pointer support from negative escape coverage.
 
 ## Change Classes
 

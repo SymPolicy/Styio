@@ -134,6 +134,12 @@ containing one range expression.
 | `T..` / `T...` | Infinite Repetition Type | Unbounded repetition of `T`; two or more dots are equivalent |
 | `_` | Wildcard | Default/catch-all in pattern matching |
 
+`#` introduces a callable binding; it does not make the binding's inferred
+scheme a first-class value. A generalized callable name is valid at a direct
+named call such as `identity(1)`. Bare storage, argument, return, or capture
+positions require a concrete monomorphic callable-value boundary, which is not
+active source syntax in the current StyioIR slice.
+
 ---
 
 ## 8. Arithmetic & Logic
