@@ -509,11 +509,29 @@ public:
     std::vector<CallableTypeTerm> arguments;
   };
 
+  enum class CallableConstraintKind : std::uint8_t {
+    Numeric = 0,
+    Comparable,
+    Indexable,
+    Iterable,
+    Cloneable,
+  };
+
+  struct CallableTypeConstraint
+  {
+    CallableConstraintKind kind = CallableConstraintKind::Numeric;
+    CallableTypeTerm subject;
+    CallableTypeTerm argument;
+    CallableTypeTerm result;
+    std::string canonical;
+  };
+
   struct CallableTypeScheme
   {
     std::string name;
     std::vector<CallableTypeTerm> params;
     CallableTypeTerm result;
+    std::vector<CallableTypeConstraint> constraints;
     std::vector<std::uint32_t> quantified_variables;
     bool recursive_group = false;
     std::string canonical_relation;

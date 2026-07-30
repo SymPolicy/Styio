@@ -74,7 +74,7 @@ Styio has no explicit loop constructs (`for`, `while`). Instead, data sources em
 ### 2.2 Progressive Performance
 
 The language follows a "write less, get convenience; write more, get speed" model:
-- Omit type annotations → compiler infers defaults (`i32` for integers, `f64` for floats)
+- Omit type annotations → compiler infers defaults (`i64` for integers, `f64` for floats)
 - Add explicit types → compiler generates optimized, specialized instructions
 - Omit resource protocol → runtime probes automatically
 - Specify protocol (e.g., `@file`, `@mysql`) → static dispatch without runtime probing
@@ -101,7 +101,7 @@ All control flow constructs (match, conditional wave, loops) are **expressions**
 ### 3.2 Default Types
 
 When type annotations are omitted:
-- Integer literals default to `i32`, including negative literals such as `-1`
+- Integer literals default to `i64`, including negative literals such as `-1`
 - Floating-point literals default to `f64`, including negative literals such as `-1.5`
 
 ### 3.3 Type Annotations
@@ -356,6 +356,48 @@ valid right side for a `#` binding:
 
 Use `expr -> @stdout` or `items >> @stdout` for resource writes. Resource-family
 definitions use the `@family::member` forms described in the resource section.
+
+#### 5.1.5 Compiler-Owned Callable Constraints
+
+Plain equality between relation variables is not enough for operator-bearing
+callables. Sema derives a closed compiler-owned vocabulary from ordinary source
+expressions: `numeric`, `comparable`, `indexable`, `iterable`, and `cloneable`.
+There is no source constraint clause, trait declaration, user-defined instance,
+or orphan-instance rule.
+
+Arithmetic, comparison, and index expressions currently emit the corresponding
+`numeric`, `comparable`, and `indexable` constraints. Called inferred schemes
+propagate their constraints with fresh variables. Sema normalizes and solves
+the resulting set to a fixed point at each use before generating a concrete
+specialization. A list index is `i64`; a dictionary index follows its key type;
+both produce their container element/value type. An unsupported concrete type
+fails at the constraint-bearing call rather than reaching lowering.
+
+`iterable` and `cloneable` remain closed compiler capability predicates. Their
+source emitters are not active in the current pure principal-relation subset;
+iterator and clone features must provide their own inference and execution
+evidence before extending that subset.
+
+#### 5.1.6 Numeric and Empty-Collection Defaulting
+
+Unannotated numeric literals enter semantic inference as the canonical scalar
+types `i64` and `f64`. Equality and callable constraints are solved first. Only
+then may a still-unresolved relation variable default to `i64`, and only when
+all remaining facts about it are numeric. Defaulting is local to the smallest
+enclosing expression; it never runs during unification or uses later
+statements.
+
+Empty collections do not default. `[]` and `dict {}` require a concrete
+surrounding `list[T]` or `dict[K,V]` context:
+
+```styio
+numbers: list[i64] := []                 // accepted
+counts: dict[string, i64] := dict {}     // accepted
+unknown := []                            // rejected: no element type
+```
+
+The missing-context diagnostic identifies the empty literal that needs an
+annotation and remains distinct from an unsatisfied operator constraint.
 
 ### 5.2 Pulse Closures
 

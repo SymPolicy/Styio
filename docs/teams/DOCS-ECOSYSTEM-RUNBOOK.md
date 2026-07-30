@@ -104,6 +104,7 @@ Key SSOTs:
 69. Keep callable type-system decisions distributed by feature: definition-site principal relations, recursive SCC inference, and context-driven use-site instantiation each own a separate syntax-feature SSOT and dependency edge. A consolidated decision agenda may compose unresolved questions and external references, but it must link to the owning draft feature SSOTs instead of becoming a competing language authority.
 70. When the language owner approves a composed decision agenda, update every owning feature SSOT from `review` to `accepted` first, preserve independent delivery states and dependency edges, then revise the agenda into a non-authoritative approval record and regenerate the syntax-feature graph.
 71. When an approved callable-type feature converges, advance only its owning feature SSOT, attach checked implementation and golden evidence, update the compact language/test views and owning team runbooks, then regenerate the dependency graph so downstream readiness follows from the distributed authorities.
+72. Keep callable constraints and literal defaulting in separate feature SSOTs even when they share one solver pipeline. The constraint document owns the closed capability vocabulary and satisfiability evidence; the defaulting document owns canonical scalar defaults and the rule that empty collections require context.
 
 ## Change Classes
 

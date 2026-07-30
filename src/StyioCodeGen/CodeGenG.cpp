@@ -1167,6 +1167,25 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
   llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
+  const bool compares_strings =
+    node->lhs_type.option == StyioDataTypeOption::String
+    && node->rhs_type.option == StyioDataTypeOption::String;
+  auto compare_strings = [&]() -> llvm::Value*
+  {
+    if (!l_val->getType()->isPointerTy()
+        || !r_val->getType()->isPointerTy()) {
+      throw StyioTypeError(
+        "string comparison lowering requires string operands");
+    }
+    llvm::Type* i32 = theBuilder->getInt32Ty();
+    llvm::FunctionCallee strcmp_fn = theModule->getOrInsertFunction(
+      "strcmp",
+      llvm::FunctionType::get(
+        i32,
+        {char_ptr_ty, char_ptr_ty},
+        false));
+    return theBuilder->CreateCall(strcmp_fn, {l_val, r_val});
+  };
 
   if (styio_is_matrix_type(data_type)) {
     const bool lhs_matrix = styio_is_matrix_type(node->lhs_type);
@@ -1499,6 +1518,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpEQ(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1514,6 +1538,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Not_Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpNE(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1529,6 +1558,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Greater_Than: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSGT(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1544,6 +1578,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Greater_Than_Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSGE(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1559,6 +1598,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Less_Than: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSLT(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1574,6 +1618,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Less_Than_Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSLE(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);

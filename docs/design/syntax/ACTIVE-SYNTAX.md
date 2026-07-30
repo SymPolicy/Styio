@@ -76,6 +76,17 @@ specialization. If a call remains underconstrained, add a concrete annotation
 to its surrounding binding or expression; do not add a callable type-argument
 list.
 
+Operator-bearing inferred callables carry compiler-owned constraints. The
+closed vocabulary is numeric, comparable, indexable, iterable, and cloneable;
+there is no source constraint or instance syntax. Arithmetic, comparison, and
+index expressions currently provide executable constraint evidence, and an
+unsatisfied concrete instance is rejected before lowering.
+
+Unannotated numeric literals normalize to `i64` or `f64`. An unresolved
+numeric-only relation variable may default to `i64` only after relation and
+constraint solving. Empty `[]` and `dict {}` never receive a fabricated element
+or value type: supply a surrounding `list[T]` or `dict[K,V]` annotation.
+
 ## Types
 
 | Shape | Meaning |

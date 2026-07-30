@@ -1,0 +1,4 @@
+numbers: list[i64] := []
+mapping: dict[string, i64] := dict {}
+>_(numbers)
+>_(mapping)

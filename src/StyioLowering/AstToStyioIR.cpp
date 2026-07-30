@@ -3128,7 +3128,9 @@ AstToStyioIRLowerer::toStyioIR(BinCompAST* ast) {
     ast->getLHS()->toStyioIR(this),
     ast->getRHS()->toStyioIR(this),
     op,
-    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1})
+    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1}),
+    expr_lowered_type(this, ast->getLHS()),
+    expr_lowered_type(this, ast->getRHS())
   );
 }
 

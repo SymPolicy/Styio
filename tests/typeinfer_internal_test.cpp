@@ -105,7 +105,7 @@ TEST(StyioTypeInferInternal, MatrixLiteralAndReturnHelpersCoverAnonymousBranches
   }
   {
     std::unique_ptr<ListAST> empty(ListAST::Create({}));
-    EXPECT_EQ(infer_list_literal_type(&analyzer, empty.get()).name, "list[i64]");
+    EXPECT_TRUE(infer_list_literal_type(&analyzer, empty.get()).isUndefined());
   }
   {
     std::unique_ptr<ListAST> already_matrix(ListAST::Create({IntAST::Create("1")}));
@@ -132,7 +132,7 @@ TEST(StyioTypeInferInternal, MatrixLiteralAndReturnHelpersCoverAnonymousBranches
     block->set_followings({
       ListAST::Create({ListAST::Create({IntAST::Create("3"), IntAST::Create("4")})})
     });
-    expect_matrix_type(apply_matrix_literal_context(&analyzer, block.get(), matrix_f64_1x2), "int", 1, 2);
+    expect_matrix_type(apply_matrix_literal_context(&analyzer, block.get(), matrix_f64_1x2), "i64", 1, 2);
   }
 
   EXPECT_NO_THROW(require_matrix_return_compatible_latest("plain", i64, i64));
@@ -308,7 +308,7 @@ TEST(StyioTypeInferInternal, AttachedTypeTableInternsBindingTypesThroughSema) {
     IntAST::Create("1"),
     IntAST::Create("2"),
   }));
-  EXPECT_EQ(infer_list_literal_type(&compare_analyzer, homogeneous.get()).name, "list[int]");
+  EXPECT_EQ(infer_list_literal_type(&compare_analyzer, homogeneous.get()).name, "list[i64]");
   EXPECT_EQ(compare_table.intern(literal_type, compare_symbols), literal_id);
   EXPECT_EQ(compare_table.size(), 1u);
 
@@ -416,7 +416,12 @@ TEST(StyioTypeInferInternal, AttachedTypeTableInternsContainerLiteralTypesThroug
   AstToStyioIRLowerer analyzer;
   analyzer.attach_type_table(type_table, symbols);
 
+  {
+    std::unique_ptr<ListAST> untyped_list(ListAST::Create({}));
+    EXPECT_THROW(untyped_list->typeInfer(&analyzer), StyioTypeError);
+  }
   std::unique_ptr<ListAST> list(ListAST::Create({}));
+  list->setDataType(styio_make_list_type("i64"));
   ASSERT_NO_THROW(list->typeInfer(&analyzer));
   EXPECT_EQ(type_table.size(), 1u);
   const auto list_id = type_table.intern(list->getDataType(), symbols);
@@ -424,7 +429,12 @@ TEST(StyioTypeInferInternal, AttachedTypeTableInternsContainerLiteralTypesThroug
   EXPECT_EQ(type_table.resolve(list_id).option, StyioDataTypeOption::List);
   EXPECT_EQ(type_table.size(), 1u);
 
+  {
+    std::unique_ptr<DictAST> untyped_dict(DictAST::Create());
+    EXPECT_THROW(untyped_dict->typeInfer(&analyzer), StyioTypeError);
+  }
   std::unique_ptr<DictAST> dict(DictAST::Create());
+  dict->setDataType(styio_make_dict_type("string", "i64"));
   ASSERT_NO_THROW(dict->typeInfer(&analyzer));
   EXPECT_EQ(type_table.size(), 2u);
   const auto dict_id = type_table.intern(dict->getDataType(), symbols);
@@ -433,6 +443,7 @@ TEST(StyioTypeInferInternal, AttachedTypeTableInternsContainerLiteralTypesThroug
   EXPECT_EQ(type_table.size(), 2u);
 
   std::unique_ptr<ListAST> same_list(ListAST::Create({}));
+  same_list->setDataType(styio_make_list_type("i64"));
   ASSERT_NO_THROW(same_list->typeInfer(&analyzer));
   EXPECT_EQ(type_table.intern(same_list->getDataType(), symbols), list_id);
   EXPECT_EQ(type_table.size(), 2u);
@@ -1161,7 +1172,7 @@ TEST(StyioTypeInferInternal, MatrixIntrinsicDictAndResourceHelpersStayExplicit) 
 
   {
     std::unique_ptr<DictAST> empty(DictAST::Create());
-    EXPECT_EQ(infer_dict_literal_type(&analyzer, empty.get()).name, "dict[string,i64]");
+    EXPECT_TRUE(infer_dict_literal_type(&analyzer, empty.get()).isUndefined());
   }
   {
     std::unique_ptr<DictAST> mixed(DictAST::Create({
@@ -1282,7 +1293,7 @@ TEST(StyioTypeInferInternal, FunctionReturnAndReceiverScanHelpersStayExplicit) {
       {},
       IntAST::Create("7")
     ));
-    EXPECT_EQ(func_ret_type_of_def(&analyzer, fn.get()).name, "int");
+    EXPECT_EQ(func_ret_type_of_def(&analyzer, fn.get()).name, "i64");
   }
   EXPECT_TRUE(func_ret_type_of_def(&analyzer, IntAST::Create("1")).isUndefined());
 
@@ -1454,8 +1465,8 @@ TEST(StyioTypeInferInternal, TailDictResourceAndFunctionReturnHelperEdgesStayExp
 
   EXPECT_TRUE(match_branch_tail_type(&analyzer, nullptr).isUndefined());
   EXPECT_TRUE(match_branch_tail_type(&analyzer, BlockAST::Create({})).isUndefined());
-  EXPECT_EQ(match_branch_tail_type(&analyzer, BlockAST::Create({IntAST::Create("3")})).name, "int");
-  EXPECT_EQ(match_branch_tail_type(&analyzer, IntAST::Create("4")).name, "int");
+  EXPECT_EQ(match_branch_tail_type(&analyzer, BlockAST::Create({IntAST::Create("3")})).name, "i64");
+  EXPECT_EQ(match_branch_tail_type(&analyzer, IntAST::Create("4")).name, "i64");
   EXPECT_TRUE(match_branch_tail_type(&analyzer, PassAST::Create()).isUndefined());
   EXPECT_THROW((void)match_branch_tail_type(&analyzer, NameAST::Create("missing_value")), StyioTypeError);
   EXPECT_THROW(
@@ -1464,10 +1475,10 @@ TEST(StyioTypeInferInternal, TailDictResourceAndFunctionReturnHelperEdgesStayExp
 
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, nullptr).isUndefined());
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, ReturnAST::Create(nullptr)).isUndefined());
-  EXPECT_EQ(function_body_tail_type_latest(&analyzer, ReturnAST::Create(IntAST::Create("5"))).name, "int");
+  EXPECT_EQ(function_body_tail_type_latest(&analyzer, ReturnAST::Create(IntAST::Create("5"))).name, "i64");
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, BlockAST::Create({})).isUndefined());
-  EXPECT_EQ(function_body_tail_type_latest(&analyzer, BlockAST::Create({IntAST::Create("6")})).name, "int");
-  EXPECT_EQ(function_body_tail_type_latest(&analyzer, IntAST::Create("7")).name, "int");
+  EXPECT_EQ(function_body_tail_type_latest(&analyzer, BlockAST::Create({IntAST::Create("6")})).name, "i64");
+  EXPECT_EQ(function_body_tail_type_latest(&analyzer, IntAST::Create("7")).name, "i64");
   EXPECT_TRUE(function_body_tail_type_latest(&analyzer, PassAST::Create()).isUndefined());
 
   {
@@ -1687,7 +1698,7 @@ TEST(StyioTypeInferInternal, HelperFallbacksAndBindingEdgesStayExplicit) {
       VarAST::Create(NameAST::Create("match_bound")),
       match));
     EXPECT_NO_THROW(bind->typeInfer(&analyzer));
-    EXPECT_EQ(bind->getVar()->getDType()->getDataType().name, "int");
+    EXPECT_EQ(bind->getVar()->getDType()->getDataType().name, "i64");
   }
 }
 
@@ -1701,7 +1712,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
     std::unique_ptr<ListAST> first_undefined(ListAST::Create({PassAST::Create(), IntAST::Create("1")}));
     EXPECT_EQ(infer_list_literal_type(&analyzer, first_undefined.get()).name, "list[i64]");
     std::unique_ptr<ListAST> next_undefined(ListAST::Create({IntAST::Create("1"), PassAST::Create()}));
-    EXPECT_EQ(infer_list_literal_type(&analyzer, next_undefined.get()).name, "list[int]");
+    EXPECT_EQ(infer_list_literal_type(&analyzer, next_undefined.get()).name, "list[i64]");
   }
   {
     std::unique_ptr<FunctionAST> tuple_return(FunctionAST::Create(
@@ -2105,7 +2116,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       {StringAST::Create("ok"), IntAST::Create("1")},
       {StringAST::Create("skip"), PassAST::Create()},
     }));
-    EXPECT_EQ(infer_dict_literal_type(&analyzer, second_undefined.get()).name, "dict[string,int]");
+    EXPECT_EQ(infer_dict_literal_type(&analyzer, second_undefined.get()).name, "dict[string,i64]");
   }
   {
     std::unique_ptr<FuncCallAST> clone_call(FuncCallAST::Create(
@@ -2280,7 +2291,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       NameAST::Create("echo_untyped"),
       {IntAST::Create("5")}));
     EXPECT_NO_THROW(call->typeInfer(&analyzer));
-    EXPECT_EQ(infer_expr_type(&analyzer, call.get()).name, "int");
+    EXPECT_EQ(infer_expr_type(&analyzer, call.get()).name, "i64");
   }
   {
     analyzer.local_binding_types["final_flow_target"] = i64;

@@ -33,31 +33,13 @@
       "kind": "type-defaulting",
       "syntax": "Ordinary numeric and collection literals; no callable type-argument syntax.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
-        "dependency_blockers": [
-          "must follow non-converged feature core.constrained-callable-relations"
-        ]
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-ambiguous-literal-defaulting.md",
       "owner": "Sema / Type System",
@@ -94,13 +76,21 @@
         "after": []
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/design/Styio-EBNF.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/literal_defaulting/t01_numeric_literal_normalization.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "current-semantic-contract": "docs/design/Styio-Language-Design.md",
         "backend-type-contract": "docs/specs/AGENT-SPEC.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "solve_callable_constraint_instance",
         "owner": "Sema / Type System"
       },
       "documents": {
@@ -121,9 +111,23 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioSema/SemaContext.hpp"
+        ],
+        "evidence": [
+          "tests/features/literal_defaulting/t01_numeric_literal_normalization.styio",
+          "tests/features/literal_defaulting/t02_contextual_empty_collections.styio",
+          "tests/features/literal_defaulting/e01_empty_list_without_context.styio",
+          "tests/features/literal_defaulting/e02_empty_dict_without_context.styio",
+          "tests/features/literal_defaulting/e03_numeric_literal_fixes_scalar_relation.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/literal_defaulting/t01_numeric_literal_normalization.styio",
+        "tests/features/literal_defaulting/t02_contextual_empty_collections.styio"
+      ]
     },
     {
       "id": "core.callable-binding",
@@ -465,9 +469,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "must follow non-converged feature core.constrained-callable-relations"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-capability-polymorphic-handles.md",
       "owner": "Sema / Resource Topology",
@@ -647,30 +649,14 @@
       "id": "core.constrained-callable-relations",
       "title": "Constrained Callable Relations",
       "kind": "callable-type-semantics",
-      "syntax": "No source constraint syntax proposed; constraints would initially be inferred from ordinary expressions.",
+      "syntax": "No source constraint syntax; constraints are inferred from ordinary expressions.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-constrained-callable-relations.md",
@@ -714,13 +700,21 @@
         ]
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/design/Styio-EBNF.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_constraints/t01_numeric_instances.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "capability-contract": "docs/design/Styio-Handle-Capability-Type-System.md",
         "current-semantic-contract": "docs/design/Styio-Language-Design.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "prepare_callable_type_schemes",
         "owner": "Sema / Type System"
       },
       "documents": {
@@ -742,9 +736,27 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioSema/SemaContext.hpp",
+          "src/StyioLowering/AstToStyioIR.cpp",
+          "src/StyioCodeGen/CodeGenG.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_constraints/t01_numeric_instances.styio",
+          "tests/features/callable_constraints/t02_comparable_instances.styio",
+          "tests/features/callable_constraints/t03_indexable_instances.styio",
+          "tests/features/callable_constraints/t04_transitive_numeric_constraint.styio",
+          "tests/features/callable_constraints/e01_numeric_constraint_mismatch.styio",
+          "tests/features/callable_constraints/e02_comparable_constraint_mismatch.styio",
+          "tests/features/callable_constraints/e03_indexable_constraint_mismatch.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_constraints/t01_numeric_instances.styio",
+        "tests/features/callable_constraints/t03_indexable_instances.styio"
+      ]
     },
     {
       "id": "core.context-driven-call-instantiation",
@@ -1173,9 +1185,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "must follow non-converged feature core.constrained-callable-relations"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-higher-order-callable-polymorphism.md",
       "owner": "Sema / IR",
