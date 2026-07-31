@@ -16,8 +16,8 @@ foundations are:
 4. [Context-Driven Call Instantiation](./features/core-context-driven-call-instantiation.md)
 
 The language owner approved D1–D7 on 2026-07-31. Their owning feature documents
-are now `accepted/not_started`; this agenda records the approved composition
-while implementation and delivery evidence advance independently in each SSOT.
+are now `accepted/converged`; this agenda records the approved composition,
+while each feature SSOT owns its implemented boundary and evidence.
 
 ## Research Basis
 
@@ -182,3 +182,11 @@ The smallest stable approval order is:
 Every item is approved, but a later item cannot converge before its required
 delivery prerequisites. The syntax-feature gate derives blocked state from
 these edges.
+
+## Next Evolution Branches
+
+The delivered D1–D7 boundaries expose later choices around callable values,
+effect and capability polymorphism, open constraints, portable generic bodies,
+persistent specialization reuse, and configurable defaulting. They are
+researched and ordered, without being approved, in
+[Callable Type Evolution Questions — 2026-07-31](./CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md).

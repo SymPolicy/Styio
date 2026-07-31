@@ -54,7 +54,7 @@
           {
             "id": "core.constrained-callable-relations",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           }
         ],
         "requires_any": [],
