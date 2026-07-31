@@ -8,7 +8,7 @@
 
 1. what the `styio` repository has already delivered,
 2. what is still missing inside `styio`,
-3. what is intentionally owned by `styio-pafio` or another adjacent repository.
+3. what is intentionally owned by `pafio-nightly` or another adjacent repository.
 
 ## 1. How to Use This Ledger
 
@@ -36,14 +36,14 @@
 | IDE / LSP | Core semantic services exist, but stdio runtime drain and several LSP methods are still absent | Close operational gaps before expanding host-facing promises |
 | Tests / Quality | Core suites exist, M6 active acceptance now uses Topology v2 syntax, and resource-topology safety coverage is registered, but negative-path package and next-stage migration coverage still need expansion | Coverage closure must run in parallel with implementation closure |
 
-## 4. Responsibility Split: `styio` vs `styio-pafio`
+## 4. Responsibility Split: Styio vs Pafio
 
 | Area | Owning repo | Status in `styio` | Notes |
 |------|-------------|-------------------|-------|
 | Nano package materialization, static local registry consume/publish, compiler capability reporting | `styio` | Delivered baseline | See [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md) |
-| Full package-manager UX: `install`, `use`, `search`, `vendor`, `pin`, dependency resolution, lockfiles, remote registry protocol | `styio-pafio` | Out of scope here | See [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) |
-| `pafio build/check/run/test` live compile-plan handoff | `styio` producer contract, `styio-pafio` consumer integration | Delivered baseline in `styio` | `--machine-info=json` advertises `compile_plan:[1]`; compile-plan consumer materializes artifacts / receipt / `diag_dir` diagnostics |
-| Remote registry service semantics, auth/signing/trust, channel aliasing, package listing APIs | `styio-pafio` | Not owned here | `styio` should not absorb this scope |
+| Project workflow UX, dependency resolution, lockfiles, vendor, pack, and publish client | `pafio-nightly` | Out of scope here | See [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) |
+| `pafio build/check/run/test` live compile-plan handoff | Pafio producer, Styio consumer | Delivered baseline in `styio` | `--machine-info=json` advertises `compile_plan:[1]`; compile-plan consumption materializes artifacts, receipt, diagnostics, and runtime events |
+| Remote registry service semantics, auth/signing/trust, hosted workspace, and cloud worker lifecycle | Styio Platform | Not owned here | Styio owns only compiler-local outputs and capability contracts |
 
 ## 5. Detailed Gap Ledger
 
@@ -75,9 +75,9 @@
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| `compile_plan` live handoff baseline exists, but contract hardening is still narrower than a full release matrix | Medium | `--machine-info=json` now reports `compile_plan:[1]`; compile-plan success paths write artifacts / receipt / `diag_dir` diagnostics, and invalid intent / generated_by mismatch / unsupported target kind / relative-path guards / missing-outputs fallback now also have explicit machine-readable coverage in [src/main.cpp](../../src/main.cpp) and [tests/styio_test.cpp](../../tests/styio_test.cpp) | CLI / Nano, Docs / Ecosystem, `styio-pafio` coordination | Keep the current v1 boundary stable while expanding compatibility-edge coverage and broader malformed-input matrices without pulling package-manager lifecycle into `styio` |
-| Full package-manager lifecycle is not implemented here by design | High | CLI surface only exposes nano producer/verifier options in [src/main.cpp](../../src/main.cpp); repo boundary doc assigns package management to `styio-pafio` in [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) | CLI / Nano, Docs / Ecosystem | Preserve this boundary; do not let compiler CLI accumulate `install/use/search/vendor` responsibilities |
-| Remote publish protocol is still intentionally absent | Medium | `--nano-publish` rejects HTTP(S) roots and only accepts local path or `file://` repository roots in [src/main.cpp](../../src/main.cpp) | CLI / Nano, `styio-pafio` coordination | Keep publish local/static here; any remote protocol must be defined on the `styio-pafio` side |
+| `compile_plan` live handoff baseline exists, but contract hardening is still narrower than a full release matrix | Medium | `--machine-info=json` reports `compile_plan:[1]`; compile-plan success paths write artifacts, receipt, diagnostics, and runtime events, while invalid producer and malformed request paths return machine-readable failures in [src/main.cpp](../../src/main.cpp) and [tests/styio_test.cpp](../../tests/styio_test.cpp) | CLI / Nano, Docs / Ecosystem, Pafio coordination | Keep the current v1 boundary stable while expanding malformed-input coverage without pulling project/package lifecycle into Styio |
+| Full project and package workflow is not implemented here by design | High | The repository boundary assigns project workflows, dependency resolution, locks, vendor, pack, and publish client behavior to Pafio in [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) | CLI / Nano, Docs / Ecosystem | Preserve this boundary; do not let the compiler CLI accumulate Pafio responsibilities |
+| Remote publish protocol is still intentionally absent | Medium | `--nano-publish` rejects HTTP(S) roots and only accepts local path or `file://` repository roots in [src/main.cpp](../../src/main.cpp) | CLI / Nano, Pafio coordination | Keep compiler bootstrap publication local/static; remote registry service behavior belongs to Styio Platform and client behavior belongs to Pafio |
 | Edge-path nano validation lacks the same depth as the happy path | Medium | Happy-path bundle/create/publish tests exist in [tests/styio_test.cpp](../../tests/styio_test.cpp), but guard/error branches remain mostly code-only in [src/main.cpp](../../src/main.cpp) | CLI / Nano, Test Quality | Add explicit negative-path tests for marker parsing, blob integrity mismatch, and mutually-exclusive CLI guards |
 
 ### 5.5 IDE / LSP
@@ -124,7 +124,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 |-------|-------|---------------|------------|--------------|
 | W1 | Inventory and retire active sema/lowering placeholders | Sema / IR, Codegen / Runtime, Test Quality | None | targeted unit coverage plus affected milestone cases |
 | W2 | Carry one M7 stream/zip slice end-to-end | Frontend, Sema / IR, Codegen / Runtime, Test Quality | W1 for touched nodes | milestone tests, five-layer checks, and relevant runtime/security coverage |
-| W4 | Harden the delivered `compile_plan` producer contract for `pafio` handoff | CLI / Nano, Docs / Ecosystem, `styio-pafio` coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
+| W4 | Harden the delivered `compile_plan` consumer contract for Pafio handoff | CLI / Nano, Docs / Ecosystem, Pafio coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
 | W5 | Complete nano negative-path coverage and contract hardening | CLI / Nano, Test Quality | W4 not required | nano-focused unit tests plus docs audit |
 | W6 | Re-open Topology v2 only as a dedicated migration track | Frontend, Sema / IR, Docs / Ecosystem, Test Quality | W1 strongly recommended | milestone acceptance, design doc update, ADR when ownership/lifecycle semantics change |
 | W7 | Keep milestone catalog and migration diagnostics aligned with active syntax | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L milestone`, catalog/doc sync, no orphan fixtures |

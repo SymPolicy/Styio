@@ -51,7 +51,7 @@ class WorkflowSchedulerTest(unittest.TestCase):
     def test_ecosystem_workspace_gate_triggers_on_contract_files(self) -> None:
         self.assertTrue(
             workflow_scheduler.ecosystem_workspace_gate_required(
-                ["docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md"]
+                ["docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md"]
             )
         )
         self.assertTrue(

@@ -6,7 +6,7 @@
 
 ## Scope
 
-`StyioServices` contains reusable language-facing services for package managers, IDEs, editors, CI systems, and other external tools. It is not a consumer-specific adapter layer. Consumer names such as `spio` or Vityo may use these services, and first-party projects may bind to richer convenience payloads, but the facts exposed here remain shared service facts rather than separate product-local grammar, diagnostic, or semantic authorities.
+`StyioServices` contains reusable language-facing services for IDEs, editors, CI systems, and other external tools. It is not a consumer-specific adapter layer. Vityo may bind to richer convenience payloads, while Pafio uses only the compiler capability and compile-plan handoff contracts. The facts exposed here remain shared service facts rather than separate product-local grammar, diagnostic, or semantic authorities.
 
 ## Modules
 
@@ -59,4 +59,4 @@ The hand-written nightly compiler parser is the only authority for accepted Styi
 
 ## First-Party Adapters
 
-Vityo and `spio` may use direct C++ APIs, CLI JSON/JSONL contracts, future FFI facades, or hosted service payloads when that is more ergonomic than public LSP. Those adapters must still preserve parser evidence, grammar version, diagnostic identity, capability state, document revision, and workspace/config identity from the shared StyioServices contracts.
+Vityo may use direct C++ APIs, CLI JSON/JSONL contracts, future FFI facades, or hosted service payloads when that is more ergonomic than public LSP. Its adapters must still preserve parser evidence, grammar version, diagnostic identity, capability state, document revision, and workspace/config identity from the shared StyioServices contracts.

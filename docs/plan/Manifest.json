@@ -37,21 +37,22 @@
       "docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md",
       "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
     ],
-    "goal": "Coordinate styio-nightly, pafio-nightly, and vityo-nightly toward one finished language product.",
-    "description": "Tracks ecosystem phases, cross-repository ownership, shared contract surfaces, and release closure gates.",
+    "goal": "Coordinate Styio, Pafio, Styio Platform, and Vityo through one fixed-revision release matrix.",
+    "description": "Freezes product ownership and tracks only the remaining coordinated regression and acceptance closure.",
     "checkpoints": "styio-ecosystem-delivery-master/Checkpoints.json"
   },
   {
     "id": "c27cacb9-2081-4254-ab89-732a4d8b2a64",
     "status": "in_progress",
-    "title": "Styio Ecosystem CLI Contract Matrix",
+    "title": "Styio Ecosystem Machine Contract Matrix",
     "directory": "styio-ecosystem-cli-contract-matrix",
     "source_files": [
       "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
+      "docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md",
       "scripts/ecosystem-cli-doc-gate.py"
     ],
-    "goal": "Keep the active internal CLI contract mirror aligned across styio-nightly, pafio-nightly, and vityo-nightly.",
-    "description": "Freezes canonical command forms and owner/consumer documentation obligations for machine-readable CLI contracts.",
+    "goal": "Keep Pafio project contracts, Styio compiler contracts, Platform hosted contracts, and Vityo adapters aligned.",
+    "description": "Freezes canonical machine entries and ownership without duplicating owner schemas.",
     "checkpoints": "styio-ecosystem-cli-contract-matrix/Checkpoints.json"
   },
   {
@@ -68,20 +69,6 @@
     "goal": "Convert compiler self-explanation findings into explicit decisions, guardrails, and implementation checkpoints.",
     "description": "Owns the next Sema/IR inventory, hash-tag route retirement guardrails, canonical resource topology sequencing, parser performance prerequisites, and stream/IDE follow-up ordering.",
     "checkpoints": "compiler-self-explanation-decision-log/Checkpoints.json"
-  },
-  {
-    "id": "a7ea2f76-b0dc-43e1-b0d9-10ad8b514cc2",
-    "status": "blocked",
-    "title": "Dual-Channel Source-Build Absorption",
-    "directory": "dual-channel-source-build-absorption",
-    "source_files": [
-      "docs/plan/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md",
-      "docs/external/for-spio/Styio-Nano-Spio-Coordination.md",
-      "docs/rollups/MIGRATION-LEDGER.md"
-    ],
-    "goal": "Absorb the completed repo-local source-build plan into active ecosystem authority and archive the old plan when external confirmation exists.",
-    "description": "Tracks M-PLAN-01: repo-local baseline is complete, but the plan remains in docs/plan until residual hardening is moved to the master plan and the spio SSOT is confirmed.",
-    "checkpoints": "dual-channel-source-build-absorption/Checkpoints.json"
   },
   {
     "id": "bc7d9809-0f71-4371-8b7b-32e8638a8d6d",

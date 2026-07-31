@@ -310,6 +310,9 @@ parse_compile_plan(
   }
   (void) generated_by_version;
   (void) profile_name;
+  // Pafio is the only ecosystem project-plan producer. The "styio" value is
+  // reserved for the compiler's direct single-file `styio build` path, which
+  // reuses this parser internally and does not represent a project workflow.
   if (!(generated_by_tool == "pafio" || generated_by_tool == "styio")) {
     error_message = "compile-plan generated_by.tool must equal \"pafio\" or \"styio\"";
     return false;

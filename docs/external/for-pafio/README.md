@@ -1,13 +1,13 @@
 # For Pafio Docs
 
-**Purpose:** Define the scope and naming rules for `docs/external/for-pafio/`; this directory holds `styio`-side handoff and coordination material intended for the `styio-pafio` repository, while the generated inventory lives in [INDEX.md](./INDEX.md).
+**Purpose:** Define the scope and naming rules for `docs/external/for-pafio/`; this directory holds the Styio-side compiler handoff consumed by Pafio project workflows, while the generated inventory lives in [INDEX.md](./INDEX.md).
 
 **Last updated:** 2026-04-12
 
 ## Scope
 
-1. Store only documents that `styio-pafio` needs in order to consume or coordinate with `styio`.
-2. Keep these files scoped to `styio`'s view of the contract; they do not replace `styio-pafio`'s own SSOT.
+1. Store only documents that `pafio-nightly` needs in order to consume or coordinate with `styio`.
+2. Keep these files scoped to `styio`'s view of the contract; they do not replace `pafio-nightly`'s own SSOT.
 3. Do not place `styio`-internal implementation plans here; those remain in `docs/plan/`.
 
 ## Naming Rules

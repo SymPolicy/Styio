@@ -24,7 +24,6 @@
 | M-RUNTIME-02 | `Checkpoint C.1/C.2 shell` session lifetime | Codegen / Runtime | `src/StyioSession/CompilationSession.hpp:28-31`, `src/StyioSession/SessionAllocation.hpp` (header-only), `src/main.cpp:5185` | The shell comment is removed when the runtime/session migration plan in the rollup ledger reports closure. |
 | M-CLI-01 | `src/main.cpp` is too large | CLI / Nano | `src/main.cpp` (5,685 LOC; embedded TOML project-config parser, styio-nano package/publish/manifest workflow, `--machine-info=json` printer, parser shadow-compare driver) | Non-CLI logic is relocated under `StyioServices/StyioConfig/` or a new `src/StyioCLI/` so `main.cpp` shrinks to ~200-500 lines. |
 | M-AUDIT-01 | Stale 2026-04-22 audit reports | Docs / Ecosystem | `docs/audit/EXTERNAL-AUDIT-2026-04-22.md`, `docs/audit/agent-findings/nightly-compiler-2026-04-22.md`, `docs/audit/agent-findings/nightly-ide-parser-2026-04-22.md`, `docs/audit/agent-findings/nightly-sema-codegen-2026-04-22.md` | Apply all four sub-steps in the same commit: (1) verify each finding is closed against `docs/adr/IMPLEMENTED-DECISIONS.md` and the matching `docs/rollups/IM-D*` inventory; (2) record the closure rows in `docs/archive/ARCHIVE-MANIFEST.json`; (3) regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm` the four files listed in the Site(s) cell. |
-| M-PLAN-01 | Spio dual-channel plan absorption | Docs / Ecosystem | `docs/plan/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md` ("Repo-local baseline completed.") | Apply all sub-steps in the same commit: (1) lift residual hardening rules into [`../plan/Styio-Ecosystem-Delivery-Master-Plan.md`](../plan/Styio-Ecosystem-Delivery-Master-Plan.md) phase tables; (2) confirm the `styio-spio` SSOT covers the cross-repo contract; (3) record closure in `docs/archive/ARCHIVE-MANIFEST.json` and regenerate `docs/archive/ARCHIVE-LEDGER.md`; (4) `git rm docs/plan/Styio-Spio-Dual-Channel-Source-Build-Implementation-Plan.md`. |
 | M-PLAN-02 | `docs/history/2026-05-19.md` snapshot | Docs / Ecosystem | `docs/history/2026-05-19.md` (single dated note explicitly referenced by `NEXT-STAGE-GAP-LEDGER.md`) | The owning ledger row closes; the snapshot is archived through the manifest and removed. |
 
 ## Recently Closed (2026-06-28 implementation-gap pass)
@@ -42,7 +41,7 @@
 |-----------|---------|
 | `extend_tests.py` unreachable scaffolder | Deleted the hardcoded lit-era helper and removed active references from agent specs, team-docs mapping, and workflow mapping; feature tests now stay under `tests/features/` and CTest. |
 | `scripts/perf-route.sh` and `scripts/soak-minimize.sh` wrappers | Deleted the script-level wrappers; retained only the current `benchmark/` adapters that locate `styio-benchmark` and pass `--styio-root`. |
-| `scripts/ecosystem-product-gate.py` and `scripts/ecosystem-sample-workflow-gate.py` silent proxies | Deleted the silent-success proxies; post-commit docs now point directly at the canonical `styio-spio` gates when cross-repo product/sample checks are required. |
+| `scripts/ecosystem-product-gate.py` and `scripts/ecosystem-sample-workflow-gate.py` silent proxies | Deleted the silent-success proxies; fixed-revision ecosystem acceptance now runs from the Pafio-owned product matrix. |
 
 ## Recently Closed (2026-05-22 reduction pass)
 

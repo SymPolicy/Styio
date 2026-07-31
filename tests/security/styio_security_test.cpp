@@ -1155,10 +1155,6 @@ TEST(StyioIRContract, LegacyAndDeclarationAstLoweringEdgesStayExplicit) {
     ))
   );
   expect_unsupported(
-    "ExtPackAST",
-    std::unique_ptr<StyioAST>(new ExtPackAST({"pkg"}))
-  );
-  expect_unsupported(
     "ReadFileAST",
     std::unique_ptr<StyioAST>(new ReadFileAST(
       NameAST::Create("line"),
@@ -1168,6 +1164,11 @@ TEST(StyioIRContract, LegacyAndDeclarationAstLoweringEdgesStayExplicit) {
 
   AstToStyioIRLowerer analyzer;
 
+  {
+    std::unique_ptr<StyioAST> ast(new ExtPackAST({"pkg"}));
+    std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
+    EXPECT_NE(dynamic_cast<SGNoOp*>(ir.get()), nullptr);
+  }
   {
     std::unique_ptr<StyioAST> ast(UndefinedLitAST::Create());
     std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));

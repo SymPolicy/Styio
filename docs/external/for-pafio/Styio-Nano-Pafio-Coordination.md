@@ -1,7 +1,8 @@
 # Styio / Pafio Handoff
 
-**Purpose:** Freeze the narrow compiler boundary between the system-provided
-Styio compiler and Pafio project workflows.
+**Purpose:** Freeze the narrow compiler boundary between the system-provided Styio compiler and Pafio project workflows.
+
+**Last updated:** 2026-07-30
 
 **Last updated:** 2026-07-30
 

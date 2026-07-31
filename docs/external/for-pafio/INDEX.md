@@ -1,6 +1,6 @@
 # For Pafio Index
 
-**Purpose:** Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries and coordination rules for `styio-pafio` live in [README.md](./README.md).
+**Purpose:** Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries for the system Styio compiler and Pafio project workflows live in [README.md](./README.md).
 
 **Last updated:** 2026-07-30
 
@@ -10,4 +10,4 @@
 
 | Path | Entry | Summary |
 |------|-------|---------|
-| `Styio-Nano-Pafio-Coordination.md` | [Styio / Pafio Handoff](./Styio-Nano-Pafio-Coordination.md) | Freeze the narrow compiler boundary between the system-provided |
+| `Styio-Nano-Pafio-Coordination.md` | [Styio / Pafio Handoff](./Styio-Nano-Pafio-Coordination.md) | Freeze the narrow compiler boundary between the system-provided Styio compiler and Pafio project workflows. |
