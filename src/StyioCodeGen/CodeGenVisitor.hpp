@@ -198,6 +198,8 @@ class StyioToLLVM : public StyioCodeGenVisitor
 
   unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
+  unordered_map<string, llvm::GlobalVariable*> callable_capture_globals_;
+  std::unordered_set<string> active_callable_capture_names_;
 
   /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
   unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;

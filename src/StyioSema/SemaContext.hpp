@@ -559,6 +559,18 @@ public:
     }
   };
 
+  enum class CallableCaptureMode : std::uint8_t {
+    SharedBorrow = 0,
+    ExclusiveBorrow,
+    Consume,
+  };
+
+  struct CallableCaptureFact
+  {
+    std::string name;
+    CallableCaptureMode mode = CallableCaptureMode::SharedBorrow;
+  };
+
   struct ImportedCallableDefinition
   {
     std::string module_id;
@@ -912,6 +924,10 @@ public:
     std::string_view name
   ) const;
 
+  const std::vector<CallableCaptureFact>* find_callable_capture_facts(
+    std::string_view name
+  ) const;
+
   const std::unordered_map<std::string, CallableTypeScheme>&
   callable_type_scheme_facts() const {
     return callable_type_schemes_;
@@ -1045,6 +1061,8 @@ protected:
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
   std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
   std::unordered_map<std::string, CallableEffectRowFacts> callable_effect_rows_;
+  std::unordered_map<std::string, std::vector<CallableCaptureFact>>
+    callable_capture_facts_;
   std::vector<ImportedCallableDefinition> imported_callable_definitions_;
   std::unordered_map<std::string, std::size_t>
     imported_callable_definition_indices_;

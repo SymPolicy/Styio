@@ -1,0 +1,3 @@
+seed: i64 := 4
+# identity : i64 $(seed) := (value: i64) => value
+identity(1)

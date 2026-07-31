@@ -20,6 +20,7 @@
 | Mutable binding | `name = expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Callable binding | `# identity := (value) => value`, `# name : i64 := (arg: i64) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Monomorphic callable value | `operation: #(i64): i64 := identity`, `operation(value)` | A final noncapturing callable item freezes only under one complete invariant signature; the value may then be bound, passed, returned, and called indirectly. |
+| Affine static capture | `# add : i64 $(seed) := (value: i64) => value + seed` | The explicit capture set is exact. Scalar reads form shared program-static borrows that may escape under one concrete callable type; scalar rebinding forms an exclusive borrow that remains direct-call-only. Consume and missing representation/drop facts fail before lowering. |
 | Match sugar | `#(name = expr) ?= { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Return/export | `<| expr` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
@@ -95,8 +96,19 @@ An inferred scheme may instantiate at a direct named call such as
 complete concrete type such as
 `operation: #(i64): i64 := identity`. The resulting allocation-free value may
 be bound with `:=`, passed, returned, and called indirectly. Missing context,
-mutable callable slots, captures, signature mismatch, generalized storage,
-address equality, and callable containers remain rejected.
+mutable callable slots, implicit captures, signature mismatch, generalized
+storage, address equality, and callable containers remain rejected.
+
+An explicitly captured final callable places `$(name, ...)` after its
+parameter/result signature and before the binding/body operator. The list must
+be nonempty, duplicate-free, and exactly equal to the body's free value
+environment. Sema derives `shared_borrow`, `exclusive_borrow`, or `consume`
+without source ownership annotations. The executable slice uses reactive
+program-static slots for `bool`, integer, floating-point, and `char` captures.
+A shared-borrow callable may freeze and escape under one complete monomorphic
+type; an exclusive-borrow callable may be called directly but may not escape.
+Consume, string/container/handle capture, imported environments, and any
+missing ownership or drop proof remain fail-closed.
 
 Generalized relation variables use a closed plain-value domain: immutable
 scalars and recursively plain materialized `list`/`dict` types. Resource,

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Mission
 
@@ -78,6 +78,7 @@ Build and test targets:
 45. Hash callable binding parsing owns the source-level distinction between callable endpoints and resources. Accept `# name = (...) => ...`, `# name := (...) => ...`, and the explicit callable-body marker `# name = #(args) => ...`; reject direct resource atoms such as `# sink = @stdout` in the hash binding route so resource identities stay visibly in the `@` family. Native `@ extern(...)` binding remains its separate parser-owned import form.
 46. Styio has no word-token keywords. Tokenize every identifier-shaped word as `NAME`; inspect exact spellings only after punctuation or an already-selected structural production supplies the context. Keep keyword-like ordinary bindings executable and keep Boolean literal spellings lexically classified as `NAME`.
 47. Callable type syntax is a recursive type-position form, `#(T1, T2): R`, with one whitespace-free canonical identity stored in `StyioDataType`. Parse nested parameter and result callable types through the normal type parser and preserve right-side result precedence: in `#(i64): i64..`, the repetition suffix belongs to the result type, not the callable value. Do not add a second signature representation in the parser or reinterpret value-position `#` declarations as type syntax.
+48. Explicit callable capture syntax is `$(name, ...)` after the declared parameter/result signature and before the callable binding/body operator, for example `# add : i64 $(seed) := (value: i64) => value + seed`. The capture list must be nonempty and duplicate-free, must remain attached to `FunctionAST` / `SimpleFuncAST`, and must be recognized by the nightly hash-function route before generic expression fallback. Exact free-name, ownership, and escape validation belongs to Sema; the parser must not infer or silently add captures.
 
 ## Change Classes
 

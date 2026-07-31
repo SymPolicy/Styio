@@ -477,9 +477,10 @@ returned, or invoked through a name.
 
 Contextual freezing of an inferred item creates the same deterministic
 compiler-owned specialization used by direct calls. A concrete callable item
-uses its checked symbol directly. In both cases, captures are rejected before
-lowering and function pointers are distinct from strings, native addresses,
-and resource handles.
+uses its checked symbol directly. Implicit captures remain rejected at this
+boundary. A final callable with an exact explicit `$(...)` environment follows
+the affine static-capture rules in section 5.3. Function pointers remain
+distinct from strings, native addresses, and resource handles.
 
 This boundary is deliberately narrower than higher-rank polymorphism. Affine
 closure environments, rank-2 callbacks, polymorphic fields, callable
@@ -567,13 +568,32 @@ prices >> #(p) => { <| p * 2 }
 
 ### 5.3 Context Capture with `$(...)`
 
-Callable bindings can explicitly capture external variables by reference:
+Final callable bindings can explicitly capture external variables by
+reference. The capture list follows the callable signature and precedes the
+binding/body operator:
 
-```
-trade $(bal, is_open) := my_strategy <| bal <| is_open
+```styio
+seed: i64 := 4
+# add_seed : i64 $(seed) := (value: i64) => value + seed
+operation: #(i64): i64 := add_seed
 ```
 
-The `$(...)` list declares a **reactive binding** — the function re-evaluates whenever captured variables change.
+The `$(...)` list is explicit and exact: duplicate, unused, or missing free
+names are errors. Sema derives ownership from the body. Reading a capture is a
+`shared_borrow`, rebinding a captured mutable value is an
+`exclusive_borrow`, and a destroy/acquire transfer is `consume`; authors do
+not spell these modes.
+
+The executable environment slice is reactive program-static storage for
+`bool`, integer, floating-point, and `char` values. A shared-borrow closure may
+be frozen under one complete monomorphic callable type and may escape. An
+exclusive-borrow closure remains direct-call-only. Consume captures and
+string, collection, resource, stream, task, matrix, topology, or imported
+environments fail before lowering until their unique transfer,
+representation, initialization, and drop paths are proven.
+
+No hidden copy, reference count, heap box, authored lifetime, or garbage
+collector is introduced.
 
 ---
 

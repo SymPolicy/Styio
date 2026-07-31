@@ -23,12 +23,12 @@ The language owner approved the recommended Q1–Q9 batch:
 | Question | Resolution | Owning feature SSOT |
 |----------|------------|---------------------|
 | Q1 | A — accept now | [Monomorphic Callable Values](./features/core-monomorphic-callable-values.md) |
-| Q2 | A — accept direction; delivery dependency-blocked | [Affine Capturing Closures](./features/core-affine-capturing-closures.md) |
-| Q3 | A — defer until Q1/Q2/Q4/Q5 converge | [Rank-2 Callback Polymorphism](./features/core-rank2-callback-polymorphism.md) |
+| Q2 | A — accepted and converged for the affine program-static scalar boundary | [Affine Capturing Closures](./features/core-affine-capturing-closures.md) |
+| Q3 | A — remain deferred after prerequisite convergence | [Rank-2 Callback Polymorphism](./features/core-rank2-callback-polymorphism.md) |
 | Q4 | A — accept compiler/interface rows | [Canonical Effect Rows](./features/core-canonical-effect-rows.md) |
 | Q5 | A — accept staged compiler-owned facts | [Capability and Usage Polymorphism](./features/core-capability-usage-polymorphism.md) |
 | Q6 | A — defer open instances | [User-Extensible Callable Constraints](./features/core-user-extensible-callable-constraints.md) |
-| Q7 | A — accept direction; delivery dependency-blocked | [Portable Generic Body Interface](./features/core-portable-generic-body-interface.md) |
+| Q7 | A — accepted; delivery floor met after Q4/Q5 convergence | [Portable Generic Body Interface](./features/core-portable-generic-body-interface.md) |
 | Q8 | A — accept direction; delivery after Q7 | [Persistent Callable Specialization Cache](./features/core-persistent-callable-specialization-cache.md) |
 | Q9 | A — fixed language defaults | [Fixed Inference Defaults](./features/core-fixed-inference-defaults.md) |
 

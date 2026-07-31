@@ -31,23 +31,19 @@
       "id": "core.affine-capturing-closures",
       "title": "Affine Capturing Closures",
       "kind": "closure-ownership",
-      "syntax": "Reuse the existing explicit `$(name, ...)` capture list; no lifetime, copy, heap, or ownership keyword is introduced.",
+      "syntax": "Place the explicit `$(name, ...)` capture list between a callable signature and its binding/body operator, for example `# add : i64 $(seed) := (value: i64) => value + seed`; no lifetime, copy, heap, or ownership keyword is introduced.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
         "missing_document_roles": [],
         "missing_prerequisites": [],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-affine-capturing-closures.md",
       "owner": "Sema / Resource Topology",
-      "resolution": "Derive shared-borrow, exclusive-borrow, or consume facts from each captured use; permit stack/static nonescaping environments and permit escape only when every capture has a deterministic owned representation and drop path.",
+      "resolution": "Derive shared-borrow, exclusive-borrow, or consume facts from each captured use; lower the proven scalar slice to one program-static environment; permit shared-borrow escape, keep exclusive-borrow environments direct-call-only, and reject consume or representation/drop gaps before lowering.",
       "dependencies": {
         "requires": [
           {
@@ -103,8 +99,8 @@
         "topology-contract": "docs/design/Styio-Resource-Topology.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "validate_affine_capture_environment",
         "owner": "Sema / Resource Topology"
       },
       "documents": {
@@ -129,15 +125,41 @@
           "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
         ],
         "implementation": [
+          "src/StyioAST/AST.hpp",
+          "src/StyioParser/HashFunctionParser.hpp",
+          "src/StyioParser/NewParserExpr.cpp",
+          "src/StyioSema/SemaContext.hpp",
           "src/StyioSema/TypeInfer.cpp",
-          "src/StyioResourceTopology/ResourceTopology.cpp",
-          "src/StyioLowering/AstToStyioIR.cpp"
+          "src/StyioIR/GenIR/SGIR.hpp",
+          "src/StyioLowering/AstToStyioIR.cpp",
+          "src/StyioCodeGen/GetTypeG.cpp",
+          "src/StyioCodeGen/CodeGenG.cpp"
         ],
         "evidence": [
-          "tests/features/README.md"
+          "tests/features/affine_closures/t01_shared_static_escape.styio",
+          "tests/features/affine_closures/t02_exclusive_static_direct.styio",
+          "tests/features/affine_closures/t03_capture_name_scope_isolation.styio",
+          "tests/features/affine_closures/t04_static_scalar_families.styio",
+          "tests/features/affine_closures/e01_missing_capture.styio",
+          "tests/features/affine_closures/e02_exclusive_escape.styio",
+          "tests/features/affine_closures/e03_missing_drop_path.styio",
+          "tests/features/affine_closures/e04_duplicate_capture.styio",
+          "tests/features/affine_closures/e05_consume_without_drop_proof.styio",
+          "tests/features/affine_closures/e06_unused_capture.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/affine_closures/t01_shared_static_escape.styio",
+        "tests/features/affine_closures/t02_exclusive_static_direct.styio",
+        "tests/features/affine_closures/t03_capture_name_scope_isolation.styio",
+        "tests/features/affine_closures/t04_static_scalar_families.styio",
+        "tests/features/affine_closures/e01_missing_capture.styio",
+        "tests/features/affine_closures/e02_exclusive_escape.styio",
+        "tests/features/affine_closures/e03_missing_drop_path.styio",
+        "tests/features/affine_closures/e04_duplicate_capture.styio",
+        "tests/features/affine_closures/e05_consume_without_drop_proof.styio",
+        "tests/features/affine_closures/e06_unused_capture.styio"
+      ]
     },
     {
       "id": "core.ambiguous-literal-defaulting",
@@ -2768,10 +2790,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "requires core.affine-capturing-closures at accepted/converged",
-          "must follow non-converged feature core.affine-capturing-closures"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-rank2-callback-polymorphism.md",
       "owner": "Sema / Type System",

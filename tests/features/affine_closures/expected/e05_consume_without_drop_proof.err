@@ -1,0 +1,1 @@
+callable `release` capture `items` is a consume at direct call `release(...)`; type `list[i64]` has no approved program-static representation and drop path

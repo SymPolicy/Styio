@@ -836,7 +836,7 @@ Features from the design documents and their current implementation state:
 | Matrix helper intrinsics (`mat_*`, `matmul`, `transpose`, `dot`, `norm`) | Intrinsics / matrix design | ✅ | ordinary calls | ✅ | ✅ | ✅ | ✅ | **Working** |
 | Diagnostic `??` | §12.3 | — | — | — | — | — | — | **Not Started** |
 | Anonymous Ledger | §8.6 | — | — | — | — | — | — | **Not Started** |
-| Context capture `$(...)` | §4.3 | — | — | — | — | — | — | **Not Started** |
+| Context capture `$(...)` | §4.3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working: affine program-static scalar slice** |
 | Yield `<|` | §5.7 | — | — | — | — | — | — | **Not Started** |
 | Infinite generator `[...]` | §5.2 | — | — | — | — | — | — | **Not Started** |
 | Guard `?(expr)` | §5.3 | — | — | — | — | — | — | **Not Started** |

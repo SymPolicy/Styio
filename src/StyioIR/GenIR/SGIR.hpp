@@ -449,19 +449,22 @@ public:
   std::vector<SGFuncArg*> func_args;
   SGBlock* func_block;
   styio::sema::CallableEffectRow effect_row;
+  std::vector<std::string> capture_names;
 
   SGFunc(
     SGType* ret_type,
     SGResId* func_name,
     std::vector<SGFuncArg*> func_args,
     SGBlock* func_block,
-    styio::sema::CallableEffectRow effect_row
+    styio::sema::CallableEffectRow effect_row,
+    std::vector<std::string> capture_names
   ) :
       ret_type(ret_type),
       func_name(func_name),
       func_args(func_args),
       func_block(func_block),
-      effect_row(std::move(effect_row)) {
+      effect_row(std::move(effect_row)),
+      capture_names(std::move(capture_names)) {
   }
 
   void collect_children(std::vector<StyioIR*>& out) override;
@@ -473,14 +476,16 @@ public:
     std::vector<SGFuncArg*> func_args,
     SGBlock* func_block,
     styio::sema::CallableEffectRow effect_row =
-      styio::sema::CallableEffectRow::unknown()
+      styio::sema::CallableEffectRow::unknown(),
+    std::vector<std::string> capture_names = {}
   ) {
     return styio::session_alloc::make_ir<SGFunc>(
       ret_type,
       func_name,
       func_args,
       func_block,
-      std::move(effect_row));
+      std::move(effect_row),
+      std::move(capture_names));
   }
 };
 

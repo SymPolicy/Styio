@@ -629,6 +629,14 @@ can_route_hash_stmt_nightly_latest(const StyioContext& context) {
     return false;
   }
 
+  if (probe.take(StyioTokenType::TOK_DOLLAR)
+      && !consume_balanced_group_latest(
+           probe,
+           StyioTokenType::TOK_LPAREN,
+           StyioTokenType::TOK_RPAREN)) {
+    return false;
+  }
+
   if (!token_policy_contains_latest(k_hash_function_tail_start_tokens_latest, probe.type())) {
     return false;
   }
