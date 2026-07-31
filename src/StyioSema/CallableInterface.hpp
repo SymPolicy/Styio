@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "../StyioIR/PortableCallableBody.hpp"
 #include "SemaContext.hpp"
 
 class MainBlockAST;
@@ -14,7 +15,7 @@ class StyioAST;
 
 namespace styio::sema {
 
-inline constexpr std::int64_t kCallableInterfaceSchemaVersion = 3;
+inline constexpr std::int64_t kCallableInterfaceSchemaVersion = 4;
 inline constexpr std::string_view kCallableInterfaceFormat =
   "styio.callable-interface";
 
@@ -29,8 +30,9 @@ struct CallableInterfaceEntry
   StyioDataType concrete_result{
     StyioDataTypeOption::Undefined, "undefined", 0
   };
-  std::string checked_body;
-  std::string checked_body_digest;
+  styio::ir::PortableCallableBody portable_body;
+  std::string typed_body_payload;
+  std::string portable_body_digest;
 };
 
 struct CallableModuleInterface
@@ -41,6 +43,8 @@ struct CallableModuleInterface
   std::string source_digest;
   std::vector<std::string> dependency_modules;
   std::string dependency_digest;
+  std::string contract_digest;
+  std::string typed_body_digest;
   std::string abi_digest;
   std::vector<CallableInterfaceEntry> entries;
 };
@@ -53,6 +57,13 @@ std::string callable_interface_dependency_digest(
 
 std::string callable_interface_abi_digest(
   const CallableModuleInterface& interface
+);
+
+std::vector<std::string>
+callable_interface_dependency_modules_from_header(
+  std::string_view payload,
+  std::string_view expected_module_id,
+  std::string_view expected_compiler_abi
 );
 
 CallableModuleInterface publish_callable_module_interface(

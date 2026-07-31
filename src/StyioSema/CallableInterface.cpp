@@ -813,8 +813,296 @@ entry_signature_text(const CallableInterfaceEntry& entry) {
     output << ")->" << entry.concrete_result.name;
   }
   output << "|effects=" << entry.effects.row.canonical()
-         << "|body=" << entry.checked_body_digest;
+         << "|relation_seed="
+         << (entry.effects.relation_seed ? "1" : "0")
+         << "|captures=";
+  for (const auto& capture : entry.effects.captures) {
+    output << capture.size() << ":" << capture;
+  }
+  output << "|direct_callees=";
+  for (const auto& callee : entry.effects.direct_callees) {
+    output << callee.size() << ":" << callee;
+  }
   return output.str();
+}
+
+styio::ir::PortableCallableSignature
+portable_signature_for_entry(
+  const CallableInterfaceEntry& entry
+) {
+  styio::ir::PortableCallableSignature signature;
+  signature.name = entry.name;
+  if (entry.has_scheme) {
+    signature.params = entry.scheme.params;
+    signature.result = entry.scheme.result;
+    signature.constraints = entry.scheme.constraints;
+    return signature;
+  }
+  for (const auto& param : entry.concrete_params) {
+    signature.params.push_back(
+      styio::ir::portable_callable_term_from_data_type(param));
+  }
+  signature.result =
+    styio::ir::portable_callable_term_from_data_type(
+      entry.concrete_result);
+  return signature;
+}
+
+styio::ir::PortableCallableCatalog
+portable_catalog_for_interface(
+  const std::vector<CallableInterfaceEntry>& entries,
+  const std::vector<const CallableModuleInterface*>& dependencies
+) {
+  styio::ir::PortableCallableCatalog catalog;
+  for (const auto& entry : entries) {
+    if (!catalog.emplace(
+          entry.name,
+          portable_signature_for_entry(entry)).second) {
+      interface_error(
+        "portable callable catalog contains duplicate local symbol `"
+        + entry.name + "`");
+    }
+  }
+  for (const auto* dependency : dependencies) {
+    if (dependency == nullptr) {
+      interface_error("dependency list contains a null interface");
+    }
+    for (const auto& entry : dependency->entries) {
+      if (!entry.exported) {
+        continue;
+      }
+      if (!catalog.emplace(
+            entry.name,
+            portable_signature_for_entry(entry)).second) {
+        interface_error(
+          "portable callable catalog has an ambiguous direct dependency symbol `"
+          + entry.name + "`");
+      }
+    }
+  }
+  return catalog;
+}
+
+llvm::json::Object
+portable_body_to_json(
+  const styio::ir::PortableCallableBody& body
+) {
+  llvm::json::Array params;
+  for (const auto& param : body.params) {
+    params.push_back(
+      llvm::json::Object{
+        {"name", param.name},
+        {"type", term_to_json(param.type)},
+      });
+  }
+  llvm::json::Array nodes;
+  for (const auto& node : body.nodes) {
+    llvm::json::Array inputs;
+    for (const auto input : node.inputs) {
+      inputs.push_back(static_cast<std::int64_t>(input));
+    }
+    nodes.push_back(
+      llvm::json::Object{
+        {"inputs", std::move(inputs)},
+        {"opcode", node.opcode},
+        {"operation", node.operation},
+        {"symbol", node.symbol},
+        {"type", term_to_json(node.type)},
+        {"value", node.value},
+      });
+  }
+  return llvm::json::Object{
+    {"binding", body.is_unique ? "final" : "mutable"},
+    {"format", body.format},
+    {"function_kind", body.is_block ? "block" : "expression"},
+    {"name", body.name},
+    {"nodes", std::move(nodes)},
+    {"params", std::move(params)},
+    {"result", term_to_json(body.result)},
+    {"root", static_cast<std::int64_t>(body.root)},
+    {"schema_version", body.schema_version},
+    {"semantic_digest", body.semantic_digest},
+  };
+}
+
+std::string
+serialize_portable_body_payload(
+  const styio::ir::PortableCallableBody& body
+) {
+  return llvm::formatv(
+    "{0:2}",
+    llvm::json::Value(portable_body_to_json(body))).str() + "\n";
+}
+
+styio::ir::PortableCallableBody
+parse_portable_body_payload(
+  std::string_view payload,
+  const std::string& context
+) {
+  constexpr std::size_t kMaximumPortableBodyPayloadBytes =
+    16 * 1024 * 1024;
+  if (payload.empty()
+      || payload.size() > kMaximumPortableBodyPayloadBytes) {
+    interface_error(
+      context + " portable body payload has an invalid size");
+  }
+  auto parsed = llvm::json::parse(
+    llvm::StringRef(payload.data(), payload.size()));
+  if (!parsed) {
+    interface_error(
+      context + " portable body JSON parse failed: "
+      + llvm::toString(parsed.takeError()));
+  }
+  const auto& object = require_object(*parsed, context);
+  styio::ir::PortableCallableBody body;
+  body.format = require_string(object, "format", context);
+  body.schema_version =
+    require_integer(object, "schema_version", context);
+  body.name = require_string(object, "name", context);
+  const std::string function_kind =
+    require_string(object, "function_kind", context);
+  if (function_kind == "block") {
+    body.is_block = true;
+  }
+  else if (function_kind == "expression") {
+    body.is_block = false;
+  }
+  else {
+    interface_error(
+      context + " has unknown function kind `"
+      + function_kind + "`");
+  }
+  const std::string binding =
+    require_string(object, "binding", context);
+  if (binding == "final") {
+    body.is_unique = true;
+  }
+  else if (binding == "mutable") {
+    body.is_unique = false;
+  }
+  else {
+    interface_error(
+      context + " has unknown callable binding `" + binding + "`");
+  }
+
+  const auto& params = require_array(object, "params", context);
+  if (params.size() > styio::ir::kMaximumPortableCallableNodes) {
+    interface_error(context + " has too many parameters");
+  }
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    const std::string param_context =
+      context + ".params[" + std::to_string(i) + "]";
+    const auto& param = require_object(params[i], param_context);
+    const auto* type = param.get("type");
+    if (type == nullptr) {
+      interface_error(param_context + " is missing type");
+    }
+    body.params.push_back(
+      styio::ir::PortableCallableParameter{
+        require_string(param, "name", param_context),
+        term_from_json(*type, param_context + ".type"),
+      });
+  }
+  const auto* result = object.get("result");
+  if (result == nullptr) {
+    interface_error(context + " is missing result");
+  }
+  body.result = term_from_json(*result, context + ".result");
+
+  const auto& nodes = require_array(object, "nodes", context);
+  if (nodes.empty()
+      || nodes.size() > styio::ir::kMaximumPortableCallableNodes) {
+    interface_error(context + " has an invalid node count");
+  }
+  std::size_t total_inputs = 0;
+  for (std::size_t i = 0; i < nodes.size(); ++i) {
+    const std::string node_context =
+      context + ".nodes[" + std::to_string(i) + "]";
+    const auto& object_node =
+      require_object(nodes[i], node_context);
+    styio::ir::PortableCallableNode node;
+    node.opcode =
+      require_string(object_node, "opcode", node_context);
+    node.operation =
+      require_string(object_node, "operation", node_context);
+    node.symbol =
+      require_string(object_node, "symbol", node_context);
+    node.value =
+      require_string(object_node, "value", node_context);
+    const auto* type = object_node.get("type");
+    if (type == nullptr) {
+      interface_error(node_context + " is missing type");
+    }
+    node.type =
+      term_from_json(*type, node_context + ".type");
+    node.has_type = true;
+    const auto& inputs =
+      require_array(object_node, "inputs", node_context);
+    total_inputs += inputs.size();
+    if (total_inputs > styio::ir::kMaximumPortableCallableInputs) {
+      interface_error(context + " has too many node inputs");
+    }
+    for (std::size_t input = 0; input < inputs.size(); ++input) {
+      const auto value = inputs[input].getAsInteger();
+      if (!value.has_value()
+          || *value < 0
+          || static_cast<std::uint64_t>(*value)
+               > static_cast<std::uint64_t>(
+                   std::numeric_limits<std::uint32_t>::max())) {
+        interface_error(
+          node_context + ".inputs[" + std::to_string(input)
+          + "] is invalid");
+      }
+      node.inputs.push_back(static_cast<std::uint32_t>(*value));
+    }
+    body.nodes.push_back(std::move(node));
+  }
+  const std::int64_t root =
+    require_integer(object, "root", context);
+  if (root < 0
+      || static_cast<std::uint64_t>(root)
+           > static_cast<std::uint64_t>(
+               std::numeric_limits<std::uint32_t>::max())) {
+    interface_error(context + " has an invalid root");
+  }
+  body.root = static_cast<std::uint32_t>(root);
+  body.semantic_digest =
+    require_string(object, "semantic_digest", context);
+
+  if (serialize_portable_body_payload(body) != payload) {
+    interface_error(context + " is not canonically serialized");
+  }
+  return body;
+}
+
+std::string
+interface_contract_digest(
+  const CallableModuleInterface& interface
+) {
+  std::ostringstream canonical;
+  canonical << "styio.callable-interface.contract.v4\n"
+            << interface.module_id << "\n";
+  for (const auto& entry : interface.entries) {
+    if (entry.exported) {
+      canonical << entry_signature_text(entry) << "\n";
+    }
+  }
+  return callable_interface_sha256_hex(canonical.str());
+}
+
+std::string
+interface_typed_body_digest(
+  const CallableModuleInterface& interface
+) {
+  std::ostringstream canonical;
+  canonical << "styio.callable-interface.typed-bodies.v1\n"
+            << interface.module_id << "\n";
+  for (const auto& entry : interface.entries) {
+    canonical << entry.name.size() << ":" << entry.name
+              << entry.portable_body_digest.size() << ":"
+              << entry.portable_body_digest << "\n";
+  }
+  return callable_interface_sha256_hex(canonical.str());
 }
 
 std::vector<std::string>
@@ -867,7 +1155,7 @@ callable_interface_dependency_digest(
       return lhs->module_id < rhs->module_id;
     });
   std::ostringstream canonical;
-  canonical << "styio.callable-interface.dependencies.v3\n";
+  canonical << "styio.callable-interface.dependencies.v4\n";
   std::string previous;
   for (const auto* dependency : ordered) {
     if (dependency == nullptr) {
@@ -888,33 +1176,70 @@ std::string
 callable_interface_abi_digest(
   const CallableModuleInterface& interface
 ) {
-  std::vector<const CallableInterfaceEntry*> ordered;
-  ordered.reserve(interface.entries.size());
-  for (const auto& entry : interface.entries) {
-    ordered.push_back(&entry);
-  }
-  std::sort(
-    ordered.begin(),
-    ordered.end(),
-    [](const auto* lhs, const auto* rhs)
-    {
-      return lhs->name < rhs->name;
-    });
-
   std::ostringstream canonical;
-  canonical << "styio.callable-interface.abi.v3\n"
+  canonical << "styio.callable-interface.abi.v4\n"
             << interface.module_id << "\n"
             << interface.compiler_abi << "\n"
-            << interface.dependency_digest << "\n";
-  std::string previous;
-  for (const auto* entry : ordered) {
-    if (!previous.empty() && previous == entry->name) {
-      interface_error("interface contains duplicate callable `" + entry->name + "`");
-    }
-    previous = entry->name;
-    canonical << entry_signature_text(*entry) << "\n";
-  }
+            << interface.dependency_digest << "\n"
+            << interface.contract_digest << "\n"
+            << interface.typed_body_digest << "\n";
   return callable_interface_sha256_hex(canonical.str());
+}
+
+std::vector<std::string>
+callable_interface_dependency_modules_from_header(
+  std::string_view payload,
+  std::string_view expected_module_id,
+  std::string_view expected_compiler_abi
+) {
+  auto parsed = llvm::json::parse(
+    llvm::StringRef(payload.data(), payload.size()));
+  if (!parsed) {
+    interface_error(
+      "JSON parse failed: " + llvm::toString(parsed.takeError()));
+  }
+  const auto* root = parsed->getAsObject();
+  if (root == nullptr) {
+    interface_error("root must be an object");
+  }
+  const std::string format =
+    require_string(*root, "format", "interface");
+  if (format != kCallableInterfaceFormat) {
+    interface_error("unsupported format `" + format + "`");
+  }
+  const auto schema_version =
+    require_integer(*root, "schema_version", "interface");
+  if (schema_version != kCallableInterfaceSchemaVersion) {
+    interface_error(
+      "unsupported schema version "
+      + std::to_string(schema_version)
+      + "; expected "
+      + std::to_string(kCallableInterfaceSchemaVersion));
+  }
+  const std::string module_id =
+    require_string(*root, "module_id", "interface");
+  if (module_id != expected_module_id) {
+    interface_error(
+      "module id mismatch: expected `"
+      + std::string(expected_module_id)
+      + "`, found `" + module_id + "`");
+  }
+  const std::string compiler_abi =
+    require_string(*root, "compiler_abi", "interface");
+  if (compiler_abi != expected_compiler_abi) {
+    interface_error(
+      "compiler ABI mismatch for module `" + module_id
+      + "`; rebuild its .styioi interface");
+  }
+  auto modules =
+    strings_from_json(*root, "dependency_modules", "interface");
+  require_canonical_string_sequence(
+    modules,
+    "interface.dependency_modules");
+  for (const auto& module : modules) {
+    require_canonical_module_id(module);
+  }
+  return modules;
 }
 
 CallableModuleInterface
@@ -969,7 +1294,6 @@ publish_callable_module_interface(
   }
   std::sort(local_scheme_names.begin(), local_scheme_names.end());
 
-  StyioRepr representation;
   std::unordered_set<std::string> published_names;
   for (const auto& name : local_scheme_names) {
     CallableInterfaceEntry entry;
@@ -980,9 +1304,6 @@ publish_callable_module_interface(
     if (const auto* effects = context.find_callable_effect_row(name)) {
       entry.effects = *effects;
     }
-    entry.checked_body = definitions.at(name)->toString(&representation);
-    entry.checked_body_digest =
-      callable_interface_sha256_hex(entry.checked_body);
     interface.entries.push_back(std::move(entry));
     published_names.insert(name);
   }
@@ -1033,9 +1354,6 @@ publish_callable_module_interface(
       entry.effects.row =
         styio::sema::CallableEffectRow::unknown();
     }
-    entry.checked_body = definition->toString(&representation);
-    entry.checked_body_digest =
-      callable_interface_sha256_hex(entry.checked_body);
     interface.entries.push_back(std::move(entry));
     published_names.insert(name);
   }
@@ -1059,6 +1377,43 @@ publish_callable_module_interface(
     {
       return lhs.name < rhs.name;
     });
+  const auto catalog =
+    portable_catalog_for_interface(interface.entries, dependencies);
+  for (auto& entry : interface.entries) {
+    if (!entry.effects.captures.empty()) {
+      throw StyioTypeError(
+        "portable StyioIR does not yet encode closure environment facts for `"
+        + entry.name + "`");
+    }
+    const auto signature = portable_signature_for_entry(entry);
+    entry.portable_body =
+      styio::ir::build_portable_callable_body(
+        definitions.at(entry.name),
+        signature);
+    const std::string verification_error =
+      styio::ir::verify_and_annotate_portable_callable_body(
+        entry.portable_body,
+        signature,
+        catalog,
+        false);
+    if (!verification_error.empty()) {
+      throw StyioTypeError(
+        "portable StyioIR publication for `" + entry.name
+        + "` failed verification: " + verification_error);
+    }
+    entry.portable_body.semantic_digest =
+      callable_interface_sha256_hex(
+        styio::ir::portable_callable_body_semantic_text(
+          entry.portable_body));
+    entry.portable_body_digest =
+      entry.portable_body.semantic_digest;
+    entry.typed_body_payload =
+      serialize_portable_body_payload(entry.portable_body);
+  }
+  interface.contract_digest =
+    interface_contract_digest(interface);
+  interface.typed_body_digest =
+    interface_typed_body_digest(interface);
   interface.abi_digest = callable_interface_abi_digest(interface);
   return interface;
 }
@@ -1074,8 +1429,10 @@ serialize_callable_module_interface(
       {"exported", entry.exported},
       {"has_scheme", entry.has_scheme},
       {"effects", effects_to_json(entry.effects)},
-      {"checked_body", entry.checked_body},
-      {"checked_body_digest", entry.checked_body_digest},
+      {"portable_body_digest", entry.portable_body_digest},
+      {"typed_body_format",
+       std::string(styio::ir::kPortableCallableBodyFormat)},
+      {"typed_body_payload", entry.typed_body_payload},
     };
     if (entry.has_scheme) {
       object["scheme"] = scheme_to_json(entry.scheme);
@@ -1101,6 +1458,8 @@ serialize_callable_module_interface(
     {"source_digest", interface.source_digest},
     {"dependency_modules", string_array(interface.dependency_modules)},
     {"dependency_digest", interface.dependency_digest},
+    {"contract_digest", interface.contract_digest},
+    {"typed_body_digest", interface.typed_body_digest},
     {"abi_digest", interface.abi_digest},
     {"entries", std::move(entries)},
   };
@@ -1151,8 +1510,15 @@ parse_callable_module_interface(
     require_string(*root, "source_digest", "interface");
   interface.dependency_modules =
     strings_from_json(*root, "dependency_modules", "interface");
+  require_canonical_string_sequence(
+    interface.dependency_modules,
+    "interface.dependency_modules");
   interface.dependency_digest =
     require_string(*root, "dependency_digest", "interface");
+  interface.contract_digest =
+    require_string(*root, "contract_digest", "interface");
+  interface.typed_body_digest =
+    require_string(*root, "typed_body_digest", "interface");
   interface.abi_digest =
     require_string(*root, "abi_digest", "interface");
 
@@ -1239,15 +1605,22 @@ parse_callable_module_interface(
         interface_error(context + " has an undefined concrete result");
       }
     }
-    entry.checked_body =
-      require_string(object, "checked_body", context);
-    entry.checked_body_digest =
-      require_string(object, "checked_body_digest", context);
-    if (entry.checked_body.empty()
-        || entry.checked_body_digest
-             != callable_interface_sha256_hex(entry.checked_body)) {
-      interface_error(context + " checked body digest does not match");
+    const std::string typed_body_format =
+      require_string(object, "typed_body_format", context);
+    if (typed_body_format
+        != styio::ir::kPortableCallableBodyFormat) {
+      interface_error(
+        context + " has unsupported typed body format `"
+        + typed_body_format + "`");
     }
+    entry.typed_body_payload =
+      require_string(object, "typed_body_payload", context);
+    entry.portable_body_digest =
+      require_string(object, "portable_body_digest", context);
+    entry.portable_body =
+      parse_portable_body_payload(
+        entry.typed_body_payload,
+        context + ".typed_body_payload");
     interface.entries.push_back(std::move(entry));
   }
 
@@ -1258,6 +1631,51 @@ parse_callable_module_interface(
     {
       return lhs.name < rhs.name;
     });
+  const auto catalog =
+    portable_catalog_for_interface(interface.entries, dependencies);
+  for (auto& entry : interface.entries) {
+    if (!entry.effects.captures.empty()) {
+      interface_error(
+        "portable typed body for `" + entry.name
+        + "` cannot carry an unencoded closure environment");
+    }
+    const auto signature = portable_signature_for_entry(entry);
+    const std::string verification_error =
+      styio::ir::verify_and_annotate_portable_callable_body(
+        entry.portable_body,
+        signature,
+        catalog,
+        true);
+    if (!verification_error.empty()) {
+      interface_error(
+        "portable typed body for `" + entry.name
+        + "` failed verification: " + verification_error);
+    }
+    const std::string semantic_digest =
+      callable_interface_sha256_hex(
+        styio::ir::portable_callable_body_semantic_text(
+          entry.portable_body));
+    if (entry.portable_body.semantic_digest != semantic_digest
+        || entry.portable_body_digest != semantic_digest) {
+      interface_error(
+        "portable body digest mismatch for `" + entry.name + "`");
+    }
+  }
+  const std::string expected_contract_digest =
+    interface_contract_digest(interface);
+  if (interface.contract_digest != expected_contract_digest) {
+    interface_error(
+      "contract digest mismatch for module `"
+      + interface.module_id + "`; rebuild its .styioi interface");
+  }
+  const std::string expected_typed_body_digest =
+    interface_typed_body_digest(interface);
+  if (interface.typed_body_digest
+      != expected_typed_body_digest) {
+    interface_error(
+      "typed body digest mismatch for module `"
+      + interface.module_id + "`; rebuild its .styioi interface");
+  }
   const std::string expected_abi_digest =
     callable_interface_abi_digest(interface);
   if (interface.abi_digest != expected_abi_digest) {

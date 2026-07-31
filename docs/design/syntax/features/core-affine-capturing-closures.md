@@ -116,8 +116,8 @@ Existing reactive capture syntax remains valid for its current monomorphic
 semantics. This feature does not silently make an existing capture escaping,
 copyable, reference-counted, or heap allocated.
 
-An imported captured callable is rejected because schema-v3 callable
-interfaces do not carry a portable environment initializer or module-owned
+An imported captured callable is rejected because portable StyioIR body
+schema v1 does not carry an environment initializer or module-owned
 static-storage record. Cross-module captured environments must extend the
 portable-body/interface feature rather than borrowing a consumer module's
 binding by name.

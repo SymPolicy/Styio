@@ -584,7 +584,7 @@ public:
       StyioDataTypeOption::Undefined, "undefined", 0
     };
     std::unordered_set<std::string> visible_from_modules;
-    std::string checked_body_digest;
+    std::string portable_body_digest;
     std::string interface_abi_digest;
   };
 
@@ -599,7 +599,7 @@ public:
     };
     std::string canonical_key;
     std::string content_digest;
-    std::string checked_body_digest;
+    std::string portable_body_digest;
     std::string interface_abi_digest;
   };
 
@@ -948,7 +948,7 @@ public:
     std::vector<StyioDataType> concrete_params,
     StyioDataType concrete_result,
     std::vector<std::string> visible_from_modules,
-    std::string checked_body_digest,
+    std::string portable_body_digest,
     std::string interface_abi_digest
   );
 
@@ -1072,7 +1072,7 @@ protected:
   std::unordered_map<std::string, CallableSpecialization>
     callable_specialization_cache_;
   std::unordered_map<const StyioAST*, std::string>
-    callable_checked_body_digests_;
+    callable_semantic_body_digests_;
   std::unordered_map<std::string, std::string>
     callable_definition_dependency_digests_;
   std::unordered_set<std::string>

@@ -62,7 +62,7 @@ after = ["core.callable-interface-scheme-publication"]
 
 Normal builds collect a lazy reachable mono-item graph. Each instance receives
 one deterministic owner and a content-addressed identity derived from its
-canonical relation, checked body, dependencies, target, and ABI facts. A hard
+canonical relation, portable semantic body, dependencies, target, and ABI facts. A hard
 recursive-instantiation ceiling and a high pathological-growth safety ceiling
 fail with an instance-path diagnostic. A normal code-size warning threshold
 remains telemetry-driven rather than part of the language contract.

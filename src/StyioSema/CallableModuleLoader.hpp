@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "CallableInterface.hpp"
+#include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
-#include "../StyioParser/Parser.hpp"
 
 class MainBlockAST;
 class StyioSemaContext;
@@ -23,8 +23,8 @@ struct LoadedCallableModule
   std::string module_id;
   std::filesystem::path source_path;
   std::string source_text;
-  std::unique_ptr<MainBlockAST> ast;
   CallableModuleInterface interface;
+  std::vector<std::unique_ptr<StyioAST>> definition_owners;
   std::unordered_map<std::string, StyioAST*> definitions;
   std::unordered_set<std::string> direct_importers;
 };
@@ -35,10 +35,7 @@ public:
   void load_entry_imports(
     const std::filesystem::path& entry_source_path,
     MainBlockAST* entry_ast,
-    StyioParserEngine parser_engine,
-    bool debug_mode,
-    std::string compiler_abi,
-    styio::session::SymbolInterner& symbols
+    std::string compiler_abi
   );
 
   void install_into(StyioSemaContext& context) const;
@@ -71,10 +68,7 @@ private:
     const std::string& import_path
   ) const;
 
-  StyioParserEngine parser_engine_ = StyioParserEngine::Nightly;
-  bool debug_mode_ = false;
   std::string compiler_abi_;
-  styio::session::SymbolInterner* symbols_ = nullptr;
   std::vector<std::unique_ptr<LoadedCallableModule>> modules_;
   std::unordered_map<std::string, LoadedCallableModule*> modules_by_path_;
   std::unordered_map<std::string, LoadState> load_states_;

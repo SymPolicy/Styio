@@ -2218,6 +2218,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioResourceTopology/ResourceTopology.cpp",
     "src/StyioToString/ToString.cpp",
     "src/StyioIR/Verifier.cpp",
+    "src/StyioIR/PortableCallableBody.cpp",
     "src/StyioSema/CallableInterface.cpp",
     "src/StyioSema/CallableModuleLoader.cpp",
     "src/StyioSema/CallableSpecializationGraph.cpp",
@@ -5161,7 +5162,7 @@ styio_hash_hex(const std::string& text) {
 static std::string
 styio_callable_interface_compiler_abi_latest() {
   std::ostringstream abi;
-  abi << "styio.callable-interface.v3"
+  abi << "styio.callable-interface.v4"
       << "|compiler=" << STYIO_PROJECT_VERSION
       << "|channel=" << STYIO_RELEASE_CHANNEL
       << "|edition=" << STYIO_EDITION_MAX
@@ -6154,10 +6155,7 @@ main(
     callable_module_graph.load_entry_imports(
       std::filesystem::path(fpath),
       session.ast(),
-      parser_engine,
-      is_debug_mode,
-      callable_interface_compiler_abi,
-      session.symbols());
+      callable_interface_compiler_abi);
   } catch (const StyioLexError& ex) {
     mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(
