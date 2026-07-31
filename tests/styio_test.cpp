@@ -19,6 +19,7 @@
 #include "StyioPlatform/Platform.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioSema/CallableSpecializationGraph.hpp"
+#include "StyioSema/EffectRow.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
@@ -585,6 +586,38 @@ TEST(StyioCallableSpecializationGraph, ReportsDepthAndGrowthInstancePaths) {
       std::string::npos);
   }
   growth_graph.end_expansion("growth-a");
+}
+
+TEST(StyioCallableEffects, CanonicalRowsSortDeduplicateAndMerge) {
+  using styio::sema::CallableEffectLabel;
+  using styio::sema::CallableEffectRow;
+
+  CallableEffectRow row;
+  EXPECT_TRUE(row.proven_pure());
+  EXPECT_EQ(row.canonical(), "{}");
+
+  EXPECT_TRUE(row.add(CallableEffectLabel::Task));
+  EXPECT_TRUE(row.add(CallableEffectLabel::Output));
+  EXPECT_TRUE(row.add(CallableEffectLabel::Capture));
+  EXPECT_FALSE(row.add(CallableEffectLabel::Task));
+  EXPECT_EQ(row.canonical(), "{capture,output,task}");
+
+  CallableEffectRow dependency;
+  dependency.add(CallableEffectLabel::Handler);
+  dependency.add(CallableEffectLabel::Output);
+  EXPECT_TRUE(row.merge_known(dependency));
+  EXPECT_FALSE(row.merge_known(dependency));
+  EXPECT_TRUE(row.set_open_tail(7));
+  EXPECT_FALSE(row.set_open_tail(7));
+  EXPECT_EQ(
+    row.canonical(),
+    "{capture,handler,output,task|'e7}");
+  EXPECT_FALSE(row.proven_pure());
+
+  const CallableEffectRow unknown = CallableEffectRow::unknown();
+  EXPECT_TRUE(unknown.contains(CallableEffectLabel::Unknown));
+  EXPECT_EQ(unknown.canonical(), "{unknown}");
+
 }
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {

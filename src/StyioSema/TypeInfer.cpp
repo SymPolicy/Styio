@@ -110,7 +110,7 @@ StyioSemaContext::install_imported_callable_definition(
   bool has_scheme,
   StyioAST* definition,
   CallableTypeScheme scheme,
-  CallableEffectSummary effects,
+  CallableEffectRowFacts effects,
   std::vector<StyioDataType> concrete_params,
   StyioDataType concrete_result,
   std::vector<std::string> visible_from_modules,
@@ -332,8 +332,8 @@ using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
 using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
 using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
-using CallableEffectKind = StyioSemaContext::CallableEffectKind;
-using CallableEffectSummary = StyioSemaContext::CallableEffectSummary;
+using CallableEffectLabel = styio::sema::CallableEffectLabel;
+using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
 
 StyioDataType
 normalize_callable_concrete_type(const StyioDataType& input) {
@@ -931,104 +931,53 @@ callable_direct_calls(StyioAST* def) {
   return calls;
 }
 
-constexpr std::uint32_t
-callable_effect_mask(CallableEffectKind kind) {
-  return static_cast<std::uint32_t>(kind);
-}
-
 void
 add_callable_effect(
-  CallableEffectSummary& summary,
-  CallableEffectKind kind
+  CallableEffectRowFacts& effects,
+  CallableEffectLabel label
 ) {
-  summary.effect_bits |= callable_effect_mask(kind);
+  effects.row.add(label);
 }
 
 std::string
-callable_effect_name(CallableEffectKind kind) {
-  switch (kind) {
-    case CallableEffectKind::None:
-      return "pure";
-    case CallableEffectKind::Output:
-      return "output";
-    case CallableEffectKind::Resource:
-      return "resource";
-    case CallableEffectKind::Task:
-      return "task";
-    case CallableEffectKind::Handler:
-      return "handler";
-    case CallableEffectKind::Native:
-      return "native";
-    case CallableEffectKind::Capture:
-      return "capture";
-    case CallableEffectKind::Unknown:
-      return "unknown";
-  }
-  return "unknown";
-}
-
-std::string
-canonical_callable_effect_summary(
-  const CallableEffectSummary& summary
+callable_effect_row_diagnostic(
+  const CallableEffectRowFacts& effects
 ) {
-  if (summary.proven_pure()) {
-    return "pure";
-  }
-
-  std::vector<std::string> parts;
-  for (CallableEffectKind kind : {
-         CallableEffectKind::Output,
-         CallableEffectKind::Resource,
-         CallableEffectKind::Task,
-         CallableEffectKind::Handler,
-         CallableEffectKind::Native,
-         CallableEffectKind::Capture,
-         CallableEffectKind::Unknown,
-       }) {
-    if ((summary.effect_bits & callable_effect_mask(kind)) != 0) {
-      parts.push_back(callable_effect_name(kind));
-    }
-  }
-  if (!summary.closed
-      && (summary.effect_bits
-          & callable_effect_mask(CallableEffectKind::Capture)) == 0) {
-    parts.push_back("open");
-  }
-
   std::ostringstream output;
-  for (std::size_t i = 0; i < parts.size(); ++i) {
-    if (i != 0) {
-      output << ",";
-    }
-    output << parts[i];
-  }
-  if (!summary.captures.empty()) {
+  output << effects.row.canonical();
+  if (!effects.captures.empty()) {
     output << "[";
-    for (std::size_t i = 0; i < summary.captures.size(); ++i) {
+    for (std::size_t i = 0; i < effects.captures.size(); ++i) {
       if (i != 0) {
         output << ",";
       }
-      output << summary.captures[i];
+      output << effects.captures[i];
     }
     output << "]";
   }
   return output.str();
 }
 
-CallableEffectSummary
-callable_local_effect_summary(
+CallableEffectRowFacts
+callable_local_effect_row(
   StyioSemaContext* an,
   StyioAST* def,
   const std::unordered_map<std::string, StyioAST*>& definitions
 ) {
-  CallableEffectSummary summary;
-  summary.relation_seed =
+  CallableEffectRowFacts effects;
+  effects.relation_seed =
     callable_definition_has_relation_seed(def);
 
   std::unordered_set<std::string> local_names;
+  std::unordered_set<std::string> callable_parameter_names;
   for (auto* param : params_of_func_def(def)) {
     if (param != nullptr) {
       local_names.insert(param->getNameAsStr());
+      if (param->getDType() != nullptr
+          && styio_is_callable_type(
+               param->getDType()->getDataType())) {
+        callable_parameter_names.insert(param->getNameAsStr());
+      }
     }
   }
   walk_callable_expression(
@@ -1058,21 +1007,24 @@ callable_local_effect_summary(
 
       if (auto* call = dynamic_cast<FuncCallAST*>(node)) {
         if (call->func_callee != nullptr) {
-          add_callable_effect(summary, CallableEffectKind::Unknown);
+          add_callable_effect(effects, CallableEffectLabel::Unknown);
         }
         else {
           const std::string callee = call->getNameAsStr();
-          if (definitions.count(callee) != 0) {
+          if (callable_parameter_names.count(callee) != 0) {
+            effects.row.set_open_tail(0);
+          }
+          else if (definitions.count(callee) != 0) {
             direct_callees.insert(callee);
           }
           else if (an != nullptr
                    && an->find_native_function_def(
                         styio::session::kInvalidSymbolId,
                         callee) != nullptr) {
-            add_callable_effect(summary, CallableEffectKind::Native);
+            add_callable_effect(effects, CallableEffectLabel::Native);
           }
           else {
-            add_callable_effect(summary, CallableEffectKind::Unknown);
+            add_callable_effect(effects, CallableEffectLabel::Unknown);
           }
         }
       }
@@ -1082,7 +1034,7 @@ callable_local_effect_summary(
       }
       switch (node->getNodeType()) {
         case StyioNodeType::Print:
-          add_callable_effect(summary, CallableEffectKind::Output);
+          add_callable_effect(effects, CallableEffectLabel::Output);
           return;
         case StyioNodeType::FileResource:
         case StyioNodeType::EmptyResource:
@@ -1098,43 +1050,41 @@ callable_local_effect_summary(
         case StyioNodeType::StdinResource:
         case StyioNodeType::StdoutResource:
         case StyioNodeType::StderrResource:
-          add_callable_effect(summary, CallableEffectKind::Resource);
+          add_callable_effect(effects, CallableEffectLabel::Resource);
           return;
         case StyioNodeType::ResourceEffect:
-          add_callable_effect(summary, CallableEffectKind::Resource);
-          add_callable_effect(summary, CallableEffectKind::Handler);
+          add_callable_effect(effects, CallableEffectLabel::Resource);
+          add_callable_effect(effects, CallableEffectLabel::Handler);
           return;
         case StyioNodeType::TaskBlock:
         case StyioNodeType::TaskGroupLaunch:
         case StyioNodeType::FlowBind:
-          add_callable_effect(summary, CallableEffectKind::Task);
+          add_callable_effect(effects, CallableEffectLabel::Task);
           return;
         case StyioNodeType::Fallback:
-          add_callable_effect(summary, CallableEffectKind::Handler);
+          add_callable_effect(effects, CallableEffectLabel::Handler);
           return;
         case StyioNodeType::ExternBlock:
-          add_callable_effect(summary, CallableEffectKind::Native);
+          add_callable_effect(effects, CallableEffectLabel::Native);
           return;
         default:
-          add_callable_effect(summary, CallableEffectKind::Unknown);
+          add_callable_effect(effects, CallableEffectLabel::Unknown);
           return;
       }
     });
 
-  summary.captures.assign(captures.begin(), captures.end());
-  std::sort(summary.captures.begin(), summary.captures.end());
-  summary.direct_callees.assign(
+  effects.captures.assign(captures.begin(), captures.end());
+  std::sort(effects.captures.begin(), effects.captures.end());
+  effects.direct_callees.assign(
     direct_callees.begin(),
     direct_callees.end());
   std::sort(
-    summary.direct_callees.begin(),
-    summary.direct_callees.end());
-  if (!summary.captures.empty()) {
-    summary.closed = false;
-    add_callable_effect(summary, CallableEffectKind::Capture);
+    effects.direct_callees.begin(),
+    effects.direct_callees.end());
+  if (!effects.captures.empty()) {
+    add_callable_effect(effects, CallableEffectLabel::Capture);
   }
-  summary.canonical = canonical_callable_effect_summary(summary);
-  return summary;
+  return effects;
 }
 
 std::string
@@ -4130,7 +4080,7 @@ callable_specialization_content_digest(
 ) {
   std::ostringstream content;
   content
-    << "styio.callable-specialization.v1\n"
+    << "styio.callable-specialization.v2\n"
     << "definition=" << definition << "\n"
     << "relation=" << relation << "\n"
     << "effects=" << effects << "\n"
@@ -4189,7 +4139,7 @@ build_callable_dependency_fingerprints(
     result.body_digests[definition] = body_digest;
 
     std::ostringstream base;
-    base << "styio.callable-definition.v1\n"
+    base << "styio.callable-definition.v2\n"
          << "definition="
          << (owner.empty() ? name : owner + "::" + name)
          << "\n";
@@ -4211,9 +4161,11 @@ build_callable_dependency_fingerprints(
            << "\n";
     }
     const auto* effects =
-      context->find_callable_effect_summary(name);
+      context->find_callable_effect_row(name);
     base << "effects="
-         << (effects == nullptr ? "unknown" : effects->canonical)
+         << (effects == nullptr
+               ? styio::sema::CallableEffectRow::unknown().canonical()
+               : effects->row.canonical())
          << "\n"
          << "body=" << body_digest << "\n"
          << "interface=" << interface_digest << "\n";
@@ -4302,7 +4254,7 @@ build_callable_dependency_fingerprints(
 
     std::vector<std::string> dependency_facts;
     std::ostringstream canonical;
-    canonical << "styio.callable-dependency-component.v1\n";
+    canonical << "styio.callable-dependency-component.v2\n";
     for (const auto& name : components[component_index]) {
       canonical << "member=" << name << "|"
                 << base_fingerprints.at(name) << "\n";
@@ -4427,7 +4379,7 @@ apply_callable_expected_type_to_tail(
 void
 StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   callable_type_schemes_.clear();
-  callable_effect_summaries_.clear();
+  callable_effect_rows_.clear();
   effect_monomorphic_instances_.clear();
   callable_specializations_.clear();
   callable_specialization_cache_.clear();
@@ -4446,7 +4398,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     if (imported.has_scheme) {
       callable_type_schemes_[name] = imported.scheme;
     }
-    callable_effect_summaries_[name] = imported.effects;
+    callable_effect_rows_[name] = imported.effects;
   }
 
   std::unordered_map<std::string, StyioAST*> definitions;
@@ -4467,8 +4419,8 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   std::vector<std::string> definition_names;
   definition_names.reserve(definitions.size());
   for (const auto& [name, def] : definitions) {
-    callable_effect_summaries_[name] =
-      callable_local_effect_summary(this, def, available_definitions);
+    callable_effect_rows_[name] =
+      callable_local_effect_row(this, def, available_definitions);
     definition_names.push_back(name);
   }
   std::sort(definition_names.begin(), definition_names.end());
@@ -4476,7 +4428,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   std::unordered_map<std::string, std::vector<std::string>> callers;
   for (const auto& name : definition_names) {
     for (const auto& callee :
-         callable_effect_summaries_.at(name).direct_callees) {
+         callable_effect_rows_.at(name).direct_callees) {
       callers[callee].push_back(name);
     }
   }
@@ -4494,20 +4446,20 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
        ++cursor) {
     std::string name = std::move(effect_worklist[cursor]);
     queued_effects.erase(name);
-    auto& summary = callable_effect_summaries_.at(name);
-    const std::uint32_t previous_bits = summary.effect_bits;
-    const bool previous_closed = summary.closed;
-    for (const auto& callee : summary.direct_callees) {
-      auto dependency = callable_effect_summaries_.find(callee);
-      if (dependency == callable_effect_summaries_.end()) {
-        add_callable_effect(summary, CallableEffectKind::Unknown);
+    auto& effects = callable_effect_rows_.at(name);
+    const styio::sema::CallableEffectRow previous_row = effects.row;
+    for (const auto& callee : effects.direct_callees) {
+      auto dependency = callable_effect_rows_.find(callee);
+      if (dependency == callable_effect_rows_.end()) {
+        add_callable_effect(effects, CallableEffectLabel::Unknown);
         continue;
       }
-      summary.effect_bits |= dependency->second.effect_bits;
-      summary.closed = summary.closed && dependency->second.closed;
+      effects.row.merge_known(dependency->second.row);
+      if (dependency->second.row.open_tail().has_value()) {
+        effects.row.set_open_tail(0);
+      }
     }
-    if (summary.effect_bits == previous_bits
-        && summary.closed == previous_closed) {
+    if (effects.row == previous_row) {
       continue;
     }
     auto dependent_callers = callers.find(name);
@@ -4520,21 +4472,16 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
       }
     }
   }
-  for (auto& [name, summary] : callable_effect_summaries_) {
-    (void)name;
-    summary.canonical = canonical_callable_effect_summary(summary);
-  }
-
   std::unordered_map<std::string, std::unordered_set<std::string>> graph;
   std::vector<std::string> seeds;
   for (const auto& name : definition_names) {
-    const auto& effect_summary = callable_effect_summaries_.at(name);
+    const auto& effects = callable_effect_rows_.at(name);
     std::unordered_set<std::string> calls(
-      effect_summary.direct_callees.begin(),
-      effect_summary.direct_callees.end());
+      effects.direct_callees.begin(),
+      effects.direct_callees.end());
     graph[name] = std::move(calls);
-    if (effect_summary.relation_seed
-        && effect_summary.proven_pure()) {
+    if (effects.relation_seed
+        && effects.proven_pure()) {
       seeds.push_back(name);
     }
   }
@@ -4918,12 +4865,12 @@ StyioSemaContext::find_callable_type_scheme(
   return it == callable_type_schemes_.end() ? nullptr : &it->second;
 }
 
-const StyioSemaContext::CallableEffectSummary*
-StyioSemaContext::find_callable_effect_summary(
+const StyioSemaContext::CallableEffectRowFacts*
+StyioSemaContext::find_callable_effect_row(
   std::string_view name
 ) const {
-  auto it = callable_effect_summaries_.find(std::string(name));
-  return it == callable_effect_summaries_.end() ? nullptr : &it->second;
+  auto it = callable_effect_rows_.find(std::string(name));
+  return it == callable_effect_rows_.end() ? nullptr : &it->second;
 }
 
 void
@@ -4931,11 +4878,11 @@ StyioSemaContext::enforce_effect_monomorphic_instance(
   std::string_view name,
   const std::vector<StyioDataType>& arg_types
 ) {
-  const CallableEffectSummary* summary =
-    find_callable_effect_summary(name);
-  if (summary == nullptr
-      || !summary->relation_seed
-      || summary->proven_pure()) {
+  const CallableEffectRowFacts* effects =
+    find_callable_effect_row(name);
+  if (effects == nullptr
+      || !effects->relation_seed
+      || effects->proven_pure()) {
     return;
   }
 
@@ -4957,8 +4904,8 @@ StyioSemaContext::enforce_effect_monomorphic_instance(
     }
     throw StyioTypeError(
       "callable `" + std::string(name)
-      + "` is monomorphic because its effect summary is `"
-      + summary->canonical + "`; parameter "
+      + "` is monomorphic because its effect row is `"
+      + callable_effect_row_diagnostic(*effects) + "`; parameter "
       + std::to_string(i) + " was fixed as `"
       + it->second[i].name + "` and cannot be reused as `"
       + arg_types[i].name + "`"
@@ -5069,7 +5016,7 @@ StyioSemaContext::instantiate_callable_type_scheme(
       ? callable_specialization_dependency_digest_
       : specialization.interface_abi_digest;
   const auto* effects =
-    find_callable_effect_summary(scheme->name);
+    find_callable_effect_row(scheme->name);
   auto definition_dependencies =
     callable_definition_dependency_digests_.find(scheme->name);
   if (definition_dependencies
@@ -5083,7 +5030,9 @@ StyioSemaContext::instantiate_callable_type_scheme(
     callable_specialization_content_digest(
       specialization.canonical_key,
       scheme->canonical_relation,
-      effects == nullptr ? "unknown" : effects->canonical,
+      effects == nullptr
+        ? styio::sema::CallableEffectRow::unknown().canonical()
+        : effects->row.canonical(),
       specialization.checked_body_digest,
       definition_dependencies->second,
       dependency_facts,
@@ -5202,13 +5151,15 @@ StyioSemaContext::prepare_imported_concrete_callable_body(
       source_name,
       concrete.param_types,
       concrete.result_type);
-  const CallableEffectSummary* effects =
-    find_callable_effect_summary(source_name);
+  const CallableEffectRowFacts* effects =
+    find_callable_effect_row(source_name);
   concrete.content_digest =
     callable_specialization_content_digest(
       concrete.canonical_key,
       relation,
-      effects == nullptr ? "unknown" : effects->canonical,
+      effects == nullptr
+        ? styio::sema::CallableEffectRow::unknown().canonical()
+        : effects->row.canonical(),
       concrete.checked_body_digest,
       definition_dependencies->second,
       concrete.interface_abi_digest,
@@ -5502,8 +5453,8 @@ StyioSemaContext::typeInfer(NameAST* ast) {
             + "`"
           );
         }
-        if (const CallableEffectSummary* effects =
-              find_callable_effect_summary(ast->getAsStr())) {
+        if (const CallableEffectRowFacts* effects =
+              find_callable_effect_row(ast->getAsStr())) {
           if (!effects->captures.empty()) {
             throw StyioTypeError(
               "callable `" + ast->getAsStr()
@@ -5596,8 +5547,8 @@ StyioSemaContext::typeInfer(NameAST* ast) {
       + "`"
     );
   }
-  if (const CallableEffectSummary* effects =
-        find_callable_effect_summary(ast->getAsStr())) {
+  if (const CallableEffectRowFacts* effects =
+        find_callable_effect_row(ast->getAsStr())) {
     if (!effects->captures.empty()) {
       throw StyioTypeError(
         "callable `" + ast->getAsStr()

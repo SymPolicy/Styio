@@ -1,1 +1,1 @@
-is monomorphic because its effect summary is `output`
+is monomorphic because its effect row is `{output}`

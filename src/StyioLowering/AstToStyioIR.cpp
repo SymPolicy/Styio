@@ -4320,6 +4320,8 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   }
   local_binding_types = std::move(saved_local_types);
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+  const auto* effect_facts =
+    find_callable_effect_row(ast->getNameAsStr());
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(
@@ -4327,7 +4329,10 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
         ? ast->getNameAsStr()
         : specialization->lowered_name),
     std::move(fargs),
-    body
+    body,
+    effect_facts == nullptr
+      ? styio::sema::CallableEffectRow::unknown()
+      : effect_facts->row
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;
@@ -4398,6 +4403,8 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   }
   local_binding_types = std::move(saved_local_types);
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+  const auto* effect_facts =
+    find_callable_effect_row(ast->func_name->getAsStr());
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(
@@ -4405,7 +4412,10 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
         ? ast->func_name->getAsStr()
         : specialization->lowered_name),
     std::move(fargs),
-    body
+    body,
+    effect_facts == nullptr
+      ? styio::sema::CallableEffectRow::unknown()
+      : effect_facts->row
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;

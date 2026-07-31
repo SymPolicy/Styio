@@ -22,6 +22,7 @@ using std::unordered_map;
 #include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CallableSpecializationGraph.hpp"
+#include "EffectRow.hpp"
 
 struct SGPulsePlan;
 
@@ -538,28 +539,15 @@ public:
     std::string canonical_relation;
   };
 
-  enum class CallableEffectKind : std::uint32_t {
-    None = 0,
-    Output = 1u << 0,
-    Resource = 1u << 1,
-    Task = 1u << 2,
-    Handler = 1u << 3,
-    Native = 1u << 4,
-    Capture = 1u << 5,
-    Unknown = 1u << 6,
-  };
-
-  struct CallableEffectSummary
+  struct CallableEffectRowFacts
   {
-    std::uint32_t effect_bits = 0;
-    bool closed = true;
+    styio::sema::CallableEffectRow row;
     bool relation_seed = false;
     std::vector<std::string> captures;
     std::vector<std::string> direct_callees;
-    std::string canonical = "pure";
 
     bool proven_pure() const {
-      return closed && effect_bits == 0;
+      return row.proven_pure();
     }
   };
 
@@ -570,7 +558,7 @@ public:
     bool has_scheme = false;
     StyioAST* definition = nullptr;
     CallableTypeScheme scheme;
-    CallableEffectSummary effects;
+    CallableEffectRowFacts effects;
     std::vector<StyioDataType> concrete_params;
     StyioDataType concrete_result{
       StyioDataTypeOption::Undefined, "undefined", 0
@@ -912,7 +900,7 @@ public:
     std::string_view name
   ) const;
 
-  const CallableEffectSummary* find_callable_effect_summary(
+  const CallableEffectRowFacts* find_callable_effect_row(
     std::string_view name
   ) const;
 
@@ -921,9 +909,9 @@ public:
     return callable_type_schemes_;
   }
 
-  const std::unordered_map<std::string, CallableEffectSummary>&
-  callable_effect_summary_facts() const {
-    return callable_effect_summaries_;
+  const std::unordered_map<std::string, CallableEffectRowFacts>&
+  callable_effect_row_facts() const {
+    return callable_effect_rows_;
   }
 
   void install_imported_callable_definition(
@@ -932,7 +920,7 @@ public:
     bool has_scheme,
     StyioAST* definition,
     CallableTypeScheme scheme,
-    CallableEffectSummary effects,
+    CallableEffectRowFacts effects,
     std::vector<StyioDataType> concrete_params,
     StyioDataType concrete_result,
     std::vector<std::string> visible_from_modules,
@@ -1048,7 +1036,7 @@ protected:
   std::vector<styio::session::SymbolId> active_function_body_sid_stack_;
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
   std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
-  std::unordered_map<std::string, CallableEffectSummary> callable_effect_summaries_;
+  std::unordered_map<std::string, CallableEffectRowFacts> callable_effect_rows_;
   std::vector<ImportedCallableDefinition> imported_callable_definitions_;
   std::unordered_map<std::string, std::size_t>
     imported_callable_definition_indices_;

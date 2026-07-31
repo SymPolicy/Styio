@@ -201,7 +201,8 @@ foreach(_CALLABLE_INTERFACE_MODE IN ITEMS
     stale-dependency
     missing
     uninstantiated-body
-    invalid-module-id)
+    invalid-module-id
+    effect-row)
   string(REPLACE "-" "_" _CALLABLE_INTERFACE_TEST_SUFFIX
     "${_CALLABLE_INTERFACE_MODE}")
   add_test(

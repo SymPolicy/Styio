@@ -14,7 +14,7 @@ class StyioAST;
 
 namespace styio::sema {
 
-inline constexpr std::int64_t kCallableInterfaceSchemaVersion = 1;
+inline constexpr std::int64_t kCallableInterfaceSchemaVersion = 2;
 inline constexpr std::string_view kCallableInterfaceFormat =
   "styio.callable-interface";
 
@@ -24,7 +24,7 @@ struct CallableInterfaceEntry
   bool exported = false;
   bool has_scheme = false;
   StyioSemaContext::CallableTypeScheme scheme;
-  StyioSemaContext::CallableEffectSummary effects;
+  StyioSemaContext::CallableEffectRowFacts effects;
   std::vector<StyioDataType> concrete_params;
   StyioDataType concrete_result{
     StyioDataTypeOption::Undefined, "undefined", 0

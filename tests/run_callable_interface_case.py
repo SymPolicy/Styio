@@ -86,6 +86,7 @@ def main() -> int:
             "missing",
             "uninstantiated-body",
             "invalid-module-id",
+            "effect-row",
         ],
     )
     args = parser.parse_args()
@@ -158,6 +159,73 @@ def main() -> int:
                 expected,
                 "canonical module id check",
             )
+            return 0
+
+        if args.mode == "effect-row":
+            require_success(
+                emit_interface(
+                    styio,
+                    workspace,
+                    "modules/effects.styio",
+                    "modules/effects",
+                ),
+                "effect-row interface publication",
+            )
+            interface_path = workspace / "modules/effects.styioi"
+            payload = json.loads(interface_path.read_text(encoding="utf-8"))
+            if payload["schema_version"] != 2:
+                raise AssertionError(
+                    "effect-row interface did not use schema version 2"
+                )
+            entries = {entry["name"]: entry for entry in payload["entries"]}
+            expected_rows = {
+                "identity": ([], None),
+                "emit": (["output"], None),
+                "apply": ([], 0),
+                "apply_outer": ([], 0),
+            }
+            if set(entries) != set(expected_rows):
+                raise AssertionError(
+                    "effect-row interface entries mismatch: "
+                    f"{sorted(entries)}"
+                )
+            for name, (labels, open_tail) in expected_rows.items():
+                effects = entries[name]["effects"]
+                if effects["labels"] != labels:
+                    raise AssertionError(
+                        f"{name} labels mismatch: {effects['labels']}"
+                    )
+                if effects["open_tail"] != open_tail:
+                    raise AssertionError(
+                        f"{name} open tail mismatch: {effects['open_tail']}"
+                    )
+                legacy = {"bits", "closed", "canonical"} & set(effects)
+                if legacy:
+                    raise AssertionError(
+                        f"{name} retained legacy effect fields: {sorted(legacy)}"
+                    )
+            result = run(
+                [
+                    str(styio),
+                    "--parser-engine=nightly",
+                    f"--file={workspace / 't02_effect_rows.styio'}",
+                ],
+                workspace,
+            )
+            require_success(result, "effect-row interface consumption")
+            expected = (
+                workspace / "expected/t02_effect_rows.out"
+            ).read_text(encoding="utf-8")
+            if result.stdout != expected:
+                raise AssertionError(
+                    "effect-row interface stdout mismatch\n"
+                    f"expected:\n{expected}\nactual:\n{result.stdout}"
+                )
+            if result.stderr:
+                raise AssertionError(
+                    "effect-row interface produced stderr:\n"
+                    + result.stderr
+                )
             return 0
 
         if args.mode == "stale-dependency":
@@ -241,7 +309,7 @@ def main() -> int:
         if args.mode == "stale-schema":
             interface_path = workspace / "modules/core.styioi"
             payload = json.loads(interface_path.read_text(encoding="utf-8"))
-            payload["schema_version"] = 999
+            payload["schema_version"] = 1
             interface_path.write_text(
                 json.dumps(payload, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
