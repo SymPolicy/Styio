@@ -49,7 +49,7 @@ owner = "Sema / Type System"
 [dependencies]
 requires = [
   { id = "core.context-driven-call-instantiation", decision_state = "accepted", delivery_state = "converged" },
-  { id = "core.constrained-callable-relations", decision_state = "accepted", delivery_state = "not_started" },
+  { id = "core.constrained-callable-relations", decision_state = "accepted", delivery_state = "converged" },
 ]
 requires_any = []
 extends = ["core.context-driven-call-instantiation"]
@@ -81,10 +81,11 @@ solving defaults to `i64` only when every remaining fact about that variable is
 
 An empty list or `dict {}` carries no fabricated element/value type. It is
 accepted only when a concrete surrounding list or dictionary type reaches the
-literal inside the same expression, including a typed binding, callable result,
-or callable argument context. Without that context, Sema reports the empty
-literal itself as underconstrained. Defaulting never consults a later statement
-or mutates a relation during unification.
+literal inside the same expression, including a typed binding, the established
+type of a mutable assignment target, a callable result, or a callable argument
+context. Without that context, Sema reports the empty literal itself as
+underconstrained. Defaulting never consults a later statement or mutates a
+relation during unification.
 
 The `literal_defaulting` goldens prove canonical numeric normalization,
 contextual empty list/dictionary acceptance, missing-context diagnostics for

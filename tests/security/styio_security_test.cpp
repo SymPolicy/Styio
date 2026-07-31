@@ -9064,7 +9064,7 @@ TEST(StyioSecurityNightlySemantics, RejectsResourceEffectValueDictSliceFallbackT
   }
   catch (const StyioTypeError& err) {
     const std::string msg = err.what();
-    EXPECT_NE(msg.find("resource-effect fallback expects list[int], got int"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("resource-effect fallback expects list[i64], got i64"), std::string::npos) << msg;
   }
 }
 

@@ -10781,7 +10781,7 @@ TEST(StyioResourceEffects, ResourceMethodValueFallbackTypeMismatchReportsTypeCod
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects int, got string"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects i64, got string"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
@@ -10828,7 +10828,7 @@ TEST(StyioResourceEffects, ResourceMethodFmtStringValueFallbackTypeMismatchRepor
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects string, got int"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects string, got i64"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);

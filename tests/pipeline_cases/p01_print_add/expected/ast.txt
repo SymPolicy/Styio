@@ -1,6 +1,6 @@
 styio.ast.main {
 |- styio.ast.print {
-  |- styio.ast.binop: int {
+  |- styio.ast.binop: i64 {
     |- LHS: { 3 : int }
     |- OP : <Add>
     |- RHS: { 7 : int }}}}
