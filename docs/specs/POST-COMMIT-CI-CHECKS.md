@@ -28,8 +28,9 @@ Focused changes may use a narrower test selector only when the final handoff sta
 ```bash
 export STYIO_ECOSYSTEM_WORKSPACE=<workspace-root>
 python3 scripts/ecosystem-cli-doc-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
-python3 ../pafio-nightly/scripts/ecosystem-product-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
-python3 ../pafio-nightly/scripts/ecosystem-sample-workflow-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
+python3 ../pafio-nightly/scripts/verify-ecosystem-contracts.py \
+  --focused \
+  --repositories-root "$STYIO_ECOSYSTEM_WORKSPACE"
 ```
 
 The commit message body or handoff should record the checks that were actually run, including functional commit-readiness evidence or objective blockers.

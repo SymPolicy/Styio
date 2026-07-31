@@ -1,308 +1,108 @@
-# Styio Ecosystem CLI Contract Matrix
+# Styio Ecosystem Machine Contract Matrix
 
-**Purpose:** 作为三仓协调镜像，冻结 `styio-nightly`、`pafio-nightly`、`vityo-nightly` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。
+**Purpose:** Freeze the current owner and consumer boundary among Styio, Pafio, Styio Platform, and Vityo without duplicating another product's schemas.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-30
+
+**Plan status:** Active only until the coordinated fixed-revision acceptance
+matrix passes. Product ownership and public command spelling are already frozen.
 
 ## 前置条件
 
-1. 并行: contract rows should be audited in parallel by owner command, consumer repository, payload field family, and negative-path evidence. Only shared payload vocabulary, canonical spellings, and gate ownership changes are serial coordinator merge gates.
-2. 子智能体: sub-agents may check one contract family against one consumer repository, or one payload family across repositories, but one coordinator must merge the matrix update and gate evidence.
-3. 基座: shared CLI payload, docs gate, workflow, or machine-readable contract substrate changes must land first through [Styio-Common-Foundation-Plan.md](./Styio-Common-Foundation-Plan.md).
-4. Upstream dependency: ecosystem sequencing remains governed by [Styio-Ecosystem-Delivery-Master-Plan.md](./Styio-Ecosystem-Delivery-Master-Plan.md).
+1. 并行: parallel work may inspect one owner repository or one contract family at a
+   time; changes to a public command, payload owner, or version remain a serial
+   ecosystem decision.
+2. 子智能体: sub-agents may gather read-only evidence when explicitly requested, but one
+   coordinator must merge the owner matrix and fixed revisions.
+3. 基座: shared workflow or documentation-gate substrate changes land through
+   [Styio-Common-Foundation-Plan.md](./Styio-Common-Foundation-Plan.md) first.
 
-## Parallel Lane Map
+## 1. Ownership Matrix
 
-| Lane | Parallel work allowed | Serial merge gate |
-|------|-----------------------|-------------------|
-| Owner-command rows | Audit each `styio`, `spio`, or Vityo command family against its owner SSOT. | Canonical command spelling or payload vocabulary changes. |
-| Consumer handoff rows | Check one consumer repo's docs against the matrix and record drift. | Matrix row changes that alter cross-repo expectations. |
-| Payload fields | Verify diagnostics, receipts, runtime events, project graph, toolchain state, registry, and deploy payload fields independently. | Shared envelope/schema changes or compatibility promises. |
-| Negative-path evidence | Discover missing malformed-input, dependency, publish, deploy, or execution failure tests independently. | New required gate policy or release-blocking matrix changes. |
+| Capability | Owner | Public entry | Consumers |
+|------------|-------|--------------|-----------|
+| Project manifest, lock, resolution, dependency sync, vendor, pack, publish | Pafio | `pafio` project commands | developers, Platform workers |
+| Project description | Pafio | `pafio metadata --json` (`metadata v1`) | Vityo |
+| Project workflow intent and status | Pafio | `pafio --json check/build/run/test` | Vityo, Platform |
+| Compiler capability discovery | Styio | `styio --machine-info=json` | Pafio, Vityo |
+| Compilation request | Pafio produces; Styio consumes | `styio --compile-plan <path>` | Pafio, Platform worker |
+| Diagnostics, receipts, runtime events | Styio | compiler-owned files and streams | Pafio surfaces status; Vityo consumes semantics |
+| Registry control, hosted workspace, cloud jobs, worker lifecycle | Styio Platform | Platform APIs | Pafio publish client, Vityo hosted adapter |
 
-## 1. Rules
-
-1. 每条 active internal CLI contract 都必须同时有：
-   - coordinator mirror：本文件
-   - owner contract：命令拥有方仓库的 SSOT
-   - consumer handoff：下游仓库的对接文档
-2. `spio` 的 canonical machine-readable invocation spellings 固定为：
-   - `spio machine-info --json`
-   - `spio project-graph --manifest-path <path> --json`
-   - `spio tool status --manifest-path <path> --json`
-   - `spio --json build/run/test --manifest-path <path> ...`
-   - `spio --json fetch/vendor/pack/publish ...`
-   - `spio --json tool install/use/pin ...`
-3. `styio` 的 compiler-side internal CLI contract 固定为：
-   - `styio --machine-info=json`
-   - `styio check --syntax --json --file <path>`
-   - `styio --compile-plan <path>`
-   - `styio --source-build-info=json`
-4. 任何 active internal CLI contract 变更，必须在同一 checkpoint 内同步更新三仓文档与 gate manifest。
-
-## 2. `styio` -> `spio` / Vityo
+## 2. Styio Compiler Contracts
 
 ### 2.1 `styio --machine-info=json`
 
-Canonical form:
+The response identifies Styio and advertises supported compile-plan,
+diagnostic, receipt, and runtime-event contract versions. It does not describe
+Pafio manifests, lock state, managed toolchains, registry policy, or hosted
+workspace state.
 
-```text
-styio --machine-info=json
-```
+### 2.2 `styio --compile-plan <path>`
 
-当前跨仓必须保持一致的要点：
+Pafio produces a resolved compile-plan with `generated_by.tool = "pafio"`.
+Styio validates and consumes that plan for `check`, `build`, `run`, and `test`.
+Styio remains the authority for concrete diagnostics, `receipt.json`,
+`diagnostics.jsonl`, `runtime-events.jsonl`, and compiler artifacts.
 
-1. `active_integration_phase`
-2. `supported_contracts` reports supported contract shapes rather than numbered implementation lanes
-3. `supported_adapter_modes`
-4. `feature_flags`
-5. `supported_contracts.syntax_check:[syntax-json]`
-6. `supported_contracts.compile_plan:[resolved-request]`
-7. `supported_contracts.runtime_events:[jsonl]`
-8. `feature_flags.syntax_check:true`
-9. `feature_flags.runtime_event_stream:true`
+Invalid plans and CLI conflicts return stable machine-readable compiler
+failures. Styio does not resolve dependencies, modify `pafio.lock`, or repair a
+Pafio project.
 
-Owner / consumer docs:
+### 2.3 Language-service contracts
 
-1. `pafio-nightly/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
-2. `vityo-nightly/docs/external/for-styio/Styio-Compile-Run-Contract.md`
+Vityo consumes syntax, semantic, diagnostic, and language-service contracts
+directly from Styio. Those contracts are independent of Pafio storage and
+Platform hosted state.
 
-### 2.2 `styio check --syntax --json --file <path>`
+## 3. Pafio Project Contracts
 
-Canonical form:
+### 3.1 `pafio metadata --json`
 
-```text
-styio check --syntax --json --file <path>
-```
+`metadata v1` contains only package, workspace, dependencies, targets, lock,
+resolution, and vendor state. It has no cloud policy, managed-toolchain, hosted
+workspace, or IDE aggregation fields.
 
-当前跨仓必须保持一致的要点：
+### 3.2 `pafio --json check/build/run/test`
 
-1. 只执行 lexing、parsing、AST construction。
-2. 不执行 type checking、resource topology sema、lowering、codegen、runtime execution。
-3. 输出单个 JSON result object，`contract` 固定为 `syntax-check`。
-4. 成功返回 `0`，lexical error 返回 `2`，syntax/parse error 返回 `3`，CLI misuse 返回 `6`。
-5. diagnostics 必须携带 `phase`、`code`、`line`、`column`、`offset`、`length`。
-6. 该 contract 是通用语言服务入口，不绑定 `spio`、Vityo 或某个 IDE。
+The stable workflow envelope records Pafio's action, target intent, sync state,
+status, and Styio process status. It may surface paths to compiler-owned
+outputs, but it does not redefine diagnostics, receipt, or runtime-event
+schemas.
 
-Owner / consumer docs:
+All four workflows perform the same dependency sync transaction first.
+`--locked` forbids lock mutation, `--offline` forbids network access, and
+`--frozen` enables both restrictions.
 
-1. [../external/SERVICES.md](../external/SERVICES.md)
-2. `vityo-nightly` / Vityo / third-party editor integrations can consume this before adopting full LSP.
+### 3.3 External compiler discovery
 
-### 2.3 `styio --compile-plan <path>`
+Pafio selects Styio in this order: `--styio-bin`, `PAFIO_STYIO_BIN`, then
+`styio` on `PATH`. Compiler installation, update, switching, pinning, source
+build, and caching are outside Pafio.
 
-Canonical form:
+## 4. Platform And Vityo Boundaries
 
-```text
-styio --compile-plan <path>
-```
+Styio Platform owns the registry service, registry control API, hosted
+workspaces, cloud jobs, and workers. A worker invokes `pafio build` with a
+system-provided Styio compiler.
 
-当前跨仓必须保持一致的要点：
+Vityo combines exactly three sources:
 
-1. `build/check/run/test` 都走同一条 compile-plan resolved-request 入口
-2. 成功路径在 `build_root / artifact_dir / diag_dir` 内写出 receipt、产物、`diagnostics.jsonl` 和 `build_root/runtime-events.jsonl`
-3. invalid plan / CLI conflict 也返回 machine-readable `CliError`
-4. `receipt.json` 现在包含 `session_id` 与 `outputs.runtime_events_path`
-5. `runtime-events.jsonl` 当前至少发布 `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted`
-6. `styio` 继续作为 receipt / diagnostics / runtime event artifact 的真相源
+1. Pafio metadata and workflow JSON for local project operations;
+2. Styio machine and language-service contracts for compiler facts;
+3. Platform hosted APIs for hosted workspace and cloud execution state.
 
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
-2. `vityo-nightly/docs/external/for-styio/Styio-Compile-Run-Contract.md`
-
-### 2.4 `styio --source-build-info=json`
-
-Canonical form:
-
-```text
-styio --source-build-info=json
-```
-
-当前跨仓必须保持一致的要点：
-
-1. official source origin 固定为 `https://github.com/SymPolicy/Styio.git`
-2. `stable` 和 `nightly` 通道映射到同名源码分支
-3. official controlled source graph 当前冻结为 `compiler_core / std_symbols / runtime / services / macro_prelude`
-4. 当前唯一官方 build mode 是 `minimal`
-5. current helper entry is `scripts/source-build-minimal.sh`
-6. compile-plan `profile.build_mode` 缺失时默认回落到 `minimal`，显式值当前也只允许 `minimal`
-7. default symbol layer 的单一真相源当前是 `src/StyioParser/SymbolRegistry.cpp`
-8. `--source-build-info=json` 只描述 source-build contract，不替代 binary 通道的 `--machine-info=json`
-
-Owner / consumer docs:
-
-1. `styio-nightly/docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md`
-2. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-
-### 2.5 `styio build <file_path> -o <artifact_name>`
-
-Canonical form:
-
-```text
-styio build file_path -o artifact_name
-```
-
-当前必须保持一致的要点：
-
-1. 输出产物是当前平台可直接执行的 native executable
-2. `build` 阶段不执行 Styio entry program
-3. 源文件先走现有 compile-plan `intent=build` 前端路径生成 LLVM IR
-4. native executable 链接 Styio runtime helper surface，因此运行期错误仍按 Styio runtime error contract 返回
-5. 该命令服务 benchmark `native-artifact` 路线，不替代 `--compile-plan <path>` 的生态构建合同
-
-Owner / consumer docs:
-
-1. `styio-benchmark/warm-process` 和 `styio-benchmark/polyglot` route 文档
-2. `styio-nightly/tests/CMakeLists.txt` 的 `styio_build_native_executable_stdin_echo`
-
-## 3. `spio` -> Vityo
-
-### 3.1 `spio machine-info --json`
-
-Canonical form:
-
-```text
-spio machine-info --json
-```
-
-当前跨仓必须保持一致的要点：
-
-1. `active_integration_phase`
-2. `supported_contracts.project_graph:[package-workspace-shape]`
-3. `supported_contracts.toolchain_state:[compiler-toolchain-shape]`
-4. `supported_contracts.workflow_success_payloads:[execution-result-shape]`
-5. `supported_adapter_modes:[cli]`
-6. `feature_flags.runtime_event_payload:true`
-
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-2. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
-
-### 3.2 `spio project-graph --manifest-path <path> --json`
-
-Canonical form:
-
-```text
-spio project-graph --manifest-path <path> --json
-```
-
-当前跨仓必须保持一致的要点：
-
-1. `project_graph package-workspace-shape`
-2. `packages / dependencies / targets`
-3. `toolchain / active_compiler / managed_toolchains`
-4. `lock_state / vendor_state / notes`
-5. `package_distribution`
-6. `source_state`
-
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-2. `vityo-nightly/docs/external/for-pafio/Pafio-Project-Graph-Contract.md`
-
-### 3.3 `spio tool status --manifest-path <path> --json`
-
-Canonical form:
-
-```text
-spio tool status --manifest-path <path> --json
-```
-
-当前跨仓必须保持一致的要点：
-
-1. `toolchain_state compiler-toolchain-shape`
-2. `toolchain`
-3. `project_pin`
-4. `active_compiler`
-5. `current_compiler`
-6. `managed_toolchains`
-7. `notes`
-
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-2. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
-
-### 3.4 `spio --json build/run/test`
-
-Canonical forms:
-
-```text
-spio --json build --manifest-path <path> ...
-spio --json run --manifest-path <path> ...
-spio --json test --manifest-path <path> ...
-```
-
-当前跨仓必须保持一致的要点：
-
-1. `workflow_success_payloads execution-result-shape`
-2. `build_root / artifact_dir / diag_dir`
-3. `receipt_path`
-4. parsed `receipt`
-5. `diagnostics_path`
-6. `runtime_events_path`
-7. `runtime_session_id`
-8. parsed `runtime_events`
-9. captured `stdout / stderr`
-
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-2. `vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
-
-### 3.5 `spio --json fetch/vendor/pack/publish`
-
-Canonical forms:
-
-```text
-spio --json fetch --manifest-path <path> ...
-spio --json vendor --manifest-path <path> ...
-spio --json pack --manifest-path <path> ...
-spio --json publish --manifest-path <path> --dry-run
-spio --json publish --manifest-path <path> --registry <path-or-url>
-```
-
-当前跨仓必须保持一致的要点：
-
-1. supporting commands 成功时也必须写稳定 JSON object
-2. success JSON 至少带 `command` 与 `message`
-3. deploy/source-state 路径还必须给出 `archive_path`、`package` 或对应 command metadata
-4. `source_state` 与 `package_distribution` 是 IDE deployment/source-management 的真相源
-
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-2. `vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
-3. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
-
-### 3.6 `spio --json tool install/use/pin`
-
-Canonical forms:
-
-```text
-spio --json tool install --styio-bin <path>
-spio --json tool use --version <compiler-version> [--channel <channel>]
-spio --json tool pin --version <compiler-version> [--channel <channel>] --manifest-path <path>
-spio --json tool pin --clear --manifest-path <path>
-```
-
-当前跨仓必须保持一致的要点：
-
-1. toolchain lifecycle 通过 success JSON 返回，不靠 stdout prose
-2. project pin、managed installs、current compiler 统一回流到 `toolchain_state compiler-toolchain-shape`
-3. `vityo-nightly` 只能触发 adapter，不再自己拼另一套命令语义
-
-Owner / consumer docs:
-
-1. `pafio-nightly/docs/governance/Spio-CLI-Contract.md`
-2. `vityo-nightly/docs/external/for-pafio/Pafio-Workflow-Success-Payloads.md`
-3. `vityo-nightly/docs/external/for-pafio/Pafio-Toolchain-And-Registry-State.md`
+Vityo does not inspect `PAFIO_HOME` or infer any of these facts from private
+filesystem layout.
 
 ## 验收条件
 
-1. Every active internal CLI contract row names the canonical invocation and owner or consumer docs.
-2. Cross-repository mirrors are updated in the same checkpoint when a contract shape changes.
-3. `python3 scripts/ecosystem-cli-doc-gate.py` passes for local contract consistency.
-4. Any shared payload or gate substrate change is first accepted through the common foundation plan.
+1. `python3 scripts/ecosystem-cli-doc-gate.py` passes for the local owner
+   matrix.
+2. The workspace form of the same gate passes against fixed Pafio and Vityo
+   revisions.
+3. Compile-plan interoperability accepts `generated_by.tool = "pafio"` as the
+   only ecosystem project producer. The compiler-only self identity remains
+   confined to direct single-file `styio build`, not project workflows.
+4. No active Styio document assigns project metadata, dependency resolution,
+   registry hosting, or IDE aggregation to the compiler.

@@ -15,7 +15,7 @@
 
 1. Do not recreate the deleted `docs/plan/` long-form checkpoint tree.
 2. Do not move active IDE/LSP code back under the deleted `src/StyioServices/` layout.
-3. Keep compiler-side package contracts pointed at `styio-pafio`; do not restore `styio-spio` handoff paths in this repository.
+3. Keep the Pafio handoff limited to compiler discovery and compile-plan consumption; do not restore managed-toolchain or source-build project workflows.
 4. Each migrated implementation slice must update its owning team runbook and the smallest matching tests.
 
 ## Migrated In This Slice
@@ -33,7 +33,7 @@
 1. Large compiler feature branches from the preserved local history, including IR walker, verifier, scheduler/runtime state, parser/tokenizer rewrites, and broad codegen/lowering/type-inference changes.
 2. Broad test additions tied to those feature branches. They must be migrated with their implementation owners rather than copied as orphan fixtures.
 3. Local documentation inventories and old checkpoint manifests. Their surviving facts should be folded into this ledger, `NEXT-STAGE-GAP-LEDGER.md`, owning runbooks, implemented decision summaries, or active SSOTs.
-4. Windows/macOS matrix expansion beyond the current upstream gate. This needs a dedicated CI checkpoint that keeps Pafio/View sibling checkout semantics intact.
+4. Windows/macOS matrix expansion beyond the current upstream gate. This needs a dedicated CI checkpoint that keeps Pafio/Vityo sibling checkout semantics intact.
 
 ## Required Proof For Future Slices
 

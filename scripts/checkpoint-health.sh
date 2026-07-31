@@ -187,7 +187,11 @@ echo "[checkpoint-health] commit readiness self-check: before commit or handoff,
 echo "[checkpoint-health] build jobs: ${BUILD_JOBS}"
 BUILD_DIR="$(configure_build_dir_latest "$BUILD_DIR" "build/default")"
 echo "[checkpoint-health] build dir: ${BUILD_DIR}"
-cmake_build_latest "$BUILD_DIR" styio_test styio_security_test styio_ide_test
+cmake_build_latest "$BUILD_DIR" \
+  styio_test \
+  styio_security_test \
+  styio_ide_test \
+  styio_platform_internal_test
 
 HAS_SOAK_TARGET=0
 if cmake_target_exists_latest "$BUILD_DIR" "styio_soak_test"; then

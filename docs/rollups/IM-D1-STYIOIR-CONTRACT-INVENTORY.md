@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation inventory for IM-D1 so StyioIR contract work is judged by explicit lowering behavior instead of scattered placeholder returns.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-31
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D1`.
 
@@ -23,7 +23,7 @@
 
 ## Implemented In This Contract Slice
 
-1. `CommentAST`, `EmptyAST`, `PassAST`, `EOFAST`, accepted `ResourceAST` prelude metadata, accepted `ResourceMethodDefAST` / `ResourceOrderAST` topology metadata, standard-stream alias binding, and standard-stream handle aliases use explicit `SGNoOp`.
+1. `CommentAST`, `EmptyAST`, `PassAST`, `EOFAST`, accepted `ExtPackAST` callable-module import metadata, accepted `ResourceAST` prelude metadata, accepted `ResourceMethodDefAST` / `ResourceOrderAST` topology metadata, standard-stream alias binding, and standard-stream handle aliases use explicit `SGNoOp`.
 2. `CharAST` now lowers to `SGConstChar`, reports `char` / 8-bit AST type, and maps to LLVM `i8`.
 3. Direct lowering for unsupported runtime values or metadata nodes fails closed with `StyioTypeError`.
 4. Resource method/property clone paths reject missing inlined bodies instead of inventing a placeholder value.
@@ -58,7 +58,8 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `TupleAST`, `ExtractorAST`, `SetAST` | Implementation debt | Fails closed until tuple/set value IR is implemented. |
 | `StdStreamAST` | Parent-consumed resource syntax | Fails closed when lowered directly; parent resource operations consume it. |
 | `EmptyResourceAST` | Resource sentinel syntax | Fails closed when lowered directly; parent redirect/release operations consume it. |
-| `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ExtPackAST` | External resource/package metadata | Fails closed until runtime value semantics are defined. |
+| `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST` | External resource metadata | Fails closed until runtime value semantics are defined. |
+| `ExtPackAST` | Accepted callable-module dependency metadata | The module graph resolves and validates imports before executable lowering; direct lowering then emits `SGNoOp` because the declaration has no runtime value. |
 | `ReadFileAST` | Retired syntax | Fails closed in favor of file resources. |
 | `ForwardAST`, `BackwardAST`, `CODPAST`, `CheckEqualAST`, `CheckIsinAST`, `HashTagNameAST` | Retired or parser-metadata flow syntax | Fails closed outside the owning high-level construct. |
 | `AnonyFuncAST` | Implementation debt | Fails closed until closure/function-value IR is implemented. |
@@ -74,7 +75,8 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `NoneAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Keep the value-carrying `SGCast` path limited to internally selected scalar promotions until source-level cast syntax is accepted. |
 | `RangeAST` | Accepted collection syntax | Validate integer `start` and `end`; materialize `[start..end]` as `list[i64]` for expression/value use, keep iterator lowering on the dedicated range loop path, keep resource-method inline-clone coverage for dynamic range bodies, and leave source step ranges reserved/rejected. |
-| `StructAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ExtPackAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
+| `StructAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
+| `ExtPackAST` | Accepted callable-module dependency metadata | The callable module graph owns path resolution, freshness checks, interface validation, and symbol installation; Sema remains side-effect free and lowering emits `SGNoOp`. |
 | `ResourceAST`, `ResourceMethodDefAST`, `ResourceOrderAST` | Accepted resource/topology metadata | Lowering is explicit `SGNoOp`; collection and validation happen before executable lowering without creating runtime placeholder values. |
 | `ExportDeclAST`, `ExternBlockAST` | Contract metadata | Sema may remain side-effect free while native interop ownership is collected elsewhere. |
 | `BreakAST`, `ContinueAST`, `ReturnAST` | Control-flow syntax | `ReturnAST` now infers its expression for accepted function/task/match contexts, and block-form function result tails feed returned function-call resource methods when the called function has an explicit `<| expr` or final value tail; explicit `matrix` function return annotations provide matrix literal context to nested-list tails and reject flat-list tails before runtime. A future control-flow verifier can add dominance/reachability checks. |

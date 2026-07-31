@@ -17,7 +17,9 @@ IM-D8 owns the library-boundary contract for Styio:
 - what must be migrated to `styio-example`, `styio-benchmark`, or domain package repositories, and
 - how external packages avoid becoming implicit language commitments.
 
-IM-D8 does not define package-manager UX, registry trust, lockfiles, vendoring, or dependency resolution. Those remain IM-D10 and `styio-spio` / Styio-Platform concerns.
+IM-D8 does not define project/package workflows, registry service operation,
+lockfiles, vendoring, or dependency resolution. Those remain IM-D10 concerns
+owned by Pafio and Styio Platform.
 
 ## Current State
 
@@ -57,8 +59,8 @@ Everything else is migrated out:
 |---------|-------|
 | examples | `styio-example` |
 | performance workloads, baselines, reports, and comparisons | `styio-benchmark` |
-| domain libraries | independent package/domain repositories distributed through Styio-Platform / Spio |
-| package lifecycle and registry UX | `styio-spio` / Styio-Platform |
+| domain libraries | independent package/domain repositories published by Pafio and hosted by Styio Platform |
+| package lifecycle and registry UX | Pafio client / Styio Platform service |
 
 External projects do not become language commitments merely because they exist in the Styio ecosystem.
 
@@ -109,7 +111,7 @@ Accepted decision:
 - For now, standard-library contracts and any current implementation may remain in this repository.
 - The repository-local standard-library envelope is `library/manifest.json`; it records active source-backed modules and planned module directories.
 - Long term, the standard library should become official package content maintained separately from the compiler implementation.
-- The standard library must be usable through Spio / Styio-Platform management when that package path is ready.
+- The standard library must be usable through Pafio project/package workflows and Styio Platform distribution when that package path is ready.
 - Builds must support trimming/dead-code elimination so standard-library availability does not force thick artifacts.
 - Standard-library APIs need named contracts, schema markers, tests, diagnostics, and manifest-gate coverage before being treated as stable.
 
@@ -143,7 +145,7 @@ Accepted decision:
 
 - Domain libraries do not merge into the language.
 - Finance, IoT, exchange, model, analytics, and other domain-specific libraries are independent packages or projects.
-- Domain packages are distributed through Styio-Platform / Spio when that package path is ready.
+- Domain packages are published through Pafio and distributed by Styio Platform when that package path is ready.
 - Domain libraries may depend on language-core, compiler intrinsics, and standard-library APIs, but they do not define those APIs.
 - A domain library may propose promotion of a general capability, but promotion requires a separate language-core, compiler-intrinsic, or standard-library decision.
 
@@ -188,7 +190,7 @@ IM-D8 can close only when:
 3. standard-library contracts in this repository are identified as current temporary ownership or future official package ownership;
 4. compiler-intrinsic admission rules are recorded and used by future intrinsic additions;
 5. benchmark and example repositories are not treated as language API SSOTs;
-6. domain-library distribution is delegated to Styio-Platform / Spio instead of this compiler repo;
+6. domain-library publication and distribution are delegated to Pafio and Styio Platform instead of this compiler repo;
 7. every accepted library capability is in a test catalog, standard-library contract, intrinsic spec, or external handoff record; and
 8. deferred library capabilities are explicitly marked deferred rather than implied by examples or benchmark workloads.
 

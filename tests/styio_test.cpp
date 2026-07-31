@@ -419,7 +419,7 @@ write_compile_plan_contract_case_latest(
   paths.root =
     fs::temp_directory_path() / ("styio-compile-plan-contract-" + suffix + "-" + std::to_string(uniq));
   paths.source = paths.root / "src" / "main.styio";
-  paths.build_root = paths.root / ".spio" / "build" / "case";
+  paths.build_root = paths.root / ".pafio" / "build" / "case";
   paths.artifact_dir = paths.build_root / "artifacts";
   paths.diag_dir = paths.build_root / "diag";
   paths.plan_path = paths.build_root / "plan.json";
@@ -1150,7 +1150,11 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[\"json\"],\"jsonl_diagnostics\":[\"jsonl\"],\"syntax_check\":[\"syntax-json\"],\"compile_plan\":[\"resolved-request\"],\"runtime_events\":[\"jsonl\"]}"),
+    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}"),
+    std::string::npos
+  );
+  EXPECT_NE(
+    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}"),
     std::string::npos
   );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
@@ -1879,7 +1883,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-build-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1959,7 +1963,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-check-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2039,7 +2043,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-run-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2125,7 +2129,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-test-" + std::to_string(uniq));
   const fs::path source = root / "tests" / "smoke.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2201,7 +2205,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-diag-" + std::to_string(uniq));
   const fs::path source = root / "src" / "missing-main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2275,7 +2279,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-intent-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2346,7 +2350,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedProfileFieldReportsCliDiagnosticAnd
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-unsupported-profile-field-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2417,7 +2421,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-cli-conflict-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2486,7 +2490,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidJsonReportsMachineReadableCliDiagnostic
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-json-" + std::to_string(uniq));
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(build_root));
 
@@ -2520,7 +2524,7 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-generated-by-mismatch-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2591,7 +2595,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-target-kind-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2658,7 +2662,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-root-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2725,7 +2729,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-missing-outputs-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
   ASSERT_TRUE(fs::create_directories(build_root));
@@ -2781,7 +2785,7 @@ TEST(StyioDiagnostics, CompilePlanVersionMarkerDoesNotSelectImplementation) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-marker-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2840,7 +2844,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-empty-packages-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2929,7 +2933,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedPackageIdTypeWritesCliDiagnosticToDia
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-malformed-package-id-type-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2997,7 +3001,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedEntryFileWritesCliDiagnosticToDiagDir
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-malformed-entry-file-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -3076,7 +3080,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-error-format-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -3137,7 +3141,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-entry-file-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -3198,7 +3202,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-artifact-dir-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -3258,7 +3262,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-diag-dir-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -3317,7 +3321,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedDiagDirTypeSkipsDiagnosticSink) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-malformed-diag-dir-type-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
