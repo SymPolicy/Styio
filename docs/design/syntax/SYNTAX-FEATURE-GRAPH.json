@@ -28,6 +28,125 @@
   },
   "features": [
     {
+      "id": "core.affine-capturing-closures",
+      "title": "Affine Capturing Closures",
+      "kind": "closure-ownership",
+      "syntax": "Reuse the existing explicit `$(name, ...)` capture list; no lifetime, copy, heap, or ownership keyword is introduced.",
+      "decision_state": "accepted",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": [
+          "requires core.monomorphic-callable-values at accepted/converged",
+          "requires core.canonical-effect-rows at accepted/converged",
+          "requires core.capability-usage-polymorphism at accepted/converged",
+          "extends non-converged feature core.monomorphic-callable-values",
+          "must follow non-converged feature core.canonical-effect-rows",
+          "must follow non-converged feature core.capability-usage-polymorphism"
+        ]
+      },
+      "document": "docs/design/syntax/features/core-affine-capturing-closures.md",
+      "owner": "Sema / Resource Topology",
+      "resolution": "Derive shared-borrow, exclusive-borrow, or consume facts from each captured use; permit stack/static nonescaping environments and permit escape only when every capture has a deterministic owned representation and drop path.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.monomorphic-callable-values",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.canonical-effect-rows",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.capability-usage-polymorphism",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.monomorphic-callable-values"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.canonical-effect-rows",
+          "core.capability-usage-polymorphism"
+        ]
+      },
+      "referenced_by": {
+        "requires": [
+          "core.rank2-callback-polymorphism"
+        ],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.rank2-callback-polymorphism"
+        ]
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/README.md",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "ownership-contract": "docs/design/Styio-Handle-Capability-Type-System.md",
+        "topology-contract": "docs/design/Styio-Resource-Topology.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / Resource Topology"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md",
+          "docs/design/Styio-Resource-Topology.md",
+          "docs/design/Styio-Handle-Capability-Type-System.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioResourceTopology/ResourceTopology.cpp",
+          "src/StyioLowering/AstToStyioIR.cpp"
+        ],
+        "evidence": [
+          "tests/features/README.md"
+        ]
+      },
+      "golden_cases": []
+    },
+    {
       "id": "core.ambiguous-literal-defaulting",
       "title": "Ambiguous Literal Defaulting",
       "kind": "type-defaulting",
@@ -68,9 +187,13 @@
         ]
       },
       "referenced_by": {
-        "requires": [],
+        "requires": [
+          "core.fixed-inference-defaults"
+        ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.fixed-inference-defaults"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": []
@@ -285,14 +408,20 @@
       },
       "referenced_by": {
         "requires": [
-          "core.callable-specialization-policy"
+          "core.callable-specialization-policy",
+          "core.canonical-effect-rows",
+          "core.portable-generic-body-interface"
         ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.portable-generic-body-interface"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": [
-          "core.callable-specialization-policy"
+          "core.callable-specialization-policy",
+          "core.canonical-effect-rows",
+          "core.user-extensible-callable-constraints"
         ]
       },
       "prerequisites": {
@@ -397,9 +526,14 @@
         ]
       },
       "referenced_by": {
-        "requires": [],
+        "requires": [
+          "core.monomorphic-callable-values",
+          "core.persistent-callable-specialization-cache"
+        ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.persistent-callable-specialization-cache"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": []
@@ -464,6 +598,115 @@
       ]
     },
     {
+      "id": "core.canonical-effect-rows",
+      "title": "Canonical Effect Rows",
+      "kind": "callable-effect-semantics",
+      "syntax": "No new source form; canonical effect rows are compiler-owned scheme, diagnostic, typed-IR, and `.styioi` facts.",
+      "decision_state": "accepted",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": []
+      },
+      "document": "docs/design/syntax/features/core-canonical-effect-rows.md",
+      "owner": "Sema / Modules",
+      "resolution": "Replace the closed bit-summary identity with a canonical row of known labels plus an optional compiler-owned open tail for higher-order relations; keep native unknown effects fail-closed and do not accept source assertions.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.effect-aware-callable-generalization",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.callable-interface-scheme-publication",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.effect-aware-callable-generalization"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.callable-interface-scheme-publication"
+        ]
+      },
+      "referenced_by": {
+        "requires": [
+          "core.affine-capturing-closures",
+          "core.capability-usage-polymorphism",
+          "core.portable-generic-body-interface",
+          "core.rank2-callback-polymorphism"
+        ],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.affine-capturing-closures",
+          "core.capability-usage-polymorphism",
+          "core.portable-generic-body-interface"
+        ]
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_effects/t02_transitive_effect_summary.styio",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "interface-contract": "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / Modules"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md",
+          "docs/design/Styio-Handle-Capability-Type-System.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/SemaContext.hpp",
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioSema/CallableInterface.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_effects/t02_transitive_effect_summary.styio"
+        ]
+      },
+      "golden_cases": []
+    },
+    {
       "id": "core.capability-polymorphic-handles",
       "title": "Capability-Polymorphic Handles",
       "kind": "capability-type-semantics",
@@ -520,9 +763,13 @@
         ]
       },
       "referenced_by": {
-        "requires": [],
+        "requires": [
+          "core.capability-usage-polymorphism"
+        ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.capability-usage-polymorphism"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": []
@@ -583,6 +830,118 @@
         "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
         "tests/features/callable_capabilities/e06_topology_resource_instance.styio"
       ]
+    },
+    {
+      "id": "core.capability-usage-polymorphism",
+      "title": "Capability and Usage Polymorphism",
+      "kind": "capability-type-semantics",
+      "syntax": "No authored lifetime, capability, multiplicity, or shape variable; all usage/capability facts are compiler-owned relation metadata.",
+      "decision_state": "accepted",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": [
+          "requires core.canonical-effect-rows at accepted/converged",
+          "must follow non-converged feature core.canonical-effect-rows"
+        ]
+      },
+      "document": "docs/design/syntax/features/core-capability-usage-polymorphism.md",
+      "owner": "Sema / Resource Topology",
+      "resolution": "Admit capability-sensitive relation variables only through closed compiler-owned copy/borrow/consume, task-transfer, resource-state-family, and materialized-shape facts, with each family enabled separately and revalidated against topology at every concrete instance.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.capability-polymorphic-handles",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.canonical-effect-rows",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.capability-polymorphic-handles"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.canonical-effect-rows"
+        ]
+      },
+      "referenced_by": {
+        "requires": [
+          "core.affine-capturing-closures",
+          "core.portable-generic-body-interface",
+          "core.rank2-callback-polymorphism"
+        ],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.affine-capturing-closures",
+          "core.portable-generic-body-interface"
+        ]
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "ownership-contract": "docs/design/Styio-Handle-Capability-Type-System.md",
+        "topology-contract": "docs/design/Styio-Resource-Topology.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / Resource Topology"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md",
+          "docs/design/Styio-Handle-Capability-Type-System.md",
+          "docs/design/Styio-Resource-Topology.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/SemaContext.hpp",
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioResourceTopology/ResourceTopology.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_capabilities/t01_scalar_collection_instances.styio"
+        ]
+      },
+      "golden_cases": []
     },
     {
       "id": "core.conditional-expression",
@@ -716,10 +1075,13 @@
         "requires": [
           "core.ambiguous-literal-defaulting",
           "core.capability-polymorphic-handles",
-          "core.higher-order-callable-polymorphism"
+          "core.higher-order-callable-polymorphism",
+          "core.user-extensible-callable-constraints"
         ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.user-extensible-callable-constraints"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": [
@@ -930,11 +1292,14 @@
       "referenced_by": {
         "requires": [
           "core.callable-interface-scheme-publication",
+          "core.canonical-effect-rows",
           "core.capability-polymorphic-handles",
           "core.higher-order-callable-polymorphism"
         ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.canonical-effect-rows"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": [
@@ -1187,6 +1552,100 @@
       ]
     },
     {
+      "id": "core.fixed-inference-defaults",
+      "title": "Fixed Inference Defaults",
+      "kind": "type-defaulting-policy",
+      "syntax": "No default declaration or project/module configuration form; explicit scalar and collection type annotations remain the only author override.",
+      "decision_state": "accepted",
+      "delivery_state": "converged",
+      "readiness": "ready",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
+        "dependency_blockers": []
+      },
+      "document": "docs/design/syntax/features/core-fixed-inference-defaults.md",
+      "owner": "Sema / Type System",
+      "resolution": "Keep `i64` and `f64` as the fixed implicit scalar defaults, run numeric-only relation defaulting once after constraint solving, and require expression-local concrete list/dict context for empty collections.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.ambiguous-literal-defaulting",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.ambiguous-literal-defaulting"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "referenced_by": {
+        "requires": [],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/literal_defaulting/t01_numeric_literal_normalization.styio",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "defaulting-contract": "docs/design/syntax/features/core-ambiguous-literal-defaulting.md"
+      },
+      "implementation": {
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "solve_callable_constraint_instance",
+        "owner": "Sema / Type System"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp"
+        ],
+        "evidence": [
+          "tests/features/literal_defaulting/t01_numeric_literal_normalization.styio",
+          "tests/features/literal_defaulting/t02_contextual_empty_collections.styio",
+          "tests/features/literal_defaulting/e01_empty_list_without_context.styio",
+          "tests/features/literal_defaulting/e02_empty_dict_without_context.styio"
+        ]
+      },
+      "golden_cases": [
+        "tests/features/literal_defaulting/t01_numeric_literal_normalization.styio",
+        "tests/features/literal_defaulting/t02_contextual_empty_collections.styio",
+        "tests/features/literal_defaulting/e01_empty_list_without_context.styio",
+        "tests/features/literal_defaulting/e02_empty_dict_without_context.styio"
+      ]
+    },
+    {
       "id": "core.higher-order-callable-polymorphism",
       "title": "Higher-Order Callable Polymorphism",
       "kind": "callable-value-semantics",
@@ -1233,9 +1692,14 @@
         ]
       },
       "referenced_by": {
-        "requires": [],
+        "requires": [
+          "core.monomorphic-callable-values"
+        ],
         "requires_any": [],
-        "extends": [],
+        "extends": [
+          "core.monomorphic-callable-values",
+          "core.rank2-callback-polymorphism"
+        ],
         "conflicts": [],
         "supersedes": [],
         "after": []
@@ -1937,6 +2401,445 @@
       ]
     },
     {
+      "id": "core.monomorphic-callable-values",
+      "title": "Monomorphic Callable Values",
+      "kind": "callable-value-semantics",
+      "syntax": "In type position, `#(T1, T2): R`; in value position, a bare final noncapturing callable name may coerce only under one complete concrete callable type.",
+      "decision_state": "accepted",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": []
+      },
+      "document": "docs/design/syntax/features/core-monomorphic-callable-values.md",
+      "owner": "Sema / IR",
+      "resolution": "Represent each named callable or concrete inferred instance as a distinct compiler-owned function item and coerce it contextually to an allocation-free monomorphic callable value; do not admit captures, generalized storage, address equality, or implicit signature guessing.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.higher-order-callable-polymorphism",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.callable-specialization-policy",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.higher-order-callable-polymorphism"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "referenced_by": {
+        "requires": [
+          "core.affine-capturing-closures",
+          "core.persistent-callable-specialization-cache",
+          "core.rank2-callback-polymorphism"
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.affine-capturing-closures"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/README.md",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "typed-ir-boundary": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / IR"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioLowering/AstToStyioIR.cpp",
+          "src/StyioCodeGen/CodeGenG.cpp"
+        ],
+        "evidence": [
+          "tests/features/README.md"
+        ]
+      },
+      "golden_cases": []
+    },
+    {
+      "id": "core.persistent-callable-specialization-cache",
+      "title": "Persistent Callable Specialization Cache",
+      "kind": "compiler-specialization-cache",
+      "syntax": "No source form; cache location and retention are compiler operational configuration and cannot change program meaning.",
+      "decision_state": "accepted",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": [
+          "requires core.monomorphic-callable-values at accepted/converged",
+          "requires core.portable-generic-body-interface at accepted/converged",
+          "must follow non-converged feature core.portable-generic-body-interface"
+        ]
+      },
+      "document": "docs/design/syntax/features/core-persistent-callable-specialization-cache.md",
+      "owner": "Codegen / Compiler Infrastructure",
+      "resolution": "Reuse verified native specialization artifacts by the existing full content digest in a compiler/target-namespaced local cache with atomic writes, corruption fallback, measured lookup cost, and explicit age/size/file-count pruning.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.callable-specialization-policy",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.monomorphic-callable-values",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.portable-generic-body-interface",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.callable-specialization-policy"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.portable-generic-body-interface"
+        ]
+      },
+      "referenced_by": {
+        "requires": [],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_specialization/t01_reachable_instances.styio",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "cache-identity-contract": "docs/design/syntax/features/core-callable-specialization-policy.md",
+        "portable-body-contract": "docs/design/syntax/features/core-portable-generic-body-interface.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Codegen / Compiler Infrastructure"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/CallableSpecializationGraph.cpp",
+          "src/StyioCodeGen/CodeGenG.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_specialization/t01_reachable_instances.styio"
+        ]
+      },
+      "golden_cases": []
+    },
+    {
+      "id": "core.portable-generic-body-interface",
+      "title": "Portable Generic Body Interface",
+      "kind": "module-generic-interface",
+      "syntax": "No new source form; this is a versioned compiler artifact split behind existing import/export syntax.",
+      "decision_state": "accepted",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": [
+          "requires core.canonical-effect-rows at accepted/converged",
+          "requires core.capability-usage-polymorphism at accepted/converged",
+          "must follow non-converged feature core.canonical-effect-rows",
+          "must follow non-converged feature core.capability-usage-polymorphism"
+        ]
+      },
+      "document": "docs/design/syntax/features/core-portable-generic-body-interface.md",
+      "owner": "Sema / Modules / StyioIR",
+      "resolution": "Publish a stable relation/effect/capability contract separately from a canonical typed StyioIR payload; consumers verify schema, semantic body, dependency, compiler, and target-independent digests before specialization.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.callable-interface-scheme-publication",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.canonical-effect-rows",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.capability-usage-polymorphism",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.callable-interface-scheme-publication"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.canonical-effect-rows",
+          "core.capability-usage-polymorphism"
+        ]
+      },
+      "referenced_by": {
+        "requires": [
+          "core.persistent-callable-specialization-cache"
+        ],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.persistent-callable-specialization-cache"
+        ]
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_interfaces/t01_downstream_specialization.styio",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "typed-ir-contract": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+        "interface-contract": "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / Modules / StyioIR"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/CallableInterface.cpp",
+          "src/StyioSema/CallableModuleLoader.cpp",
+          "src/StyioIR/Verifier.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_interfaces/t01_downstream_specialization.styio"
+        ]
+      },
+      "golden_cases": []
+    },
+    {
+      "id": "core.rank2-callback-polymorphism",
+      "title": "Rank-2 Callback Polymorphism",
+      "kind": "higher-rank-callable-semantics",
+      "syntax": "No source `forall` or generic binder is selected; a future higher-order parameter may carry one compiler-owned generalized callback requirement.",
+      "decision_state": "deferred",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": [
+          "requires core.monomorphic-callable-values at accepted/converged",
+          "requires core.affine-capturing-closures at accepted/converged",
+          "requires core.canonical-effect-rows at accepted/converged",
+          "requires core.capability-usage-polymorphism at accepted/converged",
+          "must follow non-converged feature core.affine-capturing-closures"
+        ]
+      },
+      "document": "docs/design/syntax/features/core-rank2-callback-polymorphism.md",
+      "owner": "Sema / Type System",
+      "resolution": "Reserve bidirectional, context-checked rank-2 callback parameters as the only approved higher-rank direction; do not infer impredicative lists, dictionaries, fields, captures, or arbitrary generalized values.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.monomorphic-callable-values",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.affine-capturing-closures",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.canonical-effect-rows",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          },
+          {
+            "id": "core.capability-usage-polymorphism",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.higher-order-callable-polymorphism"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.affine-capturing-closures"
+        ]
+      },
+      "referenced_by": {
+        "requires": [],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/README.md",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "typed-ir-boundary": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / Type System"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp"
+        ],
+        "evidence": [
+          "tests/features/README.md"
+        ]
+      },
+      "golden_cases": []
+    },
+    {
       "id": "core.recursive-callable-group",
       "title": "Recursive Callable Group",
       "kind": "callable-type-semantics",
@@ -2214,6 +3117,99 @@
         "tests/features/stdio_input/t08_stdin_typed_f64_list_pull.styio",
         "tests/features/final_bindings/t02_bounded_read.styio"
       ]
+    },
+    {
+      "id": "core.user-extensible-callable-constraints",
+      "title": "User-Extensible Callable Constraints",
+      "kind": "constraint-coherence",
+      "syntax": "No constraint, trait, instance, implementation, priority, or orphan keyword/form is reserved.",
+      "decision_state": "deferred",
+      "delivery_state": "not_started",
+      "readiness": "incomplete",
+      "readiness_details": {
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [
+          "golden_cases",
+          "implementation.path",
+          "implementation.symbol"
+        ],
+        "dependency_blockers": []
+      },
+      "document": "docs/design/syntax/features/core-user-extensible-callable-constraints.md",
+      "owner": "Sema / Modules",
+      "resolution": "Keep numeric, comparable, indexable, iterable, and cloneable compiler-owned; if reopened, consider only owner-local non-overlapping instances and reject orphan, overlap, priority, and import-order resolution.",
+      "dependencies": {
+        "requires": [
+          {
+            "id": "core.constrained-callable-relations",
+            "decision_state": "accepted",
+            "delivery_state": "converged"
+          }
+        ],
+        "requires_any": [],
+        "extends": [
+          "core.constrained-callable-relations"
+        ],
+        "conflicts": [],
+        "supersedes": [],
+        "after": [
+          "core.callable-interface-scheme-publication"
+        ]
+      },
+      "referenced_by": {
+        "requires": [],
+        "requires_any": [],
+        "extends": [],
+        "conflicts": [],
+        "supersedes": [],
+        "after": []
+      },
+      "prerequisites": {
+        "language-owner-approval": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_constraints/t01_numeric_instances.styio",
+        "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
+        "module-contract": "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
+      },
+      "implementation": {
+        "path": "",
+        "symbol": "",
+        "owner": "Sema / Modules"
+      },
+      "documents": {
+        "grammar": [
+          "docs/design/Styio-EBNF.md"
+        ],
+        "tokens": [
+          "docs/design/Styio-Symbol-Reference.md"
+        ],
+        "semantics": [
+          "docs/design/Styio-Language-Design.md"
+        ],
+        "diagnostics": [
+          "workflows/TEST-CATALOG.md"
+        ],
+        "compatibility": [
+          "docs/design/syntax/ACTIVE-SYNTAX.md"
+        ],
+        "teaching": [
+          "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
+        ],
+        "implementation": [
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioSema/CallableInterface.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_constraints/t01_numeric_instances.styio"
+        ]
+      },
+      "golden_cases": []
     },
     {
       "id": "parser.shadow-cutover",

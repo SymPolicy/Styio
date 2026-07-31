@@ -187,6 +187,9 @@ these edges.
 
 The delivered D1–D7 boundaries expose later choices around callable values,
 effect and capability polymorphism, open constraints, portable generic bodies,
-persistent specialization reuse, and configurable defaulting. They are
-researched and ordered, without being approved, in
+persistent specialization reuse, and configurable defaulting. Their Q1–Q9
+recommendations were approved on 2026-07-31 and were split into dependency-
+linked child SSOTs from
 [Callable Type Evolution Questions — 2026-07-31](./CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md).
+The generated feature graph, not this agenda, owns their current delivery
+readiness.
