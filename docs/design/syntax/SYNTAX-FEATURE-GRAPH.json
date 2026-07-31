@@ -2563,16 +2563,12 @@
       "kind": "compiler-specialization-cache",
       "syntax": "No source form; cache location and retention are compiler operational configuration and cannot change program meaning.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
         "missing_document_roles": [],
         "missing_prerequisites": [],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-persistent-callable-specialization-cache.md",
@@ -2628,8 +2624,8 @@
         "portable-body-contract": "docs/design/syntax/features/core-portable-generic-body-interface.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioCodeGen/CallableSpecializationObjectCache.cpp",
+        "symbol": "CallableSpecializationObjectCache::getObject",
         "owner": "Codegen / Compiler Infrastructure"
       },
       "documents": {
@@ -2653,13 +2649,19 @@
         ],
         "implementation": [
           "src/StyioSema/CallableSpecializationGraph.cpp",
-          "src/StyioCodeGen/CodeGenG.cpp"
+          "src/StyioCodeGen/CallableSpecializationObjectCache.cpp",
+          "src/StyioCodeGen/CodeGenG.cpp",
+          "src/StyioJIT/StyioJIT_ORC.hpp",
+          "src/main.cpp"
         ],
         "evidence": [
-          "tests/features/callable_specialization/t01_reachable_instances.styio"
+          "tests/features/persistent_callable_cache/t01_native_specializations.styio",
+          "tests/run_persistent_callable_cache_case.py"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/persistent_callable_cache/t01_native_specializations.styio"
+      ]
     },
     {
       "id": "core.portable-generic-body-interface",

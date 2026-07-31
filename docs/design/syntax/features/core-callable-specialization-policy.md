@@ -98,8 +98,12 @@ growth ceiling with the active path and candidate instance.
 Single ownership is defined inside one compiler invocation: the mono-item graph
 and content cache select exactly one local definition for each reachable
 digest. The full digest in the symbol makes repeated compilations and
-call-order changes deterministic. Reuse is compilation-session-local; no disk
-or distributed cache is implied.
+call-order changes deterministic. Session-local reuse is the unconditional
+baseline. The separate
+[persistent specialization cache](./core-persistent-callable-specialization-cache.md)
+may reuse a verified local native artifact only when explicitly enabled; it
+uses this same digest and does not widen the semantic policy. Distributed
+reuse remains outside this feature.
 
 Imported concrete bodies are retained by callable interfaces for reproducible
 downstream lowering, but only a reachable concrete entry or helper is emitted.

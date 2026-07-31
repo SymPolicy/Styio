@@ -172,6 +172,28 @@ class StyioIRVerifier : public StyioIRWalker
   visitSGFunc(SGFunc* node) override {
     walk_required(node->ret_type, "SGFunc.ret_type");
     walk_required(node->func_name, "SGFunc.func_name");
+    if (!node->specialization_content_digest.empty()) {
+      const bool canonical_digest =
+        node->specialization_content_digest.size() == 64
+        && std::all_of(
+          node->specialization_content_digest.begin(),
+          node->specialization_content_digest.end(),
+          [](unsigned char ch)
+          {
+            return (ch >= '0' && ch <= '9')
+              || (ch >= 'a' && ch <= 'f');
+          });
+      if (!canonical_digest) {
+        add_error(
+          "SGFunc specialization digest must be canonical lowercase sha256");
+      }
+      else if (node->func_name != nullptr
+               && !node->func_name->as_str().ends_with(
+                    node->specialization_content_digest)) {
+        add_error(
+          "SGFunc specialization symbol must end in its content digest");
+      }
+    }
     for (auto* arg : node->func_args) {
       walk_required(arg, "SGFunc.func_args");
     }

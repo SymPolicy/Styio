@@ -20,7 +20,7 @@ message(STATUS "[LLVM] Definitions: ${LLVM_DEFINITIONS_LIST}")
 message(STATUS "[LLVM] Version: ${LLVM_PACKAGE_VERSION}")
 message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native)
+llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native ipo)
 
 function(styio_apply_llvm_compile_settings target_name)
   if(MSVC)

@@ -178,6 +178,7 @@ styio_feature_stdout_golden_test(callable_capabilities "t*.styio" callable_capab
 styio_feature_stdout_golden_test(affine_closures "t*.styio" affine_closures)
 styio_feature_stdout_golden_test(literal_defaulting "t*.styio" literal_defaulting)
 styio_feature_stdout_golden_test(callable_specialization "t*.styio" callable_specialization)
+styio_feature_stdout_golden_test(persistent_callable_cache "t*.styio" persistent_callable_cache)
 
 add_test(
   NAME callable_specialization_content_identity
@@ -191,6 +192,20 @@ set_tests_properties(
   callable_specialization_content_identity
   PROPERTIES
     LABELS "language_feature;callable_specialization"
+)
+
+add_test(
+  NAME persistent_callable_cache_native_reuse
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_LIST_DIR}/run_persistent_callable_cache_case.py"
+          --styio "${STYIO_EXE}"
+          --source "${STYIO_FEATURES}/persistent_callable_cache/t01_native_specializations.styio"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  persistent_callable_cache_native_reuse
+  PROPERTIES
+    LABELS "language_feature;persistent_callable_cache"
 )
 
 foreach(_CALLABLE_INTERFACE_MODE IN ITEMS

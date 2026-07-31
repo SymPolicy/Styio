@@ -44,6 +44,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
@@ -57,13 +58,163 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 namespace {
+constexpr llvm::StringLiteral
+  kCallableSpecializationDigestAttribute =
+    "styio.callable.specialization.digest";
+constexpr llvm::StringLiteral
+  kCallableSpecializationCacheMetadata =
+    "styio.callable.specialization.cache";
+
+struct StyioCallableSpecializationModule
+{
+  std::string content_digest;
+  std::string symbol;
+  std::unique_ptr<llvm::Module> module;
+};
+
+bool
+styio_is_lower_sha256(llvm::StringRef value) {
+  return value.size() == 64
+    && llvm::all_of(
+      value,
+      [](char ch)
+      {
+        return (ch >= '0' && ch <= '9')
+          || (ch >= 'a' && ch <= 'f');
+      });
+}
+
+std::vector<StyioCallableSpecializationModule>
+styio_partition_callable_specializations(
+  llvm::Module& source
+) {
+  struct Candidate
+  {
+    llvm::Function* function = nullptr;
+    std::string content_digest;
+    std::string symbol;
+  };
+
+  std::vector<Candidate> candidates;
+  for (llvm::Function& function : source) {
+    if (!function.hasFnAttribute(
+          kCallableSpecializationDigestAttribute)) {
+      continue;
+    }
+    const llvm::StringRef digest =
+      function.getFnAttribute(
+        kCallableSpecializationDigestAttribute)
+        .getValueAsString();
+    if (function.isDeclaration()
+        || !styio_is_lower_sha256(digest)
+        || !function.getName().ends_with(digest)) {
+      throw StyioTypeError(
+        "LLVM callable specialization cache identity is invalid");
+    }
+    candidates.push_back(Candidate{
+      &function,
+      digest.str(),
+      function.getName().str(),
+    });
+  }
+  std::sort(
+    candidates.begin(),
+    candidates.end(),
+    [](const Candidate& lhs, const Candidate& rhs)
+    {
+      return lhs.content_digest < rhs.content_digest;
+    });
+  for (std::size_t index = 1;
+       index < candidates.size();
+       ++index) {
+    if (candidates[index - 1].content_digest
+        == candidates[index].content_digest) {
+      throw StyioTypeError(
+        "LLVM callable specialization cache digest is not unique");
+    }
+  }
+
+  for (llvm::GlobalVariable& global : source.globals()) {
+    if (global.getName().starts_with("__styio_capture.")) {
+      global.setLinkage(llvm::GlobalValue::ExternalLinkage);
+    }
+  }
+
+  std::vector<StyioCallableSpecializationModule> partitions;
+  partitions.reserve(candidates.size());
+  for (const Candidate& candidate : candidates) {
+    llvm::ValueToValueMapTy mapping;
+    std::unique_ptr<llvm::Module> partition =
+      llvm::CloneModule(
+        source,
+        mapping,
+        [&](const llvm::GlobalValue* value)
+        {
+          return value == candidate.function
+            || value->hasLocalLinkage();
+        });
+    partition->setModuleIdentifier(candidate.content_digest);
+    auto* metadata = partition->getOrInsertNamedMetadata(
+      kCallableSpecializationCacheMetadata);
+    metadata->addOperand(
+      llvm::MDNode::get(
+        partition->getContext(),
+        {
+          llvm::MDString::get(
+            partition->getContext(),
+            candidate.content_digest),
+          llvm::MDString::get(
+            partition->getContext(),
+            candidate.symbol),
+        }));
+
+    llvm::ModuleAnalysisManager analyses;
+    (void)llvm::GlobalDCEPass().run(
+      *partition,
+      analyses);
+
+    llvm::Function* cloned =
+      partition->getFunction(candidate.symbol);
+    std::string verifier_error;
+    llvm::raw_string_ostream verifier_stream(verifier_error);
+    if (cloned == nullptr
+        || cloned->isDeclaration()
+        || llvm::verifyModule(*partition, &verifier_stream)) {
+      verifier_stream.flush();
+      throw StyioTypeError(
+        "LLVM callable specialization partition verification failed: "
+        + verifier_error);
+    }
+    partitions.push_back(StyioCallableSpecializationModule{
+      candidate.content_digest,
+      candidate.symbol,
+      std::move(partition),
+    });
+  }
+
+  for (const Candidate& candidate : candidates) {
+    candidate.function->deleteBody();
+  }
+  std::string verifier_error;
+  llvm::raw_string_ostream verifier_stream(verifier_error);
+  if (llvm::verifyModule(source, &verifier_stream)) {
+    verifier_stream.flush();
+    throw StyioTypeError(
+      "LLVM main-module verification failed after callable "
+      "specialization partitioning: " + verifier_error);
+  }
+  return partitions;
+}
+
 int64_t
 styio_undef_i64() {
   return std::numeric_limits<int64_t>::min();
@@ -2178,6 +2329,11 @@ StyioToLLVM::declare_sgfunc(SGFunc* node) {
   size_t i = 0;
   for (llvm::Argument& arg : F->args()) {
     arg.setName(node->func_args[i++]->id);
+  }
+  if (!node->specialization_content_digest.empty()) {
+    F->addFnAttr(
+      kCallableSpecializationDigestAttribute,
+      node->specialization_content_digest);
   }
 }
 
@@ -6631,9 +6787,39 @@ StyioToLLVM::execute() {
     throw StyioTypeError("LLVM module verification failed: " + verifier_error);
   }
   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
-  auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
   llvm::ExitOnError exit_on_error;
-  exit_on_error(theORCJIT->addModule(std::move(TSM), RT));
+  if (theORCJIT->callableCacheEnabled()) {
+    auto specialization_modules =
+      styio_partition_callable_specializations(*theModule);
+    theBuilder.reset();
+    llvm::orc::ThreadSafeContext thread_context(
+      std::move(theContext));
+    for (auto& specialization : specialization_modules) {
+      auto specialization_tsm = llvm::orc::ThreadSafeModule(
+        std::move(specialization.module),
+        thread_context);
+      exit_on_error(
+        theORCJIT->addModule(
+          std::move(specialization_tsm),
+          RT));
+    }
+    auto main_tsm = llvm::orc::ThreadSafeModule(
+      std::move(theModule),
+      thread_context);
+    exit_on_error(
+      theORCJIT->addModule(
+        std::move(main_tsm),
+        RT));
+  }
+  else {
+    auto TSM = llvm::orc::ThreadSafeModule(
+      std::move(theModule),
+      std::move(theContext));
+    exit_on_error(
+      theORCJIT->addModule(
+        std::move(TSM),
+        RT));
+  }
 
   auto ExprSymbol = theORCJIT->lookup("main");
   if (!ExprSymbol) {

@@ -145,6 +145,15 @@ canonical relation, effects, portable semantic body, transitive callable depende
 module facts, target, and backend ABI, so call order does not affect symbols
 and a reachable callee-body change invalidates callers.
 
+Cross-invocation native reuse is an opt-in compiler operation, not Styio
+syntax. `--callable-cache-dir` partitions each reachable specialization into
+one verified native object keyed by that full digest and isolated under a
+compiler/LLVM/codegen/target/edition/channel/backend namespace. Corrupt,
+evicted, missing, or inaccessible entries are cache misses and cannot change
+program behavior. Age, byte, and file ceilings are explicit CLI controls;
+`--callable-cache-stats` is the only cache diagnostic mode and emits no cache
+path.
+
 There is no explicit-instantiation syntax. Exact same-instance recursion reuses
 the active item; expansion beyond 64 active instances or compilation growth
 beyond 4,096 items fails with a concrete instance path. These hard safety

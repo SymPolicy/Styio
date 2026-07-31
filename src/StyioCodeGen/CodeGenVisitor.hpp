@@ -262,6 +262,11 @@ public:
 
   void print_llvm_ir();
   void execute();
+  std::string callable_cache_stats_json() const {
+    return theORCJIT == nullptr
+      ? std::string()
+      : theORCJIT->callableCacheStatsJson();
+  }
 
   /** Module IR without ANSI or extra banners (for golden tests). */
   std::string dump_llvm_ir() const;

@@ -64,6 +64,7 @@
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
@@ -2227,6 +2228,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioLowering/AstToStyioIR.cpp",
     "src/StyioLowering/AstToStyioIRStage.cpp",
     "src/StyioLowering/StyioIROptimizer.cpp",
+    "src/StyioCodeGen/CallableSpecializationObjectCache.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",
     "src/StyioCodeGen/LLVMEmission.cpp",
@@ -5324,6 +5326,26 @@ main(
     "profile-out",
     "Path for --profile-frontend JSON output. Defaults to <source>.profile.json.",
     cxxopts::value<std::string>()
+  )(
+    "callable-cache-dir",
+    "Enable the local native callable-specialization cache under this root.",
+    cxxopts::value<std::string>()
+  )(
+    "callable-cache-stats",
+    "Emit one path-free callable-cache statistics JSON object on stderr.",
+    cxxopts::value<bool>()->default_value("false")
+  )(
+    "callable-cache-max-age-seconds",
+    "Maximum age of a callable-cache artifact in seconds.",
+    cxxopts::value<std::uint64_t>()
+  )(
+    "callable-cache-max-bytes",
+    "Maximum aggregate bytes retained in the active callable-cache namespace.",
+    cxxopts::value<std::uint64_t>()
+  )(
+    "callable-cache-max-files",
+    "Maximum artifact count retained in the active callable-cache namespace.",
+    cxxopts::value<std::uint64_t>()
   );
 
 #if !STYIO_NANO_BUILD
@@ -5677,6 +5699,75 @@ main(
     return static_cast<int>(StyioExitCode::CliError);
   }
 
+  const bool callable_cache_stats =
+    cmlopts["callable-cache-stats"].as<bool>();
+  const bool callable_cache_dir_specified =
+    cmlopts.count("callable-cache-dir") > 0;
+  const bool callable_cache_limit_specified =
+    cmlopts.count("callable-cache-max-age-seconds") > 0
+    || cmlopts.count("callable-cache-max-bytes") > 0
+    || cmlopts.count("callable-cache-max-files") > 0;
+  if (!callable_cache_dir_specified
+      && (callable_cache_stats
+          || callable_cache_limit_specified)) {
+    std::cerr
+      << "[CliError] callable-cache statistics and limits require "
+         "--callable-cache-dir"
+      << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  std::optional<
+    styio::codegen::CallableSpecializationCacheConfig>
+    callable_cache_config;
+  if (callable_cache_dir_specified) {
+    const std::string cache_root =
+      cmlopts["callable-cache-dir"].as<std::string>();
+    if (cache_root.empty()) {
+      std::cerr
+        << "[CliError] --callable-cache-dir must not be empty"
+        << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+    styio::codegen::CallableSpecializationCacheConfig config;
+    config.root = cache_root;
+    if (cmlopts.count(
+          "callable-cache-max-age-seconds") > 0) {
+      config.limits.max_age_seconds =
+        cmlopts[
+          "callable-cache-max-age-seconds"].as<std::uint64_t>();
+    }
+    if (cmlopts.count("callable-cache-max-bytes") > 0) {
+      config.limits.max_bytes =
+        cmlopts[
+          "callable-cache-max-bytes"].as<std::uint64_t>();
+    }
+    if (cmlopts.count("callable-cache-max-files") > 0) {
+      config.limits.max_files =
+        cmlopts[
+          "callable-cache-max-files"].as<std::uint64_t>();
+    }
+    constexpr std::uint64_t kMaxCacheAgeSeconds =
+      10ULL * 365ULL * 24ULL * 60ULL * 60ULL;
+    constexpr std::uint64_t kMaxCacheBytes =
+      16ULL * 1024ULL * 1024ULL * 1024ULL;
+    constexpr std::uint64_t kMaxCacheFiles = 1'000'000ULL;
+    if (config.limits.max_age_seconds == 0
+        || config.limits.max_age_seconds
+             > kMaxCacheAgeSeconds
+        || config.limits.max_bytes == 0
+        || config.limits.max_bytes > kMaxCacheBytes
+        || config.limits.max_files == 0
+        || config.limits.max_files > kMaxCacheFiles) {
+      std::cerr
+        << "[CliError] callable-cache limits must be positive "
+           "and within the documented local bounds"
+        << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+    callable_cache_config = std::move(config);
+  }
+
 #if STYIO_NANO_ENABLE_PARSER_SHADOW_COMPARE
   bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
   std::string parser_shadow_artifact_dir = cmlopts["parser-shadow-artifact-dir"].as<std::string>();
@@ -5955,6 +6046,15 @@ main(
   styio::sema::CallableModuleGraph callable_module_graph;
   const std::string callable_interface_compiler_abi =
     styio_callable_interface_compiler_abi_latest();
+  const std::string callable_specialization_backend_abi =
+    callable_interface_compiler_abi
+    + "|dict_impl=" + dict_impl_selection.impl_name
+    + "|llvm=" LLVM_VERSION_STRING
+    + "|native_codegen=styio.callable-object.v1";
+  if (callable_cache_config.has_value()) {
+    callable_cache_config->namespace_abi =
+      callable_specialization_backend_abi;
+  }
   compile_plan_final_phase = session.phase();
   const auto compile_started_at = std::chrono::steady_clock::now();
   std::vector<std::filesystem::path> compile_plan_artifacts;
@@ -6223,8 +6323,7 @@ main(
   analyzer.attach_type_table(session.types(), session.symbols());
   try {
     analyzer.configure_callable_specialization_environment(
-      callable_interface_compiler_abi
-        + "|dict_impl=" + dict_impl_selection.impl_name,
+      callable_specialization_backend_abi,
       styio::sema::callable_interface_dependency_digest(
         callable_module_graph.entry_dependencies()));
     callable_module_graph.install_into(analyzer);
@@ -6362,7 +6461,8 @@ main(
       llvm::InitializeNativeTargetAsmPrinter();
       llvm::InitializeNativeTargetAsmParser();
 
-      auto jit_or_err = StyioJIT_ORC::Create();
+      auto jit_or_err = StyioJIT_ORC::Create(
+        callable_cache_config);
       if (!jit_or_err) {
         std::string emsg;
         llvm::handleAllErrors(
@@ -6489,6 +6589,13 @@ main(
       const CompilationPhase previous_phase = session.phase();
       session.mark_executed();
       emit_compile_plan_session_transition(previous_phase, "mark_executed");
+    }
+    if (callable_cache_stats) {
+      const std::string stats =
+        generator->callable_cache_stats_json();
+      if (!stats.empty()) {
+        std::cerr << stats << std::endl;
+      }
     }
   } catch (const StyioTypeError& ex) {
     return fail_after_codegen_exception(StyioErrorCategory::TypeError, ex.what());
