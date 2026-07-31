@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 ## Mission
 
@@ -60,6 +60,7 @@ Key handoff document:
 28. Treat Pafio as the external compile-plan producer. Keep `generated_by.tool` / `generated_by.version` validation, machine-info capability advertisement, CLI contract tests, and the Pafio handoff document aligned; unsupported producer identities must fail closed instead of entering a compatibility path.
 29. Callable interface publication is explicit compiler orchestration: `--emit-module-interface` requires `--file` and a canonical `--module-id`, writes the requested `.styioi` only after Sema succeeds, and is outside the compile-plan v1 envelope. Imported dependency interfaces are never synthesized as a side effect. Keep the compiler ABI digest aligned across full/nano channel, edition, target triple, and pointer width, and keep nano compile-time boundaries from linking full-only compile-plan services.
 30. Configure callable-specialization identity from the same full/nano compiler ABI contract used by callable interfaces, plus the selected dictionary implementation and validated entry-dependency digest. Both binaries must produce deterministic full-digest mono symbols for the same environment; a CLI call-order change must not alter identity, and no source option may expose explicit instantiation.
+31. Keep the explicit nano package source roots aligned with every translation unit in `STYIO_FRONTEND_SOURCES`, including callable interface loading and specialization graph owners. Header-closure discovery cannot compensate for an omitted `.cpp`; both local-subset creation paths must build and link the materialized `styio_nano` bundle.
 
 ## Change Classes
 
