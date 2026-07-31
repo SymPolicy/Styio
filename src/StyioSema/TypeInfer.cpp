@@ -5560,13 +5560,32 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   };
 
   auto var_type = ast->getVar()->getDType()->type;
+  StyioDataType rhs_expected_type = var_type;
+  if (rhs_expected_type.isUndefined()) {
+    const StyioDataType* previous_type =
+      find_local_binding_type(bound_sid, bound_name);
+    auto* rhs_list = dynamic_cast<ListAST*>(ast->getValue());
+    auto* rhs_dict = dynamic_cast<DictAST*>(ast->getValue());
+    if (previous_type != nullptr
+        && ((rhs_list != nullptr
+             && rhs_list->getElements().empty()
+             && styio_is_list_type(*previous_type))
+            || (rhs_dict != nullptr
+                && rhs_dict->getEntries().empty()
+                && styio_is_dict_type(*previous_type)))) {
+      rhs_expected_type = *previous_type;
+    }
+  }
 
-  if (var_type.option != StyioDataTypeOption::Undefined) {
-    apply_stdin_resource_effect_expected_type(ast->getValue(), var_type);
-    apply_callable_expected_type_to_tail(ast->getValue(), var_type);
+  if (!rhs_expected_type.isUndefined()) {
+    apply_stdin_resource_effect_expected_type(
+      ast->getValue(), rhs_expected_type);
+    apply_callable_expected_type_to_tail(
+      ast->getValue(), rhs_expected_type);
     if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
-      if (!styio_is_matrix_type(var_type)) {
-        static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
+      if (!styio_is_matrix_type(rhs_expected_type)) {
+        static_cast<BinOpAST*>(ast->getValue())->setDType(
+          rhs_expected_type);
       }
     }
   }
