@@ -43,7 +43,7 @@ ir-contract = "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
 
 [implementation]
 path = "src/StyioSema/TypeInfer.cpp"
-symbol = "validate_generalized_callable_value_positions"
+symbol = "StyioSemaContext::typeInfer(NameAST* ast)"
 owner = "Sema / Type System"
 
 [dependencies]
@@ -72,18 +72,18 @@ bidirectional higher-rank checking rule exist.
 
 ## Implemented Boundary
 
-Sema validates every generalized callable reference after principal schemes
-have been prepared. A scheme name used as an ordinary value in a binding,
-argument, return, collection, task capture, or other traversed value position
-is rejected before lowering. The direct call node keeps the callee name outside
-the value-expression path, so ordinary `identity(value)` instantiation remains
-available.
+Sema validates every generalized callable reference at its actual value
+position. A complete expected `#(...): ...` type may freeze a final,
+noncapturing named callable to one invariant monomorphic signature, as defined
+by `core.monomorphic-callable-values`. Without that context, a scheme name used
+as an ordinary value in a binding, argument, return, collection, task capture,
+or other traversed value position remains rejected. Ordinary direct named calls
+continue to instantiate the principal scheme independently.
 
-The current grammar and StyioIR do not expose a concrete callable-value type
-boundary. Consequently, this convergence proves the fail-closed half of the
-decision: a generalized scheme cannot escape and cannot accidentally degrade
-to an untyped pointer or backend placeholder. It does not establish executable
-monomorphic closures or higher-rank values.
+The parser, StyioIR, and backend now expose the concrete callable-value boundary
+needed by the child feature. This parent decision still proves the fail-closed
+polymorphism rule: a generalized scheme never escapes as a generalized runtime
+value and never degrades to an untyped pointer or backend placeholder.
 
 ## Diagnostic Boundary
 

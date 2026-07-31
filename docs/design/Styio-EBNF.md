@@ -267,6 +267,7 @@ type_expr          = type_primary { type_suffix } ;
 
 type_primary       = scalar_type
                    | identifier [ '[' type_arg_list ']' ]
+                   | callable_type
                    | tuple_type ;
 
 scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
@@ -275,6 +276,8 @@ scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | 'matrix' ;
 
 type_arg_list      = type_expr { ',' type_expr } ;
+
+callable_type      = '#' '(' [ type_expr { ',' type_expr } ] ')' ':' type_expr ;
 
 tuple_type         = '(' type_expr ',' type_expr { ',' type_expr } ')' ;
 
@@ -331,22 +334,30 @@ Notes:
     `call`; it is never reinterpreted as callable specialization. It is rejected
     when the selected target is not indexable or the selector expression is
     otherwise invalid.
-14. An inferred callable scheme is consumed only by a direct named `call`.
-    A bare scheme name in an argument, binding, return, collection, or captured
-    value position requires one concrete monomorphic callable-value boundary.
-    The current grammar and StyioIR expose no such boundary, so these escapes
-    are semantic errors rather than implicit generalized function values.
+14. An inferred callable scheme is consumed by a direct named `call` or by a
+    bare final noncapturing callable item under one complete concrete
+    `callable_type` context. For example,
+    `operation: #(i64): i64 := identity` freezes one `i64 -> i64` item.
+    A bare scheme name without that context remains a semantic error.
 15. The type variables in an inferred scheme range only over immutable scalar
     values and recursively plain materialized `list`/`dict` types. Resource,
     stream, file, task, matrix, topology-resource, and other
     capability-sensitive handle types remain concrete monomorphic contracts;
     no new source capability or lifetime binder is introduced.
 16. Concrete callable instances are compiler-owned mono items reached from
-    ordinary direct calls. Their deterministic content identities include the
-    concrete relation, effects, checked body, transitive dependencies, target,
-    and ABI facts. There is no explicit-instantiation production or source
-    spelling; recursive or pathological instance growth fails with a concrete
-    instance-path diagnostic.
+    ordinary direct calls or contextual callable-item coercion. Their
+    deterministic content identities include the concrete relation, effects,
+    checked body, transitive dependencies, target, and ABI facts. There is no
+    explicit-instantiation production or source spelling; recursive or
+    pathological instance growth fails with a concrete instance-path
+    diagnostic.
+17. `callable_type` is invariant and admits neither topology suffixes nor
+    implicit arity, parameter, result, variance, or numeric-signature
+    adaptation. Because the result is a complete `type_expr`, a trailing suffix
+    in `#(i64): i64..` belongs to the result type; it does not turn the callable
+    value into a topology resource. Runtime callable slots use final `:=`
+    bindings only. Capturing closures, callable address equality, and
+    generalized callable storage are outside this production.
 
 ### 4.3 Type Rewrite Declaration
 

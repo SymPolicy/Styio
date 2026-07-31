@@ -1764,6 +1764,31 @@ TEST(StyioTypes, F32BuiltinMappingUsesF32InternalName) {
   EXPECT_EQ(f32.num_of_bit, static_cast<size_t>(32));
 }
 
+TEST(StyioTypes, CallableSignatureUsesOneCanonicalNestedIdentity) {
+  const StyioDataType callable = styio_data_type_from_name(
+    "#(i64,#(string):bool):#():f64");
+  ASSERT_TRUE(styio_is_callable_type(callable));
+  EXPECT_EQ(
+    styio_callable_param_type_names(callable),
+    (std::vector<std::string>{"i64", "#(string):bool"}));
+  EXPECT_EQ(
+    styio_callable_result_type_name(callable),
+    "#():f64");
+
+  const auto params = styio_callable_param_types(callable);
+  ASSERT_EQ(params.size(), 2u);
+  EXPECT_EQ(params[0].name, "i64");
+  EXPECT_TRUE(styio_is_callable_type(params[1]));
+  EXPECT_TRUE(
+    styio_is_callable_type(
+      styio_callable_result_type(callable)));
+  EXPECT_TRUE(
+    callable.equals(
+      styio_make_callable_type(
+        params,
+        styio_callable_result_type(callable))));
+}
+
 TEST(StyioTypes, GetMaxTypeNumericPromotionByBitWidth) {
   const StyioDataType f32 = styio_data_type_from_name("f32");
   const StyioDataType f64 = styio_data_type_from_name("f64");

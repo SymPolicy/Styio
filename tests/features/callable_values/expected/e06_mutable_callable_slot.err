@@ -1,0 +1,1 @@
+monomorphic callable values require final `:=` binding; mutable `=` callable slots are not available

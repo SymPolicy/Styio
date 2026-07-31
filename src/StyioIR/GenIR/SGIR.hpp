@@ -32,11 +32,18 @@ private:
 public:
   bool has_history_selector = false;
   int history_offset = 0;
+  bool function_reference = false;
 
-  SGResId(std::string id, bool has_history_selector = false, int history_offset = 0) :
+  SGResId(
+    std::string id,
+    bool has_history_selector = false,
+    int history_offset = 0,
+    bool function_reference = false
+  ) :
       id(id),
       has_history_selector(has_history_selector),
-      history_offset(history_offset) {
+      history_offset(history_offset),
+      function_reference(function_reference) {
   }
 
   static SGResId* Create() {
@@ -49,6 +56,11 @@ public:
 
   static SGResId* CreateHistory(std::string id, int offset) {
     return styio::session_alloc::make_ir<SGResId>(id, true, offset);
+  }
+
+  static SGResId* CreateFunctionRef(std::string id) {
+    return styio::session_alloc::make_ir<SGResId>(
+      std::move(id), false, 0, true);
   }
 
   const std::string& as_str() {
@@ -459,20 +471,52 @@ public:
 class SGCall : public StyioIRTraits<SGCall>
 {
 public:
-  SGResId* func_name;
+  SGResId* func_name = nullptr;
+  StyioIR* indirect_callee = nullptr;
+  StyioDataType callable_type{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
   std::vector<StyioIR*> func_args;
 
   SGCall(SGResId* func_name, std::vector<StyioIR*> func_args) :
       func_name(std::move(func_name)), func_args(std::move(func_args)) {
   }
 
+  SGCall(
+    StyioIR* indirect_callee,
+    StyioDataType callable_type,
+    std::vector<StyioIR*> func_args
+  ) :
+      indirect_callee(indirect_callee),
+      callable_type(std::move(callable_type)),
+      func_args(std::move(func_args)) {
+  }
+
   ~SGCall() override {
     delete func_name;
+    delete indirect_callee;
     styio_delete_ir_nodes(func_args);
   }
 
+  bool is_indirect() const {
+    return indirect_callee != nullptr;
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override;
+
   static SGCall* Create(SGResId* func_name, std::vector<StyioIR*> func_args) {
     return styio::session_alloc::make_ir<SGCall>(std::move(func_name), std::move(func_args));
+  }
+
+  static SGCall* CreateIndirect(
+    StyioIR* callee,
+    StyioDataType callable_type,
+    std::vector<StyioIR*> func_args
+  ) {
+    return styio::session_alloc::make_ir<SGCall>(
+      callee,
+      std::move(callable_type),
+      std::move(func_args));
   }
 };
 
@@ -1072,6 +1116,12 @@ inline void SGFinalBind::collect_children(std::vector<StyioIR*>& out) {
 inline void SGFunc::collect_children(std::vector<StyioIR*>& out) {
   if (func_name) out.push_back(static_cast<StyioIR*>(func_name));
   for (auto* c : func_args) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SGCall::collect_children(std::vector<StyioIR*>& out) {
+  if (func_name) out.push_back(static_cast<StyioIR*>(func_name));
+  if (indirect_callee) out.push_back(indirect_callee);
+  for (auto* c : func_args) out.push_back(c);
 }
 
 inline void SGBlock::collect_children(std::vector<StyioIR*>& out) {

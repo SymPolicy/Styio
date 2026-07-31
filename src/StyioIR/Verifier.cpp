@@ -177,7 +177,18 @@ class StyioIRVerifier : public StyioIRWalker
 
   void
   visitSGCall(SGCall* node) override {
-    walk_required(node->func_name, "SGCall.func_name");
+    if (node->is_indirect()) {
+      walk_required(
+        node->indirect_callee,
+        "SGCall.indirect_callee");
+      if (!styio_is_callable_type(node->callable_type)) {
+        add_error(
+          "SGCall indirect call requires a canonical callable type");
+      }
+    }
+    else {
+      walk_required(node->func_name, "SGCall.func_name");
+    }
     for (auto* arg : node->func_args) {
       walk_required(arg, "SGCall.func_args");
     }

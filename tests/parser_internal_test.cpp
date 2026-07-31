@@ -1693,6 +1693,25 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
     EXPECT_EQ(type->getTypeName(), "dict[string,i64]");
   }
   {
+    DirectContext direct(
+      "#(i64, #(string): bool): #(bool): f64");
+    std::unique_ptr<TypeAST> type(parse_styio_type(direct.get()));
+    ASSERT_NE(type, nullptr);
+    EXPECT_EQ(
+      type->getTypeName(),
+      "#(i64,#(string):bool):#(bool):f64");
+    EXPECT_TRUE(styio_is_callable_type(type->getDataType()));
+  }
+  {
+    DirectContext direct("#(i64): i64..");
+    std::unique_ptr<TypeAST> type(parse_styio_type(direct.get()));
+    ASSERT_NE(type, nullptr);
+    EXPECT_EQ(type->getTypeName(), "#(i64):i64..");
+    EXPECT_EQ(
+      styio_callable_result_type(type->getDataType()).name,
+      "i64..");
+  }
+  {
     EXPECT_EQ(resource_suffix_value_type_latest(styio_make_list_type("i64")).name, "i64");
     EXPECT_EQ(resource_suffix_value_type_latest(styio_data_type_from_name("f64")).name, "f64");
   }

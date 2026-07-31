@@ -359,7 +359,88 @@ normalize_callable_concrete_type(const StyioDataType& input) {
       styio_data_type_from_name(styio_dict_value_type_name(input)));
     return styio_make_dict_type(key.name, value.name);
   }
+  if (styio_is_callable_type(input)) {
+    std::vector<StyioDataType> params;
+    for (const auto& param : styio_callable_param_types(input)) {
+      params.push_back(normalize_callable_concrete_type(param));
+    }
+    StyioDataType result = normalize_callable_concrete_type(
+      styio_callable_result_type(input));
+    return styio_make_callable_type(params, result);
+  }
   return input;
+}
+
+bool
+type_contains_callable_value(const StyioDataType& type) {
+  if (styio_is_callable_type(type)) {
+    return true;
+  }
+  if (styio_is_topology_resource_type(type)) {
+    return type_contains_callable_value(
+      styio_topology_resource_value_type(type));
+  }
+  if (styio_is_list_type(type)) {
+    return type_contains_callable_value(
+      styio_data_type_from_name(
+        styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    return type_contains_callable_value(
+             styio_data_type_from_name(
+               styio_dict_key_type_name(type)))
+           || type_contains_callable_value(
+                styio_data_type_from_name(
+                  styio_dict_value_type_name(type)));
+  }
+  return false;
+}
+
+bool
+type_requires_unsupported_callable_storage(
+  const StyioDataType& type
+) {
+  if (styio_is_topology_resource_type(type)) {
+    return type_contains_callable_value(
+      styio_topology_resource_value_type(type));
+  }
+  if (styio_is_list_type(type)) {
+    return type_contains_callable_value(
+      styio_data_type_from_name(
+        styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    return type_contains_callable_value(
+             styio_data_type_from_name(
+               styio_dict_key_type_name(type)))
+           || type_contains_callable_value(
+                styio_data_type_from_name(
+                  styio_dict_value_type_name(type)));
+  }
+  if (styio_is_callable_type(type)) {
+    for (const auto& param :
+         styio_callable_param_types(type)) {
+      if (type_requires_unsupported_callable_storage(param)) {
+        return true;
+      }
+    }
+    return type_requires_unsupported_callable_storage(
+      styio_callable_result_type(type));
+  }
+  return false;
+}
+
+void
+require_supported_callable_storage(
+  const StyioDataType& type
+) {
+  if (type_requires_unsupported_callable_storage(type)) {
+    throw StyioTypeError(
+      "callable values cannot be stored inside list, dict, "
+      "or topology types; `" + type.name
+      + "` requires a separate callable-container decision"
+    );
+  }
 }
 
 CallableTypeTerm
@@ -778,67 +859,6 @@ reject_generalized_callable_value_escape(const std::string& name) {
       "to direct named calls, and a value-position boundary requires one "
       "concrete monomorphic callable type"
   );
-}
-
-void
-validate_generalized_callable_value_positions(
-  MainBlockAST* ast,
-  const std::unordered_map<std::string, CallableTypeScheme>& schemes
-) {
-  if (ast == nullptr || schemes.empty()) {
-    return;
-  }
-
-  auto validate_tree = [&](StyioAST* root, std::unordered_set<std::string> locals)
-  {
-    std::unordered_set<const StyioAST*> non_value_names;
-    walk_callable_expression(
-      root,
-      [&](StyioAST* node)
-      {
-        if (auto* attribute = dynamic_cast<AttrAST*>(node)) {
-          non_value_names.insert(attribute->attr);
-        }
-        if (auto* access = dynamic_cast<ListOpAST*>(node)) {
-          non_value_names.insert(access->getList());
-        }
-        if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
-          locals.insert(bind->getNameAsStr());
-        }
-        else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
-          locals.insert(bind->getName());
-        }
-
-        auto* name = dynamic_cast<NameAST*>(node);
-        if (name == nullptr
-            || non_value_names.count(name) != 0
-            || locals.count(name->getAsStr()) != 0
-            || schemes.count(name->getAsStr()) == 0) {
-          return;
-        }
-        reject_generalized_callable_value_escape(name->getAsStr());
-      });
-  };
-
-  for (auto* statement : ast->getStmts()) {
-    if (auto* function = dynamic_cast<FunctionAST*>(statement)) {
-      std::unordered_set<std::string> locals;
-      for (auto* param : function->params) {
-        locals.insert(param->getNameAsStr());
-      }
-      validate_tree(function->func_body, std::move(locals));
-      continue;
-    }
-    if (auto* function = dynamic_cast<SimpleFuncAST*>(statement)) {
-      std::unordered_set<std::string> locals;
-      for (auto* param : function->params) {
-        locals.insert(param->getNameAsStr());
-      }
-      validate_tree(function->ret_expr, std::move(locals));
-      continue;
-    }
-    validate_tree(statement, {});
-  }
 }
 
 bool
@@ -3039,6 +3059,10 @@ func_param_accepts_arg(
   if (sema_types_equal(an, param_type, arg_type)) {
     return true;
   }
+  if (styio_is_callable_type(param_type)
+      || styio_is_callable_type(arg_type)) {
+    return false;
+  }
 
   StyioValueFamily param_family = styio_value_family_for_type(param_type);
   StyioValueFamily arg_family = styio_value_family_for_type(arg_type);
@@ -4331,6 +4355,14 @@ apply_callable_expected_type_to_tail(
   if (ast == nullptr || expected.isUndefined()) {
     return;
   }
+  require_supported_callable_storage(expected);
+  if (auto* name = dynamic_cast<NameAST*>(ast)) {
+    if (styio_is_callable_type(expected)) {
+      name->setExpectedCallableType(
+        normalize_callable_concrete_type(expected));
+    }
+    return;
+  }
   if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
     call->setExpectedType(expected);
     return;
@@ -4847,10 +4879,6 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     std::move(dependency_fingerprints.body_digests);
   callable_definition_dependency_digests_ =
     std::move(dependency_fingerprints.dependency_digests);
-
-  validate_generalized_callable_value_positions(
-    ast,
-    callable_type_schemes_);
 
   for (auto* statement : ast->getStmts()) {
     StyioAST* expression = statement;
@@ -5414,14 +5442,209 @@ StyioSemaContext::typeInfer(NameAST* ast) {
   if (is_consumed_resource_name(ast->getSymbolId(), ast->getAsStr())) {
     throw StyioTypeError("use-after-destroy: resource `" + ast->getAsStr() + "` was already destroyed");
   }
-  if (find_local_binding_type(ast->getSymbolId(), ast->getAsStr()) == nullptr
-      && find_callable_type_scheme(ast->getAsStr()) != nullptr) {
+
+  const StyioDataType expected =
+    ast->getExpectedCallableType();
+  if (const StyioDataType* local =
+        find_local_binding_type(ast->getSymbolId(), ast->getAsStr())) {
+    if (!expected.isUndefined()) {
+      if (!styio_is_callable_type(*local)) {
+        throw StyioTypeError(
+          "value `" + ast->getAsStr() + "` has type `"
+          + local->name + "`, but callable type `"
+          + expected.name + "` is required"
+        );
+      }
+      if (!types_equal(*local, expected)) {
+        throw StyioTypeError(
+          "callable value `" + ast->getAsStr()
+          + "` has invariant type `" + local->name
+          + "`, expected `" + expected.name + "`"
+        );
+      }
+    }
+    ast->setInferredType(*local);
+    return;
+  }
+
+  StyioAST* definition =
+    find_function_def(ast->getSymbolId(), ast->getAsStr());
+  const CallableTypeScheme* scheme =
+    find_callable_type_scheme(ast->getAsStr());
+  if (scheme == nullptr) {
+    if (!expected.isUndefined()
+        && find_native_function_def(
+             ast->getSymbolId(), ast->getAsStr()) != nullptr) {
+      throw StyioTypeError(
+        "native callable `" + ast->getAsStr()
+        + "` cannot be coerced to a Styio callable value"
+      );
+    }
+    if (!expected.isUndefined()) {
+      if (definition != nullptr
+          && !callable_def_is_final_binding_latest(definition)) {
+        throw StyioTypeError(
+          "callable `" + ast->getAsStr()
+          + "` must use final `:=` binding before it can become "
+            "a callable value"
+        );
+      }
+      if (definition != nullptr) {
+        if (!imported_callable_is_visible(ast->getAsStr())) {
+          const auto* imported =
+            find_imported_callable_definition(ast->getAsStr());
+          throw StyioTypeError(
+            "callable `" + ast->getAsStr()
+            + "` is not exported to the active module by imported module `"
+            + (imported == nullptr
+                 ? std::string("unknown")
+                 : imported->module_id)
+            + "`"
+          );
+        }
+        if (const CallableEffectSummary* effects =
+              find_callable_effect_summary(ast->getAsStr())) {
+          if (!effects->captures.empty()) {
+            throw StyioTypeError(
+              "callable `" + ast->getAsStr()
+              + "` captures `" + effects->captures.front()
+              + "`; monomorphic callable values admit final "
+                "noncapturing items only"
+            );
+          }
+        }
+
+        std::vector<StyioDataType> declared_params;
+        for (auto* param : params_of_func_def(definition)) {
+          StyioDataType type =
+            normalize_callable_concrete_type(
+              param->getDType()->getDataType());
+          if (type.isUndefined()) {
+            throw StyioTypeError(
+              "callable `" + ast->getAsStr()
+              + "` has no complete concrete signature and no "
+                "generalizable principal relation"
+            );
+          }
+          declared_params.push_back(type);
+        }
+        StyioDataType declared_result =
+          normalize_callable_concrete_type(
+            declared_function_return_type_latest(definition));
+        if (declared_result.isUndefined()) {
+          throw StyioTypeError(
+            "callable `" + ast->getAsStr()
+            + "` has no complete concrete signature and no "
+              "generalizable principal relation"
+          );
+        }
+        StyioDataType declared_callable =
+          styio_make_callable_type(
+            declared_params,
+            declared_result);
+        if (!types_equal(declared_callable, expected)) {
+          throw StyioTypeError(
+            "callable item `" + ast->getAsStr()
+            + "` has invariant signature `"
+            + declared_callable.name + "`, expected `"
+            + expected.name + "`"
+          );
+        }
+        if (find_imported_callable_definition(
+              ast->getAsStr()) != nullptr) {
+          prepare_imported_concrete_callable_body(
+            ast->getAsStr());
+        }
+        ast->setInferredType(expected);
+        ast->setLoweredCallableName(
+          ast->getAsStr());
+        return;
+      }
+      throw StyioTypeError(
+        "unknown callable item `" + ast->getAsStr() + "`"
+      );
+    }
+    return;
+  }
+
+  if (expected.isUndefined()) {
     reject_generalized_callable_value_escape(ast->getAsStr());
   }
+
+  if (definition == nullptr) {
+    throw StyioTypeError(
+      "callable item `" + ast->getAsStr()
+      + "` has no checked definition"
+    );
+  }
+  if (!callable_def_is_final_binding_latest(definition)) {
+    throw StyioTypeError(
+      "callable `" + ast->getAsStr()
+      + "` must use final `:=` binding before it can become "
+        "a callable value"
+    );
+  }
+  if (!imported_callable_is_visible(ast->getAsStr())) {
+    const auto* imported =
+      find_imported_callable_definition(ast->getAsStr());
+    throw StyioTypeError(
+      "callable `" + ast->getAsStr()
+      + "` is not exported to the active module by imported module `"
+      + (imported == nullptr
+           ? std::string("unknown")
+           : imported->module_id)
+      + "`"
+    );
+  }
+  if (const CallableEffectSummary* effects =
+        find_callable_effect_summary(ast->getAsStr())) {
+    if (!effects->captures.empty()) {
+      throw StyioTypeError(
+        "callable `" + ast->getAsStr()
+        + "` captures `" + effects->captures.front()
+        + "`; monomorphic callable values admit final "
+          "noncapturing items only"
+      );
+    }
+  }
+
+  std::vector<StyioDataType> param_types =
+    styio_callable_param_types(expected);
+  StyioDataType result_type =
+    styio_callable_result_type(expected);
+  if (result_type.isUndefined()) {
+    throw StyioTypeError(
+      "callable item `" + ast->getAsStr()
+      + "` requires one complete concrete callable type"
+    );
+  }
+
+  enforce_effect_monomorphic_instance(
+    ast->getAsStr(),
+    param_types);
+  std::unique_ptr<FuncCallAST> synthetic(
+    FuncCallAST::Create(
+      NameAST::Create(
+        ast->getAsStr(),
+        ast->getSymbolId()),
+      {}));
+  synthetic->setExpectedType(result_type);
+  CallableSpecialization specialization =
+    instantiate_callable_type_scheme(
+      synthetic.get(),
+      param_types);
+  prepare_callable_specialization_body(
+    definition,
+    specialization);
+  ast->setInferredType(expected);
+  ast->setLoweredCallableName(
+    specialization.lowered_name);
 }
 
 void
 StyioSemaContext::typeInfer(TypeAST* ast) {
+  require_supported_callable_storage(
+    ast->getDataType());
 }
 
 void
@@ -5560,6 +5783,13 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   };
 
   auto var_type = ast->getVar()->getDType()->type;
+  require_supported_callable_storage(var_type);
+  if (styio_is_callable_type(var_type)) {
+    throw StyioTypeError(
+      "monomorphic callable values require final `:=` binding; "
+      "mutable `=` callable slots are not available"
+    );
+  }
   StyioDataType rhs_expected_type = var_type;
   if (rhs_expected_type.isUndefined()) {
     const StyioDataType* previous_type =
@@ -5681,6 +5911,12 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   if (var_type.option != StyioDataTypeOption::Undefined) {
     concrete_type = var_type;
   }
+  if (styio_is_callable_type(concrete_type)) {
+    throw StyioTypeError(
+      "monomorphic callable values require final `:=` binding; "
+      "mutable `=` callable slots are not available"
+    );
+  }
   BindingValueKind kind = expr_value_kind(ast->getValue());
   if (ast->getValue()->getNodeType() == StyioNodeType::TaskBlock) {
     kind = BindingValueKind::TaskHandle;
@@ -5748,11 +5984,30 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     }
   }
   auto vt = ast->getVar()->getDType()->type;
+  require_supported_callable_storage(vt);
   if (vt.option != StyioDataTypeOption::Undefined) {
     apply_stdin_resource_effect_expected_type(ast->getValue(), vt);
     apply_callable_expected_type_to_tail(ast->getValue(), vt);
   }
   ast->getValue()->typeInfer(this);
+  if (styio_is_callable_type(vt)) {
+    StyioDataType rhs_type =
+      infer_expr_type(this, ast->getValue());
+    if (!styio_is_callable_type(rhs_type)) {
+      throw StyioTypeError(
+        "binding `" + ast->getName()
+        + "` expects callable type `" + vt.name
+        + "`, got `" + rhs_type.name + "`"
+      );
+    }
+    if (!types_equal(vt, rhs_type)) {
+      throw StyioTypeError(
+        "binding `" + ast->getName()
+        + "` expects invariant callable type `" + vt.name
+        + "`, got `" + rhs_type.name + "`"
+      );
+    }
+  }
   if (vt.option == StyioDataTypeOption::Undefined) {
     vt = infer_expr_type(this, ast->getValue());
     ast->getVar()->setDataType(vt);
@@ -7258,6 +7513,51 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     );
   }
 
+  if (ast->func_callee == nullptr) {
+    const StyioDataType* local_callee_type =
+      find_local_binding_type(
+        ast->func_name->getSymbolId(),
+        ast->getNameAsStr());
+    if (local_callee_type != nullptr
+        && styio_is_callable_type(*local_callee_type)) {
+      const std::vector<StyioDataType> param_types =
+        styio_callable_param_types(*local_callee_type);
+      const StyioDataType result_type =
+        styio_callable_result_type(*local_callee_type);
+      if (ast->getArgList().size() != param_types.size()) {
+        throw StyioTypeError(
+          "callable value `" + ast->getNameAsStr()
+          + "` of type `" + local_callee_type->name
+          + "` expects " + std::to_string(param_types.size())
+          + " argument(s), got "
+          + std::to_string(ast->getArgList().size())
+        );
+      }
+      for (std::size_t i = 0; i < param_types.size(); ++i) {
+        StyioAST* arg = ast->getArgList()[i];
+        apply_callable_expected_type_to_tail(
+          arg,
+          param_types[i]);
+        arg->typeInfer(this);
+        const StyioDataType arg_type =
+          infer_expr_type(this, arg);
+        if (!func_param_accepts_arg(
+              param_types[i],
+              arg_type,
+              this)) {
+          throw StyioTypeError(
+            "callable value argument " + std::to_string(i)
+            + " expects `" + param_types[i].name
+            + "`, got `" + arg_type.name + "`"
+          );
+        }
+      }
+      ast->setIndirectCallableType(*local_callee_type);
+      ast->setInferredType(result_type);
+      return;
+    }
+  }
+
   if (ast->func_callee == nullptr && is_matrix_intrinsic_name(ast->getNameAsStr())) {
     for (auto* arg : ast->getArgList()) {
       arg->typeInfer(this);
@@ -7667,6 +7967,12 @@ StyioSemaContext::typeInfer(FunctionAST* ast) {
       "tuple function return annotations require tuple value IR; tuple returns are not implemented"
     );
   }
+  for (auto* param : ast->params) {
+    require_supported_callable_storage(
+      param->getDType()->getDataType());
+  }
+  require_supported_callable_storage(
+    declared_function_return_type_latest(ast));
   maybe_intern_function_signature_types(this, ast->params, ast->ret_type);
   record_function_def(ast->getNameAsStr(), ast->func_name->getSymbolId(), ast);
 }
@@ -7678,6 +7984,12 @@ StyioSemaContext::typeInfer(SimpleFuncAST* ast) {
       "tuple function return annotations require tuple value IR; tuple returns are not implemented"
     );
   }
+  for (auto* param : ast->params) {
+    require_supported_callable_storage(
+      param->getDType()->getDataType());
+  }
+  require_supported_callable_storage(
+    declared_function_return_type_latest(ast));
   maybe_intern_function_signature_types(this, ast->params, ast->ret_type);
   record_function_def(ast->func_name->getAsStr(), ast->func_name->getSymbolId(), ast);
 }

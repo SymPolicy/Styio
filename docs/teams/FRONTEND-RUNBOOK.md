@@ -77,6 +77,7 @@ Build and test targets:
 44. Continue spelling is token-width tolerant but semantically depthless. Tokenizers may preserve the full `>>...` lexeme for diagnostics and highlighting, while parser routes must construct the same `ContinueAST` for every standalone continue spelling.
 45. Hash callable binding parsing owns the source-level distinction between callable endpoints and resources. Accept `# name = (...) => ...`, `# name := (...) => ...`, and the explicit callable-body marker `# name = #(args) => ...`; reject direct resource atoms such as `# sink = @stdout` in the hash binding route so resource identities stay visibly in the `@` family. Native `@ extern(...)` binding remains its separate parser-owned import form.
 46. Styio has no word-token keywords. Tokenize every identifier-shaped word as `NAME`; inspect exact spellings only after punctuation or an already-selected structural production supplies the context. Keep keyword-like ordinary bindings executable and keep Boolean literal spellings lexically classified as `NAME`.
+47. Callable type syntax is a recursive type-position form, `#(T1, T2): R`, with one whitespace-free canonical identity stored in `StyioDataType`. Parse nested parameter and result callable types through the normal type parser and preserve right-side result precedence: in `#(i64): i64..`, the repetition suffix belongs to the result type, not the callable value. Do not add a second signature representation in the parser or reinterpret value-position `#` declarations as type syntax.
 
 ## Change Classes
 

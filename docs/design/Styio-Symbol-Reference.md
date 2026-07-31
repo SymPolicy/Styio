@@ -126,6 +126,7 @@ containing one range expression.
 | Symbol | Name | Semantics |
 |--------|------|-----------|
 | `#` | Callable / Operation-Channel Binding Prefix | Marks the binding target as callable or operable and combines with `=` or `:=`. It is not a resource prefix; resource identities stay in the `@` family. |
+| `#(T1, T2): R` | Monomorphic Callable Type | In type position, denotes one invariant, noncapturing callable value signature. A final named callable item may freeze to this type only when every parameter and result type is concrete. |
 | `:` | Type Annotation | Binds a type to identifier (`a: i32`, `# f : f32 = ...`) |
 | `[]` | Type Application / Value Selector | In type position, applies type arguments: `list[i64]`, `dict[string, string]`. In value position, it remains a selector/index. It is neither a generic-binder suffix for callable names nor call-site specialization: `# name[T] ...` and `name[T](...)` are invalid as callable-generic forms. |
 | `__ : T := U` | Type Rewrite Rule | Two or more underscores define a type-pattern rewrite, e.g. `__ : list[T] := T..` |
@@ -135,10 +136,16 @@ containing one range expression.
 | `_` | Wildcard | Default/catch-all in pattern matching |
 
 `#` introduces a callable binding; it does not make the binding's inferred
-scheme a first-class value. A generalized callable name is valid at a direct
-named call such as `identity(1)`. Bare storage, argument, return, or capture
-positions require a concrete monomorphic callable-value boundary, which is not
-active source syntax in the current StyioIR slice.
+scheme itself a first-class value. A generalized callable name is valid at a
+direct named call such as `identity(1)`, or it may freeze under a complete
+monomorphic type such as
+`operation: #(i64): i64 := identity`. Without that context, bare storage,
+argument, return, collection, or capture positions remain rejected.
+
+The `#` in `#(T): R` is interpreted as a callable type head only in type
+position. It does not declare a callable, capture an environment, introduce a
+generic binder, or select a native address. Callable values are final,
+allocation-free function references; callable types are invariant.
 
 No symbol introduces handle polymorphism. Inferred relation variables admit
 plain scalars and recursively plain materialized `list`/`dict` values only.

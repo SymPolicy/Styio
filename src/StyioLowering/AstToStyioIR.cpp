@@ -2609,6 +2609,10 @@ AstToStyioIRLowerer::toStyioIR(EmptyAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
+  if (!ast->getLoweredCallableName().empty()) {
+    return SGResId::CreateFunctionRef(
+      ast->getLoweredCallableName());
+  }
   const BindingInfo* binding = find_binding_info(ast->getSymbolId(), ast->getAsStr());
   if (binding != nullptr
       && (binding->dynamic_slot || binding->value_kind == BindingValueKind::ListHandle || binding->value_kind == BindingValueKind::DictHandle || binding->value_kind == BindingValueKind::MatrixHandle || binding->value_kind == BindingValueKind::TaskHandle)) {
@@ -3928,6 +3932,18 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
       "one-shot continuation resume `<|` requires continuation lowering; "
       "captured continuations must be resumed or discontinued exactly once"
     );
+  }
+
+  if (ast->isIndirectCallableCall()) {
+    std::vector<StyioIR*> args;
+    args.reserve(ast->getArgList().size());
+    for (auto* arg : ast->getArgList()) {
+      args.push_back(arg->toStyioIR(this));
+    }
+    return SGCall::CreateIndirect(
+      SGResId::Create(ast->getNameAsStr()),
+      ast->getIndirectCallableType(),
+      std::move(args));
   }
 
   if (ast->func_callee == nullptr && is_matrix_intrinsic_name(ast->getNameAsStr())) {
