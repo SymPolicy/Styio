@@ -12,11 +12,16 @@ id = "core.canonical-effect-rows"
 title = "Canonical Effect Rows"
 kind = "callable-effect-semantics"
 decision_state = "accepted"
-delivery_state = "not_started"
+delivery_state = "converged"
 owner = "Sema / Modules"
 syntax = "No new source form; canonical effect rows are compiler-owned scheme, diagnostic, typed-IR, and `.styioi` facts."
 resolution = "Replace the closed bit-summary identity with a canonical row of known labels plus an optional compiler-owned open tail for higher-order relations; keep native unknown effects fail-closed and do not accept source assertions."
-golden_cases = []
+golden_cases = [
+  "tests/features/callable_effects/t02_transitive_effect_summary.styio",
+  "tests/features/callable_effects/e01_effectful_second_instance.styio",
+  "tests/features/callable_effects/e02_captured_environment_second_instance.styio",
+  "tests/features/callable_interfaces/t02_effect_rows.styio",
+]
 
 [documents]
 grammar = ["docs/design/Styio-EBNF.md"]
@@ -25,8 +30,8 @@ semantics = ["docs/design/Styio-Language-Design.md", "docs/design/Styio-Handle-C
 diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 teaching = ["docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"]
-implementation = ["src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioSema/CallableInterface.cpp"]
-evidence = ["tests/features/callable_effects/t02_transitive_effect_summary.styio"]
+implementation = ["src/StyioSema/EffectRow.hpp", "src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioSema/CallableInterface.hpp", "src/StyioSema/CallableInterface.cpp", "src/StyioIR/GenIR/SGIR.hpp", "src/StyioLowering/AstToStyioIR.cpp", "src/main.cpp"]
+evidence = ["tests/features/callable_effects/t02_transitive_effect_summary.styio", "tests/features/callable_effects/e01_effectful_second_instance.styio", "tests/features/callable_effects/e02_captured_environment_second_instance.styio", "tests/features/callable_interfaces/t02_effect_rows.styio"]
 
 [prerequisites]
 language-owner-approval = "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
@@ -41,6 +46,8 @@ research-basis = "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-3
 interface-contract = "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
 
 [implementation]
+path = "src/StyioSema/EffectRow.hpp"
+symbol = "class CallableEffectRow"
 owner = "Sema / Modules"
 
 [dependencies]
@@ -87,3 +94,36 @@ changes are versioned and stale older metadata fails closed.
 Source-visible effect rows, native purity assertions, handler abstraction,
 effect subtyping, row subtraction syntax, and user-defined effect labels
 require separate child decisions.
+
+## Delivered Contract
+
+`CallableEffectRow` is the single semantic value for callable effects. It owns
+an insertion-sorted, deduplicated vector from the closed label vocabulary and
+one optional compiler tail. The canonical form is derived on demand:
+`{}` is closed and pure, `{output,resource}` is closed and effectful, and
+`{|'e0}` is an open higher-order row. No stored bit mask or canonical string
+can become a competing identity.
+
+Sema creates an open tail only when a checked callable parameter is invoked,
+unions known labels through direct-call dependencies, and normalizes a
+propagated open tail to the caller's local tail variable. Captures are the
+ordinary closed label `capture`; capture names remain diagnostic facts rather
+than row identity. Generalization continues to require exactly `{}`.
+
+Callable interface schema v2 serializes sorted `labels` and nullable
+`open_tail`, derives canonical identity for ABI and specialization hashes, and
+rejects schema v1 before installing metadata. `SGFunc` carries the same row
+through typed IR; manually constructed functions default to `{unknown}` so
+missing Sema facts fail closed.
+
+Acceptance evidence covers row canonicalization and deduplication, transitive
+closed effects, open-tail propagation across a direct-call edge, interface
+publication/consumption, old-schema rejection, and row-based monomorphism
+diagnostics. The focused commands are:
+
+```bash
+build/bin/styio_test \
+  --gtest_filter=StyioCallableEffects.CanonicalRowsSortDeduplicateAndMerge
+ctest --test-dir build -L callable_effects --output-on-failure --no-tests=error
+ctest --test-dir build -L callable_interfaces --output-on-failure --no-tests=error
+```

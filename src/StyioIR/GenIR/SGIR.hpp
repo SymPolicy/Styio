@@ -12,6 +12,7 @@
 
 // [Styio]
 #include "../../StyioToken/Token.hpp"
+#include "../../StyioSema/EffectRow.hpp"
 #include "../IRDecl.hpp"
 #include "../StyioIR.hpp"
 
@@ -447,24 +448,39 @@ public:
   SGResId* func_name;
   std::vector<SGFuncArg*> func_args;
   SGBlock* func_block;
+  styio::sema::CallableEffectRow effect_row;
 
   SGFunc(
     SGType* ret_type,
     SGResId* func_name,
     std::vector<SGFuncArg*> func_args,
-    SGBlock* func_block
+    SGBlock* func_block,
+    styio::sema::CallableEffectRow effect_row
   ) :
       ret_type(ret_type),
       func_name(func_name),
       func_args(func_args),
-      func_block(func_block) {
+      func_block(func_block),
+      effect_row(std::move(effect_row)) {
   }
 
   void collect_children(std::vector<StyioIR*>& out) override;
   ~SGFunc() override;
 
-  static SGFunc* Create(SGType* ret_type, SGResId* func_name, std::vector<SGFuncArg*> func_args, SGBlock* func_block) {
-    return styio::session_alloc::make_ir<SGFunc>(ret_type, func_name, func_args, func_block);
+  static SGFunc* Create(
+    SGType* ret_type,
+    SGResId* func_name,
+    std::vector<SGFuncArg*> func_args,
+    SGBlock* func_block,
+    styio::sema::CallableEffectRow effect_row =
+      styio::sema::CallableEffectRow::unknown()
+  ) {
+    return styio::session_alloc::make_ir<SGFunc>(
+      ret_type,
+      func_name,
+      func_args,
+      func_block,
+      std::move(effect_row));
   }
 };
 

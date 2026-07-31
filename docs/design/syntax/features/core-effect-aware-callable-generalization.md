@@ -15,7 +15,7 @@ decision_state = "accepted"
 delivery_state = "converged"
 owner = "Sema / Type System"
 syntax = "No new source syntax proposed; this decision governs eligibility of final callable bindings for generalization."
-resolution = "Generalize only closed, proven-pure final callable bodies; unknown or effectful bodies remain monomorphic, while inferred effect rows are reserved for a later feature."
+resolution = "Generalize only closed, proven-pure final callable bodies; unknown or effectful bodies remain monomorphic, with canonical effect identity owned by the extending core.canonical-effect-rows feature."
 golden_cases = ["tests/features/callable_effects/t02_transitive_effect_summary.styio", "tests/features/callable_effects/e02_captured_environment_second_instance.styio"]
 
 [documents]
@@ -65,8 +65,10 @@ Mutable captures, resource operations, task operations, fallback/handler
 operations, unclassified native calls, and unknown callee summaries fail
 closed to the existing monomorphic callable path.
 
-Compiler-owned inferred effect rows remain an explicit later extension. They
-must not be simulated by syntactic exceptions or implicit trust annotations.
+Compiler-owned inferred effect rows were the explicit extension boundary of
+this decision and are now owned by
+[Canonical Effect Rows](./core-canonical-effect-rows.md). They must not be
+simulated by syntactic exceptions or implicit trust annotations.
 
 ## Prerequisite Boundary
 
@@ -79,7 +81,7 @@ callees are classified as unknown rather than assumed pure.
 
 An effectful or capture-dependent callable stays on the monomorphic path. Its
 first checked concrete argument vector fixes the instance; a later conflicting
-use reports the canonical effect summary and the parameter conflict before
+use reports the canonical effect row and the parameter conflict before
 lowering.
 
 The positive and negative goldens prove transitive output propagation,
@@ -88,5 +90,6 @@ capture-dependent rejection on a second type.
 
 ## Evolution Boundary
 
-This feature does not decide handler syntax, effect-row source notation, native
-purity annotations, or resource capability polymorphism.
+This feature does not decide handler syntax, effect-row source notation,
+native purity annotations, or resource capability polymorphism. Compiler-owned
+row identity is supplied by its converged extending feature.

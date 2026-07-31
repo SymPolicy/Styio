@@ -1,0 +1,13 @@
+@export { identity, emit, apply, apply_outer }
+
+# identity := (value) => value
+# emit : i64 := (value: i64) => {
+    >_(value)
+    <| value
+}
+# apply : i64 := (operation: #(i64): i64, value: i64) => operation(value)
+# apply_outer : i64 := (operation: #(i64): i64, value: i64) => apply(operation, value)
+
+probe: #(i64): i64 := identity
+apply(probe, 0)
+apply_outer(probe, 0)

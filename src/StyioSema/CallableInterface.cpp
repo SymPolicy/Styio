@@ -22,7 +22,7 @@ namespace styio::sema {
 namespace {
 
 using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
-using CallableEffectSummary = StyioSemaContext::CallableEffectSummary;
+using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
 using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
 using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
@@ -442,43 +442,88 @@ strings_from_json(
 }
 
 llvm::json::Object
-effects_to_json(const CallableEffectSummary& effects) {
-  return llvm::json::Object{
-    {"bits", static_cast<std::int64_t>(effects.effect_bits)},
-    {"closed", effects.closed},
+effects_to_json(const CallableEffectRowFacts& effects) {
+  llvm::json::Array labels;
+  for (const auto label : effects.row.labels()) {
+    labels.push_back(
+      std::string(styio::sema::callable_effect_label_name(label)));
+  }
+  llvm::json::Object object{
+    {"labels", std::move(labels)},
     {"relation_seed", effects.relation_seed},
     {"captures", string_array(effects.captures)},
     {"direct_callees", string_array(effects.direct_callees)},
-    {"canonical", effects.canonical},
   };
+  if (effects.row.open_tail().has_value()) {
+    object["open_tail"] =
+      static_cast<std::int64_t>(*effects.row.open_tail());
+  }
+  else {
+    object["open_tail"] = nullptr;
+  }
+  return object;
 }
 
-CallableEffectSummary
+void
+require_canonical_string_sequence(
+  const std::vector<std::string>& values,
+  const std::string& context
+) {
+  if (!std::is_sorted(values.begin(), values.end())
+      || std::adjacent_find(values.begin(), values.end())
+           != values.end()) {
+    interface_error(
+      context + " must be strictly sorted and deduplicated");
+  }
+}
+
+CallableEffectRowFacts
 effects_from_json(
   const llvm::json::Object& object,
   const std::string& context
 ) {
-  CallableEffectSummary effects;
-  const std::int64_t bits = require_integer(object, "bits", context);
-  if (bits < 0
-      || static_cast<std::uint64_t>(bits)
-           > static_cast<std::uint64_t>(
-               std::numeric_limits<std::uint32_t>::max())) {
-    interface_error(context + " has out-of-range effect bits");
+  CallableEffectRowFacts effects;
+  const std::vector<std::string> labels =
+    strings_from_json(object, "labels", context);
+  require_canonical_string_sequence(labels, context + ".labels");
+  for (const auto& name : labels) {
+    const auto label =
+      styio::sema::callable_effect_label_from_name(name);
+    if (!label.has_value()) {
+      interface_error(
+        context + " has unknown effect label `" + name + "`");
+    }
+    effects.row.add(*label);
   }
-  effects.effect_bits = static_cast<std::uint32_t>(bits);
-  effects.closed = require_bool(object, "closed", context);
+
+  const llvm::json::Value* open_tail = object.get("open_tail");
+  if (open_tail == nullptr) {
+    interface_error(context + " is missing `open_tail`");
+  }
+  if (!open_tail->getAsNull().has_value()) {
+    const auto tail = open_tail->getAsInteger();
+    if (!tail.has_value()
+        || *tail < 0
+        || static_cast<std::uint64_t>(*tail)
+             > static_cast<std::uint64_t>(
+                 std::numeric_limits<std::uint32_t>::max())) {
+      interface_error(context + " has an invalid open effect tail");
+    }
+    effects.row.set_open_tail(static_cast<std::uint32_t>(*tail));
+  }
+
   effects.relation_seed =
     require_bool(object, "relation_seed", context);
   effects.captures =
     strings_from_json(object, "captures", context);
   effects.direct_callees =
     strings_from_json(object, "direct_callees", context);
-  effects.canonical =
-    require_string(object, "canonical", context);
-  if (effects.canonical.empty()) {
-    interface_error(context + " has an empty canonical effect summary");
-  }
+  require_canonical_string_sequence(
+    effects.captures,
+    context + ".captures");
+  require_canonical_string_sequence(
+    effects.direct_callees,
+    context + ".direct_callees");
   return effects;
 }
 
@@ -547,7 +592,7 @@ entry_signature_text(const CallableInterfaceEntry& entry) {
     }
     output << ")->" << entry.concrete_result.name;
   }
-  output << "|effects=" << entry.effects.canonical
+  output << "|effects=" << entry.effects.row.canonical()
          << "|body=" << entry.checked_body_digest;
   return output.str();
 }
@@ -602,7 +647,7 @@ callable_interface_dependency_digest(
       return lhs->module_id < rhs->module_id;
     });
   std::ostringstream canonical;
-  canonical << "styio.callable-interface.dependencies.v1\n";
+  canonical << "styio.callable-interface.dependencies.v2\n";
   std::string previous;
   for (const auto* dependency : ordered) {
     if (dependency == nullptr) {
@@ -637,7 +682,7 @@ callable_interface_abi_digest(
     });
 
   std::ostringstream canonical;
-  canonical << "styio.callable-interface.abi.v1\n"
+  canonical << "styio.callable-interface.abi.v2\n"
             << interface.module_id << "\n"
             << interface.compiler_abi << "\n"
             << interface.dependency_digest << "\n";
@@ -712,7 +757,7 @@ publish_callable_module_interface(
     entry.exported = exported_names.count(name) != 0;
     entry.has_scheme = true;
     entry.scheme = *context.find_callable_type_scheme(name);
-    if (const auto* effects = context.find_callable_effect_summary(name)) {
+    if (const auto* effects = context.find_callable_effect_row(name)) {
       entry.effects = *effects;
     }
     entry.checked_body = definitions.at(name)->toString(&representation);
@@ -761,12 +806,12 @@ publish_callable_module_interface(
         + name
         + "` requires a concrete result interface");
     }
-    if (const auto* effects = context.find_callable_effect_summary(name)) {
+    if (const auto* effects = context.find_callable_effect_row(name)) {
       entry.effects = *effects;
     }
     else {
-      entry.effects.closed = false;
-      entry.effects.canonical = "unknown";
+      entry.effects.row =
+        styio::sema::CallableEffectRow::unknown();
     }
     entry.checked_body = definition->toString(&representation);
     entry.checked_body_digest =
@@ -939,7 +984,7 @@ parse_callable_module_interface(
     }
     const auto* effects = object.getObject("effects");
     if (effects == nullptr) {
-      interface_error(context + " is missing effect summary");
+      interface_error(context + " is missing effect row");
     }
     entry.effects =
       effects_from_json(*effects, context + ".effects");

@@ -15,8 +15,8 @@ decision_state = "accepted"
 delivery_state = "converged"
 owner = "Sema / Modules"
 syntax = "Existing callable export/import forms; no authored generic interface syntax proposed."
-resolution = "Publish the canonical scheme, checked typed body, effect/capability summary, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected."
-golden_cases = ["tests/features/callable_interfaces/t01_downstream_specialization.styio", "tests/features/callable_interfaces/e03_stale_source.styio", "tests/features/callable_interfaces/e05_stale_dependency.styio"]
+resolution = "Publish the canonical scheme, checked typed body, canonical effect row/capability facts, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected."
+golden_cases = ["tests/features/callable_interfaces/t01_downstream_specialization.styio", "tests/features/callable_interfaces/t02_effect_rows.styio", "tests/features/callable_interfaces/e03_stale_source.styio", "tests/features/callable_interfaces/e05_stale_dependency.styio"]
 
 [documents]
 grammar = ["docs/design/Styio-EBNF.md"]
@@ -26,7 +26,7 @@ diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 teaching = ["docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"]
 implementation = ["src/StyioSema/CallableInterface.cpp", "src/StyioSema/CallableModuleLoader.cpp", "src/StyioSema/TypeInfer.cpp", "src/StyioLowering/AstToStyioIR.cpp", "src/main.cpp"]
-evidence = ["tests/features/callable_interfaces/t01_downstream_specialization.styio", "tests/features/callable_interfaces/e01_private_callable.styio", "tests/features/callable_interfaces/e02_cross_module_cycle.styio", "tests/features/callable_interfaces/e03_stale_source.styio", "tests/features/callable_interfaces/e04_stale_schema.styio", "tests/features/callable_interfaces/e05_stale_dependency.styio", "tests/features/callable_interfaces/e06_missing_interface.styio", "tests/features/callable_interfaces/modules/invalid.styio"]
+evidence = ["tests/features/callable_interfaces/t01_downstream_specialization.styio", "tests/features/callable_interfaces/t02_effect_rows.styio", "tests/features/callable_interfaces/e01_private_callable.styio", "tests/features/callable_interfaces/e02_cross_module_cycle.styio", "tests/features/callable_interfaces/e03_stale_source.styio", "tests/features/callable_interfaces/e04_stale_schema.styio", "tests/features/callable_interfaces/e05_stale_dependency.styio", "tests/features/callable_interfaces/e06_missing_interface.styio", "tests/features/callable_interfaces/modules/invalid.styio"]
 
 [prerequisites]
 language-owner-approval = "docs/specs/AGENT-SPEC.md"
@@ -62,8 +62,8 @@ after = ["core.effect-aware-callable-generalization"]
 ## Decision
 
 An exported generic interface publishes its canonical scheme, checked typed
-body representation or equivalent reproducible body, normalized
-effect/capability summary, and stable dependency and ABI digests. The defining
+body representation or equivalent reproducible body, canonical effect row and
+capability facts, and stable dependency and ABI digests. The defining
 module validates the body even without local instances. A consuming compilation
 unit may specialize it under deterministic ownership. Cross-module recursive
 SCCs are rejected in this slice.
@@ -72,8 +72,9 @@ SCCs are rejected in this slice.
 
 The compiler can publish a sibling callable interface with
 `--file=<module>.styio --module-id=<canonical/path>
---emit-module-interface=<module>.styioi`. Schema v1 records the canonical
-relation and normalized constraints, the effect/capability summary, concrete
+--emit-module-interface=<module>.styioi`. Schema v2 records the canonical
+relation and normalized constraints, a sorted effect-label row with a nullable
+compiler-owned open tail, concrete
 signatures, a deterministic checked-body representation and SHA-256 digest,
 the source digest, direct dependency module set and digest, compiler ABI facts,
 and the resulting interface ABI digest.
@@ -110,6 +111,8 @@ dependency explicitly before compiling a consumer.
 
 Non-generic exports preserve their existing concrete symbol and interface
 facts. Generic metadata must be versioned so stale interfaces fail closed.
+The schema v2 cutover deliberately rejects v1 metadata rather than retaining a
+dual-reader compatibility path.
 
 ## Evolution Boundary
 

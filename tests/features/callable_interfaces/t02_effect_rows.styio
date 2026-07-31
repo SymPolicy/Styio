@@ -1,0 +1,4 @@
+@import { modules/effects }
+
+>_(apply(identity, 4))
+>_(apply_outer(identity, 5))

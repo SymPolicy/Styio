@@ -44,9 +44,7 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "requires core.canonical-effect-rows at accepted/converged",
           "requires core.capability-usage-polymorphism at accepted/converged",
-          "must follow non-converged feature core.canonical-effect-rows",
           "must follow non-converged feature core.capability-usage-polymorphism"
         ]
       },
@@ -375,7 +373,7 @@
       },
       "document": "docs/design/syntax/features/core-callable-interface-scheme-publication.md",
       "owner": "Sema / Modules",
-      "resolution": "Publish the canonical scheme, checked typed body, effect/capability summary, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected.",
+      "resolution": "Publish the canonical scheme, checked typed body, canonical effect row/capability facts, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected.",
       "dependencies": {
         "requires": [
           {
@@ -468,6 +466,7 @@
         ],
         "evidence": [
           "tests/features/callable_interfaces/t01_downstream_specialization.styio",
+          "tests/features/callable_interfaces/t02_effect_rows.styio",
           "tests/features/callable_interfaces/e01_private_callable.styio",
           "tests/features/callable_interfaces/e02_cross_module_cycle.styio",
           "tests/features/callable_interfaces/e03_stale_source.styio",
@@ -479,6 +478,7 @@
       },
       "golden_cases": [
         "tests/features/callable_interfaces/t01_downstream_specialization.styio",
+        "tests/features/callable_interfaces/t02_effect_rows.styio",
         "tests/features/callable_interfaces/e03_stale_source.styio",
         "tests/features/callable_interfaces/e05_stale_dependency.styio"
       ]
@@ -601,16 +601,12 @@
       "kind": "callable-effect-semantics",
       "syntax": "No new source form; canonical effect rows are compiler-owned scheme, diagnostic, typed-IR, and `.styioi` facts.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
         "missing_document_roles": [],
         "missing_prerequisites": [],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-canonical-effect-rows.md",
@@ -669,8 +665,8 @@
         "interface-contract": "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/EffectRow.hpp",
+        "symbol": "class CallableEffectRow",
         "owner": "Sema / Modules"
       },
       "documents": {
@@ -694,15 +690,28 @@
           "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
         ],
         "implementation": [
+          "src/StyioSema/EffectRow.hpp",
           "src/StyioSema/SemaContext.hpp",
           "src/StyioSema/TypeInfer.cpp",
-          "src/StyioSema/CallableInterface.cpp"
+          "src/StyioSema/CallableInterface.hpp",
+          "src/StyioSema/CallableInterface.cpp",
+          "src/StyioIR/GenIR/SGIR.hpp",
+          "src/StyioLowering/AstToStyioIR.cpp",
+          "src/main.cpp"
         ],
         "evidence": [
-          "tests/features/callable_effects/t02_transitive_effect_summary.styio"
+          "tests/features/callable_effects/t02_transitive_effect_summary.styio",
+          "tests/features/callable_effects/e01_effectful_second_instance.styio",
+          "tests/features/callable_effects/e02_captured_environment_second_instance.styio",
+          "tests/features/callable_interfaces/t02_effect_rows.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_effects/t02_transitive_effect_summary.styio",
+        "tests/features/callable_effects/e01_effectful_second_instance.styio",
+        "tests/features/callable_effects/e02_captured_environment_second_instance.styio",
+        "tests/features/callable_interfaces/t02_effect_rows.styio"
+      ]
     },
     {
       "id": "core.capability-polymorphic-handles",
@@ -845,10 +854,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "requires core.canonical-effect-rows at accepted/converged",
-          "must follow non-converged feature core.canonical-effect-rows"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-capability-usage-polymorphism.md",
       "owner": "Sema / Resource Topology",
@@ -1270,7 +1276,7 @@
       },
       "document": "docs/design/syntax/features/core-effect-aware-callable-generalization.md",
       "owner": "Sema / Type System",
-      "resolution": "Generalize only closed, proven-pure final callable bodies; unknown or effectful bodies remain monomorphic, while inferred effect rows are reserved for a later feature.",
+      "resolution": "Generalize only closed, proven-pure final callable bodies; unknown or effectful bodies remain monomorphic, with canonical effect identity owned by the extending core.canonical-effect-rows feature.",
       "dependencies": {
         "requires": [
           {
@@ -2642,9 +2648,7 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "requires core.canonical-effect-rows at accepted/converged",
           "requires core.capability-usage-polymorphism at accepted/converged",
-          "must follow non-converged feature core.canonical-effect-rows",
           "must follow non-converged feature core.capability-usage-polymorphism"
         ]
       },
@@ -2758,7 +2762,6 @@
         ],
         "dependency_blockers": [
           "requires core.affine-capturing-closures at accepted/converged",
-          "requires core.canonical-effect-rows at accepted/converged",
           "requires core.capability-usage-polymorphism at accepted/converged",
           "must follow non-converged feature core.affine-capturing-closures"
         ]

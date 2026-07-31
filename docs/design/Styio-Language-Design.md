@@ -218,12 +218,14 @@ the importing source.
 
 ### 4.3 Callable Interface Contract
 
-Callable interface schema v1 publishes compiler-owned semantic facts rather
+Callable interface schema v2 publishes compiler-owned semantic facts rather
 than new source syntax. For each checked callable needed by the module it
 records either a canonical inferred relation with normalized constraints or a
-complete concrete signature, plus its normalized effect/capability summary and
-a reproducible checked body. Source, body, direct dependency, compiler ABI, and
-interface ABI facts carry SHA-256 digests.
+complete concrete signature, plus its canonical effect row, capability facts,
+and a reproducible checked body. An effect row stores sorted known labels and
+a nullable compiler-owned open tail; no serialized bit mask or trusted
+canonical string competes with that identity. Source, body, direct dependency,
+compiler ABI, and interface ABI facts carry SHA-256 digests.
 
 Loading is fail-closed. The compiler validates the schema version, canonical
 module identity, target/compiler ABI, source digest, direct dependency set and
@@ -373,20 +375,30 @@ surrounding annotation, but must not suggest a callable type-argument list.
 
 Definition-site generalization is available only to a final callable whose
 free environment is closed and whose reachable body is proven pure. Sema
-computes a conservative summary for each final callable and propagates output,
-resource, task, handler, native, capture, and unknown effects through direct
-call dependencies. An unsupported operation or unresolved callee is unknown,
-not implicitly pure.
+computes one canonical effect row for each final callable. Its closed label
+vocabulary is `capture`, `handler`, `native`, `output`, `resource`, `task`, and
+`unknown`; labels are sorted and deduplicated, then propagated through direct
+call dependencies. An unsupported operation or unresolved callee contributes
+`unknown`, never implicit purity.
+
+A checked invocation through a callable parameter introduces one
+compiler-owned open tail variable such as `'e0` (canonically `{|'e0}` when no
+known labels are present). Propagation unions known labels and normalizes
+compatible tails to the caller's local variable. Ordinary captures produce the
+closed label `{capture}`; capture names are diagnostic context, not part of row
+identity.
 
 An effectful or capture-dependent callable remains monomorphic. Its first
 checked concrete argument relation fixes the callable instance, and a later
-conflicting use is rejected with the callable's canonical effect summary before
+conflicting use is rejected with the callable's canonical effect row before
 lowering. This retains deterministic execution without duplicating effects
 behind silently inferred polymorphism.
 
-The summary is compiler-owned semantic metadata. Styio currently has no source
-effect-row syntax, purity annotation, native-purity assertion, or effect
-polymorphism; those require their own feature decisions.
+The row is compiler-owned semantic metadata and is carried by callable
+interfaces, specialization identity, and typed `SGFunc` nodes. Generalization
+still requires the closed empty row `{}`. Styio currently has no source
+effect-row syntax, purity annotation, native-purity assertion, or user-defined
+effect label; those require their own feature decisions.
 
 Resources keep their visible `@` identity. A direct resource atom is not a
 valid right side for a `#` binding:

@@ -59,11 +59,13 @@ may be generalized and published, so ordinary generic recursion remains
 available. A recursive edge that needs the same member at a different
 instantiation is rejected as polymorphic recursion.
 
-Generalization also requires a closed, proven-pure callable body. Output,
-resource, task, handler, native, captured-environment, and unknown effects
-propagate through direct calls. A callable with any such summary remains
-monomorphic; a later use at a conflicting concrete type is rejected before
-lowering. Effect-row source syntax and purity annotations are not active.
+Generalization also requires the closed empty compiler-owned effect row `{}`.
+The sorted closed vocabulary is `capture`, `handler`, `native`, `output`,
+`resource`, `task`, and `unknown`; labels propagate through direct calls. A
+checked call through a callable parameter introduces an inferred open tail
+such as `{|'e0}`. A callable with a nonempty or open row remains monomorphic,
+and a later use at a conflicting concrete type is rejected before lowering.
+Effect-row source syntax and purity annotations are not active.
 
 Type-variable names shown by the compiler or an IDE are explanatory metadata,
 not source declarations. Concrete annotations remain available for monomorphic
