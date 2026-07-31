@@ -218,14 +218,16 @@ the importing source.
 
 ### 4.3 Callable Interface Contract
 
-Callable interface schema v2 publishes compiler-owned semantic facts rather
+Callable interface schema v3 publishes compiler-owned semantic facts rather
 than new source syntax. For each checked callable needed by the module it
 records either a canonical inferred relation with normalized constraints or a
-complete concrete signature, plus its canonical effect row, capability facts,
-and a reproducible checked body. An effect row stores sorted known labels and
-a nullable compiler-owned open tail; no serialized bit mask or trusted
-canonical string competes with that identity. Source, body, direct dependency,
-compiler ABI, and interface ABI facts carry SHA-256 digests.
+complete concrete signature, plus its canonical effect row, sorted
+per-variable usage requirements, and a reproducible checked body. An effect
+row stores sorted known labels and a nullable compiler-owned open tail. Usage
+requirements store the closed `consume`, `copy`, `exclusive_borrow`, and
+`shared_borrow` vocabulary. Neither identity has a serialized bit mask or
+trusted cached canonical string. Source, body, direct dependency, compiler
+ABI, and interface ABI facts carry SHA-256 digests.
 
 Loading is fail-closed. The compiler validates the schema version, canonical
 module identity, target/compiler ABI, source digest, direct dependency set and
@@ -483,7 +485,7 @@ This boundary is deliberately narrower than higher-rank polymorphism. Affine
 closure environments, rank-2 callbacks, polymorphic fields, callable
 containers, and address equality require separate child features.
 
-#### 5.1.8 Capability Boundary for Generalized Variables
+#### 5.1.8 Capability and Usage Boundary for Generalized Variables
 
 An inferred relation variable ranges only over the closed plain-value domain:
 immutable scalar families and recursively plain materialized `list` and `dict`
@@ -504,10 +506,25 @@ and nested element types therefore remain visible to the decision. A topology
 sequence cannot be normalized into an ordinary list to bypass the boundary,
 and a `list[matrix[...]]` remains rejected recursively.
 
+Each normalized relation variable also carries a sorted compiler-owned usage
+set. Reads derive `shared_borrow`, repeated use derives `copy`, and returned or
+stored values derive `consume`. Exact parameter-to-parameter direct calls
+propagate these facts to a fixed point. `exclusive_borrow` is part of the
+closed metadata and validation vocabulary, but no mutation form in the current
+pure principal-relation subset emits it.
+
+Concrete instantiation revalidates these facts against the original
+`StyioDataType`, before callable normalization. Diagnostics name the relation
+variable, complete required usage set, candidate type, and first incompatible
+fact. The stable failure families distinguish copy, consume, exclusive borrow,
+task transfer, resource state, topology identity, and materialized shape
+instead of reporting an LLVM representation mismatch.
+
 A callable may still use a concretely annotated handle parameter as a
 monomorphic contract. Generalized handle variables wait for schemes that can
-carry capability, effect, send/sync, consumption, lifetime, and canonical
-matrix element/shape facts.
+carry enabled task-transfer, resource-state-family, and canonical matrix-shape
+facts. The current usage metadata does not admit those handle families by
+itself.
 
 #### 5.1.9 Reachable Callable Specialization
 

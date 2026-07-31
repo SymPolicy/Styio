@@ -22,6 +22,7 @@ using std::unordered_map;
 #include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CallableSpecializationGraph.hpp"
+#include "CallableUsage.hpp"
 #include "EffectRow.hpp"
 
 struct SGPulsePlan;
@@ -528,12 +529,19 @@ public:
     std::string canonical;
   };
 
+  struct CallableUsageRequirement
+  {
+    std::uint32_t variable = 0;
+    styio::sema::CallableUsageSet usages;
+  };
+
   struct CallableTypeScheme
   {
     std::string name;
     std::vector<CallableTypeTerm> params;
     CallableTypeTerm result;
     std::vector<CallableTypeConstraint> constraints;
+    std::vector<CallableUsageRequirement> usage_requirements;
     std::vector<std::uint32_t> quantified_variables;
     bool recursive_group = false;
     std::string canonical_relation;

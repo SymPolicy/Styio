@@ -1,0 +1,7 @@
+# duplicate := (value) => [value, value]
+# first := (values) => values[0]
+# forward := (value) => duplicate(value)
+
+>_(duplicate(4)[1])
+>_(first(["first", "second"]))
+>_(forward("ok")[0])

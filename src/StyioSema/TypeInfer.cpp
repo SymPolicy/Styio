@@ -15,6 +15,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
@@ -332,6 +333,10 @@ using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
 using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
 using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
+using CallableUsageKind = styio::sema::CallableUsageKind;
+using CallableUsageRequirement =
+  StyioSemaContext::CallableUsageRequirement;
+using CallableUsageSet = styio::sema::CallableUsageSet;
 using CallableEffectLabel = styio::sema::CallableEffectLabel;
 using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
 
@@ -931,6 +936,276 @@ callable_direct_calls(StyioAST* def) {
   return calls;
 }
 
+std::optional<std::size_t>
+callable_exact_parameter_index(
+  StyioAST* expression,
+  const std::unordered_map<std::string, std::size_t>& parameter_indices
+) {
+  auto* name = dynamic_cast<NameAST*>(expression);
+  if (name == nullptr) {
+    return std::nullopt;
+  }
+  const auto parameter = parameter_indices.find(name->getAsStr());
+  return parameter == parameter_indices.end()
+           ? std::nullopt
+           : std::optional<std::size_t>(parameter->second);
+}
+
+void
+mark_callable_tail_consumes(
+  StyioAST* expression,
+  const std::unordered_map<std::string, std::size_t>& parameter_indices,
+  std::vector<CallableUsageSet>& usages
+) {
+  if (expression == nullptr) {
+    return;
+  }
+  if (const auto parameter =
+        callable_exact_parameter_index(expression, parameter_indices)) {
+    usages.at(*parameter).add(CallableUsageKind::Consume);
+    return;
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(expression)) {
+    mark_callable_tail_consumes(
+      ret->getExpr(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(expression)) {
+    for (auto it = block->stmts.rbegin();
+         it != block->stmts.rend();
+         ++it) {
+      if (dynamic_cast<CommentAST*>(*it) != nullptr
+          || dynamic_cast<PassAST*>(*it) != nullptr) {
+        continue;
+      }
+      mark_callable_tail_consumes(
+        *it,
+        parameter_indices,
+        usages);
+      return;
+    }
+    return;
+  }
+  if (auto* bind = dynamic_cast<FlexBindAST*>(expression)) {
+    mark_callable_tail_consumes(
+      bind->getValue(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* bind = dynamic_cast<FinalBindAST*>(expression)) {
+    mark_callable_tail_consumes(
+      bind->getValue(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* match = dynamic_cast<MatchCasesAST*>(expression)) {
+    CasesAST* cases = match->getCases();
+    if (cases == nullptr) {
+      return;
+    }
+    for (const auto& entry : cases->case_list) {
+      mark_callable_tail_consumes(
+        entry.second,
+        parameter_indices,
+        usages);
+    }
+    mark_callable_tail_consumes(
+      cases->case_default,
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* merge = dynamic_cast<WaveMergeAST*>(expression)) {
+    mark_callable_tail_consumes(
+      merge->getTrueVal(),
+      parameter_indices,
+      usages);
+    mark_callable_tail_consumes(
+      merge->getFalseVal(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* dispatch = dynamic_cast<WaveDispatchAST*>(expression)) {
+    mark_callable_tail_consumes(
+      dispatch->getTrueArm(),
+      parameter_indices,
+      usages);
+    mark_callable_tail_consumes(
+      dispatch->getFalseArm(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* flow = dynamic_cast<CondFlowAST*>(expression)) {
+    mark_callable_tail_consumes(
+      flow->getThen(),
+      parameter_indices,
+      usages);
+    mark_callable_tail_consumes(
+      flow->getElse(),
+      parameter_indices,
+      usages);
+  }
+}
+
+std::vector<CallableUsageSet>
+callable_local_usage_sets(StyioAST* def) {
+  const auto params = params_of_func_def(def);
+  std::unordered_map<std::string, std::size_t> parameter_indices;
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    if (params[i] != nullptr) {
+      parameter_indices[params[i]->getNameAsStr()] = i;
+    }
+  }
+
+  std::vector<std::size_t> occurrences(params.size(), 0);
+  std::vector<CallableUsageSet> usages(params.size());
+  StyioAST* body = callable_body_of_def(def);
+  walk_callable_expression(
+    body,
+    [&](StyioAST* node)
+    {
+      const auto parameter =
+        callable_exact_parameter_index(node, parameter_indices);
+      if (parameter.has_value()) {
+        ++occurrences.at(*parameter);
+      }
+
+      auto mark_direct_consume = [&](StyioAST* value)
+      {
+        const auto direct =
+          callable_exact_parameter_index(value, parameter_indices);
+        if (direct.has_value()) {
+          usages.at(*direct).add(CallableUsageKind::Consume);
+        }
+      };
+      if (auto* ret = dynamic_cast<ReturnAST*>(node)) {
+        mark_direct_consume(ret->getExpr());
+      }
+      else if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        mark_direct_consume(bind->getValue());
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        mark_direct_consume(bind->getValue());
+      }
+      else if (auto* list = dynamic_cast<ListAST*>(node)) {
+        for (auto* element : list->getElements()) {
+          mark_direct_consume(element);
+        }
+      }
+      else if (auto* dict = dynamic_cast<DictAST*>(node)) {
+        for (const auto& entry : dict->getEntries()) {
+          mark_direct_consume(entry.key);
+          mark_direct_consume(entry.value);
+        }
+      }
+    });
+
+  for (std::size_t i = 0; i < usages.size(); ++i) {
+    if (occurrences[i] != 0) {
+      usages[i].add(CallableUsageKind::SharedBorrow);
+    }
+    if (occurrences[i] > 1) {
+      usages[i].add(CallableUsageKind::Copy);
+      usages[i].add(CallableUsageKind::Consume);
+    }
+  }
+  mark_callable_tail_consumes(
+    body,
+    parameter_indices,
+    usages);
+  return usages;
+}
+
+struct CallableUsageCallEdge
+{
+  std::string caller;
+  std::size_t caller_parameter = 0;
+  std::string callee;
+  std::size_t callee_parameter = 0;
+
+  friend bool operator==(
+    const CallableUsageCallEdge& lhs,
+    const CallableUsageCallEdge& rhs
+  ) = default;
+};
+
+std::vector<CallableUsageCallEdge>
+callable_usage_call_edges(
+  const std::unordered_map<std::string, StyioAST*>& definitions,
+  const std::unordered_map<std::string, CallableTypeScheme>& schemes
+) {
+  std::vector<CallableUsageCallEdge> edges;
+  for (const auto& [caller, definition] : definitions) {
+    if (schemes.count(caller) == 0) {
+      continue;
+    }
+    const auto params = params_of_func_def(definition);
+    std::unordered_map<std::string, std::size_t> parameter_indices;
+    for (std::size_t i = 0; i < params.size(); ++i) {
+      if (params[i] != nullptr) {
+        parameter_indices[params[i]->getNameAsStr()] = i;
+      }
+    }
+    walk_callable_expression(
+      callable_body_of_def(definition),
+      [&](StyioAST* node)
+      {
+        auto* call = dynamic_cast<FuncCallAST*>(node);
+        if (call == nullptr || call->func_callee != nullptr) {
+          return;
+        }
+        const auto callee = schemes.find(call->getNameAsStr());
+        if (callee == schemes.end()) {
+          return;
+        }
+        const auto& arguments = call->getArgList();
+        const std::size_t count =
+          std::min(arguments.size(), callee->second.params.size());
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto caller_parameter =
+            callable_exact_parameter_index(
+              arguments[i],
+              parameter_indices);
+          if (!caller_parameter.has_value()) {
+            continue;
+          }
+          edges.push_back(
+            CallableUsageCallEdge{
+              caller,
+              *caller_parameter,
+              callee->first,
+              i});
+        }
+      });
+  }
+  std::sort(
+    edges.begin(),
+    edges.end(),
+    [](const auto& lhs, const auto& rhs)
+    {
+      return std::tie(
+               lhs.caller,
+               lhs.caller_parameter,
+               lhs.callee,
+               lhs.callee_parameter)
+             < std::tie(
+                 rhs.caller,
+                 rhs.caller_parameter,
+                 rhs.callee,
+                 rhs.callee_parameter);
+    });
+  edges.erase(
+    std::unique(edges.begin(), edges.end()),
+    edges.end());
+  return edges;
+}
+
 void
 add_callable_effect(
   CallableEffectRowFacts& effects,
@@ -1134,6 +1409,78 @@ callable_constraint_text(const CallableTypeConstraint& constraint) {
   }
   output << ")";
   return output.str();
+}
+
+std::string
+callable_scheme_relation_text(const CallableTypeScheme& scheme) {
+  std::ostringstream relation;
+  if (!scheme.quantified_variables.empty()) {
+    relation << "forall ";
+    for (std::size_t i = 0;
+         i < scheme.quantified_variables.size();
+         ++i) {
+      if (i != 0) {
+        relation << ",";
+      }
+      relation << "'" << scheme.quantified_variables[i];
+    }
+    relation << ". ";
+  }
+  relation << "(";
+  for (std::size_t i = 0; i < scheme.params.size(); ++i) {
+    if (i != 0) {
+      relation << ",";
+    }
+    relation << callable_term_text(scheme.params[i]);
+  }
+  relation << ")->" << callable_term_text(scheme.result);
+  if (!scheme.constraints.empty()) {
+    relation << " where ";
+    for (std::size_t i = 0; i < scheme.constraints.size(); ++i) {
+      if (i != 0) {
+        relation << ",";
+      }
+      relation << scheme.constraints[i].canonical;
+    }
+  }
+  if (!scheme.usage_requirements.empty()) {
+    relation << " using ";
+    for (std::size_t i = 0;
+         i < scheme.usage_requirements.size();
+         ++i) {
+      if (i != 0) {
+        relation << ",";
+      }
+      relation << "usage('"
+               << scheme.usage_requirements[i].variable
+               << ":"
+               << scheme.usage_requirements[i].usages.canonical()
+               << ")";
+    }
+  }
+  return relation.str();
+}
+
+CallableUsageRequirement&
+callable_usage_requirement_for(
+  CallableTypeScheme& scheme,
+  std::uint32_t variable
+) {
+  const auto position = std::lower_bound(
+    scheme.usage_requirements.begin(),
+    scheme.usage_requirements.end(),
+    variable,
+    [](const auto& requirement, std::uint32_t candidate)
+    {
+      return requirement.variable < candidate;
+    });
+  if (position != scheme.usage_requirements.end()
+      && position->variable == variable) {
+    return *position;
+  }
+  return *scheme.usage_requirements.insert(
+    position,
+    CallableUsageRequirement{variable, {}});
 }
 
 CallableTypeConstraint
@@ -3697,6 +4044,158 @@ callable_generalization_domain_accepts(const StyioDataType& type) {
 }
 
 bool
+callable_copy_usage_accepts(const StyioDataType& type) {
+  if (callable_generalization_domain_accepts(type)) {
+    return true;
+  }
+  if (styio_is_matrix_type(type)) {
+    return (type.capabilities
+            & styio_caps(StyioTypeCapability::Cloneable)) != 0;
+  }
+  return false;
+}
+
+bool
+callable_exclusive_borrow_usage_accepts(
+  const StyioDataType& type
+) {
+  return (styio_is_list_type(type)
+          && type.handle_family == StyioHandleFamily::List
+          && type.state == StyioTypeState::Materialized)
+         || (styio_is_dict_type(type)
+             && type.handle_family == StyioHandleFamily::Dict
+             && type.state == StyioTypeState::Materialized)
+         || (styio_is_matrix_type(type)
+             && type.handle_family == StyioHandleFamily::Matrix
+             && type.state == StyioTypeState::Materialized);
+}
+
+std::string
+callable_generalization_first_incompatible_fact(
+  const StyioDataType& type
+) {
+  if (type.isUndefined()) {
+    return "unresolved_type";
+  }
+  if (type.is_resource_type
+      || type.resource_shape != StyioResourceShapeKind::None) {
+    return "topology_identity";
+  }
+  if (styio_is_matrix_type(type)
+      || type.handle_family == StyioHandleFamily::Matrix) {
+    return "materialized_shape";
+  }
+  if (type.handle_family == StyioHandleFamily::Task) {
+    return "task_transfer";
+  }
+  if (styio_is_list_type(type)) {
+    if (type.handle_family != StyioHandleFamily::List
+        || type.state != StyioTypeState::Materialized) {
+      return "resource_state_family";
+    }
+    return callable_generalization_first_incompatible_fact(
+      styio_data_type_from_name(
+        styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    if (type.handle_family != StyioHandleFamily::Dict
+        || type.state != StyioTypeState::Materialized) {
+      return "resource_state_family";
+    }
+    const std::string key_fact =
+      callable_generalization_first_incompatible_fact(
+        styio_data_type_from_name(
+          styio_dict_key_type_name(type)));
+    if (key_fact != "") {
+      return key_fact;
+    }
+    return callable_generalization_first_incompatible_fact(
+      styio_data_type_from_name(
+        styio_dict_value_type_name(type)));
+  }
+  if (type.handle_family == StyioHandleFamily::File
+      || type.handle_family == StyioHandleFamily::Stream
+      || type.handle_family == StyioHandleFamily::Range
+      || type.has_std_stream_kind
+      || type.state != StyioTypeState::None
+      || type.capabilities != 0) {
+    return "resource_state_family";
+  }
+  if (styio_is_callable_type(type)) {
+    return "callable_value_rank";
+  }
+  return callable_generalization_domain_accepts(type)
+           ? ""
+           : "closed_type_domain";
+}
+
+std::string
+callable_usage_first_incompatible_fact(
+  const StyioDataType& type,
+  const CallableUsageSet& usages
+) {
+  if (usages.contains(CallableUsageKind::Copy)
+      && !callable_copy_usage_accepts(type)) {
+    return "copy";
+  }
+  if (usages.contains(CallableUsageKind::ExclusiveBorrow)
+      && !callable_exclusive_borrow_usage_accepts(type)) {
+    return "exclusive_borrow";
+  }
+  if (usages.contains(CallableUsageKind::Consume)
+      && (type.state == StyioTypeState::Done
+          || type.state == StyioTypeState::Cancelled
+          || type.state == StyioTypeState::Closed)) {
+    return "consume";
+  }
+  return callable_generalization_first_incompatible_fact(type);
+}
+
+void
+validate_callable_usage_instance(
+  const CallableTypeScheme& scheme,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  for (const std::uint32_t variable :
+       scheme.quantified_variables) {
+    const auto binding = bindings.find(variable);
+    if (binding == bindings.end()) {
+      continue;
+    }
+    CallableUsageSet empty_usages;
+    const auto requirement = std::lower_bound(
+      scheme.usage_requirements.begin(),
+      scheme.usage_requirements.end(),
+      variable,
+      [](const auto& candidate, std::uint32_t value)
+      {
+        return candidate.variable < value;
+      });
+    const CallableUsageSet& usages =
+      requirement != scheme.usage_requirements.end()
+          && requirement->variable == variable
+        ? requirement->usages
+        : empty_usages;
+    const std::string incompatible =
+      callable_usage_first_incompatible_fact(
+        binding->second,
+        usages);
+    if (incompatible.empty()) {
+      continue;
+    }
+    throw StyioTypeError(
+      "inferred relation variable '"
+      + std::to_string(variable)
+      + " requires usage facts "
+      + usages.canonical()
+      + "; type `" + binding->second.name
+      + "` is incompatible in call to `" + scheme.name
+      + "`; first incompatible fact is `" + incompatible + "`"
+    );
+  }
+}
+
+bool
 match_callable_term_to_concrete(
   const CallableTypeTerm& pattern,
   const StyioDataType& concrete_input,
@@ -3711,54 +4210,70 @@ match_callable_term_to_concrete(
         + "; add a concrete surrounding annotation"
       );
     }
-    if (!callable_generalization_domain_accepts(concrete_input)) {
-      throw StyioTypeError(
-        "inferred relation variable '" + std::to_string(*variable)
-        + " cannot range over type `" + concrete_input.name + "` in "
-        + context + "; generalized callable variables admit only immutable "
-          "scalar values and pure materialized list/dict types"
-      );
-    }
   }
 
   StyioDataType concrete =
     normalize_callable_concrete_type(concrete_input);
   switch (pattern.kind) {
     case CallableTypeTerm::Kind::Variable: {
-      auto [it, inserted] = bindings.emplace(pattern.variable, concrete);
+      auto [it, inserted] =
+        bindings.emplace(pattern.variable, concrete_input);
       if (inserted) {
         return true;
       }
-      if (it->second.equals(concrete)) {
+      StyioDataType previous =
+        normalize_callable_concrete_type(it->second);
+      if (previous.equals(concrete)) {
+        const bool previous_is_plain =
+          callable_generalization_domain_accepts(it->second);
+        const bool incoming_is_plain =
+          callable_generalization_domain_accepts(concrete_input);
+        if (previous_is_plain && !incoming_is_plain) {
+          it->second = concrete_input;
+          return true;
+        }
+        if (!previous_is_plain && incoming_is_plain) {
+          return false;
+        }
+        if (!previous_is_plain
+            && !it->second.equals(concrete_input)) {
+          throw StyioTypeError(
+            "capability-sensitive instance conflict in " + context
+            + ": `" + it->second.name + "` and `"
+            + concrete_input.name
+            + "` share a normalized representation but not ownership, "
+              "state, shape, or topology identity"
+          );
+        }
         return false;
       }
-      if (it->second.option == StyioDataTypeOption::Integer
+      if (previous.option == StyioDataTypeOption::Integer
           && concrete.option == StyioDataTypeOption::Integer) {
         if (concrete.num_of_bit == 0) {
           return false;
         }
-        if (it->second.num_of_bit == 0) {
-          it->second = concrete;
+        if (previous.num_of_bit == 0) {
+          it->second = concrete_input;
           return true;
         }
       }
-      if (it->second.option == StyioDataTypeOption::Bool
+      if (previous.option == StyioDataTypeOption::Bool
           && concrete.option == StyioDataTypeOption::Bool) {
         return false;
       }
-      if (it->second.option == StyioDataTypeOption::String
+      if (previous.option == StyioDataTypeOption::String
           && concrete.option == StyioDataTypeOption::String) {
         return false;
       }
-      if (it->second.option == StyioDataTypeOption::Char
+      if (previous.option == StyioDataTypeOption::Char
           && concrete.option == StyioDataTypeOption::Char
-          && it->second.num_of_bit == concrete.num_of_bit) {
+          && previous.num_of_bit == concrete.num_of_bit) {
         return false;
       }
       {
         throw StyioTypeError(
           "generic instance conflict in " + context + ": inferred `"
-          + it->second.name + "` and `" + concrete.name
+          + previous.name + "` and `" + concrete.name
           + "` for the same relation variable"
         );
       }
@@ -4080,7 +4595,7 @@ callable_specialization_content_digest(
 ) {
   std::ostringstream content;
   content
-    << "styio.callable-specialization.v2\n"
+    << "styio.callable-specialization.v3\n"
     << "definition=" << definition << "\n"
     << "relation=" << relation << "\n"
     << "effects=" << effects << "\n"
@@ -4139,7 +4654,7 @@ build_callable_dependency_fingerprints(
     result.body_digests[definition] = body_digest;
 
     std::ostringstream base;
-    base << "styio.callable-definition.v2\n"
+    base << "styio.callable-definition.v3\n"
          << "definition="
          << (owner.empty() ? name : owner + "::" + name)
          << "\n";
@@ -4254,7 +4769,7 @@ build_callable_dependency_fingerprints(
 
     std::vector<std::string> dependency_facts;
     std::ostringstream canonical;
-    canonical << "styio.callable-dependency-component.v2\n";
+    canonical << "styio.callable-dependency-component.v3\n";
     for (const auto& name : components[component_index]) {
       canonical << "member=" << name << "|"
                 << base_fingerprints.at(name) << "\n";
@@ -4776,37 +5291,27 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
         scheme.quantified_variables.begin(),
         scheme.quantified_variables.end());
 
-      std::ostringstream relation;
-      if (!scheme.quantified_variables.empty()) {
-        relation << "forall ";
-        for (std::size_t i = 0;
-             i < scheme.quantified_variables.size();
-             ++i) {
-          if (i != 0) {
-            relation << ",";
-          }
-          relation << "'" << scheme.quantified_variables[i];
+      const auto local_usages =
+        callable_local_usage_sets(definitions.at(name));
+      for (std::size_t i = 0;
+           i < scheme.params.size() && i < local_usages.size();
+           ++i) {
+        if (local_usages[i].empty()) {
+          continue;
         }
-        relation << ". ";
-      }
-      relation << "(";
-      for (std::size_t i = 0; i < scheme.params.size(); ++i) {
-        if (i != 0) {
-          relation << ",";
-        }
-        relation << callable_term_text(scheme.params[i]);
-      }
-      relation << ")->" << callable_term_text(scheme.result);
-      if (!scheme.constraints.empty()) {
-        relation << " where ";
-        for (std::size_t i = 0; i < scheme.constraints.size(); ++i) {
-          if (i != 0) {
-            relation << ",";
-          }
-          relation << scheme.constraints[i].canonical;
+        std::vector<std::uint32_t> variables;
+        std::unordered_set<std::uint32_t> seen;
+        collect_callable_term_variables(
+          scheme.params[i],
+          variables,
+          seen);
+        for (const std::uint32_t variable : variables) {
+          callable_usage_requirement_for(scheme, variable)
+            .usages.merge(local_usages[i]);
         }
       }
-      scheme.canonical_relation = relation.str();
+      scheme.canonical_relation =
+        callable_scheme_relation_text(scheme);
       callable_type_schemes_[name] = std::move(scheme);
     }
 
@@ -4816,6 +5321,76 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
 
   for (std::size_t i = 0; i < components.size(); ++i) {
     infer_component(i);
+  }
+
+  const auto usage_edges =
+    callable_usage_call_edges(
+      definitions,
+      callable_type_schemes_);
+  bool usage_changed = true;
+  while (usage_changed) {
+    usage_changed = false;
+    for (const auto& edge : usage_edges) {
+      auto caller = callable_type_schemes_.find(edge.caller);
+      const auto callee =
+        callable_type_schemes_.find(edge.callee);
+      if (caller == callable_type_schemes_.end()
+          || callee == callable_type_schemes_.end()
+          || edge.caller_parameter
+               >= caller->second.params.size()
+          || edge.callee_parameter
+               >= callee->second.params.size()) {
+        continue;
+      }
+
+      std::vector<std::uint32_t> callee_variables;
+      std::unordered_set<std::uint32_t> seen_callee;
+      collect_callable_term_variables(
+        callee->second.params[edge.callee_parameter],
+        callee_variables,
+        seen_callee);
+      CallableUsageSet propagated;
+      for (const std::uint32_t variable : callee_variables) {
+        const auto requirement = std::lower_bound(
+          callee->second.usage_requirements.begin(),
+          callee->second.usage_requirements.end(),
+          variable,
+          [](const auto& candidate, std::uint32_t value)
+          {
+            return candidate.variable < value;
+          });
+        if (requirement
+              != callee->second.usage_requirements.end()
+            && requirement->variable == variable) {
+          propagated.merge(requirement->usages);
+        }
+      }
+      if (propagated.empty()) {
+        continue;
+      }
+
+      std::vector<std::uint32_t> caller_variables;
+      std::unordered_set<std::uint32_t> seen_caller;
+      collect_callable_term_variables(
+        caller->second.params[edge.caller_parameter],
+        caller_variables,
+        seen_caller);
+      for (const std::uint32_t variable : caller_variables) {
+        usage_changed =
+          callable_usage_requirement_for(
+            caller->second,
+            variable)
+            .usages.merge(propagated)
+          || usage_changed;
+      }
+    }
+  }
+  for (const auto& name : definition_names) {
+    auto scheme = callable_type_schemes_.find(name);
+    if (scheme != callable_type_schemes_.end()) {
+      scheme->second.canonical_relation =
+        callable_scheme_relation_text(scheme->second);
+    }
   }
 
   auto dependency_fingerprints =
@@ -4958,6 +5533,7 @@ StyioSemaContext::instantiate_callable_type_scheme(
     );
   }
   solve_callable_constraint_instance(*scheme, bindings);
+  validate_callable_usage_instance(*scheme, bindings);
 
   CallableSpecialization specialization;
   specialization.source_name = scheme->name;

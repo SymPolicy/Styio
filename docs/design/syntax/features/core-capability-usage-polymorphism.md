@@ -12,11 +12,11 @@ id = "core.capability-usage-polymorphism"
 title = "Capability and Usage Polymorphism"
 kind = "capability-type-semantics"
 decision_state = "accepted"
-delivery_state = "not_started"
+delivery_state = "converged"
 owner = "Sema / Resource Topology"
 syntax = "No authored lifetime, capability, multiplicity, or shape variable; all usage/capability facts are compiler-owned relation metadata."
 resolution = "Admit capability-sensitive relation variables only through closed compiler-owned copy/borrow/consume, task-transfer, resource-state-family, and materialized-shape facts, with each family enabled separately and revalidated against topology at every concrete instance."
-golden_cases = []
+golden_cases = ["tests/features/callable_capabilities/t02_usage_instances.styio", "tests/features/callable_capabilities/e07_copy_task_instance.styio", "tests/features/callable_interfaces/t03_usage_facts.styio"]
 
 [documents]
 grammar = ["docs/design/Styio-EBNF.md"]
@@ -25,8 +25,8 @@ semantics = ["docs/design/Styio-Language-Design.md", "docs/design/Styio-Handle-C
 diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 teaching = ["docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"]
-implementation = ["src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioResourceTopology/ResourceTopology.cpp"]
-evidence = ["tests/features/callable_capabilities/t01_scalar_collection_instances.styio"]
+implementation = ["src/StyioSema/CallableUsage.hpp", "src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioSema/CallableInterface.cpp"]
+evidence = ["tests/styio_test.cpp", "tests/features/callable_capabilities/t01_scalar_collection_instances.styio", "tests/features/callable_capabilities/t02_usage_instances.styio", "tests/features/callable_capabilities/e01_matrix_instance.styio", "tests/features/callable_capabilities/e02_task_instance.styio", "tests/features/callable_capabilities/e03_stream_instance.styio", "tests/features/callable_capabilities/e04_file_instance.styio", "tests/features/callable_capabilities/e05_nested_matrix_collection.styio", "tests/features/callable_capabilities/e06_topology_resource_instance.styio", "tests/features/callable_capabilities/e07_copy_task_instance.styio", "tests/features/callable_capabilities/e08_topology_expected_collection.styio", "tests/features/callable_interfaces/t03_usage_facts.styio"]
 
 [prerequisites]
 language-owner-approval = "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
@@ -36,12 +36,14 @@ grammar-contract = "docs/design/Styio-EBNF.md"
 semantic-contract = "docs/design/Styio-Language-Design.md"
 diagnostic-boundary = "workflows/TEST-CATALOG.md"
 compatibility-decision = "docs/design/syntax/ACTIVE-SYNTAX.md"
-golden-evidence = "tests/features/callable_capabilities/t01_scalar_collection_instances.styio"
+golden-evidence = "tests/features/callable_capabilities/t02_usage_instances.styio"
 research-basis = "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
 ownership-contract = "docs/design/Styio-Handle-Capability-Type-System.md"
 topology-contract = "docs/design/Styio-Resource-Topology.md"
 
 [implementation]
+path = "src/StyioSema/TypeInfer.cpp"
+symbol = "validate_callable_usage_instance"
 owner = "Sema / Resource Topology"
 
 [dependencies]
@@ -78,6 +80,40 @@ state, topology, and shape evidence before it can be marked converged.
 Diagnostics name the relation variable, required usage/capability facts, the
 concrete candidate, and the first incompatible fact. They must not collapse
 the error to a representation mismatch.
+
+## Implemented First Stage
+
+`CallableUsageSet` is the canonical identity for the closed `consume`, `copy`,
+`exclusive_borrow`, and `shared_borrow` vocabulary. It insert-sorts and
+deduplicates enum values and derives its textual form; no bit mask or cached
+canonical string is authoritative.
+
+For the current pure principal-relation subset, Sema derives shared borrow from
+parameter reads, copy from repeated use, and consume from returned, stored, or
+otherwise escaping values. Exact parameter-to-parameter direct-call edges
+propagate callee facts to callers to a fixed point, including recursive
+components. `exclusive_borrow` is represented, serialized, and validated, but
+the current pure subset contains no mutation form that may emit it; adding
+such an emitter requires the owning mutation feature's executable evidence.
+
+Requirements are attached to normalized relation variables in sorted order.
+`.styioi` schema v3 serializes each variable and its sorted usage list and
+rejects schema v2 rather than maintaining a dual reader. Usage facts are part
+of the canonical relation, interface ABI, checked-definition dependency
+fingerprints, and specialization identity.
+
+Instance validation retains the original concrete `StyioDataType`. It reports
+the first incompatible fact in stable order, distinguishing `copy`,
+`exclusive_borrow`, `consume`, `task_transfer`, `resource_state_family`,
+`topology_identity`, and `materialized_shape`. The scalar/list/dict domain
+continues to execute; repeated task use proves alias/copy rejection, while
+task, stream, file, topology, matrix, and nested-matrix fixtures prove that
+disabled fact families stay closed. A conflicting plain expected result also
+cannot coerce a topology resource into its collection representation.
+
+This convergence delivers the first-stage relation vocabulary, propagation,
+interface contract, and instance revalidation. It does not admit task,
+resource, topology, or matrix handles into generalized variables.
 
 ## Compatibility and Evolution Boundary
 

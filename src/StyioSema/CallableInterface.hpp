@@ -14,7 +14,7 @@ class StyioAST;
 
 namespace styio::sema {
 
-inline constexpr std::int64_t kCallableInterfaceSchemaVersion = 2;
+inline constexpr std::int64_t kCallableInterfaceSchemaVersion = 3;
 inline constexpr std::string_view kCallableInterfaceFormat =
   "styio.callable-interface";
 
