@@ -129,17 +129,19 @@ plain-value domain.
 Callable interfaces are compiler-owned artifacts, not authored syntax. Publish
 one explicitly with `--module-id` and `--emit-module-interface`, then import its
 source path normally. The loader accepts only matching schema, compiler/target
-ABI, source, checked-body, and direct-dependency digests. Consumers see only
-exports from direct imports; private helpers remain scoped to their owning
-imported body, transitive names do not leak, and module dependency cycles fail
-closed before Sema. Schema v3 carries canonical effect rows and sorted
-per-variable usage requirements and rejects schema v2 metadata.
+ABI, source, public-contract, portable-body, aggregate typed-body, and
+direct-dependency digests. Consumers see only exports from direct imports;
+private helpers remain scoped to their owning imported body, transitive names
+do not leak, and module dependency cycles fail closed before Sema. Schema v4
+carries canonical effect rows, sorted per-variable usage requirements, and
+canonical `styio.portable-styioir` schema-v1 bodies; it rejects schema v3
+metadata and never reparses imported source.
 
 Concrete inferred-callable code is demand-driven. Ordinary direct calls form a
 reachable mono-item graph; repeated equal instances reuse one deterministic
 content-addressed definition, while unreachable generic definitions and
 unreachable imported concrete helpers emit no code. Identity includes the
-canonical relation, effects, checked body, transitive callable dependencies,
+canonical relation, effects, portable semantic body, transitive callable dependencies,
 module facts, target, and backend ABI, so call order does not affect symbols
 and a reachable callee-body change invalidates callers.
 

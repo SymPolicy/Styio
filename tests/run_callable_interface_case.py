@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import pathlib
 import shutil
@@ -69,6 +70,66 @@ def require_failure_contains(
         )
 
 
+def mutate_typed_body(
+    interface_path: pathlib.Path,
+    entry_name: str,
+    mutate,
+) -> None:
+    interface = json.loads(interface_path.read_text(encoding="utf-8"))
+    entries = {entry["name"]: entry for entry in interface["entries"]}
+    body = json.loads(entries[entry_name]["typed_body_payload"])
+    mutate(body)
+    entries[entry_name]["typed_body_payload"] = (
+        json.dumps(body, indent=2, sort_keys=True) + "\n"
+    )
+    interface_path.write_text(
+        json.dumps(interface, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def require_portable_interface_shape(interface_path: pathlib.Path) -> dict:
+    payload = json.loads(interface_path.read_text(encoding="utf-8"))
+    if payload["schema_version"] != 4:
+        raise AssertionError("callable interface did not use schema version 4")
+    required_root = {
+        "abi_digest",
+        "contract_digest",
+        "typed_body_digest",
+    }
+    if not required_root <= set(payload):
+        raise AssertionError(
+            "callable interface omitted schema-v4 root facts: "
+            f"{sorted(required_root - set(payload))}"
+        )
+    for entry in payload["entries"]:
+        legacy = {"checked_body", "checked_body_digest"} & set(entry)
+        if legacy:
+            raise AssertionError(
+                f"{entry['name']} retained legacy body fields: {sorted(legacy)}"
+            )
+        if entry.get("typed_body_format") != "styio.portable-styioir":
+            raise AssertionError(
+                f"{entry['name']} omitted the portable typed-body format"
+            )
+        body_text = entry["typed_body_payload"]
+        body = json.loads(body_text)
+        canonical = json.dumps(body, indent=2, sort_keys=True) + "\n"
+        if body_text != canonical:
+            raise AssertionError(
+                f"{entry['name']} payload is not canonical JSON"
+            )
+        if (
+            body.get("format") != "styio.portable-styioir"
+            or body.get("schema_version") != 1
+            or body.get("semantic_digest") != entry["portable_body_digest"]
+        ):
+            raise AssertionError(
+                f"{entry['name']} portable payload identity mismatch"
+            )
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--styio", required=True, type=pathlib.Path)
@@ -88,6 +149,13 @@ def main() -> int:
             "invalid-module-id",
             "effect-row",
             "usage-facts",
+            "portable-replay",
+            "portable-body-schema",
+            "portable-unknown-opcode",
+            "portable-unbound-symbol",
+            "portable-type-mismatch",
+            "portable-noncanonical",
+            "portable-digest",
         ],
     )
     args = parser.parse_args()
@@ -99,6 +167,35 @@ def main() -> int:
         shutil.copytree(fixtures, workspace)
 
         if args.mode == "cycle":
+            require_success(
+                emit_interface(
+                    styio,
+                    workspace,
+                    "modules/core.styio",
+                    "modules/core",
+                ),
+                "compiler ABI seed interface publication",
+            )
+            seed = json.loads(
+                (workspace / "modules/core.styioi").read_text(
+                    encoding="utf-8"
+                )
+            )
+            for relative, module_id, dependencies in [
+                ("cycles/a.styioi", "cycles/a", ["b"]),
+                ("cycles/b.styioi", "b", ["a"]),
+            ]:
+                stub = {
+                    "compiler_abi": seed["compiler_abi"],
+                    "dependency_modules": dependencies,
+                    "format": "styio.callable-interface",
+                    "module_id": module_id,
+                    "schema_version": 4,
+                }
+                (workspace / relative).write_text(
+                    json.dumps(stub, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
             result = run(
                 [
                     str(styio),
@@ -173,11 +270,7 @@ def main() -> int:
                 "effect-row interface publication",
             )
             interface_path = workspace / "modules/effects.styioi"
-            payload = json.loads(interface_path.read_text(encoding="utf-8"))
-            if payload["schema_version"] != 3:
-                raise AssertionError(
-                    "effect-row interface did not use schema version 3"
-                )
+            payload = require_portable_interface_shape(interface_path)
             entries = {entry["name"]: entry for entry in payload["entries"]}
             expected_rows = {
                 "identity": ([], None),
@@ -240,11 +333,7 @@ def main() -> int:
                 "usage-fact interface publication",
             )
             interface_path = workspace / "modules/usages.styioi"
-            payload = json.loads(interface_path.read_text(encoding="utf-8"))
-            if payload["schema_version"] != 3:
-                raise AssertionError(
-                    "usage-fact interface did not use schema version 3"
-                )
+            payload = require_portable_interface_shape(interface_path)
             entries = {entry["name"]: entry for entry in payload["entries"]}
             expected_usages = {
                 "identity": ["consume", "shared_borrow"],
@@ -362,6 +451,114 @@ def main() -> int:
             "core interface publication",
         )
 
+        interface_path = workspace / "modules/core.styioi"
+        require_portable_interface_shape(interface_path)
+        if args.mode == "portable-replay":
+            core = workspace / "modules/core.styio"
+            core.write_text(
+                "this is deliberately invalid Styio syntax {{{\n",
+                encoding="utf-8",
+            )
+            payload = json.loads(interface_path.read_text(encoding="utf-8"))
+            payload["source_digest"] = hashlib.sha256(core.read_bytes()).hexdigest()
+            interface_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            result = run(
+                [
+                    str(styio),
+                    "--parser-engine=nightly",
+                    f"--file={workspace / 't01_downstream_specialization.styio'}",
+                ],
+                workspace,
+            )
+            require_success(result, "source-independent portable body replay")
+            expected = (
+                workspace / "expected/t01_downstream_specialization.out"
+            ).read_text(encoding="utf-8")
+            if result.stdout != expected or result.stderr:
+                raise AssertionError(
+                    "portable replay output mismatch\n"
+                    f"expected:\n{expected}\nactual:\n{result.stdout}\n"
+                    f"stderr:\n{result.stderr}"
+                )
+            return 0
+
+        portable_failures = {
+            "portable-body-schema": (
+                "double_value",
+                lambda body: body.__setitem__("schema_version", 2),
+                "unsupported schema or format",
+            ),
+            "portable-unknown-opcode": (
+                "double_value",
+                lambda body: body["nodes"][-1].__setitem__(
+                    "opcode", "unknown_binary"
+                ),
+                "unknown opcode `unknown_binary`",
+            ),
+            "portable-unbound-symbol": (
+                "private_identity",
+                lambda body: body["nodes"][0].__setitem__("symbol", "ghost"),
+                "references unbound symbol `ghost`",
+            ),
+            "portable-type-mismatch": (
+                "private_increment",
+                lambda body: body["nodes"][0]["type"].__setitem__(
+                    "type", "f64"
+                ),
+                "mismatched encoded type",
+            ),
+            "portable-digest": (
+                "private_increment",
+                lambda body: body["nodes"][1].__setitem__("value", "2"),
+                "portable body digest mismatch",
+            ),
+        }
+        if args.mode in portable_failures:
+            entry_name, mutate, expected = portable_failures[args.mode]
+            mutate_typed_body(interface_path, entry_name, mutate)
+            result = run(
+                [
+                    str(styio),
+                    "--parser-engine=nightly",
+                    f"--file={workspace / 't01_downstream_specialization.styio'}",
+                ],
+                workspace,
+            )
+            require_failure_contains(
+                result,
+                expected,
+                f"{args.mode} verification",
+            )
+            return 0
+
+        if args.mode == "portable-noncanonical":
+            payload = json.loads(interface_path.read_text(encoding="utf-8"))
+            entries = {entry["name"]: entry for entry in payload["entries"]}
+            entries["identity"]["typed_body_payload"] = (
+                " " + entries["identity"]["typed_body_payload"]
+            )
+            interface_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            result = run(
+                [
+                    str(styio),
+                    "--parser-engine=nightly",
+                    f"--file={workspace / 't01_downstream_specialization.styio'}",
+                ],
+                workspace,
+            )
+            require_failure_contains(
+                result,
+                "is not canonically serialized",
+                "noncanonical portable body verification",
+            )
+            return 0
+
         if args.mode == "stale-source":
             core = workspace / "modules/core.styio"
             core.write_text(
@@ -383,7 +580,6 @@ def main() -> int:
             return 0
 
         if args.mode == "stale-schema":
-            interface_path = workspace / "modules/core.styioi"
             payload = json.loads(interface_path.read_text(encoding="utf-8"))
             payload["schema_version"] = 2
             interface_path.write_text(

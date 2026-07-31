@@ -347,7 +347,9 @@ Notes:
 16. Concrete callable instances are compiler-owned mono items reached from
     ordinary direct calls or contextual callable-item coercion. Their
     deterministic content identities include the concrete relation, effects,
-    checked body, transitive dependencies, target, and ABI facts. There is no
+    portable semantic body, transitive dependencies, target, and ABI facts.
+    Schema-v4 imports reconstruct that body from validated portable StyioIR
+    without parsing imported source. There is no
     explicit-instantiation production or source spelling; recursive or
     pathological instance growth fails with a concrete instance-path
     diagnostic.

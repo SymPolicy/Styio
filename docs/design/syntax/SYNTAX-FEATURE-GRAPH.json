@@ -392,7 +392,7 @@
       },
       "document": "docs/design/syntax/features/core-callable-interface-scheme-publication.md",
       "owner": "Sema / Modules",
-      "resolution": "Publish the canonical scheme, checked typed body, canonical effect row/capability facts, and stable dependency/ABI digests; downstream units specialize, and cross-module recursive SCCs are rejected.",
+      "resolution": "Publish the canonical scheme and canonical effect/capability contract separately from the portable typed-body payload owned by core.portable-generic-body-interface; downstream units specialize, and cross-module recursive SCCs are rejected.",
       "dependencies": {
         "requires": [
           {
@@ -2573,10 +2573,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "requires core.portable-generic-body-interface at accepted/converged",
-          "must follow non-converged feature core.portable-generic-body-interface"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-persistent-callable-specialization-cache.md",
       "owner": "Codegen / Compiler Infrastructure",
@@ -2670,16 +2667,12 @@
       "kind": "module-generic-interface",
       "syntax": "No new source form; this is a versioned compiler artifact split behind existing import/export syntax.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
         "missing_document_roles": [],
         "missing_prerequisites": [],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-portable-generic-body-interface.md",
@@ -2740,8 +2733,8 @@
         "interface-contract": "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioIR/Verifier.cpp",
+        "symbol": "verify_and_annotate_portable_callable_body",
         "owner": "Sema / Modules / StyioIR"
       },
       "documents": {
@@ -2766,13 +2759,17 @@
         "implementation": [
           "src/StyioSema/CallableInterface.cpp",
           "src/StyioSema/CallableModuleLoader.cpp",
+          "src/StyioIR/PortableCallableBody.cpp",
           "src/StyioIR/Verifier.cpp"
         ],
         "evidence": [
           "tests/features/callable_interfaces/t01_downstream_specialization.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_interfaces/t01_downstream_specialization.styio",
+        "tests/run_callable_interface_case.py"
+      ]
     },
     {
       "id": "core.rank2-callback-polymorphism",

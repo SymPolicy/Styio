@@ -97,8 +97,8 @@ the current pure subset contains no mutation form that may emit it; adding
 such an emitter requires the owning mutation feature's executable evidence.
 
 Requirements are attached to normalized relation variables in sorted order.
-`.styioi` schema v3 serializes each variable and its sorted usage list and
-rejects schema v2 rather than maintaining a dual reader. Usage facts are part
+`.styioi` schema v4 serializes each variable and its sorted usage list and
+rejects schema v3 rather than maintaining a dual reader. Usage facts are part
 of the canonical relation, interface ABI, checked-definition dependency
 fingerprints, and specialization identity.
 

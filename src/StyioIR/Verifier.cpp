@@ -1,5 +1,7 @@
 #include "Verifier.hpp"
 
+#include <algorithm>
+#include <optional>
 #include <string>
 #include <stdexcept>
 #include <typeinfo>
@@ -8,6 +10,7 @@
 
 #include "../StyioException/Exception.hpp"
 #include "GenIR/GenIR.hpp"
+#include "PortableCallableBody.hpp"
 #include "StyioIRWalker.hpp"
 
 namespace styio::ir {
@@ -565,6 +568,806 @@ require_verified_styio_ir(const StyioIR* root) {
     return;
   }
   throw StyioTypeError("StyioIR verifier failed: " + result.diagnostics.front().message);
+}
+
+namespace {
+
+using PortableTerm = PortableCallableTypeTerm;
+using ConstraintKind = StyioSemaContext::CallableConstraintKind;
+
+PortableTerm
+portable_concrete_term(const std::string& name) {
+  return portable_callable_term_from_data_type(
+    name == "undefined"
+      ? StyioDataType{
+          StyioDataTypeOption::Undefined,
+          "undefined",
+          0}
+      : styio_data_type_from_name(name));
+}
+
+bool
+portable_term_is_undefined(const PortableTerm& term) {
+  return term.kind == PortableTerm::Kind::Concrete
+         && term.concrete.isUndefined();
+}
+
+bool
+portable_term_is_numeric_concrete(const PortableTerm& term) {
+  return term.kind == PortableTerm::Kind::Concrete
+         && (term.concrete.isInteger() || term.concrete.isFloat());
+}
+
+bool
+portable_term_is_comparable_concrete(const PortableTerm& term) {
+  if (term.kind != PortableTerm::Kind::Concrete) {
+    return false;
+  }
+  switch (term.concrete.option) {
+    case StyioDataTypeOption::Bool:
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::Float:
+    case StyioDataTypeOption::Char:
+    case StyioDataTypeOption::String:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool
+portable_constraint_matches(
+  const PortableCallableTypeConstraint& constraint,
+  ConstraintKind kind,
+  const PortableTerm& subject,
+  const PortableTerm* argument = nullptr,
+  const PortableTerm* result = nullptr
+) {
+  if (constraint.kind != kind
+      || !portable_callable_terms_equal(
+           constraint.subject,
+           subject)) {
+    return false;
+  }
+  if (argument != nullptr
+      && !portable_callable_terms_equal(
+           constraint.argument,
+           *argument)) {
+    return false;
+  }
+  if (result != nullptr
+      && !portable_callable_terms_equal(
+           constraint.result,
+           *result)) {
+    return false;
+  }
+  return true;
+}
+
+bool
+portable_signature_has_constraint(
+  const PortableCallableSignature& signature,
+  ConstraintKind kind,
+  const PortableTerm& subject,
+  const PortableTerm* argument = nullptr,
+  const PortableTerm* result = nullptr
+) {
+  return std::any_of(
+    signature.constraints.begin(),
+    signature.constraints.end(),
+    [&](const auto& constraint)
+    {
+      return portable_constraint_matches(
+        constraint,
+        kind,
+        subject,
+        argument,
+        result);
+    });
+}
+
+bool
+portable_term_is_numeric(
+  const PortableTerm& term,
+  const PortableCallableSignature& signature
+) {
+  return portable_term_is_numeric_concrete(term)
+         || portable_signature_has_constraint(
+              signature,
+              ConstraintKind::Numeric,
+              term);
+}
+
+bool
+portable_term_is_comparable(
+  const PortableTerm& term,
+  const PortableCallableSignature& signature
+) {
+  return portable_term_is_comparable_concrete(term)
+         || portable_signature_has_constraint(
+              signature,
+              ConstraintKind::Comparable,
+              term)
+         || portable_signature_has_constraint(
+              signature,
+              ConstraintKind::Numeric,
+              term);
+}
+
+bool
+portable_bind_pattern(
+  const PortableTerm& pattern,
+  const PortableTerm& actual,
+  std::unordered_map<std::uint32_t, PortableTerm>& bindings
+) {
+  if (pattern.kind == PortableTerm::Kind::Variable) {
+    auto [it, inserted] =
+      bindings.emplace(pattern.variable, actual);
+    return inserted
+           || portable_callable_terms_equal(it->second, actual);
+  }
+  if (pattern.kind != actual.kind
+      || pattern.arguments.size() != actual.arguments.size()) {
+    return false;
+  }
+  if (pattern.kind == PortableTerm::Kind::Concrete
+      && pattern.concrete.name != actual.concrete.name) {
+    return false;
+  }
+  for (std::size_t i = 0; i < pattern.arguments.size(); ++i) {
+    if (!portable_bind_pattern(
+          pattern.arguments[i],
+          actual.arguments[i],
+          bindings)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::optional<PortableTerm>
+portable_substitute_term(
+  const PortableTerm& term,
+  const std::unordered_map<std::uint32_t, PortableTerm>& bindings
+) {
+  if (term.kind == PortableTerm::Kind::Variable) {
+    auto binding = bindings.find(term.variable);
+    if (binding == bindings.end()) {
+      return std::nullopt;
+    }
+    return binding->second;
+  }
+  PortableTerm substituted = term;
+  substituted.arguments.clear();
+  for (const auto& argument : term.arguments) {
+    auto value = portable_substitute_term(argument, bindings);
+    if (!value.has_value()) {
+      return std::nullopt;
+    }
+    substituted.arguments.push_back(std::move(*value));
+  }
+  return substituted;
+}
+
+bool
+portable_constraint_is_proven(
+  const PortableCallableTypeConstraint& constraint,
+  const PortableCallableSignature& caller,
+  const std::unordered_map<std::uint32_t, PortableTerm>& bindings
+) {
+  auto subject =
+    portable_substitute_term(constraint.subject, bindings);
+  if (!subject.has_value()) {
+    return false;
+  }
+  switch (constraint.kind) {
+    case ConstraintKind::Numeric:
+      return portable_term_is_numeric(*subject, caller);
+    case ConstraintKind::Comparable:
+      return portable_term_is_comparable(*subject, caller);
+    case ConstraintKind::Cloneable:
+      if (subject->kind == PortableTerm::Kind::List
+          || subject->kind == PortableTerm::Kind::Dict) {
+        return true;
+      }
+      if (subject->kind == PortableTerm::Kind::Concrete) {
+        const auto option = subject->concrete.option;
+        return option == StyioDataTypeOption::Bool
+               || option == StyioDataTypeOption::Integer
+               || option == StyioDataTypeOption::Float
+               || option == StyioDataTypeOption::Char
+               || option == StyioDataTypeOption::String
+               || styio_type_is_cloneable(subject->concrete);
+      }
+      return portable_signature_has_constraint(
+        caller,
+        ConstraintKind::Cloneable,
+        *subject);
+    case ConstraintKind::Iterable:
+      if (subject->kind == PortableTerm::Kind::List
+          || subject->kind == PortableTerm::Kind::Dict) {
+        return true;
+      }
+      if (subject->kind == PortableTerm::Kind::Concrete
+          && styio_type_is_iterable(subject->concrete)) {
+        return true;
+      }
+      if (auto result =
+            portable_substitute_term(
+              constraint.result,
+              bindings)) {
+        return portable_signature_has_constraint(
+          caller,
+          ConstraintKind::Iterable,
+          *subject,
+          nullptr,
+          &*result);
+      }
+      return false;
+    case ConstraintKind::Indexable: {
+      auto argument =
+        portable_substitute_term(
+          constraint.argument,
+          bindings);
+      auto result =
+        portable_substitute_term(
+          constraint.result,
+          bindings);
+      if (!argument.has_value() || !result.has_value()) {
+        return false;
+      }
+      if (subject->kind == PortableTerm::Kind::List) {
+        return portable_callable_terms_equal(
+                 subject->arguments.at(0),
+                 *result)
+               && argument->kind == PortableTerm::Kind::Concrete
+               && argument->concrete.isInteger();
+      }
+      if (subject->kind == PortableTerm::Kind::Dict) {
+        return portable_callable_terms_equal(
+                 subject->arguments.at(0),
+                 *argument)
+               && portable_callable_terms_equal(
+                 subject->arguments.at(1),
+                 *result);
+      }
+      return portable_signature_has_constraint(
+        caller,
+        ConstraintKind::Indexable,
+        *subject,
+        &*argument,
+        &*result);
+    }
+  }
+  return false;
+}
+
+class PortableCallableBodyVerifier
+{
+  PortableCallableBody& body_;
+  const PortableCallableSignature& signature_;
+  const PortableCallableCatalog& catalog_;
+  bool require_encoded_types_;
+  std::vector<PortableTerm> inferred_types_;
+  std::vector<std::size_t> use_counts_;
+  std::unordered_map<std::string, PortableTerm> locals_;
+  std::size_t total_inputs_ = 0;
+
+  std::string
+  fail(std::size_t node, const std::string& detail) const {
+    return "portable StyioIR node "
+           + std::to_string(node) + " " + detail;
+  }
+
+  bool
+  has_input_count(
+    const PortableCallableNode& node,
+    std::size_t expected
+  ) const {
+    return node.inputs.size() == expected;
+  }
+
+  std::optional<PortableTerm>
+  infer_direct_call(
+    const PortableCallableNode& node,
+    std::string& error
+  ) const {
+    auto callee = catalog_.find(node.symbol);
+    if (callee == catalog_.end()) {
+      error =
+        "references unbound direct callable `" + node.symbol + "`";
+      return std::nullopt;
+    }
+    if (callee->second.params.size() != node.inputs.size()) {
+      error =
+        "has an argument count that does not match callable `"
+        + node.symbol + "`";
+      return std::nullopt;
+    }
+    std::unordered_map<std::uint32_t, PortableTerm> bindings;
+    for (std::size_t i = 0; i < node.inputs.size(); ++i) {
+      if (!portable_bind_pattern(
+            callee->second.params[i],
+            inferred_types_.at(node.inputs[i]),
+            bindings)) {
+        error =
+          "has an argument type mismatch for callable `"
+          + node.symbol + "`";
+        return std::nullopt;
+      }
+    }
+    for (const auto& constraint : callee->second.constraints) {
+      if (!portable_constraint_is_proven(
+            constraint,
+            signature_,
+            bindings)) {
+        error =
+          "cannot prove callable constraint for `" + node.symbol + "`";
+        return std::nullopt;
+      }
+    }
+    auto result =
+      portable_substitute_term(callee->second.result, bindings);
+    if (!result.has_value()) {
+      error =
+        "leaves the result of callable `" + node.symbol
+        + "` underconstrained";
+    }
+    return result;
+  }
+
+  std::optional<PortableTerm>
+  infer_indirect_call(
+    const PortableCallableNode& node,
+    std::string& error
+  ) const {
+    auto callee = locals_.find(node.symbol);
+    if (callee == locals_.end()
+        || callee->second.kind != PortableTerm::Kind::Concrete
+        || !styio_is_callable_type(callee->second.concrete)) {
+      error =
+        "references unbound callable value `" + node.symbol + "`";
+      return std::nullopt;
+    }
+    const auto params =
+      styio_callable_param_types(callee->second.concrete);
+    if (params.size() != node.inputs.size()) {
+      error =
+        "has an argument count that does not match callable value `"
+        + node.symbol + "`";
+      return std::nullopt;
+    }
+    for (std::size_t i = 0; i < params.size(); ++i) {
+      const PortableTerm expected =
+        portable_callable_term_from_data_type(params[i]);
+      if (!portable_callable_terms_equal(
+            expected,
+            inferred_types_.at(node.inputs[i]))) {
+        error =
+          "has an argument type mismatch for callable value `"
+          + node.symbol + "`";
+        return std::nullopt;
+      }
+    }
+    return portable_callable_term_from_data_type(
+      styio_callable_result_type(callee->second.concrete));
+  }
+
+  std::optional<PortableTerm>
+  infer_node(std::size_t index, std::string& error) {
+    auto& node = body_.nodes[index];
+    if (node.opcode == "load") {
+      if (!node.inputs.empty() || node.symbol.empty()) {
+        error = fail(index, "has an invalid load shape");
+        return std::nullopt;
+      }
+      auto local = locals_.find(node.symbol);
+      if (local == locals_.end()) {
+        error =
+          fail(
+            index,
+            "references unbound symbol `" + node.symbol + "`");
+        return std::nullopt;
+      }
+      return local->second;
+    }
+    if (node.opcode == "bool") {
+      if (!node.inputs.empty()
+          || (node.value != "true" && node.value != "false")) {
+        error = fail(index, "has an invalid bool literal");
+        return std::nullopt;
+      }
+      return portable_concrete_term("bool");
+    }
+    if (node.opcode == "i64") {
+      if (!node.inputs.empty() || node.value.empty()) {
+        error = fail(index, "has an invalid i64 literal");
+        return std::nullopt;
+      }
+      try {
+        std::size_t used = 0;
+        (void)std::stoll(node.value, &used, 10);
+        if (used != node.value.size()) {
+          throw std::invalid_argument("trailing");
+        }
+      }
+      catch (const std::exception&) {
+        error = fail(index, "has an invalid i64 literal");
+        return std::nullopt;
+      }
+      return portable_concrete_term("i64");
+    }
+    if (node.opcode == "f64") {
+      if (!node.inputs.empty() || node.value.empty()) {
+        error = fail(index, "has an invalid f64 literal");
+        return std::nullopt;
+      }
+      try {
+        std::size_t used = 0;
+        (void)std::stod(node.value, &used);
+        if (used != node.value.size()) {
+          throw std::invalid_argument("trailing");
+        }
+      }
+      catch (const std::exception&) {
+        error = fail(index, "has an invalid f64 literal");
+        return std::nullopt;
+      }
+      return portable_concrete_term("f64");
+    }
+    if (node.opcode == "char") {
+      if (!node.inputs.empty() || node.value.empty()) {
+        error = fail(index, "has an invalid char literal");
+        return std::nullopt;
+      }
+      return portable_concrete_term("char");
+    }
+    if (node.opcode == "string") {
+      if (!node.inputs.empty()) {
+        error = fail(index, "has an invalid string literal");
+        return std::nullopt;
+      }
+      return portable_concrete_term("string");
+    }
+    if (node.opcode == "binary") {
+      static const std::unordered_set<std::string> operations = {
+        "add", "sub", "mul", "div", "pow", "mod",
+      };
+      if (!has_input_count(node, 2)
+          || operations.count(node.operation) == 0) {
+        error = fail(index, "has an invalid binary operation");
+        return std::nullopt;
+      }
+      const auto& lhs = inferred_types_.at(node.inputs[0]);
+      const auto& rhs = inferred_types_.at(node.inputs[1]);
+      if (!portable_callable_terms_equal(lhs, rhs)
+          || !portable_term_is_numeric(lhs, signature_)) {
+        error = fail(index, "has a binary operand type mismatch");
+        return std::nullopt;
+      }
+      return lhs;
+    }
+    if (node.opcode == "compare") {
+      static const std::unordered_set<std::string> operations = {
+        "eq", "gt", "ge", "lt", "le", "ne",
+      };
+      if (!has_input_count(node, 2)
+          || operations.count(node.operation) == 0) {
+        error = fail(index, "has an invalid comparison");
+        return std::nullopt;
+      }
+      const auto& lhs = inferred_types_.at(node.inputs[0]);
+      const auto& rhs = inferred_types_.at(node.inputs[1]);
+      if (!portable_callable_terms_equal(lhs, rhs)
+          || !portable_term_is_comparable(lhs, signature_)) {
+        error = fail(index, "has a comparison operand type mismatch");
+        return std::nullopt;
+      }
+      return portable_concrete_term("bool");
+    }
+    if (node.opcode == "logic") {
+      const bool unary =
+        node.operation == "raw" || node.operation == "not";
+      const bool binary =
+        node.operation == "and"
+        || node.operation == "or"
+        || node.operation == "xor";
+      if ((!unary && !binary)
+          || node.inputs.size() != (unary ? 1 : 2)) {
+        error = fail(index, "has an invalid logical operation");
+        return std::nullopt;
+      }
+      const PortableTerm boolean = portable_concrete_term("bool");
+      for (const auto input : node.inputs) {
+        if (!portable_callable_terms_equal(
+              inferred_types_.at(input),
+              boolean)) {
+          error = fail(index, "has a non-boolean logical operand");
+          return std::nullopt;
+        }
+      }
+      return boolean;
+    }
+    if (node.opcode == "call") {
+      auto result = infer_direct_call(node, error);
+      if (!result.has_value() && !error.empty()) {
+        error = fail(index, error);
+      }
+      return result;
+    }
+    if (node.opcode == "indirect_call") {
+      auto result = infer_indirect_call(node, error);
+      if (!result.has_value() && !error.empty()) {
+        error = fail(index, error);
+      }
+      return result;
+    }
+    if (node.opcode == "list") {
+      if (node.inputs.empty()) {
+        error =
+          fail(index, "cannot infer an empty portable list literal");
+        return std::nullopt;
+      }
+      const auto& element = inferred_types_.at(node.inputs.front());
+      for (const auto input : node.inputs) {
+        if (!portable_callable_terms_equal(
+              element,
+              inferred_types_.at(input))) {
+          error = fail(index, "has non-uniform list element types");
+          return std::nullopt;
+        }
+      }
+      PortableTerm list;
+      list.kind = PortableTerm::Kind::List;
+      list.arguments.push_back(element);
+      return list;
+    }
+    if (node.opcode == "dict") {
+      if (node.inputs.empty() || node.inputs.size() % 2 != 0) {
+        error =
+          fail(index, "has an invalid portable dictionary shape");
+        return std::nullopt;
+      }
+      const auto& key = inferred_types_.at(node.inputs[0]);
+      const auto& value = inferred_types_.at(node.inputs[1]);
+      for (std::size_t input = 0;
+           input < node.inputs.size();
+           input += 2) {
+        if (!portable_callable_terms_equal(
+              key,
+              inferred_types_.at(node.inputs[input]))
+            || !portable_callable_terms_equal(
+              value,
+              inferred_types_.at(node.inputs[input + 1]))) {
+          error = fail(index, "has non-uniform dictionary entry types");
+          return std::nullopt;
+        }
+      }
+      PortableTerm dict;
+      dict.kind = PortableTerm::Kind::Dict;
+      dict.arguments = {key, value};
+      return dict;
+    }
+    if (node.opcode == "index") {
+      if (!has_input_count(node, 2)) {
+        error = fail(index, "has an invalid index operation");
+        return std::nullopt;
+      }
+      const auto& base = inferred_types_.at(node.inputs[0]);
+      const auto& key = inferred_types_.at(node.inputs[1]);
+      if (base.kind == PortableTerm::Kind::List) {
+        if (key.kind != PortableTerm::Kind::Concrete
+            || !key.concrete.isInteger()) {
+          error = fail(index, "has a non-integer list index");
+          return std::nullopt;
+        }
+        return base.arguments.at(0);
+      }
+      if (base.kind == PortableTerm::Kind::Dict
+          && portable_callable_terms_equal(
+               key,
+               base.arguments.at(0))) {
+        return base.arguments.at(1);
+      }
+      error = fail(index, "indexes a non-indexable value");
+      return std::nullopt;
+    }
+    if (node.opcode == "block") {
+      PortableTerm result = portable_concrete_term("undefined");
+      for (const auto input : node.inputs) {
+        const auto& candidate = inferred_types_.at(input);
+        if (!portable_term_is_undefined(candidate)) {
+          result = candidate;
+        }
+      }
+      return result;
+    }
+    if (node.opcode == "return") {
+      if (!has_input_count(node, 1)) {
+        error = fail(index, "has an invalid return operation");
+        return std::nullopt;
+      }
+      return inferred_types_.at(node.inputs[0]);
+    }
+    if (node.opcode == "print") {
+      return portable_concrete_term("undefined");
+    }
+    if (node.opcode == "final_bind"
+        || node.opcode == "flex_bind") {
+      if (!has_input_count(node, 1) || node.symbol.empty()) {
+        error = fail(index, "has an invalid binding operation");
+        return std::nullopt;
+      }
+      const auto value = inferred_types_.at(node.inputs[0]);
+      auto local = locals_.find(node.symbol);
+      if (node.opcode == "final_bind"
+          && local != locals_.end()) {
+        error =
+          fail(
+            index,
+            "redefines bound symbol `" + node.symbol + "`");
+        return std::nullopt;
+      }
+      if (local != locals_.end()
+          && !portable_callable_terms_equal(
+               local->second,
+               value)) {
+        error =
+          fail(
+            index,
+            "changes the type of binding `" + node.symbol + "`");
+        return std::nullopt;
+      }
+      locals_[node.symbol] = value;
+      return portable_concrete_term("undefined");
+    }
+    if (node.opcode == "pass") {
+      if (!node.inputs.empty()) {
+        error = fail(index, "has an invalid pass operation");
+        return std::nullopt;
+      }
+      return portable_concrete_term("undefined");
+    }
+
+    error =
+      fail(index, "has unknown opcode `" + node.opcode + "`");
+    return std::nullopt;
+  }
+
+public:
+  PortableCallableBodyVerifier(
+    PortableCallableBody& body,
+    const PortableCallableSignature& signature,
+    const PortableCallableCatalog& catalog,
+    bool require_encoded_types
+  ) :
+      body_(body),
+      signature_(signature),
+      catalog_(catalog),
+      require_encoded_types_(require_encoded_types) {
+  }
+
+  std::string
+  verify() {
+    if (body_.schema_version
+          != kPortableCallableBodySchemaVersion
+        || body_.format != kPortableCallableBodyFormat) {
+      return "portable StyioIR has an unsupported schema or format";
+    }
+    if (body_.name != signature_.name) {
+      return "portable StyioIR callable name does not match its contract";
+    }
+    if (body_.params.size() != signature_.params.size()) {
+      return "portable StyioIR parameter count does not match its contract";
+    }
+    if (!portable_callable_terms_equal(
+          body_.result,
+          signature_.result)) {
+      return "portable StyioIR result type does not match its contract";
+    }
+    if (body_.nodes.empty()
+        || body_.nodes.size() > kMaximumPortableCallableNodes
+        || body_.root >= body_.nodes.size()) {
+      return "portable StyioIR has an invalid node table or root";
+    }
+    for (std::size_t i = 0; i < body_.params.size(); ++i) {
+      const auto& param = body_.params[i];
+      if (param.name.empty()
+          || param.name.size()
+               > kMaximumPortableCallableStringBytes
+          || !portable_callable_terms_equal(
+               param.type,
+               signature_.params[i])) {
+        return "portable StyioIR parameter does not match its contract";
+      }
+      if (!locals_.emplace(param.name, param.type).second) {
+        return "portable StyioIR has a duplicate parameter `"
+               + param.name + "`";
+      }
+    }
+
+    inferred_types_.resize(body_.nodes.size());
+    use_counts_.assign(body_.nodes.size(), 0);
+    for (std::size_t i = 0; i < body_.nodes.size(); ++i) {
+      auto& node = body_.nodes[i];
+      if (node.opcode.size()
+            > kMaximumPortableCallableStringBytes
+          || node.symbol.size()
+               > kMaximumPortableCallableStringBytes
+          || node.value.size()
+               > kMaximumPortableCallableStringBytes
+          || node.operation.size()
+               > kMaximumPortableCallableStringBytes) {
+        return fail(i, "exceeds the supported string limit");
+      }
+      total_inputs_ += node.inputs.size();
+      if (total_inputs_ > kMaximumPortableCallableInputs) {
+        return "portable StyioIR exceeds the supported input limit";
+      }
+      for (const auto input : node.inputs) {
+        if (input >= i) {
+          return fail(
+            i,
+            "references a non-preceding node "
+            + std::to_string(input));
+        }
+        ++use_counts_[input];
+      }
+
+      const PortableTerm encoded_type = node.type;
+      const bool had_encoded_type = node.has_type;
+      std::string error;
+      auto inferred = infer_node(i, error);
+      if (!inferred.has_value()) {
+        return error.empty()
+                 ? fail(i, "could not infer a type")
+                 : error;
+      }
+      if (require_encoded_types_
+          && (!had_encoded_type
+              || !portable_callable_terms_equal(
+                   encoded_type,
+                   *inferred))) {
+        return fail(i, "has a mismatched encoded type");
+      }
+      node.type = *inferred;
+      node.has_type = true;
+      inferred_types_[i] = std::move(*inferred);
+    }
+
+    for (std::size_t i = 0; i < use_counts_.size(); ++i) {
+      const std::size_t expected = i == body_.root ? 0 : 1;
+      if (use_counts_[i] != expected) {
+        return "portable StyioIR must be a canonical rooted tree; node "
+               + std::to_string(i) + " has "
+               + std::to_string(use_counts_[i])
+               + " parent references";
+      }
+    }
+    if (!portable_callable_terms_equal(
+          inferred_types_.at(body_.root),
+          signature_.result)) {
+      return "portable StyioIR root type does not match callable result";
+    }
+    return {};
+  }
+};
+
+}  // namespace
+
+std::string
+verify_and_annotate_portable_callable_body(
+  PortableCallableBody& body,
+  const PortableCallableSignature& signature,
+  const PortableCallableCatalog& catalog,
+  bool require_encoded_types
+) {
+  PortableCallableBodyVerifier verifier(
+    body,
+    signature,
+    catalog,
+    require_encoded_types);
+  return verifier.verify();
 }
 
 }  // namespace styio::ir

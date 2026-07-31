@@ -136,12 +136,12 @@ StyioSemaContext::install_imported_callable_definition(
   std::vector<StyioDataType> concrete_params,
   StyioDataType concrete_result,
   std::vector<std::string> visible_from_modules,
-  std::string checked_body_digest,
+  std::string portable_body_digest,
   std::string interface_abi_digest
 ) {
   if (module_id.empty() || definition == nullptr) {
     throw StyioTypeError(
-      "imported callable definition requires a module id and checked body"
+      "imported callable definition requires a module id and portable body"
     );
   }
   std::string name;
@@ -204,7 +204,7 @@ StyioSemaContext::install_imported_callable_definition(
   info.visible_from_modules.insert(
     visible_from_modules.begin(),
     visible_from_modules.end());
-  info.checked_body_digest = std::move(checked_body_digest);
+  info.portable_body_digest = std::move(portable_body_digest);
   info.interface_abi_digest = std::move(interface_abi_digest);
   imported_callable_definition_indices_[name] =
     imported_callable_definitions_.size();
@@ -4796,18 +4796,18 @@ callable_specialization_content_digest(
   std::string_view definition,
   std::string_view relation,
   std::string_view effects,
-  std::string_view checked_body_digest,
+  std::string_view portable_body_digest,
   std::string_view callable_dependency_digest,
   std::string_view module_dependency_digest,
   std::string_view backend_abi
 ) {
   std::ostringstream content;
   content
-    << "styio.callable-specialization.v3\n"
+    << "styio.callable-specialization.v4\n"
     << "definition=" << definition << "\n"
     << "relation=" << relation << "\n"
     << "effects=" << effects << "\n"
-    << "body=" << checked_body_digest << "\n"
+    << "body=" << portable_body_digest << "\n"
     << "callable_dependencies="
     << callable_dependency_digest << "\n"
     << "dependencies=" << module_dependency_digest << "\n"
@@ -4849,7 +4849,7 @@ build_callable_dependency_fingerprints(
     std::string interface_digest;
     if (const auto* imported =
           context->find_imported_callable_definition(name)) {
-      body_digest = imported->checked_body_digest;
+      body_digest = imported->portable_body_digest;
       owner = imported->module_id;
       interface_digest = imported->interface_abi_digest;
     }
@@ -4862,7 +4862,7 @@ build_callable_dependency_fingerprints(
     result.body_digests[definition] = body_digest;
 
     std::ostringstream base;
-    base << "styio.callable-definition.v3\n"
+    base << "styio.callable-definition.v4\n"
          << "definition="
          << (owner.empty() ? name : owner + "::" + name)
          << "\n";
@@ -4977,7 +4977,7 @@ build_callable_dependency_fingerprints(
 
     std::vector<std::string> dependency_facts;
     std::ostringstream canonical;
-    canonical << "styio.callable-dependency-component.v3\n";
+    canonical << "styio.callable-dependency-component.v4\n";
     for (const auto& name : components[component_index]) {
       canonical << "member=" << name << "|"
                 << base_fingerprints.at(name) << "\n";
@@ -5227,7 +5227,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   effect_monomorphic_instances_.clear();
   callable_specializations_.clear();
   callable_specialization_cache_.clear();
-  callable_checked_body_digests_.clear();
+  callable_semantic_body_digests_.clear();
   callable_definition_dependency_digests_.clear();
   reachable_imported_concrete_callables_.clear();
   callable_specialization_graph_.reset();
@@ -5730,7 +5730,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     build_callable_dependency_fingerprints(
       this,
       available_definitions);
-  callable_checked_body_digests_ =
+  callable_semantic_body_digests_ =
     std::move(dependency_fingerprints.body_digests);
   callable_definition_dependency_digests_ =
     std::move(dependency_fingerprints.dependency_digests);
@@ -5883,8 +5883,8 @@ StyioSemaContext::instantiate_callable_type_scheme(
   if (const auto* imported =
         find_imported_callable_definition(scheme->name)) {
     specialization.owner_module = imported->module_id;
-    specialization.checked_body_digest =
-      imported->checked_body_digest;
+    specialization.portable_body_digest =
+      imported->portable_body_digest;
     specialization.interface_abi_digest =
       imported->interface_abi_digest;
   }
@@ -5918,16 +5918,16 @@ StyioSemaContext::instantiate_callable_type_scheme(
       + scheme->name + "`"
     );
   }
-  if (specialization.checked_body_digest.empty()) {
+  if (specialization.portable_body_digest.empty()) {
     auto [body_digest, inserted] =
-      callable_checked_body_digests_.emplace(definition, std::string());
+      callable_semantic_body_digests_.emplace(definition, std::string());
     if (inserted) {
       StyioRepr representation;
       body_digest->second =
         styio::sema::callable_interface_sha256_hex(
           definition->toString(&representation));
     }
-    specialization.checked_body_digest = body_digest->second;
+    specialization.portable_body_digest = body_digest->second;
   }
 
   const std::string dependency_facts =
@@ -5952,7 +5952,7 @@ StyioSemaContext::instantiate_callable_type_scheme(
       effects == nullptr
         ? styio::sema::CallableEffectRow::unknown().canonical()
         : effects->row.canonical(),
-      specialization.checked_body_digest,
+      specialization.portable_body_digest,
       definition_dependencies->second,
       dependency_facts,
       callable_specialization_backend_abi_);
@@ -6058,7 +6058,7 @@ StyioSemaContext::prepare_imported_concrete_callable_body(
   concrete.owner_module = imported->module_id;
   concrete.param_types = imported->concrete_params;
   concrete.result_type = imported->concrete_result;
-  concrete.checked_body_digest = imported->checked_body_digest;
+  concrete.portable_body_digest = imported->portable_body_digest;
   concrete.interface_abi_digest = imported->interface_abi_digest;
   concrete.canonical_key =
     callable_concrete_key(
@@ -6079,7 +6079,7 @@ StyioSemaContext::prepare_imported_concrete_callable_body(
       effects == nullptr
         ? styio::sema::CallableEffectRow::unknown().canonical()
         : effects->row.canonical(),
-      concrete.checked_body_digest,
+      concrete.portable_body_digest,
       definition_dependencies->second,
       concrete.interface_abi_digest,
       callable_specialization_backend_abi_);

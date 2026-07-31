@@ -7,7 +7,6 @@
 
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
-#include "../StyioParser/Tokenizer.hpp"
 
 namespace styio::sema {
 namespace {
@@ -51,23 +50,6 @@ read_bounded_file(
   return output.str();
 }
 
-std::vector<std::pair<std::size_t, std::size_t>>
-line_separations(std::string_view source) {
-  std::vector<std::pair<std::size_t, std::size_t>> lines;
-  std::size_t line_start = 0;
-  for (std::size_t i = 0; i < source.size(); ++i) {
-    if (source[i] != '\n') {
-      continue;
-    }
-    lines.emplace_back(line_start, i - line_start);
-    line_start = i + 1;
-  }
-  if (line_start < source.size() || source.empty()) {
-    lines.emplace_back(line_start, source.size() - line_start);
-  }
-  return lines;
-}
-
 std::vector<std::string>
 module_imports(MainBlockAST* ast) {
   std::vector<std::string> imports;
@@ -85,49 +67,6 @@ module_imports(MainBlockAST* ast) {
       declaration->getPaths().end());
   }
   return imports;
-}
-
-MainBlockAST*
-parse_module(
-  const std::filesystem::path& path,
-  const std::string& source,
-  StyioParserEngine parser_engine,
-  bool debug_mode,
-  styio::session::SymbolInterner& symbols
-) {
-  std::vector<StyioToken*> tokens;
-  StyioContext* context = nullptr;
-  MainBlockAST* ast = nullptr;
-  try {
-    tokens = StyioTokenizer::tokenize(source);
-    context = StyioContext::Create(
-      path.string(),
-      source,
-      line_separations(source),
-      tokens,
-      debug_mode);
-    context->set_symbol_interner(symbols);
-    StyioParserRouteStats route_stats;
-    ast = parse_main_block_with_engine_latest(
-      *context,
-      parser_engine,
-      parser_engine == StyioParserEngine::Nightly
-        ? &route_stats
-        : nullptr);
-  }
-  catch (...) {
-    delete ast;
-    delete context;
-    for (auto* token : tokens) {
-      delete token;
-    }
-    throw;
-  }
-  delete context;
-  for (auto* token : tokens) {
-    delete token;
-  }
-  return ast;
 }
 
 std::string
@@ -165,63 +104,19 @@ validate_import_path(const std::string& path) {
   }
 }
 
-std::unordered_map<std::string, StyioAST*>
-callable_definitions(MainBlockAST* ast) {
-  std::unordered_map<std::string, StyioAST*> definitions;
-  for (auto* statement : ast->getStmts()) {
-    std::string name;
-    if (auto* function = dynamic_cast<FunctionAST*>(statement)) {
-      name = function->getNameAsStr();
-    }
-    else if (auto* function =
-               dynamic_cast<SimpleFuncAST*>(statement)) {
-      name = function->func_name->getAsStr();
-    }
-    if (name.empty()) {
-      continue;
-    }
-    if (!definitions.emplace(name, statement).second) {
-      throw StyioTypeError(
-        "module source contains duplicate callable `" + name + "`"
-      );
-    }
-  }
-  return definitions;
-}
-
-std::unordered_set<std::string>
-exported_symbols(MainBlockAST* ast) {
-  std::unordered_set<std::string> symbols;
-  for (auto* statement : ast->getStmts()) {
-    if (auto* declaration =
-          dynamic_cast<ExportDeclAST*>(statement)) {
-      symbols.insert(
-        declaration->getSymbols().begin(),
-        declaration->getSymbols().end());
-    }
-  }
-  return symbols;
-}
-
 }  // namespace
 
 void
 CallableModuleGraph::load_entry_imports(
   const std::filesystem::path& entry_source_path,
   MainBlockAST* entry_ast,
-  StyioParserEngine parser_engine,
-  bool debug_mode,
-  std::string compiler_abi,
-  styio::session::SymbolInterner& symbols
+  std::string compiler_abi
 ) {
   modules_.clear();
   modules_by_path_.clear();
   load_states_.clear();
   entry_dependencies_.clear();
-  parser_engine_ = parser_engine;
-  debug_mode_ = debug_mode;
   compiler_abi_ = std::move(compiler_abi);
-  symbols_ = &symbols;
 
   std::unordered_set<std::string> direct_modules;
   for (const auto& raw_import : module_imports(entry_ast)) {
@@ -282,9 +177,6 @@ CallableModuleGraph::load_module(
   const std::string& raw_import_path,
   const std::string& importer_module
 ) {
-  if (symbols_ == nullptr) {
-    throw StyioTypeError("callable module graph has no symbol interner");
-  }
   const std::string import_path =
     normalized_import_path(raw_import_path);
   const std::filesystem::path source_path =
@@ -324,17 +216,31 @@ CallableModuleGraph::load_module(
     source_path,
     kMaximumModuleSourceBytes,
     "callable module source");
-  result->ast.reset(parse_module(
-    source_path,
-    result->source_text,
-    parser_engine_,
-    debug_mode_,
-    *symbols_));
-  result->definitions = callable_definitions(result->ast.get());
+
+  std::filesystem::path interface_path = source_path;
+  interface_path.replace_extension(".styioi");
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(interface_path, error) || error) {
+    throw StyioTypeError(
+      "missing callable module interface for `" + import_path
+      + "`; compile the module with --module-id="
+      + import_path
+      + " --emit-module-interface="
+      + interface_path.filename().string());
+  }
+  const std::string payload = read_bounded_file(
+    interface_path,
+    kMaximumModuleInterfaceBytes,
+    "callable module interface");
+  const auto dependency_modules =
+    callable_interface_dependency_modules_from_header(
+      payload,
+      import_path,
+      compiler_abi_);
 
   std::vector<const CallableModuleInterface*> dependencies;
   std::unordered_set<std::string> direct_modules;
-  for (const auto& raw_dependency : module_imports(result->ast.get())) {
+  for (const auto& raw_dependency : dependency_modules) {
     const std::string dependency_path =
       normalized_import_path(raw_dependency);
     if (!direct_modules.insert(dependency_path).second) {
@@ -356,22 +262,6 @@ CallableModuleGraph::load_module(
     {
       return lhs->module_id < rhs->module_id;
     });
-
-  std::filesystem::path interface_path = source_path;
-  interface_path.replace_extension(".styioi");
-  std::error_code error;
-  if (!std::filesystem::is_regular_file(interface_path, error) || error) {
-    throw StyioTypeError(
-      "missing callable module interface for `" + import_path
-      + "`; compile the module with --module-id="
-      + import_path
-      + " --emit-module-interface="
-      + interface_path.filename().string());
-  }
-  const std::string payload = read_bounded_file(
-    interface_path,
-    kMaximumModuleInterfaceBytes,
-    "callable module interface");
   result->interface = parse_callable_module_interface(
     payload,
     import_path,
@@ -379,21 +269,19 @@ CallableModuleGraph::load_module(
     compiler_abi_,
     dependencies);
 
-  const auto exports = exported_symbols(result->ast.get());
   for (const auto& entry : result->interface.entries) {
-    if (result->definitions.count(entry.name) == 0) {
+    std::unique_ptr<StyioAST> definition =
+      styio::ir::materialize_portable_callable_body(
+        entry.portable_body);
+    if (definition == nullptr
+        || !result->definitions.emplace(
+             entry.name,
+             definition.get()).second) {
       throw StyioTypeError(
-        "callable module interface `" + import_path
-        + "` references missing body `" + entry.name + "`"
-      );
+        "callable module interface contains an invalid or duplicate portable body `"
+        + entry.name + "`");
     }
-    const bool source_exports = exports.count(entry.name) != 0;
-    if (entry.exported != source_exports) {
-      throw StyioTypeError(
-        "callable module interface export state drifted for `"
-        + entry.name + "`; rebuild its .styioi interface"
-      );
-    }
+    result->definition_owners.push_back(std::move(definition));
   }
 
   load_states_[path_key] = LoadState::Complete;
@@ -448,7 +336,7 @@ CallableModuleGraph::install_into(
         entry->concrete_params,
         entry->concrete_result,
         std::move(visible_from),
-        entry->checked_body_digest,
+        entry->portable_body_digest,
         module->interface.abi_digest);
     }
   }

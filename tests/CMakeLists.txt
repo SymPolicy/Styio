@@ -204,7 +204,14 @@ foreach(_CALLABLE_INTERFACE_MODE IN ITEMS
     uninstantiated-body
     invalid-module-id
     effect-row
-    usage-facts)
+    usage-facts
+    portable-replay
+    portable-body-schema
+    portable-unknown-opcode
+    portable-unbound-symbol
+    portable-type-mismatch
+    portable-noncanonical
+    portable-digest)
   string(REPLACE "-" "_" _CALLABLE_INTERFACE_TEST_SUFFIX
     "${_CALLABLE_INTERFACE_MODE}")
   add_test(
@@ -216,11 +223,15 @@ foreach(_CALLABLE_INTERFACE_MODE IN ITEMS
             --mode "${_CALLABLE_INTERFACE_MODE}"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   )
+  set(_CALLABLE_INTERFACE_LABELS
+    "language_feature;callable_interfaces")
+  if(_CALLABLE_INTERFACE_MODE MATCHES "^portable-")
+    string(APPEND _CALLABLE_INTERFACE_LABELS
+      ";portable_generic_interfaces")
+  endif()
   set_tests_properties(
     "callable_interfaces_${_CALLABLE_INTERFACE_TEST_SUFFIX}"
-    PROPERTIES
-      LABELS "language_feature;callable_interfaces"
-  )
+    PROPERTIES LABELS "${_CALLABLE_INTERFACE_LABELS}")
 endforeach()
 
 styio_feature_stdout_golden_test(functions "t*.styio" functions)
@@ -709,6 +720,7 @@ set(STYIO_INTERNAL_PARSER_SUPPORT_SOURCES
   "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/PortableCallableBody.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableInterface.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableSpecializationGraph.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"

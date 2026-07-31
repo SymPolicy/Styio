@@ -218,21 +218,30 @@ the importing source.
 
 ### 4.3 Callable Interface Contract
 
-Callable interface schema v3 publishes compiler-owned semantic facts rather
+Callable interface schema v4 publishes compiler-owned semantic facts rather
 than new source syntax. For each checked callable needed by the module it
 records either a canonical inferred relation with normalized constraints or a
 complete concrete signature, plus its canonical effect row, sorted
-per-variable usage requirements, and a reproducible checked body. An effect
-row stores sorted known labels and a nullable compiler-owned open tail. Usage
+per-variable usage requirements. A separate canonical
+`styio.portable-styioir` payload records each required local body. An effect row
+stores sorted known labels and a nullable compiler-owned open tail. Usage
 requirements store the closed `consume`, `copy`, `exclusive_borrow`, and
 `shared_borrow` vocabulary. Neither identity has a serialized bit mask or
-trusted cached canonical string. Source, body, direct dependency, compiler
-ABI, and interface ABI facts carry SHA-256 digests.
+trusted cached canonical string. Public contract, target-independent typed
+bodies, source, direct dependencies, compiler ABI, and the combined interface
+ABI carry SHA-256 digests.
 
 Loading is fail-closed. The compiler validates the schema version, canonical
 module identity, target/compiler ABI, source digest, direct dependency set and
-digest, every checked-body digest, and the recomputed interface ABI before
-installing a callable. Missing or stale metadata is a type-phase error.
+digest, the public contract digest, every portable-body digest, the aggregate
+typed-body digest, and the recomputed interface ABI before installing a
+callable. Payload nodes are type-recomputed and must be canonical, bound, and
+topologically ordered. Missing or stale metadata is a type-phase error.
+
+Imported source is read only to validate its digest. Dependency discovery and
+body reconstruction come from the validated interface, so the compiler does
+not tokenize or parse imported source and has no source-text or schema-v3 body
+fallback.
 
 Only exported callables from a direct import are visible to the importing
 source. A published body may still use its own private helpers and exported
@@ -538,7 +547,8 @@ bodies but emit only when a reachable imported body uses them.
 
 Each item has one deterministic owner within the compiler invocation and a
 full SHA-256 content identity. The identity covers the concrete canonical
-relation and constraints, normalized effects, checked body, transitive
+relation and constraints, normalized effects, portable semantic body,
+transitive
 callable dependencies, module-interface or entry dependency facts, and
 compiler/backend ABI facts. Recursive dependency groups are fingerprinted as
 one strongly connected component, so a reachable callee-body change also
