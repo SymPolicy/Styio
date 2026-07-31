@@ -15,7 +15,7 @@
 
 | Area | Canonical form | Owner |
 |------|----------------|-------|
-| Imports | `@import { pkg/module }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Imports | `@import { pkg/module }` | Direct executable callable imports resolve relative to the importing source and require a fresh sibling `.styioi`; [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Final binding | `name := expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Mutable binding | `name = expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Callable binding | `# identity := (value) => value`, `# name : i64 := (arg: i64) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
@@ -100,6 +100,14 @@ stream, file, task, matrix, topology-resource, range-handle, user-defined, and
 other capability-sensitive types remain monomorphic. The check precedes
 relation normalization, so a resource-shaped sequence cannot masquerade as an
 ordinary list and nested handle elements remain visible.
+
+Callable interfaces are compiler-owned artifacts, not authored syntax. Publish
+one explicitly with `--module-id` and `--emit-module-interface`, then import its
+source path normally. The loader accepts only matching schema, compiler/target
+ABI, source, checked-body, and direct-dependency digests. Consumers see only
+exports from direct imports; private helpers remain scoped to their owning
+imported body, transitive names do not leak, and module dependency cycles fail
+closed before Sema.
 
 ## Types
 

@@ -13606,7 +13606,7 @@ TEST(StyioDiagnostics, NightlyScalarContainerAndExportRoutesStayExecutable) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, ImportDeclarationFailsClosedAsUnsupportedRuntimeValue) {
+TEST(StyioDiagnostics, ImportDeclarationRequiresFreshCallableInterfaces) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -13633,9 +13633,9 @@ TEST(StyioDiagnostics, ImportDeclarationFailsClosedAsUnsupportedRuntimeValue) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"phase\":\"lowering\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_LOWER_UNSUPPORTED_AST\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("external package declarations are not runtime values"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("cannot resolve imported callable module `"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\n1\n"), std::string::npos);
 
   fs::remove(input);

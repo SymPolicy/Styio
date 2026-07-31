@@ -562,15 +562,35 @@ public:
     }
   };
 
+  struct ImportedCallableDefinition
+  {
+    std::string module_id;
+    bool exported = false;
+    bool has_scheme = false;
+    StyioAST* definition = nullptr;
+    CallableTypeScheme scheme;
+    CallableEffectSummary effects;
+    std::vector<StyioDataType> concrete_params;
+    StyioDataType concrete_result{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    std::unordered_set<std::string> visible_from_modules;
+    std::string checked_body_digest;
+    std::string interface_abi_digest;
+  };
+
   struct CallableSpecialization
   {
     std::string source_name;
+    std::string owner_module;
     std::string lowered_name;
     std::vector<StyioDataType> param_types;
     StyioDataType result_type{
       StyioDataTypeOption::Undefined, "undefined", 0
     };
     std::string canonical_key;
+    std::string checked_body_digest;
+    std::string interface_abi_digest;
   };
 
   enum class BindingValueKind : std::uint8_t {
@@ -894,6 +914,43 @@ public:
     std::string_view name
   ) const;
 
+  const std::unordered_map<std::string, CallableTypeScheme>&
+  callable_type_scheme_facts() const {
+    return callable_type_schemes_;
+  }
+
+  const std::unordered_map<std::string, CallableEffectSummary>&
+  callable_effect_summary_facts() const {
+    return callable_effect_summaries_;
+  }
+
+  void install_imported_callable_definition(
+    std::string module_id,
+    bool exported,
+    bool has_scheme,
+    StyioAST* definition,
+    CallableTypeScheme scheme,
+    CallableEffectSummary effects,
+    std::vector<StyioDataType> concrete_params,
+    StyioDataType concrete_result,
+    std::vector<std::string> visible_from_modules,
+    std::string checked_body_digest,
+    std::string interface_abi_digest
+  );
+
+  const std::vector<ImportedCallableDefinition>&
+  imported_callable_definitions() const {
+    return imported_callable_definitions_;
+  }
+
+  const ImportedCallableDefinition* find_imported_callable_definition(
+    std::string_view name
+  ) const;
+
+  bool imported_callable_is_visible(std::string_view name) const;
+
+  void register_imported_callable_definitions();
+
   void enforce_effect_monomorphic_instance(
     std::string_view name,
     const std::vector<StyioDataType>& arg_types
@@ -973,6 +1030,9 @@ protected:
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
   std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
   std::unordered_map<std::string, CallableEffectSummary> callable_effect_summaries_;
+  std::vector<ImportedCallableDefinition> imported_callable_definitions_;
+  std::unordered_map<std::string, std::size_t>
+    imported_callable_definition_indices_;
   std::unordered_map<std::string, std::vector<StyioDataType>>
     effect_monomorphic_instances_;
   std::unordered_map<std::string, std::vector<CallableSpecialization>> callable_specializations_;

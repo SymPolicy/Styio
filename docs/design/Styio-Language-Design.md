@@ -201,6 +201,47 @@ Import resolution remains explicit:
 - `.styio` is tried when the import candidate does not already name a Styio file
 - unresolved imports stay unresolved instead of binding to unrelated same-text symbols elsewhere in the workspace
 
+For executable callable imports in the current compiler, each slash-form path
+is resolved relative to the source that contains the declaration. The source
+must have a sibling `.styioi` callable interface produced explicitly from that
+module:
+
+```text
+styio --file=math/core.styio \
+      --module-id=math/core \
+      --emit-module-interface=math/core.styioi
+```
+
+The compiler never creates missing dependency interfaces while compiling a
+consumer. Build orchestration publishes dependencies first and then compiles
+the importing source.
+
+### 4.3 Callable Interface Contract
+
+Callable interface schema v1 publishes compiler-owned semantic facts rather
+than new source syntax. For each checked callable needed by the module it
+records either a canonical inferred relation with normalized constraints or a
+complete concrete signature, plus its normalized effect/capability summary and
+a reproducible checked body. Source, body, direct dependency, compiler ABI, and
+interface ABI facts carry SHA-256 digests.
+
+Loading is fail-closed. The compiler validates the schema version, canonical
+module identity, target/compiler ABI, source digest, direct dependency set and
+digest, every checked-body digest, and the recomputed interface ABI before
+installing a callable. Missing or stale metadata is a type-phase error.
+
+Only exported callables from a direct import are visible to the importing
+source. A published body may still use its own private helpers and exported
+callables from its direct dependencies; those facts do not become transitive
+names in the consumer. Duplicate imports and unqualified callable-name
+collisions are rejected.
+
+The current separate-compilation slice rejects a module dependency cycle
+before Sema. This conservatively enforces the accepted rule that recursive
+callable SCCs may not cross module boundaries. Non-generic exports retain
+concrete parameter/result facts; exported inferred callables are specialized
+from the published relation in the consuming compilation.
+
 ---
 
 ## 5. Callable / Operation-Channel Bindings

@@ -2,7 +2,7 @@
 
 **Purpose:** Define the shared symbol-to-lexer-token lookup and physical symbol meanings; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), while cross-feature semantics live in [`Styio-Language-Design.md`](./Styio-Language-Design.md).
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28
@@ -17,7 +17,7 @@ word-shaped source text receives `NAME`.
 | Source shape | Tokenization | Resolution rule |
 |--------------|--------------|-----------------|
 | ordinary word | `NAME(spelling)` | Resolve in the namespace selected by its structural position. |
-| `@import`, `@export`, `@extern` | `TOK_AT` + `NAME(spelling)` | The top-level `@` family may inspect the following name; the spelling remains an ordinary identifier outside that family. |
+| `@import`, `@export`, `@extern` | `TOK_AT` + `NAME(spelling)` | The top-level `@` family may inspect the following name; the spelling remains an ordinary identifier outside that family. Executable callable imports require a validated sibling `.styioi`; the declaration itself carries no inline signature, generic body, or type arguments. |
 | `true`, `false` | `NAME(spelling)` | Expression parsing recognizes Boolean literal spellings; no keyword token is created. |
 | primitive or user type name | `NAME(spelling)` | Type position selects the type namespace; the lexer does not classify the word. |
 

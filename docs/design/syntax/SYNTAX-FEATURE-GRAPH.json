@@ -244,28 +244,12 @@
       "kind": "module-type-interface",
       "syntax": "Existing callable export/import forms; no authored generic interface syntax proposed.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-callable-interface-scheme-publication.md",
@@ -286,7 +270,7 @@
           {
             "id": "core.effect-aware-callable-generalization",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           }
         ],
         "requires_any": [],
@@ -312,13 +296,21 @@
         ]
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_interfaces/t01_downstream_specialization.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "current-semantic-contract": "docs/design/Styio-Language-Design.md",
         "module-contract": "docs/design/Styio-EBNF.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/CallableInterface.cpp",
+        "symbol": "publish_callable_module_interface",
         "owner": "Sema / Modules"
       },
       "documents": {
@@ -339,9 +331,30 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/CallableInterface.cpp",
+          "src/StyioSema/CallableModuleLoader.cpp",
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioLowering/AstToStyioIR.cpp",
+          "src/main.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_interfaces/t01_downstream_specialization.styio",
+          "tests/features/callable_interfaces/e01_private_callable.styio",
+          "tests/features/callable_interfaces/e02_cross_module_cycle.styio",
+          "tests/features/callable_interfaces/e03_stale_source.styio",
+          "tests/features/callable_interfaces/e04_stale_schema.styio",
+          "tests/features/callable_interfaces/e05_stale_dependency.styio",
+          "tests/features/callable_interfaces/e06_missing_interface.styio",
+          "tests/features/callable_interfaces/modules/invalid.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_interfaces/t01_downstream_specialization.styio",
+        "tests/features/callable_interfaces/e03_stale_source.styio",
+        "tests/features/callable_interfaces/e05_stale_dependency.styio"
+      ]
     },
     {
       "id": "core.callable-specialization-policy",
@@ -371,9 +384,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "must follow non-converged feature core.callable-interface-scheme-publication"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-callable-specialization-policy.md",
       "owner": "Lowering / Codegen",
@@ -388,7 +399,7 @@
           {
             "id": "core.callable-interface-scheme-publication",
             "decision_state": "accepted",
-            "delivery_state": "not_started"
+            "delivery_state": "converged"
           }
         ],
         "requires_any": [],

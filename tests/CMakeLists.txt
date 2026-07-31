@@ -176,6 +176,35 @@ styio_feature_stdout_golden_test(callable_constraints "t*.styio" callable_constr
 styio_feature_stdout_golden_test(callable_values "t*.styio" callable_values)
 styio_feature_stdout_golden_test(callable_capabilities "t*.styio" callable_capabilities)
 styio_feature_stdout_golden_test(literal_defaulting "t*.styio" literal_defaulting)
+
+foreach(_CALLABLE_INTERFACE_MODE IN ITEMS
+    run
+    private
+    cycle
+    stale-source
+    stale-schema
+    stale-dependency
+    missing
+    uninstantiated-body
+    invalid-module-id)
+  string(REPLACE "-" "_" _CALLABLE_INTERFACE_TEST_SUFFIX
+    "${_CALLABLE_INTERFACE_MODE}")
+  add_test(
+    NAME "callable_interfaces_${_CALLABLE_INTERFACE_TEST_SUFFIX}"
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_LIST_DIR}/run_callable_interface_case.py"
+            --styio "${STYIO_EXE}"
+            --fixtures "${STYIO_FEATURES}/callable_interfaces"
+            --mode "${_CALLABLE_INTERFACE_MODE}"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(
+    "callable_interfaces_${_CALLABLE_INTERFACE_TEST_SUFFIX}"
+    PROPERTIES
+      LABELS "language_feature;callable_interfaces"
+  )
+endforeach()
+
 styio_feature_stdout_golden_test(functions "t*.styio" functions)
 styio_feature_stdout_golden_test(control_flow "t*.styio" control_flow)
 styio_feature_stdout_golden_test(wave_dispatch "t*.styio" wave_dispatch)
