@@ -55,6 +55,27 @@ callable_def_is_final_binding_latest(StyioAST* def) {
   return false;
 }
 
+static std::vector<std::string>
+explicit_capture_names_of_func_def(StyioAST* def) {
+  std::vector<std::string> names;
+  auto append = [&](const auto& captures)
+  {
+    names.reserve(captures.size());
+    for (auto* capture : captures) {
+      if (capture != nullptr) {
+        names.push_back(capture->getAsStr());
+      }
+    }
+  };
+  if (auto* function = dynamic_cast<FunctionAST*>(def)) {
+    append(function->getCaptureNames());
+  }
+  else if (auto* function = dynamic_cast<SimpleFuncAST*>(def)) {
+    append(function->getCaptureNames());
+  }
+  return names;
+}
+
 void
 StyioSemaContext::record_function_def(
   const std::string& name,
@@ -339,6 +360,8 @@ using CallableUsageRequirement =
 using CallableUsageSet = styio::sema::CallableUsageSet;
 using CallableEffectLabel = styio::sema::CallableEffectLabel;
 using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
+using CallableCaptureMode = StyioSemaContext::CallableCaptureMode;
+using CallableCaptureFact = StyioSemaContext::CallableCaptureFact;
 
 StyioDataType
 normalize_callable_concrete_type(const StyioDataType& input) {
@@ -727,7 +750,6 @@ walk_callable_expression(
   }
   if (auto* attribute = dynamic_cast<AttrAST*>(ast)) {
     walk_callable_expression(attribute->body, visit);
-    walk_callable_expression(attribute->attr, visit);
     return;
   }
   if (auto* list = dynamic_cast<ListAST*>(ast)) {
@@ -797,6 +819,27 @@ walk_callable_expression(
   if (auto* fallback = dynamic_cast<FallbackAST*>(ast)) {
     walk_callable_expression(fallback->getPrimary(), visit);
     walk_callable_expression(fallback->getAlternate(), visit);
+    return;
+  }
+  if (auto* acquire = dynamic_cast<HandleAcquireAST*>(ast)) {
+    walk_callable_expression(acquire->getResource(), visit);
+    return;
+  }
+  if (auto* write = dynamic_cast<ResourceWriteAST*>(ast)) {
+    walk_callable_expression(write->getData(), visit);
+    walk_callable_expression(write->getResource(), visit);
+    return;
+  }
+  if (auto* redirect = dynamic_cast<ResourceRedirectAST*>(ast)) {
+    walk_callable_expression(redirect->getData(), visit);
+    walk_callable_expression(redirect->getResource(), visit);
+    return;
+  }
+  if (auto* effect = dynamic_cast<ResourceEffectAST*>(ast)) {
+    walk_callable_expression(effect->getOperation(), visit);
+    for (const auto& handler : effect->getHandlers()) {
+      walk_callable_expression(handler.body, visit);
+    }
     return;
   }
   if (auto* selector = dynamic_cast<GuardSelectorAST*>(ast)) {
@@ -1122,6 +1165,116 @@ callable_local_usage_sets(StyioAST* def) {
   return usages;
 }
 
+int
+callable_capture_mode_rank(CallableCaptureMode mode) {
+  switch (mode) {
+    case CallableCaptureMode::SharedBorrow:
+      return 0;
+    case CallableCaptureMode::ExclusiveBorrow:
+      return 1;
+    case CallableCaptureMode::Consume:
+      return 2;
+  }
+  return 0;
+}
+
+void
+promote_callable_capture_mode(
+  std::unordered_map<std::string, CallableCaptureMode>& modes,
+  const std::string& name,
+  CallableCaptureMode mode
+) {
+  auto it = modes.find(name);
+  if (it == modes.end()) {
+    return;
+  }
+  if (callable_capture_mode_rank(mode)
+      > callable_capture_mode_rank(it->second)) {
+    it->second = mode;
+  }
+}
+
+std::vector<CallableCaptureFact>
+callable_capture_facts_for_definition(
+  StyioAST* def
+) {
+  const std::vector<std::string> declared =
+    explicit_capture_names_of_func_def(def);
+  std::unordered_map<std::string, CallableCaptureMode> modes;
+  for (const auto& name : declared) {
+    modes[name] = CallableCaptureMode::SharedBorrow;
+  }
+
+  walk_callable_expression(
+    callable_body_of_def(def),
+    [&](StyioAST* node)
+    {
+      if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        promote_callable_capture_mode(
+          modes,
+          bind->getNameAsStr(),
+          CallableCaptureMode::ExclusiveBorrow);
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        promote_callable_capture_mode(
+          modes,
+          bind->getName(),
+          CallableCaptureMode::ExclusiveBorrow);
+      }
+      else if (auto* assignment =
+                 dynamic_cast<ParallelAssignAST*>(node)) {
+        for (auto* target : assignment->getLHS()) {
+          auto* name = dynamic_cast<NameAST*>(target);
+          if (name != nullptr) {
+            promote_callable_capture_mode(
+              modes,
+              name->getAsStr(),
+              CallableCaptureMode::ExclusiveBorrow);
+          }
+        }
+      }
+      else if (auto* redirect =
+                 dynamic_cast<ResourceRedirectAST*>(node)) {
+        if (dynamic_cast<EmptyResourceAST*>(
+              redirect->getResource()) != nullptr) {
+          auto* name =
+            dynamic_cast<NameAST*>(redirect->getData());
+          if (name != nullptr) {
+            promote_callable_capture_mode(
+              modes,
+              name->getAsStr(),
+              CallableCaptureMode::Consume);
+          }
+        }
+      }
+      else if (auto* acquire =
+                 dynamic_cast<HandleAcquireAST*>(node)) {
+        auto* name =
+          dynamic_cast<NameAST*>(acquire->getResource());
+        if (name != nullptr) {
+          promote_callable_capture_mode(
+            modes,
+            name->getAsStr(),
+            CallableCaptureMode::Consume);
+        }
+      }
+    });
+
+  std::vector<CallableCaptureFact> facts;
+  facts.reserve(modes.size());
+  for (const auto& [name, mode] : modes) {
+    facts.push_back(CallableCaptureFact{name, mode});
+  }
+  std::sort(
+    facts.begin(),
+    facts.end(),
+    [](const auto& lhs, const auto& rhs)
+    {
+      return lhs.name < rhs.name;
+    });
+  return facts;
+}
+
 struct CallableUsageCallEdge
 {
   std::string caller;
@@ -1242,6 +1395,11 @@ callable_local_effect_row(
   CallableEffectRowFacts effects;
   effects.relation_seed =
     callable_definition_has_relation_seed(def);
+  const std::vector<std::string> declared_captures =
+    explicit_capture_names_of_func_def(def);
+  const std::unordered_set<std::string> declared_capture_set(
+    declared_captures.begin(),
+    declared_captures.end());
 
   std::unordered_set<std::string> local_names;
   std::unordered_set<std::string> callable_parameter_names;
@@ -1260,10 +1418,14 @@ callable_local_effect_row(
     [&](StyioAST* node)
     {
       if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
-        local_names.insert(bind->getNameAsStr());
+        if (declared_capture_set.count(bind->getNameAsStr()) == 0) {
+          local_names.insert(bind->getNameAsStr());
+        }
       }
       else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
-        local_names.insert(bind->getName());
+        if (declared_capture_set.count(bind->getName()) == 0) {
+          local_names.insert(bind->getName());
+        }
       }
     });
 
@@ -1273,6 +1435,27 @@ callable_local_effect_row(
     callable_body_of_def(def),
     [&](StyioAST* node)
     {
+      if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        if (declared_capture_set.count(bind->getNameAsStr()) != 0) {
+          captures.insert(bind->getNameAsStr());
+        }
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        if (declared_capture_set.count(bind->getName()) != 0) {
+          captures.insert(bind->getName());
+        }
+      }
+      else if (auto* assignment =
+                 dynamic_cast<ParallelAssignAST*>(node)) {
+        for (auto* target : assignment->getLHS()) {
+          auto* name = dynamic_cast<NameAST*>(target);
+          if (name != nullptr
+              && declared_capture_set.count(name->getAsStr()) != 0) {
+            captures.insert(name->getAsStr());
+          }
+        }
+      }
+
       if (auto* name = dynamic_cast<NameAST*>(node)) {
         const std::string& spelling = name->getAsStr();
         if (spelling != "_" && local_names.count(spelling) == 0) {
@@ -1348,8 +1531,33 @@ callable_local_effect_row(
       }
     });
 
-  effects.captures.assign(captures.begin(), captures.end());
-  std::sort(effects.captures.begin(), effects.captures.end());
+  if (!declared_captures.empty()) {
+    std::vector<std::string> sorted_captures(
+      captures.begin(), captures.end());
+    std::sort(sorted_captures.begin(), sorted_captures.end());
+    for (const auto& capture : sorted_captures) {
+      if (declared_capture_set.count(capture) == 0) {
+        throw StyioTypeError(
+          "callable `" + callable_name_of_def(def)
+          + "` capture list is missing free name `" + capture + "`"
+        );
+      }
+    }
+    for (const auto& capture : declared_captures) {
+      if (captures.count(capture) == 0) {
+        throw StyioTypeError(
+          "callable `" + callable_name_of_def(def)
+          + "` declares unused capture `" + capture + "`"
+        );
+      }
+    }
+    effects.captures = std::move(sorted_captures);
+  }
+  else {
+    effects.captures.assign(captures.begin(), captures.end());
+    std::sort(effects.captures.begin(), effects.captures.end());
+  }
+
   effects.direct_callees.assign(
     direct_callees.begin(),
     direct_callees.end());
@@ -4889,12 +5097,133 @@ apply_callable_expected_type_to_tail(
   }
 }
 
+std::string
+callable_capture_mode_name(CallableCaptureMode mode) {
+  switch (mode) {
+    case CallableCaptureMode::SharedBorrow:
+      return "shared_borrow";
+    case CallableCaptureMode::ExclusiveBorrow:
+      return "exclusive_borrow";
+    case CallableCaptureMode::Consume:
+      return "consume";
+  }
+  return "shared_borrow";
+}
+
+bool
+callable_static_capture_type_supported(
+  const StyioDataType& type
+) {
+  if (type.handle_family != StyioHandleFamily::None
+      || type.is_resource_type) {
+    return false;
+  }
+  switch (type.option) {
+    case StyioDataTypeOption::Bool:
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::Float:
+    case StyioDataTypeOption::Char:
+      return true;
+    default:
+      return false;
+  }
+}
+
+void
+validate_affine_capture_environment(
+  StyioSemaContext* an,
+  StyioAST* definition,
+  const std::string& callable_name,
+  std::string_view escape_point,
+  bool escaping
+) {
+  const std::vector<std::string> declared =
+    explicit_capture_names_of_func_def(definition);
+  if (declared.empty()) {
+    return;
+  }
+
+  if (!callable_def_is_final_binding_latest(definition)) {
+    throw StyioTypeError(
+      "callable `" + callable_name
+      + "` capture `" + declared.front()
+      + "` is a shared_borrow at " + std::string(escape_point)
+      + "; affine capture environments require final `:=` callable bindings"
+    );
+  }
+
+  if (an->find_imported_callable_definition(callable_name) != nullptr) {
+    throw StyioTypeError(
+      "callable `" + callable_name
+      + "` capture `" + declared.front()
+      + "` is a shared_borrow at " + std::string(escape_point)
+      + "; imported closures have no portable program-static environment fact"
+    );
+  }
+
+  const auto* facts =
+    an->find_callable_capture_facts(callable_name);
+  if (facts == nullptr || facts->size() != declared.size()) {
+    throw StyioTypeError(
+      "callable `" + callable_name
+      + "` capture `" + declared.front()
+      + "` is a shared_borrow at " + std::string(escape_point)
+      + "; no top-level program-static environment was proven"
+    );
+  }
+
+  for (const auto& fact : *facts) {
+    const StyioDataType* type =
+      an->find_local_binding_type(
+        styio::session::kInvalidSymbolId,
+        fact.name);
+    const std::string mode =
+      callable_capture_mode_name(fact.mode);
+    if (type == nullptr || type->isUndefined()) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name + "` is a " + mode
+        + " at " + std::string(escape_point)
+        + "; missing a checked program-static binding type"
+      );
+    }
+    if (!callable_static_capture_type_supported(*type)) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name + "` is a " + mode
+        + " at " + std::string(escape_point)
+        + "; type `" + type->name
+        + "` has no approved program-static representation and drop path"
+      );
+    }
+    if (fact.mode == CallableCaptureMode::Consume) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name + "` is consume at "
+        + std::string(escape_point)
+        + "; a unique invocation and deterministic drop path were not proven"
+      );
+    }
+    if (escaping
+        && fact.mode == CallableCaptureMode::ExclusiveBorrow) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name
+        + "` is an exclusive_borrow at "
+        + std::string(escape_point)
+        + "; an escaping callable value has no alias-free ownership proof"
+      );
+    }
+  }
+}
+
 }  // namespace
 
 void
 StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   callable_type_schemes_.clear();
   callable_effect_rows_.clear();
+  callable_capture_facts_.clear();
   effect_monomorphic_instances_.clear();
   callable_specializations_.clear();
   callable_specialization_cache_.clear();
@@ -4936,6 +5265,10 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   for (const auto& [name, def] : definitions) {
     callable_effect_rows_[name] =
       callable_local_effect_row(this, def, available_definitions);
+    if (!explicit_capture_names_of_func_def(def).empty()) {
+      callable_capture_facts_[name] =
+        callable_capture_facts_for_definition(def);
+    }
     definition_names.push_back(name);
   }
   std::sort(definition_names.begin(), definition_names.end());
@@ -5446,6 +5779,16 @@ StyioSemaContext::find_callable_effect_row(
 ) const {
   auto it = callable_effect_rows_.find(std::string(name));
   return it == callable_effect_rows_.end() ? nullptr : &it->second;
+}
+
+const std::vector<StyioSemaContext::CallableCaptureFact>*
+StyioSemaContext::find_callable_capture_facts(
+  std::string_view name
+) const {
+  auto it = callable_capture_facts_.find(std::string(name));
+  return it == callable_capture_facts_.end()
+           ? nullptr
+           : &it->second;
 }
 
 void
@@ -6032,12 +6375,21 @@ StyioSemaContext::typeInfer(NameAST* ast) {
         if (const CallableEffectRowFacts* effects =
               find_callable_effect_row(ast->getAsStr())) {
           if (!effects->captures.empty()) {
-            throw StyioTypeError(
-              "callable `" + ast->getAsStr()
-              + "` captures `" + effects->captures.front()
-              + "`; monomorphic callable values admit final "
-                "noncapturing items only"
-            );
+            if (explicit_capture_names_of_func_def(
+                  definition).empty()) {
+              throw StyioTypeError(
+                "callable `" + ast->getAsStr()
+                + "` captures `" + effects->captures.front()
+                + "`; monomorphic callable values admit final "
+                  "noncapturing items only"
+              );
+            }
+            validate_affine_capture_environment(
+              this,
+              definition,
+              ast->getAsStr(),
+              "callable-value escape",
+              true);
           }
         }
 
@@ -6126,12 +6478,21 @@ StyioSemaContext::typeInfer(NameAST* ast) {
   if (const CallableEffectRowFacts* effects =
         find_callable_effect_row(ast->getAsStr())) {
     if (!effects->captures.empty()) {
-      throw StyioTypeError(
-        "callable `" + ast->getAsStr()
-        + "` captures `" + effects->captures.front()
-        + "`; monomorphic callable values admit final "
-          "noncapturing items only"
-      );
+      if (explicit_capture_names_of_func_def(
+            definition).empty()) {
+        throw StyioTypeError(
+          "callable `" + ast->getAsStr()
+          + "` captures `" + effects->captures.front()
+          + "`; monomorphic callable values admit final "
+            "noncapturing items only"
+        );
+      }
+      validate_affine_capture_environment(
+        this,
+        definition,
+        ast->getAsStr(),
+        "callable-value escape",
+        true);
     }
   }
 
@@ -8108,6 +8469,15 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       + "`"
     );
   }
+  if (func_def != nullptr
+      && !explicit_capture_names_of_func_def(func_def).empty()) {
+    validate_affine_capture_environment(
+      this,
+      func_def,
+      ast->getNameAsStr(),
+      "direct call `" + ast->getNameAsStr() + "(...)`",
+      false);
+  }
   const auto* native_def =
     func_def == nullptr
       ? find_native_function_def(
@@ -9074,6 +9444,23 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
       continue;
     }
     s->typeInfer(this);
+  }
+  std::vector<std::string> capture_callables;
+  capture_callables.reserve(callable_capture_facts_.size());
+  for (const auto& [name, facts] : callable_capture_facts_) {
+    (void)facts;
+    capture_callables.push_back(name);
+  }
+  std::sort(capture_callables.begin(), capture_callables.end());
+  for (const auto& name : capture_callables) {
+    validate_affine_capture_environment(
+      this,
+      find_function_def(
+        styio::session::kInvalidSymbolId,
+        name),
+      name,
+      "environment formation",
+      false);
   }
   styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
 }

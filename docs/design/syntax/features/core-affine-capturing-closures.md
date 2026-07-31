@@ -12,11 +12,22 @@ id = "core.affine-capturing-closures"
 title = "Affine Capturing Closures"
 kind = "closure-ownership"
 decision_state = "accepted"
-delivery_state = "not_started"
+delivery_state = "converged"
 owner = "Sema / Resource Topology"
-syntax = "Reuse the existing explicit `$(name, ...)` capture list; no lifetime, copy, heap, or ownership keyword is introduced."
-resolution = "Derive shared-borrow, exclusive-borrow, or consume facts from each captured use; permit stack/static nonescaping environments and permit escape only when every capture has a deterministic owned representation and drop path."
-golden_cases = []
+syntax = "Place the explicit `$(name, ...)` capture list between a callable signature and its binding/body operator, for example `# add : i64 $(seed) := (value: i64) => value + seed`; no lifetime, copy, heap, or ownership keyword is introduced."
+resolution = "Derive shared-borrow, exclusive-borrow, or consume facts from each captured use; lower the proven scalar slice to one program-static environment; permit shared-borrow escape, keep exclusive-borrow environments direct-call-only, and reject consume or representation/drop gaps before lowering."
+golden_cases = [
+  "tests/features/affine_closures/t01_shared_static_escape.styio",
+  "tests/features/affine_closures/t02_exclusive_static_direct.styio",
+  "tests/features/affine_closures/t03_capture_name_scope_isolation.styio",
+  "tests/features/affine_closures/t04_static_scalar_families.styio",
+  "tests/features/affine_closures/e01_missing_capture.styio",
+  "tests/features/affine_closures/e02_exclusive_escape.styio",
+  "tests/features/affine_closures/e03_missing_drop_path.styio",
+  "tests/features/affine_closures/e04_duplicate_capture.styio",
+  "tests/features/affine_closures/e05_consume_without_drop_proof.styio",
+  "tests/features/affine_closures/e06_unused_capture.styio",
+]
 
 [documents]
 grammar = ["docs/design/Styio-EBNF.md"]
@@ -25,8 +36,8 @@ semantics = ["docs/design/Styio-Language-Design.md", "docs/design/Styio-Resource
 diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 teaching = ["docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"]
-implementation = ["src/StyioSema/TypeInfer.cpp", "src/StyioResourceTopology/ResourceTopology.cpp", "src/StyioLowering/AstToStyioIR.cpp"]
-evidence = ["tests/features/README.md"]
+implementation = ["src/StyioAST/AST.hpp", "src/StyioParser/HashFunctionParser.hpp", "src/StyioParser/NewParserExpr.cpp", "src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioIR/GenIR/SGIR.hpp", "src/StyioLowering/AstToStyioIR.cpp", "src/StyioCodeGen/GetTypeG.cpp", "src/StyioCodeGen/CodeGenG.cpp"]
+evidence = ["tests/features/affine_closures/t01_shared_static_escape.styio", "tests/features/affine_closures/t02_exclusive_static_direct.styio", "tests/features/affine_closures/t03_capture_name_scope_isolation.styio", "tests/features/affine_closures/t04_static_scalar_families.styio", "tests/features/affine_closures/e01_missing_capture.styio", "tests/features/affine_closures/e02_exclusive_escape.styio", "tests/features/affine_closures/e03_missing_drop_path.styio", "tests/features/affine_closures/e04_duplicate_capture.styio", "tests/features/affine_closures/e05_consume_without_drop_proof.styio", "tests/features/affine_closures/e06_unused_capture.styio"]
 
 [prerequisites]
 language-owner-approval = "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
@@ -42,6 +53,8 @@ ownership-contract = "docs/design/Styio-Handle-Capability-Type-System.md"
 topology-contract = "docs/design/Styio-Resource-Topology.md"
 
 [implementation]
+path = "src/StyioSema/TypeInfer.cpp"
+symbol = "validate_affine_capture_environment"
 owner = "Sema / Resource Topology"
 
 [dependencies]
@@ -69,15 +82,28 @@ use contract, but it is never assumed freely copyable. Nonescaping
 environments may remain stack/static. Escape is legal only when every captured
 field has a deterministic owned representation, transfer rule, and drop path.
 
-## Blocked Delivery Boundary
+## Delivered Boundary
 
-Implementation cannot start until monomorphic callable values, canonical
-effect rows, and compiler-owned capability/usage facts have converged. The
-dependency graph, rather than this prose, determines when that floor is met.
+The authoritative callable grammar accepts a nonempty, duplicate-free capture
+list after the parameter/result signature and before `=`, `:=`, or `=>`.
+Sema requires that this list exactly names the callable's free value
+environment. Missing and unused names fail deterministically; implicit capture
+discovery is not used to widen the executable closure surface.
+
+The delivered environment is program-static and reactive by reference.
+`bool`, integer, floating-point, and `char` bindings have a concrete static
+slot visible to the callable body. Reads derive `shared_borrow`; rebinding a
+captured mutable scalar derives `exclusive_borrow`; destroy/acquire transfer
+forms derive `consume`. Shared-borrow environments may freeze to one complete
+monomorphic callable type. Exclusive-borrow environments remain direct-call
+only, while consume environments fail until a unique invocation and drop path
+can be proven.
 
 Resource, stream, task, and topology handles must retain their existing state
 and ordering identities inside an environment. Capturing does not normalize
-them to a shared integer representation.
+them to a shared integer representation. Strings and materialized container
+handles also remain closed because the current static environment has no
+approved ownership transfer and drop record for them.
 
 ## Diagnostic and Compatibility Boundary
 
@@ -90,8 +116,29 @@ Existing reactive capture syntax remains valid for its current monomorphic
 semantics. This feature does not silently make an existing capture escaping,
 copyable, reference-counted, or heap allocated.
 
+An imported captured callable is rejected because schema-v3 callable
+interfaces do not carry a portable environment initializer or module-owned
+static-storage record. Cross-module captured environments must extend the
+portable-body/interface feature rather than borrowing a consumer module's
+binding by name.
+
 ## Evolution Boundary
 
 Authored lifetime names, reference counting, cyclic closure environments,
 implicit capture discovery, generalized capturing closures, and a garbage
 collector are not approved by this feature.
+
+## Verification
+
+Run:
+
+```bash
+ctest --test-dir build -L affine_closures --output-on-failure --no-tests=error
+```
+
+The positive fixtures cover shared static escape through an invariant callable
+value, exclusive static mutation through repeated direct calls, isolation from
+same-spelled local bindings in noncapturing functions, and native
+`bool`/`f64`/`char` storage widths. The negative fixtures pin exact capture
+sets, duplicate syntax, exclusive escape, unsupported drop/representation
+facts, and consume-mode rejection.

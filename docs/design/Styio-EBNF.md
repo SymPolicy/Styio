@@ -356,8 +356,14 @@ Notes:
     adaptation. Because the result is a complete `type_expr`, a trailing suffix
     in `#(i64): i64..` belongs to the result type; it does not turn the callable
     value into a topology resource. Runtime callable slots use final `:=`
-    bindings only. Capturing closures, callable address equality, and
-    generalized callable storage are outside this production.
+    bindings only. Callable address equality and generalized callable storage
+    are outside this production.
+18. `capture_list` is nonempty, duplicate-free, and exact. It follows the
+    callable's parameter/result signature and precedes its binding/body
+    operator. The active affine slice lowers proven scalar captures to
+    program-static reactive slots: shared borrows may escape under one complete
+    monomorphic callable type, exclusive borrows remain direct-call-only, and
+    consume or missing representation/drop facts fail before lowering.
 
 ### 4.3 Type Rewrite Declaration
 

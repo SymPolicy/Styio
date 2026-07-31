@@ -4267,6 +4267,7 @@ class FunctionAST : public StyioASTTraits<FunctionAST>
 private:
   std::unique_ptr<NameAST> func_name_owner_;
   std::vector<std::unique_ptr<ParamAST>> params_owner_;
+  std::vector<std::unique_ptr<NameAST>> capture_names_owner_;
   std::unique_ptr<TypeAST> ret_type_owner_;
   std::unique_ptr<TypeTupleAST> ret_type_tuple_owner_;
   std::unique_ptr<StyioAST> func_body_owner_;
@@ -4279,6 +4280,17 @@ private:
     for (auto* param : owned_params) {
       params_owner_.emplace_back(param);
       params.push_back(params_owner_.back().get());
+    }
+  }
+
+  void adopt_capture_names(std::vector<NameAST*> owned_names) {
+    capture_names_owner_.clear();
+    capture_names.clear();
+    capture_names_owner_.reserve(owned_names.size());
+    capture_names.reserve(owned_names.size());
+    for (auto* name : owned_names) {
+      capture_names_owner_.emplace_back(name);
+      capture_names.push_back(capture_names_owner_.back().get());
     }
   }
 
@@ -4354,6 +4366,7 @@ public:
   NameAST* func_name = nullptr;
   bool is_unique = false;
   std::vector<ParamAST*> params;
+  std::vector<NameAST*> capture_names;
   std::variant<TypeAST*, TypeTupleAST*> ret_type;
 
   /*
@@ -4385,6 +4398,14 @@ public:
     StyioAST* body
   ) {
     return new FunctionAST(name, is_unique, params, ret_type, body);
+  }
+
+  void setCaptureNames(std::vector<NameAST*> names) {
+    adopt_capture_names(std::move(names));
+  }
+
+  const std::vector<NameAST*>& getCaptureNames() const {
+    return capture_names;
   }
 
   static FunctionAST* Create(
@@ -4467,6 +4488,7 @@ class SimpleFuncAST : public StyioASTTraits<SimpleFuncAST>
 private:
   std::unique_ptr<NameAST> func_name_owner_;
   std::vector<std::unique_ptr<ParamAST>> params_owner_;
+  std::vector<std::unique_ptr<NameAST>> capture_names_owner_;
   std::unique_ptr<TypeAST> ret_type_owner_;
   std::unique_ptr<TypeTupleAST> ret_type_tuple_owner_;
   std::unique_ptr<StyioAST> ret_expr_owner_;
@@ -4479,6 +4501,17 @@ private:
     for (auto* param : owned_params) {
       params_owner_.emplace_back(param);
       params.push_back(params_owner_.back().get());
+    }
+  }
+
+  void adopt_capture_names(std::vector<NameAST*> owned_names) {
+    capture_names_owner_.clear();
+    capture_names.clear();
+    capture_names_owner_.reserve(owned_names.size());
+    capture_names.reserve(owned_names.size());
+    for (auto* name : owned_names) {
+      capture_names_owner_.emplace_back(name);
+      capture_names.push_back(capture_names_owner_.back().get());
     }
   }
 
@@ -4627,11 +4660,20 @@ public:
   NameAST* func_name = nullptr; /* */
   bool is_unique = false;
   std::vector<ParamAST*> params;
+  std::vector<NameAST*> capture_names;
   std::variant<TypeAST*, TypeTupleAST*> ret_type; /* */
   StyioAST* ret_expr = nullptr;                   /* */
 
   static SimpleFuncAST* Create() {
     return new SimpleFuncAST();
+  }
+
+  void setCaptureNames(std::vector<NameAST*> names) {
+    adopt_capture_names(std::move(names));
+  }
+
+  const std::vector<NameAST*>& getCaptureNames() const {
+    return capture_names;
   }
 
   static SimpleFuncAST* Create(

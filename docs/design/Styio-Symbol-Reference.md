@@ -126,7 +126,7 @@ containing one range expression.
 | Symbol | Name | Semantics |
 |--------|------|-----------|
 | `#` | Callable / Operation-Channel Binding Prefix | Marks the binding target as callable or operable and combines with `=` or `:=`. It is not a resource prefix; resource identities stay in the `@` family. |
-| `#(T1, T2): R` | Monomorphic Callable Type | In type position, denotes one invariant, noncapturing callable value signature. A final named callable item may freeze to this type only when every parameter and result type is concrete. |
+| `#(T1, T2): R` | Monomorphic Callable Type | In type position, denotes one invariant callable value signature. A final noncapturing item, or a final explicit shared-borrow static closure, may freeze to this type only when every parameter and result type is concrete. |
 | `:` | Type Annotation | Binds a type to identifier (`a: i32`, `# f : f32 = ...`) |
 | `[]` | Type Application / Value Selector | In type position, applies type arguments: `list[i64]`, `dict[string, string]`. In value position, it remains a selector/index. It is neither a generic-binder suffix for callable names nor call-site specialization: `# name[T] ...` and `name[T](...)` are invalid as callable-generic forms. |
 | `__ : T := U` | Type Rewrite Rule | Two or more underscores define a type-pattern rewrite, e.g. `__ : list[T] := T..` |
@@ -146,6 +146,13 @@ The `#` in `#(T): R` is interpreted as a callable type head only in type
 position. It does not declare a callable, capture an environment, introduce a
 generic binder, or select a native address. Callable values are final,
 allocation-free function references; callable types are invariant.
+
+`$(name, ...)` is declaration-context syntax, not a callable type modifier.
+Its list follows the callable signature and precedes the binding/body operator.
+Sema requires an exact capture set and derives shared-borrow,
+exclusive-borrow, or consume. The active static scalar slice permits shared
+capture escape, keeps exclusive capture direct-call-only, and rejects missing
+transfer, representation, or drop facts.
 
 No symbol introduces handle polymorphism. Inferred relation variables admit
 plain scalars and recursively plain materialized `list`/`dict` values only.

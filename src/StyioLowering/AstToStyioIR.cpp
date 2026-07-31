@@ -1797,6 +1797,12 @@ class StateExprCloneVisitor
       clone_ret_type(expr->ret_type),
       body
     );
+    std::vector<NameAST*> captures;
+    captures.reserve(expr->getCaptureNames().size());
+    for (auto* capture : expr->getCaptureNames()) {
+      captures.push_back(NameAST::Clone(capture));
+    }
+    cloned->setCaptureNames(std::move(captures));
     cloned->is_self_completed = expr->is_self_completed;
     return cloned;
   }
@@ -1825,13 +1831,20 @@ class StateExprCloneVisitor
     named_repls_ = std::move(saved_repls);
     local_repl_names_ = std::move(saved_local_repls);
 
-    return SimpleFuncAST::Create(
+    auto* cloned = SimpleFuncAST::Create(
       NameAST::Clone(expr->func_name),
       expr->is_unique,
       std::move(params),
       clone_ret_type(expr->ret_type),
       ret_expr
     );
+    std::vector<NameAST*> captures;
+    captures.reserve(expr->getCaptureNames().size());
+    for (auto* capture : expr->getCaptureNames()) {
+      captures.push_back(NameAST::Clone(capture));
+    }
+    cloned->setCaptureNames(std::move(captures));
+    return cloned;
   }
 
   StyioAST* clone(ReturnAST* expr) {
@@ -4322,6 +4335,11 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
   const auto* effect_facts =
     find_callable_effect_row(ast->getNameAsStr());
+  std::vector<std::string> capture_names;
+  capture_names.reserve(ast->getCaptureNames().size());
+  for (auto* capture : ast->getCaptureNames()) {
+    capture_names.push_back(capture->getAsStr());
+  }
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(
@@ -4332,7 +4350,8 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
     body,
     effect_facts == nullptr
       ? styio::sema::CallableEffectRow::unknown()
-      : effect_facts->row
+      : effect_facts->row,
+    std::move(capture_names)
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;
@@ -4405,6 +4424,11 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
   const auto* effect_facts =
     find_callable_effect_row(ast->func_name->getAsStr());
+  std::vector<std::string> capture_names;
+  capture_names.reserve(ast->getCaptureNames().size());
+  for (auto* capture : ast->getCaptureNames()) {
+    capture_names.push_back(capture->getAsStr());
+  }
   SGFunc* fn = SGFunc::Create(
     rt,
     SGResId::Create(
@@ -4415,7 +4439,8 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
     body,
     effect_facts == nullptr
       ? styio::sema::CallableEffectRow::unknown()
-      : effect_facts->row
+      : effect_facts->row,
+    std::move(capture_names)
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;

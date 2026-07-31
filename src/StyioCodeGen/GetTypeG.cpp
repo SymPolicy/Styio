@@ -59,6 +59,11 @@ StyioToLLVM::toLLVMType(SGResId* node) {
     return llvm::PointerType::get(*theContext, 0);
   }
   const string& name = node->as_str();
+  auto capture_it = callable_capture_globals_.find(name);
+  if (active_callable_capture_names_.contains(name)
+      && capture_it != callable_capture_globals_.end()) {
+    return capture_it->second->getValueType();
+  }
   auto var_it = mutable_variables.find(name);
   if (var_it != mutable_variables.end() && bounded_ring_head_slot_.contains(name)) {
     if (auto* arr_ty = llvm::dyn_cast<llvm::ArrayType>(var_it->second->getAllocatedType())) {

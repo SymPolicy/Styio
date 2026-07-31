@@ -40,6 +40,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -914,6 +915,14 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
   if (mutable_variables.contains(name)) {
     llvm::AllocaInst* variable = mutable_variables[name];
     return theBuilder->CreateLoad(variable->getAllocatedType(), variable);
+  }
+
+  auto capture = callable_capture_globals_.find(name);
+  if (active_callable_capture_names_.contains(name)
+      && capture != callable_capture_globals_.end()) {
+    return theBuilder->CreateLoad(
+      capture->second->getValueType(),
+      capture->second);
   }
 
   return theBuilder->getInt64(0);
@@ -1829,6 +1838,20 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
   llvm::AllocaInst* variable;
   bool is_existing_slot = false;
 
+  auto capture = callable_capture_globals_.find(varname);
+  if (active_callable_capture_names_.contains(varname)
+      && capture != callable_capture_globals_.end()) {
+    llvm::Value* next_value = node->value->toLLVMIR(this);
+    if (next_value->getType() != capture->second->getValueType()) {
+      throw StyioTypeError(
+        "affine capture `" + varname
+        + "` initializer does not match its program-static storage type"
+      );
+    }
+    theBuilder->CreateStore(next_value, capture->second);
+    return capture->second;
+  }
+
   if (named_values.contains(varname)) {
     /* ERROR */
     throw StyioTypeError(
@@ -1948,6 +1971,19 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGFinalBind* node) {
   std::string varname = node->var->var_name->as_str();
+  auto capture = callable_capture_globals_.find(varname);
+  if (active_callable_capture_names_.contains(varname)
+      && capture != callable_capture_globals_.end()) {
+    llvm::Value* value = node->value->toLLVMIR(this);
+    if (value->getType() != capture->second->getValueType()) {
+      throw StyioTypeError(
+        "affine capture `" + varname
+        + "` initializer does not match its program-static storage type"
+      );
+    }
+    theBuilder->CreateStore(value, capture->second);
+    return capture->second;
+  }
   if (named_values.contains(varname)) {
     /* ERROR */
     throw StyioTypeError(
@@ -2367,6 +2403,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
   auto saved_owned_resource = owned_resource_temps_;
+  auto saved_active_captures = active_callable_capture_names_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
@@ -2382,6 +2419,10 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
   owned_resource_temps_.clear();
+  active_callable_capture_names_.clear();
+  active_callable_capture_names_.insert(
+    node->capture_names.begin(),
+    node->capture_names.end());
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -2436,6 +2477,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
   owned_resource_temps_ = std::move(saved_owned_resource);
+  active_callable_capture_names_ =
+    std::move(saved_active_captures);
 }
 
 llvm::Value*
@@ -3039,6 +3082,53 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
     }
   }
 
+  std::unordered_set<std::string> requested_captures;
+  for (auto* function : ordered_funcs) {
+    requested_captures.insert(
+      function->capture_names.begin(),
+      function->capture_names.end());
+  }
+  callable_capture_globals_.clear();
+  for (auto* statement : node->stmts) {
+    SGVar* variable = nullptr;
+    if (auto* binding = dynamic_cast<SGFlexBind*>(statement)) {
+      variable = binding->var;
+    }
+    else if (auto* binding =
+               dynamic_cast<SGFinalBind*>(statement)) {
+      variable = binding->var;
+    }
+    if (variable == nullptr
+        || requested_captures.count(
+             variable->var_name->as_str()) == 0) {
+      continue;
+    }
+    const std::string& name =
+      variable->var_name->as_str();
+    if (callable_capture_globals_.count(name) != 0) {
+      continue;
+    }
+    llvm::Type* type =
+      variable->var_type->toLLVMType(this);
+    auto* storage = new llvm::GlobalVariable(
+      *theModule,
+      type,
+      false,
+      llvm::GlobalValue::InternalLinkage,
+      llvm::Constant::getNullValue(type),
+      "__styio_capture." + name);
+    callable_capture_globals_[name] = storage;
+  }
+  for (const auto& capture : requested_captures) {
+    if (callable_capture_globals_.count(capture) == 0) {
+      throw StyioTypeError(
+        "affine capture `" + capture
+        + "` has no top-level program-static binding"
+      );
+    }
+  }
+  active_callable_capture_names_.clear();
+
   for (auto* f : ordered_funcs) {
     declare_sgfunc(f);
   }
@@ -3055,6 +3145,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
   llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(*theContext, "main_entry", main_func);
 
   theBuilder->SetInsertPoint(entry_block);
+  active_callable_capture_names_ = requested_captures;
 
   push_file_handle_scope();
 
@@ -3076,6 +3167,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
     pop_file_handle_scope();
     theBuilder->CreateRet(truncate_for_main_ret(last_main));
   }
+  active_callable_capture_names_.clear();
 
   return main_func;
 }
