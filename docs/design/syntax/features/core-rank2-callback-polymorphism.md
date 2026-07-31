@@ -16,7 +16,7 @@ delivery_state = "not_started"
 owner = "Sema / Type System"
 syntax = "No source `forall` or generic binder is selected; a future higher-order parameter may carry one compiler-owned generalized callback requirement."
 resolution = "Reserve bidirectional, context-checked rank-2 callback parameters as the only approved higher-rank direction; do not infer impredicative lists, dictionaries, fields, captures, or arbitrary generalized values."
-reopen_when = "Reopen only after core.monomorphic-callable-values, core.affine-capturing-closures, core.canonical-effect-rows, and core.capability-usage-polymorphism are all accepted/converged with typed callable IR evidence."
+reopen_when = "The original Q1/Q2/Q4/Q5 delivery floor converged on 2026-07-31; reopen implementation only after the owner resolves queued questions Q3.1-Q3.3 covering contract origin, static representation, and shallow pure subsumption."
 golden_cases = []
 
 [documents]
@@ -70,16 +70,48 @@ There is no source `forall`, no inferred higher-rank result, and no
 generalized callable stored in a list, dictionary, field, capture, or ordinary
 binding.
 
-## Reopen and Diagnostic Boundary
+## Reopen Status and Researched Implementation Direction
 
-All four dependencies named in `reopen_when` must converge first. Reopening
-also requires evidence that effect and capability facts survive callable-value
-lowering and interface publication.
+The original dependency floor is now satisfied: monomorphic callable values,
+affine static closures, canonical effect rows, capability/usage facts,
+portable typed bodies, and content-addressed specialization all have executable
+evidence. Dependency convergence does not auto-approve implementation.
+
+The primary-source refresh and the still-unanswered owner batch live in
+[Callable Type Evolution Questions](../CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md#queued-follow-up-question-set).
+GHC and OCaml both require an expected higher-rank contract rather than
+inferring universal quantification from ordinary callback applications; GHC
+also documents that deep subsumption can insert eta-expansion and change
+evaluation behavior. Rust scopes its implemented higher-ranked bounds
+explicitly, while Scala distinguishes polymorphic function values with an
+explicit type-level parameter boundary.
+
+The recommended Styio-specific first slice is therefore:
+
+1. receive one nested generalized callback scheme from a compiler-owned or
+   standard-module interface contract before selecting source authoring syntax;
+2. accept only a final noncapturing named callable item as a compile-time
+   scheme witness;
+3. specialize the enclosing callable by that item's semantic identity and
+   erase the generic callback from the runtime ABI;
+4. instantiate every callback use as an ordinary concrete mono item and include
+   its scheme, demand set, portable body, dependencies, effects, usage facts,
+   and item identity in the enclosing specialization digest;
+5. use shallow top-level scheme subsumption with a closed empty effect row and
+   no implicit eta-expansion, generalized capture, higher-rank result, or
+   polymorphic container.
+
+Those five points are recommendations only until Q3.1–Q3.3 are answered.
+
+## Diagnostic Boundary
 
 A future checker must distinguish “monomorphic callback type mismatch” from
 “callback does not satisfy the required generalized relation.” It must never
 repair an ambiguous expression by guessing a rank or by generalizing a mutable
-or capturing value.
+or capturing value. A rejected scheme witness should identify the required
+nested relation, the first incompatible concrete instance, and any effect or
+usage fact that prevented subsumption without inventing source `forall`
+guidance.
 
 ## Compatibility and Evolution Boundary
 

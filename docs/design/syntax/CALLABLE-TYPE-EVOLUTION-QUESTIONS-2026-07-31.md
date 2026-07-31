@@ -362,3 +362,203 @@ The approved answers are converted one feature at a time into the distributed
 child SSOTs linked above. The question and research sections remain the
 research record; this document never becomes the implementation state
 registry.
+
+## Deferred-Branch Research Refresh After Q1–Q9 Delivery
+
+Q3 and Q6 remain deferred exactly as approved. This section does not reopen
+either feature. It records the additional implementation evidence gathered
+after Q1, Q2, Q4, Q5, Q7, and Q8 converged and turns the remaining ambiguity
+into one later owner batch.
+
+| Primary source | Implementation lesson | Pitfall and Styio consequence |
+|----------------|-----------------------|-------------------------------|
+| [GHC arbitrary-rank polymorphism](https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/rank_polymorphism.html) and [Practical type inference for arbitrary-rank types](https://www.microsoft.com/en-us/research/publication/practical-type-inference-for-arbitrary-rank-types/) | Complete higher-rank inference is undecidable. GHC therefore receives a polymorphic expectation from an explicit or enclosing signature and checks the callback against that expectation. | Inferring universal quantification from a finite set of callback calls has no principal meaning. Styio should receive a nested scheme from an already-owned contract and use bidirectional checking; it should not guess rank from the body. |
+| [GHC subsumption rules](https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/rank_polymorphism.html#subsumption) | Shallow subsumption keeps quantifier placement exact. Optional deep subsumption inserts eta-expansion, and GHC documents that the rewrite can change evaluation semantics. | An implicit eta wrapper can also change Styio effect timing, affine capture lifetime, and specialization identity. The first callback slice should use shallow top-level scheme subsumption and never synthesize a closure to repair a mismatch. |
+| [GHC impredicative polymorphism](https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/impredicative_types.html) and [A quick look at impredicativity](https://www.microsoft.com/en-us/research/publication/a-quick-look-at-impredicativity/) | Production impredicative inference required a dedicated algorithm and explicit opt-in. Even that implementation keeps type-class constraints and instances monomorphic. | Rank-2 callback checking must not silently open polymorphic containers or higher-rank user constraints. Q3 and Q6 remain separate branches. |
+| [OCaml polymorphism limitations](https://ocaml.org/manual/5.1/polymorphism.html) | OCaml requires explicit universal information for polymorphic recursion and higher-rank functions, and its value restriction prevents mutation/effects from receiving unsound generalization. | A mutable slot, effectful callback, or generalized capturing environment cannot become a rank-2 value merely because a higher-order call expects one. |
+| [Rust higher-ranked trait bounds](https://doc.rust-lang.org/reference/trait-bounds.html#higher-ranked-trait-bounds) and [Scala 3 polymorphic function types](https://docs.scala-lang.org/scala3/reference/new-types/polymorphic-function-types.html) | Both expose the higher-rank boundary at the expected contract: Rust explicitly scopes higher-ranked lifetimes, while Scala explicitly distinguishes a polymorphic function value from an ordinary method or type lambda. | Mainstream implementations make rank visible rather than deriving it from ordinary applications. Because Styio has no authored generic binder, the first slice should prove interface/checker semantics before choosing a symbol-headed source form. |
+| [Rust implementation coherence](https://doc.rust-lang.org/reference/items/implementations.html#trait-implementation-coherence) and [RFC 1023](https://rust-lang.github.io/rfcs/1023-rebalancing-coherence.html) | Orphan and overlap checks ensure one implementation for a trait/type pair. The RFC shows that instance-placement freedom is a zero-sum API-evolution budget and that later blanket implementations can be breaking changes. | Styio must establish nominal ownership before opening constraints and should begin with exact concrete heads, not blanket or structural instances. |
+| [GHC instance resolution](https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/instances.html) and [orphan modules](https://downloads.haskell.org/ghc/latest/docs/users_guide/separate_compilation.html#orphan-modules-and-instance-declarations) | Overlap, incoherence, recursive superclass solving, and orphan discovery complicate termination and force extra interface traversal during separate compilation. | Priority, incoherent overlap, recursive evidence, and ambient orphan discovery would undermine Styio's deterministic module graph and content-addressed specialization. |
+| [Swift SE-0364](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0364-retroactive-conformance-warning.md) | A conformance for a foreign protocol and foreign type can collide with a later owner conformance; Swift documents build failures and an indeterminate runtime winner before clients rebuild. | A warning or import priority is not a coherence model. Styio should reject foreign/foreign instances structurally and include the one selected owner-local instance identity in interfaces and specialization digests. |
+
+### Styio-Specific Implementation Consequences
+
+1. Q3 can use Styio's functional specialization model instead of introducing
+   a polymorphic runtime closure ABI. A final noncapturing callable item can be
+   a compile-time scheme witness; the enclosing higher-order callable is
+   specialized by that item identity, and every demanded callback instance is
+   emitted as an ordinary concrete specialization.
+2. That model keeps generalized callback schemes as compiler metadata. No
+   generic heap object, garbage collector, witness table, runtime type
+   application, process address, or hidden type dictionary is required.
+3. The callback item digest, nested required scheme, concrete demand set,
+   effects, usage facts, portable bodies, and module dependencies must all
+   participate in the enclosing specialization identity. Q7 and Q8 now provide
+   the portable-body and persistent-object foundations for that rule.
+4. The first rank-2 slice should be pure and noncapturing. Styio's existing
+   rank-1 generalization admits only a closed empty effect row, and affine
+   closure environments are monomorphic; neither invariant should be weakened
+   implicitly by Q3.
+5. Q6 should reuse the same static specialization path. A selected instance is
+   canonical compile-time evidence whose named identity and implementation
+   digest enter `.styioi` and the specialization key; it is not an ambient
+   runtime dictionary.
+6. Exact concrete instance heads permit an indexed
+   `(constraint-id, nominal-type-id)` coherence map with deterministic duplicate
+   rejection. Blanket heads, associated types, negative evidence, and
+   specialization would require different overlap and termination machinery
+   and therefore remain later branches.
+
+## Queued Follow-up Question Set
+
+**Owner status:** unanswered and intentionally queued. None of the options in
+this section is active syntax or implementation authority. The linked Q3 and
+Q6 feature SSOTs remain `deferred/not_started` until the owner answers this
+batch and their remaining prerequisite documents converge.
+
+```mermaid
+flowchart TD
+    D["Approved Q3/Q6 deferral"] --> R3["Q3 prerequisite floor converged"]
+    D --> R6["Q6 nominal ownership floor absent"]
+    R3 --> Q31["Q3.1 Contract introduction"]
+    Q31 --> Q32["Q3.2 Runtime representation"]
+    Q32 --> Q33["Q3.3 Subsumption and facts"]
+    R6 --> Q61["Q6.1 First instance-head scope"]
+    Q61 --> Q62["Q6.2 Ownership and coherence"]
+    Q62 --> Q63["Q6.3 Dispatch and interface evidence"]
+```
+
+### Q3.1 — Where may the first nested generalized callback contract originate?
+
+Options:
+
+- **A — Compiler/interface contract first, recommended.** Teach Sema,
+  portable StyioIR, and `.styioi` to carry one nested generalized callback
+  scheme supplied by a compiler-owned or standard-module contract. Ordinary
+  source cannot author or infer that nested scheme yet; a later child decision
+  selects a keyword-free symbol form after the checker and ABI are proven.
+- **B — Select source syntax now.** Add a symbol-headed nested scheme form so
+  source authors explicitly place and scope type variables without a `forall`
+  word.
+- **C — Infer rank from callback uses.** Promote a parameter to a generalized
+  scheme when the enclosing body calls it at multiple types.
+
+**Recommendation:** A. It gives the checker an unambiguous expected scheme and
+preserves the approved no-authored-binder surface. C is rejected because two
+or more finite calls do not determine one universal principal type. B should
+follow executable interface evidence rather than coupling inference, syntax,
+and runtime representation in one checkpoint.
+
+### Q3.2 — How is a rank-2 callback represented during specialization?
+
+Options:
+
+- **A — Erased static scheme witness, recommended.** Admit only a final,
+  noncapturing named callable item. Specialize the enclosing callable by the
+  callback item's semantic identity, resolve every callback use to a concrete
+  mono item, and omit the generic callback from the runtime ABI.
+- **B — Uniform polymorphic closure object.** Pass an environment, entry
+  point, and runtime type/evidence dispatcher.
+- **C — Raw function pointer.** Pass one monomorphic address and reinterpret it
+  at each callback use.
+
+**Recommendation:** A. It is allocation-free, preserves parametric callable
+identity, composes with Q7/Q8, and matches Styio's ahead-of-execution
+specialization model. B requires a new heap and witness ABI. C is unsound
+because one concrete address does not establish a generalized relation.
+
+### Q3.3 — What is the first subsumption, effect, and storage boundary?
+
+Options:
+
+- **A — Shallow pure rank-2 only, recommended.** Quantify only ordinary data
+  relation variables inside one callback parameter. Require a closed empty
+  effect row, current admitted usage facts, exact quantifier placement, and
+  shallow top-level scheme subsumption. Reject implicit eta-expansion,
+  generalized captures, higher-rank results, and polymorphic containers.
+- **B — Quantify effects and capabilities too.** Permit open effect tails,
+  usage variables, affine environments, and implicit eta adaptation in the
+  first slice.
+- **C — General impredicative values.** Permit nested generalized schemes in
+  results, fields, lists, dictionaries, and captures.
+
+**Recommendation:** A. It preserves Styio's pure functional generalization
+rule and makes the first implementation a bounded extension of the existing
+scheme checker. B and C each require independent inference, representation,
+and compatibility decisions.
+
+### Q6.1 — What instance heads may the first open constraint admit?
+
+Options:
+
+- **A — Fully applied nominal concrete heads, recommended.** Keep Q6 blocked
+  until nominal type ownership and callable member contracts converge, then
+  admit only one user constraint applied to one fully known nominal head.
+  Structural containers, blanket variables, conditional instances,
+  associated types, and negative instances remain unavailable.
+- **B — Structural and blanket heads immediately.** Permit instances over
+  lists, dictionaries, callable shapes, and unconstrained type variables.
+- **C — Open the current built-in scalar constraints first.** Let modules add
+  implementations directly to `numeric`, `comparable`, or `indexable`.
+
+**Recommendation:** A. It gives coherence an exact finite key and avoids
+turning compiler-owned primitive semantics into an ambient extension point.
+
+### Q6.2 — Which module owns an instance, and how is overlap resolved?
+
+Options:
+
+- **A — Constraint-or-head owner, no overlap, recommended.** An instance may
+  be declared only in the module that owns the constraint or the outermost
+  nominal head type. Reject foreign/foreign instances, duplicate canonical
+  pairs, overlap, priority, and import-order selection.
+- **B — Head-type owner only.** Only the nominal type's defining module may
+  implement any constraint.
+- **C — Explicitly imported orphans with priority.** Any module may publish an
+  instance; imports and priority choose a winner.
+
+**Recommendation:** A. The dependency DAG prevents two independent owners from
+naming the same pair without one seeing the other's interface, while allowing
+both constraint libraries and downstream nominal types to evolve. B is
+coherent but needlessly prevents a constraint owner from supplying canonical
+implementations. C recreates the collision and separate-compilation failures
+documented by Rust, GHC, and Swift.
+
+### Q6.3 — How is selected constraint evidence represented and published?
+
+Options:
+
+- **A — Named static instance evidence, recommended.** Give every instance a
+  canonical `(constraint-id, nominal-type-id)` identity plus implementation
+  digest. Publish it in the owning `.styioi`, resolve it before body
+  specialization, direct-call its concrete operations, and include the
+  identity/digest in dependent contracts and cache keys.
+- **B — Runtime witness tables.** Pass method dictionaries through every
+  constrained callable ABI.
+- **C — Unnamed structural discovery.** Rediscover matching methods from all
+  imported modules at each use.
+
+**Recommendation:** A. It preserves deterministic compilation, makes stale
+evidence fail closed, and does not add runtime dictionary allocation or
+lookup. B may be reconsidered only if Styio later needs dynamic existential
+dispatch. C makes imports semantically observable and cannot produce stable
+content identities.
+
+## Recommended Later Batch Answer
+
+When the owner chooses to reopen these deferred branches, the smallest coherent
+answer is:
+
+```text
+Q3.1 A — compiler/interface nested scheme first
+Q3.2 A — erase a final noncapturing callable item as a static scheme witness
+Q3.3 A — shallow pure rank-2 callback parameters only
+Q6.1 A — fully applied nominal concrete instance heads only
+Q6.2 A — constraint-or-head ownership with no orphan, overlap, or priority
+Q6.3 A — named static instance evidence in interfaces and specialization keys
+```
+
+This recommendation is queued, not approved. After an owner answer, update
+only the Q3 and Q6 feature SSOTs (or create separately approved prerequisite
+feature SSOTs), regenerate the syntax-feature graph, and implement one
+independently testable child at a time.
