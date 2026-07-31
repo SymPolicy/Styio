@@ -255,6 +255,27 @@ callable SCCs may not cross module boundaries. Non-generic exports retain
 concrete parameter/result facts; exported inferred callables are specialized
 from the published relation in the consuming compilation.
 
+### 4.4 Persistent Native Specialization Cache
+
+Persistent specialization reuse is compiler optimization state and has no
+source form. An invocation opts in with `--callable-cache-dir`. The compiler
+recomputes the existing full specialization digest from the concrete callable
+contract, portable body, transitive callable dependencies, direct module
+facts, and backend ABI, then queries one compiler/LLVM/codegen/target/channel
+namespace for the matching native object.
+
+Every hit validates the entry schema, full key, namespace, length, object
+checksum, target architecture, and defined specialization symbol before ORC
+materialization. Missing, expired, corrupt, or inaccessible entries compile
+normally. Consequently cache state and cache placement cannot alter typing,
+linkage identity, diagnostics, output, or program meaning.
+
+Retention defaults to seven days, 256 MiB, and 4,096 files and may be narrowed
+with `--callable-cache-max-age-seconds`,
+`--callable-cache-max-bytes`, and `--callable-cache-max-files`.
+`--callable-cache-stats` emits path-free explicit performance evidence; cache
+details are absent from normal output.
+
 ---
 
 ## 5. Callable / Operation-Channel Bindings

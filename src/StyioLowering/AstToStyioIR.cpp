@@ -4351,7 +4351,10 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
     effect_facts == nullptr
       ? styio::sema::CallableEffectRow::unknown()
       : effect_facts->row,
-    std::move(capture_names)
+    std::move(capture_names),
+    specialization == nullptr
+      ? std::string()
+      : specialization->content_digest
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;
@@ -4440,7 +4443,10 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
     effect_facts == nullptr
       ? styio::sema::CallableEffectRow::unknown()
       : effect_facts->row,
-    std::move(capture_names)
+    std::move(capture_names),
+    specialization == nullptr
+      ? std::string()
+      : specialization->content_digest
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;
