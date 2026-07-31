@@ -19,6 +19,7 @@
 #include "StyioPlatform/Platform.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioSema/CallableSpecializationGraph.hpp"
+#include "StyioSema/CallableUsage.hpp"
 #include "StyioSema/EffectRow.hpp"
 #include "StyioToken/Token.hpp"
 
@@ -618,6 +619,33 @@ TEST(StyioCallableEffects, CanonicalRowsSortDeduplicateAndMerge) {
   EXPECT_TRUE(unknown.contains(CallableEffectLabel::Unknown));
   EXPECT_EQ(unknown.canonical(), "{unknown}");
 
+}
+
+TEST(StyioCallableUsage, CanonicalSetsSortDeduplicateAndMerge) {
+  using styio::sema::CallableUsageKind;
+  using styio::sema::CallableUsageSet;
+
+  CallableUsageSet usages;
+  EXPECT_TRUE(usages.empty());
+  EXPECT_EQ(usages.canonical(), "{}");
+
+  EXPECT_TRUE(usages.add(CallableUsageKind::SharedBorrow));
+  EXPECT_TRUE(usages.add(CallableUsageKind::Consume));
+  EXPECT_TRUE(usages.add(CallableUsageKind::ExclusiveBorrow));
+  EXPECT_FALSE(usages.add(CallableUsageKind::Consume));
+  EXPECT_EQ(
+    usages.canonical(),
+    "{consume,exclusive_borrow,shared_borrow}");
+
+  CallableUsageSet dependency;
+  dependency.add(CallableUsageKind::Copy);
+  dependency.add(CallableUsageKind::SharedBorrow);
+  EXPECT_TRUE(usages.merge(dependency));
+  EXPECT_FALSE(usages.merge(dependency));
+  EXPECT_TRUE(usages.contains(CallableUsageKind::Copy));
+  EXPECT_EQ(
+    usages.canonical(),
+    "{consume,copy,exclusive_borrow,shared_borrow}");
 }
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {

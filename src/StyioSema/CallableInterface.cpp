@@ -26,6 +26,9 @@ using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
 using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
 using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
+using CallableUsageKind = styio::sema::CallableUsageKind;
+using CallableUsageRequirement =
+  StyioSemaContext::CallableUsageRequirement;
 
 [[noreturn]] void
 interface_error(const std::string& detail) {
@@ -262,6 +265,45 @@ term_is_undefined(const CallableTypeTerm& term) {
          && term.concrete.isUndefined();
 }
 
+std::string
+term_canonical_text(const CallableTypeTerm& term) {
+  switch (term.kind) {
+    case CallableTypeTerm::Kind::Variable:
+      return "'" + std::to_string(term.variable);
+    case CallableTypeTerm::Kind::Concrete:
+      return term.concrete.name;
+    case CallableTypeTerm::Kind::List:
+      return "list["
+             + term_canonical_text(term.arguments.at(0))
+             + "]";
+    case CallableTypeTerm::Kind::Dict:
+      return "dict["
+             + term_canonical_text(term.arguments.at(0))
+             + ","
+             + term_canonical_text(term.arguments.at(1))
+             + "]";
+  }
+  interface_error("unknown callable relation term");
+}
+
+std::string
+constraint_canonical_text(
+  const CallableTypeConstraint& constraint
+) {
+  std::ostringstream output;
+  output << constraint_kind_name(constraint.kind)
+         << "(" << term_canonical_text(constraint.subject);
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    output << "," << term_canonical_text(constraint.argument)
+           << "," << term_canonical_text(constraint.result);
+  }
+  else if (constraint.kind == CallableConstraintKind::Iterable) {
+    output << "," << term_canonical_text(constraint.result);
+  }
+  output << ")";
+  return output.str();
+}
+
 llvm::json::Object
 constraint_to_json(const CallableTypeConstraint& constraint) {
   return llvm::json::Object{
@@ -296,9 +338,6 @@ constraint_from_json(
     term_from_json(*result, context + ".result");
   constraint.canonical =
     require_string(object, "canonical", context);
-  if (constraint.canonical.empty()) {
-    interface_error(context + " has an empty canonical constraint");
-  }
   if (term_is_undefined(constraint.subject)) {
     interface_error(context + " has an undefined constraint subject");
   }
@@ -321,7 +360,35 @@ constraint_from_json(
     interface_error(
       context + " has unexpected terms for a unary constraint");
   }
+  if (constraint.canonical
+      != constraint_canonical_text(constraint)) {
+    interface_error(
+      context
+      + " canonical constraint does not match structured terms");
+  }
   return constraint;
+}
+
+void
+require_canonical_string_sequence(
+  const std::vector<std::string>& values,
+  const std::string& context
+);
+
+llvm::json::Object
+usage_requirement_to_json(
+  const CallableUsageRequirement& requirement
+) {
+  llvm::json::Array usages;
+  for (const auto usage : requirement.usages.kinds()) {
+    usages.push_back(
+      std::string(
+        styio::sema::callable_usage_kind_name(usage)));
+  }
+  return llvm::json::Object{
+    {"variable", static_cast<std::int64_t>(requirement.variable)},
+    {"usages", std::move(usages)},
+  };
 }
 
 llvm::json::Object
@@ -338,11 +405,17 @@ scheme_to_json(const CallableTypeScheme& scheme) {
   for (std::uint32_t variable : scheme.quantified_variables) {
     quantified.push_back(static_cast<std::int64_t>(variable));
   }
+  llvm::json::Array usage_requirements;
+  for (const auto& requirement : scheme.usage_requirements) {
+    usage_requirements.push_back(
+      usage_requirement_to_json(requirement));
+  }
   return llvm::json::Object{
     {"name", scheme.name},
     {"params", std::move(params)},
     {"result", term_to_json(scheme.result)},
     {"constraints", std::move(constraints)},
+    {"usage_requirements", std::move(usage_requirements)},
     {"quantified_variables", std::move(quantified)},
     {"recursive_group", scheme.recursive_group},
     {"canonical_relation", scheme.canonical_relation},
@@ -401,12 +474,159 @@ scheme_from_json(
     scheme.quantified_variables.push_back(
       static_cast<std::uint32_t>(*variable));
   }
+  if (!std::is_sorted(
+        scheme.quantified_variables.begin(),
+        scheme.quantified_variables.end())
+      || std::adjacent_find(
+           scheme.quantified_variables.begin(),
+           scheme.quantified_variables.end())
+           != scheme.quantified_variables.end()) {
+    interface_error(
+      context
+      + ".quantified_variables must be strictly sorted and deduplicated");
+  }
+
+  const auto& usage_requirements =
+    require_array(object, "usage_requirements", context);
+  std::optional<std::uint32_t> previous_usage_variable;
+  for (std::size_t i = 0; i < usage_requirements.size(); ++i) {
+    const std::string requirement_context =
+      context + ".usage_requirements[" + std::to_string(i) + "]";
+    const auto& requirement_object =
+      require_object(
+        usage_requirements[i],
+        requirement_context);
+    const std::int64_t variable =
+      require_integer(
+        requirement_object,
+        "variable",
+        requirement_context);
+    if (variable < 0
+        || static_cast<std::uint64_t>(variable)
+             > static_cast<std::uint64_t>(
+                 std::numeric_limits<std::uint32_t>::max())) {
+      interface_error(
+        requirement_context + ".variable is invalid");
+    }
+    CallableUsageRequirement requirement;
+    requirement.variable =
+      static_cast<std::uint32_t>(variable);
+    if (previous_usage_variable.has_value()
+        && requirement.variable <= *previous_usage_variable) {
+      interface_error(
+        context
+        + ".usage_requirements must be strictly sorted and deduplicated");
+    }
+    previous_usage_variable = requirement.variable;
+    if (!std::binary_search(
+          scheme.quantified_variables.begin(),
+          scheme.quantified_variables.end(),
+          requirement.variable)) {
+      interface_error(
+        requirement_context
+        + " references a non-quantified relation variable");
+    }
+
+    const auto& usages =
+      require_array(
+        requirement_object,
+        "usages",
+        requirement_context);
+    std::vector<std::string> usage_names;
+    usage_names.reserve(usages.size());
+    for (std::size_t j = 0; j < usages.size(); ++j) {
+      const auto usage = usages[j].getAsString();
+      if (!usage.has_value()) {
+        interface_error(
+          requirement_context + ".usages["
+          + std::to_string(j) + "] must be a string");
+      }
+      usage_names.emplace_back(*usage);
+    }
+    require_canonical_string_sequence(
+      usage_names,
+      requirement_context + ".usages");
+    if (usage_names.empty()) {
+      interface_error(
+        requirement_context
+        + ".usages must contain at least one usage fact");
+    }
+    for (const auto& name : usage_names) {
+      CallableUsageKind usage;
+      if (!styio::sema::callable_usage_kind_from_name(
+            name,
+            usage)) {
+        interface_error(
+          requirement_context
+          + " has unknown usage fact `" + name + "`");
+      }
+      requirement.usages.add(usage);
+    }
+    scheme.usage_requirements.push_back(
+      std::move(requirement));
+  }
   scheme.recursive_group =
     require_bool(object, "recursive_group", context);
   scheme.canonical_relation =
     require_string(object, "canonical_relation", context);
   if (scheme.name.empty() || scheme.canonical_relation.empty()) {
     interface_error(context + " has an empty name or canonical relation");
+  }
+  std::ostringstream canonical_relation;
+  if (!scheme.quantified_variables.empty()) {
+    canonical_relation << "forall ";
+    for (std::size_t i = 0;
+         i < scheme.quantified_variables.size();
+         ++i) {
+      if (i != 0) {
+        canonical_relation << ",";
+      }
+      canonical_relation << "'"
+                         << scheme.quantified_variables[i];
+    }
+    canonical_relation << ". ";
+  }
+  canonical_relation << "(";
+  for (std::size_t i = 0; i < scheme.params.size(); ++i) {
+    if (i != 0) {
+      canonical_relation << ",";
+    }
+    canonical_relation << term_canonical_text(scheme.params[i]);
+  }
+  canonical_relation << ")->"
+                     << term_canonical_text(scheme.result);
+  if (!scheme.constraints.empty()) {
+    canonical_relation << " where ";
+    for (std::size_t i = 0;
+         i < scheme.constraints.size();
+         ++i) {
+      if (i != 0) {
+        canonical_relation << ",";
+      }
+      canonical_relation << scheme.constraints[i].canonical;
+    }
+  }
+  if (!scheme.usage_requirements.empty()) {
+    canonical_relation << " using ";
+    for (std::size_t i = 0;
+         i < scheme.usage_requirements.size();
+         ++i) {
+      if (i != 0) {
+        canonical_relation << ",";
+      }
+      canonical_relation
+        << "usage('"
+        << scheme.usage_requirements[i].variable
+        << ":"
+        << scheme.usage_requirements[i].usages.canonical()
+        << ")";
+    }
+  }
+  if (scheme.canonical_relation
+      != canonical_relation.str()) {
+    interface_error(
+      context
+      + " canonical relation does not match structured facts");
   }
   return scheme;
 }
@@ -647,7 +867,7 @@ callable_interface_dependency_digest(
       return lhs->module_id < rhs->module_id;
     });
   std::ostringstream canonical;
-  canonical << "styio.callable-interface.dependencies.v2\n";
+  canonical << "styio.callable-interface.dependencies.v3\n";
   std::string previous;
   for (const auto* dependency : ordered) {
     if (dependency == nullptr) {
@@ -682,7 +902,7 @@ callable_interface_abi_digest(
     });
 
   std::ostringstream canonical;
-  canonical << "styio.callable-interface.abi.v2\n"
+  canonical << "styio.callable-interface.abi.v3\n"
             << interface.module_id << "\n"
             << interface.compiler_abi << "\n"
             << interface.dependency_digest << "\n";

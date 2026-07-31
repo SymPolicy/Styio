@@ -110,9 +110,10 @@ propagated open tail to the caller's local tail variable. Captures are the
 ordinary closed label `capture`; capture names remain diagnostic facts rather
 than row identity. Generalization continues to require exactly `{}`.
 
-Callable interface schema v2 serializes sorted `labels` and nullable
-`open_tail`, derives canonical identity for ABI and specialization hashes, and
-rejects schema v1 before installing metadata. `SGFunc` carries the same row
+Callable interface schema v3 serializes sorted `labels` and nullable
+`open_tail` alongside the separately owned usage requirements, derives
+canonical identity for ABI and specialization hashes, and rejects schema v2
+before installing metadata. `SGFunc` carries the same row
 through typed IR; manually constructed functions default to `{unknown}` so
 missing Sema facts fail closed.
 

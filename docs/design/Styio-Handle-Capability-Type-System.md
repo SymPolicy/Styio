@@ -151,9 +151,21 @@ resource shape, typestate, family, and capabilities cannot be erased by a
 collection-shaped spelling.
 
 This is an implemented safety boundary, not capability-polymorphic source
-syntax. Capability rows, send/sync constraints, consumption and lifetime
-facts, matrix element/shape variables, and generic resource methods remain
-future type-system work.
+syntax. Inferred schemes now carry a closed compiler-owned usage set over
+`consume`, `copy`, `exclusive_borrow`, and `shared_borrow`. Sema derives the
+currently observable facts from pure parameter use, propagates exact
+parameter-to-parameter call edges to a fixed point, serializes the result in
+`.styioi` schema v3, and revalidates every instance against the original
+`StyioDataType`.
+
+This metadata does not widen the admitted handle universe. Task transfer,
+resource state families, topology identity, and materialized matrix shape are
+distinct disabled fact families and fail closed with fact-specific
+diagnostics. `exclusive_borrow` has a canonical representation and validator,
+but no source emitter until an owning pure mutation form supplies executable
+evidence. Authored capability rows, send/sync syntax, lifetime variables,
+matrix shape arithmetic, and generic resource methods remain future
+type-system work.
 
 ---
 

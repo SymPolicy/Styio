@@ -5161,7 +5161,7 @@ styio_hash_hex(const std::string& text) {
 static std::string
 styio_callable_interface_compiler_abi_latest() {
   std::ostringstream abi;
-  abi << "styio.callable-interface.v2"
+  abi << "styio.callable-interface.v3"
       << "|compiler=" << STYIO_PROJECT_VERSION
       << "|channel=" << STYIO_RELEASE_CHANNEL
       << "|edition=" << STYIO_EDITION_MAX

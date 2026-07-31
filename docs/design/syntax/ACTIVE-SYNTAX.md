@@ -105,13 +105,23 @@ other capability-sensitive types remain monomorphic. The check precedes
 relation normalization, so a resource-shaped sequence cannot masquerade as an
 ordinary list and nested handle elements remain visible.
 
+Schemes carry sorted compiler-owned `consume`, `copy`, `exclusive_borrow`, and
+`shared_borrow` facts per relation variable. Reads, repeated uses, value
+escapes, and exact parameter-to-parameter direct calls derive and propagate
+the currently active facts; authors do not write them. Instance checking keeps
+the original type and reports the first incompatible copy, consume, task,
+state, topology, or shape fact. Task-transfer, resource-state-family, and
+matrix-shape admission remain disabled, so the metadata does not widen the
+plain-value domain.
+
 Callable interfaces are compiler-owned artifacts, not authored syntax. Publish
 one explicitly with `--module-id` and `--emit-module-interface`, then import its
 source path normally. The loader accepts only matching schema, compiler/target
 ABI, source, checked-body, and direct-dependency digests. Consumers see only
 exports from direct imports; private helpers remain scoped to their owning
 imported body, transitive names do not leak, and module dependency cycles fail
-closed before Sema.
+closed before Sema. Schema v3 carries canonical effect rows and sorted
+per-variable usage requirements and rejects schema v2 metadata.
 
 Concrete inferred-callable code is demand-driven. Ordinary direct calls form a
 reachable mono-item graph; repeated equal instances reuse one deterministic

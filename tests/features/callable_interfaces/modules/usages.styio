@@ -1,0 +1,9 @@
+@export { identity, duplicate, forward }
+
+# identity := (value) => value
+# duplicate := (value) => [value, value]
+# forward := (value) => duplicate(value)
+
+identity(0)
+duplicate(0)
+forward(0)

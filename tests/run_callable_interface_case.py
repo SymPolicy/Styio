@@ -87,6 +87,7 @@ def main() -> int:
             "uninstantiated-body",
             "invalid-module-id",
             "effect-row",
+            "usage-facts",
         ],
     )
     args = parser.parse_args()
@@ -173,9 +174,9 @@ def main() -> int:
             )
             interface_path = workspace / "modules/effects.styioi"
             payload = json.loads(interface_path.read_text(encoding="utf-8"))
-            if payload["schema_version"] != 2:
+            if payload["schema_version"] != 3:
                 raise AssertionError(
-                    "effect-row interface did not use schema version 2"
+                    "effect-row interface did not use schema version 3"
                 )
             entries = {entry["name"]: entry for entry in payload["entries"]}
             expected_rows = {
@@ -224,6 +225,81 @@ def main() -> int:
             if result.stderr:
                 raise AssertionError(
                     "effect-row interface produced stderr:\n"
+                    + result.stderr
+                )
+            return 0
+
+        if args.mode == "usage-facts":
+            require_success(
+                emit_interface(
+                    styio,
+                    workspace,
+                    "modules/usages.styio",
+                    "modules/usages",
+                ),
+                "usage-fact interface publication",
+            )
+            interface_path = workspace / "modules/usages.styioi"
+            payload = json.loads(interface_path.read_text(encoding="utf-8"))
+            if payload["schema_version"] != 3:
+                raise AssertionError(
+                    "usage-fact interface did not use schema version 3"
+                )
+            entries = {entry["name"]: entry for entry in payload["entries"]}
+            expected_usages = {
+                "identity": ["consume", "shared_borrow"],
+                "duplicate": ["consume", "copy", "shared_borrow"],
+                "forward": ["consume", "copy", "shared_borrow"],
+            }
+            if set(entries) != set(expected_usages):
+                raise AssertionError(
+                    "usage-fact interface entries mismatch: "
+                    f"{sorted(entries)}"
+                )
+            for name, usages in expected_usages.items():
+                scheme = entries[name]["scheme"]
+                requirements = scheme["usage_requirements"]
+                expected = [{"variable": 0, "usages": usages}]
+                if requirements != expected:
+                    raise AssertionError(
+                        f"{name} usage requirements mismatch: {requirements}"
+                    )
+                relation_fragment = (
+                    "using usage('0:{" + ",".join(usages) + "})"
+                )
+                if relation_fragment not in scheme["canonical_relation"]:
+                    raise AssertionError(
+                        f"{name} canonical relation omitted usage facts"
+                    )
+                legacy = {
+                    "usage_bits",
+                    "usage_canonical",
+                    "capability_bits",
+                } & set(scheme)
+                if legacy:
+                    raise AssertionError(
+                        f"{name} retained legacy usage fields: {sorted(legacy)}"
+                    )
+            result = run(
+                [
+                    str(styio),
+                    "--parser-engine=nightly",
+                    f"--file={workspace / 't03_usage_facts.styio'}",
+                ],
+                workspace,
+            )
+            require_success(result, "usage-fact interface consumption")
+            expected = (
+                workspace / "expected/t03_usage_facts.out"
+            ).read_text(encoding="utf-8")
+            if result.stdout != expected:
+                raise AssertionError(
+                    "usage-fact interface stdout mismatch\n"
+                    f"expected:\n{expected}\nactual:\n{result.stdout}"
+                )
+            if result.stderr:
+                raise AssertionError(
+                    "usage-fact interface produced stderr:\n"
                     + result.stderr
                 )
             return 0
@@ -309,7 +385,7 @@ def main() -> int:
         if args.mode == "stale-schema":
             interface_path = workspace / "modules/core.styioi"
             payload = json.loads(interface_path.read_text(encoding="utf-8"))
-            payload["schema_version"] = 1
+            payload["schema_version"] = 2
             interface_path.write_text(
                 json.dumps(payload, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",

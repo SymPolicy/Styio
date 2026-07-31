@@ -43,10 +43,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "requires core.capability-usage-polymorphism at accepted/converged",
-          "must follow non-converged feature core.capability-usage-polymorphism"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-affine-capturing-closures.md",
       "owner": "Sema / Resource Topology",
@@ -467,6 +464,7 @@
         "evidence": [
           "tests/features/callable_interfaces/t01_downstream_specialization.styio",
           "tests/features/callable_interfaces/t02_effect_rows.styio",
+          "tests/features/callable_interfaces/t03_usage_facts.styio",
           "tests/features/callable_interfaces/e01_private_callable.styio",
           "tests/features/callable_interfaces/e02_cross_module_cycle.styio",
           "tests/features/callable_interfaces/e03_stale_source.styio",
@@ -479,6 +477,7 @@
       "golden_cases": [
         "tests/features/callable_interfaces/t01_downstream_specialization.styio",
         "tests/features/callable_interfaces/t02_effect_rows.styio",
+        "tests/features/callable_interfaces/t03_usage_facts.styio",
         "tests/features/callable_interfaces/e03_stale_source.styio",
         "tests/features/callable_interfaces/e05_stale_dependency.styio"
       ]
@@ -844,16 +843,12 @@
       "kind": "capability-type-semantics",
       "syntax": "No authored lifetime, capability, multiplicity, or shape variable; all usage/capability facts are compiler-owned relation metadata.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
         "missing_document_roles": [],
         "missing_prerequisites": [],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-capability-usage-polymorphism.md",
@@ -905,14 +900,14 @@
         "semantic-contract": "docs/design/Styio-Language-Design.md",
         "diagnostic-boundary": "workflows/TEST-CATALOG.md",
         "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
-        "golden-evidence": "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
+        "golden-evidence": "tests/features/callable_capabilities/t02_usage_instances.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md",
         "ownership-contract": "docs/design/Styio-Handle-Capability-Type-System.md",
         "topology-contract": "docs/design/Styio-Resource-Topology.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "validate_callable_usage_instance",
         "owner": "Sema / Resource Topology"
       },
       "documents": {
@@ -937,15 +932,31 @@
           "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
         ],
         "implementation": [
+          "src/StyioSema/CallableUsage.hpp",
           "src/StyioSema/SemaContext.hpp",
           "src/StyioSema/TypeInfer.cpp",
-          "src/StyioResourceTopology/ResourceTopology.cpp"
+          "src/StyioSema/CallableInterface.cpp"
         ],
         "evidence": [
-          "tests/features/callable_capabilities/t01_scalar_collection_instances.styio"
+          "tests/styio_test.cpp",
+          "tests/features/callable_capabilities/t01_scalar_collection_instances.styio",
+          "tests/features/callable_capabilities/t02_usage_instances.styio",
+          "tests/features/callable_capabilities/e01_matrix_instance.styio",
+          "tests/features/callable_capabilities/e02_task_instance.styio",
+          "tests/features/callable_capabilities/e03_stream_instance.styio",
+          "tests/features/callable_capabilities/e04_file_instance.styio",
+          "tests/features/callable_capabilities/e05_nested_matrix_collection.styio",
+          "tests/features/callable_capabilities/e06_topology_resource_instance.styio",
+          "tests/features/callable_capabilities/e07_copy_task_instance.styio",
+          "tests/features/callable_capabilities/e08_topology_expected_collection.styio",
+          "tests/features/callable_interfaces/t03_usage_facts.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_capabilities/t02_usage_instances.styio",
+        "tests/features/callable_capabilities/e07_copy_task_instance.styio",
+        "tests/features/callable_interfaces/t03_usage_facts.styio"
+      ]
     },
     {
       "id": "core.conditional-expression",
@@ -2647,10 +2658,7 @@
           "implementation.path",
           "implementation.symbol"
         ],
-        "dependency_blockers": [
-          "requires core.capability-usage-polymorphism at accepted/converged",
-          "must follow non-converged feature core.capability-usage-polymorphism"
-        ]
+        "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-portable-generic-body-interface.md",
       "owner": "Sema / Modules / StyioIR",
@@ -2762,7 +2770,6 @@
         ],
         "dependency_blockers": [
           "requires core.affine-capturing-closures at accepted/converged",
-          "requires core.capability-usage-polymorphism at accepted/converged",
           "must follow non-converged feature core.affine-capturing-closures"
         ]
       },
