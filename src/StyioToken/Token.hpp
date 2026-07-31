@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "../StyioSession/SessionAllocation.hpp"
@@ -203,11 +204,151 @@ styio_canonical_type_view(const StyioDataType& type) noexcept {
 
 inline bool styio_is_list_type(const StyioDataType& type);
 inline bool styio_is_dict_type(const StyioDataType& type);
+inline bool styio_is_callable_type(const StyioDataType& type);
 inline std::string styio_list_elem_type_name(const StyioDataType& type);
 inline std::string styio_dict_key_type_name(const StyioDataType& type);
 inline std::string styio_dict_value_type_name(const StyioDataType& type);
+inline std::vector<std::string> styio_callable_param_type_names(
+  const StyioDataType& type);
+inline std::string styio_callable_result_type_name(
+  const StyioDataType& type);
 inline StyioValueFamily styio_value_family_for_type(const StyioDataType& type);
 inline StyioDataType styio_data_type_from_name(const std::string& type_name);
+
+inline StyioDataType
+styio_make_callable_type(
+  const std::vector<StyioDataType>& params,
+  const StyioDataType& result
+) {
+  std::string name = "#(";
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    if (i != 0) {
+      name += ",";
+    }
+    name += params[i].name;
+  }
+  name += "):";
+  name += result.name;
+  return StyioDataType{
+    StyioDataTypeOption::Func,
+    std::move(name),
+    0
+  };
+}
+
+inline bool
+styio_is_callable_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Func
+         && type.name.rfind("#(", 0) == 0;
+}
+
+inline std::optional<std::size_t>
+styio_callable_signature_close(const std::string& name) {
+  if (name.rfind("#(", 0) != 0) {
+    return std::nullopt;
+  }
+  std::size_t paren_depth = 1;
+  std::size_t bracket_depth = 0;
+  for (std::size_t i = 2; i < name.size(); ++i) {
+    switch (name[i]) {
+      case '(':
+        ++paren_depth;
+        break;
+      case ')':
+        if (paren_depth == 0) {
+          return std::nullopt;
+        }
+        --paren_depth;
+        if (paren_depth == 0) {
+          return i;
+        }
+        break;
+      case '[':
+        ++bracket_depth;
+        break;
+      case ']':
+        if (bracket_depth == 0) {
+          return std::nullopt;
+        }
+        --bracket_depth;
+        break;
+      default:
+        break;
+    }
+  }
+  return std::nullopt;
+}
+
+inline std::vector<std::string>
+styio_callable_param_type_names(const StyioDataType& type) {
+  if (!styio_is_callable_type(type)) {
+    return {};
+  }
+  const auto close = styio_callable_signature_close(type.name);
+  if (!close.has_value()
+      || *close + 2 > type.name.size()
+      || type.name[*close + 1] != ':') {
+    return {};
+  }
+  const std::string inner = type.name.substr(2, *close - 2);
+  if (inner.empty()) {
+    return {};
+  }
+
+  std::vector<std::string> params;
+  std::size_t start = 0;
+  std::size_t paren_depth = 0;
+  std::size_t bracket_depth = 0;
+  for (std::size_t i = 0; i <= inner.size(); ++i) {
+    const bool at_end = i == inner.size();
+    const char ch = at_end ? '\0' : inner[i];
+    if (!at_end) {
+      if (ch == '(') {
+        ++paren_depth;
+      }
+      else if (ch == ')') {
+        if (paren_depth == 0) {
+          return {};
+        }
+        --paren_depth;
+      }
+      else if (ch == '[') {
+        ++bracket_depth;
+      }
+      else if (ch == ']') {
+        if (bracket_depth == 0) {
+          return {};
+        }
+        --bracket_depth;
+      }
+    }
+    if (at_end || (ch == ',' && paren_depth == 0 && bracket_depth == 0)) {
+      if (i == start) {
+        return {};
+      }
+      params.push_back(inner.substr(start, i - start));
+      start = i + 1;
+    }
+  }
+  if (paren_depth != 0 || bracket_depth != 0) {
+    return {};
+  }
+  return params;
+}
+
+inline std::string
+styio_callable_result_type_name(const StyioDataType& type) {
+  if (!styio_is_callable_type(type)) {
+    return {};
+  }
+  const auto close = styio_callable_signature_close(type.name);
+  if (!close.has_value()
+      || *close + 2 >= type.name.size()
+      || type.name[*close + 1] != ':') {
+    return {};
+  }
+  return type.name.substr(*close + 2);
+}
 
 inline StyioDataType
 styio_make_list_type(const std::string& elem_name) {
@@ -1168,6 +1309,22 @@ styio_data_type_from_name(const std::string& type_name) {
   if (it != DTypeTable.end()) {
     return it->second;
   }
+  if (type_name.rfind("#(", 0) == 0) {
+    StyioDataType callable{
+      StyioDataTypeOption::Func,
+      type_name,
+      0
+    };
+    const auto close = styio_callable_signature_close(type_name);
+    const auto result = styio_callable_result_type_name(callable);
+    if (close.has_value() && !result.empty()) {
+      const std::string inner = type_name.substr(2, *close - 2);
+      const auto params = styio_callable_param_type_names(callable);
+      if (inner.empty() || !params.empty()) {
+        return callable;
+      }
+    }
+  }
   if (type_name.rfind("list[", 0) == 0) {
     return styio_make_list_type(styio_list_elem_type_name(
       StyioDataType{StyioDataTypeOption::List, type_name, 0}));
@@ -1207,6 +1364,23 @@ styio_data_type_from_name(const std::string& type_name) {
       styio_value_family_for_type(styio_data_type_from_name(elem))};
   }
   return StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
+}
+
+inline std::vector<StyioDataType>
+styio_callable_param_types(const StyioDataType& type) {
+  std::vector<StyioDataType> params;
+  for (const auto& name : styio_callable_param_type_names(type)) {
+    params.push_back(styio_data_type_from_name(name));
+  }
+  return params;
+}
+
+inline StyioDataType
+styio_callable_result_type(const StyioDataType& type) {
+  const std::string name = styio_callable_result_type_name(type);
+  return name.empty()
+    ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+    : styio_data_type_from_name(name);
 }
 
 inline StyioValueFamily

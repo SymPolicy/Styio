@@ -1,0 +1,7 @@
+# increment : i64 := (value: i64) => value + 1
+# apply : i64 := (operation: #(i64): i64, value: i64) => operation(value)
+# expose : #(i64): i64 := () => increment
+bound: #(i64): i64 := increment
+>_(apply(bound, 10))
+returned: #(i64): i64 := expose()
+>_(returned(11))

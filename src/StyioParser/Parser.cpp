@@ -1297,6 +1297,28 @@ resource_suffix_value_type_latest(const StyioDataType& raw) {
 static TypeAST*
 parse_styio_type_atom_latest(StyioContext& context) {
   context.skip();
+  if (context.try_match(StyioTokenType::TOK_HASH)) {
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_LPAREN);
+    std::vector<StyioDataType> params;
+    context.skip();
+    while (!context.check(StyioTokenType::TOK_RPAREN)) {
+      std::unique_ptr<TypeAST> param(parse_styio_type(context));
+      params.push_back(param->getDataType());
+      context.skip();
+      if (!context.try_match(StyioTokenType::TOK_COMMA)) {
+        break;
+      }
+      context.skip();
+    }
+    context.try_match_panic(StyioTokenType::TOK_RPAREN);
+    context.skip();
+    context.try_match_panic(StyioTokenType::TOK_COLON);
+    context.skip();
+    std::unique_ptr<TypeAST> result(parse_styio_type(context));
+    return TypeAST::Create(
+      styio_make_callable_type(params, result->getDataType()));
+  }
   if (context.check(StyioTokenType::BOUNDED_BUFFER_OPEN)) {
     context.move_forward(1, "parse_styio_type[|");
     context.skip();
@@ -1368,6 +1390,15 @@ TypeAST*
 parse_styio_type(StyioContext& context) {
   std::unique_ptr<TypeAST> base(parse_styio_type_atom_latest(context));
   context.skip();
+
+  if (styio_is_callable_type(base->getDataType())
+      && (context.check(StyioTokenType::TOK_PIPE)
+          || context.check(StyioTokenType::ELLIPSIS))) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok(
+        "callable types do not admit topology suffixes")
+    );
+  }
 
   const auto suffix_saved = context.save_cursor();
   if (context.try_match(StyioTokenType::TOK_PIPE)) {

@@ -854,6 +854,15 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGResId* node) {
   const string& name = node->as_str();
 
+  if (node->function_reference) {
+    llvm::Function* function = theModule->getFunction(name);
+    if (function == nullptr) {
+      throw StyioTypeError(
+        "unknown callable specialization `" + name + "`");
+    }
+    return function;
+  }
+
   if (bounded_ring_head_slot_.contains(name)) {
     llvm::AllocaInst* arr = mutable_variables[name];
     llvm::AllocaInst* headSlot = bounded_ring_head_slot_[name];
@@ -1917,7 +1926,9 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
   llvm::Value* next_value = node->value->toLLVMIR(this);
   const bool is_string_slot =
     node->var->var_type->data_type.option == StyioDataTypeOption::String
-    || variable->getAllocatedType()->isPointerTy();
+    || (variable->getAllocatedType()->isPointerTy()
+        && node->var->var_type->data_type.option
+             != StyioDataTypeOption::Func);
 
   theBuilder->CreateStore(next_value, variable);
   if (is_string_slot) {
@@ -2007,7 +2018,9 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
   named_values[varname] = value;
 
   theBuilder->CreateStore(value, variable);
-  if (variable->getAllocatedType()->isPointerTy()) {
+  if (variable->getAllocatedType()->isPointerTy()
+      && node->var->var_type->data_type.option
+           != StyioDataTypeOption::Func) {
     register_cstr_slot_for_raii(variable);
     forget_owned_cstr_temp(value);
   }
@@ -2433,6 +2446,97 @@ StyioToLLVM::toLLVMIR(SGFunc* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCall* node) {
+  if (node->is_indirect()) {
+    if (!styio_is_callable_type(node->callable_type)) {
+      throw StyioTypeError(
+        "indirect call requires a canonical callable type");
+    }
+    const std::vector<StyioDataType> param_types =
+      styio_callable_param_types(node->callable_type);
+    const StyioDataType result_type =
+      styio_callable_result_type(node->callable_type);
+    if (node->func_args.size() != param_types.size()) {
+      throw StyioTypeError(
+        "indirect callable of type `" + node->callable_type.name
+        + "` expects " + std::to_string(param_types.size())
+        + " argument(s), got "
+        + std::to_string(node->func_args.size()));
+    }
+
+    std::vector<llvm::Type*> llvm_param_types;
+    llvm_param_types.reserve(param_types.size());
+    for (const auto& type : param_types) {
+      llvm_param_types.push_back(toLLVMType(type));
+    }
+    llvm::Type* llvm_result_type =
+      toLLVMType(result_type);
+    auto* function_type = llvm::FunctionType::get(
+      llvm_result_type,
+      llvm_param_types,
+      false);
+
+    llvm::Value* callee =
+      node->indirect_callee->toLLVMIR(this);
+    if (callee == nullptr || !callee->getType()->isPointerTy()) {
+      throw StyioTypeError(
+        "indirect callable value did not lower to a function pointer");
+    }
+
+    std::vector<llvm::Value*> args;
+    args.reserve(node->func_args.size());
+    for (std::size_t i = 0; i < node->func_args.size(); ++i) {
+      llvm::Value* value =
+        node->func_args[i]->toLLVMIR(this);
+      llvm::Type* target = llvm_param_types[i];
+      if (target->isDoubleTy()
+          && value->getType()->isPointerTy()) {
+        value = cstr_to_f64_checked(value);
+      }
+      else if (target->isDoubleTy()
+               && value->getType()->isIntegerTy()) {
+        value = theBuilder->CreateSIToFP(value, target);
+      }
+      else if (target->isIntegerTy()
+               && value->getType()->isDoubleTy()) {
+        value = theBuilder->CreateFPToSI(value, target);
+      }
+      else if (target->isIntegerTy()
+               && value->getType()->isPointerTy()) {
+        value = cstr_to_i64_checked(value);
+        if (target->getIntegerBitWidth() != 64) {
+          value = theBuilder->CreateIntCast(
+            value, target, true);
+        }
+      }
+      else if (target->isIntegerTy()
+               && value->getType()->isIntegerTy()
+               && target != value->getType()) {
+        value = theBuilder->CreateIntCast(
+          value, target, true);
+      }
+      else if (target->isFloatTy()
+               && value->getType()->isDoubleTy()) {
+        value = theBuilder->CreateFPTrunc(value, target);
+      }
+      else if (target->isDoubleTy()
+               && value->getType()->isFloatTy()) {
+        value = theBuilder->CreateFPExt(value, target);
+      }
+      else if (target != value->getType()) {
+        throw StyioTypeError(
+          "indirect callable argument " + std::to_string(i)
+          + " cannot be lowered from `" + param_types[i].name
+          + "` to its declared ABI type");
+      }
+      args.push_back(value);
+    }
+
+    llvm::Value* output =
+      theBuilder->CreateCall(function_type, callee, args);
+    emit_runtime_error_guard_return();
+    return output;
+  }
+
   std::string fname = node->func_name->as_str();
   auto builtin_list_family_from_suffix = [&](const std::string& suffix) -> StyioValueFamily {
     if (suffix == "bool") {

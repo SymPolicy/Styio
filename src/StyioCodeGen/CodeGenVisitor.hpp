@@ -265,6 +265,7 @@ public:
   std::string dump_llvm_ir() const;
 
   /* CodeGen Get LLVM Type */
+  llvm::Type* toLLVMType(const StyioDataType& data_type);
   llvm::Type* toLLVMType(SGResId* node);
   llvm::Type* toLLVMType(SGType* node);
   llvm::Type* toLLVMType(SGNoOp* node);

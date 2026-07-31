@@ -19,6 +19,7 @@
 | Final binding | `name := expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Mutable binding | `name = expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Callable binding | `# identity := (value) => value`, `# name : i64 := (arg: i64) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Monomorphic callable value | `operation: #(i64): i64 := identity`, `operation(value)` | A final noncapturing callable item freezes only under one complete invariant signature; the value may then be bound, passed, returned, and called indirectly. |
 | Match sugar | `#(name = expr) ?= { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Return/export | `<| expr` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
@@ -87,12 +88,13 @@ numeric-only relation variable may default to `i64` only after relation and
 constraint solving. Empty `[]` and `dict {}` never receive a fabricated element
 or value type: supply a surrounding `list[T]` or `dict[K,V]` annotation.
 
-An inferred scheme remains attached to direct named calls only. `identity(1)`
-may instantiate a fresh relation, but a bare `identity` used as a stored,
-passed, returned, collected, or captured value is rejected in Sema. Such a
-value position must first provide one concrete monomorphic callable type; the
-current grammar and StyioIR expose no typed callable-value boundary, so they do
-not silently lower a scheme to an untyped function pointer.
+An inferred scheme may instantiate at a direct named call such as
+`identity(1)`, or a bare final noncapturing callable item may freeze under a
+complete concrete type such as
+`operation: #(i64): i64 := identity`. The resulting allocation-free value may
+be bound with `:=`, passed, returned, and called indirectly. Missing context,
+mutable callable slots, captures, signature mismatch, generalized storage,
+address equality, and callable containers remain rejected.
 
 Generalized relation variables use a closed plain-value domain: immutable
 scalars and recursively plain materialized `list`/`dict` types. Resource,

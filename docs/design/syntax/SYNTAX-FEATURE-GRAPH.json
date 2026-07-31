@@ -44,10 +44,8 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "requires core.monomorphic-callable-values at accepted/converged",
           "requires core.canonical-effect-rows at accepted/converged",
           "requires core.capability-usage-polymorphism at accepted/converged",
-          "extends non-converged feature core.monomorphic-callable-values",
           "must follow non-converged feature core.canonical-effect-rows",
           "must follow non-converged feature core.capability-usage-polymorphism"
         ]
@@ -1719,7 +1717,7 @@
       },
       "implementation": {
         "path": "src/StyioSema/TypeInfer.cpp",
-        "symbol": "validate_generalized_callable_value_positions",
+        "symbol": "StyioSemaContext::typeInfer(NameAST* ast)",
         "owner": "Sema / Type System"
       },
       "documents": {
@@ -2406,16 +2404,12 @@
       "kind": "callable-value-semantics",
       "syntax": "In type position, `#(T1, T2): R`; in value position, a bare final noncapturing callable name may coerce only under one complete concrete callable type.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
         "missing_document_roles": [],
         "missing_prerequisites": [],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-monomorphic-callable-values.md",
@@ -2469,8 +2463,8 @@
         "typed-ir-boundary": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/TypeInfer.cpp",
+        "symbol": "StyioSemaContext::typeInfer(NameAST* ast)",
         "owner": "Sema / IR"
       },
       "documents": {
@@ -2493,15 +2487,36 @@
           "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
         ],
         "implementation": [
+          "src/StyioToken/Token.hpp",
+          "src/StyioParser/Parser.cpp",
+          "src/StyioAST/AST.hpp",
           "src/StyioSema/TypeInfer.cpp",
+          "src/StyioIR/GenIR/SGIR.hpp",
           "src/StyioLowering/AstToStyioIR.cpp",
+          "src/StyioCodeGen/GetTypeG.cpp",
           "src/StyioCodeGen/CodeGenG.cpp"
         ],
         "evidence": [
-          "tests/features/README.md"
+          "tests/features/callable_values/t02_monomorphic_callable_value.styio",
+          "tests/features/callable_values/t03_contextual_generic_callable_values.styio",
+          "tests/features/callable_values/t04_pass_and_return_callable_values.styio",
+          "tests/features/callable_values/e05_callable_signature_mismatch.styio",
+          "tests/features/callable_values/e06_mutable_callable_slot.styio",
+          "tests/features/callable_values/e07_capturing_callable_item.styio",
+          "tests/features/callable_values/e08_non_callable_value.styio",
+          "tests/features/callable_values/e09_callable_container.styio"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_values/t02_monomorphic_callable_value.styio",
+        "tests/features/callable_values/t03_contextual_generic_callable_values.styio",
+        "tests/features/callable_values/t04_pass_and_return_callable_values.styio",
+        "tests/features/callable_values/e05_callable_signature_mismatch.styio",
+        "tests/features/callable_values/e06_mutable_callable_slot.styio",
+        "tests/features/callable_values/e07_capturing_callable_item.styio",
+        "tests/features/callable_values/e08_non_callable_value.styio",
+        "tests/features/callable_values/e09_callable_container.styio"
+      ]
     },
     {
       "id": "core.persistent-callable-specialization-cache",
@@ -2520,7 +2535,6 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "requires core.monomorphic-callable-values at accepted/converged",
           "requires core.portable-generic-body-interface at accepted/converged",
           "must follow non-converged feature core.portable-generic-body-interface"
         ]
@@ -2743,7 +2757,6 @@
           "implementation.symbol"
         ],
         "dependency_blockers": [
-          "requires core.monomorphic-callable-values at accepted/converged",
           "requires core.affine-capturing-closures at accepted/converged",
           "requires core.canonical-effect-rows at accepted/converged",
           "requires core.capability-usage-polymorphism at accepted/converged",

@@ -705,6 +705,8 @@ set(STYIO_INTERNAL_PARSER_SUPPORT_SOURCES
   "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableInterface.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableSpecializationGraph.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioLowering/AstToStyioIR.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"

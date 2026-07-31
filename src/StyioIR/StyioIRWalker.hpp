@@ -206,7 +206,12 @@ public:
 
   virtual void
   visitSGCall(SGCall* node) {
-    walk(node->func_name);
+    if (node->is_indirect()) {
+      walk(node->indirect_callee);
+    }
+    else {
+      walk(node->func_name);
+    }
     walkVector(node->func_args);
   }
 

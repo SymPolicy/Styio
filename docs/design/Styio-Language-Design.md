@@ -440,29 +440,36 @@ unknown := []                            // rejected: no element type
 The missing-context diagnostic identifies the empty literal that needs an
 annotation and remains distinct from an unsatisfied operator constraint.
 
-#### 5.1.7 Higher-Order Callable Value Boundary
+#### 5.1.7 Monomorphic Callable Value Boundary
 
-An inferred callable scheme is available only through a direct named call.
-Writing the callable name as an ordinary value does not carry its generalized
-relation into a binding, argument, return value, collection, or captured task
-environment:
+Writing a callable name as an ordinary value never carries its generalized
+relation into runtime storage. A final noncapturing callable item must first
+freeze under one complete concrete callable type:
 
 ```styio
 # identity := (value) => value
 answer := identity(42)       // accepted direct named call
 stored := identity           // rejected generalized callable value
+stored: #(i64): i64 := identity
+answer := stored(42)         // accepted indirect call
 ```
 
-Every callable value boundary must first establish one concrete monomorphic
-callable type. The current source grammar and StyioIR do not yet expose that
-typed callable-value boundary, so a bare reference to a generalized callable
-fails in Sema. The diagnostic identifies the value-position escape and directs
-the author back to a direct named call; it never suggests `forall`, `[T]`, or
-call-site type arguments.
+The canonical type spelling is `#(T1, T2): R`; zero-argument and nested
+callable signatures are valid. Callable types are invariant, and no numeric,
+variance, optional-parameter, or variadic signature adaptation occurs. The
+runtime value is an allocation-free function reference carrying the declared
+parameter/result ABI. It may be bound only with final `:=`, then passed,
+returned, or invoked through a name.
 
-This boundary is deliberately narrower than higher-rank polymorphism. Typed
-closure environments, monomorphic callable-value execution, rank-2 callbacks,
-polymorphic fields, and impredicative containers require separate features.
+Contextual freezing of an inferred item creates the same deterministic
+compiler-owned specialization used by direct calls. A concrete callable item
+uses its checked symbol directly. In both cases, captures are rejected before
+lowering and function pointers are distinct from strings, native addresses,
+and resource handles.
+
+This boundary is deliberately narrower than higher-rank polymorphism. Affine
+closure environments, rank-2 callbacks, polymorphic fields, callable
+containers, and address equality require separate child features.
 
 #### 5.1.8 Capability Boundary for Generalized Variables
 
