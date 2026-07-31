@@ -14,6 +14,7 @@ Generated inventory lives in [INDEX.md](./INDEX.md).
 4. Keep resource topology and safety invariants in [../Styio-Resource-Topology.md](../Styio-Resource-Topology.md).
 5. A feature document may reference these shared contracts, but it owns that feature's canonical surface, semantic boundary, dependencies, prerequisites, lifecycle state, and evidence map.
 6. Do not add retired-syntax catalogs here; terminal feature documents retain only the current resolution and successor/reopen edge, while exact former wording remains in Git history.
+7. A research-backed decision agenda or question set may compose unresolved evolution branches, but it is never a feature authority. An approved answer must create or update one owning feature SSOT before implementation begins.
 
 ## Naming Rules
 
