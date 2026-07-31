@@ -82,6 +82,7 @@ Primary paths:
 56. Literal-defaulting coverage must pair canonical numeric execution with contextual empty list/dictionary acceptance and direct missing-context failures. Keep empty-collection tests non-defaulting, and prove that a relation fixed by an integer literal rejects a floating instance instead of widening silently.
 57. Callable-value boundary coverage must retain a successful direct named multi-instance call and separate failures for stored, passed, returned, and task-captured generalized scheme names. Anchor all failures to the same Sema diagnostic about the missing concrete monomorphic callable-value boundary; a backend failure is not acceptable evidence.
 58. Capability-boundary coverage for inferred callables must execute scalar/list/dict instances and reject matrix, task, stream, file, topology-resource, and nested sensitive-handle instances. Keep at least one topology resource case so a later normalization change cannot erase resource shape before the generalization-domain check.
+59. Callable-interface coverage must publish dependencies in a temporary tree, execute downstream scalar/string/constrained specializations including a private concrete helper edge, and independently reject private access, non-canonical module IDs, module cycles, missing interfaces, stale source/schema/dependency facts, and an exported body that fails without a local instance. Negative cases must assert stable diagnostic fragments and may not leave generated `.styioi` artifacts in the repository.
 
 ## Change Classes
 

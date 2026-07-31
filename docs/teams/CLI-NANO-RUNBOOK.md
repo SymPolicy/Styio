@@ -58,6 +58,7 @@ Key handoff document:
 26. Compile-plan validation diagnostics must keep service-facing field names stable. Relative `entry.file` reports `file`, relative `outputs.artifact_dir` reports `artifact_dir`, and `outputs.diag_dir` keeps the fully qualified field because invalid diagnostics sinks cannot be written safely.
 27. Windows `styio build` native executable linking must keep LLVM 18 viable with newer MSVC STL headers by emitting the established compiler/STL compatibility define and CRT warning define through the generated Clang command. Do not solve this in CTest with a machine-specific Visual Studio path.
 28. Treat Pafio as the external compile-plan producer. Keep `generated_by.tool` / `generated_by.version` validation, machine-info capability advertisement, CLI contract tests, and the Pafio handoff document aligned; unsupported producer identities must fail closed instead of entering a compatibility path.
+29. Callable interface publication is explicit compiler orchestration: `--emit-module-interface` requires `--file` and a canonical `--module-id`, writes the requested `.styioi` only after Sema succeeds, and is outside the compile-plan v1 envelope. Imported dependency interfaces are never synthesized as a side effect. Keep the compiler ABI digest aligned across full/nano channel, edition, target triple, and pointer width, and keep nano compile-time boundaries from linking full-only compile-plan services.
 
 ## Change Classes
 

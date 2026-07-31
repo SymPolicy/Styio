@@ -21,6 +21,8 @@ set(STYIO_FRONTEND_SEMA_IR_SOURCES
   StyioResourceTopology/ResourceTopology.cpp
   StyioToString/ToString.cpp
   StyioIR/Verifier.cpp
+  StyioSema/CallableInterface.cpp
+  StyioSema/CallableModuleLoader.cpp
   StyioSema/SemanticAnalysis.cpp
   StyioSema/TypeInfer.cpp
   StyioLowering/AstToStyioIR.cpp

@@ -36,7 +36,7 @@ current-semantic-contract = "docs/design/Styio-Language-Design.md"
 [dependencies]
 requires = [
   { id = "core.context-driven-call-instantiation", decision_state = "accepted", delivery_state = "converged" },
-  { id = "core.callable-interface-scheme-publication", decision_state = "accepted", delivery_state = "not_started" },
+  { id = "core.callable-interface-scheme-publication", decision_state = "accepted", delivery_state = "converged" },
 ]
 requires_any = []
 extends = ["core.context-driven-call-instantiation"]

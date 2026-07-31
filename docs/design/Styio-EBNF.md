@@ -2,7 +2,7 @@
 
 **Purpose:** Define the composed lexical and grammar EBNF for Styio; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), resource-topology narrative lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), and shared semantic principles live in [`Styio-Language-Design.md`](./Styio-Language-Design.md).
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -222,6 +222,16 @@ Notes:
 2. `/` is the native package/module path spelling.
 3. `.` is accepted compatibility syntax and is normalized to slash form internally.
 4. One import item must not mix `/` and `.`.
+5. Import syntax carries no inline signature or generic body. Executable
+   callable imports resolve through compiler-produced sibling `.styioi`
+   metadata; schema, source, dependency, body, and ABI drift fail before
+   lowering.
+6. Only exported callables of a direct import enter the importing source's
+   namespace. Private helper facts remain available only while checking or
+   specializing their owning imported body.
+7. Cross-module dependency cycles are rejected in the current
+   separate-compilation slice. This is a semantic module-graph rule and adds no
+   recursive-import grammar production.
 
 ### 4.2 Callable / Operation-Channel Binding
 

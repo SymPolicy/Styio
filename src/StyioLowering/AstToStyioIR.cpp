@@ -3840,7 +3840,7 @@ AstToStyioIRLowerer::toStyioIR(DBUrlAST* ast) {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ExtPackAST* ast) {
   (void)ast;
-  return unsupported_ast_lowering("ExtPackAST", "external package declarations are not runtime values");
+  return SGNoOp::Create();
 }
 
 StyioIR*
@@ -4869,6 +4869,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   file_resource_bindings_.clear();
   resource_method_body_defs_.clear();
   resource_receiver_expr_bindings_.clear();
+  register_imported_callable_definitions();
   for (auto* stmt : ast->getStmts()) {
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
       record_function_def(f->getNameAsStr(), f->func_name->getSymbolId(), f);
@@ -4939,6 +4940,75 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
       }
     }
     ir_stmts.push_back(ir);
+  }
+
+  std::vector<const ImportedCallableDefinition*> imported_definitions;
+  imported_definitions.reserve(imported_callable_definitions().size());
+  for (const auto& imported : imported_callable_definitions()) {
+    imported_definitions.push_back(&imported);
+  }
+  std::sort(
+    imported_definitions.begin(),
+    imported_definitions.end(),
+    [](const auto* lhs, const auto* rhs)
+    {
+      if (lhs->module_id != rhs->module_id) {
+        return lhs->module_id < rhs->module_id;
+      }
+      std::string lhs_name;
+      std::string rhs_name;
+      if (auto* function =
+            dynamic_cast<FunctionAST*>(lhs->definition)) {
+        lhs_name = function->getNameAsStr();
+      }
+      else if (auto* function =
+                 dynamic_cast<SimpleFuncAST*>(lhs->definition)) {
+        lhs_name = function->func_name->getAsStr();
+      }
+      if (auto* function =
+            dynamic_cast<FunctionAST*>(rhs->definition)) {
+        rhs_name = function->getNameAsStr();
+      }
+      else if (auto* function =
+                 dynamic_cast<SimpleFuncAST*>(rhs->definition)) {
+        rhs_name = function->func_name->getAsStr();
+      }
+      return lhs_name < rhs_name;
+    });
+  for (const auto* imported : imported_definitions) {
+    StyioAST* definition = imported->definition;
+    std::string name;
+    if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+      name = function->getNameAsStr();
+    }
+    else if (auto* function =
+               dynamic_cast<SimpleFuncAST*>(definition)) {
+      name = function->func_name->getAsStr();
+    }
+    if (name.empty()) {
+      throw StyioTypeError(
+        "imported callable interface contains a non-callable body"
+      );
+    }
+    if (imported->has_scheme) {
+      const auto specializations = callable_specializations(name);
+      for (const auto& specialization : specializations) {
+        activate_callable_specialization(specialization);
+        try {
+          prepare_callable_specialization_body(
+            definition,
+            specialization);
+          ir_stmts.push_back(definition->toStyioIR(this));
+        }
+        catch (...) {
+          clear_active_callable_specialization();
+          throw;
+        }
+        clear_active_callable_specialization();
+      }
+      continue;
+    }
+    ir_stmts.push_back(definition->toStyioIR(this));
   }
   set_post_pulse_hist_context(-1, nullptr);
 

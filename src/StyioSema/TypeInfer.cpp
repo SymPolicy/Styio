@@ -102,6 +102,195 @@ StyioSemaContext::record_function_def(
   }
 }
 
+void
+StyioSemaContext::install_imported_callable_definition(
+  std::string module_id,
+  bool exported,
+  bool has_scheme,
+  StyioAST* definition,
+  CallableTypeScheme scheme,
+  CallableEffectSummary effects,
+  std::vector<StyioDataType> concrete_params,
+  StyioDataType concrete_result,
+  std::vector<std::string> visible_from_modules,
+  std::string checked_body_digest,
+  std::string interface_abi_digest
+) {
+  if (module_id.empty() || definition == nullptr) {
+    throw StyioTypeError(
+      "imported callable definition requires a module id and checked body"
+    );
+  }
+  std::string name;
+  if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+    name = function->getNameAsStr();
+  }
+  else if (auto* function = dynamic_cast<SimpleFuncAST*>(definition)) {
+    name = function->func_name->getAsStr();
+  }
+  if (name.empty()) {
+    throw StyioTypeError(
+      "imported callable interface entry does not match a function body"
+    );
+  }
+  if (has_scheme && scheme.name != name) {
+    throw StyioTypeError(
+      "imported callable scheme name does not match body `" + name + "`"
+    );
+  }
+  auto existing = imported_callable_definition_indices_.find(name);
+  if (existing != imported_callable_definition_indices_.end()) {
+    auto& info = imported_callable_definitions_[existing->second];
+    if (info.module_id != module_id || info.definition != definition) {
+      throw StyioTypeError(
+        "imported callable name collision for `" + name
+        + "` between modules `" + info.module_id
+        + "` and `" + module_id + "`"
+      );
+    }
+    info.exported = info.exported || exported;
+    info.visible_from_modules.insert(
+      visible_from_modules.begin(),
+      visible_from_modules.end());
+    return;
+  }
+
+  const auto params = params_of_func_def(definition);
+  if (!has_scheme) {
+    if (params.size() != concrete_params.size()
+        || concrete_result.isUndefined()) {
+      throw StyioTypeError(
+        "imported concrete callable `" + name
+        + "` has incomplete interface facts"
+      );
+    }
+    for (std::size_t i = 0; i < params.size(); ++i) {
+      params[i]->setDataType(concrete_params[i]);
+    }
+  }
+
+  ImportedCallableDefinition info;
+  info.module_id = std::move(module_id);
+  info.exported = exported;
+  info.has_scheme = has_scheme;
+  info.definition = definition;
+  info.scheme = std::move(scheme);
+  info.effects = std::move(effects);
+  info.concrete_params = std::move(concrete_params);
+  info.concrete_result = std::move(concrete_result);
+  info.visible_from_modules.insert(
+    visible_from_modules.begin(),
+    visible_from_modules.end());
+  info.checked_body_digest = std::move(checked_body_digest);
+  info.interface_abi_digest = std::move(interface_abi_digest);
+  imported_callable_definition_indices_[name] =
+    imported_callable_definitions_.size();
+  imported_callable_definitions_.push_back(std::move(info));
+}
+
+const StyioSemaContext::ImportedCallableDefinition*
+StyioSemaContext::find_imported_callable_definition(
+  std::string_view name
+) const {
+  auto it =
+    imported_callable_definition_indices_.find(std::string(name));
+  if (it == imported_callable_definition_indices_.end()) {
+    return nullptr;
+  }
+  return &imported_callable_definitions_.at(it->second);
+}
+
+bool
+StyioSemaContext::imported_callable_is_visible(
+  std::string_view name
+) const {
+  const ImportedCallableDefinition* imported =
+    find_imported_callable_definition(name);
+  if (imported == nullptr) {
+    return true;
+  }
+
+  std::string current_module;
+  if (!active_function_body_stack_.empty()) {
+    const ImportedCallableDefinition* active =
+      find_imported_callable_definition(
+        active_function_body_stack_.back());
+    if (active != nullptr) {
+      current_module = active->module_id;
+    }
+  }
+  if (current_module == imported->module_id) {
+    return true;
+  }
+  return imported->exported
+         && imported->visible_from_modules.count(current_module) != 0;
+}
+
+void
+StyioSemaContext::register_imported_callable_definitions() {
+  const auto imported_name = [](StyioAST* definition) -> std::string
+  {
+    if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+      return function->getNameAsStr();
+    }
+    if (auto* function = dynamic_cast<SimpleFuncAST*>(definition)) {
+      return function->func_name->getAsStr();
+    }
+    return {};
+  };
+  std::vector<const ImportedCallableDefinition*> ordered;
+  ordered.reserve(imported_callable_definitions_.size());
+  for (const auto& imported : imported_callable_definitions_) {
+    ordered.push_back(&imported);
+  }
+  std::sort(
+    ordered.begin(),
+    ordered.end(),
+    [](const auto* lhs, const auto* rhs)
+    {
+      if (lhs->module_id != rhs->module_id) {
+        return lhs->module_id < rhs->module_id;
+      }
+      const auto name_of = [](StyioAST* definition) -> std::string
+      {
+        if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+          return function->getNameAsStr();
+        }
+        if (auto* function = dynamic_cast<SimpleFuncAST*>(definition)) {
+          return function->func_name->getAsStr();
+        }
+        return {};
+      };
+      const std::string lhs_name = name_of(lhs->definition);
+      const std::string rhs_name = name_of(rhs->definition);
+      return lhs_name < rhs_name;
+    });
+  for (const auto* imported : ordered) {
+    const std::string name = imported_name(imported->definition);
+    styio::session::SymbolId sid =
+      styio::session::kInvalidSymbolId;
+    if (auto* function =
+          dynamic_cast<FunctionAST*>(imported->definition)) {
+      sid = function->func_name->getSymbolId();
+    }
+    else if (auto* function =
+               dynamic_cast<SimpleFuncAST*>(imported->definition)) {
+      sid = function->func_name->getSymbolId();
+    }
+    record_function_def(name, sid, imported->definition);
+    if (!imported->has_scheme
+        && !imported->concrete_result.isUndefined()) {
+      inferred_function_return_types_[name] =
+        imported->concrete_result;
+      const auto interned = intern_semantic_symbol(name);
+      if (interned != styio::session::kInvalidSymbolId) {
+        inferred_function_return_types_by_sid_[interned] =
+          imported->concrete_result;
+      }
+    }
+  }
+}
+
 namespace
 {
 
@@ -3968,6 +4157,14 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     return;
   }
 
+  for (const auto& imported : imported_callable_definitions_) {
+    const std::string name = callable_name_of_def(imported.definition);
+    if (imported.has_scheme) {
+      callable_type_schemes_[name] = imported.scheme;
+    }
+    callable_effect_summaries_[name] = imported.effects;
+  }
+
   std::unordered_map<std::string, StyioAST*> definitions;
   for (auto* statement : ast->getStmts()) {
     if ((dynamic_cast<FunctionAST*>(statement) != nullptr
@@ -3976,12 +4173,18 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
       definitions[callable_name_of_def(statement)] = statement;
     }
   }
+  std::unordered_map<std::string, StyioAST*> available_definitions =
+    definitions;
+  for (const auto& imported : imported_callable_definitions_) {
+    available_definitions[callable_name_of_def(imported.definition)] =
+      imported.definition;
+  }
 
   std::vector<std::string> definition_names;
   definition_names.reserve(definitions.size());
   for (const auto& [name, def] : definitions) {
     callable_effect_summaries_[name] =
-      callable_local_effect_summary(this, def, definitions);
+      callable_local_effect_summary(this, def, available_definitions);
     definition_names.push_back(name);
   }
   std::sort(definition_names.begin(), definition_names.end());
@@ -4066,13 +4269,11 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
       graph[name].end());
     std::sort(dependencies.begin(), dependencies.end());
     for (auto it = dependencies.rbegin(); it != dependencies.rend(); ++it) {
-      pending.push_back(*it);
+      if (definitions.count(*it) != 0) {
+        pending.push_back(*it);
+      }
     }
   }
-  if (selected.empty()) {
-    return;
-  }
-
   std::vector<std::string> nodes(selected.begin(), selected.end());
   std::sort(nodes.begin(), nodes.end());
   std::unordered_map<std::string, int> index;
@@ -4193,7 +4394,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
         unifier,
         callable_type_schemes_,
         provisional,
-        definitions,
+        available_definitions,
         component_constraints);
       auto params = params_of_func_def(def);
       for (std::size_t i = 0; i < params.size(); ++i) {
@@ -4389,6 +4590,35 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   validate_generalized_callable_value_positions(
     ast,
     callable_type_schemes_);
+
+  for (auto* statement : ast->getStmts()) {
+    StyioAST* expression = statement;
+    if (dynamic_cast<FunctionAST*>(statement) != nullptr
+        || dynamic_cast<SimpleFuncAST*>(statement) != nullptr) {
+      expression = callable_body_of_def(statement);
+    }
+    walk_callable_expression(
+      expression,
+      [&](StyioAST* node)
+      {
+        auto* call = dynamic_cast<FuncCallAST*>(node);
+        if (call == nullptr) {
+          return;
+        }
+        const auto* imported =
+          find_imported_callable_definition(call->getNameAsStr());
+        if (imported == nullptr
+            || (imported->exported
+                && imported->visible_from_modules.count("") != 0)) {
+          return;
+        }
+        throw StyioTypeError(
+          "callable `" + call->getNameAsStr()
+          + "` is not exported to this module by imported module `"
+          + imported->module_id + "`"
+        );
+      });
+  }
 }
 
 const StyioSemaContext::CallableTypeScheme*
@@ -4495,6 +4725,14 @@ StyioSemaContext::instantiate_callable_type_scheme(
 
   CallableSpecialization specialization;
   specialization.source_name = scheme->name;
+  if (const auto* imported =
+        find_imported_callable_definition(scheme->name)) {
+    specialization.owner_module = imported->module_id;
+    specialization.checked_body_digest =
+      imported->checked_body_digest;
+    specialization.interface_abi_digest =
+      imported->interface_abi_digest;
+  }
   specialization.param_types.reserve(scheme->params.size());
   for (const auto& param : scheme->params) {
     specialization.param_types.push_back(
@@ -4510,7 +4748,9 @@ StyioSemaContext::instantiate_callable_type_scheme(
       scheme->name);
   specialization.canonical_key =
     callable_concrete_key(
-      scheme->name,
+      specialization.owner_module.empty()
+        ? scheme->name
+        : specialization.owner_module + "::" + scheme->name,
       specialization.param_types,
       specialization.result_type);
   specialization.lowered_name =
@@ -6614,6 +6854,17 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     ast->func_name->getSymbolId(),
     ast->getNameAsStr()
   );
+  if (func_def != nullptr
+      && !imported_callable_is_visible(ast->getNameAsStr())) {
+    const auto* imported =
+      find_imported_callable_definition(ast->getNameAsStr());
+    throw StyioTypeError(
+      "callable `" + ast->getNameAsStr()
+      + "` is not exported to the active module by imported module `"
+      + (imported == nullptr ? std::string("unknown") : imported->module_id)
+      + "`"
+    );
+  }
   const auto* native_def =
     func_def == nullptr
       ? find_native_function_def(
@@ -7499,7 +7750,10 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   active_function_body_inference_by_sid_.clear();
   active_function_body_stack_.clear();
   active_function_body_sid_stack_.clear();
+  inferred_function_return_types_.clear();
+  inferred_function_return_types_by_sid_.clear();
   active_resource_receiver_family_.clear();
+  register_imported_callable_definitions();
   auto stmts = ast->getStmts();
   std::vector<std::string> exported_symbols;
   for (auto const& s : stmts) {
