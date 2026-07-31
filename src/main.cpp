@@ -6221,6 +6221,11 @@ main(
   AstToStyioIRLowerer analyzer = AstToStyioIRLowerer();
   analyzer.attach_type_table(session.types(), session.symbols());
   try {
+    analyzer.configure_callable_specialization_environment(
+      callable_interface_compiler_abi
+        + "|dict_impl=" + dict_impl_selection.impl_name,
+      styio::sema::callable_interface_dependency_digest(
+        callable_module_graph.entry_dependencies()));
     callable_module_graph.install_into(analyzer);
     {
       auto profile_phase = frontend_profiler.phase("type_infer");

@@ -490,6 +490,35 @@ monomorphic contract. Generalized handle variables wait for schemes that can
 carry capability, effect, send/sync, consumption, lifetime, and canonical
 matrix element/shape facts.
 
+#### 5.1.9 Reachable Callable Specialization
+
+An inferred scheme has no runtime value. A normal compilation starts from
+concrete direct calls and collects only the mono items reachable while checking
+those instances. Repeated calls at the same canonical relation reuse one item;
+an inferred callable with no reachable concrete call emits no generic body.
+Imported concrete helpers likewise remain available for checked imported
+bodies but emit only when a reachable imported body uses them.
+
+Each item has one deterministic owner within the compiler invocation and a
+full SHA-256 content identity. The identity covers the concrete canonical
+relation and constraints, normalized effects, checked body, transitive
+callable dependencies, module-interface or entry dependency facts, and
+compiler/backend ABI facts. Recursive dependency groups are fingerprinted as
+one strongly connected component, so a reachable callee-body change also
+invalidates its callers without depending on source order or call order.
+
+The compiler reuses exact same-instance recursion. It fails closed when active
+specialization expansion exceeds 64 instances or the compilation collects
+more than 4,096 mono items, and the diagnostic prints the concrete instance
+path. These are safety ceilings, not ordinary code-size guidance. A normal
+warning threshold awaits profiling data.
+
+Specialized code keeps concrete LLVM value families and introduces no box,
+witness table, runtime type dictionary, generic heap, or garbage collector.
+There is no source explicit-instantiation form. Disk/distributed caches,
+profile-guided eager instances, cross-invocation linker ownership, and stable
+callable-address identity require separate decisions.
+
 ### 5.2 Pulse Closures
 
 Used within stream pipes:

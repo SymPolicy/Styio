@@ -53,6 +53,7 @@ Related docs:
 23. Standalone continue codegen targets the innermost active loop. Do not reintroduce multi-depth continue dispatch in LLVM emission unless Sema and IR grow a new explicit continuation-domain contract first.
 24. Inferred callable schemes have no runtime representation. Lower only fully resolved, demand-driven specializations under deterministic compiler symbols, deduplicate equal concrete relations, and keep function parameter/result LLVM types synchronized with the active specialization. Do not add boxing, runtime type dictionaries, heap allocation, or GC to implement rank-1 callable instances.
 25. Comparison StyioIR must carry both operand types into LLVM emission. Use scalar integer/floating comparison for scalar families and lexical C-string comparison for string equality and ordering; never use pointer identity as string value equality.
+26. Treat callable specializations as a lazy mono-item graph. Give each reachable content digest one local definition owner, keep output ordered by the full SHA-256 digest, and include canonical relation/constraints, effects, checked body, transitive callable dependencies, module facts, target, pointer width, compiler channel/edition, dictionary implementation, and backend ABI in identity. Reuse exact recursion, but retain the 64-active-instance and 4,096-item hard ceilings with concrete instance paths. Do not add an ordinary warning threshold without telemetry or imply cross-invocation linker ownership, disk caching, or stable callable addresses.
 
 ## Change Classes
 

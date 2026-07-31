@@ -176,6 +176,21 @@ styio_feature_stdout_golden_test(callable_constraints "t*.styio" callable_constr
 styio_feature_stdout_golden_test(callable_values "t*.styio" callable_values)
 styio_feature_stdout_golden_test(callable_capabilities "t*.styio" callable_capabilities)
 styio_feature_stdout_golden_test(literal_defaulting "t*.styio" literal_defaulting)
+styio_feature_stdout_golden_test(callable_specialization "t*.styio" callable_specialization)
+
+add_test(
+  NAME callable_specialization_content_identity
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_LIST_DIR}/run_callable_specialization_case.py"
+          --styio "${STYIO_EXE}"
+          --fixtures "${STYIO_FEATURES}/callable_specialization"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  callable_specialization_content_identity
+  PROPERTIES
+    LABELS "language_feature;callable_specialization"
+)
 
 foreach(_CALLABLE_INTERFACE_MODE IN ITEMS
     run
@@ -362,6 +377,7 @@ styio_feature_stderr_failure_golden_test(callable_constraints callable_constrain
 styio_feature_stderr_failure_golden_test(callable_values callable_values)
 styio_feature_stderr_failure_golden_test(callable_capabilities callable_capabilities)
 styio_feature_stderr_failure_golden_test(literal_defaulting literal_defaulting)
+styio_feature_stderr_failure_golden_test(callable_specialization callable_specialization)
 
 # --- file resource stdout goldens + special file / exit-code cases ---
 add_test(

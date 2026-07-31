@@ -21,6 +21,7 @@ using std::unordered_map;
 #include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
+#include "CallableSpecializationGraph.hpp"
 
 struct SGPulsePlan;
 
@@ -589,6 +590,7 @@ public:
       StyioDataTypeOption::Undefined, "undefined", 0
     };
     std::string canonical_key;
+    std::string content_digest;
     std::string checked_body_digest;
     std::string interface_abi_digest;
   };
@@ -951,6 +953,11 @@ public:
 
   void register_imported_callable_definitions();
 
+  void configure_callable_specialization_environment(
+    std::string backend_abi,
+    std::string dependency_digest
+  );
+
   void enforce_effect_monomorphic_instance(
     std::string_view name,
     const std::vector<StyioDataType>& arg_types
@@ -966,6 +973,18 @@ public:
   ) const;
 
   bool callable_has_runtime_specializations(std::string_view name) const;
+
+  bool imported_concrete_callable_is_reachable(
+    std::string_view name
+  ) const;
+
+  void prepare_imported_concrete_callable_body(
+    std::string_view name
+  );
+
+  std::size_t callable_specialization_count() const {
+    return callable_specialization_graph_.node_count();
+  }
 
   void prepare_callable_specialization_body(
     StyioAST* def,
@@ -1036,7 +1055,20 @@ protected:
   std::unordered_map<std::string, std::vector<StyioDataType>>
     effect_monomorphic_instances_;
   std::unordered_map<std::string, std::vector<CallableSpecialization>> callable_specializations_;
-  std::unordered_set<std::string> active_callable_specialization_checks_;
+  std::unordered_map<std::string, CallableSpecialization>
+    callable_specialization_cache_;
+  std::unordered_map<const StyioAST*, std::string>
+    callable_checked_body_digests_;
+  std::unordered_map<std::string, std::string>
+    callable_definition_dependency_digests_;
+  std::unordered_set<std::string>
+    reachable_imported_concrete_callables_;
+  styio::sema::CallableSpecializationGraph
+    callable_specialization_graph_;
+  std::string callable_specialization_backend_abi_ =
+    "styio.specialization.backend.unspecified.v1";
+  std::string callable_specialization_dependency_digest_ =
+    "styio.specialization.dependencies.none.v1";
   std::optional<CallableSpecialization> active_callable_specialization_;
   std::string active_resource_receiver_family_;
   styio::session::TypeTable* type_table_ = nullptr;

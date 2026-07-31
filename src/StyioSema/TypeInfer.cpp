@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <cctype>
 #include <functional>
-#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -27,9 +26,11 @@
 #include "../StyioNative/NativeInterop.hpp"
 #include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioUtil/BuiltinMethods.hpp"
 #include "../StyioUtil/IOIntrinsics.hpp"
 #include "../StyioUtil/ResourceNames.hpp"
+#include "CallableInterface.hpp"
 
 static std::vector<ParamAST*>
 params_of_func_def(StyioAST* def) {
@@ -289,6 +290,23 @@ StyioSemaContext::register_imported_callable_definitions() {
       }
     }
   }
+}
+
+void
+StyioSemaContext::configure_callable_specialization_environment(
+  std::string backend_abi,
+  std::string dependency_digest
+) {
+  if (backend_abi.empty() || dependency_digest.empty()) {
+    throw StyioTypeError(
+      "callable specialization environment requires backend ABI "
+      "and dependency digests"
+    );
+  }
+  callable_specialization_backend_abi_ =
+    std::move(backend_abi);
+  callable_specialization_dependency_digest_ =
+    std::move(dependency_digest);
 }
 
 namespace
@@ -1940,21 +1958,23 @@ public:
   }
 };
 
-std::uint64_t
-callable_fnv1a64(std::string_view value) {
-  std::uint64_t hash = UINT64_C(14695981039346656037);
-  for (unsigned char ch : value) {
-    hash ^= ch;
-    hash *= UINT64_C(1099511628211);
-  }
-  return hash;
-}
-
 std::string
 callable_specialized_symbol(
   std::string_view name,
-  std::string_view canonical_key
+  std::string_view content_digest
 ) {
+  if (content_digest.size() != 64
+      || !std::all_of(
+           content_digest.begin(),
+           content_digest.end(),
+           [](unsigned char ch)
+           {
+             return std::isxdigit(ch) != 0;
+           })) {
+    throw StyioTypeError(
+      "callable specialization requires a SHA-256 content digest"
+    );
+  }
   std::string safe_name;
   safe_name.reserve(name.size());
   for (unsigned char ch : name) {
@@ -1965,9 +1985,8 @@ callable_specialized_symbol(
   }
 
   std::ostringstream output;
-  output << "__styio_generic_" << safe_name << "_"
-         << std::hex << std::setw(16) << std::setfill('0')
-         << callable_fnv1a64(canonical_key);
+  output << "__styio_mono_" << safe_name << "_"
+         << content_digest;
   return output.str();
 }
 
@@ -4075,6 +4094,235 @@ callable_concrete_key(
   return output.str();
 }
 
+std::string
+callable_specialization_content_digest(
+  std::string_view definition,
+  std::string_view relation,
+  std::string_view effects,
+  std::string_view checked_body_digest,
+  std::string_view callable_dependency_digest,
+  std::string_view module_dependency_digest,
+  std::string_view backend_abi
+) {
+  std::ostringstream content;
+  content
+    << "styio.callable-specialization.v1\n"
+    << "definition=" << definition << "\n"
+    << "relation=" << relation << "\n"
+    << "effects=" << effects << "\n"
+    << "body=" << checked_body_digest << "\n"
+    << "callable_dependencies="
+    << callable_dependency_digest << "\n"
+    << "dependencies=" << module_dependency_digest << "\n"
+    << "backend=" << backend_abi << "\n";
+  return styio::sema::callable_interface_sha256_hex(
+    content.str());
+}
+
+struct CallableDependencyFingerprints
+{
+  std::unordered_map<const StyioAST*, std::string> body_digests;
+  std::unordered_map<std::string, std::string> dependency_digests;
+};
+
+CallableDependencyFingerprints
+build_callable_dependency_fingerprints(
+  StyioSemaContext* context,
+  const std::unordered_map<std::string, StyioAST*>& definitions
+) {
+  CallableDependencyFingerprints result;
+  if (context == nullptr || definitions.empty()) {
+    return result;
+  }
+
+  std::vector<std::string> names;
+  names.reserve(definitions.size());
+  for (const auto& [name, definition] : definitions) {
+    (void)definition;
+    names.push_back(name);
+  }
+  std::sort(names.begin(), names.end());
+
+  std::unordered_map<std::string, std::string> base_fingerprints;
+  std::unordered_map<std::string, std::vector<std::string>> graph;
+  for (const auto& name : names) {
+    StyioAST* definition = definitions.at(name);
+    std::string body_digest;
+    std::string owner;
+    std::string interface_digest;
+    if (const auto* imported =
+          context->find_imported_callable_definition(name)) {
+      body_digest = imported->checked_body_digest;
+      owner = imported->module_id;
+      interface_digest = imported->interface_abi_digest;
+    }
+    if (body_digest.empty()) {
+      StyioRepr representation;
+      body_digest =
+        styio::sema::callable_interface_sha256_hex(
+          definition->toString(&representation));
+    }
+    result.body_digests[definition] = body_digest;
+
+    std::ostringstream base;
+    base << "styio.callable-definition.v1\n"
+         << "definition="
+         << (owner.empty() ? name : owner + "::" + name)
+         << "\n";
+    if (const auto* scheme =
+          context->find_callable_type_scheme(name)) {
+      base << "relation=" << scheme->canonical_relation << "\n";
+    }
+    else {
+      base << "relation=(";
+      const auto params = params_of_func_def(definition);
+      for (std::size_t i = 0; i < params.size(); ++i) {
+        if (i != 0) {
+          base << ",";
+        }
+        base << params[i]->getDType()->getDataType().name;
+      }
+      base << ")->"
+           << callable_declared_result_type(definition).name
+           << "\n";
+    }
+    const auto* effects =
+      context->find_callable_effect_summary(name);
+    base << "effects="
+         << (effects == nullptr ? "unknown" : effects->canonical)
+         << "\n"
+         << "body=" << body_digest << "\n"
+         << "interface=" << interface_digest << "\n";
+    base_fingerprints[name] =
+      styio::sema::callable_interface_sha256_hex(base.str());
+
+    std::vector<std::string> callees;
+    if (effects != nullptr) {
+      callees = effects->direct_callees;
+      std::sort(callees.begin(), callees.end());
+      callees.erase(
+        std::unique(callees.begin(), callees.end()),
+        callees.end());
+    }
+    graph[name] = std::move(callees);
+  }
+
+  std::unordered_map<std::string, int> index;
+  std::unordered_map<std::string, int> lowlink;
+  std::unordered_set<std::string> on_stack;
+  std::vector<std::string> stack;
+  std::vector<std::vector<std::string>> components;
+  int next_index = 0;
+  std::function<void(const std::string&)> strong_connect;
+  strong_connect = [&](const std::string& name)
+  {
+    index[name] = next_index;
+    lowlink[name] = next_index;
+    ++next_index;
+    stack.push_back(name);
+    on_stack.insert(name);
+
+    for (const auto& target : graph.at(name)) {
+      if (definitions.count(target) == 0) {
+        continue;
+      }
+      if (index.count(target) == 0) {
+        strong_connect(target);
+        lowlink[name] =
+          std::min(lowlink[name], lowlink[target]);
+      }
+      else if (on_stack.count(target) != 0) {
+        lowlink[name] =
+          std::min(lowlink[name], index[target]);
+      }
+    }
+    if (lowlink[name] != index[name]) {
+      return;
+    }
+
+    std::vector<std::string> component;
+    while (!stack.empty()) {
+      std::string member = std::move(stack.back());
+      stack.pop_back();
+      on_stack.erase(member);
+      component.push_back(member);
+      if (member == name) {
+        break;
+      }
+    }
+    std::sort(component.begin(), component.end());
+    components.push_back(std::move(component));
+  };
+  for (const auto& name : names) {
+    if (index.count(name) == 0) {
+      strong_connect(name);
+    }
+  }
+
+  std::unordered_map<std::string, std::size_t> component_for;
+  for (std::size_t i = 0; i < components.size(); ++i) {
+    for (const auto& name : components[i]) {
+      component_for[name] = i;
+    }
+  }
+  std::vector<std::optional<std::string>>
+    component_digests(components.size());
+  std::function<const std::string&(std::size_t)>
+    digest_component;
+  digest_component = [&](std::size_t component_index)
+    -> const std::string&
+  {
+    if (component_digests[component_index].has_value()) {
+      return *component_digests[component_index];
+    }
+
+    std::vector<std::string> dependency_facts;
+    std::ostringstream canonical;
+    canonical << "styio.callable-dependency-component.v1\n";
+    for (const auto& name : components[component_index]) {
+      canonical << "member=" << name << "|"
+                << base_fingerprints.at(name) << "\n";
+      for (const auto& target : graph.at(name)) {
+        auto target_component = component_for.find(target);
+        if (target_component == component_for.end()) {
+          canonical << "external=" << name << "->"
+                    << target << "\n";
+          continue;
+        }
+        if (target_component->second == component_index) {
+          canonical << "internal=" << name << "->"
+                    << target << "\n";
+          continue;
+        }
+        dependency_facts.push_back(
+          name + "->" + target + "|"
+          + digest_component(target_component->second));
+      }
+    }
+    std::sort(
+      dependency_facts.begin(),
+      dependency_facts.end());
+    dependency_facts.erase(
+      std::unique(
+        dependency_facts.begin(),
+        dependency_facts.end()),
+      dependency_facts.end());
+    for (const auto& dependency : dependency_facts) {
+      canonical << "dependency=" << dependency << "\n";
+    }
+    component_digests[component_index] =
+      styio::sema::callable_interface_sha256_hex(
+        canonical.str());
+    return *component_digests[component_index];
+  };
+
+  for (const auto& name : names) {
+    result.dependency_digests[name] =
+      digest_component(component_for.at(name));
+  }
+  return result;
+}
+
 void
 apply_callable_expected_type_to_tail(
   StyioAST* ast,
@@ -4150,7 +4398,11 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
   callable_effect_summaries_.clear();
   effect_monomorphic_instances_.clear();
   callable_specializations_.clear();
-  active_callable_specialization_checks_.clear();
+  callable_specialization_cache_.clear();
+  callable_checked_body_digests_.clear();
+  callable_definition_dependency_digests_.clear();
+  reachable_imported_concrete_callables_.clear();
+  callable_specialization_graph_.reset();
   active_callable_specialization_.reset();
 
   if (ast == nullptr) {
@@ -4587,6 +4839,15 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     infer_component(i);
   }
 
+  auto dependency_fingerprints =
+    build_callable_dependency_fingerprints(
+      this,
+      available_definitions);
+  callable_checked_body_digests_ =
+    std::move(dependency_fingerprints.body_digests);
+  callable_definition_dependency_digests_ =
+    std::move(dependency_fingerprints.dependency_digests);
+
   validate_generalized_callable_value_positions(
     ast,
     callable_type_schemes_);
@@ -4753,26 +5014,99 @@ StyioSemaContext::instantiate_callable_type_scheme(
         : specialization.owner_module + "::" + scheme->name,
       specialization.param_types,
       specialization.result_type);
+
+  StyioAST* definition = find_function_def(
+    call->func_name->getSymbolId(),
+    scheme->name);
+  if (definition == nullptr) {
+    throw StyioTypeError(
+      "callable specialization has no checked definition for `"
+      + scheme->name + "`"
+    );
+  }
+  if (specialization.checked_body_digest.empty()) {
+    auto [body_digest, inserted] =
+      callable_checked_body_digests_.emplace(definition, std::string());
+    if (inserted) {
+      StyioRepr representation;
+      body_digest->second =
+        styio::sema::callable_interface_sha256_hex(
+          definition->toString(&representation));
+    }
+    specialization.checked_body_digest = body_digest->second;
+  }
+
+  const std::string dependency_facts =
+    specialization.interface_abi_digest.empty()
+      ? callable_specialization_dependency_digest_
+      : specialization.interface_abi_digest;
+  const auto* effects =
+    find_callable_effect_summary(scheme->name);
+  auto definition_dependencies =
+    callable_definition_dependency_digests_.find(scheme->name);
+  if (definition_dependencies
+      == callable_definition_dependency_digests_.end()) {
+    throw StyioTypeError(
+      "callable specialization has no dependency fingerprint for `"
+      + scheme->name + "`"
+    );
+  }
+  specialization.content_digest =
+    callable_specialization_content_digest(
+      specialization.canonical_key,
+      scheme->canonical_relation,
+      effects == nullptr ? "unknown" : effects->canonical,
+      specialization.checked_body_digest,
+      definition_dependencies->second,
+      dependency_facts,
+      callable_specialization_backend_abi_);
   specialization.lowered_name =
     callable_specialized_symbol(
       scheme->name,
-      specialization.canonical_key);
+      specialization.content_digest);
 
-  auto& specializations = callable_specializations_[scheme->name];
-  for (const auto& existing : specializations) {
-    if (existing.canonical_key == specialization.canonical_key) {
-      call->setInferredType(existing.result_type);
-      call->setLoweredCalleeName(existing.lowered_name);
-      return existing;
-    }
-    if (existing.lowered_name == specialization.lowered_name) {
+  callable_specialization_graph_.register_item(
+    specialization.content_digest,
+    specialization.canonical_key);
+  auto cached =
+    callable_specialization_cache_.find(
+      specialization.content_digest);
+  if (cached != callable_specialization_cache_.end()) {
+    if (cached->second.canonical_key
+          != specialization.canonical_key
+        || cached->second.lowered_name
+             != specialization.lowered_name) {
       throw StyioTypeError(
-        "generic specialization symbol collision for callable `"
-        + scheme->name + "`"
+        "callable specialization cache identity collision for `"
+        + specialization.canonical_key + "`"
       );
     }
+    call->setInferredType(cached->second.result_type);
+    call->setLoweredCalleeName(cached->second.lowered_name);
+    return cached->second;
   }
-  specializations.push_back(specialization);
+
+  auto [inserted, ok] =
+    callable_specialization_cache_.emplace(
+      specialization.content_digest,
+      specialization);
+  if (!ok) {
+    throw StyioTypeError(
+      "internal error: callable specialization cache insertion failed"
+    );
+  }
+  auto& specializations =
+    callable_specializations_[scheme->name];
+  const auto position =
+    std::lower_bound(
+      specializations.begin(),
+      specializations.end(),
+      specialization.content_digest,
+      [](const CallableSpecialization& item, const std::string& digest)
+      {
+        return item.content_digest < digest;
+      });
+  specializations.insert(position, inserted->second);
   call->setInferredType(specialization.result_type);
   call->setLoweredCalleeName(specialization.lowered_name);
   return specialization;
@@ -4795,6 +5129,72 @@ StyioSemaContext::callable_has_runtime_specializations(
   return scheme != nullptr;
 }
 
+bool
+StyioSemaContext::imported_concrete_callable_is_reachable(
+  std::string_view name
+) const {
+  return reachable_imported_concrete_callables_.count(
+           std::string(name)) != 0;
+}
+
+void
+StyioSemaContext::prepare_imported_concrete_callable_body(
+  std::string_view name
+) {
+  const ImportedCallableDefinition* imported =
+    find_imported_callable_definition(name);
+  if (imported == nullptr || imported->has_scheme) {
+    return;
+  }
+  const std::string source_name(name);
+  auto definition_dependencies =
+    callable_definition_dependency_digests_.find(source_name);
+  if (definition_dependencies
+      == callable_definition_dependency_digests_.end()) {
+    throw StyioTypeError(
+      "imported concrete callable has no dependency fingerprint for `"
+      + source_name + "`"
+    );
+  }
+
+  CallableSpecialization concrete;
+  concrete.source_name = source_name;
+  concrete.owner_module = imported->module_id;
+  concrete.param_types = imported->concrete_params;
+  concrete.result_type = imported->concrete_result;
+  concrete.checked_body_digest = imported->checked_body_digest;
+  concrete.interface_abi_digest = imported->interface_abi_digest;
+  concrete.canonical_key =
+    callable_concrete_key(
+      imported->module_id + "::" + source_name,
+      concrete.param_types,
+      concrete.result_type);
+  const std::string relation =
+    callable_concrete_key(
+      source_name,
+      concrete.param_types,
+      concrete.result_type);
+  const CallableEffectSummary* effects =
+    find_callable_effect_summary(source_name);
+  concrete.content_digest =
+    callable_specialization_content_digest(
+      concrete.canonical_key,
+      relation,
+      effects == nullptr ? "unknown" : effects->canonical,
+      concrete.checked_body_digest,
+      definition_dependencies->second,
+      concrete.interface_abi_digest,
+      callable_specialization_backend_abi_);
+
+  callable_specialization_graph_.register_item(
+    concrete.content_digest,
+    concrete.canonical_key);
+  reachable_imported_concrete_callables_.insert(source_name);
+  prepare_callable_specialization_body(
+    imported->definition,
+    concrete);
+}
+
 void
 StyioSemaContext::prepare_callable_specialization_body(
   StyioAST* def,
@@ -4805,17 +5205,16 @@ StyioSemaContext::prepare_callable_specialization_body(
       "generic callable specialization requires a definition"
     );
   }
-  if (active_callable_specialization_checks_.count(
-        specialization.canonical_key) != 0) {
-    return;
-  }
-
   auto params = params_of_func_def(def);
   if (params.size() != specialization.param_types.size()) {
     throw StyioTypeError(
       "generic specialization arity drift for callable `"
       + specialization.source_name + "`"
     );
+  }
+  if (!callable_specialization_graph_.begin_expansion(
+        specialization.content_digest)) {
+    return;
   }
 
   const auto saved_types = local_binding_types;
@@ -4843,8 +5242,6 @@ StyioSemaContext::prepare_callable_specialization_body(
   const auto saved_inferred_returns_by_sid =
     inferred_function_return_types_by_sid_;
 
-  active_callable_specialization_checks_.insert(
-    specialization.canonical_key);
   auto restore = [&]()
   {
     local_binding_types = saved_types;
@@ -4871,8 +5268,8 @@ StyioSemaContext::prepare_callable_specialization_body(
     inferred_function_return_types_ = saved_inferred_returns;
     inferred_function_return_types_by_sid_ =
       saved_inferred_returns_by_sid;
-    active_callable_specialization_checks_.erase(
-      specialization.canonical_key);
+    callable_specialization_graph_.end_expansion(
+      specialization.content_digest);
   };
 
   try {
@@ -6968,6 +7365,15 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         + "': expected " + declared_type.name + ", got " + arg_types[i].name
       );
     }
+  }
+
+  const ImportedCallableDefinition* imported_concrete =
+    find_imported_callable_definition(ast->getNameAsStr());
+  if (imported_concrete != nullptr
+      && !imported_concrete->has_scheme) {
+    prepare_imported_concrete_callable_body(
+      ast->getNameAsStr());
+    return;
   }
 
   const std::string function_name = ast->getNameAsStr();

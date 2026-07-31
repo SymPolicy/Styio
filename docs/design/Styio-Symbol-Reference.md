@@ -145,6 +145,12 @@ plain scalars and recursively plain materialized `list`/`dict` values only.
 `@` resources, streams, files, tasks, matrices, topology resources, and other
 capability-sensitive handles stay concrete and monomorphic.
 
+No symbol selects or owns a callable specialization. Ordinary direct calls
+create reachable compiler-owned mono items, and full content digests make
+their symbols deterministic across repeated compilation and call ordering.
+Source-level explicit instantiation, generic ownership annotations, and
+callable-address identity are not active syntax.
+
 ---
 
 ## 8. Arithmetic & Logic

@@ -1,0 +1,1 @@
+callable specialization recursion ceiling of 64 instance(s) exceeded; instance path: f00(i64)->i64
