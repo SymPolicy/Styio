@@ -362,28 +362,12 @@
       "kind": "generic-codegen-policy",
       "syntax": "No source-level explicit-instantiation syntax proposed.",
       "decision_state": "accepted",
-      "delivery_state": "not_started",
-      "readiness": "incomplete",
+      "delivery_state": "converged",
+      "readiness": "ready",
       "readiness_details": {
-        "missing_document_roles": [
-          "evidence",
-          "implementation"
-        ],
-        "missing_prerequisites": [
-          "compatibility-decision",
-          "diagnostic-boundary",
-          "golden-evidence",
-          "grammar-contract",
-          "keyword-free-contract",
-          "language-owner-approval",
-          "nightly-parser-authority",
-          "semantic-contract"
-        ],
-        "missing_artifacts": [
-          "golden_cases",
-          "implementation.path",
-          "implementation.symbol"
-        ],
+        "missing_document_roles": [],
+        "missing_prerequisites": [],
+        "missing_artifacts": [],
         "dependency_blockers": []
       },
       "document": "docs/design/syntax/features/core-callable-specialization-policy.md",
@@ -421,13 +405,21 @@
         "after": []
       },
       "prerequisites": {
+        "language-owner-approval": "docs/specs/AGENT-SPEC.md",
+        "keyword-free-contract": "docs/design/syntax/features/core-keyword-free-lexical-contract.md",
+        "nightly-parser-authority": "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "grammar-contract": "docs/design/Styio-EBNF.md",
+        "semantic-contract": "docs/design/Styio-Language-Design.md",
+        "diagnostic-boundary": "workflows/TEST-CATALOG.md",
+        "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
+        "golden-evidence": "tests/features/callable_specialization/t01_reachable_instances.styio",
         "research-basis": "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md",
         "backend-contract": "docs/specs/AGENT-SPEC.md",
         "current-semantic-contract": "docs/design/Styio-Language-Design.md"
       },
       "implementation": {
-        "path": "",
-        "symbol": "",
+        "path": "src/StyioSema/CallableSpecializationGraph.cpp",
+        "symbol": "CallableSpecializationGraph::register_item",
         "owner": "Lowering / Codegen"
       },
       "documents": {
@@ -448,9 +440,28 @@
         ],
         "teaching": [
           "docs/design/syntax/CALLABLE-TYPE-DECISION-AGENDA-2026-07-30.md"
+        ],
+        "implementation": [
+          "src/StyioSema/CallableSpecializationGraph.cpp",
+          "src/StyioSema/TypeInfer.cpp",
+          "src/StyioLowering/AstToStyioIR.cpp",
+          "src/main.cpp"
+        ],
+        "evidence": [
+          "tests/features/callable_specialization/t01_reachable_instances.styio",
+          "tests/features/callable_specialization/t02_reordered_instances.styio",
+          "tests/features/callable_specialization/d01_dependency_base.styio",
+          "tests/features/callable_specialization/d02_dependency_changed.styio",
+          "tests/features/callable_specialization/d03_imported_concrete_root.styio",
+          "tests/features/callable_specialization/modules/reachable.styio",
+          "tests/features/callable_specialization/e01_instantiation_depth.styio",
+          "tests/run_callable_specialization_case.py"
         ]
       },
-      "golden_cases": []
+      "golden_cases": [
+        "tests/features/callable_specialization/t01_reachable_instances.styio",
+        "tests/features/callable_specialization/e01_instantiation_depth.styio"
+      ]
     },
     {
       "id": "core.capability-polymorphic-handles",

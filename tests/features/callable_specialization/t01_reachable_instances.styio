@@ -1,0 +1,7 @@
+# unused := (value) => value
+# identity := (value) => value
+# composed := (value) => identity(identity(value))
+
+>_(composed(7))
+>_(identity(11))
+>_(identity("stable"))

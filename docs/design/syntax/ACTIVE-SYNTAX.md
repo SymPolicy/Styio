@@ -109,6 +109,20 @@ exports from direct imports; private helpers remain scoped to their owning
 imported body, transitive names do not leak, and module dependency cycles fail
 closed before Sema.
 
+Concrete inferred-callable code is demand-driven. Ordinary direct calls form a
+reachable mono-item graph; repeated equal instances reuse one deterministic
+content-addressed definition, while unreachable generic definitions and
+unreachable imported concrete helpers emit no code. Identity includes the
+canonical relation, effects, checked body, transitive callable dependencies,
+module facts, target, and backend ABI, so call order does not affect symbols
+and a reachable callee-body change invalidates callers.
+
+There is no explicit-instantiation syntax. Exact same-instance recursion reuses
+the active item; expansion beyond 64 active instances or compilation growth
+beyond 4,096 items fails with a concrete instance path. These hard safety
+ceilings add no boxing, witness tables, runtime dictionaries, generic heap, or
+GC.
+
 ## Types
 
 | Shape | Meaning |

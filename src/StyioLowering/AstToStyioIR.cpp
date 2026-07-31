@@ -5008,6 +5008,9 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
       }
       continue;
     }
+    if (!imported_concrete_callable_is_reachable(name)) {
+      continue;
+    }
     ir_stmts.push_back(definition->toStyioIR(this));
   }
   set_post_pulse_hist_context(-1, nullptr);

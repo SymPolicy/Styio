@@ -18,6 +18,7 @@
 #include "StyioTesting/PipelineCheck.hpp"
 #include "StyioPlatform/Platform.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioSema/CallableSpecializationGraph.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
@@ -518,6 +519,73 @@ sha256_file_latest(const fs::path& path) {
 }
 
 }  // namespace
+
+TEST(StyioCallableSpecializationGraph, TracksRootsEdgesAndDeduplicatesItems) {
+  styio::sema::CallableSpecializationGraph graph(
+    {.maximum_expansion_depth = 4, .maximum_items = 8});
+
+  EXPECT_TRUE(graph.register_item("digest-a", "a(i64)->i64"));
+  EXPECT_TRUE(graph.is_root("digest-a"));
+  EXPECT_TRUE(graph.begin_expansion("digest-a"));
+  EXPECT_TRUE(graph.register_item("digest-b", "b(i64)->i64"));
+  EXPECT_TRUE(graph.has_edge("digest-a", "digest-b"));
+  EXPECT_TRUE(graph.begin_expansion("digest-b"));
+  EXPECT_FALSE(graph.register_item("digest-a", "a(i64)->i64"));
+  EXPECT_TRUE(graph.has_edge("digest-b", "digest-a"));
+  EXPECT_FALSE(graph.begin_expansion("digest-a"));
+  graph.end_expansion("digest-b");
+  graph.end_expansion("digest-a");
+
+  EXPECT_FALSE(graph.register_item("digest-a", "a(i64)->i64"));
+  EXPECT_EQ(graph.node_count(), 2U);
+  EXPECT_EQ(graph.edge_count(), 2U);
+}
+
+TEST(StyioCallableSpecializationGraph, ReportsDepthAndGrowthInstancePaths) {
+  styio::sema::CallableSpecializationGraph depth_graph(
+    {.maximum_expansion_depth = 2, .maximum_items = 8});
+  ASSERT_TRUE(depth_graph.register_item("depth-a", "a(i64)->i64"));
+  ASSERT_TRUE(depth_graph.begin_expansion("depth-a"));
+  ASSERT_TRUE(depth_graph.register_item("depth-b", "b(i64)->i64"));
+  ASSERT_TRUE(depth_graph.begin_expansion("depth-b"));
+  ASSERT_TRUE(depth_graph.register_item("depth-c", "c(i64)->i64"));
+  try {
+    (void)depth_graph.begin_expansion("depth-c");
+    FAIL() << "expected specialization depth ceiling";
+  }
+  catch (const std::exception& error) {
+    const std::string message = error.what();
+    EXPECT_NE(
+      message.find("recursion ceiling of 2 instance(s) exceeded"),
+      std::string::npos);
+    EXPECT_NE(
+      message.find(
+        "a(i64)->i64 -> b(i64)->i64 -> c(i64)->i64"),
+      std::string::npos);
+  }
+  depth_graph.end_expansion("depth-b");
+  depth_graph.end_expansion("depth-a");
+
+  styio::sema::CallableSpecializationGraph growth_graph(
+    {.maximum_expansion_depth = 8, .maximum_items = 2});
+  ASSERT_TRUE(growth_graph.register_item("growth-a", "a(i64)->i64"));
+  ASSERT_TRUE(growth_graph.begin_expansion("growth-a"));
+  ASSERT_TRUE(growth_graph.register_item("growth-b", "b(i64)->i64"));
+  try {
+    (void)growth_graph.register_item("growth-c", "c(i64)->i64");
+    FAIL() << "expected specialization growth ceiling";
+  }
+  catch (const std::exception& error) {
+    const std::string message = error.what();
+    EXPECT_NE(
+      message.find("growth ceiling of 2 instance(s) exceeded"),
+      std::string::npos);
+    EXPECT_NE(
+      message.find("a(i64)->i64 -> c(i64)->i64"),
+      std::string::npos);
+  }
+  growth_graph.end_expansion("growth-a");
+}
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {
   const fs::path case_dir =

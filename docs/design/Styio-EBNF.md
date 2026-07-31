@@ -341,6 +341,12 @@ Notes:
     stream, file, task, matrix, topology-resource, and other
     capability-sensitive handle types remain concrete monomorphic contracts;
     no new source capability or lifetime binder is introduced.
+16. Concrete callable instances are compiler-owned mono items reached from
+    ordinary direct calls. Their deterministic content identities include the
+    concrete relation, effects, checked body, transitive dependencies, target,
+    and ABI facts. There is no explicit-instantiation production or source
+    spelling; recursive or pathological instance growth fails with a concrete
+    instance-path diagnostic.
 
 ### 4.3 Type Rewrite Declaration
 
