@@ -3155,7 +3155,9 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBlock* node) {
-  styio::ir::require_verified_styio_ir(node);
+  styio::ir::StyioIRVerifierOptions verifier_options;
+  verifier_options.defer_unresolved_loop_control = !loop_stack_.empty();
+  styio::ir::require_verified_styio_ir(node, verifier_options);
   push_file_handle_scope();
   llvm::Value* last = nullptr;
   StyioIR* last_ir = nullptr;
@@ -5411,6 +5413,15 @@ StyioToLLVM::toLLVMIR(SCDictToString* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
+  if (!node->barrier_facts.is_canonical()) {
+    throw StyioTypeError(
+      "SIOStreamZip.barrier_facts must be canonical before codegen");
+  }
+
+  const bool materialized_list_zip =
+    !node->a_is_file && !node->b_is_file
+    && !node->a_is_stdin && !node->b_is_stdin;
+
   llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
   llvm::IntegerType* i64t = theBuilder->getInt64Ty();
   llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
@@ -5515,6 +5526,11 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     }
     emit_bounded_ring_pending_commits();
   };
+  auto abandon_uncommitted_pulse_frame = [&]() {
+    pulse_ledger_base_ = nullptr;
+    pulse_snap_base_ = nullptr;
+    pulse_active_plan_ = nullptr;
+  };
 
   auto finish_zip = [&]() {
     if (pulse_sz > 0 && node->pulse_region_id >= 0) {
@@ -5608,8 +5624,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       "materialized list handles, @file streams, @stdin streams, and finite stream/list pairs)");
   };
 
-  if (!node->a_is_file && !node->b_is_file && !node->a_is_stdin && !node->b_is_stdin
-      && !static_literal_zip) {
+  if (materialized_list_zip && !static_literal_zip) {
     if (!ir_yields_list_handle(node->iterable_a) || !ir_yields_list_handle(node->iterable_b)) {
       unsupported_zip();
     }
@@ -5692,16 +5707,19 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     run_pulse_prologue();
     node->body->toLLVMIR(this);
-    run_pulse_epilogue();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
 
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
+      run_pulse_epilogue();
       release_zip_elem(family_a, slot_a);
       release_zip_elem(family_b, slot_b);
       theBuilder->CreateBr(step_bb);
+    }
+    else {
+      abandon_uncommitted_pulse_frame();
     }
 
     theBuilder->SetInsertPoint(step_bb);
@@ -5862,7 +5880,6 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
   if (static_literal_zip) {
     size_t na = lit_a->elems.size();
     size_t nb = lit_b->elems.size();
-    size_t nmin = na < nb ? na : nb;
 
     llvm::ArrayType* at_a = nullptr;
     llvm::GlobalVariable* gv_a = nullptr;
@@ -5955,10 +5972,14 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     theBuilder->SetInsertPoint(hdr_bb);
     llvm::Value* iv = theBuilder->CreateLoad(i64t, idx_slot);
-    llvm::Value* lim =
-      llvm::ConstantInt::get(i64t, static_cast<uint64_t>(nmin), /*signed=*/true);
-    llvm::Value* ok = theBuilder->CreateICmpSLT(iv, lim);
-    theBuilder->CreateCondBr(ok, body_bb, exit_bb);
+    llvm::Value* lim_a =
+      llvm::ConstantInt::get(i64t, static_cast<uint64_t>(na), /*signed=*/true);
+    llvm::Value* lim_b =
+      llvm::ConstantInt::get(i64t, static_cast<uint64_t>(nb), /*signed=*/true);
+    llvm::Value* ready_a = theBuilder->CreateICmpSLT(iv, lim_a);
+    llvm::Value* ready_b = theBuilder->CreateICmpSLT(iv, lim_b);
+    theBuilder->CreateCondBr(
+      theBuilder->CreateAnd(ready_a, ready_b), body_bb, exit_bb);
 
     loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
@@ -5982,14 +6003,17 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     run_pulse_prologue();
     node->body->toLLVMIR(this);
-    run_pulse_epilogue();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
 
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
+      run_pulse_epilogue();
       theBuilder->CreateBr(step_bb);
+    }
+    else {
+      abandon_uncommitted_pulse_frame();
     }
 
     theBuilder->SetInsertPoint(step_bb);

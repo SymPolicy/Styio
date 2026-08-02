@@ -28,6 +28,7 @@ class ExposedTypeInferLowerer : public AstToStyioIRLowerer {
  public:
   using StyioSemaContext::binding_info_;
   using StyioSemaContext::binding_info_by_sid_;
+  using StyioSemaContext::callable_constraint_solver_stats_;
   using StyioSemaContext::consumed_resource_names_;
   using StyioSemaContext::consumed_resource_names_by_sid_;
   using StyioSemaContext::consumed_task_names_;
@@ -40,11 +41,620 @@ class ExposedTypeInferLowerer : public AstToStyioIRLowerer {
   using StyioSemaContext::owned_resource_names_by_sid_;
   using StyioSemaContext::resource_binding_types_;
   using StyioSemaContext::resource_binding_types_by_sid_;
+  using StyioSemaContext::resource_typestate_dataflow_stats_;
+  using StyioSemaContext::resource_typestate_temporary_fact_slots_;
   using StyioSemaContext::snapshot_var_names_;
   using StyioSemaContext::snapshot_var_names_by_sid_;
   using StyioSemaContext::task_outer_resource_names_stack_;
   using StyioSemaContext::task_outer_resource_names_by_sid_stack_;
 };
+
+void install_file_handle(
+  ExposedTypeInferLowerer& analyzer,
+  const std::string& name,
+  styio::session::SymbolId sid
+) {
+  const StyioDataType file_handle = styio_make_file_handle_type("string");
+  StyioSemaContext::BindingInfo info;
+  info.resource_value = true;
+  info.declared_type = file_handle;
+  analyzer.record_binding_info(name, sid, info);
+  analyzer.record_local_binding_type(name, sid, file_handle);
+}
+
+ResourceRedirectAST* close_handle(
+  const std::string& name,
+  styio::session::SymbolId sid
+) {
+  return ResourceRedirectAST::Create(
+    NameAST::Create(name, sid), EmptyResourceAST::Create());
+}
+
+CondFlowAST* conditional_flow(StyioAST* then_branch, StyioAST* else_branch = nullptr) {
+  auto* condition = CondAST::Create(LogicType::RAW, BoolAST::Create(true));
+  if (else_branch == nullptr) {
+    return new CondFlowAST(
+      StyioNodeType::CondFlow_True, condition, then_branch);
+  }
+  return new CondFlowAST(
+    StyioNodeType::CondFlow_Both, condition, then_branch, else_branch);
+}
+
+TEST(StyioResourceTypestate, conditional_close_unconditional_use_rejected) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+
+  std::unique_ptr<CondFlowAST> flow(conditional_flow(
+    BlockAST::Create({close_handle("f", sid)}),
+    BlockAST::Create({PassAST::Create()})));
+  ASSERT_NO_THROW(flow->typeInfer(&analyzer));
+  std::unique_ptr<NameAST> use(NameAST::Create("f", sid));
+  try {
+    use->typeInfer(&analyzer);
+    FAIL() << "expected a maybe-closed handle use to fail";
+  }
+  catch (const StyioTypeError& error) {
+    EXPECT_EQ(
+      std::string(error.what()),
+      "\nStyio.TypeError:\n"
+      "use-after-destroy: resource `f` was already destroyed");
+  }
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().branch_snapshot_count, 2u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().join_count, 1u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().fact_insertion_count, 1u);
+  EXPECT_EQ(
+    analyzer.resource_typestate_dataflow_stats().peak_temporary_fact_slots,
+    1u);
+  EXPECT_EQ(analyzer.resource_typestate_temporary_fact_slots_, 0u);
+}
+
+TEST(StyioResourceTypestate, both_branches_close_rejected_after_join) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+
+  std::unique_ptr<CondFlowAST> flow(conditional_flow(
+    BlockAST::Create({close_handle("f", sid)}),
+    BlockAST::Create({close_handle("f", sid)})));
+  ASSERT_NO_THROW(flow->typeInfer(&analyzer));
+  std::unique_ptr<NameAST> use(NameAST::Create("f", sid));
+  EXPECT_THROW(use->typeInfer(&analyzer), StyioTypeError);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().fact_insertion_count, 2u);
+  EXPECT_EQ(analyzer.resource_typestate_temporary_fact_slots_, 0u);
+}
+
+TEST(StyioResourceTypestate, else_only_close_participates_in_union) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+
+  std::unique_ptr<CondFlowAST> flow(conditional_flow(
+    BlockAST::Create({PassAST::Create()}),
+    BlockAST::Create({close_handle("f", sid)})));
+  ASSERT_NO_THROW(flow->typeInfer(&analyzer));
+  EXPECT_TRUE(analyzer.is_consumed_resource_name(sid, "f"));
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().branch_snapshot_count, 2u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().join_count, 1u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().fact_insertion_count, 2u);
+  EXPECT_EQ(analyzer.resource_typestate_temporary_fact_slots_, 0u);
+}
+
+TEST(StyioResourceTypestate, both_branches_open_allow_use) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+
+  std::unique_ptr<CondFlowAST> flow(conditional_flow(
+    BlockAST::Create({PassAST::Create()}),
+    BlockAST::Create({PassAST::Create()})));
+  ASSERT_NO_THROW(flow->typeInfer(&analyzer));
+  std::unique_ptr<NameAST> use(NameAST::Create("f", sid));
+  EXPECT_NO_THROW(use->typeInfer(&analyzer));
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().fact_insertion_count, 0u);
+  EXPECT_EQ(
+    analyzer.resource_typestate_dataflow_stats().peak_temporary_fact_slots,
+    0u);
+  EXPECT_EQ(analyzer.resource_typestate_temporary_fact_slots_, 0u);
+}
+
+TEST(StyioResourceTypestate, missing_else_is_incoming_identity) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+
+  std::unique_ptr<CondFlowAST> flow(conditional_flow(
+    BlockAST::Create({close_handle("f", sid)})));
+  ASSERT_NO_THROW(flow->typeInfer(&analyzer));
+  EXPECT_TRUE(analyzer.is_consumed_resource_name(sid, "f"));
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().branch_snapshot_count, 1u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().join_count, 1u);
+}
+
+TEST(StyioResourceTypestate, nested_else_starts_from_incoming_snapshot) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+
+  std::unique_ptr<CondFlowAST> flow(conditional_flow(
+    conditional_flow(
+      BlockAST::Create({close_handle("f", sid)}),
+      BlockAST::Create({PassAST::Create()})),
+    BlockAST::Create({close_handle("f", sid)})));
+  ASSERT_NO_THROW(flow->typeInfer(&analyzer));
+  EXPECT_TRUE(analyzer.is_consumed_resource_name(sid, "f"));
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().branch_snapshot_count, 4u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().join_count, 2u);
+}
+
+TEST(StyioResourceTypestate, symbol_id_is_authoritative_for_shadowed_names) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto outer_sid = symbols.intern("outer_f");
+  const auto shadow_sid = symbols.intern("shadow_f");
+
+  analyzer.record_consumed_resource_name("f", outer_sid);
+  EXPECT_TRUE(analyzer.is_consumed_resource_name(outer_sid, "f"));
+  EXPECT_FALSE(analyzer.is_consumed_resource_name(shadow_sid, "f"));
+  EXPECT_FALSE(analyzer.consumed_resource_names_.contains("f"));
+
+  ExposedTypeInferLowerer fallback_analyzer;
+  fallback_analyzer.record_consumed_resource_name(
+    "uninterned_f", styio::session::kInvalidSymbolId);
+  EXPECT_TRUE(fallback_analyzer.is_consumed_resource_name(
+    styio::session::kInvalidSymbolId, "uninterned_f"));
+}
+
+TEST(StyioResourceTypestate, rebind_erase_reopens_joined_handle) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable types;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(types, symbols);
+  const auto sid = symbols.intern("f");
+  install_file_handle(analyzer, "f", sid);
+  analyzer.record_consumed_resource_name("f", sid);
+
+  analyzer.erase_consumed_resource_name("f", sid);
+  std::unique_ptr<NameAST> use(NameAST::Create("f", sid));
+  EXPECT_NO_THROW(use->typeInfer(&analyzer));
+}
+
+TEST(StyioResourceTypestate, main_block_starts_a_fresh_counter_epoch) {
+  ExposedTypeInferLowerer analyzer;
+  std::unique_ptr<MainBlockAST> first(MainBlockAST::Create({
+    conditional_flow(
+      BlockAST::Create({PassAST::Create()}),
+      BlockAST::Create({PassAST::Create()})),
+  }));
+  ASSERT_NO_THROW(first->typeInfer(&analyzer));
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().branch_snapshot_count, 2u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().join_count, 1u);
+
+  std::unique_ptr<MainBlockAST> second(MainBlockAST::Create({PassAST::Create()}));
+  ASSERT_NO_THROW(second->typeInfer(&analyzer));
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().branch_snapshot_count, 0u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().join_count, 0u);
+  EXPECT_EQ(analyzer.resource_typestate_dataflow_stats().fact_insertion_count, 0u);
+  EXPECT_EQ(
+    analyzer.resource_typestate_dataflow_stats().peak_temporary_fact_slots,
+    0u);
+  EXPECT_EQ(analyzer.resource_typestate_temporary_fact_slots_, 0u);
+}
+
+TEST(StyioSemaCallableConstraint, WorklistBoundsReverseChainAndQuiescence) {
+  constexpr std::size_t constraint_count = 256;
+  CallableTypeUnifier chain_unifier;
+  std::vector<CallableTypeTerm> variables;
+  variables.reserve(constraint_count + 1);
+  for (std::size_t index = 0; index <= constraint_count; ++index) {
+    variables.push_back(chain_unifier.fresh());
+  }
+  CallableTypeTerm seed = callable_concrete_term(kI64Type);
+  for (std::size_t index = 0; index < constraint_count; ++index) {
+    seed = callable_list_term(std::move(seed));
+  }
+  chain_unifier.unify(variables.front(), seed, "reverse-chain seed");
+
+  std::vector<CallableTypeConstraint> chain;
+  chain.reserve(constraint_count);
+  for (std::size_t origin = 0; origin < constraint_count; ++origin) {
+    const std::size_t dependency = constraint_count - origin - 1;
+    CallableTypeConstraint constraint;
+    constraint.kind = CallableConstraintKind::Iterable;
+    constraint.subject = variables[dependency];
+    constraint.result = variables[dependency + 1];
+    chain.push_back(std::move(constraint));
+  }
+  const auto chain_stats =
+    reduce_callable_constraints(chain_unifier, chain);
+  EXPECT_TRUE(chain.empty());
+  EXPECT_EQ(chain_stats.attempt_count, 2 * constraint_count - 1);
+  EXPECT_EQ(chain_stats.requeue_count, constraint_count - 1);
+  EXPECT_EQ(
+    chain_stats.attempt_count,
+    chain_stats.input_constraint_count + chain_stats.requeue_count);
+  EXPECT_LE(chain_stats.peak_frontier_count, constraint_count);
+  EXPECT_LE(chain_stats.peak_blocked_count, constraint_count);
+  EXPECT_LE(chain_stats.peak_live_waiter_count, constraint_count);
+  EXPECT_LE(
+    chain_stats.peak_scheduler_storage_slots,
+    3 * constraint_count + 2 * (constraint_count + 1));
+
+  CallableTypeUnifier blocked_unifier;
+  std::vector<CallableTypeConstraint> blocked;
+  blocked.reserve(constraint_count);
+  for (std::size_t origin = 0; origin < constraint_count; ++origin) {
+    CallableTypeConstraint constraint;
+    constraint.kind = CallableConstraintKind::Numeric;
+    constraint.subject = blocked_unifier.fresh();
+    blocked.push_back(std::move(constraint));
+  }
+  const auto blocked_stats =
+    reduce_callable_constraints(blocked_unifier, blocked);
+  ASSERT_EQ(blocked.size(), constraint_count);
+  EXPECT_EQ(blocked_stats.input_constraint_count, constraint_count);
+  EXPECT_EQ(blocked_stats.attempt_count, constraint_count);
+  EXPECT_EQ(blocked_stats.requeue_count, 0u);
+  EXPECT_EQ(
+    blocked_stats.attempt_count,
+    blocked_stats.input_constraint_count + blocked_stats.requeue_count);
+  EXPECT_LE(blocked_stats.peak_frontier_count, constraint_count);
+  EXPECT_EQ(blocked_stats.peak_blocked_count, constraint_count);
+  EXPECT_EQ(blocked_stats.peak_live_waiter_count, constraint_count);
+  EXPECT_LE(
+    blocked_stats.peak_scheduler_storage_slots,
+    5 * constraint_count);
+  for (std::size_t origin = 0; origin < constraint_count; ++origin) {
+    ASSERT_EQ(blocked[origin].subject.kind, CallableTypeTerm::Kind::Variable);
+    EXPECT_EQ(blocked[origin].subject.variable, origin);
+  }
+}
+
+TEST(StyioSemaCallableConstraint, WorklistPreservesOriginDiagnosticPriority) {
+  CallableTypeUnifier unifier;
+  const CallableTypeTerm x = unifier.fresh();
+  const CallableTypeTerm y = unifier.fresh();
+  std::vector<CallableTypeConstraint> constraints(4);
+  constraints[0].kind = CallableConstraintKind::Numeric;
+  constraints[0].subject = x;
+  constraints[1].kind = CallableConstraintKind::Numeric;
+  constraints[1].subject = y;
+  constraints[2].kind = CallableConstraintKind::Iterable;
+  constraints[2].subject = callable_list_term(
+    callable_concrete_term(styio_data_type_from_name("string")));
+  constraints[2].result = y;
+  constraints[3].kind = CallableConstraintKind::Iterable;
+  constraints[3].subject = callable_list_term(
+    callable_concrete_term(styio_data_type_from_name("bool")));
+  constraints[3].result = x;
+
+  try {
+    (void)reduce_callable_constraints(unifier, constraints);
+    FAIL() << "expected the lower-origin numeric constraint to fail";
+  }
+  catch (const StyioTypeError& error) {
+    EXPECT_EQ(
+      std::string(error.what()),
+      "\nStyio.TypeError:\n"
+      "callable constraint `numeric(bool)` is not satisfied by type `bool`");
+  }
+}
+
+TEST(StyioSemaCallableConstraint, WorklistQueuesStrictFanoutOnlyOnce) {
+  CallableTypeScheme scheme;
+  scheme.name = "strict_fanout";
+  scheme.quantified_variables = {0};
+  CallableTypeConstraint numeric;
+  numeric.kind = CallableConstraintKind::Numeric;
+  numeric.subject = callable_variable_term(0);
+  scheme.constraints.push_back(numeric);
+  CallableTypeConstraint comparable = numeric;
+  comparable.kind = CallableConstraintKind::Comparable;
+  scheme.constraints.push_back(comparable);
+  scheme.constraints.push_back(numeric);
+  CallableTypeConstraint binder;
+  binder.kind = CallableConstraintKind::Iterable;
+  binder.subject = callable_list_term(callable_concrete_term(kI64Type));
+  binder.result = callable_variable_term(0);
+  scheme.constraints.push_back(binder);
+  scheme.constraints.push_back(binder);
+
+  std::unordered_map<std::uint32_t, StyioDataType> bindings;
+  const auto stats = solve_callable_constraint_instance(scheme, bindings);
+  EXPECT_EQ(stats.input_constraint_count, 5u);
+  EXPECT_EQ(stats.attempt_count, 8u);
+  EXPECT_EQ(stats.requeue_count, 3u);
+  EXPECT_EQ(stats.strict_binding_event_count, 1u);
+  EXPECT_EQ(stats.attempt_count,
+            stats.input_constraint_count + stats.requeue_count);
+}
+
+TEST(StyioSemaCallableConstraint, WorklistDeduplicatesSameStepRefinement) {
+  std::unordered_map<std::uint32_t, StyioDataType> bindings;
+  const CallableTypeTerm variable = callable_variable_term(0);
+  const StyioDataType plain = styio_make_list_type("i64");
+  StyioDataType richer = plain;
+  richer.state = StyioTypeState::Ready;
+  const auto result = run_callable_constraint_worklist(
+    2,
+    1,
+    [&](std::size_t id, CallableBindingDelta& binding_delta)
+    {
+      if (id == 0) {
+        return bindings.count(0) != 0;
+      }
+      const std::size_t delta_storage = binding_delta.storage_slots();
+      EXPECT_TRUE(match_callable_term_to_concrete(
+        variable, plain, bindings, "plain fact", &binding_delta));
+      EXPECT_TRUE(match_callable_term_to_concrete(
+        variable, richer, bindings, "richer fact", &binding_delta));
+      EXPECT_EQ(binding_delta.storage_slots(), delta_storage);
+      return true;
+    },
+    [](std::size_t)
+    {
+      return std::optional<std::uint32_t>(0);
+    },
+    [](CallableBindingDelta&)
+    {
+      return std::size_t{0};
+    });
+  ASSERT_EQ(bindings.count(0), 1u);
+  EXPECT_TRUE(bindings.at(0).equals(richer));
+  EXPECT_TRUE(result.residual_origins.empty());
+  EXPECT_EQ(result.stats.input_constraint_count, 2u);
+  EXPECT_EQ(result.stats.attempt_count, 3u);
+  EXPECT_EQ(result.stats.requeue_count, 1u);
+  EXPECT_EQ(result.stats.strict_binding_event_count, 1u);
+  EXPECT_LE(result.stats.peak_scheduler_storage_slots, 8u);
+}
+
+TEST(StyioSemaCallableConstraint, WorklistDefaultsOnceAndRetainsRichBindings) {
+  CallableTypeScheme numeric;
+  numeric.name = "numeric_default";
+  numeric.quantified_variables = {0};
+  CallableTypeConstraint numeric_constraint;
+  numeric_constraint.kind = CallableConstraintKind::Numeric;
+  numeric_constraint.subject = callable_variable_term(0);
+  numeric.constraints.push_back(numeric_constraint);
+  std::unordered_map<std::uint32_t, StyioDataType> numeric_bindings;
+  const auto numeric_stats =
+    solve_callable_constraint_instance(numeric, numeric_bindings);
+  ASSERT_EQ(numeric_bindings.count(0), 1u);
+  EXPECT_TRUE(numeric_bindings.at(0).equals(kI64Type));
+  EXPECT_EQ(numeric_stats.defaulted_variable_count, 1u);
+  EXPECT_EQ(numeric_stats.attempt_count, 2u);
+  EXPECT_EQ(numeric_stats.requeue_count, 1u);
+
+  CallableTypeScheme mixed = numeric;
+  mixed.name = "mixed_default";
+  CallableTypeConstraint comparable = numeric_constraint;
+  comparable.kind = CallableConstraintKind::Comparable;
+  mixed.constraints.push_back(comparable);
+  std::unordered_map<std::uint32_t, StyioDataType> mixed_bindings;
+  try {
+    (void)solve_callable_constraint_instance(mixed, mixed_bindings);
+    FAIL() << "expected mixed constraints to remain underconstrained";
+  }
+  catch (const StyioTypeError& error) {
+    EXPECT_EQ(
+      std::string(error.what()),
+      "\nStyio.TypeError:\n"
+      "call to `mixed_default` is underconstrained at `numeric('0)`; "
+      "add a concrete surrounding annotation");
+  }
+
+  CallableTypeScheme cloneable;
+  cloneable.name = "rich_cloneable";
+  cloneable.quantified_variables = {0};
+  CallableTypeConstraint clone_constraint;
+  clone_constraint.kind = CallableConstraintKind::Cloneable;
+  clone_constraint.subject = callable_variable_term(0);
+  cloneable.constraints.push_back(clone_constraint);
+  StyioDataType rich = styio_make_list_type("i64");
+  rich.capabilities |= styio_caps(StyioTypeCapability::Cloneable);
+  std::unordered_map<std::uint32_t, StyioDataType> rich_bindings{{0, rich}};
+  EXPECT_NO_THROW(
+    (void)solve_callable_constraint_instance(cloneable, rich_bindings));
+  EXPECT_TRUE(rich_bindings.at(0).equals(rich));
+
+  const CallableTypeTerm variable = callable_variable_term(0);
+  const StyioDataType plain = styio_make_list_type("i64");
+  StyioDataType richer = plain;
+  richer.state = StyioTypeState::Ready;
+  std::unordered_map<std::uint32_t, StyioDataType> representation_bindings;
+  EXPECT_TRUE(match_callable_term_to_concrete(
+    variable, plain, representation_bindings, "plain fact"));
+  EXPECT_TRUE(match_callable_term_to_concrete(
+    variable, richer, representation_bindings, "richer fact"));
+  EXPECT_TRUE(representation_bindings.at(0).equals(richer));
+  StyioDataType incompatible = richer;
+  incompatible.state = StyioTypeState::Done;
+  EXPECT_THROW(
+    (void)match_callable_term_to_concrete(
+      variable,
+      incompatible,
+      representation_bindings,
+      "incompatible rich fact"),
+    StyioTypeError);
+}
+
+TEST(StyioSemaCallableConstraint, WorklistDoesNotTouchBindingFacts) {
+  styio::session::SymbolInterner symbols;
+  styio::session::TypeTable type_table;
+  ExposedTypeInferLowerer analyzer;
+  analyzer.attach_type_table(type_table, symbols);
+  const std::vector<StyioDataType> representative_types{
+    styio_make_list_type("i64"),
+    styio_make_dict_type("string", "i64"),
+    styio_make_matrix_type("f64", 2, 3),
+    styio_make_task_type("i64"),
+    styio_make_file_handle_type("string"),
+    styio_make_std_stream_type(StdStreamKind::Stdout),
+  };
+  for (std::size_t index = 0;
+       index < representative_types.size();
+       ++index) {
+    StyioSemaContext::BindingInfo info;
+    info.final_slot = index % 2 == 0;
+    info.dynamic_slot = index % 3 == 0;
+    info.resource_value = index >= 3;
+    info.value_kind = index == 0
+                        ? StyioSemaContext::BindingValueKind::ListHandle
+                        : (index == 1
+                             ? StyioSemaContext::BindingValueKind::DictHandle
+                             : (index == 2
+                                  ? StyioSemaContext::BindingValueKind::MatrixHandle
+                                  : (index == 3
+                                       ? StyioSemaContext::BindingValueKind::TaskHandle
+                                       : StyioSemaContext::BindingValueKind::Unknown)));
+    info.declared_type = representative_types[index];
+    const std::string name = "binding_fact_" + std::to_string(index);
+    analyzer.binding_info_[name] = info;
+    analyzer.binding_info_by_sid_[symbols.intern(name)] = info;
+  }
+  const auto name_facts = analyzer.binding_info_;
+  const auto sid_facts = analyzer.binding_info_by_sid_;
+  analyzer.callable_constraint_solver_stats_.attempt_count = 99;
+
+  std::unique_ptr<MainBlockAST> empty(MainBlockAST::Create({}));
+  ASSERT_NO_THROW(analyzer.prepare_callable_type_schemes(empty.get()));
+  EXPECT_EQ(analyzer.callable_constraint_solver_stats().attempt_count, 0u);
+  CallableTypeScheme discharge;
+  discharge.name = "binding_fact_discharge";
+  discharge.quantified_variables = {0};
+  CallableTypeConstraint cloneable;
+  cloneable.kind = CallableConstraintKind::Cloneable;
+  cloneable.subject = callable_variable_term(0);
+  discharge.constraints.push_back(cloneable);
+  std::unordered_map<std::uint32_t, StyioDataType> discharge_bindings{
+    {0, styio_make_list_type("i64")},
+  };
+  ASSERT_NO_THROW(
+    (void)solve_callable_constraint_instance(discharge, discharge_bindings));
+  auto expect_same = [](const auto& actual, const auto& expected)
+  {
+    EXPECT_EQ(actual.final_slot, expected.final_slot);
+    EXPECT_EQ(actual.dynamic_slot, expected.dynamic_slot);
+    EXPECT_EQ(actual.resource_value, expected.resource_value);
+    EXPECT_EQ(actual.value_kind, expected.value_kind);
+    EXPECT_TRUE(actual.declared_type.equals(expected.declared_type));
+  };
+  ASSERT_EQ(analyzer.binding_info_.size(), name_facts.size());
+  for (const auto& [name, expected] : name_facts) {
+    ASSERT_TRUE(analyzer.binding_info_.contains(name));
+    expect_same(analyzer.binding_info_.at(name), expected);
+  }
+  ASSERT_EQ(analyzer.binding_info_by_sid_.size(), sid_facts.size());
+  for (const auto& [sid, expected] : sid_facts) {
+    ASSERT_TRUE(analyzer.binding_info_by_sid_.contains(sid));
+    expect_same(analyzer.binding_info_by_sid_.at(sid), expected);
+  }
+}
+
+TEST(StyioSemaCallableConstraint, WorklistRetainsSccRelationsAndAstIsolation) {
+  ExposedTypeInferLowerer analyzer;
+  std::unique_ptr<MainBlockAST> first(MainBlockAST::Create({
+    SimpleFuncAST::Create(
+      NameAST::Create("identity"),
+      true,
+      {ParamAST::Create(NameAST::Create("value"))},
+      NameAST::Create("value")),
+    SimpleFuncAST::Create(
+      NameAST::Create("echo"),
+      true,
+      {ParamAST::Create(NameAST::Create("value"))},
+      FuncCallAST::Create(
+        NameAST::Create("echo"),
+        {NameAST::Create("value")})),
+    SimpleFuncAST::Create(
+      NameAST::Create("bounce_left"),
+      true,
+      {ParamAST::Create(NameAST::Create("value"))},
+      FuncCallAST::Create(
+        NameAST::Create("bounce_right"),
+        {NameAST::Create("value")})),
+    SimpleFuncAST::Create(
+      NameAST::Create("bounce_right"),
+      true,
+      {ParamAST::Create(NameAST::Create("value"))},
+      FuncCallAST::Create(
+        NameAST::Create("bounce_left"),
+        {NameAST::Create("value")})),
+  }));
+  ASSERT_NO_THROW(analyzer.prepare_callable_type_schemes(first.get()));
+
+  const auto* identity = analyzer.find_callable_type_scheme("identity");
+  const auto* echo = analyzer.find_callable_type_scheme("echo");
+  const auto* bounce_left =
+    analyzer.find_callable_type_scheme("bounce_left");
+  const auto* bounce_right =
+    analyzer.find_callable_type_scheme("bounce_right");
+  ASSERT_NE(identity, nullptr);
+  ASSERT_NE(echo, nullptr);
+  ASSERT_NE(bounce_left, nullptr);
+  ASSERT_NE(bounce_right, nullptr);
+  EXPECT_FALSE(identity->recursive_group);
+  EXPECT_TRUE(echo->recursive_group);
+  EXPECT_TRUE(bounce_left->recursive_group);
+  EXPECT_TRUE(bounce_right->recursive_group);
+  EXPECT_EQ(identity->quantified_variables,
+            std::vector<std::uint32_t>({0}));
+  EXPECT_EQ(echo->quantified_variables,
+            std::vector<std::uint32_t>({0, 1}));
+  EXPECT_EQ(bounce_left->quantified_variables,
+            echo->quantified_variables);
+  EXPECT_EQ(bounce_right->quantified_variables,
+            echo->quantified_variables);
+  EXPECT_EQ(
+    identity->canonical_relation,
+    "forall '0. ('0)->'0 using usage('0:{consume,shared_borrow})");
+  EXPECT_EQ(
+    echo->canonical_relation,
+    "forall '0,'1. ('0)->'1 using usage('0:{shared_borrow})");
+  EXPECT_EQ(bounce_left->canonical_relation, echo->canonical_relation);
+  EXPECT_EQ(bounce_right->canonical_relation, echo->canonical_relation);
+  EXPECT_EQ(analyzer.callable_constraint_solver_stats().run_count, 3u);
+  EXPECT_EQ(
+    analyzer.callable_constraint_solver_stats().input_constraint_count,
+    0u);
+
+  std::unique_ptr<MainBlockAST> second(MainBlockAST::Create({
+    SimpleFuncAST::Create(
+      NameAST::Create("second_identity"),
+      true,
+      {ParamAST::Create(NameAST::Create("next"))},
+      NameAST::Create("next")),
+  }));
+  ASSERT_NO_THROW(analyzer.prepare_callable_type_schemes(second.get()));
+  EXPECT_EQ(analyzer.find_callable_type_scheme("identity"), nullptr);
+  ASSERT_NE(analyzer.find_callable_type_scheme("second_identity"), nullptr);
+  EXPECT_EQ(analyzer.callable_constraint_solver_stats().run_count, 1u);
+  EXPECT_EQ(
+    analyzer.callable_constraint_solver_stats().input_constraint_count,
+    0u);
+  EXPECT_EQ(analyzer.callable_constraint_solver_stats().attempt_count, 0u);
+}
 
 TEST(StyioTypeInferInternal, MatrixLiteralAndReturnHelpersCoverAnonymousBranches) {
   AstToStyioIRLowerer analyzer;

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-01
 
 ## Mission
 
@@ -27,6 +27,7 @@ Key implementation seams inside `src/StyioConfig/`:
 Key handoff document:
 
 1. [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md)
+2. [../external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md](../external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md)
 
 ## Daily Workflow
 
@@ -63,6 +64,7 @@ Key handoff document:
 31. Keep the explicit nano package source roots aligned with every translation unit in `STYIO_FRONTEND_SOURCES`, including callable interface loading and specialization graph owners. Header-closure discovery cannot compensate for an omitted `.cpp`; both local-subset creation paths must build and link the materialized `styio_nano` bundle.
 32. Keep full and nano callable-interface compiler ABI identities synchronized with the active `.styioi` schema. Canonical effect rows, usage requirements, contract/body digests, and portable StyioIR schema-v1 payloads in interface schema v4 must use the `styio.callable-interface.v4` namespace in both binaries, reject schema v3 metadata before installing module facts, and bump dependent specialization/dependency fingerprint namespaces rather than retaining a dual-reader compatibility path. Keep `StyioIR/PortableCallableBody.cpp` in both explicit source manifests.
 33. Callable specialization disk reuse is an explicit full/nano operational option. `--callable-cache-dir` is the sole enablement switch; age, byte, and file limits without it are CLI errors. Keep default limits at seven days, 256 MiB, and 4,096 artifacts unless the feature SSOT changes, and keep limit values positive and bounded. `--callable-cache-stats` must emit exactly one path-free schema-v1 JSON object only when requested. Add every cache translation unit to the shared backend source list so full and nano use the same object schema, while their channel facts retain separate namespaces.
+34. Keep the ecosystem machine-contract matrix under `docs/external/for-pafio/` as a formal contract projection, not an implementation plan. When a public command, owner, consumer, producer identity, or hosted boundary changes, update the matrix, Pafio handoff, ecosystem document gate, and consumer mirrors in one closure.
 
 ## Change Classes
 

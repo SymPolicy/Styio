@@ -839,53 +839,6 @@ enum class StyioOpType
   Comment_MultiLine,   // /* Like This */
 };
 
-/* Token Precedence Map */
-static std::unordered_map<StyioOpType, int> const TokenPrecedenceMap = {
-  {StyioOpType::Unary_Positive, 999},  // + a
-  {StyioOpType::Unary_Negative, 999},  // - a
-  {StyioOpType::Bitwise_NOT, 999},     // ~ a
-  {StyioOpType::Logic_NOT, 999},       // ! a
-
-  {StyioOpType::Binary_Pow, 704},  // a ** b
-
-  {StyioOpType::Binary_Mul, 703},  // a * b
-  {StyioOpType::Binary_Div, 703},  // a / b
-  {StyioOpType::Binary_Mod, 703},  // a % b
-
-  {StyioOpType::Binary_Add, 702},  // a + b
-  {StyioOpType::Binary_Sub, 702},  // a - b
-
-  {StyioOpType::Bitwise_Left_Shift, 701},   // shl(x, y)
-  {StyioOpType::Bitwise_Right_Shift, 701},  // shr(x, y)
-
-  {StyioOpType::Greater_Than, 502},        // a > b
-  {StyioOpType::Less_Than, 502},           // a < b
-  {StyioOpType::Greater_Than_Equal, 502},  // a >= b
-  {StyioOpType::Less_Than_Equal, 502},     // a <= b
-
-  {StyioOpType::Equal, 501},      // a == b
-  {StyioOpType::Not_Equal, 501},  // a != b
-
-  {StyioOpType::Bitwise_AND, 303},  // a & b
-  {StyioOpType::Bitwise_XOR, 302},  // a ^ b
-  {StyioOpType::Bitwise_OR, 301},   // a | b
-
-  {StyioOpType::Logic_AND, 203},  // a && b
-  {StyioOpType::Logic_XOR, 202},  // a ⊕ b
-  {StyioOpType::Logic_OR, 201},   // a || b
-
-  {StyioOpType::If_Else_Flow, 101},  // ?() => a : b
-
-  {StyioOpType::Self_Add_Assign, 1},  // a += b
-  {StyioOpType::Self_Sub_Assign, 1},  // a -= b
-  {StyioOpType::Self_Mul_Assign, 1},  // a *= b
-  {StyioOpType::Self_Div_Assign, 1},  // a /= b
-  {StyioOpType::Self_Mod_Assign, 1},  // a %= b
-
-  {StyioOpType::Undefined, 0},    // Undefined
-  {StyioOpType::End_Of_File, 0},  // Undefined
-};
-
 static std::unordered_map<StyioOpType, std::string> const TokenStrMap = {
   {StyioOpType::Undefined, "undefined"},  // undefined
   {StyioOpType::End_Of_File, "EOF"},      // EOF
@@ -1732,6 +1685,53 @@ enum class StyioTokenType
 
   UNKNOWN,
 };
+
+enum class StyioExprAssociativity : std::uint8_t { Left, Right };
+
+enum class StyioExprOperatorKind : std::uint8_t {
+  Apply,
+  Fallback,
+  Logic,
+  Comparison,
+  Arithmetic,
+};
+
+struct StyioExprOperatorInfo {
+  StyioTokenType token;
+  int precedence;
+  StyioExprAssociativity associativity;
+  StyioExprOperatorKind kind;
+  StyioOpType ast_op;
+};
+
+inline constexpr StyioExprOperatorInfo kStyioExprOperators[] = {
+  {StyioTokenType::YIELD_PIPE, 10, StyioExprAssociativity::Left, StyioExprOperatorKind::Apply, StyioOpType::Undefined},
+  {StyioTokenType::TOK_PIPE, 20, StyioExprAssociativity::Left, StyioExprOperatorKind::Fallback, StyioOpType::Undefined},
+  {StyioTokenType::LOGIC_OR, 30, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_OR},
+  {StyioTokenType::LOGIC_AND, 40, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_AND},
+  {StyioTokenType::BINOP_EQ, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Equal},
+  {StyioTokenType::BINOP_NE, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Not_Equal},
+  {StyioTokenType::BINOP_GT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+  {StyioTokenType::TOK_RANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+  {StyioTokenType::BINOP_GE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than_Equal},
+  {StyioTokenType::BINOP_LT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+  {StyioTokenType::TOK_LANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+  {StyioTokenType::BINOP_LE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than_Equal},
+  {StyioTokenType::TOK_PLUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Add},
+  {StyioTokenType::TOK_MINUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Sub},
+  {StyioTokenType::TOK_STAR, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mul},
+  {StyioTokenType::TOK_SLASH, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Div},
+  {StyioTokenType::TOK_PERCENT, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mod},
+  {StyioTokenType::BINOP_POW, 90, StyioExprAssociativity::Right, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Pow},
+};
+
+inline constexpr const StyioExprOperatorInfo*
+styio_expr_operator_info(StyioTokenType token) {
+  for (const auto& info : kStyioExprOperators) {
+    if (info.token == token) return &info;
+  }
+  return nullptr;
+}
 
 class StyioToken
 {

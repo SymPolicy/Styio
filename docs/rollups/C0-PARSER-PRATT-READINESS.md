@@ -1,129 +1,74 @@
-# C0 — Parser Pratt Readiness Inventory
+# C0 — Parser Core Unification Record
 
-**Purpose:** Record the current parser expression structure and identify migration boundaries for Checkpoint C (Pratt/precedence-climbing parser unification). This is a readiness-only snapshot; no parser rewriting is in scope until C0 is approved.
+**Purpose:** Record the frozen accepted-expression parser-core contract for Checkpoint C (`OPT-C`): one canonical `parse_expr` core, one constexpr operator-metadata precedence authority, the O(n)/depth/diagnostic/no-fallback invariants, and the required complete-migration boundary. The authoritative design and executable acceptance live in the OPT-C design artifacts, not in this rollup.
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-08-02
 
-**Status:** Pre-implementation inventory for Checkpoint C.
+**Status:** Frozen OPT-C parser-owner contract. This rollup supersedes the pre-implementation readiness snapshot; delivery status remains in the structured roadmap.
 
 ## 1. Expression Entry Functions
 
-All locations in `src/StyioParser/Parser.cpp` and `src/StyioParser/NewParserExpr.cpp`.
+`parse_expr(StyioContext&)` is the canonical full-expression entry. Nightly subset and delimiter-bounded entries are routing wrappers around the same core, never separate precedence implementations. `StyioContext` remains the only token cursor, diagnostic owner, recovery-mode owner, and optional statistics sink.
 
-| Function | File:Line | Role |
-|----------|-----------|------|
-| `parse_expr` | Parser.cpp:3812 | Top-level expression entry |
-| `parse_expr_postfix` | Parser.cpp:3581 | Postfix tails (match, >>, ->, ., call, loop) |
-| `parse_arithmetic_tail_from_atom` | Parser.cpp:2909 | Post-atom arithmetic + indexing + call tail |
-| `parse_fallback_expr` | Parser.cpp:3228 | `a \| b` fallback/alternative |
-| `parse_or_expr` | Parser.cpp:3210 | `a \|\| b` logical or |
-| `parse_and_expr` | Parser.cpp:3192 | `a && b` logical and |
-| `parse_relational_expr` | Parser.cpp:3141 | `== != > < >= <=` |
-| `parse_arithmetic_expr` | Parser.cpp:2996 | Unary +/-, atoms |
-| `parse_binop_item` | Parser.cpp:3657 | Atomic binop operand |
-| `parse_binop_rhs` | Parser.cpp:4652 | Precedence climbing for + - * / % ** |
-| `parse_call` | Parser.cpp:4178 | Function/method call |
-| `parse_index_op` | Parser.cpp:4306 | Index a[i], slice a[i:j] |
-| `reassociate_add_into_resource_sink_latest_draft` | Parser.cpp:701 | Special + reassoc for resource sinks |
-| `try_parse_expr_subset_until_latest` | Parser.cpp:30 | Delimiter-bounded subset parsing |
+## 2. Precedence Authority
 
-## 2. Precedence Sources
+One immutable `constexpr` table in `src/StyioToken/Token.hpp` is the only accepted-expression infix precedence, associativity, operator-kind, and AST-operation authority: `StyioExprOperatorInfo`, `StyioExprAssociativity`, `StyioExprOperatorKind`, and the zero-allocation lookup `styio_expr_operator_info(StyioTokenType)`. The lookup returns `nullptr` for a token outside the accepted infix grammar. `StyioOpType` remains an AST operation identity; its numeric declaration order has no parsing meaning. Enum ordinals and hash lookups never decide precedence. The complete-migration contract removes the former `TokenPrecedenceMap` and ordinal-based `parse_binop_rhs` comparison (see §8).
 
-Two concurrent systems exist:
+| Token(s) | Precedence | Association | Kind / AST construction |
+|---|---:|---|---|
+| `YIELD_PIPE` (`<|` in apply position) | 10 | left | apply; `FuncCallAST` |
+| `TOK_PIPE` (`|`) | 20 | left | fallback; `FallbackAST` unless `|` is an allowed follow token |
+| `LOGIC_OR` | 30 | left | logic; `CondAST(OR)` |
+| `LOGIC_AND` | 40 | left | logic; `CondAST(AND)` |
+| `BINOP_EQ`, `BINOP_NE` | 50 | left | comparison; `BinCompAST(EQ/NE)` |
+| `BINOP_GT`, `TOK_RANGBRAC`, `BINOP_GE`, `BINOP_LT`, `TOK_LANGBRAC`, `BINOP_LE` | 60 | left | comparison; `BinCompAST(GT/GE/LT/LE)` |
+| `TOK_PLUS`, `TOK_MINUS` | 70 | left | arithmetic; `BinOpAST(Add/Sub)` |
+| `TOK_STAR`, `TOK_SLASH`, `TOK_PERCENT` | 80 | left | arithmetic; `BinOpAST(Mul/Div/Mod)` |
+| `BINOP_POW` | 90 | right | arithmetic; `BinOpAST(Pow)` |
 
-### A. `TokenPrecedenceMap` (Token.hpp:666)
-Numeric precedence table mapping `StyioOpType` → `int`:
-- 999: unary +/-, ~, !
-- 704: ** (power)
-- 703: * / %
-- 702: + -
-- 701: shl, shr
-- 502: > < >= <=
-- 501: == !=
-- 303: &
-- 302: ^
-- 301: |
-- 203: &&
-- 202: o+ (xor)
-- 201: ||
+## 3. Algorithm and Associativity
 
-### B. Enum ordinal comparison (parse_binop_rhs, line 4660)
-`parse_binop_rhs` uses `next_token > curr_token` based on `StyioOpType` enum ORDINAL values, NOT the numeric `TokenPrecedenceMap`. Comment at line 4646: "hi, you need to pass the precedence as a parameter."
-
-**Risk:** Operator precedence in the climbing parser is defined by enum declaration order, not the explicit precedence table. The two can diverge silently.
-
-## 3. Associativity
-
-- `parse_binop_rhs` (line 4660): `if (next_token > curr_token)` → right-associative recursion. Otherwise left-associative via reassociation.
-- `**` (power) is the primary right-associative operator.
-- Current behavior for `2 ** 3 ** 2` should be verified via golden test.
+The core is an LLVM-style iterative left fold with rust-analyzer explicit binding-power semantics: for an operator with precedence `p`, the RHS minimum is `p + 1` when left-associative and `p` when right-associative. The loop stops without consuming when the token is not an operator, is an allowed follow token for this entry, or has precedence below the current minimum. `**` (power) is the only right-associative infix operator in the accepted grammar; `2 ** 3 ** 2` nests right.
 
 ## 4. Unary / Postfix / Call / Index / Resource Suffix
 
-| Category | Entry Point | File:Line |
-|----------|-------------|-----------|
-| Unary +/- | `parse_arithmetic_expr` via `parse_binop_item` | Parser.cpp:2996 |
-| Unary ! (logic not) | `parse_binop_item` | Parser.cpp:3657 |
-| Postfix () call | `parse_arithmetic_tail_from_atom` / `parse_call` | Parser.cpp:2909 / 4178 |
-| Postfix [] index | `parse_index_op` | Parser.cpp:4306 |
-| Postfix .attr | `parse_arithmetic_tail_from_atom` | Parser.cpp:2909 |
-| Postfix match | `parse_expr_postfix` | Parser.cpp:3581 |
-| Resource suffix >> @resource | `parse_arithmetic_tail_from_atom` | Parser.cpp:2909 |
-| Resource suffix -> @resource | `reassociate_add_into_resource_sink_latest_draft` | Parser.cpp:701 |
-| Yield pipe <\| | embedded in expression parsing | multiple |
+Prefix and postfix ownership stays outside the infix loop. Unary `+` produces no AST node; signed integer/decimal negatives remain literal atoms; and the frozen non-literal unary-minus shape remains `0 - <remaining expression>` within the delimiter boundary. Call/index/slice tails apply left-to-right, and no postfix crosses a line break. Resource-effect suffixes (`-> @resource`, `>> @resource`) own the complete preceding additive AST; the complete-migration contract retains no reassociation helper.
 
-## 5. Parser Fallback / Legacy Bridge Entries
+## 5. Parser Fallback / Legacy Bridge Boundary
 
-| Entry | File:Line | Status |
-|-------|-----------|--------|
-| `parse_stmt_or_expr_legacy` | Parser.cpp | Legacy-only; nightly rejects via `reject_authoritative_nightly_gap_latest` |
-| `parse_main_block_legacy` | Parser.cpp | Legacy-only |
-| `parse_block_only` | Parser.cpp | Shared |
-| `parse_cond` / `parse_cond_rhs` | Parser.cpp:4842/4744 | Legacy conditional parser |
-| `parse_name_and_following_unsafe` | Parser.cpp:734 | Name + arithmetic postfix |
+Once an accepted expression FIRST token is recognized, the nightly parser owns the route. A malformed or unsupported continuation is fatal; it is never rewound into a legacy expression, block, statement, match, list, dict, iterator, or hash parser. Input that is not in expression FIRST stays `Declined` with the byte/token cursor unchanged. Explicitly legacy-only statement/conditional engine code remains intact outside this accepted expression boundary.
 
 ## 6. Token API Dependency Status
 
-All `->original` accesses in parser code access NAME, INTEGER, DECIMAL, or STRING tokens — all of which have valid `original` text. No parser code reads `original` from operator tokens. Therefore the B2 span-first tokenizer is fully backward compatible.
+All `->original` accesses in parser code access NAME, INTEGER, DECIMAL, or STRING tokens — all of which have valid `original` text. No parser code reads `original` from operator tokens, so the B2 span-first tokenizer remains fully backward compatible.
 
-**Remaining `->original` sites:** ~30 in Parser.cpp and NewParserExpr.cpp. All safe.
+## 7. Frozen Acceptance Matrix
 
-## 7. Precedence Golden Tests
+The executable matrix is owned by `tests/parser_internal_test.cpp` (`StyioParserInternal`) and `benchmark/internal/core_bench.cpp` (`expr_flat_add_4096`, `expr_mixed_4096`, `expr_right_power_64`); the authoritative seam table is [Validation.md](../plan/roadmap/optimization/parser-core-unification/Validation.md). The golden expectations that lock the required behavior:
 
-The following golden inputs lock current parser behavior. Run as feature tests or pipeline cases before any Pratt refactoring:
+| Input | Expected precedence |
+|-------|---------------------|
+| `1 + 2 * 3` | `1 + (2 * 3)` = 7 |
+| `(1 + 2) * 3` | `3 * 3` = 9 |
+| `2 ** 3 ** 2` | Right-assoc: `2 ** (3 ** 2)` = 512 |
+| `-2 ** 3` | Signed atom binds tighter than power: `(-2) ** 3` = -8 |
+| `a && b \|\| c` | `(a && b) \|\| c` |
+| `a == b && c != d` | `(a == b) && (c != d)` |
+| `f(x)(y)[0]` | `((f(x))(y))[0]` |
+| `xs[0..2]` | Slice |
+| `1 + 2 \| fallback` (delimiter-bounded) | `1 + 2` parsed; cursor left on `\|`; no fallback consumption |
 
-| Input | Expected precedence | Risk |
-|-------|-------------------|------|
-| `1 + 2 * 3` | `1 + (2 * 3)` = 7 | Low |
-| `(1 + 2) * 3` | `3 * 3` = 9 | Low |
-| `2 ** 3 ** 2` | Right-assoc: `2 ** (3 ** 2)` = 512 | **Verify** |
-| `-2 ** 3` | Unary binds tighter: `(-2) ** 3` = -8 | **Verify** |
-| `a && b \|\| c` | `(a && b) \|\| c` | Low |
-| `a == b && c != d` | `(a == b) && (c != d)` | Low |
-| `f(x)(y)[0]` | `((f(x))(y))[0]` | Medium |
-| `xs[0..2]` | Slice | Low |
-| `?\|\ job -> value: i64 \| 0` | Await pipe | Low |
-| `@stdin >> #(line) & xs >> #(x) => { ... }` | Stream zip | Medium |
+Work is O(n) in tokens: `expression_token_visits <= 8 * token_count + 8`, zero expression-core scratch allocations on flat chains, and `kStyioExprMaxDepth` = 128 active expression frames (the 129th fails with `StyioParserResourceLimitError` "expression exceeds parser recursion limit of 128"; existing delimiter nesting remains capped at 64).
 
-## 8. Checkpoint C Migration Boundary
+## 8. Migration Boundary
 
-### Things to keep:
-- `TokenPrecedenceMap` as the authoritative precedence table
-- `parse_binop_item` as the atom parser
-- `parse_call`, `parse_index_op` as postfix parsers
-- Nightly parser as the only accepted authority
+`OPT-C` completes the migration in one change; the full obligations are in [Architecture.md](../plan/roadmap/optimization/parser-core-unification/Architecture.md):
 
-### Things to replace:
-- `parse_binop_rhs` enum-ordinal comparison → numeric precedence from `TokenPrecedenceMap`
-- `parse_relational_expr` / `parse_and_expr` / `parse_or_expr` / `parse_fallback_expr` recursive descent chain → unified Pratt table
-- `reassociate_add_into_resource_sink_latest_draft` → precedence-aware resource suffix
-- `parse_arithmetic_tail_from_atom` → postfix loop inside Pratt
+- Replace the unordered `TokenPrecedenceMap` with the canonical constexpr metadata and lookup; spelling maps stay spelling maps.
+- Change `parse_binop_rhs` to numeric minimum-precedence/binding-power semantics; remove all `StyioOpType` ordinal comparisons.
+- Remove accepted-path `parse_arithmetic_tail_from_atom`, `parse_relational_expr`, `parse_and_expr`, `parse_or_expr`, `parse_fallback_expr`, and `reassociate_add_into_resource_sink_latest_draft`; update their callers to the common entry without retaining wrappers.
+- Remove `expr_prec_of`, `expr_is_right_assoc`, `expr_map_binop`, `expr_is_comp`, `expr_map_comp`, `expr_is_logic`, and `expr_map_logic` from `NewParserExpr.cpp`.
+- Remove any nightly call into legacy `parse_expr`, `parse_stmt_or_expr_legacy`, `parse_block_only`, or `parse_hash_tag`; the common expression entry is not a legacy bridge.
+- Leave explicitly legacy-only statement/conditional engine code intact; create no compatibility alias or fallback route for removed expression helpers.
 
-### Things to add:
-- Explicit precedence table (constexpr array of `{token, precedence, associativity}`)
-- FIRST/FOLLOW or sync-point table for error recovery
-- Parser benchmark harness
-
-### Legacy fallback contract:
-- `parse_cond`, `parse_cond_rhs`, `parse_stmt_or_expr_legacy` remain for legacy parser engine only
-- Nightly parser must not fall through to legacy for any accepted grammar form
+The old-symbol absence check is a one-time migration audit in [Validation.md](../plan/roadmap/optimization/parser-core-unification/Validation.md), not a permanent source-grep test.

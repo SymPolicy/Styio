@@ -1,6 +1,7 @@
 #include "Verifier.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <stdexcept>
@@ -34,9 +35,38 @@ enum class HandleState
 */
 class StyioIRVerifier : public StyioIRWalker
 {
+  class LoopDepthScope
+  {
+    std::size_t& loop_depth_;
+
+  public:
+    explicit LoopDepthScope(std::size_t& loop_depth) noexcept :
+        loop_depth_(loop_depth) {
+      ++loop_depth_;
+    }
+
+    LoopDepthScope(const LoopDepthScope&) = delete;
+    LoopDepthScope& operator=(const LoopDepthScope&) = delete;
+
+    ~LoopDepthScope() noexcept {
+      --loop_depth_;
+    }
+  };
+
   StyioIRVerifierResult result_;
   std::unordered_set<StyioIR*> visited_;
   std::unordered_map<std::string, HandleState> handle_states_;
+  const bool defer_unresolved_loop_control_;
+  const bool require_unique_ownership_;
+  std::size_t loop_depth_ = 0;
+
+public:
+  explicit StyioIRVerifier(const StyioIRVerifierOptions& options) :
+      defer_unresolved_loop_control_(options.defer_unresolved_loop_control),
+      require_unique_ownership_(options.require_unique_ownership) {
+  }
+
+private:
 
   void
   add_error(
@@ -69,6 +99,16 @@ class StyioIRVerifier : public StyioIRWalker
   }
 
   void
+  walk_loop_body(SGBlock* body, const char* field) {
+    if (body == nullptr) {
+      add_error(std::string("missing required StyioIR child: ") + field);
+      return;
+    }
+    LoopDepthScope scope(loop_depth_);
+    walk(body);
+  }
+
+  void
   note_acquire(const std::string& name) {
     if (!name.empty()) {
       handle_states_[name] = HandleState::Acquired;
@@ -92,6 +132,9 @@ class StyioIRVerifier : public StyioIRWalker
       return;
     }
     if (!visited_.insert(node).second) {
+      if (require_unique_ownership_) {
+        add_error("StyioIR ownership graph reuses a node or contains a cycle");
+      }
       return;
     }
     if (!node->is_active()) {
@@ -248,7 +291,7 @@ class StyioIRVerifier : public StyioIRWalker
   void
   visitSGLoop(SGLoop* node) override {
     walk_optional(node->cond);
-    walk_required(node->body, "SGLoop.body");
+    walk_loop_body(node->body, "SGLoop.body");
   }
 
   void
@@ -264,7 +307,7 @@ class StyioIRVerifier : public StyioIRWalker
   void
   visitSGForEach(SGForEach* node) override {
     walk_required(node->iterable, "SGForEach.iterable");
-    walk_required(node->body, "SGForEach.body");
+    walk_loop_body(node->body, "SGForEach.body");
   }
 
   void
@@ -272,7 +315,21 @@ class StyioIRVerifier : public StyioIRWalker
     walk_required(node->start, "SGRangeFor.start");
     walk_required(node->end, "SGRangeFor.end");
     walk_required(node->step, "SGRangeFor.step");
-    walk_required(node->body, "SGRangeFor.body");
+    walk_loop_body(node->body, "SGRangeFor.body");
+  }
+
+  void
+  visitSGBreak(SGBreak* /*node*/) override {
+    if (loop_depth_ == 0 && !defer_unresolved_loop_control_) {
+      add_error("break outside enclosing loop");
+    }
+  }
+
+  void
+  visitSGContinue(SGContinue* /*node*/) override {
+    if (loop_depth_ == 0 && !defer_unresolved_loop_control_) {
+      add_error("continue outside enclosing loop");
+    }
   }
 
   void
@@ -484,9 +541,13 @@ class StyioIRVerifier : public StyioIRWalker
 
   void
   visitSIOStreamZip(SIOStreamZip* node) override {
+    if (!node->barrier_facts.is_canonical()) {
+      add_error("SIOStreamZip.barrier_facts must be canonical");
+      return;
+    }
     walk_required(node->iterable_a, "SIOStreamZip.iterable_a");
     walk_required(node->iterable_b, "SIOStreamZip.iterable_b");
-    walk_required(node->body, "SIOStreamZip.body");
+    walk_loop_body(node->body, "SIOStreamZip.body");
   }
 
   void
@@ -567,7 +628,10 @@ public:
 }  // namespace
 
 StyioIRVerifierResult
-verify_styio_ir(const StyioIR* root) {
+verify_styio_ir(
+  const StyioIR* root,
+  const StyioIRVerifierOptions& options
+) {
   if (root == nullptr) {
     StyioIRVerifierResult null_result;
     null_result.diagnostics.push_back(StyioIRVerifierDiagnostic{
@@ -577,15 +641,18 @@ verify_styio_ir(const StyioIR* root) {
     });
     return null_result;
   }
-  StyioIRVerifier verifier;
+  StyioIRVerifier verifier(options);
   // Const-cast is safe: the verifier never mutates IR nodes.
   verifier.walk(const_cast<StyioIR*>(root));
   return verifier.result();
 }
 
 void
-require_verified_styio_ir(const StyioIR* root) {
-  StyioIRVerifierResult result = verify_styio_ir(root);
+require_verified_styio_ir(
+  const StyioIR* root,
+  const StyioIRVerifierOptions& options
+) {
+  StyioIRVerifierResult result = verify_styio_ir(root, options);
   if (result.ok()) {
     return;
   }

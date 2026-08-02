@@ -5824,7 +5824,16 @@ main(
       snapshot.blocking_pulls,
       snapshot.failed_pulls,
       snapshot.invalid_pulls,
-      snapshot.max_queue_depth);
+      snapshot.max_queue_depth,
+      snapshot.queue_capacity,
+      snapshot.queue_current_depth,
+      snapshot.queue_accepted_pushes,
+      snapshot.queue_pops,
+      snapshot.queue_pressure_events,
+      snapshot.queue_producer_waits,
+      snapshot.queue_consumer_waits,
+      snapshot.queue_close_wake_ups,
+      snapshot.queue_closed);
     styio_task_scheduler_profile_enable(0);
     async_scheduler_profile_recorded = true;
   };

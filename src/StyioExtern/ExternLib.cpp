@@ -204,7 +204,6 @@ struct StyioTaskSchedulerProfileCounters
   std::atomic<int64_t> blocking_pulls{0};
   std::atomic<int64_t> failed_pulls{0};
   std::atomic<int64_t> invalid_pulls{0};
-  std::atomic<int64_t> max_queue_depth{0};
 
   void reset() {
     ready_tasks.store(0, std::memory_order_relaxed);
@@ -218,7 +217,6 @@ struct StyioTaskSchedulerProfileCounters
     blocking_pulls.store(0, std::memory_order_relaxed);
     failed_pulls.store(0, std::memory_order_relaxed);
     invalid_pulls.store(0, std::memory_order_relaxed);
-    max_queue_depth.store(0, std::memory_order_relaxed);
   }
 };
 
@@ -239,21 +237,6 @@ void
 task_profile_inc(std::atomic<int64_t>& counter) {
   if (task_scheduler_profile_enabled()) {
     counter.fetch_add(1, std::memory_order_relaxed);
-  }
-}
-
-void
-task_profile_update_max(std::atomic<int64_t>& counter, int64_t value) {
-  if (!task_scheduler_profile_enabled()) {
-    return;
-  }
-  int64_t observed = counter.load(std::memory_order_relaxed);
-  while (observed < value
-         && !counter.compare_exchange_weak(
-              observed,
-              value,
-              std::memory_order_relaxed,
-              std::memory_order_relaxed)) {
   }
 }
 
@@ -367,45 +350,67 @@ public:
 
   void enqueue(StyioTask* task) {
     ensure_started();
-    queue_->push(static_cast<void*>(task));
-    task_profile_update_max(
-      g_task_scheduler_profile_counters.max_queue_depth,
-      static_cast<int64_t>(queue_->approximate_size()));
-    task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
-    cv_.notify_one();
+    if (queue_.push(static_cast<void*>(task))
+        == styio::runtime::ReadyQueuePushResult::Accepted) {
+      task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
+      return;
+    }
+    // Shutdown is internal and has no cancellation ABI. If a late caller races
+    // with close, settle its task normally instead of leaking its context or
+    // leaving a handle that can never become ready.
+    (*task).run();
   }
 
   std::size_t worker_count() {
     ensure_started();
-    std::lock_guard<std::mutex> lock(mu_);
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
     return workers_.size();
   }
 
   std::size_t current_worker_count() {
-    std::lock_guard<std::mutex> lock(mu_);
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
     return workers_.size();
   }
 
   styio::runtime::ReadyQueueKind ready_queue_kind() const {
-    return queue_->kind();
+    return queue_.kind();
+  }
+
+  styio::runtime::ReadyQueueSnapshot ready_queue_snapshot() const {
+    return queue_.snapshot();
+  }
+
+  void reset_ready_queue_counters() {
+    queue_.reset_counters();
   }
 
 private:
-  std::mutex mu_;
-  std::condition_variable cv_;
-  std::unique_ptr<styio::runtime::IReadyQueue> queue_{styio::runtime::make_ready_queue()};
+  static std::size_t configured_queue_capacity() {
+    const char* raw = std::getenv("STYIO_TASK_QUEUE_CAPACITY");
+    if (raw == nullptr || raw[0] < '0' || raw[0] > '9') {
+      return styio::runtime::BoundedReadyQueue::kDefaultCapacity;
+    }
+    char* end = nullptr;
+    errno = 0;
+    const unsigned long long parsed = std::strtoull(raw, &end, 10);
+    if (errno != 0 || end == raw || *end != '\0'
+        || parsed > styio::runtime::BoundedReadyQueue::kDefaultCapacity
+        || !styio::runtime::BoundedReadyQueue::valid_capacity(
+          static_cast<std::size_t>(parsed))) {
+      return styio::runtime::BoundedReadyQueue::kDefaultCapacity;
+    }
+    return static_cast<std::size_t>(parsed);
+  }
+
+  std::mutex lifecycle_mu_;
+  styio::runtime::BoundedReadyQueue queue_{configured_queue_capacity()};
   std::vector<std::thread> workers_;
   std::atomic<bool> started_{false};
-  bool stopping_ = false;
 
   StyioTaskScheduler() = default;
 
   ~StyioTaskScheduler() {
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      stopping_ = true;
-    }
-    cv_.notify_all();
+    queue_.close();
     for (std::thread& worker : workers_) {
       if (worker.joinable()) {
         worker.join();
@@ -417,7 +422,7 @@ private:
     if (started_.load(std::memory_order_acquire)) {
       return;
     }
-    std::lock_guard<std::mutex> lock(mu_);
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
     if (!workers_.empty()) {
       started_.store(true, std::memory_order_release);
       return;
@@ -445,30 +450,12 @@ private:
   }
 
   void worker_loop() {
-    std::vector<StyioTask*> local_batch;
-    local_batch.reserve(64);
     for (;;) {
-      local_batch.clear();
-      {
-        std::unique_lock<std::mutex> lock(mu_);
-        cv_.wait(lock, [this]() { return stopping_ || !queue_->empty(); });
-        if (stopping_ && queue_->empty()) {
-          return;
-        }
-        const std::size_t batch_limit = queue_->approximate_size() > workers_.size() ? 64 : 1;
-        while (local_batch.size() < batch_limit) {
-          auto* task = static_cast<StyioTask*>(queue_->try_pop());
-          if (task == nullptr) {
-            break;
-          }
-          local_batch.push_back(task);
-        }
+      auto* task = static_cast<StyioTask*>(queue_.wait_pop());
+      if (task == nullptr) {
+        return;
       }
-      for (StyioTask* task : local_batch) {
-        if (task != nullptr) {
-          (*task).run();
-        }
-      }
+      (*task).run();
     }
   }
 };
@@ -2345,6 +2332,7 @@ styio_task_worker_count() {
 extern "C" DLLEXPORT void
 styio_task_scheduler_profile_reset() {
   g_task_scheduler_profile_counters.reset();
+  StyioTaskScheduler::instance().reset_ready_queue_counters();
 }
 
 extern "C" DLLEXPORT void
@@ -2372,7 +2360,18 @@ styio_task_scheduler_profile_snapshot(StyioTaskSchedulerProfileSnapshot* out) {
   out->blocking_pulls = g_task_scheduler_profile_counters.blocking_pulls.load(std::memory_order_relaxed);
   out->failed_pulls = g_task_scheduler_profile_counters.failed_pulls.load(std::memory_order_relaxed);
   out->invalid_pulls = g_task_scheduler_profile_counters.invalid_pulls.load(std::memory_order_relaxed);
-  out->max_queue_depth = g_task_scheduler_profile_counters.max_queue_depth.load(std::memory_order_relaxed);
+  const styio::runtime::ReadyQueueSnapshot queue =
+    StyioTaskScheduler::instance().ready_queue_snapshot();
+  out->max_queue_depth = static_cast<int64_t>(queue.peak_depth);
+  out->queue_capacity = static_cast<int64_t>(queue.capacity);
+  out->queue_current_depth = static_cast<int64_t>(queue.current_depth);
+  out->queue_accepted_pushes = static_cast<int64_t>(queue.accepted_pushes);
+  out->queue_pops = static_cast<int64_t>(queue.pops);
+  out->queue_pressure_events = static_cast<int64_t>(queue.pressure_events);
+  out->queue_producer_waits = static_cast<int64_t>(queue.producer_waits);
+  out->queue_consumer_waits = static_cast<int64_t>(queue.consumer_waits);
+  out->queue_close_wake_ups = static_cast<int64_t>(queue.close_wake_ups);
+  out->queue_closed = queue.closed ? 1 : 0;
 }
 
 extern "C" DLLEXPORT int64_t

@@ -354,6 +354,8 @@ using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
 using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
 using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
+using CallableConstraintSolverStats =
+  StyioSemaContext::CallableConstraintSolverStats;
 using CallableUsageKind = styio::sema::CallableUsageKind;
 using CallableUsageRequirement =
   StyioSemaContext::CallableUsageRequirement;
@@ -525,21 +527,92 @@ callable_dict_term(CallableTypeTerm key, CallableTypeTerm value) {
   return term;
 }
 
+class CallableBindingDelta
+{
+  static constexpr std::size_t kNoLink =
+    std::numeric_limits<std::size_t>::max();
+  static constexpr std::size_t kEndLink = kNoLink - 1;
+
+  std::vector<std::size_t> next_;
+  std::size_t head_ = kNoLink;
+  std::size_t tail_ = kNoLink;
+  std::size_t size_ = 0;
+
+public:
+  explicit CallableBindingDelta(std::size_t variable_count) :
+      next_(variable_count, kNoLink) {
+  }
+
+  void append(std::uint32_t variable) {
+    const std::size_t index = variable;
+    if (index >= next_.size()) {
+      throw StyioTypeError(
+        "internal error: callable binding delta is outside its variable domain"
+      );
+    }
+    if (next_[index] != kNoLink) {
+      return;
+    }
+    if (tail_ == kNoLink) {
+      head_ = index;
+    }
+    else {
+      next_[tail_] = index;
+    }
+    tail_ = index;
+    next_[index] = kEndLink;
+    ++size_;
+  }
+
+  std::size_t size() const {
+    return size_;
+  }
+
+  std::size_t storage_slots() const {
+    return next_.size();
+  }
+
+  template <typename Visitor>
+  void drain(Visitor&& visit) {
+    std::size_t variable = head_;
+    while (variable != kNoLink) {
+      const std::size_t following =
+        next_[variable] == kEndLink ? kNoLink : next_[variable];
+      next_[variable] = kNoLink;
+      visit(static_cast<std::uint32_t>(variable));
+      variable = following;
+    }
+    head_ = kNoLink;
+    tail_ = kNoLink;
+    size_ = 0;
+  }
+};
+
+void
+append_callable_binding_delta(
+  CallableBindingDelta* binding_delta,
+  std::uint32_t variable
+) {
+  if (binding_delta != nullptr) {
+    binding_delta->append(variable);
+  }
+}
+
 class CallableTypeUnifier
 {
   std::uint32_t next_variable_ = 0;
   std::unordered_map<std::uint32_t, CallableTypeTerm> substitutions_;
+  CallableBindingDelta* binding_delta_ = nullptr;
 
-  bool occurs(
+  bool occurs_in_applied(
     std::uint32_t variable,
-    const CallableTypeTerm& input
-  ) {
-    CallableTypeTerm term = apply(input);
+    const CallableTypeTerm& term
+  ) const {
     if (term.kind == CallableTypeTerm::Kind::Variable) {
       return term.variable == variable;
     }
     for (const auto& argument : term.arguments) {
-      if (occurs(variable, argument)) {
+      if (occurs_in_applied(variable, argument)) {
         return true;
       }
     }
@@ -555,16 +628,25 @@ class CallableTypeUnifier
         && term.variable == variable) {
       return;
     }
-    if (occurs(variable, term)) {
+    if (occurs_in_applied(variable, term)) {
       throw StyioTypeError(
         "polymorphic recursion requires an infinite inferred type; "
         "recursive calls must reuse one monomorphic group instance"
       );
     }
     substitutions_[variable] = std::move(term);
+    append_callable_binding_delta(binding_delta_, variable);
   }
 
 public:
+  std::uint32_t variable_count() const {
+    return next_variable_;
+  }
+
+  void observe_binding_delta(CallableBindingDelta* delta) {
+    binding_delta_ = delta;
+  }
+
   CallableTypeTerm fresh() {
     return callable_variable_term(next_variable_++);
   }
@@ -1726,20 +1808,41 @@ collect_callable_term_variables(
   }
 }
 
-bool
-callable_term_contains_variable(
+std::size_t
+callable_term_variable_domain_size(const CallableTypeTerm& term) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return static_cast<std::size_t>(term.variable) + 1;
+  }
+  std::size_t domain_size = 0;
+  for (const auto& argument : term.arguments) {
+    domain_size = std::max(
+      domain_size,
+      callable_term_variable_domain_size(argument));
+  }
+  return domain_size;
+}
+
+void
+summarize_callable_default_term(
   const CallableTypeTerm& term,
-  std::uint32_t variable
+  bool numeric_subject,
+  std::vector<bool>& has_constraint,
+  std::vector<bool>& numeric_only
 ) {
   if (term.kind == CallableTypeTerm::Kind::Variable) {
-    return term.variable == variable;
+    has_constraint[term.variable] = true;
+    if (!numeric_subject) {
+      numeric_only[term.variable] = false;
+    }
+    return;
   }
   for (const auto& argument : term.arguments) {
-    if (callable_term_contains_variable(argument, variable)) {
-      return true;
-    }
+    summarize_callable_default_term(
+      argument,
+      numeric_subject,
+      has_constraint,
+      numeric_only);
   }
-  return false;
 }
 
 std::optional<std::uint32_t>
@@ -1755,21 +1858,161 @@ first_callable_term_variable(const CallableTypeTerm& term) {
   return std::nullopt;
 }
 
-bool
-callable_constraint_contains_variable(
-  const CallableTypeConstraint& constraint,
-  std::uint32_t variable
+enum class CallableWorkItemState : std::uint8_t {
+  Queued = 0,
+  Blocked,
+  Solved,
+};
+
+struct CallableWorkItem
+{
+  CallableWorkItemState state = CallableWorkItemState::Queued;
+  std::size_t origin = 0;
+  std::size_t next_waiter = std::numeric_limits<std::size_t>::max();
+};
+
+struct CallableWorklistResult
+{
+  CallableConstraintSolverStats stats;
+  std::vector<std::size_t> residual_origins;
+};
+
+void
+merge_callable_constraint_solver_stats(
+  CallableConstraintSolverStats& aggregate,
+  const CallableConstraintSolverStats& run
 ) {
-  if (callable_term_contains_variable(constraint.subject, variable)) {
-    return true;
+  aggregate.run_count += run.run_count;
+  aggregate.input_constraint_count += run.input_constraint_count;
+  aggregate.attempt_count += run.attempt_count;
+  aggregate.requeue_count += run.requeue_count;
+  aggregate.strict_binding_event_count +=
+    run.strict_binding_event_count;
+  aggregate.defaulted_variable_count += run.defaulted_variable_count;
+  aggregate.peak_frontier_count = std::max(
+    aggregate.peak_frontier_count, run.peak_frontier_count);
+  aggregate.peak_blocked_count = std::max(
+    aggregate.peak_blocked_count, run.peak_blocked_count);
+  aggregate.peak_live_waiter_count = std::max(
+    aggregate.peak_live_waiter_count, run.peak_live_waiter_count);
+  aggregate.peak_scheduler_storage_slots = std::max(
+    aggregate.peak_scheduler_storage_slots,
+    run.peak_scheduler_storage_slots);
+}
+
+template <typename Step, typename Blocker, typename Quiescence>
+CallableWorklistResult
+run_callable_constraint_worklist(
+  std::size_t constraint_count,
+  std::size_t variable_count,
+  Step&& step,
+  Blocker&& blocker,
+  Quiescence&& quiescence
+) {
+  constexpr std::size_t no_waiter =
+    std::numeric_limits<std::size_t>::max();
+  std::vector<CallableWorkItem> items(constraint_count);
+  std::vector<std::size_t> current;
+  std::vector<std::size_t> next;
+  std::vector<std::size_t> waiter_heads(variable_count, no_waiter);
+  CallableBindingDelta binding_delta(variable_count);
+  current.reserve(constraint_count);
+  next.reserve(constraint_count);
+  // Store each logical frontier in reverse origin order so pop_back()
+  // preserves origin-order execution while consumed IDs stop contributing
+  // to the live current-plus-next frontier bound.
+  for (std::size_t id = constraint_count; id > 0; --id) {
+    const std::size_t origin = id - 1;
+    items[origin].origin = origin;
+    current.push_back(origin);
   }
-  if (constraint.kind == CallableConstraintKind::Indexable
-      && callable_term_contains_variable(constraint.argument, variable)) {
-    return true;
+
+  CallableWorklistResult result;
+  auto& stats = result.stats;
+  stats.run_count = 1;
+  stats.input_constraint_count = constraint_count;
+  stats.peak_frontier_count = constraint_count;
+  stats.peak_scheduler_storage_slots =
+    3 * constraint_count + waiter_heads.size()
+    + binding_delta.storage_slots();
+  std::size_t blocked_count = 0;
+
+  auto drain_binding_delta = [&]()
+  {
+    stats.strict_binding_event_count += binding_delta.size();
+    binding_delta.drain([&](std::uint32_t variable)
+    {
+      if (variable >= waiter_heads.size()) {
+        return;
+      }
+      std::size_t id = waiter_heads[variable];
+      waiter_heads[variable] = no_waiter;
+      while (id != no_waiter) {
+        const std::size_t following = items[id].next_waiter;
+        items[id].next_waiter = no_waiter;
+        if (items[id].state == CallableWorkItemState::Blocked) {
+          items[id].state = CallableWorkItemState::Queued;
+          --blocked_count;
+          next.push_back(id);
+          ++stats.requeue_count;
+        }
+        id = following;
+      }
+    });
+  };
+
+  bool quiescence_ran = false;
+  while (true) {
+    while (!current.empty()) {
+      const std::size_t id = current.back();
+      current.pop_back();
+      ++stats.attempt_count;
+      if (step(id, binding_delta)) {
+        items[id].state = CallableWorkItemState::Solved;
+      }
+      else {
+        const auto variable = blocker(id);
+        if (!variable.has_value() || *variable >= variable_count) {
+          throw StyioTypeError(
+            "internal error: callable constraint blocked without a variable"
+          );
+        }
+        items[id].state = CallableWorkItemState::Blocked;
+        items[id].next_waiter = waiter_heads[*variable];
+        waiter_heads[*variable] = id;
+        ++blocked_count;
+        stats.peak_blocked_count =
+          std::max(stats.peak_blocked_count, blocked_count);
+        stats.peak_live_waiter_count =
+          std::max(stats.peak_live_waiter_count, blocked_count);
+      }
+      drain_binding_delta();
+      stats.peak_frontier_count = std::max(
+        stats.peak_frontier_count,
+        current.size() + next.size());
+    }
+
+    if (next.empty() && !quiescence_ran) {
+      quiescence_ran = true;
+      stats.defaulted_variable_count += quiescence(binding_delta);
+      drain_binding_delta();
+    }
+    if (next.empty()) {
+      break;
+    }
+    std::sort(next.begin(), next.end(), std::greater<>());
+    current.swap(next);
+    stats.peak_frontier_count =
+      std::max(stats.peak_frontier_count, current.size());
   }
-  return (constraint.kind == CallableConstraintKind::Indexable
-          || constraint.kind == CallableConstraintKind::Iterable)
-         && callable_term_contains_variable(constraint.result, variable);
+
+  for (const auto& item : items) {
+    if (item.state == CallableWorkItemState::Blocked) {
+      current.push_back(item.origin);
+    }
+  }
+  result.residual_origins = std::move(current);
+  return result;
 }
 
 CallableTypeTerm
@@ -1965,33 +2208,46 @@ reduce_callable_constraint(
   return true;
 }
 
-void
+CallableConstraintSolverStats
 reduce_callable_constraints(
   CallableTypeUnifier& unifier,
   std::vector<CallableTypeConstraint>& constraints
 ) {
-  std::vector<CallableTypeConstraint> pending = std::move(constraints);
-  while (true) {
-    std::vector<CallableTypeConstraint> next;
-    next.reserve(pending.size());
-    bool reduced = false;
-    for (const auto& constraint : pending) {
-      if (reduce_callable_constraint(unifier, constraint)) {
-        reduced = true;
+  const std::size_t constraint_count = constraints.size();
+  auto result = run_callable_constraint_worklist(
+    constraint_count,
+    unifier.variable_count(),
+    [&](std::size_t id, CallableBindingDelta& binding_delta)
+    {
+      unifier.observe_binding_delta(&binding_delta);
+      try {
+        const bool solved =
+          reduce_callable_constraint(unifier, constraints[id]);
+        unifier.observe_binding_delta(nullptr);
+        return solved;
       }
-      else {
-        next.push_back(apply_callable_constraint(unifier, constraint));
+      catch (...) {
+        unifier.observe_binding_delta(nullptr);
+        throw;
       }
-    }
-    pending = std::move(next);
-    if (!reduced) {
-      break;
-    }
+    },
+    [&](std::size_t id)
+    {
+      return first_callable_term_variable(
+        unifier.apply(constraints[id].subject));
+    },
+    [](CallableBindingDelta&)
+    {
+      return std::size_t{0};
+    });
+
+  std::vector<CallableTypeConstraint> residual;
+  residual.reserve(result.residual_origins.size());
+  for (std::size_t id : result.residual_origins) {
+    residual.push_back(apply_callable_constraint(unifier, constraints[id]));
   }
-  for (auto& constraint : pending) {
-    constraint = apply_callable_constraint(unifier, constraint);
-  }
-  constraints = std::move(pending);
+  constraints = std::move(residual);
+  return result.stats;
 }
 
 class CallableSymbolicInfer
@@ -4408,7 +4664,8 @@ match_callable_term_to_concrete(
   const CallableTypeTerm& pattern,
   const StyioDataType& concrete_input,
   std::unordered_map<std::uint32_t, StyioDataType>& bindings,
-  const std::string& context
+  const std::string& context,
+  CallableBindingDelta* binding_delta = nullptr
 ) {
   if (auto variable = first_callable_term_variable(pattern)) {
     if (concrete_input.isUndefined()) {
@@ -4427,6 +4684,7 @@ match_callable_term_to_concrete(
       auto [it, inserted] =
         bindings.emplace(pattern.variable, concrete_input);
       if (inserted) {
+        append_callable_binding_delta(binding_delta, pattern.variable);
         return true;
       }
       StyioDataType previous =
@@ -4438,6 +4696,7 @@ match_callable_term_to_concrete(
           callable_generalization_domain_accepts(concrete_input);
         if (previous_is_plain && !incoming_is_plain) {
           it->second = concrete_input;
+          append_callable_binding_delta(binding_delta, pattern.variable);
           return true;
         }
         if (!previous_is_plain && incoming_is_plain) {
@@ -4462,6 +4721,7 @@ match_callable_term_to_concrete(
         }
         if (previous.num_of_bit == 0) {
           it->second = concrete_input;
+          append_callable_binding_delta(binding_delta, pattern.variable);
           return true;
         }
       }
@@ -4513,7 +4773,8 @@ match_callable_term_to_concrete(
         pattern.arguments.at(0),
         styio_data_type_from_name(styio_list_elem_type_name(concrete)),
         bindings,
-        context
+        context,
+        binding_delta
       );
     case CallableTypeTerm::Kind::Dict:
       if (!styio_is_dict_type(concrete)) {
@@ -4527,13 +4788,15 @@ match_callable_term_to_concrete(
         pattern.arguments.at(0),
         styio_data_type_from_name(styio_dict_key_type_name(concrete)),
         bindings,
-        context
+        context,
+        binding_delta
       );
       changed = match_callable_term_to_concrete(
         pattern.arguments.at(1),
         styio_data_type_from_name(styio_dict_value_type_name(concrete)),
         bindings,
-        context
+        context,
+        binding_delta
       ) || changed;
       return changed;
       }
@@ -4653,11 +4916,31 @@ bound_callable_term_type(
   return std::nullopt;
 }
 
+std::optional<std::uint32_t>
+first_unbound_callable_term_variable(
+  const CallableTypeTerm& term,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return bindings.count(term.variable) == 0
+             ? std::optional<std::uint32_t>(term.variable)
+             : std::nullopt;
+  }
+  for (const auto& argument : term.arguments) {
+    if (auto variable =
+          first_unbound_callable_term_variable(argument, bindings)) {
+      return variable;
+    }
+  }
+  return std::nullopt;
+}
+
 bool
 solve_callable_constraint_instance(
   const CallableTypeConstraint& constraint,
   std::unordered_map<std::uint32_t, StyioDataType>& bindings,
-  const std::string& callable_name
+  const std::string& callable_name,
+  CallableBindingDelta* binding_delta = nullptr
 ) {
   auto subject = bound_callable_term_type(constraint.subject, bindings);
   if (!subject.has_value()) {
@@ -4673,7 +4956,7 @@ solve_callable_constraint_instance(
       constraint.kind,
       *subject,
       callable_constraint_text(constraint));
-    return false;
+    return true;
   }
 
   validate_callable_unary_constraint(
@@ -4687,90 +4970,131 @@ solve_callable_constraint_instance(
                           : kI64Type;
     StyioDataType result = styio_data_type_from_name(
       styio_type_item_type_name(*subject));
-    bool changed = match_callable_term_to_concrete(
+    (void)match_callable_term_to_concrete(
       constraint.argument,
       key,
       bindings,
-      context);
-    changed = match_callable_term_to_concrete(
+      context,
+      binding_delta);
+    (void)match_callable_term_to_concrete(
       constraint.result,
       result,
       bindings,
-      context) || changed;
-    return changed;
+      context,
+      binding_delta);
+    return true;
   }
 
   StyioDataType element = styio_data_type_from_name(
     styio_type_item_type_name(*subject));
-  return match_callable_term_to_concrete(
+  (void)match_callable_term_to_concrete(
     constraint.result,
     element,
     bindings,
-    context);
+    context,
+    binding_delta);
+  return true;
 }
 
-void
+CallableConstraintSolverStats
 solve_callable_constraint_instance(
   const CallableTypeScheme& scheme,
   std::unordered_map<std::uint32_t, StyioDataType>& bindings
 ) {
-  auto saturate = [&]()
+  std::size_t variable_count = 0;
+  auto account_term = [&](const CallableTypeTerm& term)
   {
-    while (true) {
-      bool changed = false;
-      for (const auto& constraint : scheme.constraints) {
-        changed =
-          solve_callable_constraint_instance(
-            constraint,
-            bindings,
-            scheme.name) || changed;
-      }
-      if (!changed) {
-        break;
-      }
-    }
+    variable_count = std::max(
+      variable_count,
+      callable_term_variable_domain_size(term));
   };
-
-  saturate();
-
   for (std::uint32_t variable : scheme.quantified_variables) {
-    if (bindings.count(variable) != 0) {
-      continue;
+    variable_count = std::max(
+      variable_count,
+      static_cast<std::size_t>(variable) + 1);
+  }
+  for (const auto& constraint : scheme.constraints) {
+    account_term(constraint.subject);
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      account_term(constraint.argument);
+      account_term(constraint.result);
     }
-    bool has_constraint = false;
-    bool numeric_only = true;
-    for (const auto& constraint : scheme.constraints) {
-      if (!callable_constraint_contains_variable(constraint, variable)) {
-        continue;
-      }
-      has_constraint = true;
-      if (constraint.kind != CallableConstraintKind::Numeric
-          || !callable_term_contains_variable(
-               constraint.subject,
-               variable)) {
-        numeric_only = false;
-        break;
-      }
-    }
-    if (has_constraint && numeric_only) {
-      bindings.emplace(variable, kI64Type);
+    else if (constraint.kind == CallableConstraintKind::Iterable) {
+      account_term(constraint.result);
     }
   }
 
-  saturate();
+  std::vector<bool> has_constraint(variable_count, false);
+  std::vector<bool> numeric_only(variable_count, true);
   for (const auto& constraint : scheme.constraints) {
-    if (!bound_callable_term_type(constraint.subject, bindings).has_value()) {
-      throw StyioTypeError(
-        "call to `" + scheme.name + "` is underconstrained at `"
-        + callable_constraint_text(constraint)
-        + "`; add a concrete surrounding annotation"
-      );
+    summarize_callable_default_term(
+      constraint.subject,
+      constraint.kind == CallableConstraintKind::Numeric,
+      has_constraint,
+      numeric_only);
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      summarize_callable_default_term(
+        constraint.argument,
+        false,
+        has_constraint,
+        numeric_only);
+      summarize_callable_default_term(
+        constraint.result,
+        false,
+        has_constraint,
+        numeric_only);
     }
-    (void)solve_callable_constraint_instance(
-      constraint,
-      bindings,
-      scheme.name);
+    else if (constraint.kind == CallableConstraintKind::Iterable) {
+      summarize_callable_default_term(
+        constraint.result,
+        false,
+        has_constraint,
+        numeric_only);
+    }
   }
+
+  auto result = run_callable_constraint_worklist(
+    scheme.constraints.size(),
+    variable_count,
+    [&](std::size_t id, CallableBindingDelta& binding_delta)
+    {
+      return solve_callable_constraint_instance(
+        scheme.constraints[id],
+        bindings,
+        scheme.name,
+        &binding_delta);
+    },
+    [&](std::size_t id)
+    {
+      return first_unbound_callable_term_variable(
+        scheme.constraints[id].subject,
+        bindings);
+    },
+    [&](CallableBindingDelta& binding_delta)
+    {
+      std::size_t defaulted = 0;
+      for (std::uint32_t variable : scheme.quantified_variables) {
+        if (bindings.count(variable) == 0
+            && has_constraint[variable]
+            && numeric_only[variable]) {
+          bindings.emplace(variable, kI64Type);
+          append_callable_binding_delta(&binding_delta, variable);
+          ++defaulted;
+        }
+      }
+      return defaulted;
+    });
+
+  if (!result.residual_origins.empty()) {
+    const auto& constraint =
+      scheme.constraints[result.residual_origins.front()];
+    throw StyioTypeError(
+      "call to `" + scheme.name + "` is underconstrained at `"
+      + callable_constraint_text(constraint)
+      + "`; add a concrete surrounding annotation"
+    );
+  }
+  return result.stats;
 }
 
 std::string
@@ -5221,6 +5545,7 @@ validate_affine_capture_environment(
 
 void
 StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
+  callable_constraint_solver_stats_ = {};
   callable_type_schemes_.clear();
   callable_effect_rows_.clear();
   callable_capture_facts_.clear();
@@ -5498,7 +5823,9 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
       }
     }
 
-    reduce_callable_constraints(unifier, component_constraints);
+    merge_callable_constraint_solver_stats(
+      callable_constraint_solver_stats_,
+      reduce_callable_constraints(unifier, component_constraints));
 
     const bool recursive_group =
       components[component_index].size() > 1
@@ -5875,7 +6202,9 @@ StyioSemaContext::instantiate_callable_type_scheme(
       + " of `" + call->getNameAsStr() + "`"
     );
   }
-  solve_callable_constraint_instance(*scheme, bindings);
+  merge_callable_constraint_solver_stats(
+    callable_constraint_solver_stats_,
+    solve_callable_constraint_instance(*scheme, bindings));
   validate_callable_usage_instance(*scheme, bindings);
 
   CallableSpecialization specialization;
@@ -8788,9 +9117,21 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
   auto saved_bind = binding_info_;
   auto saved_bind_by_sid = binding_info_by_sid_;
 
-  ast->getThen()->typeInfer(this);
+  const ResourceTypestateFactSnapshot incoming_resources =
+    snapshot_resource_typestate_facts();
+  ++resource_typestate_dataflow_stats_.branch_snapshot_count;
+
+  try {
+    ast->getThen()->typeInfer(this);
+  }
+  catch (...) {
+    release_resource_typestate_snapshot(incoming_resources);
+    throw;
+  }
   auto then_types = local_binding_types;
   auto then_bind = binding_info_;
+  const ResourceTypestateFactSnapshot then_resources =
+    snapshot_resource_typestate_facts();
 
   local_binding_types = saved;
   local_binding_types_by_sid = saved_by_sid;
@@ -8798,11 +9139,22 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
   fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
   binding_info_ = saved_bind;
   binding_info_by_sid_ = saved_bind_by_sid;
+  install_resource_typestate_facts(incoming_resources);
 
   if (ast->getElse() != nullptr) {
-    ast->getElse()->typeInfer(this);
+    ++resource_typestate_dataflow_stats_.branch_snapshot_count;
+    try {
+      ast->getElse()->typeInfer(this);
+    }
+    catch (...) {
+      release_resource_typestate_snapshot(then_resources);
+      release_resource_typestate_snapshot(incoming_resources);
+      throw;
+    }
     auto else_types = local_binding_types;
     auto else_bind = binding_info_;
+    const ResourceTypestateFactSnapshot else_resources =
+      snapshot_resource_typestate_facts();
 
     local_binding_types = saved;
     local_binding_types_by_sid = saved_by_sid;
@@ -8810,6 +9162,22 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
     fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
     binding_info_ = saved_bind;
     binding_info_by_sid_ = saved_bind_by_sid;
+
+    install_resource_typestate_facts(then_resources);
+    for (const auto& name : else_resources.names) {
+      if (consumed_resource_names_.insert(name).second) {
+        ++resource_typestate_dataflow_stats_.fact_insertion_count;
+      }
+    }
+    for (const auto sid : else_resources.symbols) {
+      if (consumed_resource_names_by_sid_.insert(sid).second) {
+        ++resource_typestate_dataflow_stats_.fact_insertion_count;
+      }
+    }
+    ++resource_typestate_dataflow_stats_.join_count;
+    release_resource_typestate_snapshot(else_resources);
+    release_resource_typestate_snapshot(then_resources);
+    release_resource_typestate_snapshot(incoming_resources);
 
     for (auto const& entry : then_bind) {
       auto eit = else_bind.find(entry.first);
@@ -8851,6 +9219,20 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
   fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
   binding_info_ = saved_bind;
   binding_info_by_sid_ = saved_bind_by_sid;
+  install_resource_typestate_facts(then_resources);
+  for (const auto& name : incoming_resources.names) {
+    if (consumed_resource_names_.insert(name).second) {
+      ++resource_typestate_dataflow_stats_.fact_insertion_count;
+    }
+  }
+  for (const auto sid : incoming_resources.symbols) {
+    if (consumed_resource_names_by_sid_.insert(sid).second) {
+      ++resource_typestate_dataflow_stats_.fact_insertion_count;
+    }
+  }
+  ++resource_typestate_dataflow_stats_.join_count;
+  release_resource_typestate_snapshot(then_resources);
+  release_resource_typestate_snapshot(incoming_resources);
 }
 
 void
@@ -9345,6 +9727,7 @@ StyioSemaContext::typeInfer(SeriesIntrinsicAST* ast) {
 
 void
 StyioSemaContext::typeInfer(MainBlockAST* ast) {
+  reset_resource_typestate_dataflow_stats();
   snapshot_var_names_.clear();
   snapshot_var_names_by_sid_.clear();
   func_defs.clear();
