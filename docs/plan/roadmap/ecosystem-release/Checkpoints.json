@@ -1,0 +1,86 @@
+[
+  {
+    "id": "d58e48ec-0a5f-4919-b61b-36370443e93b",
+    "status": "completed",
+    "role": "product_requirements",
+    "code": "RELEASE-OWNERSHIP",
+    "title": "Freeze ecosystem ownership",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Record the established Styio, Pafio, Platform, and Vityo ownership boundary.",
+    "description": "Styio owns compiler results, Pafio owns project workflows, Platform owns hosted services, and Vityo consumes separate owner contracts.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The local ecosystem contract gate validates the current owner and consumer documents."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): record release ownership",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "0829a3ff-4881-4770-b4d9-158b83b24389"
+    ]
+  },
+  {
+    "id": "0829a3ff-4881-4770-b4d9-158b83b24389",
+    "status": "deferred",
+    "role": "evidence",
+    "code": "RELEASE-SCOPE",
+    "title": "Select the release scope",
+    "prerequisites": [
+      "d58e48ec-0a5f-4919-b61b-36370443e93b"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Decide which completed capabilities belong in the next fixed-revision candidate.",
+    "description": "Choose the current functional baseline or name specific optimization checkpoints; do not absorb unrelated backlog merely because it exists in the roadmap.",
+    "status_reason": "Awaiting maintainer feedback on the next release boundary.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "The release scope names included capabilities, explicit exclusions, participating repositories, and the candidate-freeze condition."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): select release scope",
+      "target": "cross-repository release matrix"
+    },
+    "next": [
+      "be588371-0918-4c6a-8243-08f70f4735a7"
+    ]
+  },
+  {
+    "id": "be588371-0918-4c6a-8243-08f70f4735a7",
+    "status": "pending",
+    "role": "validation_matrix",
+    "code": "RELEASE-MATRIX",
+    "title": "Run fixed-revision release acceptance",
+    "prerequisites": [
+      "0829a3ff-4881-4770-b4d9-158b83b24389"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Validate one immutable ecosystem candidate without compatibility shims.",
+    "description": "Freeze participating revisions, run each affected owner full regression once, then run one cross-repository matrix and route failures back to the smallest owner closure.",
+    "acceptance_criteria": [
+      {
+        "checked": false,
+        "text": "Every participating revision is immutable, each affected repository passes one final regression, and one cross-repository matrix passes against exactly those revisions."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): record release acceptance",
+      "target": "cross-repository release matrix"
+    },
+    "next": []
+  }
+]

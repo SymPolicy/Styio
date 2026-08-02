@@ -22,7 +22,7 @@ class DocRule:
 
 RULES: tuple[DocRule, ...] = (
     DocRule(
-        "styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
+        "styio-nightly/docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
         (
             '### 2.1 `styio --machine-info=json`',
             '### 2.2 `styio --compile-plan <path>`',

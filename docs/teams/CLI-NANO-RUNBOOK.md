@@ -38,6 +38,7 @@ Key handoff document:
 5. Treat nano static repository layout as a contract; update handoff docs when it changes.
 6. Keep package-manager responsibilities out of the compiler unless they are bootstrap validation or official source-build layout export.
 7. When compile-plan, source-build-info, or diagnostics behavior changes, keep the `pafio-nightly` / `vityo-nightly` coordinator mirror and handoff docs aligned in the same checkpoint.
+8. Treat `docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md` as the formal machine-contract handoff path; do not retain the superseded plan-tree path as a trigger or compatibility alias.
 8. When runtime event artifacts change, keep `supported_contracts.runtime_events`, `feature_flags.runtime_event_stream`, `receipt.json`, and `build_root/runtime-events.jsonl` aligned in the same checkpoint.
 9. Keep generated nano subset build manifests aligned with the Styio repository compatibility floor when `src/main.cpp` emits CMake scaffolding.
 10. Keep `scripts/source-build-minimal.sh` aligned with the published `--source-build-info=json` contract so build-channel consumers have one stable compiler-side helper entry.

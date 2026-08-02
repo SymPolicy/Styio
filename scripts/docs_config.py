@@ -26,7 +26,6 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/teams", "Teams Index", "Provide the generated inventory for `docs/teams/`; team daily-work boundaries and runbook rules live in [README.md](./README.md)."),
     CollectionSpec("docs/review", "Review Index", "Provide the generated inventory for `docs/review/`; document boundaries and naming rules live in [README.md](./README.md)."),
     CollectionSpec("docs/plan", "Plan Index", "Provide the generated inventory for `docs/plan/`; document boundaries and naming rules live in [README.md](./README.md)."),
-    CollectionSpec("docs/plan/reports", "Plan Reports Index", "Provide the generated inventory for `docs/plan/reports/`; these reports preserve plan evidence and follow-up notes without replacing active ADRs or rollups."),
     CollectionSpec("docs/external", "External Docs Index", "Provide the generated inventory for `docs/external/`; external handoff boundaries live in [README.md](./README.md)."),
     CollectionSpec("docs/external/for-ide", "For IDE Index", "Provide the generated inventory for `docs/external/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
     CollectionSpec("docs/external/for-pafio", "For Pafio Index", "Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries for the system Styio compiler and Pafio project workflows live in [README.md](./README.md)."),
