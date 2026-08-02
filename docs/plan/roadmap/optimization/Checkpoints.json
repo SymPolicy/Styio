@@ -1,0 +1,296 @@
+[
+  {
+    "id": "bdb1c8c1-5fdf-415c-9f77-6a12fa58ad05",
+    "status": "completed",
+    "role": "product_requirements",
+    "code": "OPT-A",
+    "title": "IR walker and pass manager",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Record the established verified IR traversal foundation.",
+    "description": "StyioIRWalker centralizes traversal and the pass manager supports opt-level selection with verification before and after pass execution.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The current-state authority records Checkpoint A as complete."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): record optimization A",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "ba265f18-23bd-4cb7-95bf-c07ef568117b"
+    ]
+  },
+  {
+    "id": "116f20d7-ec79-4761-999f-2493a0b245e7",
+    "status": "completed",
+    "role": "evidence",
+    "code": "OPT-B",
+    "title": "Span-first tokenizer",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "complex",
+    "verification_profile": "code",
+    "goal": "Record the established linear tokenization foundation.",
+    "description": "The tokenizer uses span-first O(n) scanning, CreateFromSpan, constexpr operator dispatch, and focused span/performance regressions.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The current-state authority records Checkpoint B as complete."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): record optimization B",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "06955108-6d90-45ea-8126-8e9971538078"
+    ]
+  },
+  {
+    "id": "06955108-6d90-45ea-8126-8e9971538078",
+    "status": "completed",
+    "role": "validation_matrix",
+    "code": "OPT-C",
+    "title": "Parser core unification",
+    "prerequisites": [
+      "116f20d7-ec79-4761-999f-2493a0b245e7",
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Unify expression parsing through the accepted precedence authority.",
+    "description": "Compare mature Pratt or precedence-climbing implementations, then preserve accepted grammar, diagnostics, associativity, bounded stack depth, and zero-fallback parser authority.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "C0 readiness, precedence goldens, parser equivalence, shadow, zero-fallback, complexity, memory, and deep-expression evidence are frozen before implementation.",
+        "evidence": "OPT-C design and executable acceptance matrix are frozen before production implementation.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+            "sha256": "1a3ca1ea3c8dd868ed3bed6f6f29106deffd42f23bfb781cf15fc932f567d702",
+            "recorded_at": "2026-08-01T18:20:00Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+            "sha256": "2a528ef0f1fd81e7d9b8bed54a613e82276d06fb05837e73435044c6efc2d068",
+            "recorded_at": "2026-08-01T18:20:00Z"
+          },
+          {
+            "type": "file",
+            "path": "tests/parser_internal_test.cpp",
+            "sha256": "8fc54a0bb76fbcb31802b20d5711ac976f47509ef331c8627c0fec7fed260f1a",
+            "recorded_at": "2026-08-01T18:20:00Z"
+          },
+          {
+            "type": "file",
+            "path": "benchmark/internal/core_bench.cpp",
+            "sha256": "d480c57c3e24e4eee3efcc944903902a0c163134e15b3df9d679b7b9036b0723",
+            "recorded_at": "2026-08-01T18:20:00Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): approve optimization C",
+      "target": "styio-nightly"
+    },
+    "next": []
+  },
+  {
+    "id": "ba265f18-23bd-4cb7-95bf-c07ef568117b",
+    "status": "completed",
+    "role": "validation_matrix",
+    "code": "OPT-D",
+    "title": "Verified IR optimization passes",
+    "prerequisites": [
+      "bdb1c8c1-5fdf-415c-9f77-6a12fa58ad05",
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Close one measured optimization-pass family at a time.",
+    "description": "Compare production compiler passes and select the simplest StyioIR worklist, lattice, cache, and invalidation strategy that demonstrates semantic equivalence and measurable value.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The first pass family has verifier, semantic-equivalence, compile-time, runtime, allocation, and external benchmark criteria before implementation.",
+        "evidence": "Frozen OPT-D architecture and validation define verifier, equivalence, compile-time, runtime, allocation, and benchmark criteria before production implementation.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/verified-ir-dead-suffix/Architecture.md",
+            "sha256": "86db25c715922082b1ff285394a46d1b9e8d5a54f6c87a46f0da6b0dae347f7a",
+            "recorded_at": "2026-08-01T21:06:44Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/verified-ir-dead-suffix/Validation.md",
+            "sha256": "13219339cb4a72eabcc53ff7a3c7a6ac74c19a45304032aae2864ddc47219ba5",
+            "recorded_at": "2026-08-01T21:06:44Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): approve optimization D",
+      "target": "styio-nightly"
+    },
+    "next": []
+  },
+  {
+    "id": "875f378b-9118-4edb-8b4a-57789dfcff73",
+    "status": "completed",
+    "role": "validation_matrix",
+    "code": "OPT-E",
+    "title": "Bounded type constraint engine",
+    "prerequisites": [
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Consolidate type solving without erasing handle or representation facts.",
+    "description": "Compare mature type solvers and freeze a terminating worklist, union-find, memoization, or SCC strategy with deterministic diagnostics and bounded recomputation.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The selected type-solver slice defines termination, canonical ownership, diagnostics, allocation, cache, invalidation, and focused regression evidence.",
+        "evidence": "Frozen OPT-E architecture and validation define termination, canonical ownership, diagnostics, allocation, cache invalidation, and focused regression evidence.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/bounded-type-constraints/Architecture.md",
+            "sha256": "49c7d3d9226f7ced739b7983f55d32089c13b77f32e74467a7f279bf829d073c",
+            "recorded_at": "2026-08-01T21:10:08Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md",
+            "sha256": "ce3ecb96d37a2241119cdd79b9fd7f1a605ccc558af32983cf7c473ec57b575b",
+            "recorded_at": "2026-08-01T21:10:08Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): approve optimization E",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "d8348f87-9992-49c3-89d8-f475f2047104"
+    ]
+  },
+  {
+    "id": "d8348f87-9992-49c3-89d8-f475f2047104",
+    "status": "completed",
+    "role": "validation_matrix",
+    "code": "OPT-F",
+    "title": "Resource typestate and dataflow",
+    "prerequisites": [
+      "875f378b-9118-4edb-8b4a-57789dfcff73"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Advance one canonical resource typestate/dataflow slice.",
+    "description": "Preserve active syntax and one topology authority while comparing mature ownership/dataflow analyses for graph representation, joins, convergence, invalidation, and memory bounds.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "One resource scenario defines typestate transitions, convergence, negative migration diagnostics, security evidence, and bounded memory behavior.",
+        "evidence": "OPT-F design freezes one acquired-file conditional-close typestate scenario with deterministic joins, diagnostics, security evidence, and bounded memory counters.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/resource-typestate-dataflow/Architecture.md",
+            "sha256": "c2f522170ddbcfa7a66339c8adc76c7c67797fb31b09f884599f98f61791c605",
+            "recorded_at": "2026-08-01T23:28:25Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md",
+            "sha256": "e00134da5ffd365ea282a9cbae6a619e2f3a520cc8f6ea9918caf704d4d7b5df",
+            "recorded_at": "2026-08-01T23:28:25Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): approve optimization F",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "5bcf9ccd-67b9-4c29-aaec-5ac998ba724f"
+    ]
+  },
+  {
+    "id": "5bcf9ccd-67b9-4c29-aaec-5ac998ba724f",
+    "status": "completed",
+    "role": "validation_matrix",
+    "code": "OPT-G",
+    "title": "Stream concurrency semantics",
+    "prerequisites": [
+      "d8348f87-9992-49c3-89d8-f475f2047104"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Close one bounded stream-concurrency scenario.",
+    "description": "Compare structured-concurrency and bounded-channel implementations, then define queue, wake-up, cancellation, race safety, backpressure, and memory behavior without reviving retired routes.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "One active-syntax stream scenario has parser-through-runtime, race/sanitizer, cancellation, bounded-queue, backpressure, and five-layer evidence.",
+        "evidence": "Deterministic zip facts and bounded task scheduling groups provide active syntax through runtime, exact bounded queue/pressure, shutdown close, MPMC race, and ASan/UBSan evidence.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/deterministic-zip-barrier-facts/Validation.md",
+            "sha256": "d3fea16e09c472c2d5bfdee7713a646f9f9a31d961e0310fc9d46a3a87874533",
+            "recorded_at": "2026-08-02T02:09:33Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/deterministic-zip-barrier-facts/Review.md",
+            "sha256": "3ce139d5e25b2125e45ba1134d0c31b5dd7ef9e6d2a49c075d18539e425e8e0e",
+            "recorded_at": "2026-08-02T02:09:33Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/bounded-task-scheduling-pressure/Validation.md",
+            "sha256": "8124613bfdb713564694fa7ceb941f1a29a5de8d6de4a29bd1043c11b24db5ae",
+            "recorded_at": "2026-08-02T02:09:33Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/optimization/bounded-task-scheduling-pressure/Review.md",
+            "sha256": "b81d70825fd1f32c4bf3b3792bd61064bf045a83ba81d5b096ae74c63fe9e875",
+            "recorded_at": "2026-08-02T02:09:33Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): approve optimization G",
+      "target": "styio-nightly"
+    },
+    "next": []
+  }
+]

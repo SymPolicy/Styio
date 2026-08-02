@@ -392,7 +392,7 @@ DOCS_BY_KEY = by_key(WORKFLOW_DOCS)
 PROFILES_BY_KEY = by_key(PROFILES)
 
 ECOSYSTEM_WORKSPACE_GATE_TRIGGERS: tuple[str, ...] = (
-    "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
+    "docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
     "docs/external/for-pafio/",
     "scripts/ecosystem-cli-doc-gate.py",
 )

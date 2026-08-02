@@ -1,21 +1,10 @@
 # Styio Ecosystem Machine Contract Matrix
 
-**Purpose:** Freeze the current owner and consumer boundary among Styio, Pafio, Styio Platform, and Vityo without duplicating another product's schemas.
+**Purpose:** Define the current owner and consumer boundary among Styio, Pafio, Styio Platform, and Vityo without duplicating another product's schemas.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-08-01
 
-**Plan status:** Active only until the coordinated fixed-revision acceptance
-matrix passes. Product ownership and public command spelling are already frozen.
-
-## 前置条件
-
-1. 并行: parallel work may inspect one owner repository or one contract family at a
-   time; changes to a public command, payload owner, or version remain a serial
-   ecosystem decision.
-2. 子智能体: sub-agents may gather read-only evidence when explicitly requested, but one
-   coordinator must merge the owner matrix and fixed revisions.
-3. 基座: shared workflow or documentation-gate substrate changes land through
-   [Styio-Common-Foundation-Plan.md](./Styio-Common-Foundation-Plan.md) first.
+**Status:** Active contract projection. Release sequencing belongs to the project roadmap, not this document.
 
 ## 1. Ownership Matrix
 
@@ -95,14 +84,9 @@ Vityo combines exactly three sources:
 Vityo does not inspect `PAFIO_HOME` or infer any of these facts from private
 filesystem layout.
 
-## 验收条件
+## 5. Validation
 
-1. `python3 scripts/ecosystem-cli-doc-gate.py` passes for the local owner
-   matrix.
-2. The workspace form of the same gate passes against fixed Pafio and Vityo
-   revisions.
-3. Compile-plan interoperability accepts `generated_by.tool = "pafio"` as the
-   only ecosystem project producer. The compiler-only self identity remains
-   confined to direct single-file `styio build`, not project workflows.
-4. No active Styio document assigns project metadata, dependency resolution,
-   registry hosting, or IDE aggregation to the compiler.
+1. `python3 scripts/ecosystem-cli-doc-gate.py` validates the local owner matrix.
+2. The workspace form validates fixed Pafio and Vityo consumer mirrors.
+3. Compile-plan interoperability accepts `generated_by.tool = "pafio"` as the ecosystem project producer; direct single-file `styio build` remains compiler-owned.
+4. Styio documents must not assign project metadata, dependency resolution, registry hosting, or IDE aggregation to the compiler.

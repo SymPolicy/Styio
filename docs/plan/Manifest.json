@@ -1,91 +1,251 @@
 [
   {
-    "id": "92b65777-ce34-4328-822f-0b99b5da26cc",
-    "status": "in_progress",
-    "title": "Plan Documentation Governance",
-    "directory": "plan-documentation-governance",
+    "id": "3dbf028f-f9a6-4b2f-80df-1e2a7b0a4941",
+    "status": "completed",
+    "title": "Styio Project Roadmap",
+    "directory": "roadmap",
     "source_files": [
-      "docs/plan/README.md",
-      "docs/plan/INDEX.md",
-      "docs/plan/reports/README.md",
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/specs/PRINCIPLES-AND-OBJECTIVES.md",
       "docs/rollups/CURRENT-STATE.md",
-      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md",
-      "docs/rollups/MIGRATION-LEDGER.md"
-    ],
-    "goal": "Keep plan documents organized around active authority, evidence reports, and validated Better Plan state.",
-    "description": "Owns the plan-document boundary: docs/plan for active human-authored plans, docs/plan/reports for evidence reports, docs/rollups for current state, and docs/plan Manifest/Checkpoints files for machine-validated execution state.",
-    "checkpoints": "plan-documentation-governance/Checkpoints.json"
-  },
-  {
-    "id": "ad28a0a7-60f0-46ad-a11b-f1f33cb671df",
-    "status": "in_progress",
-    "title": "Styio Common Foundation Plan",
-    "directory": "styio-common-foundation",
-    "source_files": [
-      "docs/plan/Styio-Common-Foundation-Plan.md"
-    ],
-    "goal": "Route shared workflow, gate, service-contract, and test-harness substrate work through one common foundation plan.",
-    "description": "Covers cross-plan substrate changes that must land before dependent feature, product, or ecosystem work can safely proceed.",
-    "checkpoints": "styio-common-foundation/Checkpoints.json"
-  },
-  {
-    "id": "25aa3975-15c4-4ffd-a700-9161300f5f44",
-    "status": "in_progress",
-    "title": "Styio Ecosystem Delivery Master Plan",
-    "directory": "styio-ecosystem-delivery-master",
-    "source_files": [
-      "docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md",
       "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
     ],
-    "goal": "Coordinate Styio, Pafio, Styio Platform, and Vityo through one fixed-revision release matrix.",
-    "description": "Freezes product ownership and tracks only the remaining coordinated regression and acceptance closure.",
-    "checkpoints": "styio-ecosystem-delivery-master/Checkpoints.json"
+    "purpose": "Provide the single review entry for project stages, boundaries, dependencies, and maintainer decisions.",
+    "goal": "Agree on one reasonable delivery structure before activating new implementation groups.",
+    "description": "Owns the reviewable roadmap; child Plans own foundation, compiler, optimization, and release scope.",
+    "checkpoints": "roadmap/Checkpoints.json",
+    "kind": "root",
+    "tree_mode": "show",
+    "node_status": "show"
   },
   {
-    "id": "c27cacb9-2081-4254-ab89-732a4d8b2a64",
-    "status": "in_progress",
-    "title": "Styio Ecosystem Machine Contract Matrix",
-    "directory": "styio-ecosystem-cli-contract-matrix",
+    "id": "6e57776f-a794-4ff2-a23b-cae8f7329de2",
+    "status": "completed",
+    "title": "Compiler Correctness",
+    "directory": "roadmap/compiler-correctness",
     "source_files": [
-      "docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md",
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/CURRENT-STATE.md",
+      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md",
+      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+      "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md"
+    ],
+    "purpose": "Close current compiler debt before allowing performance work to redefine behavior.",
+    "goal": "Finish the P0 placeholder inventory and select one fail-closed compiler closure.",
+    "description": "Owns placeholder classification, parser authority, IR verification, and selection of the first bounded implementation cluster.",
+    "checkpoints": "roadmap/compiler-correctness/Checkpoints.json",
+    "kind": "stage",
+    "tree_mode": "show",
+    "node_status": "show"
+  },
+  {
+    "id": "de49005d-35bb-42a7-8e99-b349d7e47a7c",
+    "status": "completed",
+    "title": "IR Loop-Control Legality",
+    "directory": "roadmap/compiler-correctness/ir-loop-control-legality",
+    "source_files": [
+      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+      "src/StyioIR/Verifier.cpp",
+      "src/StyioIR/StyioIRWalker.hpp",
+      "src/StyioIR/GenIR/SGIR.hpp",
+      "src/StyioCodeGen/CodeGenG.cpp",
+      "tests/lowering_internal_test.cpp",
+      "tests/security/styio_security_test.cpp"
+    ],
+    "purpose": "Deliver the maintainer-approved first post-P0 compiler-correctness closure.",
+    "goal": "Make the independent StyioIR verifier reject break and continue outside an enclosing loop while preserving valid loop control.",
+    "description": "Owns one verifier-only structural legality closure and its focused tests; parser, Sema, codegen semantics, multi-level break, and adjacent compiler debt remain out of scope.",
+    "checkpoints": "roadmap/compiler-correctness/ir-loop-control-legality/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/correctness",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "ca75e12f-7d1b-41db-b576-35201db28415",
+    "status": "completed",
+    "title": "Algorithmic Optimization",
+    "directory": "roadmap/optimization",
+    "source_files": [
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/CURRENT-STATE.md",
+      "docs/rollups/C0-PARSER-PRATT-READINESS.md",
+      "docs/rollups/MAINSTREAM-LANGUAGE-COMPARISON-AUDIT-2026-06-21.md",
+      "benchmark/README.md"
+    ],
+    "purpose": "Sequence algorithm work by real module dependencies and measurable value.",
+    "goal": "Advance parser, IR, type, resource, and stream algorithms through bounded evidence-backed checkpoints.",
+    "description": "A and B are established facts; C, D, and E are independent post-P0 candidates, while F precedes G.",
+    "checkpoints": "roadmap/optimization/Checkpoints.json",
+    "kind": "stage",
+    "tree_mode": "show",
+    "node_status": "show"
+  },
+  {
+    "id": "ba1aba94-503f-4619-8418-51fbc063181e",
+    "status": "completed",
+    "title": "Parser Core Unification",
+    "directory": "roadmap/optimization/parser-core-unification",
+    "source_files": [
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/C0-PARSER-PRATT-READINESS.md",
+      "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+      "src/StyioParser/Parser.cpp",
+      "src/StyioParser/NewParserExpr.cpp",
+      "src/StyioToken/Token.hpp"
+    ],
+    "purpose": "Deliver the maintainer-selected OPT-C parser optimization as one bounded, evidence-backed task group.",
+    "goal": "Unify accepted expression parsing around one explicit precedence and associativity authority without fallback or diagnostic drift.",
+    "description": "Owns parser precedence authority, bounded stack behavior, equivalence and performance acceptance, and owner-document synchronization; new syntax and adjacent optimization stages remain out of scope.",
+    "checkpoints": "roadmap/optimization/parser-core-unification/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/optimization",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "34c5af8c-64cf-459c-8079-3c797e7eb357",
+    "status": "completed",
+    "title": "Verified IR Dead-Suffix Elimination",
+    "directory": "roadmap/optimization/verified-ir-dead-suffix",
+    "source_files": [
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+      "src/StyioLowering/StyioIROptimizer.hpp",
+      "src/StyioLowering/StyioIROptimizer.cpp",
+      "src/StyioIR/StyioIRWalker.hpp"
+    ],
+    "purpose": "Deliver the authorized OPT-D checkpoint as one measured and verifier-guarded IR pass family.",
+    "goal": "Eliminate provably unreachable statement suffixes through the verified StyioIR pass manager without changing live behavior.",
+    "description": "Owns one control-flow-local dead-statement family, semantic-equivalence evidence, pass statistics, focused performance evidence, and owner documentation; general def-use DCE and unrelated optimizer work remain out of scope.",
+    "checkpoints": "roadmap/optimization/verified-ir-dead-suffix/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/optimization/ir-passes",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "a5c58ef1-308a-4856-8494-859b21022a8c",
+    "status": "completed",
+    "title": "Bounded Callable Constraint Worklist",
+    "directory": "roadmap/optimization/bounded-type-constraints",
+    "source_files": [
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/design/syntax/features/core-constrained-callable-relations.md",
+      "src/StyioSema/SemaContext.hpp",
+      "src/StyioSema/TypeInfer.cpp",
+      "tests/features/callable_constraints"
+    ],
+    "purpose": "Deliver the authorized OPT-E checkpoint as one terminating type-constraint solving closure.",
+    "goal": "Consolidate callable constraint reduction into a deterministic bounded worklist while preserving handle and representation facts.",
+    "description": "Owns one existing callable-constraint family, termination and recomputation bounds, deterministic diagnostics, allocation evidence, and owner documentation; new constraint vocabulary and resource typestate remain out of scope.",
+    "checkpoints": "roadmap/optimization/bounded-type-constraints/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/optimization/type-constraints",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "00fd2166-8860-406f-a647-b3c14dc224e1",
+    "status": "completed",
+    "title": "Resource Typestate Dataflow",
+    "directory": "roadmap/optimization/resource-typestate-dataflow",
+    "source_files": [
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/IM-D4-RESOURCE-MANAGEMENT-INVENTORY.md",
+      "src/StyioSema/TypeInfer.cpp",
+      "src/StyioLowering/AstToStyioIR.cpp",
+      "src/StyioCodeGen/CodeGenG.cpp",
+      "tests/resource_topology_test.cpp"
+    ],
+    "purpose": "Deliver the authorized OPT-F checkpoint as one canonical resource typestate/dataflow closure.",
+    "goal": "Consolidate one active resource family's state transitions into a deterministic bounded analysis that OPT-G can consume.",
+    "description": "Owns one selected resource scenario, state lattice, transfer and join rules, convergence and memory evidence, diagnostics, and complete state-owner migration; unrelated resource families and stream scheduling remain out of scope.",
+    "checkpoints": "roadmap/optimization/resource-typestate-dataflow/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/optimization/resource-dataflow",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "24263843-fc9d-4b45-9ccc-3338190438cf",
+    "status": "deferred",
+    "title": "Ecosystem Release",
+    "directory": "roadmap/ecosystem-release",
+    "source_files": [
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
       "docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md",
       "scripts/ecosystem-cli-doc-gate.py"
     ],
-    "goal": "Keep Pafio project contracts, Styio compiler contracts, Platform hosted contracts, and Vityo adapters aligned.",
-    "description": "Freezes canonical machine entries and ownership without duplicating owner schemas.",
-    "checkpoints": "styio-ecosystem-cli-contract-matrix/Checkpoints.json"
+    "purpose": "Coordinate one bounded fixed-revision release after the maintainer selects its scope.",
+    "goal": "Freeze candidate revisions and run one final owner regression plus one cross-repository acceptance matrix.",
+    "description": "Product ownership is established; candidate selection and release acceptance remain intentionally deferred.",
+    "checkpoints": "roadmap/ecosystem-release/Checkpoints.json",
+    "kind": "release",
+    "tree_mode": "show",
+    "node_status": "show",
+    "entry_gate": {
+      "title": "Maintainer selects the release scope",
+      "prerequisites": [],
+      "conditions": [
+        "State whether the release uses the current baseline or includes named optimization checkpoints."
+      ]
+    }
   },
   {
-    "id": "56c82eb6-2696-4d33-8e0a-aa569293552c",
-    "status": "in_progress",
-    "title": "Compiler Self-Explanation Decision Log",
-    "directory": "compiler-self-explanation-decision-log",
+    "id": "12d8d36e-ab92-4f65-8266-cd0976d4c9cc",
+    "status": "completed",
+    "title": "Deterministic Zip Barrier Facts",
+    "directory": "roadmap/optimization/deterministic-zip-barrier-facts",
     "source_files": [
-      "docs/plan/Compiler-Self-Explanation-Decision-Log.md",
-      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
-      "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
-      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/IM-D5-STREAM-CONCURRENCY-INVENTORY.md",
+      "src/StyioIR/GenIR/SIOIR.hpp",
+      "src/StyioLowering/AstToStyioIR.cpp",
+      "src/StyioIR/Verifier.cpp",
+      "src/StyioCodeGen/CodeGenG.cpp",
+      "tests/lowering_internal_test.cpp",
+      "tests/codegen_internal_test.cpp"
     ],
-    "goal": "Convert compiler self-explanation findings into explicit decisions, guardrails, and implementation checkpoints.",
-    "description": "Owns the next Sema/IR inventory, hash-tag route retirement guardrails, canonical resource topology sequencing, parser performance prerequisites, and stream/IDE follow-up ordering.",
-    "checkpoints": "compiler-self-explanation-decision-log/Checkpoints.json"
+    "purpose": "Deliver the authorized OPT-G checkpoint as one canonical deterministic stream-concurrency closure.",
+    "goal": "Make one active finite zip-barrier scenario preserve explicit frame and synchronization facts through IR and code generation.",
+    "description": "Owns one existing finite zip path and its frame identity, barrier membership, synchronization mode, commit boundary, verifier invariants, and bounded evidence; snapshot joins, new queues, multi-writer merge, and new syntax remain out of scope.",
+    "checkpoints": "roadmap/optimization/deterministic-zip-barrier-facts/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/optimization/stream-concurrency",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
   },
   {
-    "id": "bc7d9809-0f71-4371-8b7b-32e8638a8d6d",
-    "status": "blocked",
-    "title": "Algorithmic Optimization Acceptance",
-    "directory": "algorithmic-optimization-acceptance",
+    "id": "fcb4ebe9-664b-4eec-ab92-1dae0d46f930",
+    "status": "completed",
+    "title": "Bounded Task Scheduling Pressure",
+    "directory": "roadmap/optimization/bounded-task-scheduling-pressure",
     "source_files": [
-      "docs/plan/reports/ALGORITHM_AUDIT_REPORT.md",
-      "docs/plan/reports/ALGORITHM_CLOSEOUT_TRACKER.md",
-      "docs/plan/reports/ALGORITHM_CLOSEOUT_FINAL_REPORT.md",
-      "docs/plan/reports/REMOTE_ACCEPTANCE_FIX_REPORT.md",
-      "docs/plan/reports/REMOTE_ACCEPTANCE_FINAL_REPORT.md",
-      "docs/plan/reports/ci-audit-final-fix.md",
-      "docs/rollups/CURRENT-STATE.md"
+      "docs/plan/Styio-Project-Roadmap.md",
+      "docs/rollups/IM-D5-STREAM-CONCURRENCY-INVENTORY.md",
+      "src/StyioRuntime/ReadyQueue.hpp",
+      "src/StyioExtern/ExternLib.cpp",
+      "src/StyioExtern/ExternLib.hpp",
+      "tests/runtime_scheduler_test.cpp",
+      "tests/security/styio_security_test.cpp",
+      "tests/features/task_resources"
     ],
-    "goal": "Close algorithmic optimization acceptance with real benchmark, sanitizer, TypeTable/SymbolInterner, ReadyQueue, and remote CI evidence.",
-    "description": "Merges the algorithm audit, local closeout, CI audit, and remote acceptance reports into one current execution graph; local correctness/evidence paths exist, but speedup and release readiness remain unproven.",
-    "checkpoints": "algorithmic-optimization-acceptance/Checkpoints.json"
+    "purpose": "Close the remaining OPT-G bounded scheduling checkpoint on one active structured task scenario.",
+    "goal": "Give active task launch and await a bounded, wakeable, cancelable scheduler path with observable non-failure pressure.",
+    "description": "Owns the existing task ready queue, producer/consumer wake-up, cancellation/close settlement, pressure counters, parser-through-runtime task evidence, race/sanitizer evidence, and bounded-memory proof; new syntax and general stream resource policies remain out of scope.",
+    "checkpoints": "roadmap/optimization/bounded-task-scheduling-pressure/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/optimization/stream-concurrency",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
   }
 ]
