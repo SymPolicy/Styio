@@ -53,6 +53,8 @@
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioServices/StyioConfig/SourceBuildInfo.hpp"
+#include "StyioSema/CallableInterface.hpp"
+#include "StyioSema/CallableModuleLoader.hpp"
 #include "StyioSema/SemanticAnalysis.hpp"
 #include "StyioRuntime/HandleTable.hpp"
 #include "StyioSession/CompilationSession.hpp"
@@ -62,6 +64,7 @@
 
 // [LLVM]
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
@@ -71,6 +74,7 @@
 #include "llvm/Support/Error.h" /* ExitOnErr */
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/TargetParser/Host.h"
 
 // [Styio LLVM ORC JIT]
 #include "StyioJIT/StyioJIT_ORC.hpp"
@@ -2215,11 +2219,16 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioResourceTopology/ResourceTopology.cpp",
     "src/StyioToString/ToString.cpp",
     "src/StyioIR/Verifier.cpp",
+    "src/StyioIR/PortableCallableBody.cpp",
+    "src/StyioSema/CallableInterface.cpp",
+    "src/StyioSema/CallableModuleLoader.cpp",
+    "src/StyioSema/CallableSpecializationGraph.cpp",
     "src/StyioSema/TypeInfer.cpp",
     "src/StyioSema/SemanticAnalysis.cpp",
     "src/StyioLowering/AstToStyioIR.cpp",
     "src/StyioLowering/AstToStyioIRStage.cpp",
     "src/StyioLowering/StyioIROptimizer.cpp",
+    "src/StyioCodeGen/CallableSpecializationObjectCache.cpp",
     "src/StyioCodeGen/GetTypeG.cpp",
     "src/StyioCodeGen/CodeGenG.cpp",
     "src/StyioCodeGen/LLVMEmission.cpp",
@@ -3642,31 +3651,20 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #else
     "compile-plan-live";
 #endif
+  const char* supported_contract_versions =
+#if STYIO_NANO_BUILD
+    "{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[],\"compile_plan\":[],\"receipt\":[],\"runtime_events\":[]}";
+#else
+    "{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}";
+#endif
   std::cout
     << "{\"tool\":\"styio\""
     << ",\"compiler_version\":\"" << styio_json_escape(STYIO_PROJECT_VERSION) << "\""
     << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
     << ",\"variant\":\"" << (STYIO_NANO_BUILD ? "nano" : "full") << "\""
     << ",\"active_integration_phase\":\"" << active_integration_phase << "\""
-    << ",\"supported_contracts\":{\"machine_info\":[\"json\"],\"jsonl_diagnostics\":[\"jsonl\"],\"syntax_check\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[\"syntax-json\"]"
-#endif
-    << ",\"compile_plan\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[\"resolved-request\"]"
-#endif
-    << ",\"runtime_events\":"
-#if STYIO_NANO_BUILD
-    << "[]"
-#else
-    << "[\"jsonl\"]"
-#endif
-    << "}"
+    << ",\"supported_contracts\":" << supported_contract_versions
+    << ",\"supported_contract_versions\":" << supported_contract_versions
     << ",\"supported_adapter_modes\":[\"cli\"]"
     << ",\"feature_flags\":{\"single_file_entry\":true"
     << ",\"jsonl_diagnostics\":true"
@@ -4144,8 +4142,6 @@ styio_render_compile_plan_unit_payload_latest(
           << styio_json_escape(request.entry_target_name)
           << "\",\"intent\":\""
           << styio_json_escape(intent)
-          << "\",\"build_mode\":\""
-          << styio_json_escape(request.build_mode)
           << "\",\"file\":\""
           << styio_json_escape(request.entry_file.string())
           << "\"";
@@ -4226,7 +4222,6 @@ styio_write_compile_plan_receipt_latest(
           << ",\"channel\":\"" << styio_json_escape(STYIO_RELEASE_CHANNEL) << "\""
           << ",\"plan_version\":" << request.plan_version
           << ",\"intent\":\"" << styio_json_escape(request.intent) << "\""
-          << ",\"build_mode\":\"" << styio_json_escape(request.build_mode) << "\""
           << ",\"session_id\":\"" << styio_json_escape(session_id) << "\""
           << ",\"executed\":" << (executed ? "true" : "false")
           << ",\"wall_time_ms\":" << wall_time_ms
@@ -4534,7 +4529,7 @@ styio_native_build_write_compile_plan_latest(
   plan
     << "{\n"
     << "  \"plan_version\": 1,\n"
-    << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \""
+    << "  \"generated_by\": {\"tool\": \"styio\", \"version\": \""
     << styio_json_escape(STYIO_PROJECT_VERSION) << "\"},\n"
     << "  \"intent\": \"build\",\n"
     << "  \"workspace_root\": \"" << styio_json_escape(input_path.parent_path().string()) << "\",\n"
@@ -4545,7 +4540,7 @@ styio_native_build_write_compile_plan_latest(
     << "    \"file\": \"" << styio_json_escape(input_path.string()) << "\"\n"
     << "  },\n"
     << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-    << "  \"profile\": {\"name\": \"native\", \"build_mode\": \"minimal\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
+    << "  \"profile\": {\"name\": \"native\", \"opt_level\": 3, \"debug\": false, \"lto\": false},\n"
     << "  \"packages\": [{\"id\": \"styio/native-build@0\"}],\n"
     << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"styio/native-build@0\"]},\n"
     << "  \"outputs\": {\n"
@@ -5155,6 +5150,18 @@ styio_hash_hex(const std::string& text) {
   return oss.str();
 }
 
+static std::string
+styio_callable_interface_compiler_abi_latest() {
+  std::ostringstream abi;
+  abi << "styio.callable-interface.v4"
+      << "|compiler=" << STYIO_PROJECT_VERSION
+      << "|channel=" << STYIO_RELEASE_CHANNEL
+      << "|edition=" << STYIO_EDITION_MAX
+      << "|target=" << llvm::sys::getDefaultTargetTriple()
+      << "|pointer_bits=" << (sizeof(void*) * 8);
+  return abi.str();
+}
+
 static void
 styio_write_shadow_artifact_latest(
   const std::string& artifact_dir,
@@ -5287,6 +5294,14 @@ main(
     "config", "Read project configuration from the given file. When omitted, styio.toml or .styio.toml is auto-discovered upward from --file.",
     cxxopts::value<std::string>()
   )(
+    "emit-module-interface",
+    "Write a versioned callable module interface (.styioi) after semantic validation.",
+    cxxopts::value<std::string>()
+  )(
+    "module-id",
+    "Canonical slash-form module id used by --emit-module-interface.",
+    cxxopts::value<std::string>()
+  )(
     "dict-impl", "Dictionary backend selector (ordered-hash|linear).",
     cxxopts::value<std::string>()
   )(
@@ -5300,6 +5315,26 @@ main(
     "profile-out",
     "Path for --profile-frontend JSON output. Defaults to <source>.profile.json.",
     cxxopts::value<std::string>()
+  )(
+    "callable-cache-dir",
+    "Enable the local native callable-specialization cache under this root.",
+    cxxopts::value<std::string>()
+  )(
+    "callable-cache-stats",
+    "Emit one path-free callable-cache statistics JSON object on stderr.",
+    cxxopts::value<bool>()->default_value("false")
+  )(
+    "callable-cache-max-age-seconds",
+    "Maximum age of a callable-cache artifact in seconds.",
+    cxxopts::value<std::uint64_t>()
+  )(
+    "callable-cache-max-bytes",
+    "Maximum aggregate bytes retained in the active callable-cache namespace.",
+    cxxopts::value<std::uint64_t>()
+  )(
+    "callable-cache-max-files",
+    "Maximum artifact count retained in the active callable-cache namespace.",
+    cxxopts::value<std::uint64_t>()
   );
 
 #if !STYIO_NANO_BUILD
@@ -5309,7 +5344,7 @@ main(
     cxxopts::value<std::string>()
   )(
     "source-build-info",
-    "Emit machine-readable source-build metadata for spio build. Supported format: json",
+    "Emit machine-readable compiler source-build metadata. Supported format: json",
     cxxopts::value<std::string>()
   )(
     "nano-create",
@@ -5537,6 +5572,42 @@ main(
     fpath = cmlopts["file"].as<std::string>();
   }
 
+  const bool emit_callable_interface =
+    cmlopts.count("emit-module-interface") > 0;
+  const bool module_id_specified =
+    cmlopts.count("module-id") > 0;
+  const std::string callable_interface_output =
+    emit_callable_interface
+      ? cmlopts["emit-module-interface"].as<std::string>()
+      : std::string();
+  const std::string callable_module_id =
+    module_id_specified
+      ? cmlopts["module-id"].as<std::string>()
+      : std::string();
+  if (module_id_specified && !emit_callable_interface) {
+    std::cerr << "[CliError] --module-id requires --emit-module-interface"
+              << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+  if (emit_callable_interface
+      && (callable_interface_output.empty()
+          || callable_module_id.empty()
+          || fpath.empty())) {
+    std::cerr
+      << "[CliError] --emit-module-interface requires --file, --module-id, and a non-empty output path"
+      << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+#if !STYIO_NANO_BUILD
+  if (emit_callable_interface
+      && compile_plan_request.has_value()) {
+    return styio_emit_compile_plan_cli_error_latest(
+      std::filesystem::path(cmlopts["compile-plan"].as<std::string>()),
+      "--emit-module-interface is not part of the compile-plan v1 envelope",
+      "compile_plan_cli_conflict");
+  }
+#endif
+
   StyioDictImplSelectionLatest dict_impl_selection;
   std::string dict_impl_error;
   if (!styio_resolve_dict_impl_selection_latest(cmlopts, fpath, dict_impl_selection, dict_impl_error)) {
@@ -5617,6 +5688,75 @@ main(
     return static_cast<int>(StyioExitCode::CliError);
   }
 
+  const bool callable_cache_stats =
+    cmlopts["callable-cache-stats"].as<bool>();
+  const bool callable_cache_dir_specified =
+    cmlopts.count("callable-cache-dir") > 0;
+  const bool callable_cache_limit_specified =
+    cmlopts.count("callable-cache-max-age-seconds") > 0
+    || cmlopts.count("callable-cache-max-bytes") > 0
+    || cmlopts.count("callable-cache-max-files") > 0;
+  if (!callable_cache_dir_specified
+      && (callable_cache_stats
+          || callable_cache_limit_specified)) {
+    std::cerr
+      << "[CliError] callable-cache statistics and limits require "
+         "--callable-cache-dir"
+      << std::endl;
+    return static_cast<int>(StyioExitCode::CliError);
+  }
+
+  std::optional<
+    styio::codegen::CallableSpecializationCacheConfig>
+    callable_cache_config;
+  if (callable_cache_dir_specified) {
+    const std::string cache_root =
+      cmlopts["callable-cache-dir"].as<std::string>();
+    if (cache_root.empty()) {
+      std::cerr
+        << "[CliError] --callable-cache-dir must not be empty"
+        << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+    styio::codegen::CallableSpecializationCacheConfig config;
+    config.root = cache_root;
+    if (cmlopts.count(
+          "callable-cache-max-age-seconds") > 0) {
+      config.limits.max_age_seconds =
+        cmlopts[
+          "callable-cache-max-age-seconds"].as<std::uint64_t>();
+    }
+    if (cmlopts.count("callable-cache-max-bytes") > 0) {
+      config.limits.max_bytes =
+        cmlopts[
+          "callable-cache-max-bytes"].as<std::uint64_t>();
+    }
+    if (cmlopts.count("callable-cache-max-files") > 0) {
+      config.limits.max_files =
+        cmlopts[
+          "callable-cache-max-files"].as<std::uint64_t>();
+    }
+    constexpr std::uint64_t kMaxCacheAgeSeconds =
+      10ULL * 365ULL * 24ULL * 60ULL * 60ULL;
+    constexpr std::uint64_t kMaxCacheBytes =
+      16ULL * 1024ULL * 1024ULL * 1024ULL;
+    constexpr std::uint64_t kMaxCacheFiles = 1'000'000ULL;
+    if (config.limits.max_age_seconds == 0
+        || config.limits.max_age_seconds
+             > kMaxCacheAgeSeconds
+        || config.limits.max_bytes == 0
+        || config.limits.max_bytes > kMaxCacheBytes
+        || config.limits.max_files == 0
+        || config.limits.max_files > kMaxCacheFiles) {
+      std::cerr
+        << "[CliError] callable-cache limits must be positive "
+           "and within the documented local bounds"
+        << std::endl;
+      return static_cast<int>(StyioExitCode::CliError);
+    }
+    callable_cache_config = std::move(config);
+  }
+
 #if STYIO_NANO_ENABLE_PARSER_SHADOW_COMPARE
   bool parser_shadow_compare = cmlopts["parser-shadow-compare"].as<bool>();
   std::string parser_shadow_artifact_dir = cmlopts["parser-shadow-artifact-dir"].as<std::string>();
@@ -5684,7 +5824,16 @@ main(
       snapshot.blocking_pulls,
       snapshot.failed_pulls,
       snapshot.invalid_pulls,
-      snapshot.max_queue_depth);
+      snapshot.max_queue_depth,
+      snapshot.queue_capacity,
+      snapshot.queue_current_depth,
+      snapshot.queue_accepted_pushes,
+      snapshot.queue_pops,
+      snapshot.queue_pressure_events,
+      snapshot.queue_producer_waits,
+      snapshot.queue_consumer_waits,
+      snapshot.queue_close_wake_ups,
+      snapshot.queue_closed);
     styio_task_scheduler_profile_enable(0);
     async_scheduler_profile_recorded = true;
   };
@@ -5767,7 +5916,6 @@ main(
     {
       std::ostringstream payload;
       payload << "{\"intent\":\"" << styio_json_escape(compile_plan_request->intent)
-              << "\",\"build_mode\":\"" << styio_json_escape(compile_plan_request->build_mode)
               << "\",\"file\":\"" << styio_json_escape(fpath) << "\"}";
       styio_emit_runtime_event_latest(
         "compile.started",
@@ -5830,10 +5978,7 @@ main(
       std::ostringstream payload;
       payload << "{\"intent\":\""
               << styio_json_escape(intent != nullptr ? *intent : "")
-              << "\",\"build_mode\":\""
-              << styio_json_escape(
-                   request != nullptr ? request->build_mode : std::string("minimal"))
-               << "\",\"file\":\""
+              << "\",\"file\":\""
               << styio_json_escape(file_path != nullptr ? *file_path : "")
               << "\",\"executed\":"
               << ((executed != nullptr && *executed) ? "true" : "false");
@@ -5896,6 +6041,18 @@ main(
   (void)handle_table;
 
   CompilationSession session;
+  styio::sema::CallableModuleGraph callable_module_graph;
+  const std::string callable_interface_compiler_abi =
+    styio_callable_interface_compiler_abi_latest();
+  const std::string callable_specialization_backend_abi =
+    callable_interface_compiler_abi
+    + "|dict_impl=" + dict_impl_selection.impl_name
+    + "|llvm=" LLVM_VERSION_STRING
+    + "|native_codegen=styio.callable-object.v1";
+  if (callable_cache_config.has_value()) {
+    callable_cache_config->namespace_abi =
+      callable_specialization_backend_abi;
+  }
   compile_plan_final_phase = session.phase();
   const auto compile_started_at = std::chrono::steady_clock::now();
   std::vector<std::filesystem::path> compile_plan_artifacts;
@@ -6090,6 +6247,55 @@ main(
       detail.str());
   }
 
+  try {
+    auto profile_phase =
+      frontend_profiler.phase("module_interfaces");
+    callable_module_graph.load_entry_imports(
+      std::filesystem::path(fpath),
+      session.ast(),
+      callable_interface_compiler_abi);
+  } catch (const StyioLexError& ex) {
+    mark_failed_with_runtime_transition("mark_failed");
+    styio_emit_diagnostic(
+      error_format,
+      StyioErrorCategory::LexError,
+      fpath,
+      ex.what());
+    return styio_exit_code(StyioErrorCategory::LexError);
+  } catch (const StyioSyntaxError& ex) {
+    mark_failed_with_runtime_transition("mark_failed");
+    styio_emit_diagnostic(
+      error_format,
+      StyioErrorCategory::ParseError,
+      fpath,
+      ex.what());
+    return styio_exit_code(StyioErrorCategory::ParseError);
+  } catch (const StyioParseError& ex) {
+    mark_failed_with_runtime_transition("mark_failed");
+    styio_emit_diagnostic(
+      error_format,
+      StyioErrorCategory::ParseError,
+      fpath,
+      ex.what());
+    return styio_exit_code(StyioErrorCategory::ParseError);
+  } catch (const StyioBaseException& ex) {
+    mark_failed_with_runtime_transition("mark_failed");
+    styio_emit_diagnostic(
+      error_format,
+      StyioErrorCategory::TypeError,
+      fpath,
+      ex.what());
+    return styio_exit_code(StyioErrorCategory::TypeError);
+  } catch (const std::exception& ex) {
+    mark_failed_with_runtime_transition("mark_failed");
+    styio_emit_diagnostic(
+      error_format,
+      StyioErrorCategory::TypeError,
+      fpath,
+      ex.what());
+    return styio_exit_code(StyioErrorCategory::TypeError);
+  }
+
   if (show_styio_ast) {
     if (styio_stdout_plain()) {
       std::cout << "AST -Original\n";
@@ -6114,6 +6320,11 @@ main(
   AstToStyioIRLowerer analyzer = AstToStyioIRLowerer();
   analyzer.attach_type_table(session.types(), session.symbols());
   try {
+    analyzer.configure_callable_specialization_environment(
+      callable_specialization_backend_abi,
+      styio::sema::callable_interface_dependency_digest(
+        callable_module_graph.entry_dependencies()));
+    callable_module_graph.install_into(analyzer);
     {
       auto profile_phase = frontend_profiler.phase("type_infer");
       styio::sema::require_semantic_analysis(session.ast(), &analyzer);
@@ -6129,6 +6340,55 @@ main(
     mark_failed_with_runtime_transition("mark_failed");
     styio_emit_diagnostic(error_format, StyioErrorCategory::TypeError, fpath, ex.what());
     return styio_exit_code(StyioErrorCategory::TypeError);
+  }
+
+  if (emit_callable_interface) {
+    try {
+      const auto interface =
+        styio::sema::publish_callable_module_interface(
+          callable_module_id,
+          styio_code.code_text,
+          callable_interface_compiler_abi,
+          session.ast(),
+          analyzer,
+          callable_module_graph.entry_dependencies());
+      const std::filesystem::path output_path(
+        callable_interface_output);
+      std::error_code directory_error;
+      if (!output_path.parent_path().empty()) {
+        std::filesystem::create_directories(
+          output_path.parent_path(),
+          directory_error);
+      }
+      if (directory_error) {
+        throw StyioTypeError(
+          "cannot create callable module interface directory: "
+          + directory_error.message());
+      }
+      std::string write_error;
+      if (!styio_write_text_file_latest(
+            output_path,
+            styio::sema::serialize_callable_module_interface(interface),
+            write_error)) {
+        throw StyioTypeError(write_error);
+      }
+    } catch (const StyioBaseException& ex) {
+      mark_failed_with_runtime_transition("mark_failed");
+      styio_emit_diagnostic(
+        error_format,
+        StyioErrorCategory::TypeError,
+        fpath,
+        ex.what());
+      return styio_exit_code(StyioErrorCategory::TypeError);
+    } catch (const std::exception& ex) {
+      mark_failed_with_runtime_transition("mark_failed");
+      styio_emit_diagnostic(
+        error_format,
+        StyioErrorCategory::TypeError,
+        fpath,
+        ex.what());
+      return styio_exit_code(StyioErrorCategory::TypeError);
+    }
   }
 
   if (show_styio_ast) {
@@ -6199,7 +6459,8 @@ main(
       llvm::InitializeNativeTargetAsmPrinter();
       llvm::InitializeNativeTargetAsmParser();
 
-      auto jit_or_err = StyioJIT_ORC::Create();
+      auto jit_or_err = StyioJIT_ORC::Create(
+        callable_cache_config);
       if (!jit_or_err) {
         std::string emsg;
         llvm::handleAllErrors(
@@ -6326,6 +6587,13 @@ main(
       const CompilationPhase previous_phase = session.phase();
       session.mark_executed();
       emit_compile_plan_session_transition(previous_phase, "mark_executed");
+    }
+    if (callable_cache_stats) {
+      const std::string stats =
+        generator->callable_cache_stats_json();
+      if (!stats.empty()) {
+        std::cerr << stats << std::endl;
+      }
     }
   } catch (const StyioTypeError& ex) {
     return fail_after_codegen_exception(StyioErrorCategory::TypeError, ex.what());

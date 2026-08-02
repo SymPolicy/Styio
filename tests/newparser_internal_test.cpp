@@ -115,17 +115,30 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
     EXPECT_FALSE(is_pressure_observer_attr_latest(other.get()));
     EXPECT_FALSE(is_pressure_observer_attr_latest(IntAST::Create("1")));
   }
-  EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_GE));
-  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_GE), CompType::GE);
-  EXPECT_EQ(expr_map_comp(StyioTokenType::TOK_LANGBRAC), CompType::LT);
-  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_NE), CompType::NE);
-  EXPECT_EQ(expr_map_comp(StyioTokenType::TOK_SPACE), CompType::EQ);
-  EXPECT_TRUE(expr_is_logic(StyioTokenType::LOGIC_AND));
-  EXPECT_TRUE(expr_is_logic(StyioTokenType::LOGIC_OR));
-  EXPECT_FALSE(expr_is_logic(StyioTokenType::TOK_PIPE));
-  EXPECT_EQ(expr_map_logic(StyioTokenType::LOGIC_AND), LogicType::AND);
-  EXPECT_EQ(expr_map_logic(StyioTokenType::LOGIC_OR), LogicType::OR);
-  EXPECT_EQ(expr_map_logic(StyioTokenType::TOK_PIPE), LogicType::RAW);
+  const auto* greater_equal = styio_expr_operator_info(StyioTokenType::BINOP_GE);
+  ASSERT_NE(greater_equal, nullptr);
+  EXPECT_EQ(greater_equal->kind, StyioExprOperatorKind::Comparison);
+  EXPECT_EQ(greater_equal->ast_op, StyioOpType::Greater_Than_Equal);
+  const auto* less_alias = styio_expr_operator_info(StyioTokenType::TOK_LANGBRAC);
+  ASSERT_NE(less_alias, nullptr);
+  EXPECT_EQ(less_alias->kind, StyioExprOperatorKind::Comparison);
+  EXPECT_EQ(less_alias->ast_op, StyioOpType::Less_Than);
+  const auto* not_equal = styio_expr_operator_info(StyioTokenType::BINOP_NE);
+  ASSERT_NE(not_equal, nullptr);
+  EXPECT_EQ(not_equal->kind, StyioExprOperatorKind::Comparison);
+  EXPECT_EQ(not_equal->ast_op, StyioOpType::Not_Equal);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::TOK_SPACE), nullptr);
+  const auto* logic_and = styio_expr_operator_info(StyioTokenType::LOGIC_AND);
+  ASSERT_NE(logic_and, nullptr);
+  EXPECT_EQ(logic_and->kind, StyioExprOperatorKind::Logic);
+  EXPECT_EQ(logic_and->ast_op, StyioOpType::Logic_AND);
+  const auto* logic_or = styio_expr_operator_info(StyioTokenType::LOGIC_OR);
+  ASSERT_NE(logic_or, nullptr);
+  EXPECT_EQ(logic_or->kind, StyioExprOperatorKind::Logic);
+  EXPECT_EQ(logic_or->ast_op, StyioOpType::Logic_OR);
+  const auto* fallback = styio_expr_operator_info(StyioTokenType::TOK_PIPE);
+  ASSERT_NE(fallback, nullptr);
+  EXPECT_EQ(fallback->kind, StyioExprOperatorKind::Fallback);
 
   auto allow_any = [](StyioTokenType) { return true; };
   auto stop_at_eof = [](StyioTokenType type, int, int, int, bool) {
@@ -261,7 +274,11 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
   {
     ManualTokenContext direct({});
     EXPECT_FALSE(stmt_subset_route_supported_latest(direct.get()));
-    EXPECT_FALSE(expr_subset_route_supported_until_latest(direct.get(), {}));
+    const auto saved = direct.get().save_cursor();
+    auto attempt = try_parse_expr_subset_until_latest(direct.get(), {});
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+    EXPECT_EQ(attempt.node, nullptr);
+    EXPECT_EQ(direct.get().save_cursor(), saved);
   }
   {
     ManualTokenContext direct({
@@ -328,12 +345,22 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
   {
     DirectContext direct("");
     EXPECT_FALSE(stmt_subset_route_supported_latest(direct.get()));
-    EXPECT_FALSE(expr_subset_route_supported_until_latest(direct.get(), {StyioTokenType::TOK_EOF}));
+    const auto saved = direct.get().save_cursor();
+    auto attempt = try_parse_expr_subset_until_latest(
+      direct.get(), {StyioTokenType::TOK_EOF});
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+    EXPECT_EQ(attempt.node, nullptr);
+    EXPECT_EQ(direct.get().save_cursor(), saved);
   }
   {
     DirectContext direct(")");
     EXPECT_FALSE(stmt_subset_route_supported_latest(direct.get()));
-    EXPECT_FALSE(expr_subset_route_supported_until_latest(direct.get(), {StyioTokenType::TOK_EOF}));
+    const auto saved = direct.get().save_cursor();
+    auto attempt = try_parse_expr_subset_until_latest(
+      direct.get(), {StyioTokenType::TOK_EOF});
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+    EXPECT_EQ(attempt.node, nullptr);
+    EXPECT_EQ(direct.get().save_cursor(), saved);
   }
   {
     DirectContext direct("}");
@@ -354,27 +381,43 @@ TEST(StyioNewParserInternal, DefaultValuesRecoveryAndTokenProbesStayExplicit) {
     EXPECT_THROW((void)parse_iterator_collection_rhs_nightly_draft(direct.get()), StyioSyntaxError);
   }
 
-  EXPECT_EQ(expr_prec_of(StyioTokenType::BINOP_GT), 40);
-  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_RANGBRAC), 40);
-  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_PLUS), 50);
-  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_STAR), 60);
-  EXPECT_EQ(expr_prec_of(StyioTokenType::BINOP_POW), 70);
-  EXPECT_EQ(expr_prec_of(StyioTokenType::TOK_HASH), -1);
-  EXPECT_TRUE(expr_is_right_assoc(StyioTokenType::BINOP_POW));
-  EXPECT_FALSE(expr_is_right_assoc(StyioTokenType::TOK_STAR));
-  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_PLUS), StyioOpType::Binary_Add);
-  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_MINUS), StyioOpType::Binary_Sub);
-  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_STAR), StyioOpType::Binary_Mul);
-  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_SLASH), StyioOpType::Binary_Div);
-  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_PERCENT), StyioOpType::Binary_Mod);
-  EXPECT_EQ(expr_map_binop(StyioTokenType::BINOP_POW), StyioOpType::Binary_Pow);
-  EXPECT_EQ(expr_map_binop(StyioTokenType::TOK_HASH), StyioOpType::Undefined);
-  EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_GT));
-  EXPECT_TRUE(expr_is_comp(StyioTokenType::BINOP_LE));
-  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_GT), CompType::GT);
-  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_LT), CompType::LT);
-  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_LE), CompType::LE);
-  EXPECT_EQ(expr_map_comp(StyioTokenType::BINOP_EQ), CompType::EQ);
+  const std::vector<StyioExprOperatorInfo> expected_operators{
+    {StyioTokenType::YIELD_PIPE, 10, StyioExprAssociativity::Left, StyioExprOperatorKind::Apply, StyioOpType::Undefined},
+    {StyioTokenType::TOK_PIPE, 20, StyioExprAssociativity::Left, StyioExprOperatorKind::Fallback, StyioOpType::Undefined},
+    {StyioTokenType::LOGIC_OR, 30, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_OR},
+    {StyioTokenType::LOGIC_AND, 40, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_AND},
+    {StyioTokenType::BINOP_EQ, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Equal},
+    {StyioTokenType::BINOP_NE, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Not_Equal},
+    {StyioTokenType::BINOP_GT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+    {StyioTokenType::TOK_RANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+    {StyioTokenType::BINOP_GE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than_Equal},
+    {StyioTokenType::BINOP_LT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+    {StyioTokenType::TOK_LANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+    {StyioTokenType::BINOP_LE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than_Equal},
+    {StyioTokenType::TOK_PLUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Add},
+    {StyioTokenType::TOK_MINUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Sub},
+    {StyioTokenType::TOK_STAR, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mul},
+    {StyioTokenType::TOK_SLASH, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Div},
+    {StyioTokenType::TOK_PERCENT, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mod},
+    {StyioTokenType::BINOP_POW, 90, StyioExprAssociativity::Right, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Pow},
+  };
+  ASSERT_EQ(expected_operators.size(), std::size(kStyioExprOperators));
+  for (size_t i = 0; i < expected_operators.size(); ++i) {
+    SCOPED_TRACE(i);
+    const auto* actual = styio_expr_operator_info(expected_operators[i].token);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_EQ(actual, &kStyioExprOperators[i]);
+    EXPECT_EQ(actual->precedence, expected_operators[i].precedence);
+    EXPECT_EQ(actual->associativity, expected_operators[i].associativity);
+    EXPECT_EQ(actual->kind, expected_operators[i].kind);
+    EXPECT_EQ(actual->ast_op, expected_operators[i].ast_op);
+  }
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::BINOP_BITAND), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::BINOP_BITOR), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::BINOP_BITXOR), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::LOGIC_XOR), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::TOK_EQUAL), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::ARROW_SINGLE_RIGHT), nullptr);
 }
 
 TEST(StyioNewParserInternal, AwaitResourceEffectAndTaskLookaheadStayExplicit) {
@@ -716,25 +759,28 @@ TEST(StyioNewParserInternal, RouteDictIteratorAndStatementHelpersStayExplicit) {
   }
   {
     DirectContext direct("[1, 2]");
-    std::unique_ptr<StyioAST> ast(parse_list_expr_or_iterator_nightly_draft(direct.get()));
+    std::unique_ptr<StyioAST> ast(
+      parse_list_expr_or_iterator_nightly_draft(direct.get(), false));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::List);
   }
   {
     DirectContext direct("[0..n]");
-    std::unique_ptr<StyioAST> ast(parse_list_expr_or_iterator_nightly_draft(direct.get()));
+    std::unique_ptr<StyioAST> ast(
+      parse_list_expr_or_iterator_nightly_draft(direct.get(), false));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Range);
   }
   {
     DirectContext direct("[0..n..2]");
     EXPECT_THROW(
-      (void)parse_list_expr_or_iterator_nightly_draft(direct.get()),
+      (void)parse_list_expr_or_iterator_nightly_draft(direct.get(), false),
       StyioSyntaxError);
   }
   {
     DirectContext direct("[1, 2] >>(item) => { << item }");
-    std::unique_ptr<StyioAST> ast(parse_list_expr_or_iterator_nightly_draft(direct.get()));
+    std::unique_ptr<StyioAST> ast(
+      parse_list_expr_or_iterator_nightly_draft(direct.get(), true));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Iterator);
   }
@@ -1100,14 +1146,61 @@ TEST(StyioNewParserInternal, RouteCacheCountersStayAccurate) {
     EXPECT_EQ(ctx.route_cache_miss_count(), 1u);
   }
 
-  // --- 5. expr_subset_route_supported_until_latest increments scan count ---
+  // --- 5. Canonical expression parsing reports useful work without a route pre-scan ---
   {
-    DirectContext direct("1 + 2");
+    DirectContext direct("1 + 2 * 3");
     StyioContext& ctx = direct.get();
     ctx.clear_route_cache();
+    StyioParserRouteStats stats;
+    ctx.set_parser_route_stats_latest(&stats);
 
-    const size_t scans_before = ctx.route_scan_count();
-    EXPECT_TRUE(expr_subset_route_supported_until_latest(ctx, {StyioTokenType::TOK_EOF}));
-    EXPECT_GT(ctx.route_scan_count(), scans_before);
+    std::unique_ptr<StyioAST> ast(parse_expr(ctx));
+    ctx.set_parser_route_stats_latest(nullptr);
+    auto* add = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(add, nullptr);
+    EXPECT_EQ(add->getOp(), StyioOpType::Binary_Add);
+    auto* multiply = dynamic_cast<BinOpAST*>(add->getRHS());
+    ASSERT_NE(multiply, nullptr);
+    EXPECT_EQ(multiply->getOp(), StyioOpType::Binary_Mul);
+    EXPECT_EQ(ctx.route_scan_count(), 0u);
+    EXPECT_GT(stats.expression_token_visits, 0u);
+    EXPECT_GT(stats.expression_operator_probes, 0u);
+    EXPECT_EQ(stats.expression_ast_nodes, 2u);
+    EXPECT_EQ(stats.expression_scratch_allocations, 0u);
+    EXPECT_GT(stats.expression_max_depth, 0u);
+    EXPECT_LT(stats.expression_max_depth, kStyioExprMaxDepth);
+    EXPECT_EQ(stats.legacy_fallback_statements, 0u);
+    EXPECT_EQ(stats.nightly_internal_legacy_bridges, 0u);
+  }
+}
+
+TEST(StyioNewParserInternal, CanonicalTryParsePreservesCursorAndFatalOwnership) {
+  {
+    DirectContext direct("1 + 2 | fallback");
+    auto attempt = try_parse_expr_subset_until_latest(
+      direct.get(), {StyioTokenType::TOK_PIPE});
+    ASSERT_EQ(attempt.status, ParseAttemptStatus::Parsed);
+    std::unique_ptr<StyioAST> ast(attempt.node);
+    auto* add = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(add, nullptr);
+    EXPECT_EQ(add->getOp(), StyioOpType::Binary_Add);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::TOK_PIPE);
+  }
+  {
+    DirectContext direct("1 +");
+    const auto saved = direct.get().save_cursor();
+    auto attempt = try_parse_expr_subset_until_latest(direct.get(), {});
+    ASSERT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+    EXPECT_EQ(attempt.node, nullptr);
+    EXPECT_EQ(direct.get().save_cursor(), saved);
+    ASSERT_NE(attempt.error, nullptr);
+    try {
+      std::rethrow_exception(attempt.error);
+      FAIL() << "expected preserved expression failure";
+    }
+    catch (const StyioSyntaxError& ex) {
+      EXPECT_NE(std::string(ex.what()).find(
+        "unexpected token in nightly parser expression subset"), std::string::npos);
+    }
   }
 }

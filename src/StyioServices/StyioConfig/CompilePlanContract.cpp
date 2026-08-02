@@ -1,7 +1,9 @@
 #include "CompilePlanContract.hpp"
 
+#include <array>
 #include <fstream>
 #include <sstream>
+#include <string_view>
 
 #include "llvm/Support/Error.h"
 #include "llvm/Support/JSON.h"
@@ -95,28 +97,6 @@ json_require_bool(
 }
 
 bool
-json_optional_nonempty_string(
-  const llvm::json::Object& obj,
-  const char* key,
-  const char* field_path,
-  std::string& out_value,
-  std::string& error_message
-) {
-  if (obj.get(key) == nullptr) {
-    return true;
-  }
-
-  const auto raw = obj.getString(key);
-  if (!raw.has_value() || raw->empty()) {
-    error_message =
-      std::string("compile-plan optional string field must be a non-empty string: ") + field_path;
-    return false;
-  }
-  out_value = std::string(*raw);
-  return true;
-}
-
-bool
 json_require_object(
   const llvm::json::Object& obj,
   const char* key,
@@ -201,17 +181,36 @@ compile_plan_require_absolute_path(
   return true;
 }
 
-} // namespace
-
-std::string_view
-default_build_mode_name() {
-  return "minimal";
-}
-
 bool
-is_supported_build_mode(std::string_view build_mode) {
-  return build_mode == default_build_mode_name();
+compile_plan_profile_has_only_v1_fields(
+  const llvm::json::Object& profile,
+  std::string& error_message
+) {
+  constexpr std::array<std::string_view, 4> allowed{
+    "name",
+    "opt_level",
+    "debug",
+    "lto",
+  };
+  for (const auto& field : profile) {
+    const std::string field_name = field.first.str();
+    bool accepted = false;
+    for (const std::string_view candidate : allowed) {
+      if (field_name == candidate) {
+        accepted = true;
+        break;
+      }
+    }
+    if (!accepted) {
+      error_message =
+        "compile-plan profile contains an unsupported field: " + field_name;
+      return false;
+    }
+  }
+  return true;
 }
+
+} // namespace
 
 bool
 probe_compile_plan_diag_dir(
@@ -311,22 +310,14 @@ parse_compile_plan(
   }
   (void) generated_by_version;
   (void) profile_name;
-  if (generated_by_tool != "spio") {
-    error_message = "compile-plan generated_by.tool must equal \"spio\"";
+  // Pafio is the only ecosystem project-plan producer. The "styio" value is
+  // reserved for the compiler's direct single-file `styio build` path, which
+  // reuses this parser internally and does not represent a project workflow.
+  if (!(generated_by_tool == "pafio" || generated_by_tool == "styio")) {
+    error_message = "compile-plan generated_by.tool must equal \"pafio\" or \"styio\"";
     return false;
   }
-
-  out_request.build_mode = std::string(default_build_mode_name());
-  if (!json_optional_nonempty_string(
-        *profile,
-        "build_mode",
-        "profile.build_mode",
-        out_request.build_mode,
-        error_message)) {
-    return false;
-  }
-  if (!is_supported_build_mode(out_request.build_mode)) {
-    error_message = "unsupported compile-plan profile.build_mode: " + out_request.build_mode;
+  if (!compile_plan_profile_has_only_v1_fields(*profile, error_message)) {
     return false;
   }
 
@@ -345,7 +336,11 @@ parse_compile_plan(
   if (!json_require_string(*entry, "package_id", out_request.entry_package_id, error_message, "entry.package_id")
       || !json_require_string(*entry, "target_kind", out_request.entry_target_kind, error_message, "entry.target_kind")
       || !json_require_string(*entry, "target_name", out_request.entry_target_name, error_message, "entry.target_name")
-      || !compile_plan_require_absolute_path(*entry, "file", out_request.entry_file, error_message)) {
+      || !compile_plan_require_absolute_path(
+        *entry,
+        "file",
+        out_request.entry_file,
+        error_message)) {
     return false;
   }
   if (!(out_request.entry_target_kind == "lib"

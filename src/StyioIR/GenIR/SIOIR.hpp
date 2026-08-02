@@ -2,6 +2,9 @@
 #ifndef STYIO_SIO_IR_H_
 #define STYIO_SIO_IR_H_
 
+#include <array>
+#include <cstdint>
+
 #include "SGIR.hpp"
 
 /*
@@ -109,6 +112,60 @@ private:
   SIOFileLineIter() = default;
 };
 
+enum class SGStreamZipFrameIdentity : std::uint8_t
+{
+  MatchedPairOrdinal = 0,
+};
+
+enum class SGStreamZipBarrierMember : std::uint8_t
+{
+  SourceA = 0,
+  SourceB = 1,
+};
+
+enum class SGStreamZipReadiness : std::uint8_t
+{
+  AllMembersPresent = 0,
+};
+
+enum class SGStreamZipCommit : std::uint8_t
+{
+  AfterBodyOnce = 0,
+};
+
+enum class SGStreamZipTermination : std::uint8_t
+{
+  ShortestFiniteInput = 0,
+};
+
+struct SGStreamZipBarrierFacts
+{
+  SGStreamZipFrameIdentity frame_identity =
+    SGStreamZipFrameIdentity::MatchedPairOrdinal;
+  std::array<SGStreamZipBarrierMember, 2> members{
+    SGStreamZipBarrierMember::SourceA,
+    SGStreamZipBarrierMember::SourceB,
+  };
+  SGStreamZipReadiness readiness =
+    SGStreamZipReadiness::AllMembersPresent;
+  SGStreamZipCommit commit = SGStreamZipCommit::AfterBodyOnce;
+  SGStreamZipTermination termination =
+    SGStreamZipTermination::ShortestFiniteInput;
+
+  static constexpr SGStreamZipBarrierFacts Canonical() noexcept {
+    return SGStreamZipBarrierFacts{};
+  }
+
+  constexpr bool is_canonical() const noexcept {
+    return frame_identity == SGStreamZipFrameIdentity::MatchedPairOrdinal
+      && members[0] == SGStreamZipBarrierMember::SourceA
+      && members[1] == SGStreamZipBarrierMember::SourceB
+      && readiness == SGStreamZipReadiness::AllMembersPresent
+      && commit == SGStreamZipCommit::AfterBodyOnce
+      && termination == SGStreamZipTermination::ShortestFiniteInput;
+  }
+};
+
 class SIOStreamZip : public StyioIRTraits<SIOStreamZip>
 {
 public:
@@ -124,6 +181,10 @@ public:
   bool b_elem_string = false;
   std::string a_elem_type = "i64";
   std::string b_elem_type = "i64";
+  // Inline and immutable by convention: Create is the only construction seam;
+  // verifier tests may deliberately corrupt this value to exercise fail-closed
+  // handling.
+  SGStreamZipBarrierFacts barrier_facts;
   SGBlock* body = nullptr;
   std::unique_ptr<SGPulsePlan> pulse_plan;
   int pulse_region_id = -1;
@@ -157,6 +218,7 @@ public:
     z->b_elem_string = bstr;
     z->a_elem_type = std::move(a_elem);
     z->b_elem_type = std::move(b_elem);
+    z->barrier_facts = SGStreamZipBarrierFacts::Canonical();
     z->body = b;
     return z;
   }
@@ -171,6 +233,9 @@ public:
     delete iterable_b;
     delete body;
   }
+
+private:
+  SIOStreamZip() = default;
 };
 
 class SIOInstantPull : public StyioIRTraits<SIOInstantPull>

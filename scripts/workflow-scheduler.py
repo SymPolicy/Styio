@@ -116,6 +116,13 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "scripts/repo-hygiene-gate.py", "--mode", "push", "--range", "{range}"),
     ),
     Tool(
+        "syntax-feature-state",
+        15,
+        "Language / Docs",
+        "Validate distributed syntax-feature SSOT documents, lifecycle guards, dependency closure, and generated graph freshness.",
+        ("python3", "scripts/syntax-feature-state-gate.py"),
+    ),
+    Tool(
         "runtime-surface",
         20,
         "Codegen / Runtime",
@@ -299,6 +306,7 @@ PROFILES: tuple[Profile, ...] = (
             "tool-skill-registry",
             "local-info-leak-worktree",
             "repo-hygiene-worktree",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-worktree",
             "docs-audit",
@@ -312,6 +320,7 @@ PROFILES: tuple[Profile, ...] = (
             "tool-skill-registry",
             "local-info-leak-staged",
             "repo-hygiene-staged",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-staged",
             "docs-audit",
@@ -325,6 +334,7 @@ PROFILES: tuple[Profile, ...] = (
             "tool-skill-registry",
             "local-info-leak-push",
             "repo-hygiene-push",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-base",
             "docs-audit",
@@ -340,6 +350,7 @@ PROFILES: tuple[Profile, ...] = (
             "tool-skill-registry",
             "local-info-leak-worktree",
             "repo-hygiene-tracked",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-worktree",
             "docs-audit",
@@ -357,6 +368,7 @@ PROFILES: tuple[Profile, ...] = (
             "local-info-leak-push",
             "repo-hygiene-tracked",
             "repo-hygiene-push",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-base",
             "ecosystem-cli-docs-workspace",
@@ -380,7 +392,7 @@ DOCS_BY_KEY = by_key(WORKFLOW_DOCS)
 PROFILES_BY_KEY = by_key(PROFILES)
 
 ECOSYSTEM_WORKSPACE_GATE_TRIGGERS: tuple[str, ...] = (
-    "docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
+    "docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
     "docs/external/for-pafio/",
     "scripts/ecosystem-cli-doc-gate.py",
 )

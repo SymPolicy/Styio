@@ -2,13 +2,13 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-08-01
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
 1. what the `styio` repository has already delivered,
 2. what is still missing inside `styio`,
-3. what is intentionally owned by `styio-pafio` or another adjacent repository.
+3. what is intentionally owned by `pafio-nightly` or another adjacent repository.
 
 ## 1. How to Use This Ledger
 
@@ -36,14 +36,14 @@
 | IDE / LSP | Core semantic services exist, but stdio runtime drain and several LSP methods are still absent | Close operational gaps before expanding host-facing promises |
 | Tests / Quality | Core suites exist, M6 active acceptance now uses Topology v2 syntax, and resource-topology safety coverage is registered, but negative-path package and next-stage migration coverage still need expansion | Coverage closure must run in parallel with implementation closure |
 
-## 4. Responsibility Split: `styio` vs `styio-pafio`
+## 4. Responsibility Split: Styio vs Pafio
 
 | Area | Owning repo | Status in `styio` | Notes |
 |------|-------------|-------------------|-------|
 | Nano package materialization, static local registry consume/publish, compiler capability reporting | `styio` | Delivered baseline | See [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md) |
-| Full package-manager UX: `install`, `use`, `search`, `vendor`, `pin`, dependency resolution, lockfiles, remote registry protocol | `styio-pafio` | Out of scope here | See [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) |
-| `pafio build/check/run/test` live compile-plan handoff | `styio` producer contract, `styio-pafio` consumer integration | Delivered baseline in `styio` | `--machine-info=json` advertises `compile_plan:[1]`; compile-plan consumer materializes artifacts / receipt / `diag_dir` diagnostics |
-| Remote registry service semantics, auth/signing/trust, channel aliasing, package listing APIs | `styio-pafio` | Not owned here | `styio` should not absorb this scope |
+| Project workflow UX, dependency resolution, lockfiles, vendor, pack, and publish client | `pafio-nightly` | Out of scope here | See [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) |
+| `pafio build/check/run/test` live compile-plan handoff | Pafio producer, Styio consumer | Delivered baseline in `styio` | `--machine-info=json` advertises `compile_plan:[1]`; compile-plan consumption materializes artifacts, receipt, diagnostics, and runtime events |
+| Remote registry service semantics, auth/signing/trust, hosted workspace, and cloud worker lifecycle | Styio Platform | Not owned here | Styio owns only compiler-local outputs and capability contracts |
 
 ## 5. Detailed Gap Ledger
 
@@ -59,15 +59,16 @@
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| Placeholder lowering remains widespread | High | Representative `SGConstInt(0)` placeholders still exist for multiple AST kinds in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Codegen / Runtime, Test Quality | Replace silent placeholder lowering with real lowering or explicit typed failure; do not keep placeholder nodes on active execution paths |
-| Type inference coverage remains structurally incomplete | High | Empty visitors still exist for active AST families such as `CommentAST`, `InfiniteAST`, `FmtStrAST`, `ForwardAST`, and anonymous functions in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) | Sema / IR, Test Quality | Build an explicit inventory of empty visitors and classify each as dead syntax, intentional no-op, or implementation debt |
-| State inline clone path still has unsupported-node fallthrough | Medium | Unsupported AST fallback remains in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Test Quality | Continue shrinking the unsupported clone surface until state-helper inlining is total for accepted language forms |
+| Direct placeholder lowering | Closed | The P0 audit found no active AST route that fabricates `SGConstInt(0)`; the two remaining zero constructors initialize concrete resource storage in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Test Quality | Preserve typed failure for unsupported AST families and explicit `SGNoOp` for intentional no-op forms |
+| Empty Sema visitor classification | Closed for P0 | All 41 empty visitors are classified in [IM-D1-STYIOIR-CONTRACT-INVENTORY.md](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md): 26 intentional or parent-owned, 5 retired, and 10 implementation-debt families; `FmtStrAST` is confirmed non-empty | Sema / IR, Test Quality | Re-open only one accepted implementation-debt family at a time |
+| Inline clone unsupported-node fallthrough | Typed boundary | `StateExprCloneVisitor` explicitly clones the accepted state/resource-method surface and raises `StyioTypeError` for unlisted AST kinds; focused clone tests cover accepted and rejected paths | Sema / IR, Test Quality | Extend the switch only with the implementation slice that accepts the corresponding source form |
+| Loop-control verifier context | Closed | [src/StyioIR/Verifier.cpp](../../src/StyioIR/Verifier.cpp) tracks body-scoped nesting for all three loop IR nodes and rejects top-level `SGBreak` / `SGContinue`; focused contract coverage lives in [tests/security/styio_security_test.cpp](../../tests/security/styio_security_test.cpp) | Sema / IR, Test Quality | Preserve the single-level control contract and reopen only for an independently approved semantic extension |
 
 ### 5.3 Codegen / Runtime
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| M7 multi-stream processing is not complete end-to-end | High | `IterSeqAST` exists in parser output in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp), but type inference is empty in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) and IR lowering is still a placeholder in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Frontend, Sema / IR, Codegen / Runtime | Pick one accepted M7 slice and carry it through parser, sema, lowering, runtime, and milestone tests in one checkpoint chain |
+| M7 multi-stream processing is not complete end-to-end | High | `IterSeqAST` exists in parser output in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp); Sema and lowering now reject hash-tag routing explicitly with `StyioTypeError` instead of emitting a placeholder, so the feature remains unavailable rather than silently miscompiled | Frontend, Sema / IR, Codegen / Runtime | Pick one accepted M7 slice and carry it through parser, sema, lowering, runtime, and milestone tests in one checkpoint chain |
 | Zip lowering still supports only a narrow source set | High | Unsupported source combinations still throw in [src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) | Codegen / Runtime, Sema / IR, Test Quality | Expand supported combinations according to M7 acceptance order, not ad hoc one-off cases |
 | Some accepted runtime-oriented syntax still depends on special-case routing rather than a unified protocol | Medium | This is reflected both in current parser/analyzer shape and in the still-target-only capability design [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md) | Codegen / Runtime, Sema / IR | Use next-stage runtime work to reduce parser-shape-driven behavior branching |
 
@@ -75,9 +76,9 @@
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| `compile_plan` live handoff baseline exists, but contract hardening is still narrower than a full release matrix | Medium | `--machine-info=json` now reports `compile_plan:[1]`; compile-plan success paths write artifacts / receipt / `diag_dir` diagnostics, and invalid intent / generated_by mismatch / unsupported target kind / relative-path guards / missing-outputs fallback now also have explicit machine-readable coverage in [src/main.cpp](../../src/main.cpp) and [tests/styio_test.cpp](../../tests/styio_test.cpp) | CLI / Nano, Docs / Ecosystem, `styio-pafio` coordination | Keep the current v1 boundary stable while expanding compatibility-edge coverage and broader malformed-input matrices without pulling package-manager lifecycle into `styio` |
-| Full package-manager lifecycle is not implemented here by design | High | CLI surface only exposes nano producer/verifier options in [src/main.cpp](../../src/main.cpp); repo boundary doc assigns package management to `styio-pafio` in [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) | CLI / Nano, Docs / Ecosystem | Preserve this boundary; do not let compiler CLI accumulate `install/use/search/vendor` responsibilities |
-| Remote publish protocol is still intentionally absent | Medium | `--nano-publish` rejects HTTP(S) roots and only accepts local path or `file://` repository roots in [src/main.cpp](../../src/main.cpp) | CLI / Nano, `styio-pafio` coordination | Keep publish local/static here; any remote protocol must be defined on the `styio-pafio` side |
+| `compile_plan` live handoff baseline exists, but contract hardening is still narrower than a full release matrix | Medium | `--machine-info=json` reports `compile_plan:[1]`; compile-plan success paths write artifacts, receipt, diagnostics, and runtime events, while invalid producer and malformed request paths return machine-readable failures in [src/main.cpp](../../src/main.cpp) and [tests/styio_test.cpp](../../tests/styio_test.cpp) | CLI / Nano, Docs / Ecosystem, Pafio coordination | Keep the current v1 boundary stable while expanding malformed-input coverage without pulling project/package lifecycle into Styio |
+| Full project and package workflow is not implemented here by design | High | The repository boundary assigns project workflows, dependency resolution, locks, vendor, pack, and publish client behavior to Pafio in [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md) | CLI / Nano, Docs / Ecosystem | Preserve this boundary; do not let the compiler CLI accumulate Pafio responsibilities |
+| Remote publish protocol is still intentionally absent | Medium | `--nano-publish` rejects HTTP(S) roots and only accepts local path or `file://` repository roots in [src/main.cpp](../../src/main.cpp) | CLI / Nano, Pafio coordination | Keep compiler bootstrap publication local/static; remote registry service behavior belongs to Styio Platform and client behavior belongs to Pafio |
 | Edge-path nano validation lacks the same depth as the happy path | Medium | Happy-path bundle/create/publish tests exist in [tests/styio_test.cpp](../../tests/styio_test.cpp), but guard/error branches remain mostly code-only in [src/main.cpp](../../src/main.cpp) | CLI / Nano, Test Quality | Add explicit negative-path tests for marker parsing, blob integrity mismatch, and mutually-exclusive CLI guards |
 
 ### 5.5 IDE / LSP
@@ -110,8 +111,8 @@ Start the next stage from checkpoint-sized implementation slices. Do not recreat
 
 | Checkpoint | First output | Owner path | Required proof |
 |------------|--------------|------------|----------------|
-| P0 | Inventory active Sema/lowering placeholders by AST family and classify each as dead syntax, intentional no-op, or implementation debt | W1 / Sema / IR | Focused inventory diff plus `python3 scripts/docs-audit.py` |
-| P1 | Retire one placeholder cluster by implementing real lowering or fail-closed diagnostics | W1 / Sema / IR + Codegen / Runtime | Targeted unit tests, affected `styio_pipeline` cases, and `security` when diagnostics or ownership change |
+| P0 (closed 2026-08-01) | Inventory active Sema/lowering placeholders, clone fallthrough, generated zeros, and verifier leaves | W1 / Sema / IR | [IM-D1-STYIOIR-CONTRACT-INVENTORY.md](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md) plus `python3 scripts/docs-audit.py` |
+| P1 (first closure complete 2026-08-01) | Enforce IR loop-control legality without changing parser, Sema, codegen, or runtime semantics | W1 / Sema / IR + Test Quality | Focused `StyioIRContract` tests plus existing break/continue security cases |
 | P2 | Carry one M7 stream/zip source combination through parser, sema, lowering, runtime, and tests | W2 / Frontend + Sema / IR + Codegen / Runtime | M7 milestone case, five-layer evidence, and parser shadow gates |
 | P3 | Advance one Topology v2 compiler slice without adding legacy syntax back | W6 / Frontend + Sema / IR + Test Quality | Resource-topology unit tests, active-syntax docs update, and migration diagnostics when retired syntax is touched |
 | P4 | Route resource/task pressure evidence through `styio-benchmark` while keeping Styio-side probes stable | Perf / Stability + Test Quality | `styio-benchmark` report path or documented handoff plus Styio probe gate |
@@ -124,7 +125,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 |-------|-------|---------------|------------|--------------|
 | W1 | Inventory and retire active sema/lowering placeholders | Sema / IR, Codegen / Runtime, Test Quality | None | targeted unit coverage plus affected milestone cases |
 | W2 | Carry one M7 stream/zip slice end-to-end | Frontend, Sema / IR, Codegen / Runtime, Test Quality | W1 for touched nodes | milestone tests, five-layer checks, and relevant runtime/security coverage |
-| W4 | Harden the delivered `compile_plan` producer contract for `pafio` handoff | CLI / Nano, Docs / Ecosystem, `styio-pafio` coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
+| W4 | Harden the delivered `compile_plan` consumer contract for Pafio handoff | CLI / Nano, Docs / Ecosystem, Pafio coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
 | W5 | Complete nano negative-path coverage and contract hardening | CLI / Nano, Test Quality | W4 not required | nano-focused unit tests plus docs audit |
 | W6 | Re-open Topology v2 only as a dedicated migration track | Frontend, Sema / IR, Docs / Ecosystem, Test Quality | W1 strongly recommended | milestone acceptance, design doc update, ADR when ownership/lifecycle semantics change |
 | W7 | Keep milestone catalog and migration diagnostics aligned with active syntax | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L milestone`, catalog/doc sync, no orphan fixtures |

@@ -1,0 +1,7 @@
+# make_empty := () => []
+# return_i64s : list[i64] := () => make_empty()
+# pass_i64s : list[i64] := (values: list[i64]) => values
+from_return : list[i64] := return_i64s()
+from_parameter : list[i64] := pass_i64s(make_empty())
+>_(from_return)
+>_(from_parameter)

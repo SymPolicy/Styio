@@ -11,7 +11,7 @@
 namespace styio::bench {
 
 struct BenchmarkSample {
-  std::string phase;       // "lex", "parse", "sema", "type", "topology", "diag", "runtime"
+  std::string phase;       // "lex", "parse", "sema", "type", "topology", "diag", "runtime", ...
   std::string label;       // descriptive sub-label
   int64_t duration_ns = 0;
   int64_t alloc_count = 0; // 0 if not measured
@@ -31,8 +31,29 @@ struct BenchmarkSample {
   int64_t ir_destructor_calls = 0;
 
   // Task scheduler metadata/counters captured from the runtime profile snapshot.
-  int64_t task_scheduler_queue_kind = -1; // ReadyQueueKind: 0=MutexDeque, 1=BoundedMPMC
+  int64_t task_scheduler_queue_kind = -1; // ReadyQueueKind: 1=BoundedWait
   int64_t task_scheduler_worker_count = 0;
+  int64_t task_scheduler_queue_capacity = 0;
+  int64_t task_scheduler_queue_current_depth = 0;
+  int64_t task_scheduler_queue_peak_depth = 0;
+  int64_t task_scheduler_queue_accepted_pushes = 0;
+  int64_t task_scheduler_queue_pops = 0;
+  int64_t task_scheduler_queue_pressure_events = 0;
+  int64_t task_scheduler_queue_producer_waits = 0;
+  int64_t task_scheduler_queue_consumer_waits = 0;
+  int64_t task_scheduler_queue_close_wake_ups = 0;
+  int64_t task_scheduler_queue_closed = 0;
+
+  // Conditional resource-typestate dataflow counters.
+  int64_t resource_typestate_branch_snapshot_count = 0;
+  int64_t resource_typestate_join_count = 0;
+  int64_t resource_typestate_fact_insertion_count = 0;
+  int64_t resource_typestate_peak_temporary_fact_slots = 0;
+
+  // Deterministic finite zip-barrier metadata counters.
+  int64_t zip_barrier_fact_bundle_count = 0;
+  int64_t zip_barrier_fact_valid_count = 0;
+  int64_t zip_barrier_fact_metadata_bytes = 0;
 };
 
 struct BenchmarkResult {
@@ -163,6 +184,62 @@ inline std::string BenchmarkResult::to_json() const {
     }
     if (is_scheduler_sample || s.task_scheduler_worker_count > 0) {
       out += ", \"task_scheduler_worker_count\": " + std::to_string(s.task_scheduler_worker_count);
+    }
+    if (is_scheduler_sample) {
+      out += ", \"task_scheduler_queue_capacity\": "
+             + std::to_string(s.task_scheduler_queue_capacity);
+      out += ", \"task_scheduler_queue_current_depth\": "
+             + std::to_string(s.task_scheduler_queue_current_depth);
+      out += ", \"task_scheduler_queue_peak_depth\": "
+             + std::to_string(s.task_scheduler_queue_peak_depth);
+      out += ", \"task_scheduler_queue_accepted_pushes\": "
+             + std::to_string(s.task_scheduler_queue_accepted_pushes);
+      out += ", \"task_scheduler_queue_pops\": "
+             + std::to_string(s.task_scheduler_queue_pops);
+      out += ", \"task_scheduler_queue_pressure_events\": "
+             + std::to_string(s.task_scheduler_queue_pressure_events);
+      out += ", \"task_scheduler_queue_producer_waits\": "
+             + std::to_string(s.task_scheduler_queue_producer_waits);
+      out += ", \"task_scheduler_queue_consumer_waits\": "
+             + std::to_string(s.task_scheduler_queue_consumer_waits);
+      out += ", \"task_scheduler_queue_close_wake_ups\": "
+             + std::to_string(s.task_scheduler_queue_close_wake_ups);
+      out += ", \"task_scheduler_queue_closed\": "
+             + std::to_string(s.task_scheduler_queue_closed);
+    }
+    const bool is_resource_typestate_sample = s.phase == "resource_typestate";
+    if (is_resource_typestate_sample
+        || s.resource_typestate_branch_snapshot_count > 0) {
+      out += ", \"resource_typestate_branch_snapshot_count\": "
+             + std::to_string(s.resource_typestate_branch_snapshot_count);
+    }
+    if (is_resource_typestate_sample || s.resource_typestate_join_count > 0) {
+      out += ", \"resource_typestate_join_count\": "
+             + std::to_string(s.resource_typestate_join_count);
+    }
+    if (is_resource_typestate_sample
+        || s.resource_typestate_fact_insertion_count > 0) {
+      out += ", \"resource_typestate_fact_insertion_count\": "
+             + std::to_string(s.resource_typestate_fact_insertion_count);
+    }
+    if (is_resource_typestate_sample
+        || s.resource_typestate_peak_temporary_fact_slots > 0) {
+      out += ", \"resource_typestate_peak_temporary_fact_slots\": "
+             + std::to_string(
+                 s.resource_typestate_peak_temporary_fact_slots);
+    }
+    const bool is_zip_barrier_fact_sample = s.phase == "zip_barrier_facts";
+    if (is_zip_barrier_fact_sample || s.zip_barrier_fact_bundle_count > 0) {
+      out += ", \"zip_barrier_fact_bundle_count\": "
+             + std::to_string(s.zip_barrier_fact_bundle_count);
+    }
+    if (is_zip_barrier_fact_sample || s.zip_barrier_fact_valid_count > 0) {
+      out += ", \"zip_barrier_fact_valid_count\": "
+             + std::to_string(s.zip_barrier_fact_valid_count);
+    }
+    if (is_zip_barrier_fact_sample || s.zip_barrier_fact_metadata_bytes > 0) {
+      out += ", \"zip_barrier_fact_metadata_bytes\": "
+             + std::to_string(s.zip_barrier_fact_metadata_bytes);
     }
     out += "}";
     if (i + 1 < samples.size()) out += ",";

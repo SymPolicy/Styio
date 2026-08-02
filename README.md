@@ -50,14 +50,19 @@ parallel signal: spread=7.000000, midpoint=97.500000
 ## Build From Source
 
 Install the documented dependencies, configure the default build directory, and
-run the main local gates:
+run the main local gates. The bootstrap supports Debian/Ubuntu and macOS; the
+macOS Homebrew LLVM configure recipe is in the build guide.
 
 ```bash
 scripts/bootstrap-dev-env.sh --help
 cmake -S . -B build/default -DCMAKE_BUILD_TYPE=Debug
-cmake --build build/default --target styio styio_test styio_security_test styio_resource_topology_test -j"$(nproc)"
-ctest --test-dir build/default -L security --output-on-failure
-ctest --test-dir build/default -L styio_pipeline --output-on-failure
+cmake --build build/default --parallel --target \
+  styio styio_nano styio_test styio_security_test \
+  styio_resource_topology_test styio_algorithm_equivalence_test \
+  styio_newparser_internal_test styio_parser_internal_test \
+  styio_platform_internal_test styio_native_interop_internal_test
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
 ```
 
 For the full environment contract, see

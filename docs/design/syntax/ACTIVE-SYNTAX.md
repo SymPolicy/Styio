@@ -1,23 +1,26 @@
 # Active Syntax Map
 
-**Purpose:** Provide the compact authoring map for current Styio syntax; grammar authority stays in [../Styio-EBNF.md](../Styio-EBNF.md), token authority stays in [../Styio-Symbol-Reference.md](../Styio-Symbol-Reference.md), and semantics stay in the owning design documents.
+**Purpose:** Provide a compact composed authoring map for current Styio syntax; feature-level authority lives in [features/](./features/), while shared grammar, token, and semantic invariants stay in the cross-feature design documents.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-31
 
 ## Reading Contract
 
-1. This page lists canonical authoring forms and the active implementation-facing compatibility surface.
+1. This page lists canonical authoring forms and the active implementation-facing compatibility surface; it is a composed view, not a feature SSOT.
 2. It is not a catalog of retired syntax. Historical spellings are recovered from Git history only when needed for migration archaeology.
 3. Positive examples in `example/` and `tests/` should use the canonical forms below unless a test is explicitly a compatibility or negative migration fixture.
+4. Start lifecycle, dependency, prerequisite, or evidence changes in the owning [feature SSOT](./features/README.md), then regenerate this collection's indexes and feature graph.
 
 ## Core Forms
 
 | Area | Canonical form | Owner |
 |------|----------------|-------|
-| Imports | `@import { pkg/module }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Imports | `@import { pkg/module }` | Direct executable callable imports resolve relative to the importing source and require a fresh sibling `.styioi`; [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Final binding | `name := expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
 | Mutable binding | `name = expr` | [../Styio-Language-Design.md](../Styio-Language-Design.md) |
-| Callable binding | `# name : T := (arg: U) => { ... }`, `# name = #(arg: U) => expr` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Callable binding | `# identity := (value) => value`, `# name : i64 := (arg: i64) => { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
+| Monomorphic callable value | `operation: #(i64): i64 := identity`, `operation(value)` | A final noncapturing callable item freezes only under one complete invariant signature; the value may then be bound, passed, returned, and called indirectly. |
+| Affine static capture | `# add : i64 $(seed) := (value: i64) => value + seed` | The explicit capture set is exact. Scalar reads form shared program-static borrows that may escape under one concrete callable type; scalar rebinding forms an exclusive borrow that remains direct-call-only. Consume and missing representation/drop facts fail before lowering. |
 | Match sugar | `#(name = expr) ?= { ... }` | [../Styio-EBNF.md](../Styio-EBNF.md) |
 | Return/export | `<| expr` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
 | Inline return | `|<| expr |;` | [CONTINUATION_TRANSFER.md](./CONTINUATION_TRANSFER.md) |
@@ -43,6 +46,119 @@ plain `def` keyword. The right side of a `#` binding must be a callable body or
 operation-channel body. Resource identities remain visibly in the `@` family, so
 `# sink = @stdout` is invalid; use `expr -> @stdout`, `items >> @stdout`, or a
 resource-family declaration when the target is a resource.
+
+Callable generics are inference-owned. Authors never place a generic parameter
+list after a callable name: `# name[T] ...` is invalid. Eligible final,
+non-recursive definitions receive one stable principal rank-1 relation at the
+definition site; the compiler may publish that relation as module-interface
+metadata and instantiate it freshly at each use.
+
+A recursive call-graph component is solved as one group with one provisional
+monotype per member. Internal recursive references must reuse the same
+provisional type variables. After a stable solution, eligible final bindings
+may be generalized and published, so ordinary generic recursion remains
+available. A recursive edge that needs the same member at a different
+instantiation is rejected as polymorphic recursion.
+
+Generalization also requires the closed empty compiler-owned effect row `{}`.
+The sorted closed vocabulary is `capture`, `handler`, `native`, `output`,
+`resource`, `task`, and `unknown`; labels propagate through direct calls. A
+checked call through a callable parameter introduces an inferred open tail
+such as `{|'e0}`. A callable with a nonempty or open row remains monomorphic,
+and a later use at a conflicting concrete type is rejected before lowering.
+Effect-row source syntax and purity annotations are not active.
+
+Type-variable names shown by the compiler or an IDE are explanatory metadata,
+not source declarations. Concrete annotations remain available for monomorphic
+contracts, and `: T` always refers to an already defined type named `T`.
+
+Callable uses are instantiated only from ordinary arguments and the concrete
+expected type supplied by their surrounding context. Call-site type arguments
+do not exist: write `identity(1)`, not `identity[i64](1)`. In value position,
+`[]` remains an ordinary selector/index and is never reinterpreted as generic
+specialization. If a call remains underconstrained, add a concrete annotation
+to its surrounding binding or expression; do not add a callable type-argument
+list.
+
+Operator-bearing inferred callables carry compiler-owned constraints. The
+closed vocabulary is numeric, comparable, indexable, iterable, and cloneable;
+there is no source constraint or instance syntax. Arithmetic, comparison, and
+index expressions currently provide executable constraint evidence, and an
+unsatisfied concrete instance is rejected before lowering.
+
+Unannotated numeric literals normalize to `i64` or `f64`. An unresolved
+numeric-only relation variable may default to `i64` only after relation and
+constraint solving. Empty `[]` and `dict {}` never receive a fabricated element
+or value type: supply a surrounding `list[T]` or `dict[K,V]` annotation.
+
+An inferred scheme may instantiate at a direct named call such as
+`identity(1)`, or a bare final noncapturing callable item may freeze under a
+complete concrete type such as
+`operation: #(i64): i64 := identity`. The resulting allocation-free value may
+be bound with `:=`, passed, returned, and called indirectly. Missing context,
+mutable callable slots, implicit captures, signature mismatch, generalized
+storage, address equality, and callable containers remain rejected.
+
+An explicitly captured final callable places `$(name, ...)` after its
+parameter/result signature and before the binding/body operator. The list must
+be nonempty, duplicate-free, and exactly equal to the body's free value
+environment. Sema derives `shared_borrow`, `exclusive_borrow`, or `consume`
+without source ownership annotations. The executable slice uses reactive
+program-static slots for `bool`, integer, floating-point, and `char` captures.
+A shared-borrow callable may freeze and escape under one complete monomorphic
+type; an exclusive-borrow callable may be called directly but may not escape.
+Consume, string/container/handle capture, imported environments, and any
+missing ownership or drop proof remain fail-closed.
+
+Generalized relation variables use a closed plain-value domain: immutable
+scalars and recursively plain materialized `list`/`dict` types. Resource,
+stream, file, task, matrix, topology-resource, range-handle, user-defined, and
+other capability-sensitive types remain monomorphic. The check precedes
+relation normalization, so a resource-shaped sequence cannot masquerade as an
+ordinary list and nested handle elements remain visible.
+
+Schemes carry sorted compiler-owned `consume`, `copy`, `exclusive_borrow`, and
+`shared_borrow` facts per relation variable. Reads, repeated uses, value
+escapes, and exact parameter-to-parameter direct calls derive and propagate
+the currently active facts; authors do not write them. Instance checking keeps
+the original type and reports the first incompatible copy, consume, task,
+state, topology, or shape fact. Task-transfer, resource-state-family, and
+matrix-shape admission remain disabled, so the metadata does not widen the
+plain-value domain.
+
+Callable interfaces are compiler-owned artifacts, not authored syntax. Publish
+one explicitly with `--module-id` and `--emit-module-interface`, then import its
+source path normally. The loader accepts only matching schema, compiler/target
+ABI, source, public-contract, portable-body, aggregate typed-body, and
+direct-dependency digests. Consumers see only exports from direct imports;
+private helpers remain scoped to their owning imported body, transitive names
+do not leak, and module dependency cycles fail closed before Sema. Schema v4
+carries canonical effect rows, sorted per-variable usage requirements, and
+canonical `styio.portable-styioir` schema-v1 bodies; it rejects schema v3
+metadata and never reparses imported source.
+
+Concrete inferred-callable code is demand-driven. Ordinary direct calls form a
+reachable mono-item graph; repeated equal instances reuse one deterministic
+content-addressed definition, while unreachable generic definitions and
+unreachable imported concrete helpers emit no code. Identity includes the
+canonical relation, effects, portable semantic body, transitive callable dependencies,
+module facts, target, and backend ABI, so call order does not affect symbols
+and a reachable callee-body change invalidates callers.
+
+Cross-invocation native reuse is an opt-in compiler operation, not Styio
+syntax. `--callable-cache-dir` partitions each reachable specialization into
+one verified native object keyed by that full digest and isolated under a
+compiler/LLVM/codegen/target/edition/channel/backend namespace. Corrupt,
+evicted, missing, or inaccessible entries are cache misses and cannot change
+program behavior. Age, byte, and file ceilings are explicit CLI controls;
+`--callable-cache-stats` is the only cache diagnostic mode and emits no cache
+path.
+
+There is no explicit-instantiation syntax. Exact same-instance recursion reuses
+the active item; expansion beyond 64 active instances or compilation growth
+beyond 4,096 items fails with a concrete instance path. These hard safety
+ceilings add no boxing, witness tables, runtime dictionaries, generic heap, or
+GC.
 
 ## Types
 

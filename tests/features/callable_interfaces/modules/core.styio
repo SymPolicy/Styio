@@ -1,0 +1,7 @@
+@export { identity, double_value, increment }
+
+# private_identity := (value) => value
+# private_increment : i64 = (value: i64) => value + 1
+# identity := (value) => private_identity(value)
+# double_value := (value) => value + value
+# increment : i64 := (value: i64) => private_increment(value)

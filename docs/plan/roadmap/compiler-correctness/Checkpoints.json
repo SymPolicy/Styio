@@ -1,0 +1,122 @@
+[
+  {
+    "id": "2ea0d0f5-49a0-4d1c-871e-b286cd82e1ea",
+    "status": "completed",
+    "role": "product_requirements",
+    "code": "CORRECTNESS-BOUNDARY",
+    "title": "Freeze fail-closed compiler boundaries",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Preserve parser authority and retired-syntax behavior while debt is inventoried.",
+    "description": "Accepted syntax remains on the nightly parser authority; retired hash-tag routes and duplicate stdin stay fail-closed unless separately redesigned.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Current state and parser/IR inventories record the no-fallback and fail-closed boundaries."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): freeze compiler correctness boundary",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ]
+  },
+  {
+    "id": "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf",
+    "status": "completed",
+    "role": "evidence",
+    "code": "CORRECTNESS-P0",
+    "title": "Complete the P0 placeholder inventory",
+    "prerequisites": [
+      "2ea0d0f5-49a0-4d1c-871e-b286cd82e1ea"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Classify remaining semantic and IR placeholders before selecting implementation work.",
+    "description": "Inventory empty visitors, unsupported clone surfaces, default or generated constants, direct unsupported lowering, verifier gaps, and affected tests; classify each finding without changing language semantics.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Every in-scope placeholder is classified as dead syntax, intentional no-op, typed unsupported boundary, or implementation debt with owner and focused evidence.",
+        "evidence": "P0 source audit classified all 41 empty Sema visitors, 29 typed unsupported lowering returns, two intentional zero initializers, the inline-clone fallback, and 20 verifier-inherited leaf visits; focused evidence tests passed.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+            "sha256": "ca46b9b47194cc2d764f5eb3bee7915cfeb3c8f0da7f70b9097ddb71268c944c",
+            "recorded_at": "2026-08-01T13:57:46Z"
+          },
+          {
+            "type": "file",
+            "path": "docs/rollups/NEXT-STAGE-GAP-LEDGER.md",
+            "sha256": "c216497a141bbaa18987bf0f5770dcdc8a6842f140cdef7011cfb6ac5faaa24a",
+            "recorded_at": "2026-08-01T13:57:46Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "The inventory identifies one smallest independently acceptable cluster without combining unrelated parser, Sema, IR, runtime, or IDE work.",
+        "evidence": "The smallest independent closure is IR loop-control legality in the verifier: SGBreak and SGContinue loop-context checks plus focused verifier tests, with no parser, Sema, runtime, IDE, or feature-semantics expansion.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+            "sha256": "ca46b9b47194cc2d764f5eb3bee7915cfeb3c8f0da7f70b9097ddb71268c944c",
+            "recorded_at": "2026-08-01T13:57:47Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): complete P0 placeholder inventory",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "01ee56dc-b82f-4a92-8af9-0968c93526fa"
+    ]
+  },
+  {
+    "id": "01ee56dc-b82f-4a92-8af9-0968c93526fa",
+    "status": "completed",
+    "role": "validation_matrix",
+    "code": "CORRECTNESS-FIRST-CLOSURE",
+    "title": "Select the first compiler closure",
+    "prerequisites": [
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Convert one P0 finding cluster into an executable Better Plan group.",
+    "description": "After maintainer review, select exactly one capability, module, or scenario closure; freeze its design, removal obligations, focused regression, and final validation without absorbing adjacent debt.",
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "One cluster is approved and represented by a separate group with one design Node, bounded implementation Nodes, and one final-validation Node.",
+        "evidence": "Maintainer approved the IR loop-control verifier closure; group de49005d-35bb-42a7-8e99-b349d7e47a7c contains one design Node, one bounded implementation Node, and one final-validation Node.",
+        "evidence_refs": [
+          {
+            "type": "file",
+            "path": "docs/plan/roadmap/compiler-correctness/ir-loop-control-legality/Checkpoints.json",
+            "sha256": "b98ae8dd11f6b355bc3f95c5fbd0058fec7bc98d393dd9393ad4ecba3bfd3905",
+            "recorded_at": "2026-08-01T14:05:23Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(plan): select first compiler closure",
+      "target": "styio-nightly"
+    },
+    "next": []
+  }
+]

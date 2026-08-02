@@ -2,7 +2,7 @@
 
 **Purpose:** 记录 Styio 官方仓库生态、各仓库的预期职责边界、以及文档应当落在哪个仓库；本文件用于说明“谁负责什么”，**不**负责追踪实时开发进度、版本发布状态或逐仓库完成度。
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-07-30
 
 ---
 
@@ -48,13 +48,13 @@ issue 状态和发布进度不在本文件维护。
 | Repository | Role | Owns What | Does Not Own |
 |------------|------|-----------|--------------|
 | [`Styio`](https://github.com/eBioRing/Styio) / 当前开发镜像 [`README.md`](../../README.md) | 主语言与编译器仓库 | 语言设计、形式文法、编译器实现、CLI、测试、主文档入口 | 包管理器、编辑器插件、产品白皮书、示例工程生态 |
-| [`styio-platform`](https://github.com/eBioRing/styio-platform) | 平台级产品/hosted surface 整合入口 | 平台产品壳层、hosted surface 占位、未来跨仓平台入口与产品整合说明 | 语言语义、编译器实现、包解析规则 |
-| [`styio-spio`](https://github.com/eBioRing/styio-spio) | 包管理器、registry/cloud backend、repo-hosted control console | 包格式、包解析/安装/发布、依赖解析、仓库源协议、仓库托管与云平台后台、仓库托管的管控台前端、跨仓 hosted API 合同包 | Styio 核心语言语义与编译器实现 |
+| [`styio-platform`](https://github.com/eBioRing/styio-platform) | Registry 与 hosted/cloud 平台 | Registry 服务和控制面、hosted workspace、cloud job、worker、平台控制台与 hosted API；worker 调用 `pafio build` | 语言语义、编译器实现、Pafio 客户端与项目状态 |
+| [`pafio-nightly`](https://github.com/Unka-Malloc/pafio-nightly) | 包管理与项目构建入口 | `pafio.toml`、`pafio.lock`、依赖解析、缓存与离线复现、metadata、sync、check/build/run/test、vendor、pack、publish 客户端 | Styio 核心语言语义与编译器实现、registry 服务端、hosted/cloud/worker |
 | [`styio-audit`](https://github.com/eBioRing/styio-audit) | 集中审计框架 | auditable-code 框架、默认审计模块、Styio 专用审计模块与外部审计入口 | 编译器语义真相、语言接受测试、仓库本地代码实现 |
 | [`styio-dev-doc`](https://github.com/eBioRing/styio-dev-doc) | 开发者文档仓库 | 跨仓库开发手册、搭建流程、协作说明、外部开发者上手指南 | 语言权威语义、编译器测试验收、产品白皮书 |
 | [`styio-dev-env`](https://github.com/eBioRing/styio-dev-env) | 标准开发环境 | devcontainer、toolchain bootstrap、统一环境脚本、CI/本地环境约定 | 语言设计、产品定义、示例工程内容 |
 | [`styio-book`](https://github.com/eBioRing/styio-book) | 产品白皮书 | 产品愿景、定位、理念叙事、对外说明材料 | 编译器行为细节、测试接受标准、工程实现规范 |
-| [`styio-view`](https://github.com/eBioRing/styio-view) | 面向用户的编辑与运行视图前端 | 用户界面、编辑器壳层、运行视窗、面向人的工作区与交互；通过 adapter 消费工具链后端 | 编译器主实现、语言 SSOT、包管理规则、仓库/云平台后端语义 |
+| [`vityo-nightly`](https://github.com/Unka-Malloc/vityo-nightly) | 面向用户的 Vityo IDE 与运行视窗前端 | 用户界面、编辑器壳层、运行视窗、面向人的工作区与交互；通过 adapter 消费工具链后端 | 编译器主实现、语言 SSOT、包管理规则、仓库/云平台后端语义 |
 | [`styio-example`](https://github.com/eBioRing/styio-example) | 示例工程集合 | 可运行样例、模板项目、可复用示例模式 | 语言规范正文、编译器验收标准 |
 | [`styio-ext-vsc`](https://github.com/eBioRing/styio-ext-vsc) | VS Code 插件 | 语法高亮、片段、编辑器交互、未来可能的语言服务集成 | 语言语义权威定义、编译器主行为 |
 | [`styio-deprecated`](https://github.com/eBioRing/styio-deprecated) | 旧实现历史归档 | 历史代码、迁移参照、考古材料 | 当前语言语义、当前测试验收、活跃开发入口 |
@@ -73,7 +73,8 @@ issue 状态和发布进度不在本文件维护。
 
 ### 4.2 应该放到配件仓库自身的内容
 
-- 包管理器命令、配置格式、包源协议与解析策略。
+- Pafio 命令、manifest/lock、依赖解析、离线状态与 publish 客户端合同。
+- Styio Platform 的 registry/control-plane、hosted workspace、cloud job、worker 与控制台合同。
 - 标准开发环境的镜像、依赖安装脚本、环境 bootstrap。
 - VS Code 插件的命令、设置项、快捷键、发布说明。
 - 可视化页面的前端交互、部署方式、页面信息架构。

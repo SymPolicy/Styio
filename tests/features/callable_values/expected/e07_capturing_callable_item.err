@@ -1,0 +1,1 @@
+callable `add_seed` captures `seed`; monomorphic callable values admit final noncapturing items only

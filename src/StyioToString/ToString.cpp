@@ -1019,6 +1019,14 @@ StyioRepr::toString(FunctionAST* ast, int indent) {
     output += make_padding(indent) + "params: " + param_str;
   }
 
+  if (!ast->getCaptureNames().empty()) {
+    output += make_padding(indent) + "captures:";
+    for (auto* capture : ast->getCaptureNames()) {
+      output += " " + capture->getAsStr();
+    }
+    output += "\n";
+  }
+
   if (not ast->ret_type.valueless_by_exception()) {
     std::string ret_type_str;
 
@@ -1057,6 +1065,14 @@ StyioRepr::toString(SimpleFuncAST* ast, int indent) {
       param_str += "\n";
     }
     output += make_padding(indent) + "params: " + param_str;
+  }
+
+  if (!ast->getCaptureNames().empty()) {
+    output += make_padding(indent) + "captures:";
+    for (auto* capture : ast->getCaptureNames()) {
+      output += " " + capture->getAsStr();
+    }
+    output += "\n";
   }
 
   if (not ast->ret_type.valueless_by_exception()) {

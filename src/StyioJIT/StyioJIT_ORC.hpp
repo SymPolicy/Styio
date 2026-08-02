@@ -2,7 +2,10 @@
 #define STYIO_LLVM_EXECUTIONENGINE_ORC_JIT_H
 
 #include <memory>
+#include <optional>
+#include <string>
 
+#include "../StyioCodeGen/CallableSpecializationObjectCache.hpp"
 #include "../StyioExtern/ExternLib.hpp"
 
 #include "llvm/ADT/StringRef.h"
@@ -23,6 +26,9 @@ class StyioJIT_ORC
 {
 private:
   std::unique_ptr<llvm::orc::ExecutionSession> ES;
+  std::unique_ptr<
+    styio::codegen::CallableSpecializationObjectCache>
+    CallableCache;
 
   llvm::DataLayout DL;
   llvm::orc::MangleAndInterner Mangle;
@@ -36,16 +42,25 @@ public:
   StyioJIT_ORC(
     std::unique_ptr<llvm::orc::ExecutionSession> ES,
     llvm::orc::JITTargetMachineBuilder JTMB,
-    llvm::DataLayout DL
+    llvm::DataLayout DL,
+    std::unique_ptr<
+      styio::codegen::CallableSpecializationObjectCache>
+      callable_cache
   ) :
       ES(std::move(ES)),
+      CallableCache(std::move(callable_cache)),
       DL(std::move(DL)),
       Mangle(*this->ES, this->DL),
       ObjectLayer(*this->ES, []()
                   {
                     return std::make_unique<llvm::SectionMemoryManager>();
                   }),
-      CompileLayer(*this->ES, ObjectLayer, std::make_unique<llvm::orc::ConcurrentIRCompiler>(std::move(JTMB))),
+      CompileLayer(
+        *this->ES,
+        ObjectLayer,
+        std::make_unique<llvm::orc::ConcurrentIRCompiler>(
+          std::move(JTMB),
+          CallableCache.get())),
       MainJD(this->ES->createBareJITDylib("<main>")) {
     MainJD.addGenerator(llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(DL.getGlobalPrefix())));
 
@@ -254,7 +269,11 @@ public:
       ES->reportError(std::move(Err));
   }
 
-  static llvm::Expected<std::unique_ptr<StyioJIT_ORC>> Create() {
+  static llvm::Expected<std::unique_ptr<StyioJIT_ORC>> Create(
+    std::optional<
+      styio::codegen::CallableSpecializationCacheConfig>
+      callable_cache_config = std::nullopt
+  ) {
     auto EPC = llvm::orc::SelfExecutorProcessControl::Create();
     if (!EPC)
       return EPC.takeError();
@@ -267,7 +286,22 @@ public:
     if (!DL)
       return DL.takeError();
 
-    return std::make_unique<StyioJIT_ORC>(std::move(ES), std::move(JTMB), std::move(*DL));
+    std::unique_ptr<
+      styio::codegen::CallableSpecializationObjectCache>
+      callable_cache;
+    if (callable_cache_config.has_value()) {
+      callable_cache_config->target_triple =
+        JTMB.getTargetTriple().str();
+      callable_cache = std::make_unique<
+        styio::codegen::CallableSpecializationObjectCache>(
+          std::move(*callable_cache_config));
+    }
+
+    return std::make_unique<StyioJIT_ORC>(
+      std::move(ES),
+      std::move(JTMB),
+      std::move(*DL),
+      std::move(callable_cache));
   }
 
   const llvm::DataLayout &getDataLayout() const {
@@ -276,6 +310,17 @@ public:
 
   llvm::orc::JITDylib &getMainJITDylib() {
     return MainJD;
+  }
+
+  bool callableCacheEnabled() const {
+    return CallableCache != nullptr
+      && CallableCache->enabled();
+  }
+
+  std::string callableCacheStatsJson() const {
+    return CallableCache == nullptr
+      ? std::string()
+      : CallableCache->stats_json();
   }
 
   llvm::Error addModule(llvm::orc::ThreadSafeModule TSM, llvm::orc::ResourceTrackerSP RT = nullptr) {

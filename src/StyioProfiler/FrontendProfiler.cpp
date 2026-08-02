@@ -212,7 +212,16 @@ FrontendProfiler::set_async_scheduler_stats(
   std::int64_t blocking_pulls,
   std::int64_t failed_pulls,
   std::int64_t invalid_pulls,
-  std::int64_t max_queue_depth
+  std::int64_t max_queue_depth,
+  std::int64_t queue_capacity,
+  std::int64_t queue_current_depth,
+  std::int64_t queue_accepted_pushes,
+  std::int64_t queue_pops,
+  std::int64_t queue_pressure_events,
+  std::int64_t queue_producer_waits,
+  std::int64_t queue_consumer_waits,
+  std::int64_t queue_close_wake_ups,
+  std::int64_t queue_closed
 ) {
   if (!enabled_) {
     return;
@@ -234,6 +243,15 @@ FrontendProfiler::set_async_scheduler_stats(
   async_scheduler_.failed_pulls = failed_pulls;
   async_scheduler_.invalid_pulls = invalid_pulls;
   async_scheduler_.max_queue_depth = max_queue_depth;
+  async_scheduler_.queue_capacity = queue_capacity;
+  async_scheduler_.queue_current_depth = queue_current_depth;
+  async_scheduler_.queue_accepted_pushes = queue_accepted_pushes;
+  async_scheduler_.queue_pops = queue_pops;
+  async_scheduler_.queue_pressure_events = queue_pressure_events;
+  async_scheduler_.queue_producer_waits = queue_producer_waits;
+  async_scheduler_.queue_consumer_waits = queue_consumer_waits;
+  async_scheduler_.queue_close_wake_ups = queue_close_wake_ups;
+  async_scheduler_.queue_closed = queue_closed;
 }
 
 void
@@ -339,6 +357,15 @@ FrontendProfiler::to_json() const {
         << ", \"failed_pulls\": " << async_scheduler_.failed_pulls
         << ", \"invalid_pulls\": " << async_scheduler_.invalid_pulls
         << ", \"max_queue_depth\": " << async_scheduler_.max_queue_depth
+        << ", \"queue_capacity\": " << async_scheduler_.queue_capacity
+        << ", \"queue_current_depth\": " << async_scheduler_.queue_current_depth
+        << ", \"queue_accepted_pushes\": " << async_scheduler_.queue_accepted_pushes
+        << ", \"queue_pops\": " << async_scheduler_.queue_pops
+        << ", \"queue_pressure_events\": " << async_scheduler_.queue_pressure_events
+        << ", \"queue_producer_waits\": " << async_scheduler_.queue_producer_waits
+        << ", \"queue_consumer_waits\": " << async_scheduler_.queue_consumer_waits
+        << ", \"queue_close_wake_ups\": " << async_scheduler_.queue_close_wake_ups
+        << ", \"queue_closed\": " << async_scheduler_.queue_closed
         << "}\n";
   }
   else {

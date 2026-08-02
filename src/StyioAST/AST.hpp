@@ -141,6 +141,13 @@ class NameAST : public StyioASTTraits<NameAST>
 private:
   string name_str;
   styio::session::SymbolId sid_ = styio::session::kInvalidSymbolId;
+  StyioDataType expected_callable_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  StyioDataType inferred_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  std::string lowered_callable_name_;
 
 public:
   NameAST(string name) :
@@ -166,7 +173,11 @@ public:
   /// Clone a NameAST, preserving its SymbolId.
   static NameAST* Clone(NameAST* other) {
     if (!other) return Create();
-    return new NameAST(other->name_str, other->sid_);
+    auto* clone = new NameAST(other->name_str, other->sid_);
+    clone->expected_callable_type_ = other->expected_callable_type_;
+    clone->inferred_type_ = other->inferred_type_;
+    clone->lowered_callable_name_ = other->lowered_callable_name_;
+    return clone;
   }
 
   const string& getAsStr() {
@@ -181,12 +192,32 @@ public:
     sid_ = sid;
   }
 
+  void setExpectedCallableType(const StyioDataType& type) {
+    expected_callable_type_ = type;
+  }
+
+  const StyioDataType& getExpectedCallableType() const {
+    return expected_callable_type_;
+  }
+
+  void setInferredType(const StyioDataType& type) {
+    inferred_type_ = type;
+  }
+
+  void setLoweredCallableName(std::string name) {
+    lowered_callable_name_ = std::move(name);
+  }
+
+  const std::string& getLoweredCallableName() const {
+    return lowered_callable_name_;
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::Id;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
   }
 };
 
@@ -204,13 +235,7 @@ public:
   TypeAST(
     string type_name
   ) {
-    auto it = DTypeTable.find(type_name);
-    if (it != DTypeTable.end()) {
-      type = it->second;
-    }
-    else {
-      type = StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
-    }
+    type = styio_data_type_from_name(type_name);
   }
 
   static TypeAST* Create() {
@@ -2023,6 +2048,17 @@ public:
   StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
   vector<StyioAST*> func_args;
+  StyioDataType expected_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  StyioDataType inferred_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  std::string lowered_callee_name_;
+  bool indirect_callable_call_ = false;
+  StyioDataType indirect_callable_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
 
   FuncCallAST(
     NameAST* func_name,
@@ -2097,12 +2133,53 @@ public:
     return func_args;
   }
 
+  void setExpectedType(const StyioDataType& type) {
+    expected_type_ = type;
+  }
+
+  const StyioDataType& getExpectedType() const {
+    return expected_type_;
+  }
+
+  void setInferredType(const StyioDataType& type) {
+    inferred_type_ = type;
+  }
+
+  void setLoweredCalleeName(std::string name) {
+    lowered_callee_name_ = std::move(name);
+  }
+
+  const std::string& getLoweredCalleeName() const {
+    return lowered_callee_name_;
+  }
+
+  void setIndirectCallableType(const StyioDataType& type) {
+    indirect_callable_call_ = true;
+    indirect_callable_type_ = type;
+  }
+
+  bool isIndirectCallableCall() const {
+    return indirect_callable_call_;
+  }
+
+  const StyioDataType& getIndirectCallableType() const {
+    return indirect_callable_type_;
+  }
+
+  void copyInferenceMetadataFrom(const FuncCallAST& other) {
+    expected_type_ = other.expected_type_;
+    inferred_type_ = other.inferred_type_;
+    lowered_callee_name_ = other.lowered_callee_name_;
+    indirect_callable_call_ = other.indirect_callable_call_;
+    indirect_callable_type_ = other.indirect_callable_type_;
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::Call;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
   }
 };
 
@@ -4190,6 +4267,7 @@ class FunctionAST : public StyioASTTraits<FunctionAST>
 private:
   std::unique_ptr<NameAST> func_name_owner_;
   std::vector<std::unique_ptr<ParamAST>> params_owner_;
+  std::vector<std::unique_ptr<NameAST>> capture_names_owner_;
   std::unique_ptr<TypeAST> ret_type_owner_;
   std::unique_ptr<TypeTupleAST> ret_type_tuple_owner_;
   std::unique_ptr<StyioAST> func_body_owner_;
@@ -4202,6 +4280,17 @@ private:
     for (auto* param : owned_params) {
       params_owner_.emplace_back(param);
       params.push_back(params_owner_.back().get());
+    }
+  }
+
+  void adopt_capture_names(std::vector<NameAST*> owned_names) {
+    capture_names_owner_.clear();
+    capture_names.clear();
+    capture_names_owner_.reserve(owned_names.size());
+    capture_names.reserve(owned_names.size());
+    for (auto* name : owned_names) {
+      capture_names_owner_.emplace_back(name);
+      capture_names.push_back(capture_names_owner_.back().get());
     }
   }
 
@@ -4277,6 +4366,7 @@ public:
   NameAST* func_name = nullptr;
   bool is_unique = false;
   std::vector<ParamAST*> params;
+  std::vector<NameAST*> capture_names;
   std::variant<TypeAST*, TypeTupleAST*> ret_type;
 
   /*
@@ -4308,6 +4398,14 @@ public:
     StyioAST* body
   ) {
     return new FunctionAST(name, is_unique, params, ret_type, body);
+  }
+
+  void setCaptureNames(std::vector<NameAST*> names) {
+    adopt_capture_names(std::move(names));
+  }
+
+  const std::vector<NameAST*>& getCaptureNames() const {
+    return capture_names;
   }
 
   static FunctionAST* Create(
@@ -4390,6 +4488,7 @@ class SimpleFuncAST : public StyioASTTraits<SimpleFuncAST>
 private:
   std::unique_ptr<NameAST> func_name_owner_;
   std::vector<std::unique_ptr<ParamAST>> params_owner_;
+  std::vector<std::unique_ptr<NameAST>> capture_names_owner_;
   std::unique_ptr<TypeAST> ret_type_owner_;
   std::unique_ptr<TypeTupleAST> ret_type_tuple_owner_;
   std::unique_ptr<StyioAST> ret_expr_owner_;
@@ -4402,6 +4501,17 @@ private:
     for (auto* param : owned_params) {
       params_owner_.emplace_back(param);
       params.push_back(params_owner_.back().get());
+    }
+  }
+
+  void adopt_capture_names(std::vector<NameAST*> owned_names) {
+    capture_names_owner_.clear();
+    capture_names.clear();
+    capture_names_owner_.reserve(owned_names.size());
+    capture_names.reserve(owned_names.size());
+    for (auto* name : owned_names) {
+      capture_names_owner_.emplace_back(name);
+      capture_names.push_back(capture_names_owner_.back().get());
     }
   }
 
@@ -4550,11 +4660,20 @@ public:
   NameAST* func_name = nullptr; /* */
   bool is_unique = false;
   std::vector<ParamAST*> params;
+  std::vector<NameAST*> capture_names;
   std::variant<TypeAST*, TypeTupleAST*> ret_type; /* */
   StyioAST* ret_expr = nullptr;                   /* */
 
   static SimpleFuncAST* Create() {
     return new SimpleFuncAST();
+  }
+
+  void setCaptureNames(std::vector<NameAST*> names) {
+    adopt_capture_names(std::move(names));
+  }
+
+  const std::vector<NameAST*>& getCaptureNames() const {
+    return capture_names;
   }
 
   static SimpleFuncAST* Create(

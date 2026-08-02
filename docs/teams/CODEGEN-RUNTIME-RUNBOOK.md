@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-08-01
 
 ## Mission
 
@@ -51,6 +51,13 @@ Related docs:
 21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
 22. Native interop platform compatibility belongs with runtime ownership: keep dynamic-library load/unload/symbol lookup paths portable across `dlopen` and Windows `LoadLibrary`, and pair loader changes with the smallest native interop or LSP build smoke that exercises the affected binary.
 23. Standalone continue codegen targets the innermost active loop. Do not reintroduce multi-depth continue dispatch in LLVM emission unless Sema and IR grow a new explicit continuation-domain contract first.
+24. Inferred callable schemes have no runtime representation. Lower only fully resolved, demand-driven specializations under deterministic compiler symbols, deduplicate equal concrete relations, and keep function parameter/result LLVM types synchronized with the active specialization. Do not add boxing, runtime type dictionaries, heap allocation, or GC to implement rank-1 callable instances.
+25. Comparison StyioIR must carry both operand types into LLVM emission. Use scalar integer/floating comparison for scalar families and lexical C-string comparison for string equality and ordering; never use pointer identity as string value equality.
+26. Treat callable specializations as a lazy mono-item graph. Give each reachable content digest one local definition owner, keep output ordered by the full SHA-256 digest, and include canonical relation/constraints/usage requirements, the canonical effect row derived from sorted labels plus an optional open tail, portable semantic body, transitive callable dependencies, module facts, target, pointer width, compiler channel/edition, dictionary implementation, and backend ABI in identity. Schema, effect-identity, usage-identity, or portable-body changes must bump the specialization fingerprint namespace instead of dual-reading old identity. Reuse exact recursion, but retain the 64-active-instance and 4,096-item hard ceilings with concrete instance paths. Do not add an ordinary warning threshold without telemetry or imply stable callable addresses.
+27. Monomorphic callable values lower only from a typed `SGResId` function reference and an indirect `SGCall` carrying the complete canonical `#(...): ...` signature. Map the value to an allocation-free LLVM function pointer, derive the indirect ABI from that signature, and keep callable bindings outside C-string ownership and cleanup. Never infer an indirect ABI in codegen or reinterpret an ordinary pointer, integer, native symbol address, or generalized scheme as a callable value.
+28. The affine static-capture slice lowers each Sema-approved captured scalar binding to one internal LLVM program-static slot initialized from the corresponding top-level binding. Load/store lookup must additionally require the name in the current `SGFunc::capture_names`, so a same-spelled local in another function remains local. Callable values retain the existing allocation-free function-pointer ABI because only shared program-static environments may escape. Never synthesize a closure box, copy a resource handle into scalar storage, publish the slot as module ABI, or codegen a capture that lacks the checked capture-name contract.
+29. Persistent callable caching is opt-in and object-level. Keep the cache-disabled path on the original single LLVM module with no cache hashing or filesystem work. When enabled, partition only functions carrying a verified full specialization digest, sort partitions by digest, retain private constants with their owner, leave inter-specialization/runtime references external, and verify every partition plus the residual main module. `CallableSpecializationObjectCache` must bind an object to the fresh full digest and compiler/LLVM/codegen/target/backend namespace, structurally verify bounded entries before ORC sees them, use owner-only atomic same-directory writes, and turn every cache corruption or I/O failure into recompilation rather than a language/runtime error.
+30. Keep `SGEntry` and `SGMainEntry` on default-strict StyioIR verification before LLVM emission. Direct `SGBlock` codegen may enable only `defer_unresolved_loop_control` while `loop_stack_` is nonempty, because the active codegen loop supplies that fragment's enclosing-loop context; keep every other structural check enabled and never apply this exception to a final root.
 
 ## Change Classes
 
@@ -90,7 +97,7 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
 2. Test Quality must review five-layer or security golden updates.
 3. Perf / Stability must review benchmark matrix, RSS thresholds, or long-loop behavior.
 4. CLI / Nano must review runtime capability output exposed through machine-info.
-5. `pafio` / `view` consumers must review published runtime-event family additions or payload-shape changes.
+5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes.
 
 ## Handoff / Recovery
 

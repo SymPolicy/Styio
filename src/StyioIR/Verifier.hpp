@@ -18,6 +18,19 @@ struct StyioIRVerifierDiagnostic
   std::string message;
 };
 
+struct StyioIRVerifierOptions
+{
+  // Construction-phase fragments may defer only zero-depth loop-control
+  // diagnostics; all other structural verification remains enabled.
+  bool defer_unresolved_loop_control = false;
+
+  // Mutating passes require tree ownership so deleting or replacing one edge
+  // cannot leave another edge dangling. General verification keeps the
+  // existing DAG-compatible behavior unless this boundary opts into the
+  // stronger ownership check.
+  bool require_unique_ownership = false;
+};
+
 struct StyioIRVerifierResult
 {
   std::vector<StyioIRVerifierDiagnostic> diagnostics;
@@ -27,8 +40,12 @@ struct StyioIRVerifierResult
   }
 };
 
-StyioIRVerifierResult verify_styio_ir(const StyioIR* root);
-void require_verified_styio_ir(const StyioIR* root);
+StyioIRVerifierResult verify_styio_ir(
+  const StyioIR* root,
+  const StyioIRVerifierOptions& options = StyioIRVerifierOptions{});
+void require_verified_styio_ir(
+  const StyioIR* root,
+  const StyioIRVerifierOptions& options = StyioIRVerifierOptions{});
 
 }  // namespace styio::ir
 

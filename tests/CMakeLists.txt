@@ -169,6 +169,86 @@ function(styio_feature_stderr_failure_golden_test FEATURE LABEL)
 endfunction()
 
 styio_feature_stdout_golden_test(scalar_expressions "t*.styio" scalar_expressions)
+styio_feature_stdout_golden_test(keyword_free "t*.styio" keyword_free)
+styio_feature_stdout_golden_test(inferred_generics "t*.styio" inferred_generics)
+styio_feature_stdout_golden_test(callable_effects "t*.styio" callable_effects)
+styio_feature_stdout_golden_test(callable_constraints "t*.styio" callable_constraints)
+styio_feature_stdout_golden_test(callable_values "t*.styio" callable_values)
+styio_feature_stdout_golden_test(callable_capabilities "t*.styio" callable_capabilities)
+styio_feature_stdout_golden_test(affine_closures "t*.styio" affine_closures)
+styio_feature_stdout_golden_test(literal_defaulting "t*.styio" literal_defaulting)
+styio_feature_stdout_golden_test(callable_specialization "t*.styio" callable_specialization)
+styio_feature_stdout_golden_test(persistent_callable_cache "t*.styio" persistent_callable_cache)
+
+add_test(
+  NAME callable_specialization_content_identity
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_LIST_DIR}/run_callable_specialization_case.py"
+          --styio "${STYIO_EXE}"
+          --fixtures "${STYIO_FEATURES}/callable_specialization"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  callable_specialization_content_identity
+  PROPERTIES
+    LABELS "language_feature;callable_specialization"
+)
+
+add_test(
+  NAME persistent_callable_cache_native_reuse
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_CURRENT_LIST_DIR}/run_persistent_callable_cache_case.py"
+          --styio "${STYIO_EXE}"
+          --source "${STYIO_FEATURES}/persistent_callable_cache/t01_native_specializations.styio"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  persistent_callable_cache_native_reuse
+  PROPERTIES
+    LABELS "language_feature;persistent_callable_cache"
+)
+
+foreach(_CALLABLE_INTERFACE_MODE IN ITEMS
+    run
+    private
+    cycle
+    stale-source
+    stale-schema
+    stale-dependency
+    missing
+    uninstantiated-body
+    invalid-module-id
+    effect-row
+    usage-facts
+    portable-replay
+    portable-body-schema
+    portable-unknown-opcode
+    portable-unbound-symbol
+    portable-type-mismatch
+    portable-noncanonical
+    portable-digest)
+  string(REPLACE "-" "_" _CALLABLE_INTERFACE_TEST_SUFFIX
+    "${_CALLABLE_INTERFACE_MODE}")
+  add_test(
+    NAME "callable_interfaces_${_CALLABLE_INTERFACE_TEST_SUFFIX}"
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_LIST_DIR}/run_callable_interface_case.py"
+            --styio "${STYIO_EXE}"
+            --fixtures "${STYIO_FEATURES}/callable_interfaces"
+            --mode "${_CALLABLE_INTERFACE_MODE}"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set(_CALLABLE_INTERFACE_LABELS
+    "language_feature;callable_interfaces")
+  if(_CALLABLE_INTERFACE_MODE MATCHES "^portable-")
+    string(APPEND _CALLABLE_INTERFACE_LABELS
+      ";portable_generic_interfaces")
+  endif()
+  set_tests_properties(
+    "callable_interfaces_${_CALLABLE_INTERFACE_TEST_SUFFIX}"
+    PROPERTIES LABELS "${_CALLABLE_INTERFACE_LABELS}")
+endforeach()
+
 styio_feature_stdout_golden_test(functions "t*.styio" functions)
 styio_feature_stdout_golden_test(control_flow "t*.styio" control_flow)
 styio_feature_stdout_golden_test(wave_dispatch "t*.styio" wave_dispatch)
@@ -176,6 +256,24 @@ styio_feature_stdout_golden_test(state_resources "t*.styio" state_resources)
 styio_feature_stdout_golden_test(final_bindings "t*.styio" final_bindings)
 styio_feature_stdout_golden_test(native_interop "t*.styio" native_interop)
 styio_feature_stdout_golden_test(task_resources "t*.styio" task_resources)
+
+add_test(
+  NAME StyioSecurityBoundedTaskScheduling.ActiveTaskGroupAwait
+  COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}"
+          run
+          --styio "${STYIO_EXE}"
+          --source "${STYIO_FEATURES}/task_resources/t06_task_group_await.styio"
+          --cwd "${CMAKE_SOURCE_DIR}"
+          --expect-stdout "${STYIO_FEATURES}/task_resources/expected/t06_task_group_await.out"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  StyioSecurityBoundedTaskScheduling.ActiveTaskGroupAwait
+  PROPERTIES
+    LABELS "security;runtime;task_resources"
+    ENVIRONMENT "STYIO_TASK_THREADS=1;STYIO_TASK_QUEUE_CAPACITY=1"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
 
 # --- stdout/stderr resource tests ---
 styio_feature_stdout_golden_test(stdio_output "t01_*.styio" stdio_output)
@@ -320,6 +418,14 @@ styio_feature_stderr_failure_golden_test(stdio_input stdio_input)
 styio_feature_stderr_failure_golden_test(task_resources task_resources)
 styio_feature_stderr_failure_golden_test(state_resources state_resources)
 styio_feature_stderr_failure_golden_test(final_bindings final_bindings)
+styio_feature_stderr_failure_golden_test(inferred_generics inferred_generics)
+styio_feature_stderr_failure_golden_test(callable_effects callable_effects)
+styio_feature_stderr_failure_golden_test(callable_constraints callable_constraints)
+styio_feature_stderr_failure_golden_test(callable_values callable_values)
+styio_feature_stderr_failure_golden_test(callable_capabilities callable_capabilities)
+styio_feature_stderr_failure_golden_test(affine_closures affine_closures)
+styio_feature_stderr_failure_golden_test(literal_defaulting literal_defaulting)
+styio_feature_stderr_failure_golden_test(callable_specialization callable_specialization)
 
 # --- file resource stdout goldens + special file / exit-code cases ---
 add_test(
@@ -471,12 +577,21 @@ set_tests_properties(parser_legacy_entry_audit PROPERTIES
 )
 
 add_test(
-  NAME syntax_convergence_gate
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/syntax-convergence-gate.py"
+  NAME syntax_feature_state_gate
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/syntax-feature-state-gate.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
-set_tests_properties(syntax_convergence_gate PROPERTIES
-  LABELS "styio_pipeline;syntax_convergence;golden_standard"
+set_tests_properties(syntax_feature_state_gate PROPERTIES
+  LABELS "styio_pipeline;syntax_feature_state;golden_standard"
+)
+
+add_test(
+  NAME syntax_feature_state_gate_unit
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/syntax_feature_state_gate_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(syntax_feature_state_gate_unit PROPERTIES
+  LABELS "styio_pipeline;syntax_feature_state;unit"
 )
 
 function(styio_configure_windows_gtest_target target_name)
@@ -487,6 +602,45 @@ function(styio_configure_windows_gtest_target target_name)
     )
   endif()
 endfunction()
+
+add_executable(styio_platform_internal_test
+  platform_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
+)
+target_include_directories(styio_platform_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+)
+target_link_libraries(styio_platform_internal_test PRIVATE
+  GTest::gtest_main
+  ${CMAKE_DL_LIBS}
+)
+styio_configure_windows_gtest_target(styio_platform_internal_test)
+add_test(
+  NAME styio_platform_internal_test
+  COMMAND "$<TARGET_FILE:styio_platform_internal_test>"
+)
+set_tests_properties(styio_platform_internal_test PROPERTIES
+  LABELS "styio_pipeline;platform_internal;unit"
+)
+
+add_executable(styio_native_interop_internal_test
+  native_interop_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
+)
+target_include_directories(styio_native_interop_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_compile_definitions(styio_native_interop_internal_test PRIVATE
+  "STYIO_TEST_C_COMPILER=\"${STYIO_DEFINE_CMAKE_C_COMPILER}\""
+  "STYIO_TEST_CXX_COMPILER=\"${STYIO_DEFINE_CMAKE_CXX_COMPILER}\""
+)
+target_link_libraries(styio_native_interop_internal_test PRIVATE
+  GTest::gtest_main
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_native_interop_internal_test)
+styio_configure_windows_gtest_target(styio_native_interop_internal_test)
 
 add_executable(styio_test
   styio_test.cpp
@@ -599,6 +753,9 @@ set(STYIO_INTERNAL_PARSER_SUPPORT_SOURCES
   "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/PortableCallableBody.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableInterface.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableSpecializationGraph.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioLowering/AstToStyioIR.cpp"
   "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
@@ -630,15 +787,106 @@ target_link_libraries(styio_parser_internal_test PRIVATE GTest::gtest_main ${LLV
 styio_apply_llvm_compile_settings(styio_parser_internal_test)
 styio_configure_windows_gtest_target(styio_parser_internal_test)
 
+add_executable(styio_typeinfer_internal_test
+  typeinfer_internal_test.cpp
+)
+target_include_directories(styio_typeinfer_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_typeinfer_internal_test PRIVATE
+  styio_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_typeinfer_internal_test)
+styio_configure_windows_gtest_target(styio_typeinfer_internal_test)
+add_dependencies(styio_test styio_typeinfer_internal_test)
+
+# Focused lowering coverage keeps AstToStyioIR.cpp visible to its internal
+# seam tests without linking a second copy from styio_core.
+add_executable(styio_lowering_internal_test
+  lowering_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioIR/PortableCallableBody.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableInterface.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableSpecializationGraph.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
+)
+target_include_directories(styio_lowering_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_lowering_internal_test PRIVATE
+  styio_symbol_core
+  styio_runtime_core
+  GTest::gtest_main
+  ${LLVM_LIBS}
+  ${CMAKE_DL_LIBS}
+)
+styio_apply_llvm_compile_settings(styio_lowering_internal_test)
+styio_configure_windows_gtest_target(styio_lowering_internal_test)
+
+add_executable(styio_runtime_scheduler_test
+  runtime_scheduler_test.cpp
+)
+target_include_directories(styio_runtime_scheduler_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+)
+target_link_libraries(styio_runtime_scheduler_test PRIVATE GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_runtime_scheduler_test)
+styio_configure_windows_gtest_target(styio_runtime_scheduler_test)
+
+add_executable(styio_externlib_internal_test
+  externlib_internal_test.cpp
+  "${CMAKE_SOURCE_DIR}/src/StyioRuntime/RuntimeState.cpp"
+)
+target_include_directories(styio_externlib_internal_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_externlib_internal_test PRIVATE GTest::gtest_main)
+styio_apply_llvm_compile_settings(styio_externlib_internal_test)
+styio_configure_windows_gtest_target(styio_externlib_internal_test)
+
 add_executable(styio_security_test
   security/styio_security_test.cpp
 )
 target_link_libraries(styio_security_test PRIVATE styio_core GTest::gtest_main)
+target_compile_definitions(
+  styio_security_test
+  PRIVATE STYIO_TEST_EXPECT_ICU=$<BOOL:${STYIO_USE_ICU}>
+)
 # Security tests transitively include codegen/session headers that reference
 # LLVM types. Use the shared helper so LLVM headers stay behind the standard
 # library on Debian/libstdc++.
 styio_apply_llvm_compile_settings(styio_security_test)
 styio_configure_windows_gtest_target(styio_security_test)
+add_dependencies(styio_security_test styio)
+
+add_executable(styio_codegen_internal_test
+  codegen_internal_test.cpp
+)
+target_link_libraries(styio_codegen_internal_test PRIVATE
+  styio_core
+  GTest::gtest_main
+)
+styio_apply_llvm_compile_settings(styio_codegen_internal_test)
+styio_configure_windows_gtest_target(styio_codegen_internal_test)
 
 add_executable(styio_resource_topology_test
   resource_topology_test.cpp
@@ -698,6 +946,37 @@ gtest_discover_tests(styio_parser_internal_test
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
+gtest_discover_tests(styio_typeinfer_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "security\;safety\;sema_internal\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+gtest_discover_tests(styio_lowering_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "security\;safety\;lowering_internal\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+gtest_discover_tests(styio_runtime_scheduler_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "runtime\;unit\;concurrency"
+)
+
+gtest_discover_tests(styio_externlib_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES LABELS "runtime\;unit\;concurrency"
+)
+
+gtest_discover_tests(styio_native_interop_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "security\\;safety\\;native_interop\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
 if(WIN32)
   add_test(
     NAME StyioDiagnosticContract.ClassifiersCoverFallbackAndPhaseFamilies
@@ -717,6 +996,13 @@ else()
       ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
   )
 endif()
+
+gtest_discover_tests(styio_codegen_internal_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "security\;safety\;codegen_internal\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
 
 gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

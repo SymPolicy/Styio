@@ -1080,19 +1080,95 @@ void run_constant_fold_pass(StyioIR* root) {
   walker.fold(root);
 }
 
-/// Dead statement elimination pass.
-/// Removes pure statements whose results are never used.
-/// Conservative: only removes const/float/bool/int literals as standalone stmts.
-void run_dead_stmt_elim_pass(StyioIR* root) {
-  if (!root) return;
-  // Conservatively skip for now — full DSE requires def-use chains.
-  // The framework exists; enable when EffectKind queries are complete.
-  (void)root;
+class DeadSuffixEliminationWalker final : public styio::ir::StyioIRWalker
+{
+public:
+  StyioIRPassStatistics statistics;
+
+  void visitSGBlock(SGBlock* node) override {
+    visit_sequence(node->stmts);
+  }
+
+  void visitSGEntry(SGEntry* node) override {
+    visit_sequence(node->stmts);
+  }
+
+  void visitSGMainEntry(SGMainEntry* node) override {
+    visit_sequence(node->stmts, true);
+  }
+
+private:
+  static bool is_direct_terminator(StyioIR* statement) {
+    return dynamic_cast<SGReturn*>(statement) != nullptr
+      || dynamic_cast<SGBreak*>(statement) != nullptr
+      || dynamic_cast<SGContinue*>(statement) != nullptr;
+  }
+
+  static bool is_main_entry_compile_time_live(StyioIR* statement) {
+    // SGMainEntry codegen predeclares these nodes or consumes their type
+    // metadata before it emits the runtime statement sequence. They remain
+    // semantically live even when they occur after a runtime terminator.
+    return dynamic_cast<SGFunc*>(statement) != nullptr
+      || dynamic_cast<SGExportDecl*>(statement) != nullptr
+      || dynamic_cast<SGExternBlock*>(statement) != nullptr
+      || dynamic_cast<SGFlexBind*>(statement) != nullptr
+      || dynamic_cast<SGFinalBind*>(statement) != nullptr;
+  }
+
+  void visit_sequence(
+    std::vector<StyioIR*>& statements,
+    bool preserve_main_entry_compile_time_nodes = false
+  ) {
+    ++statistics.statement_containers_visited;
+    std::size_t keep = statements.size();
+
+    for (std::size_t index = 0; index < statements.size(); ++index) {
+      ++statistics.statements_examined;
+      walk(statements[index]);
+      if (is_direct_terminator(statements[index])) {
+        keep = index + 1;
+        break;
+      }
+    }
+
+    if (keep == statements.size()) {
+      return;
+    }
+
+    std::size_t write = keep;
+    uint64_t removed = 0;
+    for (std::size_t read = keep; read < statements.size(); ++read) {
+      StyioIR* statement = statements[read];
+      if (preserve_main_entry_compile_time_nodes
+          && is_main_entry_compile_time_live(statement)) {
+        ++statistics.statements_examined;
+        walk(statement);
+        statements[write++] = statement;
+        continue;
+      }
+      delete statement;
+      ++removed;
+    }
+    statements.resize(write);
+    statistics.statements_removed += removed;
+    if (removed == 0) {
+      return;
+    }
+    ++statistics.statement_containers_changed;
+  }
+};
+
+StyioIRPassStatistics run_dead_stmt_elim_pass(StyioIR* root) {
+  DeadSuffixEliminationWalker walker;
+  walker.walk(root);
+  return walker.statistics;
 }
 
 const char*
 pass_name(StyioIRPassManager::PassKind kind) {
   switch (kind) {
+    case StyioIRPassManager::PassKind::DeadSuffixElimination:
+      return "styioir-dead-suffix-elimination";
     case StyioIRPassManager::PassKind::Canonicalization:
       return "styioir-canonicalization";
     case StyioIRPassManager::PassKind::ConstantFolding:
@@ -1104,10 +1180,14 @@ pass_name(StyioIRPassManager::PassKind kind) {
 bool
 append_verifier_diagnostics(
   const StyioIR* root,
+  const styio::ir::StyioIRVerifierOptions& verifier_options,
   std::vector<styio::ir::StyioIRVerifierDiagnostic>& diagnostics
 ) {
   try {
-    styio::ir::StyioIRVerifierResult verifier = styio::ir::verify_styio_ir(root);
+    auto pass_boundary_options = verifier_options;
+    pass_boundary_options.require_unique_ownership = true;
+    styio::ir::StyioIRVerifierResult verifier =
+      styio::ir::verify_styio_ir(root, pass_boundary_options);
     diagnostics.insert(
       diagnostics.end(),
       verifier.diagnostics.begin(),
@@ -1131,6 +1211,11 @@ render_ir_dump(StyioIR* root) {
   }
   StyioRepr repr;
   return root->toString(&repr);
+}
+
+void
+StyioIRPassManager::add_dead_suffix_elimination_pass() {
+  passes_.push_back(PassKind::DeadSuffixElimination);
 }
 
 void
@@ -1161,7 +1246,24 @@ StyioIRPassManager::run(
     return result;
   };
 
-  if (options.verify_before && !append_verifier_diagnostics(result.root, result.diagnostics)) {
+  if (options.verifier_options.defer_unresolved_loop_control
+      && std::find(
+           passes_.begin(),
+           passes_.end(),
+           PassKind::DeadSuffixElimination) != passes_.end()) {
+    result.diagnostics.push_back(styio::ir::StyioIRVerifierDiagnostic{
+      std::string(styio::services::diagnostics::kPhaseIrVerify),
+      std::string(styio::services::diagnostics::kIrVerifyContract),
+      "dead-suffix elimination requires resolved loop-control legality",
+    });
+    return finish();
+  }
+
+  if (options.verify_before
+      && !append_verifier_diagnostics(
+        result.root,
+        options.verifier_options,
+        result.diagnostics)) {
     return finish();
   }
 
@@ -1172,7 +1274,11 @@ StyioIRPassManager::run(
       record.ir_before = render_ir_dump(result.root);
     }
 
-    if (options.verify_before && !append_verifier_diagnostics(result.root, result.diagnostics)) {
+    if (options.verify_before
+        && !append_verifier_diagnostics(
+          result.root,
+          options.verifier_options,
+          result.diagnostics)) {
       record.verifier_before_ok = false;
       result.passes.push_back(record);
       return finish();
@@ -1180,6 +1286,10 @@ StyioIRPassManager::run(
 
     const auto started = std::chrono::steady_clock::now();
     switch (pass) {
+      case PassKind::DeadSuffixElimination: {
+        record.statistics = run_dead_stmt_elim_pass(result.root);
+        break;
+      }
       case PassKind::Canonicalization: {
         Optimizer optimizer;
         result.root = optimizer.optimize(result.root);
@@ -1201,7 +1311,10 @@ StyioIRPassManager::run(
     }
 
     if (options.verify_after_each_pass
-        && !append_verifier_diagnostics(result.root, result.diagnostics)) {
+        && !append_verifier_diagnostics(
+          result.root,
+          options.verifier_options,
+          result.diagnostics)) {
       record.verifier_after_ok = false;
       result.passes.push_back(record);
       return finish();
@@ -1212,14 +1325,29 @@ StyioIRPassManager::run(
   return finish();
 }
 
+namespace {
+
 StyioIRPassManager
-default_styio_ir_pass_manager(unsigned opt_level) {
+make_default_styio_ir_pass_manager(
+  unsigned opt_level,
+  bool add_dead_suffix_elimination
+) {
   StyioIRPassManager manager;
   if (opt_level > 0) {
+    if (add_dead_suffix_elimination) {
+      manager.add_dead_suffix_elimination_pass();
+    }
     manager.add_canonicalization_pass();
     manager.add_constant_folding_pass();
   }
   return manager;
+}
+
+}  // namespace
+
+StyioIRPassManager
+default_styio_ir_pass_manager(unsigned opt_level) {
+  return make_default_styio_ir_pass_manager(opt_level, true);
 }
 
 StyioIRPassPipelineResult
@@ -1227,7 +1355,12 @@ run_default_styio_ir_pass_pipeline(
   StyioIR* root,
   const StyioIRPassPipelineOptions& options
 ) {
-  return default_styio_ir_pass_manager(options.opt_level).run(root, options);
+  const bool loop_control_is_resolved =
+    !options.verifier_options.defer_unresolved_loop_control;
+  return make_default_styio_ir_pass_manager(
+           options.opt_level,
+           loop_control_is_resolved)
+    .run(root, options);
 }
 
 StyioIR*

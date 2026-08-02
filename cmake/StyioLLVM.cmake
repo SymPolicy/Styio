@@ -2,6 +2,11 @@ find_package(ZLIB QUIET)
 find_package(zstd CONFIG QUIET)
 find_package(LibXml2 QUIET)
 find_package(LLVM 18.1.0 REQUIRED CONFIG)
+if(LLVM_PACKAGE_VERSION VERSION_LESS "18.1.0"
+   OR NOT LLVM_PACKAGE_VERSION VERSION_LESS "18.2.0")
+  message(FATAL_ERROR
+    "Styio requires LLVM 18.1.x; found ${LLVM_PACKAGE_VERSION} in ${LLVM_DIR}")
+endif()
 
 # LLVM headers ship a libc++abi-flavored cxxabi.h. On Debian + libstdc++,
 # putting LLVM on the normal -I/-isystem search path lets internal libstdc++
@@ -15,7 +20,7 @@ message(STATUS "[LLVM] Definitions: ${LLVM_DEFINITIONS_LIST}")
 message(STATUS "[LLVM] Version: ${LLVM_PACKAGE_VERSION}")
 message(STATUS "[LLVM] Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native)
+llvm_map_components_to_libnames(LLVM_LIBS support core irreader orcjit native ipo)
 
 function(styio_apply_llvm_compile_settings target_name)
   if(MSVC)

@@ -1,0 +1,144 @@
+[
+  {
+    "key": "styio-nightly",
+    "parent": null,
+    "title": "Styio Nightly",
+    "kind": "repository",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "README.md",
+      "docs/rollups/CURRENT-STATE.md"
+    ],
+    "description": "The observed nightly compiler repository and its governed delivery state."
+  },
+  {
+    "key": "styio-nightly/delivery-governance",
+    "parent": "styio-nightly",
+    "title": "Delivery Governance",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "docs/plan/README.md",
+      "docs/teams/DOCS-ECOSYSTEM-RUNBOOK.md",
+      "workflows/WORKFLOW-ORCHESTRATION.md"
+    ],
+    "description": "The established documentation, workflow, validation, and release-routing foundation."
+  },
+  {
+    "key": "styio-nightly/compiler",
+    "parent": "styio-nightly",
+    "title": "Compiler",
+    "kind": "component",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "src",
+      "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
+    ],
+    "description": "The observed compiler component containing parser, semantic, IR, codegen, and runtime boundaries."
+  },
+  {
+    "key": "styio-nightly/compiler/correctness",
+    "parent": "styio-nightly/compiler",
+    "title": "Compiler Correctness",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "modified",
+    "source_files": [
+      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+      "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md"
+    ],
+    "description": "The fail-closed semantic, IR verification, parser-authority, and placeholder-removal boundary."
+  },
+  {
+    "key": "styio-nightly/compiler/optimization",
+    "parent": "styio-nightly/compiler",
+    "title": "Algorithmic Optimization",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "docs/rollups/C0-PARSER-PRATT-READINESS.md",
+      "benchmark/README.md"
+    ],
+    "description": "The parser, verified IR pass, type-solving, resource-dataflow, and stream-concurrency optimization boundary."
+  },
+  {
+    "key": "styio-nightly/ecosystem-integration",
+    "parent": "styio-nightly",
+    "title": "Ecosystem Integration",
+    "kind": "interface",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
+      "docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md",
+      "scripts/ecosystem-cli-doc-gate.py"
+    ],
+    "description": "The fixed compiler, project-workflow, hosted-service, and consumer contract boundary used for coordinated release acceptance."
+  },
+  {
+    "key": "styio-nightly/compiler/optimization/ir-passes",
+    "parent": "styio-nightly/compiler/optimization",
+    "title": "Verified IR Passes",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "src/StyioLowering/StyioIROptimizer.hpp",
+      "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
+    ],
+    "description": "The verified StyioIR optimization-pass boundary built on the established walker and pass manager."
+  },
+  {
+    "key": "styio-nightly/compiler/optimization/type-constraints",
+    "parent": "styio-nightly/compiler/optimization",
+    "title": "Bounded Type Constraints",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "src/StyioSema/TypeInfer.cpp",
+      "docs/design/syntax/features/core-constrained-callable-relations.md"
+    ],
+    "description": "The terminating callable/type constraint solving boundary that preserves representation and handle facts."
+  },
+  {
+    "key": "styio-nightly/compiler/optimization/resource-dataflow",
+    "parent": "styio-nightly/compiler/optimization",
+    "title": "Resource Typestate Dataflow",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "docs/rollups/IM-D4-RESOURCE-MANAGEMENT-INVENTORY.md",
+      "tests/resource_topology_test.cpp"
+    ],
+    "description": "The canonical resource typestate and dataflow analysis boundary."
+  },
+  {
+    "key": "styio-nightly/compiler/optimization/stream-concurrency",
+    "parent": "styio-nightly/compiler/optimization",
+    "title": "Stream Concurrency",
+    "kind": "capability",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "docs/rollups/IM-D5-STREAM-CONCURRENCY-INVENTORY.md",
+      "src/StyioIR/GenIR/SIOIR.hpp"
+    ],
+    "description": "The bounded stream scheduling, synchronization, cancellation, and pressure boundary."
+  }
+]

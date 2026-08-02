@@ -1,0 +1,401 @@
+[
+  {
+    "id": "7ad927a7-bf08-4f8d-a465-3d3444248b9b",
+    "status": "completed",
+    "role": "group_design",
+    "code": "OPT-E-DESIGN",
+    "title": "Freeze bounded callable-constraint design",
+    "conditions": [
+      "Production implementation may not start until termination, ownership, diagnostics, fact preservation, allocation, and invalidation evidence are frozen."
+    ],
+    "prerequisites": [
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Freeze one terminating callable-constraint worklist, ownership model, and executable recomputation evidence.",
+    "description": "Scope: the complete OPT-E bounded callable-constraint design and acceptance artifacts. Context: TypeInfer contains unification, fixed-point reduction, SCC ordering, and concrete solving in one large path, while representation and resource-handle facts must remain authoritative. Target: select the smallest consolidation that bounds recomputation, preserves diagnostics and BindingInfo facts, and does not broaden the constraint vocabulary. Design Considerations: compare indexed worklists, union-find, memoization, and SCC strategies with mature solvers and the local pattern catalog. Design Value: deterministic convergence and lower repeated work without a second type system. Constraints & Risks: no new generics, resource typestate, handle erasure, diagnostic reordering, or compatibility solver.",
+    "requirements": [
+      "REQ-OPT-E-TERMINATION",
+      "REQ-OPT-E-FACT-PRESERVATION"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/bounded-type-constraints/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Architecture.md",
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Architecture.md",
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md"
+      ],
+      "acceptance_paths": [
+        "tests/features/callable_constraints",
+        "tests/features/inferred_generics",
+        "tests/typeinfer_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one canonical callable-constraint pipeline",
+        "algorithms": "to be frozen after indexed worklist, union-find, memoization, and SCC comparison",
+        "data_structures": "bounded queues, canonical substitutions, and origin-preserving constraints",
+        "state": "StyioSemaContext retains binding, handle, and representation ownership",
+        "isolation": "design and executable acceptance artifacts only",
+        "concurrency": "OPT-E is independent of OPT-D; OPT-F waits for this handoff"
+      },
+      "test_seams": [
+        "callable constraint feature fixtures",
+        "recursive SCC inference tests",
+        "solver statistics and allocation benchmark probes"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Architecture and Validation freeze termination, ownership, origin/diagnostic ordering, handle and representation preservation, cache invalidation, allocation, and recomputation evidence."
+      },
+      {
+        "checked": true,
+        "text": "The design pattern assessment compares the simplest direct solution with applicable catalog patterns and records a concrete acceptance proof."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(sema): design OPT-E bounded solver",
+      "target": "styio-nightly"
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted"
+    }
+  },
+  {
+    "id": "a658ef8d-619a-4732-a963-4270a91b8a17",
+    "status": "completed",
+    "role": "implementation",
+    "code": "OPT-E-IMPLEMENT",
+    "title": "Implement the bounded callable-constraint worklist",
+    "prerequisites": [
+      "7ad927a7-bf08-4f8d-a465-3d3444248b9b",
+      "875f378b-9118-4edb-8b4a-57789dfcff73"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Replace repeated callable-constraint rescans with one deterministic bounded worklist while preserving existing type facts and diagnostics.",
+    "description": "Closure: module - callable constraint reduction and solving. Context: the existing reduction loop repeatedly scans unresolved constraints and shares ownership with monotype unification and SCC inference. Target: implement the Designer-frozen indexed worklist or equivalent bounded algorithm as the only callable-constraint reducer, with deterministic origin order and measurable recomputation counts. Design Considerations: near-linear scheduling, canonical substitution ownership, no duplicate solving, stable error origins, and explicit invalidation. Design Value: makes termination and cost observable without inventing a parallel semantic layer. Constraints & Risks: preserve BindingInfo handle/dynamic/list representation facts, current constraint vocabulary, defaulting behavior, and public diagnostics; no compatibility solver.",
+    "requirements": [
+      "REQ-OPT-E-TERMINATION",
+      "REQ-OPT-E-FACT-PRESERVATION"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/bounded-type-constraints/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioSema/TypeInfer.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/SemaContext.hpp"
+      ],
+      "acceptance_paths": [
+        "tests/features/callable_constraints",
+        "tests/features/inferred_generics",
+        "tests/typeinfer_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp",
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioSema/TypeInfer.cpp",
+          "kind": "function",
+          "name": "reduce_callable_constraints",
+          "operation": "modify",
+          "signature": "bounded callable constraint reduction"
+        },
+        {
+          "path": "src/StyioSema/TypeInfer.cpp",
+          "kind": "class",
+          "name": "CallableTypeUnifier",
+          "operation": "modify",
+          "signature": "canonical substitution owner"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "callable constraint solver",
+          "producer": "src/StyioSema/TypeInfer.cpp",
+          "consumers": [
+            "prepare_callable_type_schemes",
+            "solve_callable_constraint_instance",
+            "callable constraint fixtures"
+          ],
+          "inputs": "origin-ordered symbolic constraints and monotypes",
+          "outputs": "canonical substitutions, residual constraints, or deterministic TypeError",
+          "errors": [
+            "existing callable constraint diagnostic families"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one reducer and one canonical unifier",
+        "algorithms": "bounded indexed worklist with SCC order retained",
+        "data_structures": "deque, dependency index, canonical substitution mapping, monotonic solved set",
+        "state": "StyioSemaContext remains fact owner; no copied handle/repr truth",
+        "isolation": "callable constraint paths only",
+        "concurrency": "solver is request-local and has no shared mutable state"
+      },
+      "test_seams": [
+        "numeric/comparable/indexable feature fixtures",
+        "transitive and recursive scheme tests",
+        "unsatisfied-instance diagnostic goldens",
+        "solver work-count benchmark"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The solver terminates under a frozen bound, avoids whole-set rescans, and preserves stable constraint-origin diagnostics.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "82dd53a9f22fcb23e8f3dbaebe8178d4d980970bdb2d9341a4db4eca65b370ed",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "ac72e77aea49283fc84a8d2aa9404ad45563cfdd187e132191bc2daef68d2100",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "05c847e640ba97547cb99203af9c3e7602c46871c3686544171bef6cac60d21a",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "All existing numeric, comparable, indexable, transitive, recursive, defaulting, handle, and representation facts remain equivalent.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "82dd53a9f22fcb23e8f3dbaebe8178d4d980970bdb2d9341a4db4eca65b370ed",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "ac72e77aea49283fc84a8d2aa9404ad45563cfdd187e132191bc2daef68d2100",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "05c847e640ba97547cb99203af9c3e7602c46871c3686544171bef6cac60d21a",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "The superseded repeated-scan path is removed with no compatibility solver, and allocation/recomputation evidence meets the frozen budget.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "82dd53a9f22fcb23e8f3dbaebe8178d4d980970bdb2d9341a4db4eca65b370ed",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "ac72e77aea49283fc84a8d2aa9404ad45563cfdd187e132191bc2daef68d2100",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "05c847e640ba97547cb99203af9c3e7602c46871c3686544171bef6cac60d21a",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:26:58Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "perf(sema): bound callable constraint solving",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_test styio_core_bench -j2",
+        "ctest --test-dir build -L 'callable_constraints|inferred_generics' --output-on-failure --no-tests=error && ctest --test-dir build -R '^StyioSema' --output-on-failure --no-tests=error",
+        "STYIO_BENCH_WARMUP=1 STYIO_BENCH_MEASURED=1 ./build/bin/styio_core_bench --stdout > /tmp/styio-opt-e-focused.json && rg -q '\"phase\"[[:space:]]*:[[:space:]]*\"constraint\"' /tmp/styio-opt-e-focused.json && rg -q '\"label\"[[:space:]]*:[[:space:]]*\"callable_worklist_' /tmp/styio-opt-e-focused.json"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "tests/CMakeLists.txt",
+        "tests/features/callable_constraints",
+        "tests/features/inferred_generics",
+        "tests/typeinfer_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T22:26:58Z",
+        "contract_digest": "40030b5953ea63b60c1be99b876aa7b94e508f4b0653775293786d069610cf77",
+        "content_fingerprint": "73772f751897aea39cba72b25bf9941162d5dc41a8aa48d03fb464e7ec4efdec"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 9,
+      "outcome": "accepted",
+      "design_digest": "89969218a3aa6b718f378159e8c9fee3157b699626d6247051f44168d3acad08",
+      "acceptance_fingerprint": "8bbac7232c7027bbd8b3aa71d19db84dd8bba9aeadff1d469ce824f7bf5c3469"
+    }
+  },
+  {
+    "id": "f954305a-c3b3-465b-92b8-d388aff1556c",
+    "status": "completed",
+    "role": "final_validation",
+    "code": "OPT-E-VALIDATE",
+    "title": "Validate bounded callable-constraint solving",
+    "conditions": [
+      "Immediate decision issues must be resolved; deferred decisions remain collected for the final OPT-D-G handoff."
+    ],
+    "prerequisites": [
+      "a658ef8d-619a-4732-a963-4270a91b8a17"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Review OPT-E once and run its complete impacted type-solver, diagnostic, and bounded-resource regression.",
+    "description": "Scope: the complete bounded callable-constraint group. Context: group completion requires one fresh end-to-end review followed by one impacted regression. Target: prove termination, canonical ownership, stable diagnostics, preserved handle/representation facts, and bounded recomputation. Design Considerations: inspect the changed Sema solver and directly impacted fixtures only. Design Value: closes OPT-E as one coherent solver boundary ready for OPT-F consumption. Constraints & Risks: one Reviewer only; no new constraint vocabulary or repeat full regression without failure evidence.",
+    "requirements": [
+      "REQ-OPT-E-TERMINATION",
+      "REQ-OPT-E-FACT-PRESERVATION"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md",
+      "owned_paths": [
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Review.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Review.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md",
+        "tests/features/callable_constraints",
+        "tests/features/inferred_generics",
+        "tests/typeinfer_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one group review then one impacted regression",
+        "algorithms": "frozen OPT-E acceptance matrix",
+        "data_structures": "review evidence only",
+        "state": "no new production state",
+        "isolation": "OPT-E changed paths and impacted Sema tests",
+        "concurrency": "serialized final acceptance"
+      },
+      "test_seams": [
+        "callable constraints",
+        "inferred generics",
+        "Sema internals",
+        "benchmark probe",
+        "documentation gate"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "No unresolved immediate decision issue remains and the Reviewer confirms the frozen OPT-E boundary.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "c4ea0a490d18afab1db83f683e275bf426ed711587bde7275437b0c396ad2222",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:49:50Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "All impacted callable-constraint, inferred-generic, Sema-internal, benchmark smoke, and documentation gates pass once.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "c4ea0a490d18afab1db83f683e275bf426ed711587bde7275437b0c396ad2222",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T22:49:50Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(sema): validate OPT-E bounded solver",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "full",
+      "commands": [
+        "cmake --build build -j2 && ctest --test-dir build -L 'callable_constraints|inferred_generics' --output-on-failure --no-tests=error && ctest --test-dir build -R '^StyioSema' --output-on-failure && ./build/bin/styio_core_bench --benchmark_filter='.*Constraint.*' --benchmark_min_time=0.01s && bash scripts/docs-gate.sh"
+      ],
+      "criteria": [
+        0,
+        1
+      ],
+      "paths": [
+        "src/StyioSema",
+        "tests/features/callable_constraints",
+        "tests/features/inferred_generics",
+        "tests/typeinfer_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp",
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Architecture.md",
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Validation.md",
+        "docs/plan/roadmap/optimization/bounded-type-constraints/Review.md"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T22:49:50Z",
+        "contract_digest": "b812046ac7719deded34dc3dbef54b999fc3f136960b745752968e086c5eeea7",
+        "content_fingerprint": "5213cea16545e62c4660a3c7eba577d34d09abc1d500f41cc57b813ccbacce55"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted",
+      "review": {
+        "recorded_at": "2026-08-01T22:49:12Z",
+        "dispatch_id": "bfcbd2d1-0db6-47ad-a986-bfc3d52bffef"
+      },
+      "design_digest": "394f36128342fb947a523b3243442adf6ef73597ba5566acbe6e9c16b2b0e84c",
+      "scaffold_fingerprint": "d6e0ce78e832d57f2c530725f660886bbc56794da10dc87858c40c74761bfb2c",
+      "acceptance_fingerprint": "054cd50243f93ab1ec85ef726a76899a856e29340840a88b8eaf0e53bbedab4c"
+    }
+  }
+]

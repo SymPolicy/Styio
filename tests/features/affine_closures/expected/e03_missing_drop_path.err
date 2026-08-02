@@ -1,0 +1,1 @@
+callable `emit` capture `prefix` is a shared_borrow at direct call `emit(...)`; type `string` has no approved program-static representation and drop path

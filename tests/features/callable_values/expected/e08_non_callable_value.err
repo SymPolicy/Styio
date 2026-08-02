@@ -1,0 +1,1 @@
+binding `operation` expects callable type `#(i64):i64`, got `i64`

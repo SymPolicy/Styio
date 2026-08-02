@@ -55,7 +55,15 @@ styio_dynamic_cell_type(llvm::LLVMContext& ctx) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGResId* node) {
+  if (node->function_reference) {
+    return llvm::PointerType::get(*theContext, 0);
+  }
   const string& name = node->as_str();
+  auto capture_it = callable_capture_globals_.find(name);
+  if (active_callable_capture_names_.contains(name)
+      && capture_it != callable_capture_globals_.end()) {
+    return capture_it->second->getValueType();
+  }
   auto var_it = mutable_variables.find(name);
   if (var_it != mutable_variables.end() && bounded_ring_head_slot_.contains(name)) {
     if (auto* arr_ty = llvm::dyn_cast<llvm::ArrayType>(var_it->second->getAllocatedType())) {
@@ -66,11 +74,13 @@ StyioToLLVM::toLLVMType(SGResId* node) {
 };
 
 llvm::Type*
-StyioToLLVM::toLLVMType(SGType* node) {
-  if (auto cap = styio_bounded_ring_capacity(node->data_type)) {
-    return llvm::ArrayType::get(styio_bounded_ring_element_llvm_type(node->data_type, theBuilder.get()), *cap);
+StyioToLLVM::toLLVMType(const StyioDataType& data_type) {
+  if (auto cap = styio_bounded_ring_capacity(data_type)) {
+    return llvm::ArrayType::get(
+      styio_bounded_ring_element_llvm_type(data_type, theBuilder.get()),
+      *cap);
   }
-  switch (node->data_type.option) {
+  switch (data_type.option) {
     case StyioDataTypeOption::Bool:
       return theBuilder->getInt1Ty();
     case StyioDataTypeOption::Integer:
@@ -80,6 +90,7 @@ StyioToLLVM::toLLVMType(SGType* node) {
     case StyioDataTypeOption::Char:
       return theBuilder->getInt8Ty();
     case StyioDataTypeOption::String:
+    case StyioDataTypeOption::Func:
       return llvm::PointerType::get(*theContext, 0);
     case StyioDataTypeOption::List:
     case StyioDataTypeOption::Dict:
@@ -88,6 +99,11 @@ StyioToLLVM::toLLVMType(SGType* node) {
     default:
       return theBuilder->getInt64Ty();
   }
+};
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGType* node) {
+  return toLLVMType(node->data_type);
 };
 
 llvm::Type*
@@ -214,6 +230,10 @@ StyioToLLVM::toLLVMType(SGFunc* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCall* node) {
+  if (node->is_indirect()) {
+    return toLLVMType(
+      styio_callable_result_type(node->callable_type));
+  }
   if (llvm::Function* f = theModule->getFunction(node->func_name->as_str())) {
     return f->getReturnType();
   }

@@ -15,7 +15,7 @@ IM-D6 owns the promotion-quality contract for this repository:
 - how skipped lanes are recorded, and
 - when a failed or unavailable lane blocks promotion.
 
-IM-D6 does not define new Styio language semantics. It also does not move package lifecycle ownership from `styio-spio` into this compiler repository. The matrix decides evidence and release readiness, not feature meaning.
+IM-D6 does not define new Styio language semantics. It also does not move package lifecycle ownership from `pafio-nightly` into this compiler repository. The matrix decides evidence and release readiness, not feature meaning.
 
 ## Current State
 
@@ -139,7 +139,7 @@ Accepted nightly/release matrix:
 | Cross-platform build | `pending` for macOS/Windows until stable runners exist | `manual-review` until stable runners exist | `record-debt` |
 | Linux x86_64 build/test | `required` | `required` | `block` |
 | Conformance fixture matrix | `required` for accepted language/service surfaces | `required` | `block` |
-| Package manager full UX | out of scope for this repo; track as `styio-spio` dependency | out of scope for this repo; track as `styio-spio` dependency | `record-debt` only when compiler contract evidence is missing |
+| Package manager full UX | out of scope for this repo; track as `pafio-nightly` dependency | out of scope for this repo; track as `pafio-nightly` dependency | `record-debt` only when compiler contract evidence is missing |
 
 The initial required platform is Linux x86_64. macOS and Windows remain tracked pending/advisory lanes until the repository owns stable runners and documented toolchain setup for them.
 
@@ -176,7 +176,10 @@ This repository owns compiler-side package and service contracts only:
 - negative-path validation for compiler-owned artifacts, and
 - service docs/manifests that describe those contracts.
 
-Full package UX, registry trust, lockfiles, vendoring, dependency resolution, and user-facing install flows belong to `styio-spio` unless a future decision explicitly changes that boundary.
+Project creation, manifests, lockfiles, dependency resolution, vendoring,
+packaging, registry trust on the client, and publishing belong to
+`pafio-nightly`. Registry service operation, remote authentication, hosted
+workspaces, and workers belong to Styio Platform.
 
 ## Promotion Record Requirements
 

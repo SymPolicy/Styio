@@ -5,10 +5,10 @@ styio.ast.main {
       |- auto_detect: false
       |- path: styio.ast.string { "tests/pipeline_cases/p05_snapshot_accum/factor.txt" }} }}
 |- styio.ast.bind.flex {
-  |- var : styio.ast.var { sum : int }
+  |- var : styio.ast.var { sum : i64 }
   |- val = { 0 : int }}
 |- styio.ast.iterator {
-  |- iterable object: styio.ast.list : list[int] [
+  |- iterable object: styio.ast.list : list[i64] [
     |- { 1 : int }
     |- { 2 : int }
     |- { 3 : int }]
@@ -20,7 +20,7 @@ styio.ast.main {
         |- LHS: x
         |- OP : <Mul>
         |- RHS: factor}}
-    |- styio.ast.binop: int {
+    |- styio.ast.binop: i64 {
       |- LHS: sum
       |- OP : +=
       |- RHS: prod}}}

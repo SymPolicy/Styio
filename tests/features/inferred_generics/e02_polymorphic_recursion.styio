@@ -1,0 +1,7 @@
+# reshape := (value, depth: i64) => {
+    depth ?= {
+        0 => { <| value }
+        _ => { <| reshape([value], depth - 1) }
+    }
+}
+>_(reshape(1, 1))

@@ -17,6 +17,9 @@
 #include <cerrno>
 #include <dlfcn.h>
 #include <fcntl.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -714,6 +717,34 @@ current_executable_path() {
     return std::filesystem::path(buffer);
   }
   return {};
+#elif defined(__APPLE__)
+  uint32_t required_size = 0;
+  if (::_NSGetExecutablePath(nullptr, &required_size) != -1 || required_size == 0) {
+    return {};
+  }
+
+  std::vector<char> buffer(required_size);
+  for (;;) {
+    uint32_t buffer_size = static_cast<uint32_t>(buffer.size());
+    if (::_NSGetExecutablePath(buffer.data(), &buffer_size) == 0) {
+      std::filesystem::path path(buffer.data());
+      std::error_code ec;
+      if (path.is_relative()) {
+        path = std::filesystem::absolute(path, ec);
+        if (ec) {
+          return {};
+        }
+      }
+
+      const std::filesystem::path canonical =
+        std::filesystem::weakly_canonical(path, ec);
+      return ec ? path.lexically_normal() : canonical;
+    }
+    if (buffer_size <= buffer.size()) {
+      return {};
+    }
+    buffer.resize(buffer_size);
+  }
 #else
   return {};
 #endif
@@ -747,6 +778,8 @@ const char*
 shared_library_suffix() {
 #if defined(_WIN32)
   return ".dll";
+#elif defined(__APPLE__)
+  return ".dylib";
 #else
   return ".so";
 #endif

@@ -1,0 +1,1352 @@
+[
+  {
+    "id": "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+    "status": "completed",
+    "role": "group_design",
+    "code": "OPT-C-DESIGN",
+    "title": "Freeze parser-core unification design",
+    "prerequisites": [
+      "116f20d7-ec79-4761-999f-2493a0b245e7",
+      "f3d9d961-3bf8-463a-9a7f-7ef10cdb6ecf"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Freeze one parser-core algorithm, precedence authority, migration boundary, and executable acceptance matrix before production changes.",
+    "description": "Scope: the complete OPT-C group design and executable acceptance artifacts. Context: Parser.cpp mixes recursive-descent layers, ordinal-based arithmetic precedence, postfix special cases, while NewParserExpr.cpp already has a bounded subset precedence loop. Target: select the smallest coherent unification that preserves accepted grammar, exact diagnostics, associativity, nightly-only authority, and bounded resource use. Design Considerations: compare direct precedence climbing with mature LLVM and rust-analyzer Pratt designs plus the local pattern catalog. Constraints & Risks: no new syntax, legacy fallback, Sema/lowering/runtime change, or OPT-D/E work.",
+    "conditions": [
+      "Production implementation may not start until precedence, associativity, recovery, stack-depth, allocation, equivalence, shadow, and zero-fallback evidence are frozen."
+    ],
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "tests/parser_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one parser entry contract with explicit operator metadata",
+        "algorithms": "to be frozen after direct precedence-climbing and Pratt comparison",
+        "data_structures": "constexpr operator metadata and bounded parser-local state",
+        "state": "StyioContext remains the sole token cursor and diagnostic owner",
+        "isolation": "design and acceptance artifacts only",
+        "concurrency": "production and owner-document Workers may run in parallel after design"
+      },
+      "test_seams": [
+        "direct parser AST-shape and diagnostic tests",
+        "nightly shadow and zero-fallback counters",
+        "deep-expression and allocation benchmark probes"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Architecture and Validation freeze the operator table, associativity, parser entry and recovery contracts, accepted-grammar equivalence, zero-fallback, diagnostic, deep-expression, complexity, allocation, and benchmark evidence."
+      },
+      {
+        "checked": true,
+        "text": "The design_pattern_assessment compares the simplest direct solution with applicable catalog patterns and records why the selected structure earns its complexity."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(parser): design OPT-C core unification",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted"
+    }
+  },
+  {
+    "id": "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+    "status": "completed",
+    "role": "implementation",
+    "code": "OPT-C-IMPLEMENT",
+    "title": "Unify the accepted expression parser core",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "06955108-6d90-45ea-8126-8e9971538078"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Route accepted expression parsing through one explicit precedence and associativity authority with bounded parser-local work.",
+    "description": "Closure: module - accepted expression parser core. Scope: Styio parser and token operator metadata plus frozen parser acceptance tests. Context: arithmetic precedence currently depends on enum ordinals while logical, fallback, postfix, and subset paths use separate tables or control flow. Target: implement the Designer-frozen unification without changing accepted AST semantics or diagnostics. Design Considerations: O(n) token consumption, O(operator-depth) bounded work, constexpr lookup, no duplicate rescans or fallback. Design Value: removes silent precedence divergence and duplicated computation. Constraints & Risks: no new syntax, Sema/lowering/runtime change, compatibility path, or unrelated parser cleanup.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/Parser.cpp",
+        "src/StyioParser/Parser.hpp",
+        "src/StyioParser/NewParserExpr.cpp",
+        "src/StyioToken/Token.hpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioToken/Token.hpp",
+        "src/StyioParser/Parser.hpp"
+      ],
+      "acceptance_paths": [
+        "tests/parser_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp",
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioParser/Parser.cpp",
+          "kind": "function",
+          "name": "parse_expr",
+          "operation": "modify",
+          "signature": "StyioAST* parse_expr(StyioContext& context)"
+        },
+        {
+          "path": "src/StyioParser/Parser.cpp",
+          "kind": "function",
+          "name": "parse_binop_rhs",
+          "operation": "modify",
+          "signature": "StyioAST* parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, StyioOpType curr_tok)"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "accepted expression parser",
+          "producer": "src/StyioParser/Parser.cpp",
+          "consumers": [
+            "src/StyioParser/NewParserExpr.cpp",
+            "tests/parser_internal_test.cpp"
+          ],
+          "inputs": "StyioContext token cursor at an accepted expression start",
+          "outputs": "the same accepted StyioAST shapes under one precedence authority",
+          "errors": [
+            "existing stable syntax diagnostics for unsupported or malformed input"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "direct parser functions around one operator metadata table",
+        "algorithms": "Designer-frozen precedence-climbing or Pratt loop",
+        "data_structures": "constexpr operator metadata with no hash lookup on the hot path",
+        "state": "parser-local minimum binding power and StyioContext cursor",
+        "isolation": "parser and direct acceptance tests only",
+        "concurrency": "disjoint from owner-document synchronization"
+      },
+      "test_seams": [
+        "AST-shape precedence and associativity tests",
+        "stable malformed-input diagnostics",
+        "deep-expression and parser equivalence tests"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "All frozen precedence, associativity, postfix, logical, fallback, resource-suffix, and malformed-expression cases preserve the accepted AST or exact diagnostic contract.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "53c1f558f070f914d4ef8b1010d5be06c698d594560f9c8f1d5955cfaa8e62b8",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T18:52:19Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Nightly accepted grammar records zero legacy fallback and zero internal legacy bridges under the focused shadow gates.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "53c1f558f070f914d4ef8b1010d5be06c698d594560f9c8f1d5955cfaa8e62b8",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T18:52:19Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Deep expressions terminate within the frozen stack, time, and allocation bounds without duplicate rescans.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "53c1f558f070f914d4ef8b1010d5be06c698d594560f9c8f1d5955cfaa8e62b8",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T18:52:19Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "refactor(parser): unify expression precedence core",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_parser_internal_test styio_core_bench -j2 && ctest --test-dir build -R '^StyioParserInternal\\.' --output-on-failure"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "src/StyioParser",
+        "src/StyioToken/Token.hpp",
+        "tests/parser_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T18:52:19Z",
+        "contract_digest": "b93c5ef7a1d36faeb3cc9d502d7a4f457f11c3adc507f8cf2572d1fb00505801",
+        "content_fingerprint": "aaf08bff1c578310fcb3d3e44519ce6a4240d2559a5797720ad2f48497869982"
+      }
+    },
+    "next": [
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 4,
+      "outcome": "accepted",
+      "design_digest": "313e21698f14f886e08281cc449b8f34eb6782e6bb1e4379a25f193b71ee9679",
+      "acceptance_fingerprint": "7a2eda1e909e1e514085581008e50fe86f72d1a4f49e0d1addb739ea48303037"
+    }
+  },
+  {
+    "id": "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+    "status": "completed",
+    "role": "implementation",
+    "code": "OPT-C-DOCS",
+    "title": "Synchronize parser ownership and acceptance docs",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686"
+    ],
+    "platform": "any",
+    "difficulty": "standard",
+    "verification_profile": "code",
+    "goal": "Make the parser owner docs and test catalog describe the frozen unified parser contract without retaining the superseded split authority.",
+    "description": "Closure: module - parser owner documentation. Scope: parser readiness and authority rollups, Frontend runbook, current state, and test catalog. Context: OPT-C removes duplicated precedence authority and changes the maintained parser algorithm boundary. Target: state the final owner, complexity and diagnostic invariants, and executable gate commands once. Design Considerations: update active SSOT only and remove superseded readiness wording. Design Value: prevents documentation from preserving the old split implementation as a parallel truth. Constraints & Risks: no production or test code, no unrelated roadmap, no compatibility wording, and no generated index edits except through repository generators.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "docs/rollups/C0-PARSER-PRATT-READINESS.md",
+        "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "docs/rollups/CURRENT-STATE.md",
+        "docs/teams/FRONTEND-RUNBOOK.md",
+        "workflows/TEST-CATALOG.md"
+      ],
+      "scaffold_paths": [
+        "docs/teams/FRONTEND-RUNBOOK.md"
+      ],
+      "acceptance_paths": [
+        "scripts/docs-gate.sh",
+        "scripts/team-docs-gate.py"
+      ],
+      "symbols": [],
+      "interfaces": [
+        {
+          "name": "parser ownership documentation gate",
+          "producer": "docs/teams/FRONTEND-RUNBOOK.md",
+          "consumers": [
+            "scripts/team-docs-gate.py"
+          ],
+          "inputs": "changed parser and token paths",
+          "outputs": "one current parser algorithm and acceptance contract",
+          "errors": [
+            "stale owner runbook, split precedence authority, or stale test catalog"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "existing active SSOT and owner-runbook structure",
+        "algorithms": "documentation routing and generated index checks",
+        "data_structures": "Markdown contracts and test catalog tables",
+        "state": "repository-owned active docs only",
+        "isolation": "documentation paths disjoint from production implementation",
+        "concurrency": "parallel with production Worker after design"
+      },
+      "test_seams": [
+        "bash scripts/docs-gate.sh"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Active parser docs name one precedence authority, preserve nightly-only and diagnostic contracts, remove superseded readiness wording, and pass the focused documentation gate.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "33196e8fb460a610e03b20a042f27f4a08a1e782392e4fb10428b65e8f867a15",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T18:42:39Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(parser): record unified expression core",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "bash scripts/docs-gate.sh"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "docs/rollups/C0-PARSER-PRATT-READINESS.md",
+        "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "docs/rollups/CURRENT-STATE.md",
+        "docs/teams/FRONTEND-RUNBOOK.md",
+        "workflows/TEST-CATALOG.md"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T18:42:39Z",
+        "contract_digest": "da2e788da3d332236e70ed0e166b7b1da23438f107ffa0eb91f3cab1c297ca09",
+        "content_fingerprint": "53da21dd7bf2635a011f7956a9297acac097f8fcedfc65516565db320647993e"
+      }
+    },
+    "next": [
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 3,
+      "outcome": "accepted",
+      "design_digest": "7c4f21bd8e33a451a62387a060806969b3710d490ed5c9a1a6b5561c827e2d50",
+      "acceptance_fingerprint": "3b074393ec8cf5cbeebe1780b07f78e8841fcdc2ccc628cb8c7e71c6e93d1b78"
+    }
+  },
+  {
+    "id": "ba1cd41e-e991-460d-87e3-a852faff02db",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212"
+    ],
+    "platform": "macos",
+    "difficulty": "complex",
+    "verification_profile": "code",
+    "goal": "Repair and serialize final acceptance after the Reviewer parser-core fixes.",
+    "description": "Closure: scenario - serialize and verify the Reviewer-repaired canonical resource-expression path before the final impacted regression. Context: the first final regression receipt was invalidated by overlapping lifecycle execution, while bounded test logs show the parser tests passing. Target: preserve the Reviewer repairs, prove the directly impacted parser seams in one isolated run, and hand control back to final validation. Design Considerations: keep the single canonical core, exact FOLLOW and diagnostic ownership, and no legacy compatibility path. Design Value: restores a trustworthy serialized acceptance receipt without expanding product scope. Constraints & Risks: no second Reviewer, no unrelated edits, and no concurrent build or CTest process.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/Parser.cpp",
+        "src/StyioParser/Parser.hpp",
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioParser/Parser.hpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "tests/parser_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioParser/NewParserExpr.cpp",
+          "kind": "function",
+          "name": "parse_at_primary_nightly_draft",
+          "operation": "modify",
+          "signature": "StyioAST* parse_at_primary_nightly_draft(StyioContext& context)"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "canonical resource-expression re-entry",
+          "producer": "src/StyioParser/NewParserExpr.cpp",
+          "consumers": [
+            "src/StyioParser/Parser.cpp",
+            "tests/parser_internal_test.cpp"
+          ],
+          "inputs": "accepted @ resource atom and shared expression state",
+          "outputs": "canonical postfix/infix expression result",
+          "errors": [
+            "frozen nightly syntax diagnostics"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "direct functions around the existing canonical expression core",
+        "algorithms": "serialized repair verification after the one Reviewer",
+        "data_structures": "existing constexpr operator metadata and unique_ptr ownership",
+        "state": "shared expression depth, FOLLOW, and route counters",
+        "isolation": "reviewer-touched parser production paths only",
+        "concurrency": "one serialized regression process; no concurrent CTest writers"
+      },
+      "test_seams": [
+        "direct resource-expression re-entry",
+        "FOLLOW and fatal/decline ownership",
+        "postfix line-break boundary"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Reviewer repairs remain intact and the directly impacted parser acceptance tests pass in one serialized process.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "53c1f558f070f914d4ef8b1010d5be06c698d594560f9c8f1d5955cfaa8e62b8",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T19:11:29Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(parser): stabilize OPT-C final acceptance repair",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_parser_internal_test styio_core_bench -j2 && ctest --test-dir build -R '^StyioParserInternal\\.' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "src/StyioParser",
+        "src/StyioToken/Token.hpp",
+        "tests/parser_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T19:11:29Z",
+        "contract_digest": "8cdbbac6e23df22f4c58c4fdef336f12457e49ffedcd6fc3e36d49d4c8e5b22b",
+        "content_fingerprint": "fed763293b38b0d04ccb4b15421742117478a3b804932733b595cf310988fce0"
+      }
+    },
+    "next": [
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "f5198c543631cdc31f61992bd4b5e09728ee8f00cbc90ff47d6287a2b34c812f",
+      "acceptance_fingerprint": "5bb17f6a935f3be34d3cc6802a6857a800b65ce275749a1caca12a3762f4c1a7"
+    }
+  },
+  {
+    "id": "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db"
+    ],
+    "platform": "macos",
+    "difficulty": "complex",
+    "verification_profile": "code",
+    "goal": "Migrate the remaining new-parser internal tests off retired expression helpers.",
+    "description": "Closure: module - tests/newparser_internal_test.cpp complete one-time migration to the canonical expression parser contract. Context: the serialized final build exposed direct test references to helpers removed by OPT-C. Target: remove every retired helper reference and assert equivalent behavior through canonical public metadata and parse_expr seams. Design Considerations: table-driven metadata cases, black-box AST/diagnostic assertions, and no test-local precedence maps. Design Value: completes the refactor without production compatibility wrappers. Constraints & Risks: tests only, no restoration of removed symbols, no unrelated regression expansion.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "tests/newparser_internal_test.cpp"
+      ],
+      "scaffold_paths": [
+        "tests/newparser_internal_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "src/StyioParser/NewParserExpr.cpp",
+        "src/StyioParser/Parser.cpp",
+        "src/StyioToken/Token.hpp"
+      ],
+      "symbols": [
+        {
+          "path": "tests/newparser_internal_test.cpp",
+          "kind": "module",
+          "name": "StyioNewParserInternal",
+          "operation": "modify",
+          "signature": "canonical expression-core black-box and public-metadata tests"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "canonical expression acceptance oracle",
+          "producer": "tests/newparser_internal_test.cpp",
+          "consumers": [
+            "src/StyioParser/Parser.cpp",
+            "src/StyioParser/NewParserExpr.cpp"
+          ],
+          "inputs": "tokenized public parser inputs and canonical operator metadata",
+          "outputs": "AST shapes, diagnostics, cursor and route statistics",
+          "errors": [
+            "test failures for contract divergence"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "black-box tests through public unified parser seams",
+        "algorithms": "table-driven canonical metadata assertions plus parse_expr behavior",
+        "data_structures": "small static test cases with no duplicate precedence maps",
+        "state": "public cursor and route statistics only",
+        "isolation": "one stale internal-test translation unit",
+        "concurrency": "single target build and test process"
+      },
+      "test_seams": [
+        "all retired helper references absent",
+        "canonical metadata coverage",
+        "public parse_expr precedence/diagnostic behavior"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The new-parser internal target compiles and passes with zero references to all retired OPT-C helper symbols.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "26d78a054d21afe7ffa0f424a56d8b5530f7b29234880067dc537cef9ef1d0ea",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T19:19:19Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(parser): migrate remaining OPT-C helper tests",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_newparser_internal_test -j2 && ctest --test-dir build -R '^StyioNewParserInternal\\.' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "tests/newparser_internal_test.cpp",
+        "src/StyioParser",
+        "src/StyioToken/Token.hpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T19:19:19Z",
+        "contract_digest": "7a3c8a9061916a125fa4327c51657caa63aed03b46053ed8e8ef90cb0c4efe2f",
+        "content_fingerprint": "c1599c62678994ceedfd8bb402ef9cae6019aaffcc4c26c355c8b6850f4feb7c"
+      }
+    },
+    "next": [
+      "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "aa2dcb7e2b24cdb4de1ee6128222ed8e8ba4ff1571fe61ae2878c8c29af6603a",
+      "acceptance_fingerprint": "ab0804f094db584f1c9482c447f8339fb81e7763b2a10b33c9a31d70744b1d55"
+    }
+  },
+  {
+    "id": "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6"
+    ],
+    "platform": "macos",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Restore canonical resource continuation semantics after parser-core re-entry.",
+    "description": "Closure: scenario - canonical @ resource atoms preserve approved iterator, resource-effect, and resource-method continuation behavior. Context: final impacted regression exposed resource iterator and method failures after the Reviewer removed legacy postfix re-entry. Target: keep one canonical expression core while dispatching resource continuations through the approved nightly handlers. Design Considerations: explicit AST-owner continuation policy inside the canonical postfix loop, shared FOLLOW/depth/counters, and exact diagnostics. Design Value: restores end-to-end resource behavior without restoring legacy precedence or postfix engines. Constraints & Risks: no fallback, no internal bridge, no duplicate precedence path, and only the failing resource scenarios are targeted.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/Parser.cpp",
+        "src/StyioParser/Parser.hpp",
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioParser/Parser.hpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "tests/resource_topology_test.cpp",
+        "tests/styio_test.cpp"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioParser/NewParserExpr.cpp",
+          "kind": "function",
+          "name": "parse_postfix",
+          "operation": "modify",
+          "signature": "StyioAST* StyioExprSubsetParser::parse_postfix(StyioAST* lhs, bool allow_extended_continuations = true)"
+        },
+        {
+          "path": "src/StyioParser/Parser.cpp",
+          "kind": "function",
+          "name": "parse_at_expr_atom_latest",
+          "operation": "modify",
+          "signature": "StyioAST* parse_at_expr_atom_latest(StyioContext& context)"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "resource expression continuation",
+          "producer": "src/StyioParser/NewParserExpr.cpp",
+          "consumers": [
+            "src/StyioParser/Parser.cpp",
+            "tests/resource_topology_test.cpp"
+          ],
+          "inputs": "canonical @ resource atom followed by iterator, method, postfix, or resource-effect continuation",
+          "outputs": "approved resource/iterator AST without legacy precedence or postfix routing",
+          "errors": [
+            "frozen nightly diagnostics for genuinely unsupported continuations"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "canonical core with explicit resource-owner continuation dispatch",
+        "algorithms": "single postfix loop with type-directed continuation seam",
+        "data_structures": "direct AST type predicates and existing continuation ops",
+        "state": "shared canonical FOLLOW/depth/counters",
+        "isolation": "resource continuations regressed by Reviewer re-entry change",
+        "concurrency": "serial targeted resource regression"
+      },
+      "test_seams": [
+        "resource selector iterator",
+        "file/stdin iterator and fallback",
+        "resource method local container return",
+        "zero fallback and internal bridges"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "All resource iterator, selector, fallback, and local resource-method scenarios pass through the canonical core with zero legacy fallback or internal bridges.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "20610d296ed8481792c887817e4a7770a9a95e316d0d7088358ab64dabc0b7fa",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T19:34:55Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "fix(parser): restore canonical resource continuations",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build -j2 && ctest --test-dir build -R '^(StyioStreamZip\\.(ResourceScalarSelectorFailsClosedAsZipInput|ResourceMatrixLatestSelectorFailsClosedAsZipInput|ResourceMatrixSelectorSnapshotsFeedZipBarrier)|StyioResourceTopology\\.(ResourceSelectorSnapshotIteratorUsesMaterializedValues|ResourceScalarSelectorIteratorFailsClosed|ResourceSelectorHandleSnapshotsCloneListAndDictValues|ResourceSelectorMatrixSnapshotsCloneValues)|StyioResourceEffects\\.(FileIteratorFallbackRecoversOpenFailureAndContinues|FileIteratorNamedIoHandlerRecoversOpenFailure|FileIteratorNoFallbackStopsOpenFailure|FileIteratorSuccessSkipsFallback|ValueResourceMethodLocalListDictMatrixBindsReturnScalarValues|ValueResourceMethodLocalContainerReturnsFromDirectAndFallbackCalls))$' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "src/StyioParser",
+        "tests/resource_topology_test.cpp",
+        "tests/styio_test.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T19:34:55Z",
+        "contract_digest": "71c2799cb6a2d36f86b3ef64631e53d625f08f757d51b467df580a3f6b6eee5a",
+        "content_fingerprint": "c45eaf748272e621d5a0d2ac56476f67008e7b18befcb6f8f84efa4b360b04ff"
+      }
+    },
+    "next": [
+      "55f09e19-4612-4fa8-807d-a84a3e848220",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "7c4ab46d73476b35cd27d5160e7ab81a3aeeed87b08eeefa858829de331cb9ce",
+      "acceptance_fingerprint": "dc810b6ed4038ccb5d6f9e355c3d1f5e65c585c32762839c6038298760923502"
+    }
+  },
+  {
+    "id": "55f09e19-4612-4fa8-807d-a84a3e848220",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+      "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed"
+    ],
+    "platform": "macos",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Complete canonical continuation and diagnostic boundary compatibility.",
+    "description": "Closure: scenario - close the five remaining OPT-C pipeline failures at canonical continuation and diagnostic boundaries. Context: resource repair restored selectors/files/stdin but full regression still exposes function-result iteration, stdout semantic-phase ownership, fallback-noop rejection, and syntax range behavior. Target: preserve approved behavior without widening unsupported syntax or changing tests. Design Considerations: explicit iterator-source classification, exact FOLLOW-scope isolation, and stable diagnostic token ownership. Design Value: completes end-to-end compatibility while retaining one parser authority. Constraints & Risks: no legacy postfix, fallback, bridge, wrapper, duplicate precedence, or test expectation edits.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/Parser.cpp",
+        "src/StyioParser/Parser.hpp",
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioParser/Parser.hpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "tests/styio_test.cpp",
+        "tests/features/stdio_input/e02_read_from_stdout.styio",
+        "tests/features/wave_dispatch/e09_fallback_noop.styio"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioParser/NewParserExpr.cpp",
+          "kind": "function",
+          "name": "parse_postfix",
+          "operation": "modify",
+          "signature": "StyioAST* StyioExprSubsetParser::parse_postfix(StyioAST* lhs, bool allow_extended_continuations = true)"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "canonical continuation boundary completion",
+          "producer": "src/StyioParser/NewParserExpr.cpp",
+          "consumers": [
+            "src/StyioParser/Parser.cpp",
+            "tests/styio_test.cpp"
+          ],
+          "inputs": "function-result and standard-stream iterator sources plus unsupported pipe/question continuations",
+          "outputs": "approved iterator AST or stable parse/semantic diagnostic",
+          "errors": [
+            "stable diagnostic phase, code, range, and payload"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one canonical postfix/infix loop with explicit iterator-source and unsupported-continuation policy",
+        "algorithms": "type-directed continuation dispatch and exact token-range ownership",
+        "data_structures": "direct AST predicates and canonical metadata only",
+        "state": "shared FOLLOW/depth/counters with no scope leak",
+        "isolation": "five remaining final-regression failures",
+        "concurrency": "serialized targeted diagnostics and regression"
+      },
+      "test_seams": [
+        "function-call iterator source",
+        "stdout semantic rejection",
+        "fallback-noop parse rejection",
+        "escaped-context diagnostic range",
+        "zero fallback and internal bridges"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "All five remaining continuation, negative-sample, diagnostic-range, and shadow-gate cases pass with zero fallback and zero internal bridges.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "533ec1d076d8db639ffcd6b7e79d6fd304a56c651eb7c928fb24ee8bea87b493",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T19:59:26Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "fix(parser): complete OPT-C continuation boundaries",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_test -j2 && ctest --test-dir build -R '^(StyioDiagnostics\\.SyntaxCheckJsonEscapesContextAndAcceptsShortFileFlag|StyioFeatureCorpus\\.NightlyRejectsKnownNegativeDesignSamplesWithJsonlDiagnostics|StyioStreamZip\\.MixedFileAndMaterializedListsTerminateAtShorterInput|parser_shadow_gate_stream_processing_zero_fallback|parser_shadow_gate_stream_processing_zero_internal_bridges)$' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "src/StyioParser",
+        "src/StyioToken/Token.hpp",
+        "tests/styio_test.cpp",
+        "tests/features/stdio_input/e02_read_from_stdout.styio",
+        "tests/features/wave_dispatch/e09_fallback_noop.styio"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T19:59:26Z",
+        "contract_digest": "60d0445de092f270b26bf8e86f8b4c0fd45ebfbf3343d100503b71c4d457f5a0",
+        "content_fingerprint": "5d2e89b88b2adaf11f8f32f2655af719a6dcc184ba25d9db9331329791e38baa"
+      }
+    },
+    "next": [
+      "6d32b7d6-f0ba-4c62-9c43-f0714994355d",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 2,
+      "outcome": "accepted",
+      "design_digest": "d896556dc3efb2825ffd5810bf0045ec4259bd7a61da43b1efc62d033f40eb1e",
+      "acceptance_fingerprint": "b7b0fd9a5740c6e209f29b48612b28386b0e4200897f0c45ace7f926da53cb75"
+    }
+  },
+  {
+    "id": "6d32b7d6-f0ba-4c62-9c43-f0714994355d",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+      "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed",
+      "55f09e19-4612-4fa8-807d-a84a3e848220"
+    ],
+    "platform": "macos",
+    "difficulty": "complex",
+    "verification_profile": "code",
+    "goal": "Make internal list parser tests declare continuation ownership explicitly.",
+    "description": "Closure: module - four new-parser internal list tests compile against the explicit continuation-policy signature. Context: final full build caught stale single-argument calls after canonical FOLLOW ownership became explicit. Target: pass the intended allow_iterator_continuation value at every direct test seam. Design Considerations: no default argument, overload, wrapper, or production compatibility path. Design Value: completes one-time migration while keeping ownership visible. Constraints & Risks: test-only change and focused target validation.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "tests/newparser_internal_test.cpp"
+      ],
+      "scaffold_paths": [
+        "tests/newparser_internal_test.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "symbols": [
+        {
+          "path": "tests/newparser_internal_test.cpp",
+          "kind": "module",
+          "name": "StyioNewParserInternal list parser tests",
+          "operation": "modify",
+          "signature": "explicit allow_iterator_continuation call sites"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "explicit list continuation test policy",
+          "producer": "tests/newparser_internal_test.cpp",
+          "consumers": [
+            "src/StyioParser/NewParserExpr.cpp"
+          ],
+          "inputs": "list-expression fixtures with explicit iterator-continuation policy",
+          "outputs": "list or iterator AST and stable diagnostics",
+          "errors": [
+            "focused test failure"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "direct explicit boolean at internal test calls",
+        "algorithms": "none",
+        "data_structures": "none",
+        "state": "each fixture declares outer FOLLOW ownership explicitly",
+        "isolation": "four stale test call sites",
+        "concurrency": "single target build and test"
+      },
+      "test_seams": [
+        "list literal without iterator",
+        "list iterator continuation",
+        "malformed list iterator"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The new-parser internal target compiles and all its tests pass with every list-parser call using an explicit continuation policy.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "26d78a054d21afe7ffa0f424a56d8b5530f7b29234880067dc537cef9ef1d0ea",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T20:04:31Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(parser): make list continuation policy explicit",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_newparser_internal_test -j2 && ctest --test-dir build -R '^StyioNewParserInternal\\.' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "tests/newparser_internal_test.cpp",
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T20:04:31Z",
+        "contract_digest": "96b06a481623f10ab94a065789a88e589b2f1f134a1cd7c8bc793e562851f722",
+        "content_fingerprint": "22a50fb37df9c1ce8a87e646ec095aa50f372a2aa0f5e55641951216004f4201"
+      }
+    },
+    "next": [
+      "d2f85aa7-d702-416d-9ffb-dff8becec65c",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "6527b629f5489b472f45cd183687fbdccf753a54dbf29a2fd415e83a363ddd4a",
+      "acceptance_fingerprint": "80834a0a45975ce105f6c433e5e902259e4cfa86346b528869d99c4bc3e42c0d"
+    }
+  },
+  {
+    "id": "d2f85aa7-d702-416d-9ffb-dff8becec65c",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+      "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed",
+      "55f09e19-4612-4fa8-807d-a84a3e848220",
+      "6d32b7d6-f0ba-4c62-9c43-f0714994355d"
+    ],
+    "platform": "macos",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Restore single-owner parser recovery diagnostics.",
+    "description": "Closure: scenario - authoritative nightly recovery records one diagnostic per malformed statement and preserves the established unsupported-prefix error. Context: full pipeline is otherwise green and exposes only duplicate Fatal recording plus one message-boundary regression. Target: one recovery owner, exact statement cursor advancement, and stable diagnostic category/text. Design Considerations: Fatal stays Fatal after recognized FIRST; outer recovery records once; unrecognized prefix uses the authoritative rejection seam. Design Value: deterministic diagnostics without reintroducing support scans or fallback. Constraints & Risks: production parser only, no test expectation change, no legacy route.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/NewParserExpr.cpp",
+        "src/StyioParser/NewParserExpr.hpp",
+        "src/StyioParser/Parser.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioParser/NewParserExpr.cpp",
+        "src/StyioParser/NewParserExpr.hpp",
+        "src/StyioParser/Parser.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "tests/styio_test.cpp"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioParser/NewParserExpr.cpp",
+          "kind": "function",
+          "name": "try_parse_stmt_subset_nightly",
+          "operation": "modify",
+          "signature": "ParseAttempt<StyioAST> try_parse_stmt_subset_nightly(StyioContext& context)"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "authoritative parser recovery diagnostics",
+          "producer": "src/StyioParser/NewParserExpr.cpp",
+          "consumers": [
+            "tests/styio_test.cpp"
+          ],
+          "inputs": "recognized-FIRST fatal and unrecognized malformed statement prefix in recovery/non-recovery modes",
+          "outputs": "one diagnostic per failed statement with stable authoritative message",
+          "errors": [
+            "STYIO_PARSE_UNEXPECTED_TOKEN or authoritative unsupported-syntax ParseError"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "single fatal/recovery ownership point",
+        "algorithms": "record each failed statement once and recover cursor once",
+        "data_structures": "existing diagnostic vector with no duplicate cache",
+        "state": "recognized-FIRST Fatal remains fatal; outer recovery owns recording",
+        "isolation": "two remaining diagnostic regressions",
+        "concurrency": "serialized two-test regression"
+      },
+      "test_seams": [
+        "two recovered malformed functions produce exactly two diagnostics",
+        "malformed statement prefix retains authoritative unsupported-syntax message"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The two diagnostic recovery tests pass with exactly one record per malformed statement and the stable authoritative unsupported-prefix message.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "1b8ec9920d9a2cd731e75ebdb3e585094a223706ef239237f8d4710e17ad97fb",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T20:16:24Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "fix(parser): restore single-owner recovery diagnostics",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_test -j2 && ctest --test-dir build -R '^(StyioDiagnostics\\.(SyntaxCheckJsonReportsMultipleRecoveredParseFailures|MalformedStatementPrefixReportsParseErrorWithoutCrash))$' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "src/StyioParser/NewParserExpr.cpp",
+        "src/StyioParser/NewParserExpr.hpp",
+        "src/StyioParser/Parser.cpp",
+        "tests/styio_test.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T20:16:24Z",
+        "contract_digest": "cf1d3f993307f4ab66157e6e50e35693da758130acf724998abd0c627079dea8",
+        "content_fingerprint": "90c4de1401d57679ec859940d3385129bb15d4b60242e281b7b11dca879fd914"
+      }
+    },
+    "next": [
+      "89492c95-e86f-4574-9549-f8470666820a",
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "211516e218322723713aae6941b998f6ca66c86dc182f9e5bddfcb8134764e45",
+      "acceptance_fingerprint": "45806f57e02dc4dbe317f152fe303bff60fdd87cb4547f5b12d0e12069721244"
+    }
+  },
+  {
+    "id": "89492c95-e86f-4574-9549-f8470666820a",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "f272c44b-cfb5-4dbf-bb66-bfb2b2f94686",
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+      "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed",
+      "55f09e19-4612-4fa8-807d-a84a3e848220",
+      "6d32b7d6-f0ba-4c62-9c43-f0714994355d",
+      "d2f85aa7-d702-416d-9ffb-dff8becec65c"
+    ],
+    "platform": "macos",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Preserve exact Fatal ranges through single-owner recovery.",
+    "description": "Closure: scenario - outer-owned recovery records one diagnostic at the exact Fatal token range. Context: duplicate diagnostics are fixed, but restoring the cursor to statement start discarded the trailing DBQUESTION range. Target: hand off bounded failure-location metadata before restoration, record once, and recover once. Design Considerations: single diagnostic owner, stable cursor restoration, exact length/range/caret, and no global scan. Design Value: deterministic recovery without sacrificing source precision. Constraints & Risks: production parser only; existing two-diagnostic recovery invariant must stay green.",
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioParser/NewParserExpr.cpp"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+        "tests/styio_test.cpp"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioParser/NewParserExpr.cpp",
+          "kind": "function",
+          "name": "try_parse_stmt_subset_nightly",
+          "operation": "modify",
+          "signature": "ParseAttempt<StyioAST> try_parse_stmt_subset_nightly(StyioContext& context)"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "fatal recovery source range handoff",
+          "producer": "src/StyioParser/NewParserExpr.cpp",
+          "consumers": [
+            "tests/styio_test.cpp"
+          ],
+          "inputs": "recognized-FIRST Fatal with exact failure cursor/range",
+          "outputs": "one outer-owned diagnostic at the failure token and one boundary recovery",
+          "errors": [
+            "stable JSON diagnostic length/range/caret"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "single recording owner with explicit failure-range handoff",
+        "algorithms": "capture failure location before cursor restore; outer layer records once",
+        "data_structures": "bounded parse-attempt/recovery metadata only",
+        "state": "cursor restores to statement start while diagnostic range preserves failure point",
+        "isolation": "one remaining range regression plus duplicate guard",
+        "concurrency": "two-test serial regression"
+      },
+      "test_seams": [
+        "escaped trailing DBQUESTION exact two-byte range",
+        "two malformed recovered statements remain exactly two diagnostics"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Escaped trailing question tokens retain exact JSON range/caret while multiple recovered statements still emit exactly one diagnostic each.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "4108327471e5378456b9b44e9ad031eb239e9368a91844c8604e00145e1710b6",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T20:31:28Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "fix(parser): preserve fatal range through recovery",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_test -j2 && ctest --test-dir build -R '^(StyioDiagnostics\\.(SyntaxCheckJsonEscapesContextAndAcceptsShortFileFlag|SyntaxCheckJsonReportsMultipleRecoveredParseFailures))$' --output-on-failure"
+      ],
+      "criteria": [
+        0
+      ],
+      "paths": [
+        "src/StyioParser/NewParserExpr.cpp",
+        "tests/styio_test.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T20:31:28Z",
+        "contract_digest": "aca26b2578016aebc099f9fb1c8369e3bf0cce5337abda2ecae983ae728e64ef",
+        "content_fingerprint": "d8855f52a23e4068585eea2f563aca9c032aff6896f0c21bc1e5a4d027d11f3f"
+      }
+    },
+    "next": [
+      "59f8bb31-7737-42bb-9585-d43d03a8e33b"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "3a8a4167f047f92435f8c9be13fa99c2a22e1e1949b37f038390ac5d8d43f2b6",
+      "acceptance_fingerprint": "4bd1de47470d31dbfc47564e24a5649d421e261e6a7dc02feed49cd428326328"
+    }
+  },
+  {
+    "id": "59f8bb31-7737-42bb-9585-d43d03a8e33b",
+    "status": "completed",
+    "role": "final_validation",
+    "code": "OPT-C-VALIDATE",
+    "title": "Validate parser-core unification",
+    "prerequisites": [
+      "40de84c5-9a3f-4ac9-9094-10dddfadf29e",
+      "e6dbd1d5-85c4-4731-9a50-1ea7eca46212",
+      "ba1cd41e-e991-460d-87e3-a852faff02db",
+      "737d6b0a-5d3f-4391-b97c-6f2de3f1e5c6",
+      "3c7ef5ce-93d5-43e4-bdaa-2e6c046e77ed",
+      "55f09e19-4612-4fa8-807d-a84a3e848220",
+      "6d32b7d6-f0ba-4c62-9c43-f0714994355d",
+      "d2f85aa7-d702-416d-9ffb-dff8becec65c",
+      "89492c95-e86f-4574-9549-f8470666820a"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Review the complete OPT-C parser boundary once and run its full impacted regression once.",
+    "description": "Scope: parser-core behavior, frozen acceptance, shadow/no-fallback authority, directly impacted language-feature cases, and owner docs. Context: group completion requires one fresh end-to-end review before one full impacted regression. Target: prove accepted grammar, diagnostics, precedence, associativity, bounded resource use, and authority counters remain correct. Constraints & Risks: one Reviewer only; no OPT-D/E, new syntax, unrelated full-repository work, or repeat regression without failure evidence.",
+    "conditions": [
+      "No unresolved immediate decision issue may remain before full regression."
+    ],
+    "requirements": [
+      "REQ-OPT-C-PARSER-AUTHORITY",
+      "REQ-OPT-C-BOUNDED-RESOURCES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/parser-core-unification/Validation.md",
+      "owned_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Review.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Review.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/parser-core-unification/Validation.md"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one group-level review followed by one impacted regression",
+        "algorithms": "frozen acceptance matrix",
+        "data_structures": "CTest labels, shadow artifacts, and benchmark results",
+        "state": "immutable post-review source tree during regression",
+        "isolation": "parser capability and actually impacted shared paths only",
+        "concurrency": "serialized Reviewer then full regression"
+      },
+      "test_seams": [
+        "parser internal and algorithm equivalence suites",
+        "nightly shadow zero-fallback gates",
+        "directly impacted language-feature tests",
+        "documentation gate"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The one group Reviewer finds no unresolved correctness, diagnostic, performance, memory, authority, or migration defect.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "a0fde2063c45da2e904a6c401575644125bc524592750a8053d06673cf459c12",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T20:36:58Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "The frozen full impacted regression passes once after review.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "a0fde2063c45da2e904a6c401575644125bc524592750a8053d06673cf459c12",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T20:36:58Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(parser): validate OPT-C core unification",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "full",
+      "commands": [
+        "cmake --build build -j2 && ctest --test-dir build -L styio_pipeline --output-on-failure && ctest --test-dir build -R 'parser_shadow_gate|zero_fallback|zero_internal_bridges|StyioParserInternal|StyioAlgorithmEquivalence' --output-on-failure && bash scripts/docs-gate.sh"
+      ],
+      "criteria": [
+        0,
+        1
+      ],
+      "paths": [
+        "src/StyioParser",
+        "src/StyioToken/Token.hpp",
+        "tests/parser_internal_test.cpp",
+        "benchmark/internal/core_bench.cpp",
+        "docs/rollups/C0-PARSER-PRATT-READINESS.md",
+        "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md",
+        "docs/teams/FRONTEND-RUNBOOK.md",
+        "workflows/TEST-CATALOG.md"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T20:36:58Z",
+        "contract_digest": "db02f584e8514bd98f4ffe341d5282899477573fded5234f19430c4d69e73e99",
+        "content_fingerprint": "4eeea38d3b867c8d72080ab2993bf86983b001a88386b082ab59488abda033a0"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted",
+      "review": {
+        "recorded_at": "2026-08-01T19:03:00Z",
+        "dispatch_id": "f3e4526c-fa73-4a4c-a810-be122e3a3c58"
+      },
+      "design_digest": "0db2212f7495ea8d222aa571ece89d9b7c994826327add4da790c58e9cc93a2e",
+      "scaffold_fingerprint": "1179595d0bfeedfd48ff9f39654d2f4f6b91d4978205bcdb166509ee1a8f42a1",
+      "acceptance_fingerprint": "4de6bf8c4b842778b0e58310c4573f63beb9b5d0e781b4018e833e153f4719af"
+    }
+  }
+]

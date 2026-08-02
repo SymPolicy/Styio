@@ -1,0 +1,6 @@
+items := [1]
+# release : i64 $(items) := () => {
+    items -> @()
+    <| 0
+}
+release()

@@ -1,0 +1,11 @@
+seed: i64 := 4
+
+# add_seed : i64 $(seed) := (value: i64) => value + seed
+
+# local_seed : i64 := () => {
+    seed: i64 := 9
+    <| seed
+}
+
+>_(local_seed())
+>_(add_seed(1))

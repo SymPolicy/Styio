@@ -1,0 +1,5 @@
+# identity := (value) => value
+number : i64 := identity(1)
+flag : bool := identity(true)
+>_(number)
+>_(flag)

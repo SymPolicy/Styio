@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "../StyioSession/SessionAllocation.hpp"
@@ -203,11 +204,151 @@ styio_canonical_type_view(const StyioDataType& type) noexcept {
 
 inline bool styio_is_list_type(const StyioDataType& type);
 inline bool styio_is_dict_type(const StyioDataType& type);
+inline bool styio_is_callable_type(const StyioDataType& type);
 inline std::string styio_list_elem_type_name(const StyioDataType& type);
 inline std::string styio_dict_key_type_name(const StyioDataType& type);
 inline std::string styio_dict_value_type_name(const StyioDataType& type);
+inline std::vector<std::string> styio_callable_param_type_names(
+  const StyioDataType& type);
+inline std::string styio_callable_result_type_name(
+  const StyioDataType& type);
 inline StyioValueFamily styio_value_family_for_type(const StyioDataType& type);
 inline StyioDataType styio_data_type_from_name(const std::string& type_name);
+
+inline StyioDataType
+styio_make_callable_type(
+  const std::vector<StyioDataType>& params,
+  const StyioDataType& result
+) {
+  std::string name = "#(";
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    if (i != 0) {
+      name += ",";
+    }
+    name += params[i].name;
+  }
+  name += "):";
+  name += result.name;
+  return StyioDataType{
+    StyioDataTypeOption::Func,
+    std::move(name),
+    0
+  };
+}
+
+inline bool
+styio_is_callable_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Func
+         && type.name.rfind("#(", 0) == 0;
+}
+
+inline std::optional<std::size_t>
+styio_callable_signature_close(const std::string& name) {
+  if (name.rfind("#(", 0) != 0) {
+    return std::nullopt;
+  }
+  std::size_t paren_depth = 1;
+  std::size_t bracket_depth = 0;
+  for (std::size_t i = 2; i < name.size(); ++i) {
+    switch (name[i]) {
+      case '(':
+        ++paren_depth;
+        break;
+      case ')':
+        if (paren_depth == 0) {
+          return std::nullopt;
+        }
+        --paren_depth;
+        if (paren_depth == 0) {
+          return i;
+        }
+        break;
+      case '[':
+        ++bracket_depth;
+        break;
+      case ']':
+        if (bracket_depth == 0) {
+          return std::nullopt;
+        }
+        --bracket_depth;
+        break;
+      default:
+        break;
+    }
+  }
+  return std::nullopt;
+}
+
+inline std::vector<std::string>
+styio_callable_param_type_names(const StyioDataType& type) {
+  if (!styio_is_callable_type(type)) {
+    return {};
+  }
+  const auto close = styio_callable_signature_close(type.name);
+  if (!close.has_value()
+      || *close + 2 > type.name.size()
+      || type.name[*close + 1] != ':') {
+    return {};
+  }
+  const std::string inner = type.name.substr(2, *close - 2);
+  if (inner.empty()) {
+    return {};
+  }
+
+  std::vector<std::string> params;
+  std::size_t start = 0;
+  std::size_t paren_depth = 0;
+  std::size_t bracket_depth = 0;
+  for (std::size_t i = 0; i <= inner.size(); ++i) {
+    const bool at_end = i == inner.size();
+    const char ch = at_end ? '\0' : inner[i];
+    if (!at_end) {
+      if (ch == '(') {
+        ++paren_depth;
+      }
+      else if (ch == ')') {
+        if (paren_depth == 0) {
+          return {};
+        }
+        --paren_depth;
+      }
+      else if (ch == '[') {
+        ++bracket_depth;
+      }
+      else if (ch == ']') {
+        if (bracket_depth == 0) {
+          return {};
+        }
+        --bracket_depth;
+      }
+    }
+    if (at_end || (ch == ',' && paren_depth == 0 && bracket_depth == 0)) {
+      if (i == start) {
+        return {};
+      }
+      params.push_back(inner.substr(start, i - start));
+      start = i + 1;
+    }
+  }
+  if (paren_depth != 0 || bracket_depth != 0) {
+    return {};
+  }
+  return params;
+}
+
+inline std::string
+styio_callable_result_type_name(const StyioDataType& type) {
+  if (!styio_is_callable_type(type)) {
+    return {};
+  }
+  const auto close = styio_callable_signature_close(type.name);
+  if (!close.has_value()
+      || *close + 2 >= type.name.size()
+      || type.name[*close + 1] != ':') {
+    return {};
+  }
+  return type.name.substr(*close + 2);
+}
 
 inline StyioDataType
 styio_make_list_type(const std::string& elem_name) {
@@ -698,53 +839,6 @@ enum class StyioOpType
   Comment_MultiLine,   // /* Like This */
 };
 
-/* Token Precedence Map */
-static std::unordered_map<StyioOpType, int> const TokenPrecedenceMap = {
-  {StyioOpType::Unary_Positive, 999},  // + a
-  {StyioOpType::Unary_Negative, 999},  // - a
-  {StyioOpType::Bitwise_NOT, 999},     // ~ a
-  {StyioOpType::Logic_NOT, 999},       // ! a
-
-  {StyioOpType::Binary_Pow, 704},  // a ** b
-
-  {StyioOpType::Binary_Mul, 703},  // a * b
-  {StyioOpType::Binary_Div, 703},  // a / b
-  {StyioOpType::Binary_Mod, 703},  // a % b
-
-  {StyioOpType::Binary_Add, 702},  // a + b
-  {StyioOpType::Binary_Sub, 702},  // a - b
-
-  {StyioOpType::Bitwise_Left_Shift, 701},   // shl(x, y)
-  {StyioOpType::Bitwise_Right_Shift, 701},  // shr(x, y)
-
-  {StyioOpType::Greater_Than, 502},        // a > b
-  {StyioOpType::Less_Than, 502},           // a < b
-  {StyioOpType::Greater_Than_Equal, 502},  // a >= b
-  {StyioOpType::Less_Than_Equal, 502},     // a <= b
-
-  {StyioOpType::Equal, 501},      // a == b
-  {StyioOpType::Not_Equal, 501},  // a != b
-
-  {StyioOpType::Bitwise_AND, 303},  // a & b
-  {StyioOpType::Bitwise_XOR, 302},  // a ^ b
-  {StyioOpType::Bitwise_OR, 301},   // a | b
-
-  {StyioOpType::Logic_AND, 203},  // a && b
-  {StyioOpType::Logic_XOR, 202},  // a ⊕ b
-  {StyioOpType::Logic_OR, 201},   // a || b
-
-  {StyioOpType::If_Else_Flow, 101},  // ?() => a : b
-
-  {StyioOpType::Self_Add_Assign, 1},  // a += b
-  {StyioOpType::Self_Sub_Assign, 1},  // a -= b
-  {StyioOpType::Self_Mul_Assign, 1},  // a *= b
-  {StyioOpType::Self_Div_Assign, 1},  // a /= b
-  {StyioOpType::Self_Mod_Assign, 1},  // a %= b
-
-  {StyioOpType::Undefined, 0},    // Undefined
-  {StyioOpType::End_Of_File, 0},  // Undefined
-};
-
 static std::unordered_map<StyioOpType, std::string> const TokenStrMap = {
   {StyioOpType::Undefined, "undefined"},  // undefined
   {StyioOpType::End_Of_File, "EOF"},      // EOF
@@ -1168,6 +1262,22 @@ styio_data_type_from_name(const std::string& type_name) {
   if (it != DTypeTable.end()) {
     return it->second;
   }
+  if (type_name.rfind("#(", 0) == 0) {
+    StyioDataType callable{
+      StyioDataTypeOption::Func,
+      type_name,
+      0
+    };
+    const auto close = styio_callable_signature_close(type_name);
+    const auto result = styio_callable_result_type_name(callable);
+    if (close.has_value() && !result.empty()) {
+      const std::string inner = type_name.substr(2, *close - 2);
+      const auto params = styio_callable_param_type_names(callable);
+      if (inner.empty() || !params.empty()) {
+        return callable;
+      }
+    }
+  }
   if (type_name.rfind("list[", 0) == 0) {
     return styio_make_list_type(styio_list_elem_type_name(
       StyioDataType{StyioDataTypeOption::List, type_name, 0}));
@@ -1207,6 +1317,23 @@ styio_data_type_from_name(const std::string& type_name) {
       styio_value_family_for_type(styio_data_type_from_name(elem))};
   }
   return StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
+}
+
+inline std::vector<StyioDataType>
+styio_callable_param_types(const StyioDataType& type) {
+  std::vector<StyioDataType> params;
+  for (const auto& name : styio_callable_param_type_names(type)) {
+    params.push_back(styio_data_type_from_name(name));
+  }
+  return params;
+}
+
+inline StyioDataType
+styio_callable_result_type(const StyioDataType& type) {
+  const std::string name = styio_callable_result_type_name(type);
+  return name.empty()
+    ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+    : styio_data_type_from_name(name);
 }
 
 inline StyioValueFamily
@@ -1558,6 +1685,53 @@ enum class StyioTokenType
 
   UNKNOWN,
 };
+
+enum class StyioExprAssociativity : std::uint8_t { Left, Right };
+
+enum class StyioExprOperatorKind : std::uint8_t {
+  Apply,
+  Fallback,
+  Logic,
+  Comparison,
+  Arithmetic,
+};
+
+struct StyioExprOperatorInfo {
+  StyioTokenType token;
+  int precedence;
+  StyioExprAssociativity associativity;
+  StyioExprOperatorKind kind;
+  StyioOpType ast_op;
+};
+
+inline constexpr StyioExprOperatorInfo kStyioExprOperators[] = {
+  {StyioTokenType::YIELD_PIPE, 10, StyioExprAssociativity::Left, StyioExprOperatorKind::Apply, StyioOpType::Undefined},
+  {StyioTokenType::TOK_PIPE, 20, StyioExprAssociativity::Left, StyioExprOperatorKind::Fallback, StyioOpType::Undefined},
+  {StyioTokenType::LOGIC_OR, 30, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_OR},
+  {StyioTokenType::LOGIC_AND, 40, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_AND},
+  {StyioTokenType::BINOP_EQ, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Equal},
+  {StyioTokenType::BINOP_NE, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Not_Equal},
+  {StyioTokenType::BINOP_GT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+  {StyioTokenType::TOK_RANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+  {StyioTokenType::BINOP_GE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than_Equal},
+  {StyioTokenType::BINOP_LT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+  {StyioTokenType::TOK_LANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+  {StyioTokenType::BINOP_LE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than_Equal},
+  {StyioTokenType::TOK_PLUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Add},
+  {StyioTokenType::TOK_MINUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Sub},
+  {StyioTokenType::TOK_STAR, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mul},
+  {StyioTokenType::TOK_SLASH, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Div},
+  {StyioTokenType::TOK_PERCENT, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mod},
+  {StyioTokenType::BINOP_POW, 90, StyioExprAssociativity::Right, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Pow},
+};
+
+inline constexpr const StyioExprOperatorInfo*
+styio_expr_operator_info(StyioTokenType token) {
+  for (const auto& info : kStyioExprOperators) {
+    if (info.token == token) return &info;
+  }
+  return nullptr;
+}
 
 class StyioToken
 {

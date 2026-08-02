@@ -1,0 +1,5 @@
+seed: i64 := 4
+# add_seed : i64 $(seed) := (value: i64) => value + seed
+operation: #(i64): i64 := add_seed
+>_(add_seed(3))
+>_(operation(6))

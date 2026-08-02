@@ -1,0 +1,3 @@
+@import { dependency/outer }
+
+>_(outer_identity(1))

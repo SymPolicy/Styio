@@ -658,7 +658,7 @@ a source defect or a pass.
 
 These should not be counted as missing implementation in this checkout:
 
-1. Full package-manager product behavior belongs to `styio-spio`, not `styio`.
+1. Full package-manager product behavior belongs to `pafio-nightly`, not `styio`.
 2. Remote registry service semantics, auth/signing/trust, channel aliasing, and
    package listing APIs are not compiler responsibilities.
 3. Retired state-resource containers, source-level bare `@`, and retired wave
@@ -1066,7 +1066,7 @@ These should not be counted as missing implementation in this checkout:
    unterminated-string-literal, and exact-range unmatched-closing-token edits plus disabled explanations for unsupported
    syntax diagnostics; later executable fixes and
    refactors should follow the same rule instead of editor-local grammar guesses.
-6. Keep package lifecycle scope out of `styio`; update handoff docs when `spio`
+6. Keep package lifecycle scope out of `styio`; update handoff docs when `pafio`
    contracts change instead of adding compiler CLI flags opportunistically.
 7. Make release gates resilient to optional-target discovery by ensuring the
    default documented build target set produces every test binary that default

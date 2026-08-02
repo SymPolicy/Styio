@@ -4,7 +4,7 @@
 
 1. Feature entrypoints: function, class, CLI flag, service endpoint, parser route, runtime helper, workflow profile, or docs command changed by the work.
 2. Upstream producers: configs, generated files, source fixtures, compile plans, source-build metadata, parser/tokenizer input, package data, environment variables, and docs/runbook instructions that feed the feature.
-3. Downstream consumers: tests, CTest labels, CLIs, IDE/LSP paths, nano/spio handoff pages, runtime/codegen callers, examples, benchmark probes, generated indexes, and owner runbooks.
+3. Downstream consumers: tests, CTest labels, CLIs, IDE/LSP paths, nano/pafio handoff pages, runtime/codegen callers, examples, benchmark probes, generated indexes, and owner runbooks.
 4. Cutover surface: old names, routes, adapters, fixtures, docs wording, compatibility paths, and fallback behavior when the feature replaces or migrates behavior.
 
 ## Minimum Evidence Ladder

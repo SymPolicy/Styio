@@ -55,7 +55,14 @@ struct StyioParserRouteStats
   // Legacy enum value once M-PARSER-01 closes.
   size_t legacy_fallback_statements = 0;
   size_t nightly_internal_legacy_bridges = 0;
+  size_t expression_token_visits = 0;
+  size_t expression_operator_probes = 0;
+  size_t expression_ast_nodes = 0;
+  size_t expression_scratch_allocations = 0;
+  size_t expression_max_depth = 0;
 };
+
+inline constexpr size_t kStyioExprMaxDepth = 128;
 
 struct StyioParseDiagnostic
 {
@@ -1514,6 +1521,13 @@ parse_binop_item(StyioContext& context);
 StyioAST*
 parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, StyioOpType curr_tok);
 
+StyioAST*
+parse_expr_after_consumed_arithmetic_operator_latest(
+  StyioContext& context,
+  StyioAST* lhs,
+  StyioOpType operation
+);
+
 /*
   parse_cond_item
 */
@@ -1548,6 +1562,9 @@ parse_cond_flow(StyioContext& context);
 */
 StyioAST*
 parse_index_op(StyioContext& context, StyioAST* theList);
+
+StyioAST*
+parse_index_suffix_nightly(StyioContext& context, StyioAST* base);
 
 /*
   parse_var_tuple
@@ -1648,6 +1665,9 @@ parse_double_right_continuation_latest(
 
 StyioAST*
 parse_after_at_common(StyioContext& context, bool file_only_resource);
+
+StyioAST*
+parse_at_expr_atom_latest(StyioContext& context);
 
 TypeAST*
 parse_styio_type(StyioContext& context);
