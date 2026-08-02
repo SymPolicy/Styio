@@ -1,0 +1,10 @@
+numbers: list[i64] := []
+mapping: dict[string, i64] := dict {}
+flex_numbers = [1, 2]
+flex_numbers = []
+flex_mapping = dict {"one": 1}
+flex_mapping = dict {}
+>_(numbers)
+>_(mapping)
+>_(flex_numbers)
+>_(flex_mapping)

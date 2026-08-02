@@ -18,7 +18,6 @@
 | Machine info contract | `StyioConfig` via `src/main.cpp` | `styio --machine-info=json` | CLI JSON contract | Discover compiler version, release channel, supported contracts, feature flags, adapter modes, and capabilities. |
 | Compile-plan contract parsing | `StyioConfig` | `styio::config::parse_compile_plan` / `styio --compile-plan <path>` | C++ helper plus CLI contract | Parse and validate resolved compiler request envelopes for build, check, run, and test handoff. |
 | Compile-plan diagnostics directory probing | `StyioConfig` | `styio::config::probe_compile_plan_diag_dir` | C++ helper | Find the requested diagnostics directory early enough for machine-readable service errors such as `STYIO_SERVICE_COMPILE_PLAN_INVALID`. |
-| Build-mode vocabulary | `StyioConfig` | `default_build_mode_name`, `is_supported_build_mode` | C++ helper | Keep source-build and compile-plan build-mode handling centralized. |
 | Source-build info contract | `StyioConfig` | `styio::config::source_build_info_json` / `styio --source-build-info=json` | C++ helper plus CLI JSON contract | Publish official source origin, source channel mapping, public build entrypoints, and controlled source components. |
 | Nano profile feature macros | `StyioConfig` | `NanoProfile.hpp` | Compile-time configuration | Publish full/nano feature flags and pruning controls to shared compiler/runtime code. |
 | URI and text-position primitives | `StyioIDE` | `Common.hpp` | C++ API | Convert URI/path values, map offsets to positions, and share editor-facing data structures. |
@@ -42,4 +41,4 @@
 2. Each module README must explain direct usage and link back to this manifest.
 3. Consumer-specific docs may reference these capabilities, but must not redefine their contract shape.
 4. Accepted Styio grammar is owned by the hand-written compiler parser. IDE or editor helpers must not introduce a separate grammar authority.
-5. First-party adapters for Vityo, Spio, or hosted services may expose convenience payloads only when those payloads are backed by capabilities in this manifest or by a documented future capability state; they must not create private grammar, diagnostic, or semantic authorities.
+5. First-party Vityo or hosted language-service adapters may expose convenience payloads only when those payloads are backed by capabilities in this manifest or by a documented future capability state; they must not create private grammar, diagnostic, or semantic authorities.

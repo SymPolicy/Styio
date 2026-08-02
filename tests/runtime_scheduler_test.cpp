@@ -1,271 +1,287 @@
 #include <gtest/gtest.h>
+
 #include <atomic>
-#include <cstdlib>
-#include <optional>
+#include <chrono>
+#include <future>
 #include <thread>
-#include <string>
 #include <vector>
 
-#include "EnvTestUtil.hpp"
 #include "StyioRuntime/ReadyQueue.hpp"
 
-// Dummy task type for testing (avoids linking full StyioTask).
-struct DummyTask {
-  int id;
-  static std::atomic<int> next_id;
-  DummyTask() : id(next_id.fetch_add(1)) {}
-};
+namespace {
 
-std::atomic<int> DummyTask::next_id{0};
+using styio::runtime::BoundedReadyQueue;
+using styio::runtime::ReadyQueueKind;
+using styio::runtime::ReadyQueuePushResult;
 
 struct TaggedTask {
-  explicit TaggedTask(int task_id) : id(task_id) {}
   int id;
 };
 
-using styio::runtime::IReadyQueue;
-using styio::runtime::MutexDequeReadyQueue;
-using styio::runtime::BoundedMPMCReadyQueue;
-using styio::runtime::make_ready_queue;
-
-class EnvVarGuard {
-public:
-  explicit EnvVarGuard(std::string name)
-    : name_(std::move(name)) {
-    if (const char* value = std::getenv(name_.c_str())) {
-      original_ = std::string(value);
+bool wait_for_producer_waits(
+    const BoundedReadyQueue& queue,
+    std::size_t count) {
+  const auto deadline = std::chrono::steady_clock::now()
+    + std::chrono::seconds(2);
+  while (queue.snapshot().producer_waits < count) {
+    if (std::chrono::steady_clock::now() >= deadline) {
+      return false;
     }
+    std::this_thread::yield();
   }
-
-  ~EnvVarGuard() {
-    if (original_.has_value()) {
-      styio_test_setenv(name_.c_str(), original_->c_str(), 1);
-    }
-    else {
-      styio_test_unsetenv(name_.c_str());
-    }
-  }
-
-  void set(const char* value) {
-    styio_test_setenv(name_.c_str(), value != nullptr ? value : "", 1);
-  }
-
-private:
-  std::string name_;
-  std::optional<std::string> original_;
-};
-
-// Note: the queue stores opaque task pointers, but for testing we cast DummyTask*.
-// This is safe as long as we only test queue operations, not task execution.
-
-template <typename QueueFactory>
-void basic_push_pop(QueueFactory& factory) {
-  auto q = factory();
-  DummyTask t1, t2, t3;
-  ASSERT_NE(q, nullptr);
-  q->push(static_cast<void*>(&t1));
-  q->push(static_cast<void*>(&t2));
-  q->push(static_cast<void*>(&t3));
-
-  auto* r1 = q->try_pop();
-  auto* r2 = q->try_pop();
-  auto* r3 = q->try_pop();
-  auto* r4 = q->try_pop();
-
-  EXPECT_EQ(r1, static_cast<void*>(&t1));
-  EXPECT_EQ(r2, static_cast<void*>(&t2));
-  EXPECT_EQ(r3, static_cast<void*>(&t3));
-  EXPECT_EQ(r4, nullptr);
-  EXPECT_TRUE(q->empty());
-  EXPECT_EQ(q->approximate_size(), 0u);
+  return true;
 }
 
-TEST(MutexDequeReadyQueue, BasicPushPop) {
-  auto factory = []() { return std::make_unique<MutexDequeReadyQueue>(); };
-  basic_push_pop(factory);
+} // namespace
+
+TEST(StyioBoundedTaskScheduling, CapacityIsFixedAndInvalidValuesUseDefault) {
+  BoundedReadyQueue queue(8);
+  BoundedReadyQueue zero(0);
+  BoundedReadyQueue excessive(BoundedReadyQueue::kDefaultCapacity + 1);
+
+  EXPECT_EQ(queue.kind(), ReadyQueueKind::BoundedWait);
+  EXPECT_EQ(queue.snapshot().capacity, 8u);
+  EXPECT_EQ(zero.snapshot().capacity, BoundedReadyQueue::kDefaultCapacity);
+  EXPECT_EQ(excessive.snapshot().capacity, BoundedReadyQueue::kDefaultCapacity);
 }
 
-TEST(MutexDequeReadyQueue, ApproximateSize) {
-  MutexDequeReadyQueue q;
-  EXPECT_EQ(q.kind(), styio::runtime::ReadyQueueKind::MutexDeque);
-  EXPECT_EQ(q.approximate_size(), 0u);
-  DummyTask t;
-  q.push(static_cast<void*>(&t));
-  EXPECT_EQ(q.approximate_size(), 1u);
-  q.try_pop();
-  EXPECT_EQ(q.approximate_size(), 0u);
-}
+TEST(StyioBoundedTaskScheduling, CapacityOnePopWakesBlockedProducer) {
+  BoundedReadyQueue queue(1);
+  TaggedTask first{1};
+  TaggedTask second{2};
+  ASSERT_EQ(queue.push(&first), ReadyQueuePushResult::Accepted);
 
-TEST(BoundedMPMCReadyQueue, BasicPushPop) {
-  auto factory = []() { return std::make_unique<BoundedMPMCReadyQueue>(64); };
-  basic_push_pop(factory);
-}
-
-TEST(BoundedMPMCReadyQueue, Capacity) {
-  BoundedMPMCReadyQueue q(8);
-  EXPECT_EQ(q.kind(), styio::runtime::ReadyQueueKind::BoundedMPMC);
-  DummyTask tasks[8];
-  for (int i = 0; i < 8; ++i) {
-    q.push(static_cast<void*>(&tasks[i]));
-  }
-  EXPECT_FALSE(q.empty());
-  for (int i = 0; i < 8; ++i) {
-    EXPECT_NE(q.try_pop(), nullptr);
-  }
-  EXPECT_TRUE(q.empty());
-}
-
-TEST(BoundedMPMCReadyQueue, MultiThreadedPushPop) {
-  BoundedMPMCReadyQueue q(64);
-  constexpr int kPerThread = 1000;
-  std::atomic<int> produced{0};
-  std::atomic<int> consumed{0};
-
-  // Producer
-  std::thread producer([&]() {
-    for (int i = 0; i < kPerThread; ++i) {
-      DummyTask* t = new DummyTask();
-      q.push(static_cast<void*>(t));
-      produced.fetch_add(1);
-    }
+  auto pushed = std::async(std::launch::async, [&]() {
+    return queue.push(&second);
   });
+  ASSERT_TRUE(wait_for_producer_waits(queue, 1));
+  EXPECT_EQ(pushed.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
 
-  // Consumer
-  std::thread consumer([&]() {
-    int got = 0;
-    while (got < kPerThread) {
-      auto* t = q.try_pop();
-      if (t) {
-        delete reinterpret_cast<DummyTask*>(t);
-        got++;
-        consumed.fetch_add(1);
-      }
-    }
-  });
+  EXPECT_EQ(queue.wait_pop(), &first);
+  ASSERT_EQ(pushed.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  EXPECT_EQ(pushed.get(), ReadyQueuePushResult::Accepted);
+  queue.close();
+  EXPECT_EQ(queue.wait_pop(), &second);
+  EXPECT_EQ(queue.wait_pop(), nullptr);
 
-  producer.join();
-  consumer.join();
-
-  EXPECT_EQ(produced.load(), kPerThread);
-  EXPECT_EQ(consumed.load(), kPerThread);
+  const auto snapshot = queue.snapshot();
+  EXPECT_EQ(snapshot.capacity, 1u);
+  EXPECT_EQ(snapshot.current_depth, 0u);
+  EXPECT_EQ(snapshot.peak_depth, 1u);
+  EXPECT_EQ(snapshot.accepted_pushes, 2u);
+  EXPECT_EQ(snapshot.pops, 2u);
+  EXPECT_EQ(snapshot.pressure_events, 1u);
+  EXPECT_EQ(snapshot.producer_waits, 1u);
+  EXPECT_TRUE(snapshot.closed);
 }
 
-TEST(BoundedMPMCReadyQueue, MultiProducerMultiConsumerNoLossNoDupes) {
-  BoundedMPMCReadyQueue q(32);
+TEST(StyioBoundedTaskScheduling, IdempotentCloseWakesAllAndAcceptedItemsDrain) {
+  BoundedReadyQueue full(1);
+  TaggedTask accepted{0};
+  TaggedTask rejected_a{1};
+  TaggedTask rejected_b{2};
+  ASSERT_EQ(full.push(&accepted), ReadyQueuePushResult::Accepted);
+
+  auto producer_a = std::async(std::launch::async, [&]() {
+    return full.push(&rejected_a);
+  });
+  auto producer_b = std::async(std::launch::async, [&]() {
+    return full.push(&rejected_b);
+  });
+  ASSERT_TRUE(wait_for_producer_waits(full, 2));
+  full.close();
+  full.close();
+  ASSERT_EQ(producer_a.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  ASSERT_EQ(producer_b.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  EXPECT_EQ(producer_a.get(), ReadyQueuePushResult::Closed);
+  EXPECT_EQ(producer_b.get(), ReadyQueuePushResult::Closed);
+  EXPECT_EQ(full.wait_pop(), &accepted);
+  EXPECT_EQ(full.wait_pop(), nullptr);
+  EXPECT_EQ(full.push(&rejected_a), ReadyQueuePushResult::Closed);
+  EXPECT_EQ(full.snapshot().close_wake_ups, 2u);
+
+  BoundedReadyQueue empty(1);
+  auto consumer_a = std::async(std::launch::async, [&]() {
+    return empty.wait_pop();
+  });
+  auto consumer_b = std::async(std::launch::async, [&]() {
+    return empty.wait_pop();
+  });
+  const auto deadline = std::chrono::steady_clock::now()
+    + std::chrono::seconds(2);
+  while (empty.snapshot().consumer_waits < 2
+         && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::yield();
+  }
+  ASSERT_EQ(empty.snapshot().consumer_waits, 2u);
+  empty.close();
+  ASSERT_EQ(consumer_a.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  ASSERT_EQ(consumer_b.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+  EXPECT_EQ(consumer_a.get(), nullptr);
+  EXPECT_EQ(consumer_b.get(), nullptr);
+  EXPECT_EQ(empty.snapshot().close_wake_ups, 2u);
+}
+
+TEST(StyioBoundedTaskScheduling, MultiProducerMultiConsumerIsExactOnceAcrossClose) {
+  BoundedReadyQueue queue(7);
   constexpr int kProducerCount = 4;
   constexpr int kConsumerCount = 4;
   constexpr int kPerProducer = 256;
   constexpr int kTotal = kProducerCount * kPerProducer;
 
+  std::vector<TaggedTask> tasks(kTotal);
   std::vector<std::atomic<int>> seen(kTotal);
-  std::atomic<int> ready_threads{0};
+  std::atomic<int> ready{0};
   std::atomic<bool> start{false};
-  std::atomic<int> consumed{0};
-  std::atomic<int> duplicate_hits{0};
-  std::atomic<int> bad_id_hits{0};
-  std::vector<std::thread> workers;
-  workers.reserve(kProducerCount + kConsumerCount);
+  std::atomic<int> invalid{0};
+  std::vector<std::thread> producers;
+  std::vector<std::thread> consumers;
 
-  auto wait_for_start = [&]() {
-    ready_threads.fetch_add(1);
-    while (!start.load()) {
-      std::this_thread::yield();
-    }
+  const auto await_start = [&]() {
+    ready.fetch_add(1, std::memory_order_release);
+    ready.notify_one();
+    start.wait(false, std::memory_order_acquire);
   };
 
-  for (int producer_id = 0; producer_id < kProducerCount; ++producer_id) {
-    workers.emplace_back([&, producer_id]() {
-      wait_for_start();
-      const int base = producer_id * kPerProducer;
-      for (int i = 0; i < kPerProducer; ++i) {
-        q.push(static_cast<void*>(new TaggedTask(base + i)));
-        if ((i & 15) == 0) {
-          std::this_thread::yield();
+  for (int producer = 0; producer < kProducerCount; ++producer) {
+    producers.emplace_back([&, producer]() {
+      await_start();
+      const int base = producer * kPerProducer;
+      for (int offset = 0; offset < kPerProducer; ++offset) {
+        tasks[base + offset].id = base + offset;
+        if (queue.push(&tasks[base + offset]) != ReadyQueuePushResult::Accepted) {
+          invalid.fetch_add(1);
+        }
+      }
+    });
+  }
+  for (int consumer = 0; consumer < kConsumerCount; ++consumer) {
+    consumers.emplace_back([&]() {
+      await_start();
+      while (auto* raw = static_cast<TaggedTask*>(queue.wait_pop())) {
+        if (raw->id < 0 || raw->id >= kTotal) {
+          invalid.fetch_add(1);
+        }
+        else if (seen[raw->id].fetch_add(1) != 0) {
+          invalid.fetch_add(1);
         }
       }
     });
   }
 
-  for (int consumer_index = 0; consumer_index < kConsumerCount; ++consumer_index) {
-    (void)consumer_index;
-    workers.emplace_back([&]() {
-      wait_for_start();
-      while (consumed.load() < kTotal) {
-        auto* raw = q.try_pop();
-        if (raw == nullptr) {
-          std::this_thread::yield();
-          continue;
-        }
+  const int thread_count = kProducerCount + kConsumerCount;
+  while (ready.load(std::memory_order_acquire) != thread_count) {
+    const int observed = ready.load(std::memory_order_relaxed);
+    ready.wait(observed, std::memory_order_relaxed);
+  }
+  start.store(true, std::memory_order_release);
+  start.notify_all();
+  for (auto& producer : producers) {
+    producer.join();
+  }
+  queue.close();
+  for (auto& consumer : consumers) {
+    consumer.join();
+  }
 
-        auto* task = static_cast<TaggedTask*>(raw);
-        if ((*task).id < 0 || (*task).id >= kTotal) {
-          bad_id_hits.fetch_add(1);
-        }
-        else {
-          int previous = seen[(*task).id].fetch_add(1);
-          if (previous != 0) {
-            duplicate_hits.fetch_add(1);
-          }
-        }
+  EXPECT_EQ(invalid.load(), 0);
+  for (int id = 0; id < kTotal; ++id) {
+    EXPECT_EQ(seen[id].load(), 1) << "task id " << id;
+  }
+  const auto snapshot = queue.snapshot();
+  EXPECT_EQ(snapshot.accepted_pushes, static_cast<std::size_t>(kTotal));
+  EXPECT_EQ(snapshot.pops, static_cast<std::size_t>(kTotal));
+  EXPECT_EQ(snapshot.current_depth, 0u);
+  EXPECT_LE(snapshot.peak_depth, snapshot.capacity);
+  EXPECT_GT(snapshot.pressure_events, 0u);
+  EXPECT_EQ(snapshot.pressure_events, snapshot.producer_waits);
+}
 
-        delete task;
-        consumed.fetch_add(1);
+TEST(StyioBoundedTaskScheduling, CloseRejectsBlockedProducersAndDrainsAcceptedItems) {
+  constexpr int kProducerCount = 4;
+  constexpr int kConsumerCount = 3;
+  constexpr int kPerProducer = 32;
+  constexpr int kTotal = kProducerCount * kPerProducer;
+  constexpr std::size_t kCapacity = 5;
+
+  BoundedReadyQueue queue(kCapacity);
+  std::vector<TaggedTask> tasks(kTotal);
+  std::vector<std::atomic<int>> push_state(kTotal);
+  std::vector<std::atomic<int>> seen(kTotal);
+  for (int id = 0; id < kTotal; ++id) {
+    tasks[id].id = id;
+    push_state[id].store(0, std::memory_order_relaxed);
+    seen[id].store(0, std::memory_order_relaxed);
+  }
+
+  std::atomic<bool> allow_consumers{false};
+  std::vector<std::thread> consumers;
+  for (int consumer = 0; consumer < kConsumerCount; ++consumer) {
+    consumers.emplace_back([&]() {
+      allow_consumers.wait(false, std::memory_order_acquire);
+      while (auto* task = static_cast<TaggedTask*>(queue.wait_pop())) {
+        seen[task->id].fetch_add(1, std::memory_order_relaxed);
       }
     });
   }
 
-  while (ready_threads.load() < kProducerCount + kConsumerCount) {
-    std::this_thread::yield();
+  std::vector<std::thread> producers;
+  for (int producer = 0; producer < kProducerCount; ++producer) {
+    producers.emplace_back([&, producer]() {
+      const int base = producer * kPerProducer;
+      for (int offset = 0; offset < kPerProducer; ++offset) {
+        const int id = base + offset;
+        const auto result = queue.push(&tasks[id]);
+        push_state[id].store(
+          result == ReadyQueuePushResult::Accepted ? 1 : 2,
+          std::memory_order_relaxed);
+        if (result == ReadyQueuePushResult::Closed) {
+          return;
+        }
+      }
+    });
   }
-  start.store(true);
 
-  for (auto& worker : workers) {
-    worker.join();
+  const bool all_producers_blocked =
+    wait_for_producer_waits(queue, kProducerCount);
+  queue.close();
+  allow_consumers.store(true, std::memory_order_release);
+  allow_consumers.notify_all();
+
+  for (auto& producer : producers) {
+    producer.join();
+  }
+  for (auto& consumer : consumers) {
+    consumer.join();
   }
 
-  EXPECT_EQ(consumed.load(), kTotal);
-  EXPECT_EQ(bad_id_hits.load(), 0);
-  EXPECT_EQ(duplicate_hits.load(), 0);
-  EXPECT_TRUE(q.empty());
-  EXPECT_EQ(q.approximate_size(), 0u);
-
-  for (int i = 0; i < kTotal; ++i) {
-    EXPECT_EQ(seen[i].load(), 1) << "task id " << i << " was not observed exactly once";
+  std::size_t accepted = 0;
+  std::size_t rejected = 0;
+  for (int id = 0; id < kTotal; ++id) {
+    const int state = push_state[id].load(std::memory_order_relaxed);
+    const int observations = seen[id].load(std::memory_order_relaxed);
+    if (state == 1) {
+      ++accepted;
+      EXPECT_EQ(observations, 1) << "accepted task id " << id;
+    }
+    else {
+      EXPECT_EQ(observations, 0) << "unaccepted task id " << id;
+      if (state == 2) {
+        ++rejected;
+      }
+    }
   }
-}
 
-TEST(MakeReadyQueue, DefaultIsMutexDeque) {
-  // Without env var, returns MutexDequeReadyQueue.
-  auto q = make_ready_queue();
-  EXPECT_NE(q, nullptr);
-  EXPECT_EQ(q->kind(), styio::runtime::ReadyQueueKind::MutexDeque);
-  EXPECT_NE(dynamic_cast<MutexDequeReadyQueue*>(q.get()), nullptr);
-  EXPECT_TRUE(q->empty());
-  EXPECT_EQ(q->approximate_size(), 0u);
-
-  DummyTask t1;
-  DummyTask t2;
-  q->push(static_cast<void*>(&t1));
-  q->push(static_cast<void*>(&t2));
-  EXPECT_EQ(q->approximate_size(), 2u);
-  EXPECT_EQ(q->try_pop(), static_cast<void*>(&t1));
-  EXPECT_EQ(q->try_pop(), static_cast<void*>(&t2));
-  EXPECT_TRUE(q->empty());
-}
-
-TEST(MakeReadyQueue, EnvVarSelectsBoundedMpmcQueue) {
-  EnvVarGuard guard("STYIO_USE_MPMC_QUEUE");
-  guard.set("1");
-
-  auto q = make_ready_queue();
-  EXPECT_NE(q, nullptr);
-  EXPECT_EQ(q->kind(), styio::runtime::ReadyQueueKind::BoundedMPMC);
-  EXPECT_NE(dynamic_cast<BoundedMPMCReadyQueue*>(q.get()), nullptr);
-
-  DummyTask t;
-  EXPECT_EQ(q->approximate_size(), 0u);
-  q->push(static_cast<void*>(&t));
-  EXPECT_EQ(q->approximate_size(), 1u);
-  EXPECT_EQ(q->try_pop(), static_cast<void*>(&t));
-  EXPECT_TRUE(q->empty());
+  const auto snapshot = queue.snapshot();
+  EXPECT_TRUE(all_producers_blocked);
+  EXPECT_EQ(accepted, kCapacity);
+  EXPECT_EQ(rejected, static_cast<std::size_t>(kProducerCount));
+  EXPECT_EQ(snapshot.accepted_pushes, accepted);
+  EXPECT_EQ(snapshot.pops, accepted);
+  EXPECT_EQ(snapshot.current_depth, 0u);
+  EXPECT_EQ(snapshot.peak_depth, kCapacity);
+  EXPECT_EQ(snapshot.pressure_events, static_cast<std::size_t>(kProducerCount));
+  EXPECT_EQ(snapshot.producer_waits, snapshot.pressure_events);
+  EXPECT_EQ(snapshot.close_wake_ups, static_cast<std::size_t>(kProducerCount));
+  EXPECT_TRUE(snapshot.closed);
 }

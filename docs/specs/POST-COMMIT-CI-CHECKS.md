@@ -28,8 +28,9 @@ Focused changes may use a narrower test selector only when the final handoff sta
 ```bash
 export STYIO_ECOSYSTEM_WORKSPACE=<workspace-root>
 python3 scripts/ecosystem-cli-doc-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
-python3 ../styio-spio/scripts/ecosystem-product-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
-python3 ../styio-spio/scripts/ecosystem-sample-workflow-gate.py --workspace-root "$STYIO_ECOSYSTEM_WORKSPACE"
+python3 ../pafio-nightly/scripts/verify-ecosystem-contracts.py \
+  --focused \
+  --repositories-root "$STYIO_ECOSYSTEM_WORKSPACE"
 ```
 
 The commit message body or handoff should record the checks that were actually run, including functional commit-readiness evidence or objective blockers.
@@ -58,11 +59,11 @@ If `gh` is unavailable or unauthenticated, the agent must state that GitHub Acti
 
 ## Cross-Repository Work
 
-When one delivery touches `styio-nightly`, `styio-spio`, and `styio-view`, post-push verification applies to every pushed repository. The agent should check each repository's GitHub Actions status, not only the repository that received the last commit.
+When one delivery touches `styio-nightly`, `pafio-nightly`, and `vityo-nightly`, post-push verification applies to every pushed repository. The agent should check each repository's GitHub Actions status, not only the repository that received the last commit.
 
 Cross-repository gates must use the same workspace checkout set that will be visible to CI. If a gate consumes another repository's branch, push that repository first or report that remote CI may still be using an older sibling checkout.
 
-`styio-nightly` GitHub Actions check out `styio-spio` and `styio-view` at `${{ github.ref_name }}` for cross-repository gates. A branch used for coordinated work must therefore exist in all three repositories before relying on remote Actions as the final source of truth.
+`styio-nightly` GitHub Actions check out `pafio-nightly` and `vityo-nightly` at `${{ github.ref_name }}` for cross-repository gates. A branch used for coordinated work must therefore exist in all three repositories before relying on remote Actions as the final source of truth.
 
 ## Delivery Ruleset Governance
 

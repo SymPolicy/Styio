@@ -2,11 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-08-01
 
 ## Mission
 
-Own user-facing command execution, the bootstrap packaging path for `styio-nano`, and the compiler-side handoff contracts consumed by `styio-pafio`. This team protects CLI options, error formatting, exit codes, machine-info capabilities, source-build metadata, nano profile compile definitions, and the static nano package contract. It does not own long-term package-manager UX, which belongs to `styio-pafio`.
+Own user-facing command execution, the bootstrap packaging path for `styio-nano`, and the compiler-side handoff contracts consumed by `pafio-nightly`. This team protects CLI options, error formatting, exit codes, machine-info capabilities, source-build metadata, nano profile compile definitions, and the static nano package contract. It does not own long-term package-manager UX, which belongs to `pafio-nightly`.
 
 ## Owned Surface
 
@@ -22,29 +22,31 @@ Primary paths:
 Key implementation seams inside `src/StyioConfig/`:
 
 1. `CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
-2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload and its mapping to the official `pafio build` source-layout contract.
+2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload for compiler maintainers and system package builders.
 
 Key handoff document:
 
 1. [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md)
+2. [../external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md](../external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md)
 
 ## Daily Workflow
 
 1. Determine whether the change affects full `styio`, `styio-nano`, or both.
 2. Keep CLI option changes discoverable through help text and tests.
 3. Keep `--machine-info` capability output aligned with actual behavior.
-4. Keep `--source-build-info=json` aligned with the official source-layout contract consumed by `pafio build`.
+4. Keep `--source-build-info=json` aligned with the official compiler source-layout contract; Pafio is not a consumer.
 5. Treat nano static repository layout as a contract; update handoff docs when it changes.
 6. Keep package-manager responsibilities out of the compiler unless they are bootstrap validation or official source-build layout export.
-7. When compile-plan, source-build-info, or diagnostics behavior changes, keep the `styio-pafio` / `styio-view` coordinator mirror and handoff docs aligned in the same checkpoint.
+7. When compile-plan, source-build-info, or diagnostics behavior changes, keep the `pafio-nightly` / `vityo-nightly` coordinator mirror and handoff docs aligned in the same checkpoint.
+8. Treat `docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md` as the formal machine-contract handoff path; do not retain the superseded plan-tree path as a trigger or compatibility alias.
 8. When runtime event artifacts change, keep `supported_contracts.runtime_events`, `feature_flags.runtime_event_stream`, `receipt.json`, and `build_root/runtime-events.jsonl` aligned in the same checkpoint.
-9. Keep generated nano subset build manifests aligned with the repository compatibility floor and the shared `styio-nightly` / `styio-pafio` toolchain baseline when `src/main.cpp` emits CMake scaffolding.
+9. Keep generated nano subset build manifests aligned with the Styio repository compatibility floor when `src/main.cpp` emits CMake scaffolding.
 10. Keep `scripts/source-build-minimal.sh` aligned with the published `--source-build-info=json` contract so build-channel consumers have one stable compiler-side helper entry.
 11. Prefer named enum tables and shared field-resolution helpers for project config, nano package config, nano publish config, and nano manifest parsing so new keys or aliases are added in one place instead of another `if/else` ladder in `src/main.cpp`.
 12. Treat config alias changes as contract changes when they affect source-build, nano packaging, or publish bootstrap behavior; update this runbook and the handoff docs in the same checkpoint.
 13. Keep compile-plan contract parsing and source-build metadata export in `src/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
 14. When frontend, StyioIR optimizer, or runtime source roots gain new support libraries, update the local-subset nano closure seed list, generated CMake include paths, generated config headers, and link libraries together; `StyioNanoPackage.LocalSubset*` tests must prove the extracted clean-room bundle still links.
-15. When compiler source-layout directories move, update `SourceBuildInfo.*`, `styio_nano_source_roots_latest(...)`, and the `StyioDiagnostics.SourceBuildInfoJsonReportsOfficialSourceLayoutFields` regression together so `pafio build` consumers see the same controlled component graph as local nano bundles.
+15. When compiler source-layout directories move, update `SourceBuildInfo.*`, `styio_nano_source_roots_latest(...)`, and the `StyioDiagnostics.SourceBuildInfoJsonReportsOfficialSourceLayoutFields` regression together so system package builders see the same controlled component graph as local nano bundles.
 16. When internal prelude source files such as `src/StyioPrelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.
 17. When `--profile-frontend` grows runtime-side records, keep the CLI flush hook in `src/main.cpp` paired with a profiler smoke that proves the emitted JSON includes the new section. Native executable profiling stays opt-in through `STYIO_NATIVE_PROFILE_OUT` so benchmark validation can collect run-only attribution without adding overhead to measured repeats.
 18. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
@@ -57,12 +59,19 @@ Key handoff document:
 25. When generated nano CMake needs Windows toolchain discovery paths, derive them from CMake inputs or process environment variables instead of emitting machine-specific absolute roots in `src/main.cpp`.
 26. Compile-plan validation diagnostics must keep service-facing field names stable. Relative `entry.file` reports `file`, relative `outputs.artifact_dir` reports `artifact_dir`, and `outputs.diag_dir` keeps the fully qualified field because invalid diagnostics sinks cannot be written safely.
 27. Windows `styio build` native executable linking must keep LLVM 18 viable with newer MSVC STL headers by emitting the established compiler/STL compatibility define and CRT warning define through the generated Clang command. Do not solve this in CTest with a machine-specific Visual Studio path.
+28. Treat Pafio as the external compile-plan producer. Keep `generated_by.tool` / `generated_by.version` validation, machine-info capability advertisement, CLI contract tests, and the Pafio handoff document aligned; unsupported producer identities must fail closed instead of entering a compatibility path.
+29. Callable interface publication is explicit compiler orchestration: `--emit-module-interface` requires `--file` and a canonical `--module-id`, writes the requested `.styioi` only after Sema succeeds, and is outside the compile-plan v1 envelope. Imported dependency interfaces are never synthesized as a side effect. Keep the compiler ABI digest aligned across full/nano channel, edition, target triple, and pointer width, and keep nano compile-time boundaries from linking full-only compile-plan services.
+30. Configure callable-specialization identity from the same full/nano compiler ABI contract used by callable interfaces, plus the selected dictionary implementation and validated entry-dependency digest. Both binaries must produce deterministic full-digest mono symbols for the same environment; a CLI call-order change must not alter identity, and no source option may expose explicit instantiation.
+31. Keep the explicit nano package source roots aligned with every translation unit in `STYIO_FRONTEND_SOURCES`, including callable interface loading and specialization graph owners. Header-closure discovery cannot compensate for an omitted `.cpp`; both local-subset creation paths must build and link the materialized `styio_nano` bundle.
+32. Keep full and nano callable-interface compiler ABI identities synchronized with the active `.styioi` schema. Canonical effect rows, usage requirements, contract/body digests, and portable StyioIR schema-v1 payloads in interface schema v4 must use the `styio.callable-interface.v4` namespace in both binaries, reject schema v3 metadata before installing module facts, and bump dependent specialization/dependency fingerprint namespaces rather than retaining a dual-reader compatibility path. Keep `StyioIR/PortableCallableBody.cpp` in both explicit source manifests.
+33. Callable specialization disk reuse is an explicit full/nano operational option. `--callable-cache-dir` is the sole enablement switch; age, byte, and file limits without it are CLI errors. Keep default limits at seven days, 256 MiB, and 4,096 artifacts unless the feature SSOT changes, and keep limit values positive and bounded. `--callable-cache-stats` must emit exactly one path-free schema-v1 JSON object only when requested. Add every cache translation unit to the shared backend source list so full and nano use the same object schema, while their channel facts retain separate namespaces.
+34. Keep the ecosystem machine-contract matrix under `docs/external/for-pafio/` as a formal contract projection, not an implementation plan. When a public command, owner, consumer, producer identity, or hosted boundary changes, update the matrix, Pafio handoff, ecosystem document gate, and consumer mirrors in one closure.
 
 ## Change Classes
 
 1. Small: help text, config parsing cleanup, or non-contract local path fix. Run targeted CLI or nano tests.
 2. Medium: CLI option, diagnostic format, exit code, nano profile, machine-info capability, or runtime event artifact change. Update tests and docs.
-3. High: nano package layout, publish/consume validation, compiler/package-manager responsibility split, or config parser alias/table changes that affect bootstrap contracts. Use checkpoint workflow and review the `styio-pafio` handoff.
+3. High: nano package layout, publish/consume validation, compiler/package-manager responsibility split, or config parser alias/table changes that affect bootstrap contracts. Use checkpoint workflow and review the `pafio-nightly` handoff.
 
 ## Required Gates
 
@@ -98,4 +107,4 @@ Record unfinished CLI/nano work with:
 2. Full vs nano behavior difference.
 3. Package layout or registry contract delta.
 4. Exact create/publish/consume command used.
-5. Whether `styio-pafio` is expected to take over the responsibility later.
+5. Whether `pafio-nightly` is expected to take over the responsibility later.

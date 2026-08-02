@@ -1,0 +1,11 @@
+flag: bool := true
+ratio: f64 := 1.5
+letter: char := 'z'
+
+# read_flag : bool $(flag) := () => flag
+# read_ratio : f64 $(ratio) := () => ratio
+# read_letter : char $(letter) := () => letter
+
+>_(read_flag())
+>_(read_ratio())
+>_(read_letter())

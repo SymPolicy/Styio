@@ -1,0 +1,402 @@
+[
+  {
+    "id": "2a185c2c-021d-41f0-9f7f-8afc0883380f",
+    "status": "completed",
+    "role": "group_design",
+    "code": "OPT-F-DESIGN",
+    "title": "Freeze one resource typestate dataflow slice",
+    "conditions": [
+      "Production implementation may not start until states, transitions, joins, diagnostics, invalidation, and bounded-memory evidence are frozen."
+    ],
+    "prerequisites": [
+      "875f378b-9118-4edb-8b4a-57789dfcff73"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Select and freeze the smallest canonical resource typestate/dataflow closure that OPT-G can safely consume.",
+    "description": "Scope: the complete OPT-F design and acceptance artifacts for one independently executable resource scenario. Context: resource state is currently distributed across Sema binding facts, topology validation, lowering, codegen cleanup, and runtime error settlement. Target: select one active-syntax resource family and freeze a single authoritative state model, transfer functions, joins, convergence, diagnostics, invalidation, and measurable memory bound. Design Considerations: compare mature ownership and monotone dataflow analyses, dense versus sparse facts, worklists, dominance, and cache invalidation against the local pattern catalog. Design Value: removes duplicated state inference without introducing another verifier or parallel resource type system. Constraints & Risks: preserve current syntax and diagnostics, keep failures/effects separate from typestate, complete any migrated state ownership with no compatibility path, and leave unrelated resource families and OPT-G stream scheduling out of scope.",
+    "requirements": [
+      "REQ-OPT-F-TYPESTATE",
+      "REQ-OPT-F-BOUNDED-DATAFLOW"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/resource-typestate-dataflow/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Architecture.md",
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Architecture.md",
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md"
+      ],
+      "acceptance_paths": [
+        "docs/rollups/IM-D4-RESOURCE-MANAGEMENT-INVENTORY.md",
+        "tests/resource_topology_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one canonical resource state owner and one bounded scenario",
+        "algorithms": "to be frozen after monotone dataflow and ownership-analysis comparison",
+        "data_structures": "state lattice, sparse facts, dependency-indexed worklist, or simpler proven equivalent",
+        "state": "uninitialized, open, eof, closed, and materialized are candidate facts; runtime failures remain effects",
+        "isolation": "design and executable acceptance artifacts only",
+        "concurrency": "OPT-F follows OPT-E and must close before OPT-G activation"
+      },
+      "test_seams": [
+        "resource topology unit tests",
+        "security parser-through-runtime fixtures",
+        "typestate transition and bounded-work benchmark probe"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Architecture and Validation freeze one active resource scenario, one state owner, state transitions and joins, deterministic diagnostics, invalidation, convergence, and bounded-memory evidence."
+      },
+      {
+        "checked": true,
+        "text": "The pattern assessment compares the simplest direct solution with applicable mature dataflow and ownership designs and records an executable proof."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs(resource): design OPT-F typestate dataflow",
+      "target": "styio-nightly"
+    },
+    "next": [
+      "78c2f92f-e20c-4d5d-a343-dd1c17220f3d"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted"
+    }
+  },
+  {
+    "id": "78c2f92f-e20c-4d5d-a343-dd1c17220f3d",
+    "status": "completed",
+    "role": "implementation",
+    "code": "OPT-F-IMPLEMENT",
+    "title": "Implement conditional file-handle typestate joins",
+    "prerequisites": [
+      "2a185c2c-021d-41f0-9f7f-8afc0883380f",
+      "d8348f87-9992-49c3-89d8-f475f2047104"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Make CondFlow resource consumption a deterministic may-closed union while preserving current file-handle diagnostics and effects.",
+    "description": "Closure: module - conditional file-handle typestate join. Context: CondFlow snapshots local binding facts but not consumed-resource facts, so branch state leaks and post-join state is not derived. Target: implement branch-isolated snapshots and a union join over the existing SymbolId-authoritative consumed-resource facts, expose bounded counters, and make this the sole conditional resource-state path. Design Considerations: structured forward flow, O(1) transfers, O(C*R) joins, missing-else identity, invalid-SymbolId fallback, and effects kept separate. Design Value: closes one path-sensitivity gap without a CFG or second typestate system. Constraints & Risks: preserve syntax and diagnostics, no compatibility behavior, and do not enter OPT-G.",
+    "requirements": [
+      "REQ-OPT-F-TYPESTATE",
+      "REQ-OPT-F-BOUNDED-DATAFLOW"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/resource-typestate-dataflow/Architecture.md",
+      "owned_paths": [
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioSema/TypeInfer.cpp"
+      ],
+      "scaffold_paths": [
+        "src/StyioSema/SemaContext.hpp"
+      ],
+      "acceptance_paths": [
+        "tests/typeinfer_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "benchmark/internal/core_bench.cpp",
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioSema/SemaContext.hpp",
+          "kind": "type",
+          "name": "ResourceTypestateDataflowStats",
+          "operation": "add",
+          "signature": "bounded conditional resource-state counters"
+        },
+        {
+          "path": "src/StyioSema/TypeInfer.cpp",
+          "kind": "function",
+          "name": "StyioSemaContext::typeInfer(CondFlowAST*)",
+          "operation": "modify",
+          "signature": "branch-isolated consumed-resource union join"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "conditional resource typestate",
+          "producer": "src/StyioSema/TypeInfer.cpp",
+          "consumers": [
+            "resource property inference",
+            "file-handle I/O inference",
+            "OPT-F tests and benchmark"
+          ],
+          "inputs": "incoming consumed-resource facts and reachable branch ASTs",
+          "outputs": "SymbolId-authoritative may-closed union and bounded counters",
+          "errors": [
+            "existing consumed-resource StyioTypeError diagnostics"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one structured CondFlow transfer and union join",
+        "algorithms": "single forward branch evaluation with set union",
+        "data_structures": "existing string/SymbolId consumed-resource hash sets plus scalar counters",
+        "state": "open is absence and may-closed is presence; failure effects are separate",
+        "isolation": "Sema conditional resource facts only",
+        "concurrency": "request-local Sema state; OPT-G waits for completion"
+      },
+      "test_seams": [
+        "single and double branch close",
+        "open/open and reopen success",
+        "nested branch isolation",
+        "256-join bounded counter probe"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "Conditional file-handle state uses one branch-isolated may-closed union with stable SymbolId authority, diagnostics, missing-else behavior, and reopen transfer.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "ce37ecd589b6c9f05ce0a33753a6e4ccae270a9a1b1a8b07615e6c9aed1b034e",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "cc9e56e5eaf927610cd915a3637e7d32c5bdf997b5fbfd8058f90f58e54a4f82",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "056cd5d9617ca208f4dd85d590f61fe08105e04ec83da283e6709598e284fccb",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "The old implicit branch-state leak is removed, effects remain separate, and no CFG, second state map, verifier, or compatibility path exists.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "ce37ecd589b6c9f05ce0a33753a6e4ccae270a9a1b1a8b07615e6c9aed1b034e",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "cc9e56e5eaf927610cd915a3637e7d32c5bdf997b5fbfd8058f90f58e54a4f82",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "056cd5d9617ca208f4dd85d590f61fe08105e04ec83da283e6709598e284fccb",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Focused positive, negative, security, and 256-join counter evidence meets the frozen time and storage budgets.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "ce37ecd589b6c9f05ce0a33753a6e4ccae270a9a1b1a8b07615e6c9aed1b034e",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "cc9e56e5eaf927610cd915a3637e7d32c5bdf997b5fbfd8058f90f58e54a4f82",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "056cd5d9617ca208f4dd85d590f61fe08105e04ec83da283e6709598e284fccb",
+            "exit_code": 0,
+            "recorded_at": "2026-08-01T23:50:06Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "perf(resource): join conditional handle typestate",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build --target styio_typeinfer_internal_test styio_security_test styio_core_bench -j2",
+        "ctest --test-dir build -R '^(StyioResourceTypestate|StyioSecurityResourceTypestate)\\.' --output-on-failure --no-tests=error",
+        "STYIO_BENCH_WARMUP=1 STYIO_BENCH_MEASURED=1 ./build/bin/styio_core_bench --stdout > /tmp/styio-opt-f-focused.json && rg -q '\"label\"[[:space:]]*:[[:space:]]*\"resource_typestate_conditional_join_256\"' /tmp/styio-opt-f-focused.json"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "tests/typeinfer_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-01T23:50:06Z",
+        "contract_digest": "e7446241d58db23acac7cd61f4ee88c93976b45093861318834f73193acc44cb",
+        "content_fingerprint": "738e157c009e9c7ef425a06a92dd2987010823846008b2ea2acb980b278e2e61"
+      }
+    },
+    "next": [
+      "719a3919-bea5-444d-ad84-ceded420600e"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 3,
+      "outcome": "accepted",
+      "design_digest": "cd8ffd3dd8426e3d546fcecb2176fbb977a50b34c5b711b40e10a1ca28b1eb7c",
+      "acceptance_fingerprint": "ca414daf29372b9ec9af4338252ca557a9fd7e8e310b222606512b4a8e83725a"
+    }
+  },
+  {
+    "id": "719a3919-bea5-444d-ad84-ceded420600e",
+    "status": "completed",
+    "role": "final_validation",
+    "code": "OPT-F-VALIDATE",
+    "title": "Validate conditional resource typestate dataflow",
+    "conditions": [
+      "Immediate decision issues must be resolved; deferred decisions remain collected for the final OPT-D-G handoff."
+    ],
+    "prerequisites": [
+      "78c2f92f-e20c-4d5d-a343-dd1c17220f3d"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Review OPT-F once and run its complete impacted resource-state, security, benchmark, and documentation regression.",
+    "description": "Scope: the complete conditional file-handle typestate group. Context: group completion requires one fresh end-to-end review followed by one impacted regression. Target: prove branch isolation, conservative union, stable diagnostics, reopen behavior, bounded state work, and complete removal of implicit branch leakage. Design Considerations: inspect changed Sema paths and direct acceptance fixtures only. Design Value: closes OPT-F as a canonical fact boundary ready for OPT-G. Constraints & Risks: one Reviewer only; no general CFG or repeated full regression without failure evidence.",
+    "requirements": [
+      "REQ-OPT-F-TYPESTATE",
+      "REQ-OPT-F-BOUNDED-DATAFLOW"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md",
+      "owned_paths": [
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Review.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Review.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md",
+        "tests/typeinfer_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "benchmark/internal/core_bench.cpp"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one group review then one impacted regression",
+        "algorithms": "frozen OPT-F acceptance matrix",
+        "data_structures": "review evidence only",
+        "state": "no new production state",
+        "isolation": "OPT-F changed paths and impacted resource tests",
+        "concurrency": "serialized final acceptance before OPT-G"
+      },
+      "test_seams": [
+        "typestate internals",
+        "resource security scenarios",
+        "resource topology regression",
+        "benchmark oracle",
+        "documentation gate"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "No unresolved immediate decision issue remains and the Reviewer confirms the frozen OPT-F boundary.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "f938347054a1147e01dc29ff241b3dac0323059fed5cc9d0f062a37111fa5da4",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T00:02:37Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "All impacted typestate, resource-topology, security, benchmark, diff, and documentation gates pass once.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "f938347054a1147e01dc29ff241b3dac0323059fed5cc9d0f062a37111fa5da4",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T00:02:37Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test(resource): validate OPT-F typestate dataflow",
+      "target": "styio-nightly"
+    },
+    "regression": {
+      "scope": "full",
+      "commands": [
+        "cmake --build build -j2 && ctest --test-dir build -R '^(StyioResourceTypestate|StyioSecurityResourceTypestate|StyioResourceTopology)\\.' --output-on-failure --no-tests=error && STYIO_BENCH_WARMUP=1 STYIO_BENCH_MEASURED=1 ./build/bin/styio_core_bench --stdout > /tmp/styio-opt-f-full.json && rg -q '\"label\"[[:space:]]*:[[:space:]]*\"resource_typestate_conditional_join_256\"' /tmp/styio-opt-f-full.json && git diff --check && bash scripts/docs-gate.sh"
+      ],
+      "criteria": [
+        0,
+        1
+      ],
+      "paths": [
+        "src/StyioSema/SemaContext.hpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "tests/resource_topology_test.cpp",
+        "tests/typeinfer_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "benchmark/internal/core_bench.cpp",
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Architecture.md",
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Validation.md",
+        "docs/plan/roadmap/optimization/resource-typestate-dataflow/Review.md"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-02T00:02:37Z",
+        "contract_digest": "09c041b0b5a0d382abf4ded093c12cfc6e3bcaa994dc272a9de2405054e69b07",
+        "content_fingerprint": "a9e2ce87745b08b5b5f2d66aff123760d4e043ee8c12e35ed3f67536050a2290"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted",
+      "review": {
+        "recorded_at": "2026-08-02T00:01:24Z",
+        "dispatch_id": "1b57cf7a-e408-4d07-81b9-c6722cd1603b"
+      },
+      "design_digest": "7bed0164f0801b930e0744fcc944a11f928d9bd141eebfe22a4d87eb4613e7c7",
+      "scaffold_fingerprint": "e40566a64b5b5c1fe0be1852396b02e61e875a460d1ae92808a2765e7a7b5ce6",
+      "acceptance_fingerprint": "0b017ec8bfc5fdb295c4254475c79dd9cc4c6485587699cfa1354c435257e1df"
+    }
+  }
+]

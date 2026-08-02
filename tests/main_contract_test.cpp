@@ -1866,7 +1866,6 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   StyioCompilePlanRequestLatest request;
   request.plan_version = 1;
   request.intent = "test";
-  request.build_mode = "debug";
   request.entry_package_id = "pkg/main";
   request.entry_target_kind = "test";
   request.entry_target_name = "unit/name";
@@ -2159,13 +2158,13 @@ TEST(StyioMainContract, CompilePlanDirectorySetupFailuresEmitDiagnostics) {
     const std::string text =
       "{"
       "\"plan_version\":1,"
-      "\"generated_by\":{\"tool\":\"spio\",\"version\":\"1.0\"},"
+      "\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1.0\"},"
       "\"intent\":\"check\","
       "\"workspace_root\":\"" + styio_json_escape(workspace.string()) + "\","
       "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"bin\",\"target_name\":\"app\",\"file\":\""
       + styio_json_escape(source.string()) + "\"},"
       "\"toolchain\":{},"
-      "\"profile\":{\"name\":\"dev\",\"build_mode\":\"minimal\"},"
+      "\"profile\":{\"name\":\"dev\"},"
       "\"packages\":[{\"id\":\"pkg/main\"}],"
       "\"resolution\":{},"
       "\"outputs\":{\"build_root\":\"" + styio_json_escape(build_root.string())
@@ -2249,7 +2248,6 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
   };
   auto valid_plan_text = [&](const std::string& generated_by_tool,
                              const std::string& intent,
-                             const std::string& build_mode,
                              const std::string& entry_target_kind,
                              const std::string& error_format) {
     return std::string("{")
@@ -2260,7 +2258,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
       + "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"" + entry_target_kind
       + "\",\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
       + "\"toolchain\":{},"
-      + "\"profile\":{\"name\":\"dev\",\"build_mode\":\"" + build_mode + "\"},"
+      + "\"profile\":{\"name\":\"dev\"},"
       + "\"packages\":[{\"id\":\"pkg/main\"}],"
       + "\"resolution\":{},"
       + "\"outputs\":{\"build_root\":\"" + quote(build_root)
@@ -2282,7 +2280,6 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     EXPECT_NE(error.find(needle), std::string::npos) << error;
   };
 
-  EXPECT_FALSE(styio::config::is_supported_build_mode("debug"));
   {
     fs::path probed;
     EXPECT_FALSE(styio_probe_compile_plan_diag_dir_latest(temp.path() / "missing.json", probed));
@@ -2316,7 +2313,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "missing required object field: generated_by");
   expect_parse_error(
     write_plan("missing-packages-array.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2332,17 +2329,17 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     std::string error;
     EXPECT_TRUE(styio::config::parse_compile_plan(
       write_plan("state-plan-marker.json",
-                 valid_plan_text("spio", "test", "minimal", "test", "jsonl").replace(16, 1, "2")),
+                 valid_plan_text("pafio", "test", "test", "jsonl").replace(16, 1, "2")),
       request,
       error)) << error;
     EXPECT_EQ(request.plan_version, 2);
   }
   expect_parse_error(
-    write_plan("bad-tool.json", valid_plan_text("other", "test", "minimal", "test", "jsonl")),
+    write_plan("bad-tool.json", valid_plan_text("other", "test", "test", "jsonl")),
     "generated_by.tool");
   expect_parse_error(
     write_plan("missing-generated-by-version.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2356,7 +2353,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "missing required string field: version");
   expect_parse_error(
     write_plan("missing-profile-name.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2367,20 +2364,26 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
                + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
                "\"styio_ir\":false,\"llvm_ir\":false}}"),
     "missing required string field: name");
+  {
+    std::string unsupported_profile =
+      valid_plan_text("pafio", "test", "test", "jsonl");
+    const std::string profile_marker = "\"profile\":{\"name\":\"dev\"}";
+    const size_t marker = unsupported_profile.find(profile_marker);
+    ASSERT_NE(marker, std::string::npos);
+    unsupported_profile.replace(
+      marker,
+      profile_marker.size(),
+      "\"profile\":{\"name\":\"dev\",\"legacy\":true}");
+    expect_parse_error(
+      write_plan("unsupported-profile-field.json", unsupported_profile),
+      "profile contains an unsupported field: legacy");
+  }
   expect_parse_error(
-    write_plan("empty-build-mode.json",
-               valid_plan_text("spio", "test", "", "test", "jsonl")),
-    "optional string field");
-  expect_parse_error(
-    write_plan("unsupported-build-mode.json",
-               valid_plan_text("spio", "test", "debug", "test", "jsonl")),
-    "unsupported compile-plan profile.build_mode");
-  expect_parse_error(
-    write_plan("bad-intent.json", valid_plan_text("spio", "deploy", "minimal", "test", "jsonl")),
+    write_plan("bad-intent.json", valid_plan_text("pafio", "deploy", "test", "jsonl")),
     "unsupported compile-plan intent");
   expect_parse_error(
     write_plan("empty-packages.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2393,7 +2396,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "packages array must not be empty");
   expect_parse_error(
     write_plan("package-not-object.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2406,7 +2409,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "packages[0] must be an object");
   expect_parse_error(
     write_plan("missing-package-id.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2419,7 +2422,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "packages[0].id");
   expect_parse_error(
     write_plan("missing-entry-package.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2432,7 +2435,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "entry.package_id is not present");
   expect_parse_error(
     write_plan("missing-entry-file.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\"},"
@@ -2446,11 +2449,11 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "missing required string field: file");
   expect_parse_error(
     write_plan("bad-target-kind.json",
-               valid_plan_text("spio", "test", "minimal", "bench", "jsonl")),
+               valid_plan_text("pafio", "test", "bench", "jsonl")),
     "unsupported compile-plan entry.target_kind");
   expect_parse_error(
     write_plan("relative-workspace.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"relative\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2464,7 +2467,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "path must be absolute: workspace_root");
   expect_parse_error(
     write_plan("missing-bool.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2478,7 +2481,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "missing required boolean field: ast");
   expect_parse_error(
     write_plan("missing-build-root.json",
-               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"spio\",\"version\":\"1\"},"
+               "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
                "\"intent\":\"test\",\"workspace_root\":\"" + quote(workspace) + "\","
                "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"test\","
                "\"target_name\":\"unit\",\"file\":\"" + quote(source) + "\"},"
@@ -2491,13 +2494,13 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
     "missing required string field: build_root");
   expect_parse_error(
     write_plan("bad-error-format.json",
-               valid_plan_text("spio", "test", "minimal", "test", "yaml")),
+               valid_plan_text("pafio", "test", "test", "yaml")),
     "unsupported compile-plan emit.error_format");
 
   StyioCompilePlanRequestLatest parsed;
   std::string error;
   ASSERT_TRUE(styio::config::parse_compile_plan(
-    write_plan("ok.json", valid_plan_text("spio", "run", "minimal", "bin", "text")),
+    write_plan("ok.json", valid_plan_text("pafio", "run", "bin", "text")),
     parsed,
     error)) << error;
   EXPECT_EQ(parsed.intent, "run");
@@ -3928,7 +3931,9 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   disabled.mark_status("ignored");
   disabled.set_source_summary(12, 2);
   disabled.set_parser_route_stats(1, 2, 3, 4);
-  disabled.set_async_scheduler_stats(1, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+  disabled.set_async_scheduler_stats(
+    1, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23, 24);
   EXPECT_TRUE(disabled.write());
   EXPECT_FALSE(disabled.written());
   const std::string disabled_json = disabled.to_json();
@@ -3954,7 +3959,9 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   profiler.record_phase("manual\nphase", 42);
   profiler.mark_status("ok", std::string("detail ") + static_cast<char>(1));
   profiler.set_parser_route_stats(3, 2, 1, 0);
-  profiler.set_async_scheduler_stats(1, 4, 1, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11);
+  profiler.set_async_scheduler_stats(
+    1, 4, 1, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11,
+    4096, 0, 9, 9, 2, 2, 4, 0, 0);
 
   StyioToken* name = StyioToken::Create(StyioTokenType::NAME, "name");
   StyioToken* integer = StyioToken::Create(StyioTokenType::INTEGER, "1");
@@ -3995,6 +4002,8 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   EXPECT_NE(json.find("\"nightly_subset_statements\": 3"), std::string::npos);
   EXPECT_NE(json.find("\"ready_queue_kind\": 1"), std::string::npos);
   EXPECT_NE(json.find("\"max_queue_depth\": 11"), std::string::npos);
+  EXPECT_NE(json.find("\"queue_capacity\": 4096"), std::string::npos);
+  EXPECT_NE(json.find("\"queue_pressure_events\": 2"), std::string::npos);
   EXPECT_NE(json.find("\"name\": \"second\""), std::string::npos);
 
   std::string error;

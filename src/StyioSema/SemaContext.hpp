@@ -3,8 +3,10 @@
 #define STYIO_SEMA_CONTEXT_H_
 
 // [STL]
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -20,6 +22,9 @@ using std::unordered_map;
 #include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
+#include "CallableSpecializationGraph.hpp"
+#include "CallableUsage.hpp"
+#include "EffectRow.hpp"
 
 struct SGPulsePlan;
 
@@ -264,12 +269,17 @@ public:
     const std::string& name,
     styio::session::SymbolId sid
   ) {
-    consumed_resource_names_.insert(name);
     if (sid == styio::session::kInvalidSymbolId) {
-      sid = intern_semantic_symbol(name);
+      sid = lookup_semantic_symbol(name);
     }
     if (sid != styio::session::kInvalidSymbolId) {
-      consumed_resource_names_by_sid_.insert(sid);
+      if (consumed_resource_names_by_sid_.insert(sid).second) {
+        ++resource_typestate_dataflow_stats_.fact_insertion_count;
+      }
+      return;
+    }
+    if (consumed_resource_names_.insert(name).second) {
+      ++resource_typestate_dataflow_stats_.fact_insertion_count;
     }
   }
 
@@ -280,9 +290,8 @@ public:
     if (sid == styio::session::kInvalidSymbolId) {
       sid = lookup_semantic_symbol(name);
     }
-    if (sid != styio::session::kInvalidSymbolId
-        && consumed_resource_names_by_sid_.count(sid) != 0) {
-      return true;
+    if (sid != styio::session::kInvalidSymbolId) {
+      return consumed_resource_names_by_sid_.count(sid) != 0;
     }
     return consumed_resource_names_.count(std::string(name)) != 0;
   }
@@ -291,13 +300,14 @@ public:
     const std::string& name,
     styio::session::SymbolId sid
   ) {
-    consumed_resource_names_.erase(name);
     if (sid == styio::session::kInvalidSymbolId) {
       sid = lookup_semantic_symbol(name);
     }
     if (sid != styio::session::kInvalidSymbolId) {
       consumed_resource_names_by_sid_.erase(sid);
+      return;
     }
+    consumed_resource_names_.erase(name);
   }
 
   void clear_consumed_resource_names() {
@@ -491,6 +501,128 @@ public:
 
 
 public:
+  struct CallableTypeTerm
+  {
+    enum class Kind : std::uint8_t {
+      Variable = 0,
+      Concrete,
+      List,
+      Dict,
+    };
+
+    Kind kind = Kind::Concrete;
+    std::uint32_t variable = 0;
+    StyioDataType concrete{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    std::vector<CallableTypeTerm> arguments;
+  };
+
+  enum class CallableConstraintKind : std::uint8_t {
+    Numeric = 0,
+    Comparable,
+    Indexable,
+    Iterable,
+    Cloneable,
+  };
+
+  struct CallableTypeConstraint
+  {
+    CallableConstraintKind kind = CallableConstraintKind::Numeric;
+    CallableTypeTerm subject;
+    CallableTypeTerm argument;
+    CallableTypeTerm result;
+    std::string canonical;
+  };
+
+  struct CallableConstraintSolverStats
+  {
+    std::size_t run_count = 0;
+    std::size_t input_constraint_count = 0;
+    std::size_t attempt_count = 0;
+    std::size_t requeue_count = 0;
+    std::size_t strict_binding_event_count = 0;
+    std::size_t defaulted_variable_count = 0;
+    std::size_t peak_frontier_count = 0;
+    std::size_t peak_blocked_count = 0;
+    std::size_t peak_live_waiter_count = 0;
+    std::size_t peak_scheduler_storage_slots = 0;
+  };
+
+  struct CallableUsageRequirement
+  {
+    std::uint32_t variable = 0;
+    styio::sema::CallableUsageSet usages;
+  };
+
+  struct CallableTypeScheme
+  {
+    std::string name;
+    std::vector<CallableTypeTerm> params;
+    CallableTypeTerm result;
+    std::vector<CallableTypeConstraint> constraints;
+    std::vector<CallableUsageRequirement> usage_requirements;
+    std::vector<std::uint32_t> quantified_variables;
+    bool recursive_group = false;
+    std::string canonical_relation;
+  };
+
+  struct CallableEffectRowFacts
+  {
+    styio::sema::CallableEffectRow row;
+    bool relation_seed = false;
+    std::vector<std::string> captures;
+    std::vector<std::string> direct_callees;
+
+    bool proven_pure() const {
+      return row.proven_pure();
+    }
+  };
+
+  enum class CallableCaptureMode : std::uint8_t {
+    SharedBorrow = 0,
+    ExclusiveBorrow,
+    Consume,
+  };
+
+  struct CallableCaptureFact
+  {
+    std::string name;
+    CallableCaptureMode mode = CallableCaptureMode::SharedBorrow;
+  };
+
+  struct ImportedCallableDefinition
+  {
+    std::string module_id;
+    bool exported = false;
+    bool has_scheme = false;
+    StyioAST* definition = nullptr;
+    CallableTypeScheme scheme;
+    CallableEffectRowFacts effects;
+    std::vector<StyioDataType> concrete_params;
+    StyioDataType concrete_result{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    std::unordered_set<std::string> visible_from_modules;
+    std::string portable_body_digest;
+    std::string interface_abi_digest;
+  };
+
+  struct CallableSpecialization
+  {
+    std::string source_name;
+    std::string owner_module;
+    std::string lowered_name;
+    std::vector<StyioDataType> param_types;
+    StyioDataType result_type{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    std::string canonical_key;
+    std::string content_digest;
+    std::string portable_body_digest;
+    std::string interface_abi_digest;
+  };
+
   enum class BindingValueKind : std::uint8_t {
     Unknown = 0,
     Bool,
@@ -522,6 +654,57 @@ public:
     std::vector<std::string> param_names;
     std::vector<StyioDataType> param_types;
   };
+
+  struct ResourceTypestateDataflowStats
+  {
+    std::size_t branch_snapshot_count = 0;
+    std::size_t join_count = 0;
+    std::size_t fact_insertion_count = 0;
+    std::size_t peak_temporary_fact_slots = 0;
+  };
+
+  struct ResourceTypestateFactSnapshot
+  {
+    std::unordered_set<std::string> names;
+    std::unordered_set<styio::session::SymbolId> symbols;
+
+    std::size_t size() const {
+      return names.size() + symbols.size();
+    }
+  };
+
+  const ResourceTypestateDataflowStats&
+  resource_typestate_dataflow_stats() const {
+    return resource_typestate_dataflow_stats_;
+  }
+
+  void reset_resource_typestate_dataflow_stats() {
+    resource_typestate_dataflow_stats_ = {};
+    resource_typestate_temporary_fact_slots_ = 0;
+  }
+
+  ResourceTypestateFactSnapshot snapshot_resource_typestate_facts() {
+    ResourceTypestateFactSnapshot snapshot{
+      consumed_resource_names_, consumed_resource_names_by_sid_};
+    resource_typestate_temporary_fact_slots_ += snapshot.size();
+    resource_typestate_dataflow_stats_.peak_temporary_fact_slots = std::max(
+      resource_typestate_dataflow_stats_.peak_temporary_fact_slots,
+      resource_typestate_temporary_fact_slots_);
+    return snapshot;
+  }
+
+  void release_resource_typestate_snapshot(
+    const ResourceTypestateFactSnapshot& snapshot
+  ) {
+    resource_typestate_temporary_fact_slots_ -= snapshot.size();
+  }
+
+  void install_resource_typestate_facts(
+    const ResourceTypestateFactSnapshot& snapshot
+  ) {
+    consumed_resource_names_ = snapshot.names;
+    consumed_resource_names_by_sid_ = snapshot.symbols;
+  }
 
   styio::session::SymbolId intern_semantic_symbol(std::string_view spelling) {
     if (type_table_symbols_ == nullptr) {
@@ -802,6 +985,120 @@ public:
     return &method_it->second;
   }
 
+  void prepare_callable_type_schemes(MainBlockAST* ast);
+
+  const CallableTypeScheme* find_callable_type_scheme(
+    std::string_view name
+  ) const;
+
+  const CallableEffectRowFacts* find_callable_effect_row(
+    std::string_view name
+  ) const;
+
+  const std::vector<CallableCaptureFact>* find_callable_capture_facts(
+    std::string_view name
+  ) const;
+
+  const std::unordered_map<std::string, CallableTypeScheme>&
+  callable_type_scheme_facts() const {
+    return callable_type_schemes_;
+  }
+
+  const CallableConstraintSolverStats&
+  callable_constraint_solver_stats() const {
+    return callable_constraint_solver_stats_;
+  }
+
+  const std::unordered_map<std::string, CallableEffectRowFacts>&
+  callable_effect_row_facts() const {
+    return callable_effect_rows_;
+  }
+
+  void install_imported_callable_definition(
+    std::string module_id,
+    bool exported,
+    bool has_scheme,
+    StyioAST* definition,
+    CallableTypeScheme scheme,
+    CallableEffectRowFacts effects,
+    std::vector<StyioDataType> concrete_params,
+    StyioDataType concrete_result,
+    std::vector<std::string> visible_from_modules,
+    std::string portable_body_digest,
+    std::string interface_abi_digest
+  );
+
+  const std::vector<ImportedCallableDefinition>&
+  imported_callable_definitions() const {
+    return imported_callable_definitions_;
+  }
+
+  const ImportedCallableDefinition* find_imported_callable_definition(
+    std::string_view name
+  ) const;
+
+  bool imported_callable_is_visible(std::string_view name) const;
+
+  void register_imported_callable_definitions();
+
+  void configure_callable_specialization_environment(
+    std::string backend_abi,
+    std::string dependency_digest
+  );
+
+  void enforce_effect_monomorphic_instance(
+    std::string_view name,
+    const std::vector<StyioDataType>& arg_types
+  );
+
+  CallableSpecialization instantiate_callable_type_scheme(
+    FuncCallAST* call,
+    const std::vector<StyioDataType>& arg_types
+  );
+
+  const std::vector<CallableSpecialization>& callable_specializations(
+    std::string_view name
+  ) const;
+
+  bool callable_has_runtime_specializations(std::string_view name) const;
+
+  bool imported_concrete_callable_is_reachable(
+    std::string_view name
+  ) const;
+
+  void prepare_imported_concrete_callable_body(
+    std::string_view name
+  );
+
+  std::size_t callable_specialization_count() const {
+    return callable_specialization_graph_.node_count();
+  }
+
+  void prepare_callable_specialization_body(
+    StyioAST* def,
+    const CallableSpecialization& specialization
+  );
+
+  void activate_callable_specialization(
+    const CallableSpecialization& specialization
+  ) {
+    active_callable_specialization_ = specialization;
+  }
+
+  void clear_active_callable_specialization() {
+    active_callable_specialization_.reset();
+  }
+
+  const CallableSpecialization* active_callable_specialization(
+    std::string_view source_name
+  ) const {
+    if (!active_callable_specialization_.has_value()
+        || active_callable_specialization_->source_name != source_name) {
+      return nullptr;
+    }
+    return &*active_callable_specialization_;
+  }
+
 protected:
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;
@@ -829,6 +1126,8 @@ protected:
   std::unordered_map<HandleAcquireAST*, StyioDataType> collect_bind_handle_acquire_types_;
   std::unordered_set<std::string> consumed_task_names_;
   std::unordered_set<std::string> consumed_resource_names_;
+  ResourceTypestateDataflowStats resource_typestate_dataflow_stats_;
+  std::size_t resource_typestate_temporary_fact_slots_ = 0;
   std::unordered_set<std::string> owned_resource_names_;
   std::vector<std::unordered_set<std::string>> task_outer_resource_names_stack_;
   std::vector<std::unordered_set<styio::session::SymbolId>> task_outer_resource_names_by_sid_stack_;
@@ -838,6 +1137,32 @@ protected:
   std::unordered_set<styio::session::SymbolId> active_function_body_inference_by_sid_;
   std::vector<styio::session::SymbolId> active_function_body_sid_stack_;
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
+  std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
+  CallableConstraintSolverStats callable_constraint_solver_stats_;
+  std::unordered_map<std::string, CallableEffectRowFacts> callable_effect_rows_;
+  std::unordered_map<std::string, std::vector<CallableCaptureFact>>
+    callable_capture_facts_;
+  std::vector<ImportedCallableDefinition> imported_callable_definitions_;
+  std::unordered_map<std::string, std::size_t>
+    imported_callable_definition_indices_;
+  std::unordered_map<std::string, std::vector<StyioDataType>>
+    effect_monomorphic_instances_;
+  std::unordered_map<std::string, std::vector<CallableSpecialization>> callable_specializations_;
+  std::unordered_map<std::string, CallableSpecialization>
+    callable_specialization_cache_;
+  std::unordered_map<const StyioAST*, std::string>
+    callable_semantic_body_digests_;
+  std::unordered_map<std::string, std::string>
+    callable_definition_dependency_digests_;
+  std::unordered_set<std::string>
+    reachable_imported_concrete_callables_;
+  styio::sema::CallableSpecializationGraph
+    callable_specialization_graph_;
+  std::string callable_specialization_backend_abi_ =
+    "styio.specialization.backend.unspecified.v1";
+  std::string callable_specialization_dependency_digest_ =
+    "styio.specialization.dependencies.none.v1";
+  std::optional<CallableSpecialization> active_callable_specialization_;
   std::string active_resource_receiver_family_;
   styio::session::TypeTable* type_table_ = nullptr;
   styio::session::SymbolInterner* type_table_symbols_ = nullptr;

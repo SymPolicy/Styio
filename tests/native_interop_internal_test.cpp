@@ -76,11 +76,20 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
     "/tmp/source file.c",
     "/tmp/out;safe.so");
 #if defined(_WIN32)
-  ASSERT_EQ(shared_argv.size(), 6u);
+  ASSERT_EQ(shared_argv.size(), 8u);
   EXPECT_EQ(shared_argv[0], compiler.command);
   EXPECT_EQ(shared_argv[1], "-shared");
-  EXPECT_EQ(shared_argv[3], "/tmp/source file.c");
-  EXPECT_EQ(shared_argv[5], "/tmp/out;safe.so");
+  EXPECT_EQ(shared_argv[5], "/tmp/source file.c");
+  EXPECT_EQ(shared_argv[7], "/tmp/out;safe.so");
+#elif defined(__APPLE__)
+  ASSERT_EQ(shared_argv.size(), 7u);
+  EXPECT_EQ(shared_argv[0], compiler.command);
+  EXPECT_EQ(shared_argv[1], "-dynamiclib");
+  EXPECT_EQ(shared_argv[4], "/tmp/source file.c");
+  EXPECT_EQ(shared_argv[6], "/tmp/out;safe.so");
+  EXPECT_EQ(
+    native_command_display(shared_argv),
+    "'/tmp/compiler dir/cc tool' '-dynamiclib' '-fPIC' '-O2' '/tmp/source file.c' '-o' '/tmp/out;safe.so'");
 #else
   ASSERT_EQ(shared_argv.size(), 7u);
   EXPECT_EQ(shared_argv[0], compiler.command);
@@ -98,10 +107,10 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
     "/tmp/source file.cpp",
     "/tmp/out file.o");
 #if defined(_WIN32)
-  ASSERT_EQ(object_argv.size(), 7u);
+  ASSERT_EQ(object_argv.size(), 9u);
   EXPECT_EQ(object_argv[1], "-std=c++20");
-  EXPECT_EQ(object_argv[4], "/tmp/source file.cpp");
-  EXPECT_EQ(object_argv[6], "/tmp/out file.o");
+  EXPECT_EQ(object_argv[6], "/tmp/source file.cpp");
+  EXPECT_EQ(object_argv[8], "/tmp/out file.o");
 #else
   ASSERT_EQ(object_argv.size(), 8u);
   EXPECT_EQ(object_argv[1], "-std=c++20");
@@ -125,21 +134,17 @@ TEST(StyioNativeInteropInternal, EscapingAndCacheEnvironmentBranchesStayExplicit
       std::filesystem::path("native") / ("cached" + std::string(styio::platform::shared_library_suffix())))
       .extension()
       .string(),
-    styio::platform::shared_library_suffix());
+    ".tmp");
 
   cache_guard.set("1");
   cache_dir_guard.set(" ");
   xdg_guard.set((std::filesystem::temp_directory_path() / "styio-native-xdg").string());
   home_guard.unset();
-  EXPECT_NE(native_cache_dir().generic_string().find("styio/native/abi-stable"), std::string::npos);
+  EXPECT_NE(native_cache_dir().generic_string().find("styio/native/v1"), std::string::npos);
 
   xdg_guard.set(" ");
   home_guard.unset();
-#if defined(_WIN32)
-  EXPECT_FALSE(native_cache_dir().empty());
-#else
   EXPECT_TRUE(native_cache_dir().empty());
-#endif
 }
 
 TEST(StyioNativeInteropInternal, SignatureParsingRejectsAndSynthesizesEdgeParameters) {
@@ -581,7 +586,11 @@ TEST(StyioNativeInteropInternal, CompilerPathWithShellMetacharactersIsExecutedLi
   EXPECT_FALSE(std::filesystem::exists(marker));
   std::string argv_log_text;
   EXPECT_TRUE(read_text_file(arg_log, argv_log_text));
+#if defined(__APPLE__)
+  EXPECT_NE(argv_log_text.find("-dynamiclib\n"), std::string::npos);
+#else
   EXPECT_NE(argv_log_text.find("-shared\n"), std::string::npos);
+#endif
   EXPECT_NE(argv_log_text.find("-fPIC\n"), std::string::npos);
   EXPECT_NE(argv_log_text.find("-o\n"), std::string::npos);
 

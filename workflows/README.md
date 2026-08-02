@@ -2,7 +2,7 @@
 
 **Purpose:** Provide root-level reusable workflows and repo-local skills for styio-nightly delivery.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-30
 
 ## Scope
 
@@ -17,7 +17,7 @@
 
 ## Entry Points
 
-Before changing code, agents must read this entrypoint and then fully read the applicable workflow Markdown/TOML pair. For functional changes, read [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) before implementation planning and again before commit so targeted feature validation, upstream/downstream adaptation, and objective unable-to-verify blockers are explicit. For functional changes that replace, optimize, migrate, or broaden existing behavior, read [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md) again before final tests. For any skill, doc, workflow, script, test, config, or handoff record, run [LOCAL-INFO-LEAK-GATE.md](./LOCAL-INFO-LEAK-GATE.md) so developer-machine and server-specific details are placeholders. For syntax disputes, parse errors, EBNF mismatches, or accepted/rejected spelling questions, start with [CORRECT-SYNTAX-CONTRACT.md](./CORRECT-SYNTAX-CONTRACT.md) before editing parser, Sema, lowering, tests, or docs.
+Before changing code, agents must read this entrypoint and then fully read the applicable workflow Markdown/TOML pair. For functional changes, read [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) before implementation planning and again before commit so targeted feature validation, upstream/downstream adaptation, and objective unable-to-verify blockers are explicit. For functional changes that replace, optimize, migrate, or broaden existing behavior, read [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md) again before final tests. For any skill, doc, workflow, script, test, config, or handoff record, run [LOCAL-INFO-LEAK-GATE.md](./LOCAL-INFO-LEAK-GATE.md) so developer-machine and server-specific details are placeholders. For new or changed syntax, start with [ADD-SYNTAX-WITH-SKILLS.md](./ADD-SYNTAX-WITH-SKILLS.md) and its owning feature SSOT before implementation. For syntax disputes, parse errors, EBNF mismatches, or accepted/rejected spelling questions, start with [CORRECT-SYNTAX-CONTRACT.md](./CORRECT-SYNTAX-CONTRACT.md) before editing parser, Sema, lowering, tests, or docs.
 
 1. [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md)
 2. [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md)

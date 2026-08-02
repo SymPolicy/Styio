@@ -1,8 +1,8 @@
 # Styio Language Design Specification
 
-**Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
+**Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), and `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-07-31
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -23,10 +23,38 @@ The name encodes the language's identity:
 
 | Pillar | Description |
 |--------|-------------|
-| **Pure Symbolism** | Replace natural-language keywords (`if`, `while`, `for`, `def`) with unambiguous symbolic operators (`?=`, `>>`, `#`, `@`). |
+| **Keyword-Free Pure Symbolism** | Styio reserves no word as a keyword. Symbols and structural position open grammar roles; word-shaped source text remains an identifier, a literal spelling, or a name resolved in a namespace. |
 | **Intent Awareness** | The compiler statically analyzes field access patterns and pushes intent down to resource drivers (e.g., only fetch needed database columns). |
 | **Honest Missing** | Runtime absence is represented as `@` in diagnostics and stream algebra. Source-level bare `@` is retired from active syntax; current code should obtain absence from resources or intrinsics instead of authoring it directly. |
 | **Thick Library, Thin Artifact** | Development uses a rich standard library with protocol detection and AI-assisted probing. Production builds perform dead-code elimination to produce minimal binaries. |
+
+#### 1.1.1 Keyword-Free Lexical Contract
+
+Styio has no reserved or contextual keyword token class. Every word-shaped
+source token is emitted as `NAME`. Its meaning is selected only by one of these
+already-open contexts:
+
+1. a symbol-anchored grammar family may inspect an exact `NAME` spelling after
+   the leading symbol has selected that family; for example, top-level
+   `@` + `NAME("import")` opens the import form, while `import` remains an
+   ordinary identifier everywhere that form is not open;
+2. expression context may recognize a literal spelling such as `true` or
+   `false` from `NAME`, without creating a keyword token; or
+3. a namespace-specific position may resolve an identifier as a type, value,
+   module member, completion family, resource family, or another declared name.
+
+A fixed word must never be the unanchored head of a declaration, control form,
+or operator. In particular, proposals headed by words such as `type`, `record`,
+`variant`, `protocol`, `impl`, `if`, `while`, `fn`, or `let` are outside the
+language. Quoted alphabetic spellings in the EBNF are spelling predicates over
+`NAME` inside an already symbol-anchored production; they do not reserve those
+spellings globally.
+
+Every syntax proposal must identify its symbolic opener or existing structural
+context and must include a negative example proving that any inspected word
+spelling remains an ordinary identifier outside that context. The historical
+word-based `schema` declaration is not active syntax and must not be used as
+precedent for a new declaration family.
 
 ### 1.2 Compiler Toolchain
 
@@ -46,7 +74,7 @@ Styio has no explicit loop constructs (`for`, `while`). Instead, data sources em
 ### 2.2 Progressive Performance
 
 The language follows a "write less, get convenience; write more, get speed" model:
-- Omit type annotations → compiler infers defaults (`i32` for integers, `f64` for floats)
+- Omit type annotations → compiler infers defaults (`i64` for integers, `f64` for floats)
 - Add explicit types → compiler generates optimized, specialized instructions
 - Omit resource protocol → runtime probes automatically
 - Specify protocol (e.g., `@file`, `@mysql`) → static dispatch without runtime probing
@@ -73,7 +101,7 @@ All control flow constructs (match, conditional wave, loops) are **expressions**
 ### 3.2 Default Types
 
 When type annotations are omitted:
-- Integer literals default to `i32`, including negative literals such as `-1`
+- Integer literals default to `i64`, including negative literals such as `-1`
 - Floating-point literals default to `f64`, including negative literals such as `-1.5`
 
 ### 3.3 Type Annotations
@@ -173,6 +201,81 @@ Import resolution remains explicit:
 - `.styio` is tried when the import candidate does not already name a Styio file
 - unresolved imports stay unresolved instead of binding to unrelated same-text symbols elsewhere in the workspace
 
+For executable callable imports in the current compiler, each slash-form path
+is resolved relative to the source that contains the declaration. The source
+must have a sibling `.styioi` callable interface produced explicitly from that
+module:
+
+```text
+styio --file=math/core.styio \
+      --module-id=math/core \
+      --emit-module-interface=math/core.styioi
+```
+
+The compiler never creates missing dependency interfaces while compiling a
+consumer. Build orchestration publishes dependencies first and then compiles
+the importing source.
+
+### 4.3 Callable Interface Contract
+
+Callable interface schema v4 publishes compiler-owned semantic facts rather
+than new source syntax. For each checked callable needed by the module it
+records either a canonical inferred relation with normalized constraints or a
+complete concrete signature, plus its canonical effect row, sorted
+per-variable usage requirements. A separate canonical
+`styio.portable-styioir` payload records each required local body. An effect row
+stores sorted known labels and a nullable compiler-owned open tail. Usage
+requirements store the closed `consume`, `copy`, `exclusive_borrow`, and
+`shared_borrow` vocabulary. Neither identity has a serialized bit mask or
+trusted cached canonical string. Public contract, target-independent typed
+bodies, source, direct dependencies, compiler ABI, and the combined interface
+ABI carry SHA-256 digests.
+
+Loading is fail-closed. The compiler validates the schema version, canonical
+module identity, target/compiler ABI, source digest, direct dependency set and
+digest, the public contract digest, every portable-body digest, the aggregate
+typed-body digest, and the recomputed interface ABI before installing a
+callable. Payload nodes are type-recomputed and must be canonical, bound, and
+topologically ordered. Missing or stale metadata is a type-phase error.
+
+Imported source is read only to validate its digest. Dependency discovery and
+body reconstruction come from the validated interface, so the compiler does
+not tokenize or parse imported source and has no source-text or schema-v3 body
+fallback.
+
+Only exported callables from a direct import are visible to the importing
+source. A published body may still use its own private helpers and exported
+callables from its direct dependencies; those facts do not become transitive
+names in the consumer. Duplicate imports and unqualified callable-name
+collisions are rejected.
+
+The current separate-compilation slice rejects a module dependency cycle
+before Sema. This conservatively enforces the accepted rule that recursive
+callable SCCs may not cross module boundaries. Non-generic exports retain
+concrete parameter/result facts; exported inferred callables are specialized
+from the published relation in the consuming compilation.
+
+### 4.4 Persistent Native Specialization Cache
+
+Persistent specialization reuse is compiler optimization state and has no
+source form. An invocation opts in with `--callable-cache-dir`. The compiler
+recomputes the existing full specialization digest from the concrete callable
+contract, portable body, transitive callable dependencies, direct module
+facts, and backend ABI, then queries one compiler/LLVM/codegen/target/channel
+namespace for the matching native object.
+
+Every hit validates the entry schema, full key, namespace, length, object
+checksum, target architecture, and defined specialization symbol before ORC
+materialization. Missing, expired, corrupt, or inaccessible entries compile
+normally. Consequently cache state and cache placement cannot alter typing,
+linkage identity, diagnostics, output, or program meaning.
+
+Retention defaults to seven days, 256 MiB, and 4,096 files and may be narrowed
+with `--callable-cache-max-age-seconds`,
+`--callable-cache-max-bytes`, and `--callable-cache-max-files`.
+`--callable-cache-stats` emits path-free explicit performance evidence; cache
+details are absent from normal output.
+
 ---
 
 ## 5. Callable / Operation-Channel Bindings
@@ -203,6 +306,132 @@ does make that promise, enters the callable/operation-channel binding path, and
 allows later `# f = ...` replacement until a final `# f := ...` definition is
 used. A final callable binding cannot be redefined by `=` or `:=`.
 
+#### 5.1.1 Inferred Generic Relations for Non-Recursive Callables
+
+A non-recursive callable has one type authority: its definition, including any
+concrete parameter or result annotations. Authors never declare a generic
+parameter list after the callable name:
+
+```styio
+# identity := (value) => value       // generic relation is inferred
+# identity[T] := (value: T) => value // invalid: callable generic binders are not source syntax
+```
+
+For this rule, a callable is non-recursive when it is not part of a recursive
+strongly connected component in the call graph. An eligible final,
+non-recursive callable is inferred at its definition site to one stable
+principal rank-1 type relation. The compiler may serialize that relation in
+canonical module-interface metadata and freshly instantiate it at each use.
+Names used for inferred type variables in metadata, diagnostics, or IDE views
+are compiler-owned explanations; they are not declarations copied from source.
+
+Concrete annotations remain valid when the author wants a monomorphic
+contract:
+
+```styio
+# increment : i64 := (value: i64) => value + 1
+```
+
+An annotation name such as `T` must resolve to an existing type in the type
+namespace. It does not introduce a generic variable. If the compiler cannot
+derive one unique, stable principal relation, the definition is rejected; the
+author is not asked to repair it by adding `[T]`.
+
+#### 5.1.2 Recursive Callable Groups
+
+Recursive callables also have no authored generic parameter list. A recursive
+group is one strongly connected component of the call graph, including direct
+self-recursion and mutual recursion. While checking that group, the compiler
+assigns one provisional monotype to each member and every reference from inside
+the group reuses the same provisional type variables. All constraints for the
+group are solved together.
+
+This checking rule still permits an inferred generic result. For example, these
+are compiler type models, not Styio source syntax:
+
+```text
+accepted: length(list[A]) calls length(list[A])
+accepted: even(i64) -> bool and odd(i64) -> bool call each other
+```
+
+After the group has one stable solution, each eligible final binding is
+generalized at the group boundary and its principal rank-1 relation may be
+published in module-interface metadata. External uses then receive fresh
+instances, so the accepted `length` relation may be used once with `list[i64]`
+and elsewhere with `list[string]`.
+
+An internal recursive edge that requires a group member at a different
+instantiation is polymorphic recursion and is rejected:
+
+```text
+rejected: reshape(A) calls reshape(list[A])
+```
+
+The rejection is about changing type during the unfinished recursive
+definition, not about preventing the successfully inferred callable from being
+generic afterward. Diagnostics must report the conflicting recursive
+instantiations and must not suggest adding `[T]`.
+
+#### 5.1.3 Context-Driven Call Instantiation
+
+Callable calls never accept authored type arguments. Each use is instantiated
+only from ordinary arguments, the concrete expected type supplied by its
+surrounding expression or binding, and the callable relation published by the
+compiler:
+
+```styio
+value := identity(1)        // inferred instance: i64 -> i64
+text := identity("hello")   // inferred instance: string -> string
+value := identity[i64](1)   // invalid: not callable specialization
+```
+
+In value position, `[]` keeps its selector/index meaning. The parser and
+semantic analyzer must never reinterpret `identity[i64](1)` as a generic call;
+it is an ordinary selector followed by a call and is rejected when the target
+is not indexable or the selector expression is otherwise invalid.
+
+When only the expected result type can determine an instance, a surrounding
+concrete annotation supplies that constraint. For a callable whose inferred
+relation is `make_empty: () -> list[A]`, for example:
+
+```styio
+numbers: list[i64] := make_empty()       // valid: expected type determines A
+numbers := make_empty[i64]()             // invalid: no call-site type arguments
+```
+
+If arguments and expected context do not determine one unique instance, the
+call is rejected as underconstrained. Diagnostics may request a concrete
+surrounding annotation, but must not suggest a callable type-argument list.
+
+#### 5.1.4 Effect-Aware Generalization
+
+Definition-site generalization is available only to a final callable whose
+free environment is closed and whose reachable body is proven pure. Sema
+computes one canonical effect row for each final callable. Its closed label
+vocabulary is `capture`, `handler`, `native`, `output`, `resource`, `task`, and
+`unknown`; labels are sorted and deduplicated, then propagated through direct
+call dependencies. An unsupported operation or unresolved callee contributes
+`unknown`, never implicit purity.
+
+A checked invocation through a callable parameter introduces one
+compiler-owned open tail variable such as `'e0` (canonically `{|'e0}` when no
+known labels are present). Propagation unions known labels and normalizes
+compatible tails to the caller's local variable. Ordinary captures produce the
+closed label `{capture}`; capture names are diagnostic context, not part of row
+identity.
+
+An effectful or capture-dependent callable remains monomorphic. Its first
+checked concrete argument relation fixes the callable instance, and a later
+conflicting use is rejected with the callable's canonical effect row before
+lowering. This retains deterministic execution without duplicating effects
+behind silently inferred polymorphism.
+
+The row is compiler-owned semantic metadata and is carried by callable
+interfaces, specialization identity, and typed `SGFunc` nodes. Generalization
+still requires the closed empty row `{}`. Styio currently has no source
+effect-row syntax, purity annotation, native-purity assertion, or user-defined
+effect label; those require their own feature decisions.
+
 Resources keep their visible `@` identity. A direct resource atom is not a
 valid right side for a `#` binding:
 
@@ -212,6 +441,151 @@ valid right side for a `#` binding:
 
 Use `expr -> @stdout` or `items >> @stdout` for resource writes. Resource-family
 definitions use the `@family::member` forms described in the resource section.
+
+#### 5.1.5 Compiler-Owned Callable Constraints
+
+Plain equality between relation variables is not enough for operator-bearing
+callables. Sema derives a closed compiler-owned vocabulary from ordinary source
+expressions: `numeric`, `comparable`, `indexable`, `iterable`, and `cloneable`.
+There is no source constraint clause, trait declaration, user-defined instance,
+or orphan-instance rule.
+
+Arithmetic, comparison, and index expressions currently emit the corresponding
+`numeric`, `comparable`, and `indexable` constraints. Called inferred schemes
+propagate their constraints with fresh variables. Sema normalizes and solves
+the resulting set to a fixed point at each use before generating a concrete
+specialization. A list index is `i64`; a dictionary index follows its key type;
+both produce their container element/value type. An unsupported concrete type
+fails at the constraint-bearing call rather than reaching lowering.
+
+`iterable` and `cloneable` remain closed compiler capability predicates. Their
+source emitters are not active in the current pure principal-relation subset;
+iterator and clone features must provide their own inference and execution
+evidence before extending that subset.
+
+#### 5.1.6 Numeric and Empty-Collection Defaulting
+
+Unannotated numeric literals enter semantic inference as the canonical scalar
+types `i64` and `f64`. Equality and callable constraints are solved first. Only
+then may a still-unresolved relation variable default to `i64`, and only when
+all remaining facts about it are numeric. Defaulting is local to the smallest
+enclosing expression; it never runs during unification or uses later
+statements.
+
+Empty collections do not default. `[]` and `dict {}` require a concrete
+surrounding `list[T]` or `dict[K,V]` context:
+
+```styio
+numbers: list[i64] := []                 // accepted
+counts: dict[string, i64] := dict {}     // accepted
+unknown := []                            // rejected: no element type
+```
+
+The missing-context diagnostic identifies the empty literal that needs an
+annotation and remains distinct from an unsatisfied operator constraint.
+
+#### 5.1.7 Monomorphic Callable Value Boundary
+
+Writing a callable name as an ordinary value never carries its generalized
+relation into runtime storage. A final noncapturing callable item must first
+freeze under one complete concrete callable type:
+
+```styio
+# identity := (value) => value
+answer := identity(42)       // accepted direct named call
+stored := identity           // rejected generalized callable value
+stored: #(i64): i64 := identity
+answer := stored(42)         // accepted indirect call
+```
+
+The canonical type spelling is `#(T1, T2): R`; zero-argument and nested
+callable signatures are valid. Callable types are invariant, and no numeric,
+variance, optional-parameter, or variadic signature adaptation occurs. The
+runtime value is an allocation-free function reference carrying the declared
+parameter/result ABI. It may be bound only with final `:=`, then passed,
+returned, or invoked through a name.
+
+Contextual freezing of an inferred item creates the same deterministic
+compiler-owned specialization used by direct calls. A concrete callable item
+uses its checked symbol directly. Implicit captures remain rejected at this
+boundary. A final callable with an exact explicit `$(...)` environment follows
+the affine static-capture rules in section 5.3. Function pointers remain
+distinct from strings, native addresses, and resource handles.
+
+This boundary is deliberately narrower than higher-rank polymorphism. Affine
+closure environments, rank-2 callbacks, polymorphic fields, callable
+containers, and address equality require separate child features.
+
+#### 5.1.8 Capability and Usage Boundary for Generalized Variables
+
+An inferred relation variable ranges only over the closed plain-value domain:
+immutable scalar families and recursively plain materialized `list` and `dict`
+types. A concrete resource, stream, file, task, matrix, topology resource,
+range handle, or other ownership- or representation-sensitive type cannot bind
+that variable:
+
+```styio
+# identity := (value) => value
+plain := identity([1, 2])          // accepted materialized list
+m: matrix := [[1, 2], [3, 4]]
+shaped := identity(m)              // rejected capability-sensitive instance
+```
+
+Sema checks the original concrete type before normalizing its callable
+relation shape. Resource topology, protocol state, handle family, capabilities,
+and nested element types therefore remain visible to the decision. A topology
+sequence cannot be normalized into an ordinary list to bypass the boundary,
+and a `list[matrix[...]]` remains rejected recursively.
+
+Each normalized relation variable also carries a sorted compiler-owned usage
+set. Reads derive `shared_borrow`, repeated use derives `copy`, and returned or
+stored values derive `consume`. Exact parameter-to-parameter direct calls
+propagate these facts to a fixed point. `exclusive_borrow` is part of the
+closed metadata and validation vocabulary, but no mutation form in the current
+pure principal-relation subset emits it.
+
+Concrete instantiation revalidates these facts against the original
+`StyioDataType`, before callable normalization. Diagnostics name the relation
+variable, complete required usage set, candidate type, and first incompatible
+fact. The stable failure families distinguish copy, consume, exclusive borrow,
+task transfer, resource state, topology identity, and materialized shape
+instead of reporting an LLVM representation mismatch.
+
+A callable may still use a concretely annotated handle parameter as a
+monomorphic contract. Generalized handle variables wait for schemes that can
+carry enabled task-transfer, resource-state-family, and canonical matrix-shape
+facts. The current usage metadata does not admit those handle families by
+itself.
+
+#### 5.1.9 Reachable Callable Specialization
+
+An inferred scheme has no runtime value. A normal compilation starts from
+concrete direct calls and collects only the mono items reachable while checking
+those instances. Repeated calls at the same canonical relation reuse one item;
+an inferred callable with no reachable concrete call emits no generic body.
+Imported concrete helpers likewise remain available for checked imported
+bodies but emit only when a reachable imported body uses them.
+
+Each item has one deterministic owner within the compiler invocation and a
+full SHA-256 content identity. The identity covers the concrete canonical
+relation and constraints, normalized effects, portable semantic body,
+transitive
+callable dependencies, module-interface or entry dependency facts, and
+compiler/backend ABI facts. Recursive dependency groups are fingerprinted as
+one strongly connected component, so a reachable callee-body change also
+invalidates its callers without depending on source order or call order.
+
+The compiler reuses exact same-instance recursion. It fails closed when active
+specialization expansion exceeds 64 instances or the compilation collects
+more than 4,096 mono items, and the diagnostic prints the concrete instance
+path. These are safety ceilings, not ordinary code-size guidance. A normal
+warning threshold awaits profiling data.
+
+Specialized code keeps concrete LLVM value families and introduces no box,
+witness table, runtime type dictionary, generic heap, or garbage collector.
+There is no source explicit-instantiation form. Disk/distributed caches,
+profile-guided eager instances, cross-invocation linker ownership, and stable
+callable-address identity require separate decisions.
 
 ### 5.2 Pulse Closures
 
@@ -225,13 +599,32 @@ prices >> #(p) => { <| p * 2 }
 
 ### 5.3 Context Capture with `$(...)`
 
-Callable bindings can explicitly capture external variables by reference:
+Final callable bindings can explicitly capture external variables by
+reference. The capture list follows the callable signature and precedes the
+binding/body operator:
 
-```
-trade $(bal, is_open) := my_strategy <| bal <| is_open
+```styio
+seed: i64 := 4
+# add_seed : i64 $(seed) := (value: i64) => value + seed
+operation: #(i64): i64 := add_seed
 ```
 
-The `$(...)` list declares a **reactive binding** — the function re-evaluates whenever captured variables change.
+The `$(...)` list is explicit and exact: duplicate, unused, or missing free
+names are errors. Sema derives ownership from the body. Reading a capture is a
+`shared_borrow`, rebinding a captured mutable value is an
+`exclusive_borrow`, and a destroy/acquire transfer is `consume`; authors do
+not spell these modes.
+
+The executable environment slice is reactive program-static storage for
+`bool`, integer, floating-point, and `char` values. A shared-borrow closure may
+be frozen under one complete monomorphic callable type and may escape. An
+exclusive-borrow closure remains direct-call-only. Consume captures and
+string, collection, resource, stream, task, matrix, topology, or imported
+environments fail before lowering until their unique transfer,
+representation, initialization, and drop paths are proven.
+
+No hidden copy, reference count, heap box, authored lifetime, or garbage
+collector is introduced.
 
 ---
 

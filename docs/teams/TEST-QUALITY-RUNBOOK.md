@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-08-01
 
 ## Mission
 
@@ -34,7 +34,7 @@ Primary paths:
 8. Keep five-layer Layer 4 LLVM goldens semantic, not implementation-bound: when stdout lowering moves between legacy `printf/puts` and runtime helpers such as `styio_stdout_write_cstr`, or when LLVM stops printing unused `declare` lines and renumbers transient `%<n>` temporaries, update the pipeline canonicalization before touching large golden sets.
 9. Treat workflow scheduler tests as gate-level regression coverage; changes to scheduler profiles, phase ordering, or registry validation must update `tests/workflow_scheduler_test.py`.
 10. Treat `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` as the M12 task_runtime performance sentinel. It must compare against an in-process sequential baseline rather than a fixed absolute timeout so CI variance does not hide loss of concurrency.
-11. When compiler handoff contracts grow, add or update regression coverage for both `--machine-info=json` and `--source-build-info=json` so `pafio`-facing metadata cannot drift silently.
+11. When compiler handoff contracts grow, add or update regression coverage for `--machine-info=json` and compile-plan consumption. Treat `--source-build-info=json` as a separate system-package-builder contract, not a Pafio surface.
 12. When the compiler-side source-build helper changes, keep a lightweight regression on `scripts/source-build-minimal.sh --help` or an equivalent smoke path so the published helper entry does not silently rot.
 13. When a coverage gap is marked closed, make the CTest registration, catalog entry, and exact passing command visible in the owning ledger or checkpoint document.
 14. New syntax surfaces need focused lexer/parser coverage plus the smallest runtime smoke that proves any supported lowering path.
@@ -42,7 +42,7 @@ Primary paths:
 16. When generic/container function type annotations change, cover both parser-route acceptance and a lowering/codegen case for the smallest supported runtime family, so `list[T]` or `dict[K,V]` annotations cannot parse while call lowering regresses.
 17. When a collection annotation adds contextual validation, pair the positive runtime smoke with a negative semantic test and an untyped-control case proving ordinary nested lists keep their prior behavior.
 18. When control-flow spellings change, keep milestone stdout goldens and security/codegen regressions together: `^...` must prove nearest-loop behavior, and nested `<| expr` returns must prove they exit the enclosing function.
-19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L milestone`.
+19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L golden_standard`.
 20. Native interop acceptance must include parser-only top-level guards and executable milestone goldens that prove C/C++ source is compiled, linked, loaded, and called through the JIT.
 21. When tests create custom AST nodes or compiler-stage visitors, use the split visitor signatures: `typeInfer(StyioSemaContext*)` and `toStyioIR(AstToStyioIRLowerer*)`.
 22. Put C++ reference equivalence cases under `tests/algorithms/<case>/`; keep the C++ oracle, Styio program, and per-case random-input test driver in that directory, with only shared runner code under `tests/algorithms/.common/`.
@@ -69,8 +69,27 @@ Primary paths:
 43. Writable-resource iterable write changes must assert the lowered runtime shape, not just parse/typecheck success. Cover list/string-line and dict-value sources so tests can prove `>> @stdout` and `>> @file(...)` emit per-item pulse writes instead of collapsing the container through whole-value stringification.
 44. Scalar file-write fixture changes must keep `-> @file(...)` for whole-value writes and reserve `>> @file(...)` for iterable pulse writes. Expression-match fixture branches must end in `<| expr` or an equivalent final value so AST, IR, and LLVM tests follow the current return contract.
 45. Range syntax coverage must keep `[start..end]` as the positive materialized range source, assert that `[start..end]` parses as `RangeAST` rather than a one-element `ListAST`, and preserve `[start..end..step]` only as reserved-syntax negative coverage.
-45. Windows-native tests that execute `styio.exe` through `_popen` must use `windows_popen_command_latest(...)` or an equivalent `cmd.exe` wrapper instead of POSIX single-quote commands. Compile-plan JSON fixtures must write Windows paths with `generic_string()` so early diagnostic-sink probing sees valid JSON.
-46. Callable binding changes need paired parser and semantic evidence: parse `# name = #(args) => ...` and `# name := #(args) => ...`, reject direct resource RHS forms such as `# sink = @stdout`, execute mutable rebinding so the latest callable body wins, and assert final-binding redefinition failures. Do not treat anonymous function-value IR support as covered by these binding tests.
+46. Windows-native tests that execute `styio.exe` through `_popen` must use `windows_popen_command_latest(...)` or an equivalent `cmd.exe` wrapper instead of POSIX single-quote commands. Compile-plan JSON fixtures must write Windows paths with `generic_string()` so early diagnostic-sink probing sees valid JSON.
+47. Callable binding changes need paired parser and semantic evidence: parse `# name = #(args) => ...` and `# name := #(args) => ...`, reject direct resource RHS forms such as `# sink = @stdout`, execute mutable rebinding so the latest callable body wins, and assert final-binding redefinition failures. Do not treat anonymous function-value IR support as covered by these binding tests.
+48. Every focused CTest command used as CI or checkpoint evidence must name a currently registered test or label and pass `--no-tests=error`; selecting zero tests is a gate failure, not a successful smoke result.
+49. macOS coverage must select clang, clang++, llvm-cov, and llvm-profdata from one validated LLVM 18.1.x prefix and configure the SDK returned by `xcrun`. Do not mix AppleClang profile data with upstream LLVM coverage tools or hardcode a Homebrew installation path.
+50. Native macOS acceptance must build and execute the platform internal test, native interop fixtures, bootstrap plan smoke, LSP framing smoke, and the selected compiler/service labels. A configuration-only result does not close platform adaptation.
+51. Syntax-feature lifecycle tests must cover a ready projection, dependency-cycle rejection, downstream staleness after a prerequisite feature blocks, and rejection of delivery progress before language-owner acceptance. Each converged feature SSOT must name a checked-in golden case with its expected oracle.
+52. Keyword-free lexical coverage must pair a tokenizer classification test for contextual word spellings with an executable source fixture that binds keyword-like names outside symbol-anchored contexts.
+53. Inferred-callable coverage must execute independent scalar/string instances, expected-result inference for an empty container, self and mutual recursive SCCs, and paired negative fixtures for polymorphic recursion, underconstrained results, authored generic binders, and call-site type arguments. Keep every failure diagnostic in Sema or the authoritative parser so unresolved relations never become backend failures.
+54. Effect-aware callable coverage must pair a successful single effectful instance with rejection of a conflicting second instance, prove canonical-row propagation through at least one direct-call edge, and cover a captured free environment. Keep the expected diagnostic anchored to the derived canonical effect row rather than incidental type-inference internals, and unit-test label sorting, deduplication, open-tail identity, and fail-closed `unknown`.
+55. Callable-constraint coverage must execute integer and floating numeric instances, scalar and lexical string comparisons, list and dictionary indexing, and at least one transitive scheme edge. Pair each currently emitted constraint family with an unsatisfied-instance golden whose oracle names the canonical constraint and concrete rejected type.
+56. Literal-defaulting coverage must pair canonical numeric execution with contextual empty list/dictionary acceptance and direct missing-context failures. Keep empty-collection tests non-defaulting, and prove that a relation fixed by an integer literal rejects a floating instance instead of widening silently.
+57. Callable-value boundary coverage must retain successful direct named multi-instance calls and execute concrete plus contextually frozen inferred callable items through binding, passing, returning, and indirect invocation. Pair that evidence with separate failures for context-free stored, passed, returned, and task-captured schemes, plus signature mismatch, mutable callable slots, capturing items, non-callable right sides, and callable-containing list/dict/topology storage. Keep nested canonical-signature parsing covered and require every invalid case to fail in parser or Sema before backend lowering.
+58. Capability-boundary coverage for inferred callables must execute scalar/list/dict instances plus local and transitive usage facts, then reject matrix, task, stream, file, topology-resource, nested sensitive-handle, and repeated noncopyable instances. Keep at least one topology resource case so a later normalization change cannot erase resource shape before validation. Negative oracles must distinguish copy, task transfer, resource state family, topology identity, and materialized shape; unit-test all four canonical usage labels including exclusive borrow.
+59. Callable-interface coverage must publish dependencies in a temporary tree, execute downstream scalar/string/constrained specializations including a private concrete helper edge, and round-trip schema-v4 closed/open effect rows plus sorted per-variable usage requirements with transitive open-tail and usage edges. A dedicated portable-body label must prove replay after replacing imported source with invalid Styio text and updating only its source digest, then independently reject unknown opcodes, unbound symbols, mismatched encoded types, noncanonical payload bytes, stale semantic digests, and older portable schemas. The broader interface label must also reject private access, non-canonical module IDs, module cycles, missing interfaces, stale source/schema/dependency facts, and an exported body that fails without a local instance. Assert that emitted effect rows contain sorted `labels` plus nullable `open_tail`, usage requirements contain sorted variables and labels, and neither retains legacy bit/canonical fields. Negative cases must assert stable diagnostic fragments and may not leave generated `.styioi` artifacts in the repository.
+60. Callable-specialization coverage must compare LLVM symbols across repeat compilation and source call-order changes, require exactly one local definition for every referenced full-digest mono symbol, prove unreachable inferred definitions emit nothing, and prove a reachable callee-body change invalidates its caller. Keep focused graph tests for deduplicated edges and configurable depth/growth ceilings, plus a language golden for the production recursion ceiling and concrete instance path.
+61. Canonical literal-width migrations must update typed-AST parent/result oracles and stable diagnostics from legacy `int` names to `i64` without rewriting raw literal-token reprs. Contextual empty-collection coverage must include a typed declaration and a mutable rebind whose already established list/dict target type reaches the empty literal.
+62. Whenever a frontend translation unit becomes reachable from `styio_nano`, keep both local-subset package creation paths as link-level regression tests. Header closure alone is insufficient evidence because an omitted `.cpp` compiles the bundle and then fails with unresolved symbols.
+63. Affine-closure coverage must execute a shared program-static scalar through both direct and escaped invariant callable calls, execute repeated direct mutation through an exclusive capture, preserve native `bool`/`f64`/`char` widths, and prove that a same-spelled local in a noncapturing function cannot alias the capture slot. Pair it with stable failures for a missing free name, an unused declaration, duplicate capture syntax, exclusive escape, unsupported representation/drop storage, and consume mode. Run the same positive fixtures through full and nano compilers, and keep imported environments, resources, containers, heap allocation, and generalized closure values outside the proven slice.
+64. Persistent callable-cache coverage must retain an unchanged cache-disabled execution, then prove cold per-specialization object writes and warm native hits with identical stdout. Use a fixture that combines an inter-specialization call and a private string constant. In one isolated temporary root, cover transitive callee-body invalidation and backend namespace separation; independently cover a truncated-entry miss/rewrite, simultaneous writers converging without temporary files, and deterministic age, aggregate-byte, and file-count pruning. Statistics assertions must require the path-free schema-v1 JSON and all four nonnegative timing fields. Invalid limits without an explicit cache root remain CLI errors, while cache I/O/corruption must never become a language or runtime failure.
+65. Workflow-scheduler regression coverage must treat the formal ecosystem contract path as the trigger authority. When that contract moves, update the trigger, its exact-path assertion, and the ecosystem document gate together; assert the owning external path and do not keep an obsolete plan path as a compatibility trigger.
+66. Parser cutover security tests must distinguish recognized ownership from true decline. A recognized binding may stop on an allowed fallback follow token without consuming it; malformed deep input may fail closed at its first unsupported element before reaching the depth ceiling. Keep special index selectors in both focused parser coverage and the security owner gate, and do not preserve pre-cutover exception or cursor expectations as compatibility contracts.
 
 ## Change Classes
 
@@ -83,33 +102,43 @@ Primary paths:
 Common commands:
 
 ```bash
-ctest --test-dir build/default -L milestone
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L resource_topology
-ctest --test-dir build/default -R '^parser_shadow_gate_'
-ctest --test-dir build/default -L algorithm_equivalence
+ctest --test-dir build/default -L golden_standard --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
+ctest --test-dir build/default -L algorithm_equivalence --output-on-failure --no-tests=error
 ```
 
 Fuzz smoke:
 
 ```bash
-ctest --test-dir build/fuzz -L fuzz_smoke
+ctest --test-dir build/fuzz -L fuzz_smoke --output-on-failure --no-tests=error
 ```
 
 `fuzz_smoke` 当前走独立 corpus-replay smoke binaries，而不是直接把 PR 门禁绑在 libFuzzer main 的启动行为上；真正的 libFuzzer 目标仍保留给手动/夜间深跑。
+
+Native macOS platform and coverage evidence:
+
+```bash
+LLVM_PREFIX="$(brew --prefix llvm@18)"
+ctest --test-dir build/macos -R '^styio_platform_internal_test$|^native_interop_' --output-on-failure --no-tests=error
+scripts/coverage-gate.sh --build-dir build/coverage-macos --llvm-prefix "$LLVM_PREFIX"
+```
 
 Docs and recovery:
 
 ```bash
 python3 tests/workflow_scheduler_test.py
+python3 tests/syntax_feature_state_gate_test.py
+python3 scripts/syntax-feature-state-gate.py
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-audit.py
 ./scripts/checkpoint-health.sh --no-asan
 ```
 
 `checkpoint-health.sh` is allowed to reconfigure the requested build dir; maintenance changes to that recovery path must preserve a clean build-dir handoff instead of leaking configure logs into later commands. The default local variant is `build/default/`; use `--build-dir build/<variant>` for another configured variant.
-同一脚本在 normal leg 里必须显式构建 `styio_security_test` 后再跑 `ctest -L security`；空标签返回 0 不能算通过。
+同一脚本在 normal leg 里必须显式构建 `styio_security_test` 后再跑 `ctest -L security`；所有定向 CTest 都必须使用 `--no-tests=error`，空标签或空正则选择不能算通过。
 离线恢复时，`tests/CMakeLists.txt` 和顶层 `CMakeLists.txt` 现在会优先复用本地已有的 `googletest` / `tree_sitter_runtime` source checkout，避免首次恢复因 FetchContent 远端不可达而卡死。
 
 ## Cross-Team Dependencies

@@ -18,6 +18,9 @@
 #include "StyioTesting/PipelineCheck.hpp"
 #include "StyioPlatform/Platform.hpp"
 #include "StyioParser/Tokenizer.hpp"
+#include "StyioSema/CallableSpecializationGraph.hpp"
+#include "StyioSema/CallableUsage.hpp"
+#include "StyioSema/EffectRow.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
@@ -416,7 +419,7 @@ write_compile_plan_contract_case_latest(
   paths.root =
     fs::temp_directory_path() / ("styio-compile-plan-contract-" + suffix + "-" + std::to_string(uniq));
   paths.source = paths.root / "src" / "main.styio";
-  paths.build_root = paths.root / ".spio" / "build" / "case";
+  paths.build_root = paths.root / ".pafio" / "build" / "case";
   paths.artifact_dir = paths.build_root / "artifacts";
   paths.diag_dir = paths.build_root / "diag";
   paths.plan_path = paths.build_root / "plan.json";
@@ -446,7 +449,7 @@ write_compile_plan_contract_case_latest(
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << paths.root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -518,6 +521,132 @@ sha256_file_latest(const fs::path& path) {
 }
 
 }  // namespace
+
+TEST(StyioCallableSpecializationGraph, TracksRootsEdgesAndDeduplicatesItems) {
+  styio::sema::CallableSpecializationGraph graph(
+    {.maximum_expansion_depth = 4, .maximum_items = 8});
+
+  EXPECT_TRUE(graph.register_item("digest-a", "a(i64)->i64"));
+  EXPECT_TRUE(graph.is_root("digest-a"));
+  EXPECT_TRUE(graph.begin_expansion("digest-a"));
+  EXPECT_TRUE(graph.register_item("digest-b", "b(i64)->i64"));
+  EXPECT_TRUE(graph.has_edge("digest-a", "digest-b"));
+  EXPECT_TRUE(graph.begin_expansion("digest-b"));
+  EXPECT_FALSE(graph.register_item("digest-a", "a(i64)->i64"));
+  EXPECT_TRUE(graph.has_edge("digest-b", "digest-a"));
+  EXPECT_FALSE(graph.begin_expansion("digest-a"));
+  graph.end_expansion("digest-b");
+  graph.end_expansion("digest-a");
+
+  EXPECT_FALSE(graph.register_item("digest-a", "a(i64)->i64"));
+  EXPECT_EQ(graph.node_count(), 2U);
+  EXPECT_EQ(graph.edge_count(), 2U);
+}
+
+TEST(StyioCallableSpecializationGraph, ReportsDepthAndGrowthInstancePaths) {
+  styio::sema::CallableSpecializationGraph depth_graph(
+    {.maximum_expansion_depth = 2, .maximum_items = 8});
+  ASSERT_TRUE(depth_graph.register_item("depth-a", "a(i64)->i64"));
+  ASSERT_TRUE(depth_graph.begin_expansion("depth-a"));
+  ASSERT_TRUE(depth_graph.register_item("depth-b", "b(i64)->i64"));
+  ASSERT_TRUE(depth_graph.begin_expansion("depth-b"));
+  ASSERT_TRUE(depth_graph.register_item("depth-c", "c(i64)->i64"));
+  try {
+    (void)depth_graph.begin_expansion("depth-c");
+    FAIL() << "expected specialization depth ceiling";
+  }
+  catch (const std::exception& error) {
+    const std::string message = error.what();
+    EXPECT_NE(
+      message.find("recursion ceiling of 2 instance(s) exceeded"),
+      std::string::npos);
+    EXPECT_NE(
+      message.find(
+        "a(i64)->i64 -> b(i64)->i64 -> c(i64)->i64"),
+      std::string::npos);
+  }
+  depth_graph.end_expansion("depth-b");
+  depth_graph.end_expansion("depth-a");
+
+  styio::sema::CallableSpecializationGraph growth_graph(
+    {.maximum_expansion_depth = 8, .maximum_items = 2});
+  ASSERT_TRUE(growth_graph.register_item("growth-a", "a(i64)->i64"));
+  ASSERT_TRUE(growth_graph.begin_expansion("growth-a"));
+  ASSERT_TRUE(growth_graph.register_item("growth-b", "b(i64)->i64"));
+  try {
+    (void)growth_graph.register_item("growth-c", "c(i64)->i64");
+    FAIL() << "expected specialization growth ceiling";
+  }
+  catch (const std::exception& error) {
+    const std::string message = error.what();
+    EXPECT_NE(
+      message.find("growth ceiling of 2 instance(s) exceeded"),
+      std::string::npos);
+    EXPECT_NE(
+      message.find("a(i64)->i64 -> c(i64)->i64"),
+      std::string::npos);
+  }
+  growth_graph.end_expansion("growth-a");
+}
+
+TEST(StyioCallableEffects, CanonicalRowsSortDeduplicateAndMerge) {
+  using styio::sema::CallableEffectLabel;
+  using styio::sema::CallableEffectRow;
+
+  CallableEffectRow row;
+  EXPECT_TRUE(row.proven_pure());
+  EXPECT_EQ(row.canonical(), "{}");
+
+  EXPECT_TRUE(row.add(CallableEffectLabel::Task));
+  EXPECT_TRUE(row.add(CallableEffectLabel::Output));
+  EXPECT_TRUE(row.add(CallableEffectLabel::Capture));
+  EXPECT_FALSE(row.add(CallableEffectLabel::Task));
+  EXPECT_EQ(row.canonical(), "{capture,output,task}");
+
+  CallableEffectRow dependency;
+  dependency.add(CallableEffectLabel::Handler);
+  dependency.add(CallableEffectLabel::Output);
+  EXPECT_TRUE(row.merge_known(dependency));
+  EXPECT_FALSE(row.merge_known(dependency));
+  EXPECT_TRUE(row.set_open_tail(7));
+  EXPECT_FALSE(row.set_open_tail(7));
+  EXPECT_EQ(
+    row.canonical(),
+    "{capture,handler,output,task|'e7}");
+  EXPECT_FALSE(row.proven_pure());
+
+  const CallableEffectRow unknown = CallableEffectRow::unknown();
+  EXPECT_TRUE(unknown.contains(CallableEffectLabel::Unknown));
+  EXPECT_EQ(unknown.canonical(), "{unknown}");
+
+}
+
+TEST(StyioCallableUsage, CanonicalSetsSortDeduplicateAndMerge) {
+  using styio::sema::CallableUsageKind;
+  using styio::sema::CallableUsageSet;
+
+  CallableUsageSet usages;
+  EXPECT_TRUE(usages.empty());
+  EXPECT_EQ(usages.canonical(), "{}");
+
+  EXPECT_TRUE(usages.add(CallableUsageKind::SharedBorrow));
+  EXPECT_TRUE(usages.add(CallableUsageKind::Consume));
+  EXPECT_TRUE(usages.add(CallableUsageKind::ExclusiveBorrow));
+  EXPECT_FALSE(usages.add(CallableUsageKind::Consume));
+  EXPECT_EQ(
+    usages.canonical(),
+    "{consume,exclusive_borrow,shared_borrow}");
+
+  CallableUsageSet dependency;
+  dependency.add(CallableUsageKind::Copy);
+  dependency.add(CallableUsageKind::SharedBorrow);
+  EXPECT_TRUE(usages.merge(dependency));
+  EXPECT_FALSE(usages.merge(dependency));
+  EXPECT_TRUE(usages.contains(CallableUsageKind::Copy));
+  EXPECT_EQ(
+    usages.canonical(),
+    "{consume,copy,exclusive_borrow,shared_borrow}");
+}
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {
   const fs::path case_dir =
@@ -1021,7 +1150,11 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[\"json\"],\"jsonl_diagnostics\":[\"jsonl\"],\"syntax_check\":[\"syntax-json\"],\"compile_plan\":[\"resolved-request\"],\"runtime_events\":[\"jsonl\"]}"),
+    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}"),
+    std::string::npos
+  );
+  EXPECT_NE(
+    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}"),
     std::string::npos
   );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
@@ -1443,11 +1576,6 @@ TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   EXPECT_NE(result.stdout_text.find("\"branch\": \"stable\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"name\": \"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"branch\": \"nightly\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"supported_build_modes\": ["), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"compile_plan_profile_contract\": {"), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"path\": \"profile.build_mode\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"default_build_mode\": \"minimal\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"minimal\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"helper_script\": \"scripts/source-build-minimal.sh\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"cmake_target\": \"styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"syntax_check_consumer\": \"check --syntax --json --file\""), std::string::npos);
@@ -1701,6 +1829,31 @@ TEST(StyioTypes, F32BuiltinMappingUsesF32InternalName) {
   EXPECT_EQ(f32.num_of_bit, static_cast<size_t>(32));
 }
 
+TEST(StyioTypes, CallableSignatureUsesOneCanonicalNestedIdentity) {
+  const StyioDataType callable = styio_data_type_from_name(
+    "#(i64,#(string):bool):#():f64");
+  ASSERT_TRUE(styio_is_callable_type(callable));
+  EXPECT_EQ(
+    styio_callable_param_type_names(callable),
+    (std::vector<std::string>{"i64", "#(string):bool"}));
+  EXPECT_EQ(
+    styio_callable_result_type_name(callable),
+    "#():f64");
+
+  const auto params = styio_callable_param_types(callable);
+  ASSERT_EQ(params.size(), 2u);
+  EXPECT_EQ(params[0].name, "i64");
+  EXPECT_TRUE(styio_is_callable_type(params[1]));
+  EXPECT_TRUE(
+    styio_is_callable_type(
+      styio_callable_result_type(callable)));
+  EXPECT_TRUE(
+    callable.equals(
+      styio_make_callable_type(
+        params,
+        styio_callable_result_type(callable))));
+}
+
 TEST(StyioTypes, GetMaxTypeNumericPromotionByBitWidth) {
   const StyioDataType f32 = styio_data_type_from_name("f32");
   const StyioDataType f64 = styio_data_type_from_name("f64");
@@ -1730,7 +1883,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-build-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1748,7 +1901,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1758,7 +1911,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
       << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -1786,11 +1939,9 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(fs::exists(build_root / "runtime-events.jsonl"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
-  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
   EXPECT_NE(receipt.find("\"runtime_events_path\":\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -1812,7 +1963,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-check-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1830,7 +1981,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"check\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1840,7 +1991,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
       << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -1869,10 +2020,8 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"check\""), std::string::npos);
-  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -1894,7 +2043,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-run-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -1912,7 +2061,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"run\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -1922,7 +2071,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
       << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -1953,10 +2102,8 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   ASSERT_TRUE(fs::exists(build_root / "runtime-events.jsonl"));
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
-  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -1982,7 +2129,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-test-" + std::to_string(uniq));
   const fs::path source = root / "tests" / "smoke.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2000,7 +2147,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"test\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2010,7 +2157,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -2039,9 +2186,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const std::string receipt = read_text_file_latest(build_root / "receipt.json");
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"test\""), std::string::npos);
-  EXPECT_NE(receipt.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"build_mode\":\"minimal\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.started\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.finished\""), std::string::npos);
@@ -2060,7 +2205,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-diag-" + std::to_string(uniq));
   const fs::path source = root / "src" / "missing-main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2072,7 +2217,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2134,7 +2279,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-intent-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2152,7 +2297,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"ship\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2199,13 +2344,13 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   fs::remove_all(root);
 }
 
-TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesDiagDir) {
+TEST(StyioDiagnostics, CompilePlanUnsupportedProfileFieldReportsCliDiagnosticAndWritesDiagDir) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path root =
-    fs::temp_directory_path() / ("styio-compile-plan-invalid-build-mode-" + std::to_string(uniq));
+    fs::temp_directory_path() / ("styio-compile-plan-unsupported-profile-field-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2215,7 +2360,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   {
     std::ofstream out(source);
     ASSERT_TRUE(out.is_open());
-    out << ">_(\"compile-plan-invalid-build-mode\")\n";
+    out << ">_(\"compile-plan-unsupported-profile-field\")\n";
   }
   {
     std::ofstream out(plan_path);
@@ -2223,17 +2368,17 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
-      << "    \"target_name\": \"demo-invalid-build-mode\",\n"
+      << "    \"target_name\": \"demo-unsupported-profile-field\",\n"
       << "    \"file\": \"" << source.string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
-      << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"full\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"legacy\": true, \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
@@ -2257,7 +2402,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("compile-plan profile contains an unsupported field: legacy"), std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
@@ -2265,7 +2410,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"subcode\":\"compile_plan_invalid\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("unsupported compile-plan profile.build_mode: full"), std::string::npos);
+  EXPECT_NE(diagnostics.find("compile-plan profile contains an unsupported field: legacy"), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2276,7 +2421,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-cli-conflict-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2294,7 +2439,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2345,7 +2490,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidJsonReportsMachineReadableCliDiagnostic
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-invalid-json-" + std::to_string(uniq));
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(build_root));
 
@@ -2379,7 +2524,7 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-generated-by-mismatch-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2429,13 +2574,17 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
     run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find("compile-plan generated_by.tool must equal \\\"pafio\\\" or \\\"styio\\\""),
+    std::string::npos);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
   ASSERT_TRUE(fs::exists(diag_path));
   const std::string diagnostics = read_text_file_latest(diag_path);
   EXPECT_NE(diagnostics.find("\"code\":\"STYIO_SERVICE_COMPILE_PLAN_INVALID\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("compile-plan generated_by.tool must equal \\\"spio\\\""), std::string::npos);
+  EXPECT_NE(
+    diagnostics.find("compile-plan generated_by.tool must equal \\\"pafio\\\" or \\\"styio\\\""),
+    std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2446,7 +2595,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-target-kind-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2464,7 +2613,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2513,7 +2662,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-root-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2531,7 +2680,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"relative-root\",\n"
       << "  \"entry\": {\n"
@@ -2580,7 +2729,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-missing-outputs-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
   ASSERT_TRUE(fs::create_directories(build_root));
@@ -2596,7 +2745,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2636,7 +2785,7 @@ TEST(StyioDiagnostics, CompilePlanVersionMarkerDoesNotSelectImplementation) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-marker-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2654,7 +2803,7 @@ TEST(StyioDiagnostics, CompilePlanVersionMarkerDoesNotSelectImplementation) {
     out
       << "{\n"
       << "  \"plan_version\": 9,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2695,7 +2844,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-empty-packages-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2713,7 +2862,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2750,16 +2899,16 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   fs::remove_all(root);
 }
 
-TEST(StyioDiagnostics, CompilePlanMalformedBuildModeTypeWritesCliDiagnosticToDiagDir) {
+TEST(StyioDiagnostics, CompilePlanUnknownProfileFieldWritesCliDiagnosticToDiagDir) {
   const CompilePlanContractCaseLatest plan = write_compile_plan_contract_case_latest(
-    "malformed-build-mode-type",
-    "{\"name\": \"dev\", \"build_mode\": false, \"opt_level\": 0, \"debug\": true, \"lto\": false}",
+    "unknown-profile-field",
+    "{\"name\": \"dev\", \"legacy\": false, \"opt_level\": 0, \"debug\": true, \"lto\": false}",
     "[{\"id\": \"demo/app@0.1.0\"}]");
 
   expect_compile_plan_invalid_with_diag_latest(
     plan.plan_path,
     plan.diag_dir,
-    "compile-plan optional string field must be a non-empty string: profile.build_mode");
+    "compile-plan profile contains an unsupported field: legacy");
 
   fs::remove_all(plan.root);
 }
@@ -2784,7 +2933,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedPackageIdTypeWritesCliDiagnosticToDia
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-malformed-package-id-type-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2802,7 +2951,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedPackageIdTypeWritesCliDiagnosticToDia
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2852,7 +3001,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedEntryFileWritesCliDiagnosticToDiagDir
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-malformed-entry-file-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2870,7 +3019,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedEntryFileWritesCliDiagnosticToDiagDir
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2898,14 +3047,14 @@ TEST(StyioDiagnostics, CompilePlanMalformedEntryFileWritesCliDiagnosticToDiagDir
   const CommandResult result =
     run_stdout_command(compile_plan_command_latest(runner, plan_path));
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("compile-plan field must be a non-empty string: entry.file"), std::string::npos)
+  EXPECT_NE(result.stdout_text.find("compile-plan field must be a non-empty string: file"), std::string::npos)
     << result.stdout_text;
 
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
   const std::string diagnostics = read_text_file_latest(diag_dir / "diagnostics.jsonl");
   EXPECT_NE(diagnostics.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(
-    diagnostics.find("compile-plan field must be a non-empty string: entry.file"),
+    diagnostics.find("compile-plan field must be a non-empty string: file"),
     std::string::npos);
 
   fs::remove_all(root);
@@ -2931,7 +3080,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-error-format-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -2949,7 +3098,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.string() << "\",\n"
       << "  \"entry\": {\n"
@@ -2992,7 +3141,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-entry-file-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
@@ -3010,7 +3159,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -3053,7 +3202,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-artifact-dir-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path diag_dir = build_root / "diag";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -3070,7 +3219,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -3113,7 +3262,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-relative-diag-dir-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -3130,7 +3279,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -3172,7 +3321,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedDiagDirTypeSkipsDiagnosticSink) {
   const fs::path root =
     fs::temp_directory_path() / ("styio-compile-plan-malformed-diag-dir-type-" + std::to_string(uniq));
   const fs::path source = root / "src" / "main.styio";
-  const fs::path build_root = root / ".spio" / "build" / "case";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
   const fs::path artifact_dir = build_root / "artifacts";
   const fs::path plan_path = build_root / "plan.json";
   ASSERT_TRUE(fs::create_directories(source.parent_path()));
@@ -3189,7 +3338,7 @@ TEST(StyioDiagnostics, CompilePlanMalformedDiagDirTypeSkipsDiagnosticSink) {
     out
       << "{\n"
       << "  \"plan_version\": 1,\n"
-      << "  \"generated_by\": {\"tool\": \"spio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
@@ -10722,7 +10871,7 @@ TEST(StyioResourceEffects, ResourceMethodValueFallbackTypeMismatchReportsTypeCod
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects int, got string"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects i64, got string"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
@@ -10769,7 +10918,7 @@ TEST(StyioResourceEffects, ResourceMethodFmtStringValueFallbackTypeMismatchRepor
   EXPECT_NE(
     result.stdout_text.find("\"code\":\"STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH\""),
     std::string::npos);
-  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects string, got int"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("resource-effect fallback expects string, got i64"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\nafter\n"), std::string::npos);
 
   fs::remove(input);
@@ -13615,7 +13764,7 @@ TEST(StyioDiagnostics, NightlyScalarContainerAndExportRoutesStayExecutable) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, ImportDeclarationFailsClosedAsUnsupportedRuntimeValue) {
+TEST(StyioDiagnostics, ImportDeclarationRequiresFreshCallableInterfaces) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -13642,9 +13791,9 @@ TEST(StyioDiagnostics, ImportDeclarationFailsClosedAsUnsupportedRuntimeValue) {
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"phase\":\"lowering\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_LOWER_UNSUPPORTED_AST\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("external package declarations are not runtime values"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_TYPE_ERROR\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("cannot resolve imported callable module `"), std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\n1\n"), std::string::npos);
 
   fs::remove(input);

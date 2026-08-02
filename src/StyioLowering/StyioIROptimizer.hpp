@@ -17,8 +17,21 @@ struct StyioIRPassPipelineOptions
   unsigned opt_level = 1;
   bool verify_before = true;
   bool verify_after_each_pass = true;
+  styio::ir::StyioIRVerifierOptions verifier_options;
   bool collect_timing = true;
   bool collect_ir_dumps = false;
+};
+
+struct StyioIRPassStatistics
+{
+  uint64_t statement_containers_visited = 0;
+  uint64_t statements_examined = 0;
+  uint64_t statements_removed = 0;
+  uint64_t statement_containers_changed = 0;
+
+  bool changed() const {
+    return statements_removed != 0;
+  }
 };
 
 struct StyioIRPassRecord
@@ -29,6 +42,7 @@ struct StyioIRPassRecord
   bool verifier_after_ok = true;
   std::string ir_before;
   std::string ir_after;
+  StyioIRPassStatistics statistics;
 };
 
 struct StyioIRPassPipelineResult
@@ -49,10 +63,12 @@ class StyioIRPassManager
 public:
   enum class PassKind
   {
+    DeadSuffixElimination,
     Canonicalization,
     ConstantFolding,
   };
 
+  void add_dead_suffix_elimination_pass();
   void add_canonicalization_pass();
   void add_constant_folding_pass();
 
@@ -79,9 +95,11 @@ optimize_styio_ir(StyioIR* root);
 /// with their evaluated results. Does not reorder side effects.
 void run_constant_fold_pass(StyioIR* root);
 
-/// Dead statement elimination — removes pure statements whose results
-/// are never used. Conservative: only removes literal-valued stmts.
-void run_dead_stmt_elim_pass(StyioIR* root);
+/// Remove runtime-dead direct statements after the first unconditional local
+/// terminator in each owning sequence. SGMainEntry nodes that codegen consumes
+/// during its predeclaration scan remain live. Input must already verify and have
+/// unique ownership.
+StyioIRPassStatistics run_dead_stmt_elim_pass(StyioIR* root);
 
 }  // namespace styio::lowering
 

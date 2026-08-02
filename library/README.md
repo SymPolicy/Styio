@@ -11,7 +11,7 @@ Current rules:
 1. Active modules must have a source path that exists in this repository.
 2. Planned modules may reserve a directory and contract boundary, but they are not accepted API.
 3. The gate `stdlib_manifest_gate` validates schema, module uniqueness, directory presence, and active source/test paths.
-4. Deep package-management behavior remains owned by Spio / Styio-Platform handoff work.
+4. Project/package workflows remain owned by Pafio; registry hosting and remote distribution remain owned by Styio Platform.
 
 Current active evidence:
 

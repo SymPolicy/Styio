@@ -83,6 +83,15 @@ struct StyioTaskSchedulerProfileSnapshot
   int64_t failed_pulls;
   int64_t invalid_pulls;
   int64_t max_queue_depth;
+  int64_t queue_capacity;
+  int64_t queue_current_depth;
+  int64_t queue_accepted_pushes;
+  int64_t queue_pops;
+  int64_t queue_pressure_events;
+  int64_t queue_producer_waits;
+  int64_t queue_consumer_waits;
+  int64_t queue_close_wake_ups;
+  int64_t queue_closed;
 };
 extern "C" DLLEXPORT void styio_task_scheduler_profile_reset();
 extern "C" DLLEXPORT void styio_task_scheduler_profile_enable(int enabled);

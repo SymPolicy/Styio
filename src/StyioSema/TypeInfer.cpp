@@ -6,11 +6,17 @@
 */
 
 // [C++ STL]
+#include <algorithm>
+#include <cctype>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 #include <variant>
 #include <vector>
@@ -21,9 +27,11 @@
 #include "../StyioNative/NativeInterop.hpp"
 #include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioToken/Token.hpp"
+#include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioUtil/BuiltinMethods.hpp"
 #include "../StyioUtil/IOIntrinsics.hpp"
 #include "../StyioUtil/ResourceNames.hpp"
+#include "CallableInterface.hpp"
 
 static std::vector<ParamAST*>
 params_of_func_def(StyioAST* def) {
@@ -45,6 +53,27 @@ callable_def_is_final_binding_latest(StyioAST* def) {
     return s->is_unique;
   }
   return false;
+}
+
+static std::vector<std::string>
+explicit_capture_names_of_func_def(StyioAST* def) {
+  std::vector<std::string> names;
+  auto append = [&](const auto& captures)
+  {
+    names.reserve(captures.size());
+    for (auto* capture : captures) {
+      if (capture != nullptr) {
+        names.push_back(capture->getAsStr());
+      }
+    }
+  };
+  if (auto* function = dynamic_cast<FunctionAST*>(def)) {
+    append(function->getCaptureNames());
+  }
+  else if (auto* function = dynamic_cast<SimpleFuncAST*>(def)) {
+    append(function->getCaptureNames());
+  }
+  return names;
 }
 
 void
@@ -96,6 +125,212 @@ StyioSemaContext::record_function_def(
   }
 }
 
+void
+StyioSemaContext::install_imported_callable_definition(
+  std::string module_id,
+  bool exported,
+  bool has_scheme,
+  StyioAST* definition,
+  CallableTypeScheme scheme,
+  CallableEffectRowFacts effects,
+  std::vector<StyioDataType> concrete_params,
+  StyioDataType concrete_result,
+  std::vector<std::string> visible_from_modules,
+  std::string portable_body_digest,
+  std::string interface_abi_digest
+) {
+  if (module_id.empty() || definition == nullptr) {
+    throw StyioTypeError(
+      "imported callable definition requires a module id and portable body"
+    );
+  }
+  std::string name;
+  if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+    name = function->getNameAsStr();
+  }
+  else if (auto* function = dynamic_cast<SimpleFuncAST*>(definition)) {
+    name = function->func_name->getAsStr();
+  }
+  if (name.empty()) {
+    throw StyioTypeError(
+      "imported callable interface entry does not match a function body"
+    );
+  }
+  if (has_scheme && scheme.name != name) {
+    throw StyioTypeError(
+      "imported callable scheme name does not match body `" + name + "`"
+    );
+  }
+  auto existing = imported_callable_definition_indices_.find(name);
+  if (existing != imported_callable_definition_indices_.end()) {
+    auto& info = imported_callable_definitions_[existing->second];
+    if (info.module_id != module_id || info.definition != definition) {
+      throw StyioTypeError(
+        "imported callable name collision for `" + name
+        + "` between modules `" + info.module_id
+        + "` and `" + module_id + "`"
+      );
+    }
+    info.exported = info.exported || exported;
+    info.visible_from_modules.insert(
+      visible_from_modules.begin(),
+      visible_from_modules.end());
+    return;
+  }
+
+  const auto params = params_of_func_def(definition);
+  if (!has_scheme) {
+    if (params.size() != concrete_params.size()
+        || concrete_result.isUndefined()) {
+      throw StyioTypeError(
+        "imported concrete callable `" + name
+        + "` has incomplete interface facts"
+      );
+    }
+    for (std::size_t i = 0; i < params.size(); ++i) {
+      params[i]->setDataType(concrete_params[i]);
+    }
+  }
+
+  ImportedCallableDefinition info;
+  info.module_id = std::move(module_id);
+  info.exported = exported;
+  info.has_scheme = has_scheme;
+  info.definition = definition;
+  info.scheme = std::move(scheme);
+  info.effects = std::move(effects);
+  info.concrete_params = std::move(concrete_params);
+  info.concrete_result = std::move(concrete_result);
+  info.visible_from_modules.insert(
+    visible_from_modules.begin(),
+    visible_from_modules.end());
+  info.portable_body_digest = std::move(portable_body_digest);
+  info.interface_abi_digest = std::move(interface_abi_digest);
+  imported_callable_definition_indices_[name] =
+    imported_callable_definitions_.size();
+  imported_callable_definitions_.push_back(std::move(info));
+}
+
+const StyioSemaContext::ImportedCallableDefinition*
+StyioSemaContext::find_imported_callable_definition(
+  std::string_view name
+) const {
+  auto it =
+    imported_callable_definition_indices_.find(std::string(name));
+  if (it == imported_callable_definition_indices_.end()) {
+    return nullptr;
+  }
+  return &imported_callable_definitions_.at(it->second);
+}
+
+bool
+StyioSemaContext::imported_callable_is_visible(
+  std::string_view name
+) const {
+  const ImportedCallableDefinition* imported =
+    find_imported_callable_definition(name);
+  if (imported == nullptr) {
+    return true;
+  }
+
+  std::string current_module;
+  if (!active_function_body_stack_.empty()) {
+    const ImportedCallableDefinition* active =
+      find_imported_callable_definition(
+        active_function_body_stack_.back());
+    if (active != nullptr) {
+      current_module = active->module_id;
+    }
+  }
+  if (current_module == imported->module_id) {
+    return true;
+  }
+  return imported->exported
+         && imported->visible_from_modules.count(current_module) != 0;
+}
+
+void
+StyioSemaContext::register_imported_callable_definitions() {
+  const auto imported_name = [](StyioAST* definition) -> std::string
+  {
+    if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+      return function->getNameAsStr();
+    }
+    if (auto* function = dynamic_cast<SimpleFuncAST*>(definition)) {
+      return function->func_name->getAsStr();
+    }
+    return {};
+  };
+  std::vector<const ImportedCallableDefinition*> ordered;
+  ordered.reserve(imported_callable_definitions_.size());
+  for (const auto& imported : imported_callable_definitions_) {
+    ordered.push_back(&imported);
+  }
+  std::sort(
+    ordered.begin(),
+    ordered.end(),
+    [](const auto* lhs, const auto* rhs)
+    {
+      if (lhs->module_id != rhs->module_id) {
+        return lhs->module_id < rhs->module_id;
+      }
+      const auto name_of = [](StyioAST* definition) -> std::string
+      {
+        if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+          return function->getNameAsStr();
+        }
+        if (auto* function = dynamic_cast<SimpleFuncAST*>(definition)) {
+          return function->func_name->getAsStr();
+        }
+        return {};
+      };
+      const std::string lhs_name = name_of(lhs->definition);
+      const std::string rhs_name = name_of(rhs->definition);
+      return lhs_name < rhs_name;
+    });
+  for (const auto* imported : ordered) {
+    const std::string name = imported_name(imported->definition);
+    styio::session::SymbolId sid =
+      styio::session::kInvalidSymbolId;
+    if (auto* function =
+          dynamic_cast<FunctionAST*>(imported->definition)) {
+      sid = function->func_name->getSymbolId();
+    }
+    else if (auto* function =
+               dynamic_cast<SimpleFuncAST*>(imported->definition)) {
+      sid = function->func_name->getSymbolId();
+    }
+    record_function_def(name, sid, imported->definition);
+    if (!imported->has_scheme
+        && !imported->concrete_result.isUndefined()) {
+      inferred_function_return_types_[name] =
+        imported->concrete_result;
+      const auto interned = intern_semantic_symbol(name);
+      if (interned != styio::session::kInvalidSymbolId) {
+        inferred_function_return_types_by_sid_[interned] =
+          imported->concrete_result;
+      }
+    }
+  }
+}
+
+void
+StyioSemaContext::configure_callable_specialization_environment(
+  std::string backend_abi,
+  std::string dependency_digest
+) {
+  if (backend_abi.empty() || dependency_digest.empty()) {
+    throw StyioTypeError(
+      "callable specialization environment requires backend ABI "
+      "and dependency digests"
+    );
+  }
+  callable_specialization_backend_abi_ =
+    std::move(backend_abi);
+  callable_specialization_dependency_digest_ =
+    std::move(dependency_digest);
+}
+
 namespace
 {
 
@@ -114,6 +349,2427 @@ StyioDataType const kF64Type{
 StyioDataType const kStringType{
   StyioDataTypeOption::String, "string", 0
 };
+
+using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
+using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
+using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
+using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
+using CallableConstraintSolverStats =
+  StyioSemaContext::CallableConstraintSolverStats;
+using CallableUsageKind = styio::sema::CallableUsageKind;
+using CallableUsageRequirement =
+  StyioSemaContext::CallableUsageRequirement;
+using CallableUsageSet = styio::sema::CallableUsageSet;
+using CallableEffectLabel = styio::sema::CallableEffectLabel;
+using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
+using CallableCaptureMode = StyioSemaContext::CallableCaptureMode;
+using CallableCaptureFact = StyioSemaContext::CallableCaptureFact;
+
+StyioDataType
+normalize_callable_concrete_type(const StyioDataType& input) {
+  if (input.name == "int"
+      || (input.option == StyioDataTypeOption::Integer
+          && input.num_of_bit == 0)) {
+    return kI64Type;
+  }
+  if (input.name == "float"
+      || (input.option == StyioDataTypeOption::Float
+          && input.num_of_bit == 0)) {
+    return kF64Type;
+  }
+  if (styio_is_list_type(input)) {
+    StyioDataType element = normalize_callable_concrete_type(
+      styio_data_type_from_name(styio_list_elem_type_name(input)));
+    return styio_make_list_type(element.name);
+  }
+  if (styio_is_dict_type(input)) {
+    StyioDataType key = normalize_callable_concrete_type(
+      styio_data_type_from_name(styio_dict_key_type_name(input)));
+    StyioDataType value = normalize_callable_concrete_type(
+      styio_data_type_from_name(styio_dict_value_type_name(input)));
+    return styio_make_dict_type(key.name, value.name);
+  }
+  if (styio_is_callable_type(input)) {
+    std::vector<StyioDataType> params;
+    for (const auto& param : styio_callable_param_types(input)) {
+      params.push_back(normalize_callable_concrete_type(param));
+    }
+    StyioDataType result = normalize_callable_concrete_type(
+      styio_callable_result_type(input));
+    return styio_make_callable_type(params, result);
+  }
+  return input;
+}
+
+bool
+type_contains_callable_value(const StyioDataType& type) {
+  if (styio_is_callable_type(type)) {
+    return true;
+  }
+  if (styio_is_topology_resource_type(type)) {
+    return type_contains_callable_value(
+      styio_topology_resource_value_type(type));
+  }
+  if (styio_is_list_type(type)) {
+    return type_contains_callable_value(
+      styio_data_type_from_name(
+        styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    return type_contains_callable_value(
+             styio_data_type_from_name(
+               styio_dict_key_type_name(type)))
+           || type_contains_callable_value(
+                styio_data_type_from_name(
+                  styio_dict_value_type_name(type)));
+  }
+  return false;
+}
+
+bool
+type_requires_unsupported_callable_storage(
+  const StyioDataType& type
+) {
+  if (styio_is_topology_resource_type(type)) {
+    return type_contains_callable_value(
+      styio_topology_resource_value_type(type));
+  }
+  if (styio_is_list_type(type)) {
+    return type_contains_callable_value(
+      styio_data_type_from_name(
+        styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    return type_contains_callable_value(
+             styio_data_type_from_name(
+               styio_dict_key_type_name(type)))
+           || type_contains_callable_value(
+                styio_data_type_from_name(
+                  styio_dict_value_type_name(type)));
+  }
+  if (styio_is_callable_type(type)) {
+    for (const auto& param :
+         styio_callable_param_types(type)) {
+      if (type_requires_unsupported_callable_storage(param)) {
+        return true;
+      }
+    }
+    return type_requires_unsupported_callable_storage(
+      styio_callable_result_type(type));
+  }
+  return false;
+}
+
+void
+require_supported_callable_storage(
+  const StyioDataType& type
+) {
+  if (type_requires_unsupported_callable_storage(type)) {
+    throw StyioTypeError(
+      "callable values cannot be stored inside list, dict, "
+      "or topology types; `" + type.name
+      + "` requires a separate callable-container decision"
+    );
+  }
+}
+
+CallableTypeTerm
+callable_variable_term(std::uint32_t variable) {
+  CallableTypeTerm term;
+  term.kind = CallableTypeTerm::Kind::Variable;
+  term.variable = variable;
+  return term;
+}
+
+CallableTypeTerm
+callable_concrete_term(const StyioDataType& input) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  if (styio_is_list_type(type)) {
+    CallableTypeTerm term;
+    term.kind = CallableTypeTerm::Kind::List;
+    term.arguments.push_back(
+      callable_concrete_term(
+        styio_data_type_from_name(styio_list_elem_type_name(type))));
+    return term;
+  }
+  if (styio_is_dict_type(type)) {
+    CallableTypeTerm term;
+    term.kind = CallableTypeTerm::Kind::Dict;
+    term.arguments.push_back(
+      callable_concrete_term(
+        styio_data_type_from_name(styio_dict_key_type_name(type))));
+    term.arguments.push_back(
+      callable_concrete_term(
+        styio_data_type_from_name(styio_dict_value_type_name(type))));
+    return term;
+  }
+
+  CallableTypeTerm term;
+  term.kind = CallableTypeTerm::Kind::Concrete;
+  term.concrete = type;
+  return term;
+}
+
+CallableTypeTerm
+callable_list_term(CallableTypeTerm element) {
+  CallableTypeTerm term;
+  term.kind = CallableTypeTerm::Kind::List;
+  term.arguments.push_back(std::move(element));
+  return term;
+}
+
+CallableTypeTerm
+callable_dict_term(CallableTypeTerm key, CallableTypeTerm value) {
+  CallableTypeTerm term;
+  term.kind = CallableTypeTerm::Kind::Dict;
+  term.arguments.push_back(std::move(key));
+  term.arguments.push_back(std::move(value));
+  return term;
+}
+
+class CallableBindingDelta
+{
+  static constexpr std::size_t kNoLink =
+    std::numeric_limits<std::size_t>::max();
+  static constexpr std::size_t kEndLink = kNoLink - 1;
+
+  std::vector<std::size_t> next_;
+  std::size_t head_ = kNoLink;
+  std::size_t tail_ = kNoLink;
+  std::size_t size_ = 0;
+
+public:
+  explicit CallableBindingDelta(std::size_t variable_count) :
+      next_(variable_count, kNoLink) {
+  }
+
+  void append(std::uint32_t variable) {
+    const std::size_t index = variable;
+    if (index >= next_.size()) {
+      throw StyioTypeError(
+        "internal error: callable binding delta is outside its variable domain"
+      );
+    }
+    if (next_[index] != kNoLink) {
+      return;
+    }
+    if (tail_ == kNoLink) {
+      head_ = index;
+    }
+    else {
+      next_[tail_] = index;
+    }
+    tail_ = index;
+    next_[index] = kEndLink;
+    ++size_;
+  }
+
+  std::size_t size() const {
+    return size_;
+  }
+
+  std::size_t storage_slots() const {
+    return next_.size();
+  }
+
+  template <typename Visitor>
+  void drain(Visitor&& visit) {
+    std::size_t variable = head_;
+    while (variable != kNoLink) {
+      const std::size_t following =
+        next_[variable] == kEndLink ? kNoLink : next_[variable];
+      next_[variable] = kNoLink;
+      visit(static_cast<std::uint32_t>(variable));
+      variable = following;
+    }
+    head_ = kNoLink;
+    tail_ = kNoLink;
+    size_ = 0;
+  }
+};
+
+void
+append_callable_binding_delta(
+  CallableBindingDelta* binding_delta,
+  std::uint32_t variable
+) {
+  if (binding_delta != nullptr) {
+    binding_delta->append(variable);
+  }
+}
+
+class CallableTypeUnifier
+{
+  std::uint32_t next_variable_ = 0;
+  std::unordered_map<std::uint32_t, CallableTypeTerm> substitutions_;
+  CallableBindingDelta* binding_delta_ = nullptr;
+
+  bool occurs_in_applied(
+    std::uint32_t variable,
+    const CallableTypeTerm& term
+  ) const {
+    if (term.kind == CallableTypeTerm::Kind::Variable) {
+      return term.variable == variable;
+    }
+    for (const auto& argument : term.arguments) {
+      if (occurs_in_applied(variable, argument)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void bind(
+    std::uint32_t variable,
+    const CallableTypeTerm& input
+  ) {
+    CallableTypeTerm term = apply(input);
+    if (term.kind == CallableTypeTerm::Kind::Variable
+        && term.variable == variable) {
+      return;
+    }
+    if (occurs_in_applied(variable, term)) {
+      throw StyioTypeError(
+        "polymorphic recursion requires an infinite inferred type; "
+        "recursive calls must reuse one monomorphic group instance"
+      );
+    }
+    substitutions_[variable] = std::move(term);
+    append_callable_binding_delta(binding_delta_, variable);
+  }
+
+public:
+  std::uint32_t variable_count() const {
+    return next_variable_;
+  }
+
+  void observe_binding_delta(CallableBindingDelta* delta) {
+    binding_delta_ = delta;
+  }
+
+  CallableTypeTerm fresh() {
+    return callable_variable_term(next_variable_++);
+  }
+
+  CallableTypeTerm apply(const CallableTypeTerm& input) {
+    if (input.kind == CallableTypeTerm::Kind::Variable) {
+      auto it = substitutions_.find(input.variable);
+      if (it == substitutions_.end()) {
+        return input;
+      }
+      CallableTypeTerm resolved = apply(it->second);
+      it->second = resolved;
+      return resolved;
+    }
+
+    CallableTypeTerm output = input;
+    for (auto& argument : output.arguments) {
+      argument = apply(argument);
+    }
+    return output;
+  }
+
+  void unify(
+    const CallableTypeTerm& lhs_input,
+    const CallableTypeTerm& rhs_input,
+    const std::string& context
+  ) {
+    CallableTypeTerm lhs = apply(lhs_input);
+    CallableTypeTerm rhs = apply(rhs_input);
+
+    if (lhs.kind == CallableTypeTerm::Kind::Variable) {
+      bind(lhs.variable, rhs);
+      return;
+    }
+    if (rhs.kind == CallableTypeTerm::Kind::Variable) {
+      bind(rhs.variable, lhs);
+      return;
+    }
+    if (lhs.kind != rhs.kind) {
+      throw StyioTypeError(
+        "inferred callable type conflict in " + context
+      );
+    }
+    if (lhs.kind == CallableTypeTerm::Kind::Concrete) {
+      if (!lhs.concrete.equals(rhs.concrete)) {
+        throw StyioTypeError(
+          "inferred callable type conflict in " + context + ": `"
+          + lhs.concrete.name + "` versus `" + rhs.concrete.name + "`"
+        );
+      }
+      return;
+    }
+    if (lhs.arguments.size() != rhs.arguments.size()) {
+      throw StyioTypeError(
+        "inferred callable constructor arity conflict in " + context
+      );
+    }
+    for (std::size_t i = 0; i < lhs.arguments.size(); ++i) {
+      unify(lhs.arguments[i], rhs.arguments[i], context);
+    }
+  }
+};
+
+struct CallableMonotype
+{
+  std::vector<CallableTypeTerm> params;
+  CallableTypeTerm result;
+};
+
+StyioAST*
+callable_body_of_def(StyioAST* def) {
+  if (auto* function = dynamic_cast<FunctionAST*>(def)) {
+    return function->func_body;
+  }
+  if (auto* function = dynamic_cast<SimpleFuncAST*>(def)) {
+    return function->ret_expr;
+  }
+  return nullptr;
+}
+
+std::string
+callable_name_of_def(StyioAST* def) {
+  if (auto* function = dynamic_cast<FunctionAST*>(def)) {
+    return function->getNameAsStr();
+  }
+  if (auto* function = dynamic_cast<SimpleFuncAST*>(def)) {
+    return function->func_name->getAsStr();
+  }
+  return {};
+}
+
+StyioDataType
+callable_declared_result_type(StyioAST* def) {
+  auto read_variant = [](const std::variant<TypeAST*, TypeTupleAST*>& result) {
+    if (result.valueless_by_exception()
+        || !std::holds_alternative<TypeAST*>(result)) {
+      return StyioDataType{
+        StyioDataTypeOption::Undefined, "undefined", 0
+      };
+    }
+    TypeAST* type = std::get<TypeAST*>(result);
+    return type == nullptr
+             ? StyioDataType{
+                 StyioDataTypeOption::Undefined, "undefined", 0
+               }
+             : type->getDataType();
+  };
+
+  if (auto* function = dynamic_cast<FunctionAST*>(def)) {
+    return read_variant(function->ret_type);
+  }
+  if (auto* function = dynamic_cast<SimpleFuncAST*>(def)) {
+    return read_variant(function->ret_type);
+  }
+  return StyioDataType{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+}
+
+void
+walk_callable_expression(
+  StyioAST* ast,
+  const std::function<void(StyioAST*)>& visit
+) {
+  if (ast == nullptr) {
+    return;
+  }
+  visit(ast);
+
+  if (dynamic_cast<FunctionAST*>(ast) != nullptr
+      || dynamic_cast<SimpleFuncAST*>(ast) != nullptr) {
+    return;
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+    for (auto* statement : block->stmts) {
+      walk_callable_expression(statement, visit);
+    }
+    for (auto* following : block->followings) {
+      walk_callable_expression(following, visit);
+    }
+    return;
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
+    walk_callable_expression(ret->getExpr(), visit);
+    return;
+  }
+  if (auto* bind = dynamic_cast<FlexBindAST*>(ast)) {
+    walk_callable_expression(bind->getValue(), visit);
+    return;
+  }
+  if (auto* bind = dynamic_cast<FinalBindAST*>(ast)) {
+    walk_callable_expression(bind->getValue(), visit);
+    return;
+  }
+  if (auto* binary = dynamic_cast<BinOpAST*>(ast)) {
+    walk_callable_expression(binary->getLHS(), visit);
+    walk_callable_expression(binary->getRHS(), visit);
+    return;
+  }
+  if (auto* compare = dynamic_cast<BinCompAST*>(ast)) {
+    walk_callable_expression(compare->getLHS(), visit);
+    walk_callable_expression(compare->getRHS(), visit);
+    return;
+  }
+  if (auto* condition = dynamic_cast<CondAST*>(ast)) {
+    walk_callable_expression(condition->getValue(), visit);
+    walk_callable_expression(condition->getLHS(), visit);
+    walk_callable_expression(condition->getRHS(), visit);
+    return;
+  }
+  if (auto* flow = dynamic_cast<CondFlowAST*>(ast)) {
+    walk_callable_expression(flow->getCond(), visit);
+    walk_callable_expression(flow->getThen(), visit);
+    walk_callable_expression(flow->getElse(), visit);
+    return;
+  }
+  if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+    walk_callable_expression(call->func_callee, visit);
+    for (auto* argument : call->getArgList()) {
+      walk_callable_expression(argument, visit);
+    }
+    return;
+  }
+  if (auto* attribute = dynamic_cast<AttrAST*>(ast)) {
+    walk_callable_expression(attribute->body, visit);
+    return;
+  }
+  if (auto* list = dynamic_cast<ListAST*>(ast)) {
+    for (auto* element : list->getElements()) {
+      walk_callable_expression(element, visit);
+    }
+    return;
+  }
+  if (auto* dict = dynamic_cast<DictAST*>(ast)) {
+    for (const auto& entry : dict->getEntries()) {
+      walk_callable_expression(entry.key, visit);
+      walk_callable_expression(entry.value, visit);
+    }
+    return;
+  }
+  if (auto* tuple = dynamic_cast<TupleAST*>(ast)) {
+    for (auto* element : tuple->getElements()) {
+      walk_callable_expression(element, visit);
+    }
+    return;
+  }
+  if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
+    walk_callable_expression(access->getList(), visit);
+    walk_callable_expression(access->getSlot1(), visit);
+    walk_callable_expression(access->getSlot2(), visit);
+    return;
+  }
+  if (auto* size = dynamic_cast<SizeOfAST*>(ast)) {
+    walk_callable_expression(size->getValue(), visit);
+    return;
+  }
+  if (auto* conversion = dynamic_cast<TypeConvertAST*>(ast)) {
+    walk_callable_expression(conversion->getValue(), visit);
+    return;
+  }
+  if (auto* range = dynamic_cast<RangeAST*>(ast)) {
+    walk_callable_expression(range->getStart(), visit);
+    walk_callable_expression(range->getEnd(), visit);
+    walk_callable_expression(range->getStep(), visit);
+    return;
+  }
+  if (auto* match = dynamic_cast<MatchCasesAST*>(ast)) {
+    walk_callable_expression(match->getScrutinee(), visit);
+    walk_callable_expression(match->getCases(), visit);
+    return;
+  }
+  if (auto* cases = dynamic_cast<CasesAST*>(ast)) {
+    for (const auto& entry : cases->case_list) {
+      walk_callable_expression(entry.first, visit);
+      walk_callable_expression(entry.second, visit);
+    }
+    walk_callable_expression(cases->case_default, visit);
+    return;
+  }
+  if (auto* merge = dynamic_cast<WaveMergeAST*>(ast)) {
+    walk_callable_expression(merge->getCond(), visit);
+    walk_callable_expression(merge->getTrueVal(), visit);
+    walk_callable_expression(merge->getFalseVal(), visit);
+    return;
+  }
+  if (auto* dispatch = dynamic_cast<WaveDispatchAST*>(ast)) {
+    walk_callable_expression(dispatch->getCond(), visit);
+    walk_callable_expression(dispatch->getTrueArm(), visit);
+    walk_callable_expression(dispatch->getFalseArm(), visit);
+    return;
+  }
+  if (auto* fallback = dynamic_cast<FallbackAST*>(ast)) {
+    walk_callable_expression(fallback->getPrimary(), visit);
+    walk_callable_expression(fallback->getAlternate(), visit);
+    return;
+  }
+  if (auto* acquire = dynamic_cast<HandleAcquireAST*>(ast)) {
+    walk_callable_expression(acquire->getResource(), visit);
+    return;
+  }
+  if (auto* write = dynamic_cast<ResourceWriteAST*>(ast)) {
+    walk_callable_expression(write->getData(), visit);
+    walk_callable_expression(write->getResource(), visit);
+    return;
+  }
+  if (auto* redirect = dynamic_cast<ResourceRedirectAST*>(ast)) {
+    walk_callable_expression(redirect->getData(), visit);
+    walk_callable_expression(redirect->getResource(), visit);
+    return;
+  }
+  if (auto* effect = dynamic_cast<ResourceEffectAST*>(ast)) {
+    walk_callable_expression(effect->getOperation(), visit);
+    for (const auto& handler : effect->getHandlers()) {
+      walk_callable_expression(handler.body, visit);
+    }
+    return;
+  }
+  if (auto* selector = dynamic_cast<GuardSelectorAST*>(ast)) {
+    walk_callable_expression(selector->getBase(), visit);
+    walk_callable_expression(selector->getCond(), visit);
+    return;
+  }
+  if (auto* probe = dynamic_cast<EqProbeAST*>(ast)) {
+    walk_callable_expression(probe->getBase(), visit);
+    walk_callable_expression(probe->getProbeValue(), visit);
+    return;
+  }
+  if (auto* format = dynamic_cast<FmtStrAST*>(ast)) {
+    for (auto* expression : format->getExprs()) {
+      walk_callable_expression(expression, visit);
+    }
+    return;
+  }
+  if (auto* print = dynamic_cast<PrintAST*>(ast)) {
+    for (auto* expression : print->exprs) {
+      walk_callable_expression(expression, visit);
+    }
+    return;
+  }
+  if (auto* anonymous = dynamic_cast<AnonyFuncAST*>(ast)) {
+    walk_callable_expression(anonymous->getThenExpr(), visit);
+    return;
+  }
+  if (auto* task = dynamic_cast<TaskBlockAST*>(ast)) {
+    walk_callable_expression(task->getBody(), visit);
+    return;
+  }
+  if (auto* group = dynamic_cast<TaskGroupLaunchAST*>(ast)) {
+    for (auto* entry : group->getEntries()) {
+      walk_callable_expression(entry, visit);
+    }
+    return;
+  }
+  if (auto* flow = dynamic_cast<FlowBindAST*>(ast)) {
+    walk_callable_expression(flow->getSource(), visit);
+    walk_callable_expression(flow->getFallback(), visit);
+    return;
+  }
+  if (auto* iterator = dynamic_cast<IteratorAST*>(ast)) {
+    walk_callable_expression(iterator->collection, visit);
+    for (auto* following : iterator->following) {
+      walk_callable_expression(following, visit);
+    }
+    return;
+  }
+  if (auto* zip = dynamic_cast<StreamZipAST*>(ast)) {
+    walk_callable_expression(zip->getCollectionA(), visit);
+    walk_callable_expression(zip->getCollectionB(), visit);
+    for (auto* following : zip->getFollowing()) {
+      walk_callable_expression(following, visit);
+    }
+  }
+}
+
+[[noreturn]] void
+reject_generalized_callable_value_escape(const std::string& name) {
+  throw StyioTypeError(
+    "inferred callable `" + name
+    + "` cannot be used as a value; inferred schemes are available only "
+      "to direct named calls, and a value-position boundary requires one "
+      "concrete monomorphic callable type"
+  );
+}
+
+bool
+callable_node_is_in_principal_relation_subset(StyioAST* node) {
+  return dynamic_cast<NameAST*>(node) != nullptr
+         || dynamic_cast<IntAST*>(node) != nullptr
+         || dynamic_cast<FloatAST*>(node) != nullptr
+         || dynamic_cast<BoolAST*>(node) != nullptr
+         || dynamic_cast<CharAST*>(node) != nullptr
+         || dynamic_cast<StringAST*>(node) != nullptr
+         || dynamic_cast<FmtStrAST*>(node) != nullptr
+         || dynamic_cast<ListAST*>(node) != nullptr
+         || dynamic_cast<DictAST*>(node) != nullptr
+         || dynamic_cast<ListOpAST*>(node) != nullptr
+         || dynamic_cast<BinOpAST*>(node) != nullptr
+         || dynamic_cast<BinCompAST*>(node) != nullptr
+         || dynamic_cast<CondAST*>(node) != nullptr
+         || dynamic_cast<TypeConvertAST*>(node) != nullptr
+         || dynamic_cast<FuncCallAST*>(node) != nullptr
+         || dynamic_cast<ReturnAST*>(node) != nullptr
+         || dynamic_cast<FlexBindAST*>(node) != nullptr
+         || dynamic_cast<FinalBindAST*>(node) != nullptr
+         || dynamic_cast<BlockAST*>(node) != nullptr
+         || dynamic_cast<MatchCasesAST*>(node) != nullptr
+         || dynamic_cast<CasesAST*>(node) != nullptr
+         || dynamic_cast<WaveMergeAST*>(node) != nullptr
+         || dynamic_cast<WaveDispatchAST*>(node) != nullptr
+         || dynamic_cast<CondFlowAST*>(node) != nullptr
+         || dynamic_cast<CommentAST*>(node) != nullptr
+         || dynamic_cast<PassAST*>(node) != nullptr;
+}
+
+bool
+callable_definition_has_relation_seed(StyioAST* def) {
+  for (auto* param : params_of_func_def(def)) {
+    if (param == nullptr
+        || param->getDType() == nullptr
+        || param->getDType()->getDataType().isUndefined()) {
+      return true;
+    }
+  }
+
+  bool generic_seed = false;
+  walk_callable_expression(
+    callable_body_of_def(def),
+    [&](StyioAST* node)
+    {
+      if (auto* list = dynamic_cast<ListAST*>(node)) {
+        generic_seed = generic_seed || list->getElements().empty();
+      }
+      if (auto* dict = dynamic_cast<DictAST*>(node)) {
+        generic_seed = generic_seed || dict->getEntries().empty();
+      }
+    });
+  return generic_seed;
+}
+
+std::unordered_set<std::string>
+callable_direct_calls(StyioAST* def) {
+  std::unordered_set<std::string> calls;
+  walk_callable_expression(
+    callable_body_of_def(def),
+    [&](StyioAST* node)
+    {
+      auto* call = dynamic_cast<FuncCallAST*>(node);
+      if (call != nullptr && call->func_callee == nullptr) {
+        calls.insert(call->getNameAsStr());
+      }
+    });
+  return calls;
+}
+
+std::optional<std::size_t>
+callable_exact_parameter_index(
+  StyioAST* expression,
+  const std::unordered_map<std::string, std::size_t>& parameter_indices
+) {
+  auto* name = dynamic_cast<NameAST*>(expression);
+  if (name == nullptr) {
+    return std::nullopt;
+  }
+  const auto parameter = parameter_indices.find(name->getAsStr());
+  return parameter == parameter_indices.end()
+           ? std::nullopt
+           : std::optional<std::size_t>(parameter->second);
+}
+
+void
+mark_callable_tail_consumes(
+  StyioAST* expression,
+  const std::unordered_map<std::string, std::size_t>& parameter_indices,
+  std::vector<CallableUsageSet>& usages
+) {
+  if (expression == nullptr) {
+    return;
+  }
+  if (const auto parameter =
+        callable_exact_parameter_index(expression, parameter_indices)) {
+    usages.at(*parameter).add(CallableUsageKind::Consume);
+    return;
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(expression)) {
+    mark_callable_tail_consumes(
+      ret->getExpr(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(expression)) {
+    for (auto it = block->stmts.rbegin();
+         it != block->stmts.rend();
+         ++it) {
+      if (dynamic_cast<CommentAST*>(*it) != nullptr
+          || dynamic_cast<PassAST*>(*it) != nullptr) {
+        continue;
+      }
+      mark_callable_tail_consumes(
+        *it,
+        parameter_indices,
+        usages);
+      return;
+    }
+    return;
+  }
+  if (auto* bind = dynamic_cast<FlexBindAST*>(expression)) {
+    mark_callable_tail_consumes(
+      bind->getValue(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* bind = dynamic_cast<FinalBindAST*>(expression)) {
+    mark_callable_tail_consumes(
+      bind->getValue(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* match = dynamic_cast<MatchCasesAST*>(expression)) {
+    CasesAST* cases = match->getCases();
+    if (cases == nullptr) {
+      return;
+    }
+    for (const auto& entry : cases->case_list) {
+      mark_callable_tail_consumes(
+        entry.second,
+        parameter_indices,
+        usages);
+    }
+    mark_callable_tail_consumes(
+      cases->case_default,
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* merge = dynamic_cast<WaveMergeAST*>(expression)) {
+    mark_callable_tail_consumes(
+      merge->getTrueVal(),
+      parameter_indices,
+      usages);
+    mark_callable_tail_consumes(
+      merge->getFalseVal(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* dispatch = dynamic_cast<WaveDispatchAST*>(expression)) {
+    mark_callable_tail_consumes(
+      dispatch->getTrueArm(),
+      parameter_indices,
+      usages);
+    mark_callable_tail_consumes(
+      dispatch->getFalseArm(),
+      parameter_indices,
+      usages);
+    return;
+  }
+  if (auto* flow = dynamic_cast<CondFlowAST*>(expression)) {
+    mark_callable_tail_consumes(
+      flow->getThen(),
+      parameter_indices,
+      usages);
+    mark_callable_tail_consumes(
+      flow->getElse(),
+      parameter_indices,
+      usages);
+  }
+}
+
+std::vector<CallableUsageSet>
+callable_local_usage_sets(StyioAST* def) {
+  const auto params = params_of_func_def(def);
+  std::unordered_map<std::string, std::size_t> parameter_indices;
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    if (params[i] != nullptr) {
+      parameter_indices[params[i]->getNameAsStr()] = i;
+    }
+  }
+
+  std::vector<std::size_t> occurrences(params.size(), 0);
+  std::vector<CallableUsageSet> usages(params.size());
+  StyioAST* body = callable_body_of_def(def);
+  walk_callable_expression(
+    body,
+    [&](StyioAST* node)
+    {
+      const auto parameter =
+        callable_exact_parameter_index(node, parameter_indices);
+      if (parameter.has_value()) {
+        ++occurrences.at(*parameter);
+      }
+
+      auto mark_direct_consume = [&](StyioAST* value)
+      {
+        const auto direct =
+          callable_exact_parameter_index(value, parameter_indices);
+        if (direct.has_value()) {
+          usages.at(*direct).add(CallableUsageKind::Consume);
+        }
+      };
+      if (auto* ret = dynamic_cast<ReturnAST*>(node)) {
+        mark_direct_consume(ret->getExpr());
+      }
+      else if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        mark_direct_consume(bind->getValue());
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        mark_direct_consume(bind->getValue());
+      }
+      else if (auto* list = dynamic_cast<ListAST*>(node)) {
+        for (auto* element : list->getElements()) {
+          mark_direct_consume(element);
+        }
+      }
+      else if (auto* dict = dynamic_cast<DictAST*>(node)) {
+        for (const auto& entry : dict->getEntries()) {
+          mark_direct_consume(entry.key);
+          mark_direct_consume(entry.value);
+        }
+      }
+    });
+
+  for (std::size_t i = 0; i < usages.size(); ++i) {
+    if (occurrences[i] != 0) {
+      usages[i].add(CallableUsageKind::SharedBorrow);
+    }
+    if (occurrences[i] > 1) {
+      usages[i].add(CallableUsageKind::Copy);
+      usages[i].add(CallableUsageKind::Consume);
+    }
+  }
+  mark_callable_tail_consumes(
+    body,
+    parameter_indices,
+    usages);
+  return usages;
+}
+
+int
+callable_capture_mode_rank(CallableCaptureMode mode) {
+  switch (mode) {
+    case CallableCaptureMode::SharedBorrow:
+      return 0;
+    case CallableCaptureMode::ExclusiveBorrow:
+      return 1;
+    case CallableCaptureMode::Consume:
+      return 2;
+  }
+  return 0;
+}
+
+void
+promote_callable_capture_mode(
+  std::unordered_map<std::string, CallableCaptureMode>& modes,
+  const std::string& name,
+  CallableCaptureMode mode
+) {
+  auto it = modes.find(name);
+  if (it == modes.end()) {
+    return;
+  }
+  if (callable_capture_mode_rank(mode)
+      > callable_capture_mode_rank(it->second)) {
+    it->second = mode;
+  }
+}
+
+std::vector<CallableCaptureFact>
+callable_capture_facts_for_definition(
+  StyioAST* def
+) {
+  const std::vector<std::string> declared =
+    explicit_capture_names_of_func_def(def);
+  std::unordered_map<std::string, CallableCaptureMode> modes;
+  for (const auto& name : declared) {
+    modes[name] = CallableCaptureMode::SharedBorrow;
+  }
+
+  walk_callable_expression(
+    callable_body_of_def(def),
+    [&](StyioAST* node)
+    {
+      if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        promote_callable_capture_mode(
+          modes,
+          bind->getNameAsStr(),
+          CallableCaptureMode::ExclusiveBorrow);
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        promote_callable_capture_mode(
+          modes,
+          bind->getName(),
+          CallableCaptureMode::ExclusiveBorrow);
+      }
+      else if (auto* assignment =
+                 dynamic_cast<ParallelAssignAST*>(node)) {
+        for (auto* target : assignment->getLHS()) {
+          auto* name = dynamic_cast<NameAST*>(target);
+          if (name != nullptr) {
+            promote_callable_capture_mode(
+              modes,
+              name->getAsStr(),
+              CallableCaptureMode::ExclusiveBorrow);
+          }
+        }
+      }
+      else if (auto* redirect =
+                 dynamic_cast<ResourceRedirectAST*>(node)) {
+        if (dynamic_cast<EmptyResourceAST*>(
+              redirect->getResource()) != nullptr) {
+          auto* name =
+            dynamic_cast<NameAST*>(redirect->getData());
+          if (name != nullptr) {
+            promote_callable_capture_mode(
+              modes,
+              name->getAsStr(),
+              CallableCaptureMode::Consume);
+          }
+        }
+      }
+      else if (auto* acquire =
+                 dynamic_cast<HandleAcquireAST*>(node)) {
+        auto* name =
+          dynamic_cast<NameAST*>(acquire->getResource());
+        if (name != nullptr) {
+          promote_callable_capture_mode(
+            modes,
+            name->getAsStr(),
+            CallableCaptureMode::Consume);
+        }
+      }
+    });
+
+  std::vector<CallableCaptureFact> facts;
+  facts.reserve(modes.size());
+  for (const auto& [name, mode] : modes) {
+    facts.push_back(CallableCaptureFact{name, mode});
+  }
+  std::sort(
+    facts.begin(),
+    facts.end(),
+    [](const auto& lhs, const auto& rhs)
+    {
+      return lhs.name < rhs.name;
+    });
+  return facts;
+}
+
+struct CallableUsageCallEdge
+{
+  std::string caller;
+  std::size_t caller_parameter = 0;
+  std::string callee;
+  std::size_t callee_parameter = 0;
+
+  friend bool operator==(
+    const CallableUsageCallEdge& lhs,
+    const CallableUsageCallEdge& rhs
+  ) = default;
+};
+
+std::vector<CallableUsageCallEdge>
+callable_usage_call_edges(
+  const std::unordered_map<std::string, StyioAST*>& definitions,
+  const std::unordered_map<std::string, CallableTypeScheme>& schemes
+) {
+  std::vector<CallableUsageCallEdge> edges;
+  for (const auto& [caller, definition] : definitions) {
+    if (schemes.count(caller) == 0) {
+      continue;
+    }
+    const auto params = params_of_func_def(definition);
+    std::unordered_map<std::string, std::size_t> parameter_indices;
+    for (std::size_t i = 0; i < params.size(); ++i) {
+      if (params[i] != nullptr) {
+        parameter_indices[params[i]->getNameAsStr()] = i;
+      }
+    }
+    walk_callable_expression(
+      callable_body_of_def(definition),
+      [&](StyioAST* node)
+      {
+        auto* call = dynamic_cast<FuncCallAST*>(node);
+        if (call == nullptr || call->func_callee != nullptr) {
+          return;
+        }
+        const auto callee = schemes.find(call->getNameAsStr());
+        if (callee == schemes.end()) {
+          return;
+        }
+        const auto& arguments = call->getArgList();
+        const std::size_t count =
+          std::min(arguments.size(), callee->second.params.size());
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto caller_parameter =
+            callable_exact_parameter_index(
+              arguments[i],
+              parameter_indices);
+          if (!caller_parameter.has_value()) {
+            continue;
+          }
+          edges.push_back(
+            CallableUsageCallEdge{
+              caller,
+              *caller_parameter,
+              callee->first,
+              i});
+        }
+      });
+  }
+  std::sort(
+    edges.begin(),
+    edges.end(),
+    [](const auto& lhs, const auto& rhs)
+    {
+      return std::tie(
+               lhs.caller,
+               lhs.caller_parameter,
+               lhs.callee,
+               lhs.callee_parameter)
+             < std::tie(
+                 rhs.caller,
+                 rhs.caller_parameter,
+                 rhs.callee,
+                 rhs.callee_parameter);
+    });
+  edges.erase(
+    std::unique(edges.begin(), edges.end()),
+    edges.end());
+  return edges;
+}
+
+void
+add_callable_effect(
+  CallableEffectRowFacts& effects,
+  CallableEffectLabel label
+) {
+  effects.row.add(label);
+}
+
+std::string
+callable_effect_row_diagnostic(
+  const CallableEffectRowFacts& effects
+) {
+  std::ostringstream output;
+  output << effects.row.canonical();
+  if (!effects.captures.empty()) {
+    output << "[";
+    for (std::size_t i = 0; i < effects.captures.size(); ++i) {
+      if (i != 0) {
+        output << ",";
+      }
+      output << effects.captures[i];
+    }
+    output << "]";
+  }
+  return output.str();
+}
+
+CallableEffectRowFacts
+callable_local_effect_row(
+  StyioSemaContext* an,
+  StyioAST* def,
+  const std::unordered_map<std::string, StyioAST*>& definitions
+) {
+  CallableEffectRowFacts effects;
+  effects.relation_seed =
+    callable_definition_has_relation_seed(def);
+  const std::vector<std::string> declared_captures =
+    explicit_capture_names_of_func_def(def);
+  const std::unordered_set<std::string> declared_capture_set(
+    declared_captures.begin(),
+    declared_captures.end());
+
+  std::unordered_set<std::string> local_names;
+  std::unordered_set<std::string> callable_parameter_names;
+  for (auto* param : params_of_func_def(def)) {
+    if (param != nullptr) {
+      local_names.insert(param->getNameAsStr());
+      if (param->getDType() != nullptr
+          && styio_is_callable_type(
+               param->getDType()->getDataType())) {
+        callable_parameter_names.insert(param->getNameAsStr());
+      }
+    }
+  }
+  walk_callable_expression(
+    callable_body_of_def(def),
+    [&](StyioAST* node)
+    {
+      if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        if (declared_capture_set.count(bind->getNameAsStr()) == 0) {
+          local_names.insert(bind->getNameAsStr());
+        }
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        if (declared_capture_set.count(bind->getName()) == 0) {
+          local_names.insert(bind->getName());
+        }
+      }
+    });
+
+  std::unordered_set<std::string> captures;
+  std::unordered_set<std::string> direct_callees;
+  walk_callable_expression(
+    callable_body_of_def(def),
+    [&](StyioAST* node)
+    {
+      if (auto* bind = dynamic_cast<FlexBindAST*>(node)) {
+        if (declared_capture_set.count(bind->getNameAsStr()) != 0) {
+          captures.insert(bind->getNameAsStr());
+        }
+      }
+      else if (auto* bind = dynamic_cast<FinalBindAST*>(node)) {
+        if (declared_capture_set.count(bind->getName()) != 0) {
+          captures.insert(bind->getName());
+        }
+      }
+      else if (auto* assignment =
+                 dynamic_cast<ParallelAssignAST*>(node)) {
+        for (auto* target : assignment->getLHS()) {
+          auto* name = dynamic_cast<NameAST*>(target);
+          if (name != nullptr
+              && declared_capture_set.count(name->getAsStr()) != 0) {
+            captures.insert(name->getAsStr());
+          }
+        }
+      }
+
+      if (auto* name = dynamic_cast<NameAST*>(node)) {
+        const std::string& spelling = name->getAsStr();
+        if (spelling != "_" && local_names.count(spelling) == 0) {
+          captures.insert(spelling);
+        }
+      }
+
+      if (auto* call = dynamic_cast<FuncCallAST*>(node)) {
+        if (call->func_callee != nullptr) {
+          add_callable_effect(effects, CallableEffectLabel::Unknown);
+        }
+        else {
+          const std::string callee = call->getNameAsStr();
+          if (callable_parameter_names.count(callee) != 0) {
+            effects.row.set_open_tail(0);
+          }
+          else if (definitions.count(callee) != 0) {
+            direct_callees.insert(callee);
+          }
+          else if (an != nullptr
+                   && an->find_native_function_def(
+                        styio::session::kInvalidSymbolId,
+                        callee) != nullptr) {
+            add_callable_effect(effects, CallableEffectLabel::Native);
+          }
+          else {
+            add_callable_effect(effects, CallableEffectLabel::Unknown);
+          }
+        }
+      }
+
+      if (callable_node_is_in_principal_relation_subset(node)) {
+        return;
+      }
+      switch (node->getNodeType()) {
+        case StyioNodeType::Print:
+          add_callable_effect(effects, CallableEffectLabel::Output);
+          return;
+        case StyioNodeType::FileResource:
+        case StyioNodeType::EmptyResource:
+        case StyioNodeType::ResourceReceiver:
+        case StyioNodeType::ResourceMethodDef:
+        case StyioNodeType::ResourceOrder:
+        case StyioNodeType::ResourceDecl:
+        case StyioNodeType::ResourceRef:
+        case StyioNodeType::HandleAcquire:
+        case StyioNodeType::ResourceWrite:
+        case StyioNodeType::ResourceRedirect:
+        case StyioNodeType::InstantPull:
+        case StyioNodeType::StdinResource:
+        case StyioNodeType::StdoutResource:
+        case StyioNodeType::StderrResource:
+          add_callable_effect(effects, CallableEffectLabel::Resource);
+          return;
+        case StyioNodeType::ResourceEffect:
+          add_callable_effect(effects, CallableEffectLabel::Resource);
+          add_callable_effect(effects, CallableEffectLabel::Handler);
+          return;
+        case StyioNodeType::TaskBlock:
+        case StyioNodeType::TaskGroupLaunch:
+        case StyioNodeType::FlowBind:
+          add_callable_effect(effects, CallableEffectLabel::Task);
+          return;
+        case StyioNodeType::Fallback:
+          add_callable_effect(effects, CallableEffectLabel::Handler);
+          return;
+        case StyioNodeType::ExternBlock:
+          add_callable_effect(effects, CallableEffectLabel::Native);
+          return;
+        default:
+          add_callable_effect(effects, CallableEffectLabel::Unknown);
+          return;
+      }
+    });
+
+  if (!declared_captures.empty()) {
+    std::vector<std::string> sorted_captures(
+      captures.begin(), captures.end());
+    std::sort(sorted_captures.begin(), sorted_captures.end());
+    for (const auto& capture : sorted_captures) {
+      if (declared_capture_set.count(capture) == 0) {
+        throw StyioTypeError(
+          "callable `" + callable_name_of_def(def)
+          + "` capture list is missing free name `" + capture + "`"
+        );
+      }
+    }
+    for (const auto& capture : declared_captures) {
+      if (captures.count(capture) == 0) {
+        throw StyioTypeError(
+          "callable `" + callable_name_of_def(def)
+          + "` declares unused capture `" + capture + "`"
+        );
+      }
+    }
+    effects.captures = std::move(sorted_captures);
+  }
+  else {
+    effects.captures.assign(captures.begin(), captures.end());
+    std::sort(effects.captures.begin(), effects.captures.end());
+  }
+
+  effects.direct_callees.assign(
+    direct_callees.begin(),
+    direct_callees.end());
+  std::sort(
+    effects.direct_callees.begin(),
+    effects.direct_callees.end());
+  if (!effects.captures.empty()) {
+    add_callable_effect(effects, CallableEffectLabel::Capture);
+  }
+  return effects;
+}
+
+std::string
+callable_term_text(const CallableTypeTerm& term) {
+  switch (term.kind) {
+    case CallableTypeTerm::Kind::Variable:
+      return "'" + std::to_string(term.variable);
+    case CallableTypeTerm::Kind::Concrete:
+      return term.concrete.name;
+    case CallableTypeTerm::Kind::List:
+      return "list[" + callable_term_text(term.arguments.at(0)) + "]";
+    case CallableTypeTerm::Kind::Dict:
+      return "dict[" + callable_term_text(term.arguments.at(0)) + ","
+             + callable_term_text(term.arguments.at(1)) + "]";
+  }
+  return "undefined";
+}
+
+std::string
+callable_constraint_name(CallableConstraintKind kind) {
+  switch (kind) {
+    case CallableConstraintKind::Numeric:
+      return "numeric";
+    case CallableConstraintKind::Comparable:
+      return "comparable";
+    case CallableConstraintKind::Indexable:
+      return "indexable";
+    case CallableConstraintKind::Iterable:
+      return "iterable";
+    case CallableConstraintKind::Cloneable:
+      return "cloneable";
+  }
+  return "unknown";
+}
+
+std::string
+callable_constraint_text(const CallableTypeConstraint& constraint) {
+  std::ostringstream output;
+  output << callable_constraint_name(constraint.kind) << "("
+         << callable_term_text(constraint.subject);
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    output << "," << callable_term_text(constraint.argument)
+           << "," << callable_term_text(constraint.result);
+  }
+  else if (constraint.kind == CallableConstraintKind::Iterable) {
+    output << "," << callable_term_text(constraint.result);
+  }
+  output << ")";
+  return output.str();
+}
+
+std::string
+callable_scheme_relation_text(const CallableTypeScheme& scheme) {
+  std::ostringstream relation;
+  if (!scheme.quantified_variables.empty()) {
+    relation << "forall ";
+    for (std::size_t i = 0;
+         i < scheme.quantified_variables.size();
+         ++i) {
+      if (i != 0) {
+        relation << ",";
+      }
+      relation << "'" << scheme.quantified_variables[i];
+    }
+    relation << ". ";
+  }
+  relation << "(";
+  for (std::size_t i = 0; i < scheme.params.size(); ++i) {
+    if (i != 0) {
+      relation << ",";
+    }
+    relation << callable_term_text(scheme.params[i]);
+  }
+  relation << ")->" << callable_term_text(scheme.result);
+  if (!scheme.constraints.empty()) {
+    relation << " where ";
+    for (std::size_t i = 0; i < scheme.constraints.size(); ++i) {
+      if (i != 0) {
+        relation << ",";
+      }
+      relation << scheme.constraints[i].canonical;
+    }
+  }
+  if (!scheme.usage_requirements.empty()) {
+    relation << " using ";
+    for (std::size_t i = 0;
+         i < scheme.usage_requirements.size();
+         ++i) {
+      if (i != 0) {
+        relation << ",";
+      }
+      relation << "usage('"
+               << scheme.usage_requirements[i].variable
+               << ":"
+               << scheme.usage_requirements[i].usages.canonical()
+               << ")";
+    }
+  }
+  return relation.str();
+}
+
+CallableUsageRequirement&
+callable_usage_requirement_for(
+  CallableTypeScheme& scheme,
+  std::uint32_t variable
+) {
+  const auto position = std::lower_bound(
+    scheme.usage_requirements.begin(),
+    scheme.usage_requirements.end(),
+    variable,
+    [](const auto& requirement, std::uint32_t candidate)
+    {
+      return requirement.variable < candidate;
+    });
+  if (position != scheme.usage_requirements.end()
+      && position->variable == variable) {
+    return *position;
+  }
+  return *scheme.usage_requirements.insert(
+    position,
+    CallableUsageRequirement{variable, {}});
+}
+
+CallableTypeConstraint
+apply_callable_constraint(
+  CallableTypeUnifier& unifier,
+  const CallableTypeConstraint& input
+) {
+  CallableTypeConstraint output = input;
+  output.subject = unifier.apply(output.subject);
+  if (output.kind == CallableConstraintKind::Indexable) {
+    output.argument = unifier.apply(output.argument);
+    output.result = unifier.apply(output.result);
+  }
+  else if (output.kind == CallableConstraintKind::Iterable) {
+    output.result = unifier.apply(output.result);
+  }
+  output.canonical = callable_constraint_text(output);
+  return output;
+}
+
+void
+collect_callable_term_variables(
+  const CallableTypeTerm& term,
+  std::vector<std::uint32_t>& variables,
+  std::unordered_set<std::uint32_t>& seen
+) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    if (seen.insert(term.variable).second) {
+      variables.push_back(term.variable);
+    }
+    return;
+  }
+  for (const auto& argument : term.arguments) {
+    collect_callable_term_variables(argument, variables, seen);
+  }
+}
+
+std::size_t
+callable_term_variable_domain_size(const CallableTypeTerm& term) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return static_cast<std::size_t>(term.variable) + 1;
+  }
+  std::size_t domain_size = 0;
+  for (const auto& argument : term.arguments) {
+    domain_size = std::max(
+      domain_size,
+      callable_term_variable_domain_size(argument));
+  }
+  return domain_size;
+}
+
+void
+summarize_callable_default_term(
+  const CallableTypeTerm& term,
+  bool numeric_subject,
+  std::vector<bool>& has_constraint,
+  std::vector<bool>& numeric_only
+) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    has_constraint[term.variable] = true;
+    if (!numeric_subject) {
+      numeric_only[term.variable] = false;
+    }
+    return;
+  }
+  for (const auto& argument : term.arguments) {
+    summarize_callable_default_term(
+      argument,
+      numeric_subject,
+      has_constraint,
+      numeric_only);
+  }
+}
+
+std::optional<std::uint32_t>
+first_callable_term_variable(const CallableTypeTerm& term) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return term.variable;
+  }
+  for (const auto& argument : term.arguments) {
+    if (auto variable = first_callable_term_variable(argument)) {
+      return variable;
+    }
+  }
+  return std::nullopt;
+}
+
+enum class CallableWorkItemState : std::uint8_t {
+  Queued = 0,
+  Blocked,
+  Solved,
+};
+
+struct CallableWorkItem
+{
+  CallableWorkItemState state = CallableWorkItemState::Queued;
+  std::size_t origin = 0;
+  std::size_t next_waiter = std::numeric_limits<std::size_t>::max();
+};
+
+struct CallableWorklistResult
+{
+  CallableConstraintSolverStats stats;
+  std::vector<std::size_t> residual_origins;
+};
+
+void
+merge_callable_constraint_solver_stats(
+  CallableConstraintSolverStats& aggregate,
+  const CallableConstraintSolverStats& run
+) {
+  aggregate.run_count += run.run_count;
+  aggregate.input_constraint_count += run.input_constraint_count;
+  aggregate.attempt_count += run.attempt_count;
+  aggregate.requeue_count += run.requeue_count;
+  aggregate.strict_binding_event_count +=
+    run.strict_binding_event_count;
+  aggregate.defaulted_variable_count += run.defaulted_variable_count;
+  aggregate.peak_frontier_count = std::max(
+    aggregate.peak_frontier_count, run.peak_frontier_count);
+  aggregate.peak_blocked_count = std::max(
+    aggregate.peak_blocked_count, run.peak_blocked_count);
+  aggregate.peak_live_waiter_count = std::max(
+    aggregate.peak_live_waiter_count, run.peak_live_waiter_count);
+  aggregate.peak_scheduler_storage_slots = std::max(
+    aggregate.peak_scheduler_storage_slots,
+    run.peak_scheduler_storage_slots);
+}
+
+template <typename Step, typename Blocker, typename Quiescence>
+CallableWorklistResult
+run_callable_constraint_worklist(
+  std::size_t constraint_count,
+  std::size_t variable_count,
+  Step&& step,
+  Blocker&& blocker,
+  Quiescence&& quiescence
+) {
+  constexpr std::size_t no_waiter =
+    std::numeric_limits<std::size_t>::max();
+  std::vector<CallableWorkItem> items(constraint_count);
+  std::vector<std::size_t> current;
+  std::vector<std::size_t> next;
+  std::vector<std::size_t> waiter_heads(variable_count, no_waiter);
+  CallableBindingDelta binding_delta(variable_count);
+  current.reserve(constraint_count);
+  next.reserve(constraint_count);
+  // Store each logical frontier in reverse origin order so pop_back()
+  // preserves origin-order execution while consumed IDs stop contributing
+  // to the live current-plus-next frontier bound.
+  for (std::size_t id = constraint_count; id > 0; --id) {
+    const std::size_t origin = id - 1;
+    items[origin].origin = origin;
+    current.push_back(origin);
+  }
+
+  CallableWorklistResult result;
+  auto& stats = result.stats;
+  stats.run_count = 1;
+  stats.input_constraint_count = constraint_count;
+  stats.peak_frontier_count = constraint_count;
+  stats.peak_scheduler_storage_slots =
+    3 * constraint_count + waiter_heads.size()
+    + binding_delta.storage_slots();
+  std::size_t blocked_count = 0;
+
+  auto drain_binding_delta = [&]()
+  {
+    stats.strict_binding_event_count += binding_delta.size();
+    binding_delta.drain([&](std::uint32_t variable)
+    {
+      if (variable >= waiter_heads.size()) {
+        return;
+      }
+      std::size_t id = waiter_heads[variable];
+      waiter_heads[variable] = no_waiter;
+      while (id != no_waiter) {
+        const std::size_t following = items[id].next_waiter;
+        items[id].next_waiter = no_waiter;
+        if (items[id].state == CallableWorkItemState::Blocked) {
+          items[id].state = CallableWorkItemState::Queued;
+          --blocked_count;
+          next.push_back(id);
+          ++stats.requeue_count;
+        }
+        id = following;
+      }
+    });
+  };
+
+  bool quiescence_ran = false;
+  while (true) {
+    while (!current.empty()) {
+      const std::size_t id = current.back();
+      current.pop_back();
+      ++stats.attempt_count;
+      if (step(id, binding_delta)) {
+        items[id].state = CallableWorkItemState::Solved;
+      }
+      else {
+        const auto variable = blocker(id);
+        if (!variable.has_value() || *variable >= variable_count) {
+          throw StyioTypeError(
+            "internal error: callable constraint blocked without a variable"
+          );
+        }
+        items[id].state = CallableWorkItemState::Blocked;
+        items[id].next_waiter = waiter_heads[*variable];
+        waiter_heads[*variable] = id;
+        ++blocked_count;
+        stats.peak_blocked_count =
+          std::max(stats.peak_blocked_count, blocked_count);
+        stats.peak_live_waiter_count =
+          std::max(stats.peak_live_waiter_count, blocked_count);
+      }
+      drain_binding_delta();
+      stats.peak_frontier_count = std::max(
+        stats.peak_frontier_count,
+        current.size() + next.size());
+    }
+
+    if (next.empty() && !quiescence_ran) {
+      quiescence_ran = true;
+      stats.defaulted_variable_count += quiescence(binding_delta);
+      drain_binding_delta();
+    }
+    if (next.empty()) {
+      break;
+    }
+    std::sort(next.begin(), next.end(), std::greater<>());
+    current.swap(next);
+    stats.peak_frontier_count =
+      std::max(stats.peak_frontier_count, current.size());
+  }
+
+  for (const auto& item : items) {
+    if (item.state == CallableWorkItemState::Blocked) {
+      current.push_back(item.origin);
+    }
+  }
+  result.residual_origins = std::move(current);
+  return result;
+}
+
+CallableTypeTerm
+normalize_callable_term_variables(
+  const CallableTypeTerm& input,
+  std::unordered_map<std::uint32_t, std::uint32_t>& normalization
+) {
+  CallableTypeTerm output = input;
+  if (output.kind == CallableTypeTerm::Kind::Variable) {
+    auto [it, inserted] = normalization.emplace(
+      output.variable,
+      static_cast<std::uint32_t>(normalization.size()));
+    (void)inserted;
+    output.variable = it->second;
+    return output;
+  }
+  for (auto& argument : output.arguments) {
+    argument = normalize_callable_term_variables(argument, normalization);
+  }
+  return output;
+}
+
+CallableTypeConstraint
+normalize_callable_constraint_variables(
+  const CallableTypeConstraint& input,
+  std::unordered_map<std::uint32_t, std::uint32_t>& normalization
+) {
+  CallableTypeConstraint output = input;
+  output.subject =
+    normalize_callable_term_variables(output.subject, normalization);
+  if (output.kind == CallableConstraintKind::Indexable) {
+    output.argument =
+      normalize_callable_term_variables(output.argument, normalization);
+    output.result =
+      normalize_callable_term_variables(output.result, normalization);
+  }
+  else if (output.kind == CallableConstraintKind::Iterable) {
+    output.result =
+      normalize_callable_term_variables(output.result, normalization);
+  }
+  output.canonical = callable_constraint_text(output);
+  return output;
+}
+
+bool
+callable_concrete_is_numeric(const StyioDataType& input) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  return type.option == StyioDataTypeOption::Integer
+         || type.option == StyioDataTypeOption::Float;
+}
+
+bool
+callable_concrete_is_comparable(const StyioDataType& input) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  return type.option == StyioDataTypeOption::Bool
+         || type.option == StyioDataTypeOption::Integer
+         || type.option == StyioDataTypeOption::Float
+         || type.option == StyioDataTypeOption::Char
+         || type.option == StyioDataTypeOption::String;
+}
+
+void
+validate_callable_unary_constraint(
+  CallableConstraintKind kind,
+  const StyioDataType& input,
+  std::string_view constraint_text = {}
+) {
+  StyioDataType type = normalize_callable_concrete_type(input);
+  bool satisfied = false;
+  switch (kind) {
+    case CallableConstraintKind::Numeric:
+      satisfied = callable_concrete_is_numeric(type);
+      break;
+    case CallableConstraintKind::Comparable:
+      satisfied = callable_concrete_is_comparable(type);
+      break;
+    case CallableConstraintKind::Iterable:
+      satisfied = styio_type_is_iterable(type);
+      break;
+    case CallableConstraintKind::Cloneable:
+      satisfied = styio_type_is_cloneable(type);
+      break;
+    case CallableConstraintKind::Indexable:
+      satisfied = styio_type_is_indexable(type);
+      break;
+  }
+  if (!satisfied) {
+    throw StyioTypeError(
+      "callable constraint `"
+      + (constraint_text.empty()
+           ? callable_constraint_name(kind)
+           : std::string(constraint_text))
+      + "` is not satisfied by type `" + type.name + "`"
+    );
+  }
+}
+
+bool
+reduce_callable_constraint(
+  CallableTypeUnifier& unifier,
+  const CallableTypeConstraint& input
+) {
+  CallableTypeConstraint constraint =
+    apply_callable_constraint(unifier, input);
+  if (constraint.kind == CallableConstraintKind::Numeric
+      || constraint.kind == CallableConstraintKind::Comparable
+      || constraint.kind == CallableConstraintKind::Cloneable) {
+    if (constraint.subject.kind == CallableTypeTerm::Kind::Variable) {
+      return false;
+    }
+    if (constraint.subject.kind == CallableTypeTerm::Kind::List
+        || constraint.subject.kind == CallableTypeTerm::Kind::Dict) {
+      if (constraint.kind == CallableConstraintKind::Cloneable) {
+        return true;
+      }
+      throw StyioTypeError(
+        "callable constraint `"
+        + callable_constraint_name(constraint.kind)
+        + "` is not satisfied by a collection type"
+      );
+    }
+    validate_callable_unary_constraint(
+      constraint.kind,
+      constraint.subject.concrete,
+      callable_constraint_text(constraint));
+    return true;
+  }
+
+  if (constraint.subject.kind == CallableTypeTerm::Kind::List) {
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      unifier.unify(
+        constraint.argument,
+        callable_concrete_term(kI64Type),
+        "indexable list key");
+      unifier.unify(
+        constraint.result,
+        constraint.subject.arguments.at(0),
+        "indexable list result");
+      return true;
+    }
+    if (constraint.kind == CallableConstraintKind::Iterable) {
+      unifier.unify(
+        constraint.result,
+        constraint.subject.arguments.at(0),
+        "iterable list element");
+      return true;
+    }
+  }
+  if (constraint.subject.kind == CallableTypeTerm::Kind::Dict) {
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      unifier.unify(
+        constraint.argument,
+        constraint.subject.arguments.at(0),
+        "indexable dict key");
+      unifier.unify(
+        constraint.result,
+        constraint.subject.arguments.at(1),
+        "indexable dict result");
+      return true;
+    }
+  }
+  if (constraint.subject.kind != CallableTypeTerm::Kind::Concrete) {
+    return false;
+  }
+
+  StyioDataType subject =
+    normalize_callable_concrete_type(constraint.subject.concrete);
+  validate_callable_unary_constraint(constraint.kind, subject);
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    StyioDataType key = styio_is_dict_type(subject)
+                          ? styio_data_type_from_name(
+                              styio_dict_key_type_name(subject))
+                          : kI64Type;
+    StyioDataType result = styio_data_type_from_name(
+      styio_type_item_type_name(subject));
+    unifier.unify(
+      constraint.argument,
+      callable_concrete_term(key),
+      "indexable concrete key");
+    unifier.unify(
+      constraint.result,
+      callable_concrete_term(result),
+      "indexable concrete result");
+  }
+  else if (constraint.kind == CallableConstraintKind::Iterable) {
+    StyioDataType result = styio_data_type_from_name(
+      styio_type_item_type_name(subject));
+    unifier.unify(
+      constraint.result,
+      callable_concrete_term(result),
+      "iterable concrete element");
+  }
+  return true;
+}
+
+CallableConstraintSolverStats
+reduce_callable_constraints(
+  CallableTypeUnifier& unifier,
+  std::vector<CallableTypeConstraint>& constraints
+) {
+  const std::size_t constraint_count = constraints.size();
+  auto result = run_callable_constraint_worklist(
+    constraint_count,
+    unifier.variable_count(),
+    [&](std::size_t id, CallableBindingDelta& binding_delta)
+    {
+      unifier.observe_binding_delta(&binding_delta);
+      try {
+        const bool solved =
+          reduce_callable_constraint(unifier, constraints[id]);
+        unifier.observe_binding_delta(nullptr);
+        return solved;
+      }
+      catch (...) {
+        unifier.observe_binding_delta(nullptr);
+        throw;
+      }
+    },
+    [&](std::size_t id)
+    {
+      return first_callable_term_variable(
+        unifier.apply(constraints[id].subject));
+    },
+    [](CallableBindingDelta&)
+    {
+      return std::size_t{0};
+    });
+
+  std::vector<CallableTypeConstraint> residual;
+  residual.reserve(result.residual_origins.size());
+  for (std::size_t id : result.residual_origins) {
+    residual.push_back(apply_callable_constraint(unifier, constraints[id]));
+  }
+  constraints = std::move(residual);
+  return result.stats;
+}
+
+class CallableSymbolicInfer
+{
+  CallableTypeUnifier& unifier_;
+  const std::unordered_map<std::string, CallableTypeScheme>& schemes_;
+  const std::unordered_map<std::string, CallableMonotype>& recursive_group_;
+  const std::unordered_map<std::string, StyioAST*>& all_defs_;
+  std::vector<CallableTypeConstraint>& constraints_;
+  std::unordered_map<std::string, CallableTypeTerm> locals_;
+
+  void record_constraint(
+    CallableConstraintKind kind,
+    CallableTypeTerm subject,
+    CallableTypeTerm argument = {},
+    CallableTypeTerm result = {}
+  ) {
+    CallableTypeConstraint constraint;
+    constraint.kind = kind;
+    constraint.subject = unifier_.apply(subject);
+    constraint.argument = unifier_.apply(argument);
+    constraint.result = unifier_.apply(result);
+    constraint.canonical = callable_constraint_text(constraint);
+    constraints_.push_back(std::move(constraint));
+  }
+
+  CallableMonotype instantiate_scheme(const CallableTypeScheme& scheme) {
+    std::unordered_map<std::uint32_t, CallableTypeTerm> fresh_variables;
+    auto instantiate_term = [&](auto&& self, const CallableTypeTerm& input)
+      -> CallableTypeTerm
+    {
+      if (input.kind == CallableTypeTerm::Kind::Variable) {
+        auto [it, inserted] = fresh_variables.emplace(
+          input.variable,
+          CallableTypeTerm{});
+        if (inserted) {
+          it->second = unifier_.fresh();
+        }
+        return it->second;
+      }
+      CallableTypeTerm output = input;
+      for (auto& argument : output.arguments) {
+        argument = self(self, argument);
+      }
+      return output;
+    };
+
+    CallableMonotype instance;
+    instance.params.reserve(scheme.params.size());
+    for (const auto& param : scheme.params) {
+      instance.params.push_back(instantiate_term(instantiate_term, param));
+    }
+    instance.result = instantiate_term(instantiate_term, scheme.result);
+    for (const auto& constraint : scheme.constraints) {
+      CallableTypeConstraint instantiated = constraint;
+      instantiated.subject =
+        instantiate_term(instantiate_term, constraint.subject);
+      if (constraint.kind == CallableConstraintKind::Indexable) {
+        instantiated.argument =
+          instantiate_term(instantiate_term, constraint.argument);
+        instantiated.result =
+          instantiate_term(instantiate_term, constraint.result);
+      }
+      else if (constraint.kind == CallableConstraintKind::Iterable) {
+        instantiated.result =
+          instantiate_term(instantiate_term, constraint.result);
+      }
+      instantiated.canonical = callable_constraint_text(instantiated);
+      constraints_.push_back(std::move(instantiated));
+    }
+    return instance;
+  }
+
+  CallableMonotype concrete_signature(StyioAST* def) {
+    CallableMonotype signature;
+    for (auto* param : params_of_func_def(def)) {
+      StyioDataType type = param->getDType()->getDataType();
+      if (type.isUndefined()) {
+        throw StyioTypeError(
+          "cannot infer a principal relation through mutable or unresolved "
+          "callable `" + callable_name_of_def(def) + "`"
+        );
+      }
+      signature.params.push_back(callable_concrete_term(type));
+    }
+    StyioDataType result = callable_declared_result_type(def);
+    if (result.isUndefined()) {
+      throw StyioTypeError(
+        "cannot infer a principal relation through callable `"
+        + callable_name_of_def(def)
+        + "` before its result relation is available"
+      );
+    }
+    signature.result = callable_concrete_term(result);
+    return signature;
+  }
+
+  CallableTypeTerm infer_call(FuncCallAST* call) {
+    if (call->func_callee != nullptr) {
+      throw StyioTypeError(
+        "inferred callable relations do not include method or closure calls"
+      );
+    }
+
+    CallableMonotype signature;
+    auto recursive = recursive_group_.find(call->getNameAsStr());
+    if (recursive != recursive_group_.end()) {
+      signature = recursive->second;
+    }
+    else if (auto scheme = schemes_.find(call->getNameAsStr());
+             scheme != schemes_.end()) {
+      signature = instantiate_scheme(scheme->second);
+    }
+    else if (auto def = all_defs_.find(call->getNameAsStr());
+             def != all_defs_.end()) {
+      signature = concrete_signature(def->second);
+    }
+    else {
+      throw StyioTypeError(
+        "cannot infer a principal relation through unknown callable `"
+        + call->getNameAsStr() + "`"
+      );
+    }
+
+    if (signature.params.size() != call->getArgList().size()) {
+      throw StyioTypeError(
+        "function `" + call->getNameAsStr() + "` expects "
+        + std::to_string(signature.params.size()) + " argument(s), got "
+        + std::to_string(call->getArgList().size())
+      );
+    }
+    for (std::size_t i = 0; i < signature.params.size(); ++i) {
+      CallableTypeTerm argument = infer(call->getArgList()[i]);
+      try {
+        unifier_.unify(
+          signature.params[i],
+          argument,
+          "call to `" + call->getNameAsStr() + "`"
+        );
+      }
+      catch (const StyioTypeError&) {
+        if (recursive != recursive_group_.end()) {
+          throw StyioTypeError(
+            "polymorphic recursion is not supported in recursive callable `"
+            + call->getNameAsStr()
+            + "`; every internal edge must reuse the group's provisional monotype"
+          );
+        }
+        throw;
+      }
+    }
+    return unifier_.apply(signature.result);
+  }
+
+  CallableTypeTerm infer_numeric_binary(BinOpAST* binary) {
+    CallableTypeTerm lhs = unifier_.apply(infer(binary->getLHS()));
+    CallableTypeTerm rhs = unifier_.apply(infer(binary->getRHS()));
+
+    auto is_numeric = [](const CallableTypeTerm& term)
+    {
+      return term.kind == CallableTypeTerm::Kind::Concrete
+             && (term.concrete.option == StyioDataTypeOption::Integer
+                 || term.concrete.option == StyioDataTypeOption::Float);
+    };
+    auto is_string = [](const CallableTypeTerm& term)
+    {
+      return term.kind == CallableTypeTerm::Kind::Concrete
+             && term.concrete.option == StyioDataTypeOption::String;
+    };
+
+    if (binary->getOp() == StyioOpType::Binary_Add
+        && (is_string(lhs) || is_string(rhs))) {
+      unifier_.unify(lhs, callable_concrete_term(kStringType), "string addition");
+      unifier_.unify(rhs, callable_concrete_term(kStringType), "string addition");
+      return callable_concrete_term(kStringType);
+    }
+
+    switch (binary->getOp()) {
+      case StyioOpType::Binary_Add:
+      case StyioOpType::Binary_Sub:
+      case StyioOpType::Binary_Mul:
+      case StyioOpType::Binary_Div:
+      case StyioOpType::Binary_Pow:
+      case StyioOpType::Binary_Mod:
+        break;
+      default:
+        throw StyioTypeError(
+          "inferred callable operator is outside the closed `numeric` "
+          "constraint vocabulary"
+        );
+    }
+
+    if (lhs.kind == CallableTypeTerm::Kind::Variable
+        || rhs.kind == CallableTypeTerm::Kind::Variable) {
+      unifier_.unify(lhs, rhs, "numeric operator operands");
+      CallableTypeTerm operand = unifier_.apply(lhs);
+      if (operand.kind == CallableTypeTerm::Kind::Variable) {
+        record_constraint(CallableConstraintKind::Numeric, operand);
+        return operand;
+      }
+      if (is_numeric(operand)) {
+        return operand;
+      }
+      throw StyioTypeError(
+        "numeric operator requires an integer or floating-point operand"
+      );
+    }
+    if (!is_numeric(lhs) || !is_numeric(rhs)) {
+      throw StyioTypeError(
+        "numeric operator requires integer or floating-point operands"
+      );
+    }
+    if (lhs.concrete.option == StyioDataTypeOption::Float
+        || rhs.concrete.option == StyioDataTypeOption::Float) {
+      return callable_concrete_term(kF64Type);
+    }
+    return callable_concrete_term(
+      lhs.concrete.num_of_bit >= rhs.concrete.num_of_bit
+        ? lhs.concrete
+        : rhs.concrete
+    );
+  }
+
+public:
+  CallableSymbolicInfer(
+    CallableTypeUnifier& unifier,
+    const std::unordered_map<std::string, CallableTypeScheme>& schemes,
+    const std::unordered_map<std::string, CallableMonotype>& recursive_group,
+    const std::unordered_map<std::string, StyioAST*>& all_defs,
+    std::vector<CallableTypeConstraint>& constraints
+  ) :
+      unifier_(unifier),
+      schemes_(schemes),
+      recursive_group_(recursive_group),
+      all_defs_(all_defs),
+      constraints_(constraints) {
+  }
+
+  void bind_local(const std::string& name, CallableTypeTerm type) {
+    locals_[name] = std::move(type);
+  }
+
+  CallableTypeTerm infer(StyioAST* ast) {
+    if (ast == nullptr) {
+      throw StyioTypeError(
+        "cannot infer a principal callable relation from an empty expression"
+      );
+    }
+    if (auto* name = dynamic_cast<NameAST*>(ast)) {
+      auto local = locals_.find(name->getAsStr());
+      if (local == locals_.end()) {
+        throw StyioTypeError(
+          "cannot infer a principal callable relation for free value `"
+          + name->getAsStr() + "`"
+        );
+      }
+      return unifier_.apply(local->second);
+    }
+    if (dynamic_cast<IntAST*>(ast) != nullptr) {
+      return callable_concrete_term(kI64Type);
+    }
+    if (dynamic_cast<FloatAST*>(ast) != nullptr) {
+      return callable_concrete_term(kF64Type);
+    }
+    if (dynamic_cast<BoolAST*>(ast) != nullptr
+        || dynamic_cast<CondAST*>(ast) != nullptr
+        || dynamic_cast<BinCompAST*>(ast) != nullptr) {
+      if (auto* comparison = dynamic_cast<BinCompAST*>(ast)) {
+        CallableTypeTerm lhs = infer(comparison->getLHS());
+        CallableTypeTerm rhs = infer(comparison->getRHS());
+        unifier_.unify(lhs, rhs, "comparison");
+        record_constraint(
+          CallableConstraintKind::Comparable,
+          unifier_.apply(lhs));
+      }
+      else if (auto* condition = dynamic_cast<CondAST*>(ast)) {
+        if (condition->getValue() != nullptr) {
+          unifier_.unify(
+            infer(condition->getValue()),
+            callable_concrete_term(kBoolType),
+            "logical condition");
+        }
+        if (condition->getLHS() != nullptr) {
+          unifier_.unify(
+            infer(condition->getLHS()),
+            callable_concrete_term(kBoolType),
+            "logical condition");
+        }
+        if (condition->getRHS() != nullptr) {
+          unifier_.unify(
+            infer(condition->getRHS()),
+            callable_concrete_term(kBoolType),
+            "logical condition");
+        }
+      }
+      return callable_concrete_term(kBoolType);
+    }
+    if (auto* character = dynamic_cast<CharAST*>(ast)) {
+      return callable_concrete_term(character->getDataType());
+    }
+    if (dynamic_cast<StringAST*>(ast) != nullptr
+        || dynamic_cast<FmtStrAST*>(ast) != nullptr) {
+      return callable_concrete_term(kStringType);
+    }
+    if (auto* list = dynamic_cast<ListAST*>(ast)) {
+      if (list->getElements().empty()) {
+        return callable_list_term(unifier_.fresh());
+      }
+      CallableTypeTerm element = infer(list->getElements().front());
+      for (std::size_t i = 1; i < list->getElements().size(); ++i) {
+        unifier_.unify(
+          element,
+          infer(list->getElements()[i]),
+          "list literal"
+        );
+      }
+      return callable_list_term(unifier_.apply(element));
+    }
+    if (auto* dict = dynamic_cast<DictAST*>(ast)) {
+      CallableTypeTerm key = callable_concrete_term(kStringType);
+      CallableTypeTerm value = unifier_.fresh();
+      for (const auto& entry : dict->getEntries()) {
+        unifier_.unify(key, infer(entry.key), "dict key");
+        unifier_.unify(value, infer(entry.value), "dict value");
+      }
+      return callable_dict_term(
+        unifier_.apply(key),
+        unifier_.apply(value));
+    }
+    if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
+      if (access->getOp() != StyioNodeType::Access_By_Index
+          || access->getSlot1() == nullptr) {
+        throw StyioTypeError(
+          "inferred callable indexable constraints currently require "
+          "single-value index access"
+        );
+      }
+      CallableTypeTerm subject = unifier_.apply(infer(access->getList()));
+      CallableTypeTerm argument = unifier_.apply(infer(access->getSlot1()));
+      if (subject.kind == CallableTypeTerm::Kind::List) {
+        unifier_.unify(
+          argument,
+          callable_concrete_term(kI64Type),
+          "list index");
+        return unifier_.apply(subject.arguments.at(0));
+      }
+      if (subject.kind == CallableTypeTerm::Kind::Dict) {
+        unifier_.unify(
+          argument,
+          subject.arguments.at(0),
+          "dict index");
+        return unifier_.apply(subject.arguments.at(1));
+      }
+      CallableTypeTerm result = unifier_.fresh();
+      record_constraint(
+        CallableConstraintKind::Indexable,
+        subject,
+        argument,
+        result);
+      return result;
+    }
+    if (auto* binary = dynamic_cast<BinOpAST*>(ast)) {
+      return infer_numeric_binary(binary);
+    }
+    if (auto* conversion = dynamic_cast<TypeConvertAST*>(ast)) {
+      (void)infer(conversion->getValue());
+      switch (conversion->getPromoTy()) {
+        case NumPromoTy::Bool_To_Int:
+          return callable_concrete_term(kI64Type);
+        case NumPromoTy::Int_To_Float:
+          return callable_concrete_term(kF64Type);
+      }
+    }
+    if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+      return infer_call(call);
+    }
+    if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
+      return infer(ret->getExpr());
+    }
+    if (auto* bind = dynamic_cast<FlexBindAST*>(ast)) {
+      CallableTypeTerm value = infer(bind->getValue());
+      StyioDataType declared = bind->getVar()->getDType()->getDataType();
+      if (!declared.isUndefined()) {
+        unifier_.unify(
+          value,
+          callable_concrete_term(declared),
+          "local binding `" + bind->getNameAsStr() + "`");
+      }
+      bind_local(bind->getNameAsStr(), unifier_.apply(value));
+      return unifier_.apply(value);
+    }
+    if (auto* bind = dynamic_cast<FinalBindAST*>(ast)) {
+      CallableTypeTerm value = infer(bind->getValue());
+      StyioDataType declared = bind->getVar()->getDType()->getDataType();
+      if (!declared.isUndefined()) {
+        unifier_.unify(
+          value,
+          callable_concrete_term(declared),
+          "local binding `" + bind->getName() + "`");
+      }
+      bind_local(bind->getName(), unifier_.apply(value));
+      return unifier_.apply(value);
+    }
+    if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+      CallableTypeTerm result =
+        callable_concrete_term(
+          StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0});
+      bool has_result = false;
+      for (auto* statement : block->stmts) {
+        if (dynamic_cast<CommentAST*>(statement) != nullptr
+            || dynamic_cast<PassAST*>(statement) != nullptr) {
+          continue;
+        }
+        result = infer(statement);
+        has_result = true;
+      }
+      if (!has_result) {
+        throw StyioTypeError(
+          "inferred callable body requires a value-producing tail"
+        );
+      }
+      return unifier_.apply(result);
+    }
+    if (auto* match = dynamic_cast<MatchCasesAST*>(ast)) {
+      CallableTypeTerm scrutinee = infer(match->getScrutinee());
+      CallableTypeTerm result = unifier_.fresh();
+      CasesAST* cases = match->getCases();
+      for (const auto& entry : cases->case_list) {
+        if (auto* integer = dynamic_cast<IntAST*>(entry.first)) {
+          CallableTypeTerm concrete = callable_concrete_term(integer->getDataType());
+          CallableTypeTerm resolved = unifier_.apply(scrutinee);
+          if (resolved.kind == CallableTypeTerm::Kind::Variable) {
+            unifier_.unify(scrutinee, concrete, "match scrutinee");
+          }
+          else if (resolved.kind != CallableTypeTerm::Kind::Concrete
+                   || resolved.concrete.option != StyioDataTypeOption::Integer) {
+            throw StyioTypeError(
+              "integer match pattern requires an integer scrutinee"
+            );
+          }
+        }
+        unifier_.unify(result, infer(entry.second), "match branch");
+      }
+      if (cases->case_default != nullptr) {
+        unifier_.unify(
+          result,
+          infer(cases->case_default),
+          "match default branch");
+      }
+      return unifier_.apply(result);
+    }
+    if (auto* merge = dynamic_cast<WaveMergeAST*>(ast)) {
+      unifier_.unify(
+        infer(merge->getCond()),
+        callable_concrete_term(kBoolType),
+        "wave merge condition");
+      CallableTypeTerm result = infer(merge->getTrueVal());
+      unifier_.unify(result, infer(merge->getFalseVal()), "wave merge arms");
+      return unifier_.apply(result);
+    }
+    if (auto* dispatch = dynamic_cast<WaveDispatchAST*>(ast)) {
+      unifier_.unify(
+        infer(dispatch->getCond()),
+        callable_concrete_term(kBoolType),
+        "wave dispatch condition");
+      CallableTypeTerm result = infer(dispatch->getTrueArm());
+      unifier_.unify(
+        result,
+        infer(dispatch->getFalseArm()),
+        "wave dispatch arms");
+      return unifier_.apply(result);
+    }
+    if (auto* flow = dynamic_cast<CondFlowAST*>(ast)) {
+      unifier_.unify(
+        infer(flow->getCond()),
+        callable_concrete_term(kBoolType),
+        "conditional guard");
+      CallableTypeTerm result = infer(flow->getThen());
+      if (flow->getElse() != nullptr) {
+        unifier_.unify(result, infer(flow->getElse()), "conditional arms");
+      }
+      return unifier_.apply(result);
+    }
+
+    throw StyioTypeError(
+      "cannot derive a principal rank-1 relation from AST node "
+      + std::to_string(static_cast<int>(ast->getNodeType()))
+    );
+  }
+};
+
+std::string
+callable_specialized_symbol(
+  std::string_view name,
+  std::string_view content_digest
+) {
+  if (content_digest.size() != 64
+      || !std::all_of(
+           content_digest.begin(),
+           content_digest.end(),
+           [](unsigned char ch)
+           {
+             return std::isxdigit(ch) != 0;
+           })) {
+    throw StyioTypeError(
+      "callable specialization requires a SHA-256 content digest"
+    );
+  }
+  std::string safe_name;
+  safe_name.reserve(name.size());
+  for (unsigned char ch : name) {
+    safe_name.push_back(
+      std::isalnum(ch) || ch == '_'
+        ? static_cast<char>(ch)
+        : '_');
+  }
+
+  std::ostringstream output;
+  output << "__styio_mono_" << safe_name << "_"
+         << content_digest;
+  return output.str();
+}
 
 StyioDataType
 infer_expr_type(StyioSemaContext* an, StyioAST* expr);
@@ -355,7 +3011,12 @@ infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
 
   auto const& els = list->getElements();
   if (els.empty()) {
-    return styio_make_list_type("i64");
+    if (styio_is_list_type(existing_type)) {
+      return existing_type;
+    }
+    return StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
   }
 
   StyioDataType elem_type = infer_expr_type(an, els[0]);
@@ -1159,6 +3820,10 @@ func_param_accepts_arg(
   if (sema_types_equal(an, param_type, arg_type)) {
     return true;
   }
+  if (styio_is_callable_type(param_type)
+      || styio_is_callable_type(arg_type)) {
+    return false;
+  }
 
   StyioValueFamily param_family = styio_value_family_for_type(param_type);
   StyioValueFamily arg_family = styio_value_family_for_type(arg_type);
@@ -1242,7 +3907,13 @@ StyioDataType
 infer_dict_literal_type(StyioSemaContext* an, DictAST* dict) {
   auto const& entries = dict->getEntries();
   if (entries.empty()) {
-    return styio_make_dict_type("string", "i64");
+    StyioDataType existing_type = dict->getDataType();
+    if (styio_is_dict_type(existing_type)) {
+      return existing_type;
+    }
+    return StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
   }
 
   for (auto const& entry : entries) {
@@ -1290,9 +3961,9 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     case StyioNodeType::Compare:
       return kBoolType;
     case StyioNodeType::Integer:
-      return static_cast<IntAST*>(expr)->getDataType();
+      return kI64Type;
     case StyioNodeType::Float:
-      return static_cast<FloatAST*>(expr)->getDataType();
+      return kF64Type;
     case StyioNodeType::NumConvert:
       return static_cast<TypeConvertAST*>(expr)->getDataType();
     case StyioNodeType::Char:
@@ -1411,6 +4082,9 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
     }
     case StyioNodeType::Call: {
       auto* call = static_cast<FuncCallAST*>(expr);
+      if (!call->getDataType().isUndefined()) {
+        return call->getDataType();
+      }
       StyioDataType builtin_type = infer_predefined_list_operation_type(an, call);
       if (!builtin_type.isUndefined()) {
         return builtin_type;
@@ -1779,7 +4453,2085 @@ infer_numeric_string_coercion(StyioSemaContext* an, BinOpAST* ast, StyioAST* lhs
   return true;
 }
 
+bool
+callable_generalization_domain_accepts(const StyioDataType& type) {
+  constexpr std::uint32_t stateful_capabilities =
+    styio_caps(StyioTypeCapability::Readable)
+    | styio_caps(StyioTypeCapability::Writable)
+    | styio_caps(StyioTypeCapability::Pull)
+    | styio_caps(StyioTypeCapability::Push)
+    | styio_caps(StyioTypeCapability::Close)
+    | styio_caps(StyioTypeCapability::Send)
+    | styio_caps(StyioTypeCapability::Sync);
+  if (type.isUndefined()
+      || type.is_resource_type
+      || type.resource_shape != StyioResourceShapeKind::None
+      || type.has_std_stream_kind
+      || (type.capabilities & stateful_capabilities) != 0) {
+    return false;
+  }
+
+  if (styio_is_list_type(type)) {
+    return type.handle_family == StyioHandleFamily::List
+           && type.state == StyioTypeState::Materialized
+           && callable_generalization_domain_accepts(
+             styio_data_type_from_name(
+               styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    return type.handle_family == StyioHandleFamily::Dict
+           && type.state == StyioTypeState::Materialized
+           && callable_generalization_domain_accepts(
+             styio_data_type_from_name(
+               styio_dict_key_type_name(type)))
+           && callable_generalization_domain_accepts(
+             styio_data_type_from_name(
+               styio_dict_value_type_name(type)));
+  }
+  if (type.handle_family != StyioHandleFamily::None
+      || type.state != StyioTypeState::None
+      || type.capabilities != 0) {
+    return false;
+  }
+
+  switch (type.option) {
+    case StyioDataTypeOption::Bool:
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::Float:
+    case StyioDataTypeOption::Decimal:
+    case StyioDataTypeOption::Char:
+    case StyioDataTypeOption::String:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool
+callable_copy_usage_accepts(const StyioDataType& type) {
+  if (callable_generalization_domain_accepts(type)) {
+    return true;
+  }
+  if (styio_is_matrix_type(type)) {
+    return (type.capabilities
+            & styio_caps(StyioTypeCapability::Cloneable)) != 0;
+  }
+  return false;
+}
+
+bool
+callable_exclusive_borrow_usage_accepts(
+  const StyioDataType& type
+) {
+  return (styio_is_list_type(type)
+          && type.handle_family == StyioHandleFamily::List
+          && type.state == StyioTypeState::Materialized)
+         || (styio_is_dict_type(type)
+             && type.handle_family == StyioHandleFamily::Dict
+             && type.state == StyioTypeState::Materialized)
+         || (styio_is_matrix_type(type)
+             && type.handle_family == StyioHandleFamily::Matrix
+             && type.state == StyioTypeState::Materialized);
+}
+
+std::string
+callable_generalization_first_incompatible_fact(
+  const StyioDataType& type
+) {
+  if (type.isUndefined()) {
+    return "unresolved_type";
+  }
+  if (type.is_resource_type
+      || type.resource_shape != StyioResourceShapeKind::None) {
+    return "topology_identity";
+  }
+  if (styio_is_matrix_type(type)
+      || type.handle_family == StyioHandleFamily::Matrix) {
+    return "materialized_shape";
+  }
+  if (type.handle_family == StyioHandleFamily::Task) {
+    return "task_transfer";
+  }
+  if (styio_is_list_type(type)) {
+    if (type.handle_family != StyioHandleFamily::List
+        || type.state != StyioTypeState::Materialized) {
+      return "resource_state_family";
+    }
+    return callable_generalization_first_incompatible_fact(
+      styio_data_type_from_name(
+        styio_list_elem_type_name(type)));
+  }
+  if (styio_is_dict_type(type)) {
+    if (type.handle_family != StyioHandleFamily::Dict
+        || type.state != StyioTypeState::Materialized) {
+      return "resource_state_family";
+    }
+    const std::string key_fact =
+      callable_generalization_first_incompatible_fact(
+        styio_data_type_from_name(
+          styio_dict_key_type_name(type)));
+    if (key_fact != "") {
+      return key_fact;
+    }
+    return callable_generalization_first_incompatible_fact(
+      styio_data_type_from_name(
+        styio_dict_value_type_name(type)));
+  }
+  if (type.handle_family == StyioHandleFamily::File
+      || type.handle_family == StyioHandleFamily::Stream
+      || type.handle_family == StyioHandleFamily::Range
+      || type.has_std_stream_kind
+      || type.state != StyioTypeState::None
+      || type.capabilities != 0) {
+    return "resource_state_family";
+  }
+  if (styio_is_callable_type(type)) {
+    return "callable_value_rank";
+  }
+  return callable_generalization_domain_accepts(type)
+           ? ""
+           : "closed_type_domain";
+}
+
+std::string
+callable_usage_first_incompatible_fact(
+  const StyioDataType& type,
+  const CallableUsageSet& usages
+) {
+  if (usages.contains(CallableUsageKind::Copy)
+      && !callable_copy_usage_accepts(type)) {
+    return "copy";
+  }
+  if (usages.contains(CallableUsageKind::ExclusiveBorrow)
+      && !callable_exclusive_borrow_usage_accepts(type)) {
+    return "exclusive_borrow";
+  }
+  if (usages.contains(CallableUsageKind::Consume)
+      && (type.state == StyioTypeState::Done
+          || type.state == StyioTypeState::Cancelled
+          || type.state == StyioTypeState::Closed)) {
+    return "consume";
+  }
+  return callable_generalization_first_incompatible_fact(type);
+}
+
+void
+validate_callable_usage_instance(
+  const CallableTypeScheme& scheme,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  for (const std::uint32_t variable :
+       scheme.quantified_variables) {
+    const auto binding = bindings.find(variable);
+    if (binding == bindings.end()) {
+      continue;
+    }
+    CallableUsageSet empty_usages;
+    const auto requirement = std::lower_bound(
+      scheme.usage_requirements.begin(),
+      scheme.usage_requirements.end(),
+      variable,
+      [](const auto& candidate, std::uint32_t value)
+      {
+        return candidate.variable < value;
+      });
+    const CallableUsageSet& usages =
+      requirement != scheme.usage_requirements.end()
+          && requirement->variable == variable
+        ? requirement->usages
+        : empty_usages;
+    const std::string incompatible =
+      callable_usage_first_incompatible_fact(
+        binding->second,
+        usages);
+    if (incompatible.empty()) {
+      continue;
+    }
+    throw StyioTypeError(
+      "inferred relation variable '"
+      + std::to_string(variable)
+      + " requires usage facts "
+      + usages.canonical()
+      + "; type `" + binding->second.name
+      + "` is incompatible in call to `" + scheme.name
+      + "`; first incompatible fact is `" + incompatible + "`"
+    );
+  }
+}
+
+bool
+match_callable_term_to_concrete(
+  const CallableTypeTerm& pattern,
+  const StyioDataType& concrete_input,
+  std::unordered_map<std::uint32_t, StyioDataType>& bindings,
+  const std::string& context,
+  CallableBindingDelta* binding_delta = nullptr
+) {
+  if (auto variable = first_callable_term_variable(pattern)) {
+    if (concrete_input.isUndefined()) {
+      throw StyioTypeError(
+        "inferred relation variable '" + std::to_string(*variable)
+        + " is underconstrained in " + context
+        + "; add a concrete surrounding annotation"
+      );
+    }
+  }
+
+  StyioDataType concrete =
+    normalize_callable_concrete_type(concrete_input);
+  switch (pattern.kind) {
+    case CallableTypeTerm::Kind::Variable: {
+      auto [it, inserted] =
+        bindings.emplace(pattern.variable, concrete_input);
+      if (inserted) {
+        append_callable_binding_delta(binding_delta, pattern.variable);
+        return true;
+      }
+      StyioDataType previous =
+        normalize_callable_concrete_type(it->second);
+      if (previous.equals(concrete)) {
+        const bool previous_is_plain =
+          callable_generalization_domain_accepts(it->second);
+        const bool incoming_is_plain =
+          callable_generalization_domain_accepts(concrete_input);
+        if (previous_is_plain && !incoming_is_plain) {
+          it->second = concrete_input;
+          append_callable_binding_delta(binding_delta, pattern.variable);
+          return true;
+        }
+        if (!previous_is_plain && incoming_is_plain) {
+          return false;
+        }
+        if (!previous_is_plain
+            && !it->second.equals(concrete_input)) {
+          throw StyioTypeError(
+            "capability-sensitive instance conflict in " + context
+            + ": `" + it->second.name + "` and `"
+            + concrete_input.name
+            + "` share a normalized representation but not ownership, "
+              "state, shape, or topology identity"
+          );
+        }
+        return false;
+      }
+      if (previous.option == StyioDataTypeOption::Integer
+          && concrete.option == StyioDataTypeOption::Integer) {
+        if (concrete.num_of_bit == 0) {
+          return false;
+        }
+        if (previous.num_of_bit == 0) {
+          it->second = concrete_input;
+          append_callable_binding_delta(binding_delta, pattern.variable);
+          return true;
+        }
+      }
+      if (previous.option == StyioDataTypeOption::Bool
+          && concrete.option == StyioDataTypeOption::Bool) {
+        return false;
+      }
+      if (previous.option == StyioDataTypeOption::String
+          && concrete.option == StyioDataTypeOption::String) {
+        return false;
+      }
+      if (previous.option == StyioDataTypeOption::Char
+          && concrete.option == StyioDataTypeOption::Char
+          && previous.num_of_bit == concrete.num_of_bit) {
+        return false;
+      }
+      {
+        throw StyioTypeError(
+          "generic instance conflict in " + context + ": inferred `"
+          + previous.name + "` and `" + concrete.name
+          + "` for the same relation variable"
+        );
+      }
+    }
+    case CallableTypeTerm::Kind::Concrete: {
+      StyioDataType expected =
+        normalize_callable_concrete_type(pattern.concrete);
+      const bool same_numeric_family =
+        (expected.option == StyioDataTypeOption::Integer
+         && concrete.option == StyioDataTypeOption::Integer)
+        || (expected.option == StyioDataTypeOption::Float
+            && concrete.option == StyioDataTypeOption::Float);
+      if (!expected.equals(concrete) && !same_numeric_family) {
+        throw StyioTypeError(
+          "generic instance conflict in " + context + ": expected `"
+          + expected.name + "`, got `" + concrete.name + "`"
+        );
+      }
+      return false;
+    }
+    case CallableTypeTerm::Kind::List:
+      if (!styio_is_list_type(concrete)) {
+        throw StyioTypeError(
+          "generic instance conflict in " + context
+          + ": expected list[T], got `" + concrete.name + "`"
+        );
+      }
+      return match_callable_term_to_concrete(
+        pattern.arguments.at(0),
+        styio_data_type_from_name(styio_list_elem_type_name(concrete)),
+        bindings,
+        context,
+        binding_delta
+      );
+    case CallableTypeTerm::Kind::Dict:
+      if (!styio_is_dict_type(concrete)) {
+        throw StyioTypeError(
+          "generic instance conflict in " + context
+          + ": expected dict[K,V], got `" + concrete.name + "`"
+        );
+      }
+      {
+      bool changed = match_callable_term_to_concrete(
+        pattern.arguments.at(0),
+        styio_data_type_from_name(styio_dict_key_type_name(concrete)),
+        bindings,
+        context,
+        binding_delta
+      );
+      changed = match_callable_term_to_concrete(
+        pattern.arguments.at(1),
+        styio_data_type_from_name(styio_dict_value_type_name(concrete)),
+        bindings,
+        context,
+        binding_delta
+      ) || changed;
+      return changed;
+      }
+  }
+  return false;
+}
+
+std::optional<StyioDataType>
+closed_callable_term_type(const CallableTypeTerm& term) {
+  switch (term.kind) {
+    case CallableTypeTerm::Kind::Variable:
+      return std::nullopt;
+    case CallableTypeTerm::Kind::Concrete:
+      return normalize_callable_concrete_type(term.concrete);
+    case CallableTypeTerm::Kind::List: {
+      auto element = closed_callable_term_type(term.arguments.at(0));
+      return element.has_value()
+               ? std::optional<StyioDataType>(
+                   styio_make_list_type(element->name))
+               : std::nullopt;
+    }
+    case CallableTypeTerm::Kind::Dict: {
+      auto key = closed_callable_term_type(term.arguments.at(0));
+      auto value = closed_callable_term_type(term.arguments.at(1));
+      return key.has_value() && value.has_value()
+               ? std::optional<StyioDataType>(
+                   styio_make_dict_type(key->name, value->name))
+               : std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
+StyioDataType
+resolve_callable_term_to_concrete(
+  const CallableTypeTerm& pattern,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings,
+  const std::string& callable_name
+) {
+  switch (pattern.kind) {
+    case CallableTypeTerm::Kind::Variable: {
+      auto binding = bindings.find(pattern.variable);
+      if (binding == bindings.end()) {
+        throw StyioTypeError(
+          "call to `" + callable_name
+          + "` is underconstrained; add a concrete surrounding annotation"
+        );
+      }
+      return normalize_callable_concrete_type(binding->second);
+    }
+    case CallableTypeTerm::Kind::Concrete:
+      return normalize_callable_concrete_type(pattern.concrete);
+    case CallableTypeTerm::Kind::List:
+      return styio_make_list_type(
+        resolve_callable_term_to_concrete(
+          pattern.arguments.at(0),
+          bindings,
+          callable_name
+        ).name
+      );
+    case CallableTypeTerm::Kind::Dict:
+      return styio_make_dict_type(
+        resolve_callable_term_to_concrete(
+          pattern.arguments.at(0),
+          bindings,
+          callable_name
+        ).name,
+        resolve_callable_term_to_concrete(
+          pattern.arguments.at(1),
+          bindings,
+          callable_name
+        ).name
+      );
+  }
+  return StyioDataType{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+}
+
+std::optional<StyioDataType>
+bound_callable_term_type(
+  const CallableTypeTerm& pattern,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  switch (pattern.kind) {
+    case CallableTypeTerm::Kind::Variable: {
+      auto binding = bindings.find(pattern.variable);
+      return binding == bindings.end()
+               ? std::nullopt
+               : std::optional<StyioDataType>(
+                   normalize_callable_concrete_type(binding->second));
+    }
+    case CallableTypeTerm::Kind::Concrete:
+      return normalize_callable_concrete_type(pattern.concrete);
+    case CallableTypeTerm::Kind::List: {
+      auto element = bound_callable_term_type(
+        pattern.arguments.at(0),
+        bindings);
+      return element.has_value()
+               ? std::optional<StyioDataType>(
+                   styio_make_list_type(element->name))
+               : std::nullopt;
+    }
+    case CallableTypeTerm::Kind::Dict: {
+      auto key = bound_callable_term_type(
+        pattern.arguments.at(0),
+        bindings);
+      auto value = bound_callable_term_type(
+        pattern.arguments.at(1),
+        bindings);
+      return key.has_value() && value.has_value()
+               ? std::optional<StyioDataType>(
+                   styio_make_dict_type(key->name, value->name))
+               : std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::uint32_t>
+first_unbound_callable_term_variable(
+  const CallableTypeTerm& term,
+  const std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  if (term.kind == CallableTypeTerm::Kind::Variable) {
+    return bindings.count(term.variable) == 0
+             ? std::optional<std::uint32_t>(term.variable)
+             : std::nullopt;
+  }
+  for (const auto& argument : term.arguments) {
+    if (auto variable =
+          first_unbound_callable_term_variable(argument, bindings)) {
+      return variable;
+    }
+  }
+  return std::nullopt;
+}
+
+bool
+solve_callable_constraint_instance(
+  const CallableTypeConstraint& constraint,
+  std::unordered_map<std::uint32_t, StyioDataType>& bindings,
+  const std::string& callable_name,
+  CallableBindingDelta* binding_delta = nullptr
+) {
+  auto subject = bound_callable_term_type(constraint.subject, bindings);
+  if (!subject.has_value()) {
+    return false;
+  }
+  const std::string context =
+    "constraint `" + callable_constraint_text(constraint)
+    + "` of `" + callable_name + "`";
+  if (constraint.kind == CallableConstraintKind::Numeric
+      || constraint.kind == CallableConstraintKind::Comparable
+      || constraint.kind == CallableConstraintKind::Cloneable) {
+    validate_callable_unary_constraint(
+      constraint.kind,
+      *subject,
+      callable_constraint_text(constraint));
+    return true;
+  }
+
+  validate_callable_unary_constraint(
+    constraint.kind,
+    *subject,
+    callable_constraint_text(constraint));
+  if (constraint.kind == CallableConstraintKind::Indexable) {
+    StyioDataType key = styio_is_dict_type(*subject)
+                          ? styio_data_type_from_name(
+                              styio_dict_key_type_name(*subject))
+                          : kI64Type;
+    StyioDataType result = styio_data_type_from_name(
+      styio_type_item_type_name(*subject));
+    (void)match_callable_term_to_concrete(
+      constraint.argument,
+      key,
+      bindings,
+      context,
+      binding_delta);
+    (void)match_callable_term_to_concrete(
+      constraint.result,
+      result,
+      bindings,
+      context,
+      binding_delta);
+    return true;
+  }
+
+  StyioDataType element = styio_data_type_from_name(
+    styio_type_item_type_name(*subject));
+  (void)match_callable_term_to_concrete(
+    constraint.result,
+    element,
+    bindings,
+    context,
+    binding_delta);
+  return true;
+}
+
+CallableConstraintSolverStats
+solve_callable_constraint_instance(
+  const CallableTypeScheme& scheme,
+  std::unordered_map<std::uint32_t, StyioDataType>& bindings
+) {
+  std::size_t variable_count = 0;
+  auto account_term = [&](const CallableTypeTerm& term)
+  {
+    variable_count = std::max(
+      variable_count,
+      callable_term_variable_domain_size(term));
+  };
+  for (std::uint32_t variable : scheme.quantified_variables) {
+    variable_count = std::max(
+      variable_count,
+      static_cast<std::size_t>(variable) + 1);
+  }
+  for (const auto& constraint : scheme.constraints) {
+    account_term(constraint.subject);
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      account_term(constraint.argument);
+      account_term(constraint.result);
+    }
+    else if (constraint.kind == CallableConstraintKind::Iterable) {
+      account_term(constraint.result);
+    }
+  }
+
+  std::vector<bool> has_constraint(variable_count, false);
+  std::vector<bool> numeric_only(variable_count, true);
+  for (const auto& constraint : scheme.constraints) {
+    summarize_callable_default_term(
+      constraint.subject,
+      constraint.kind == CallableConstraintKind::Numeric,
+      has_constraint,
+      numeric_only);
+    if (constraint.kind == CallableConstraintKind::Indexable) {
+      summarize_callable_default_term(
+        constraint.argument,
+        false,
+        has_constraint,
+        numeric_only);
+      summarize_callable_default_term(
+        constraint.result,
+        false,
+        has_constraint,
+        numeric_only);
+    }
+    else if (constraint.kind == CallableConstraintKind::Iterable) {
+      summarize_callable_default_term(
+        constraint.result,
+        false,
+        has_constraint,
+        numeric_only);
+    }
+  }
+
+  auto result = run_callable_constraint_worklist(
+    scheme.constraints.size(),
+    variable_count,
+    [&](std::size_t id, CallableBindingDelta& binding_delta)
+    {
+      return solve_callable_constraint_instance(
+        scheme.constraints[id],
+        bindings,
+        scheme.name,
+        &binding_delta);
+    },
+    [&](std::size_t id)
+    {
+      return first_unbound_callable_term_variable(
+        scheme.constraints[id].subject,
+        bindings);
+    },
+    [&](CallableBindingDelta& binding_delta)
+    {
+      std::size_t defaulted = 0;
+      for (std::uint32_t variable : scheme.quantified_variables) {
+        if (bindings.count(variable) == 0
+            && has_constraint[variable]
+            && numeric_only[variable]) {
+          bindings.emplace(variable, kI64Type);
+          append_callable_binding_delta(&binding_delta, variable);
+          ++defaulted;
+        }
+      }
+      return defaulted;
+    });
+
+  if (!result.residual_origins.empty()) {
+    const auto& constraint =
+      scheme.constraints[result.residual_origins.front()];
+    throw StyioTypeError(
+      "call to `" + scheme.name + "` is underconstrained at `"
+      + callable_constraint_text(constraint)
+      + "`; add a concrete surrounding annotation"
+    );
+  }
+  return result.stats;
+}
+
+std::string
+callable_concrete_key(
+  std::string_view name,
+  const std::vector<StyioDataType>& params,
+  const StyioDataType& result
+) {
+  std::ostringstream output;
+  output << name << "(";
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    if (i != 0) {
+      output << ",";
+    }
+    output << params[i].name;
+  }
+  output << ")->" << result.name;
+  return output.str();
+}
+
+std::string
+callable_specialization_content_digest(
+  std::string_view definition,
+  std::string_view relation,
+  std::string_view effects,
+  std::string_view portable_body_digest,
+  std::string_view callable_dependency_digest,
+  std::string_view module_dependency_digest,
+  std::string_view backend_abi
+) {
+  std::ostringstream content;
+  content
+    << "styio.callable-specialization.v4\n"
+    << "definition=" << definition << "\n"
+    << "relation=" << relation << "\n"
+    << "effects=" << effects << "\n"
+    << "body=" << portable_body_digest << "\n"
+    << "callable_dependencies="
+    << callable_dependency_digest << "\n"
+    << "dependencies=" << module_dependency_digest << "\n"
+    << "backend=" << backend_abi << "\n";
+  return styio::sema::callable_interface_sha256_hex(
+    content.str());
+}
+
+struct CallableDependencyFingerprints
+{
+  std::unordered_map<const StyioAST*, std::string> body_digests;
+  std::unordered_map<std::string, std::string> dependency_digests;
+};
+
+CallableDependencyFingerprints
+build_callable_dependency_fingerprints(
+  StyioSemaContext* context,
+  const std::unordered_map<std::string, StyioAST*>& definitions
+) {
+  CallableDependencyFingerprints result;
+  if (context == nullptr || definitions.empty()) {
+    return result;
+  }
+
+  std::vector<std::string> names;
+  names.reserve(definitions.size());
+  for (const auto& [name, definition] : definitions) {
+    (void)definition;
+    names.push_back(name);
+  }
+  std::sort(names.begin(), names.end());
+
+  std::unordered_map<std::string, std::string> base_fingerprints;
+  std::unordered_map<std::string, std::vector<std::string>> graph;
+  for (const auto& name : names) {
+    StyioAST* definition = definitions.at(name);
+    std::string body_digest;
+    std::string owner;
+    std::string interface_digest;
+    if (const auto* imported =
+          context->find_imported_callable_definition(name)) {
+      body_digest = imported->portable_body_digest;
+      owner = imported->module_id;
+      interface_digest = imported->interface_abi_digest;
+    }
+    if (body_digest.empty()) {
+      StyioRepr representation;
+      body_digest =
+        styio::sema::callable_interface_sha256_hex(
+          definition->toString(&representation));
+    }
+    result.body_digests[definition] = body_digest;
+
+    std::ostringstream base;
+    base << "styio.callable-definition.v4\n"
+         << "definition="
+         << (owner.empty() ? name : owner + "::" + name)
+         << "\n";
+    if (const auto* scheme =
+          context->find_callable_type_scheme(name)) {
+      base << "relation=" << scheme->canonical_relation << "\n";
+    }
+    else {
+      base << "relation=(";
+      const auto params = params_of_func_def(definition);
+      for (std::size_t i = 0; i < params.size(); ++i) {
+        if (i != 0) {
+          base << ",";
+        }
+        base << params[i]->getDType()->getDataType().name;
+      }
+      base << ")->"
+           << callable_declared_result_type(definition).name
+           << "\n";
+    }
+    const auto* effects =
+      context->find_callable_effect_row(name);
+    base << "effects="
+         << (effects == nullptr
+               ? styio::sema::CallableEffectRow::unknown().canonical()
+               : effects->row.canonical())
+         << "\n"
+         << "body=" << body_digest << "\n"
+         << "interface=" << interface_digest << "\n";
+    base_fingerprints[name] =
+      styio::sema::callable_interface_sha256_hex(base.str());
+
+    std::vector<std::string> callees;
+    if (effects != nullptr) {
+      callees = effects->direct_callees;
+      std::sort(callees.begin(), callees.end());
+      callees.erase(
+        std::unique(callees.begin(), callees.end()),
+        callees.end());
+    }
+    graph[name] = std::move(callees);
+  }
+
+  std::unordered_map<std::string, int> index;
+  std::unordered_map<std::string, int> lowlink;
+  std::unordered_set<std::string> on_stack;
+  std::vector<std::string> stack;
+  std::vector<std::vector<std::string>> components;
+  int next_index = 0;
+  std::function<void(const std::string&)> strong_connect;
+  strong_connect = [&](const std::string& name)
+  {
+    index[name] = next_index;
+    lowlink[name] = next_index;
+    ++next_index;
+    stack.push_back(name);
+    on_stack.insert(name);
+
+    for (const auto& target : graph.at(name)) {
+      if (definitions.count(target) == 0) {
+        continue;
+      }
+      if (index.count(target) == 0) {
+        strong_connect(target);
+        lowlink[name] =
+          std::min(lowlink[name], lowlink[target]);
+      }
+      else if (on_stack.count(target) != 0) {
+        lowlink[name] =
+          std::min(lowlink[name], index[target]);
+      }
+    }
+    if (lowlink[name] != index[name]) {
+      return;
+    }
+
+    std::vector<std::string> component;
+    while (!stack.empty()) {
+      std::string member = std::move(stack.back());
+      stack.pop_back();
+      on_stack.erase(member);
+      component.push_back(member);
+      if (member == name) {
+        break;
+      }
+    }
+    std::sort(component.begin(), component.end());
+    components.push_back(std::move(component));
+  };
+  for (const auto& name : names) {
+    if (index.count(name) == 0) {
+      strong_connect(name);
+    }
+  }
+
+  std::unordered_map<std::string, std::size_t> component_for;
+  for (std::size_t i = 0; i < components.size(); ++i) {
+    for (const auto& name : components[i]) {
+      component_for[name] = i;
+    }
+  }
+  std::vector<std::optional<std::string>>
+    component_digests(components.size());
+  std::function<const std::string&(std::size_t)>
+    digest_component;
+  digest_component = [&](std::size_t component_index)
+    -> const std::string&
+  {
+    if (component_digests[component_index].has_value()) {
+      return *component_digests[component_index];
+    }
+
+    std::vector<std::string> dependency_facts;
+    std::ostringstream canonical;
+    canonical << "styio.callable-dependency-component.v4\n";
+    for (const auto& name : components[component_index]) {
+      canonical << "member=" << name << "|"
+                << base_fingerprints.at(name) << "\n";
+      for (const auto& target : graph.at(name)) {
+        auto target_component = component_for.find(target);
+        if (target_component == component_for.end()) {
+          canonical << "external=" << name << "->"
+                    << target << "\n";
+          continue;
+        }
+        if (target_component->second == component_index) {
+          canonical << "internal=" << name << "->"
+                    << target << "\n";
+          continue;
+        }
+        dependency_facts.push_back(
+          name + "->" + target + "|"
+          + digest_component(target_component->second));
+      }
+    }
+    std::sort(
+      dependency_facts.begin(),
+      dependency_facts.end());
+    dependency_facts.erase(
+      std::unique(
+        dependency_facts.begin(),
+        dependency_facts.end()),
+      dependency_facts.end());
+    for (const auto& dependency : dependency_facts) {
+      canonical << "dependency=" << dependency << "\n";
+    }
+    component_digests[component_index] =
+      styio::sema::callable_interface_sha256_hex(
+        canonical.str());
+    return *component_digests[component_index];
+  };
+
+  for (const auto& name : names) {
+    result.dependency_digests[name] =
+      digest_component(component_for.at(name));
+  }
+  return result;
+}
+
+void
+apply_callable_expected_type_to_tail(
+  StyioAST* ast,
+  const StyioDataType& expected
+) {
+  if (ast == nullptr || expected.isUndefined()) {
+    return;
+  }
+  require_supported_callable_storage(expected);
+  if (auto* name = dynamic_cast<NameAST*>(ast)) {
+    if (styio_is_callable_type(expected)) {
+      name->setExpectedCallableType(
+        normalize_callable_concrete_type(expected));
+    }
+    return;
+  }
+  if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
+    call->setExpectedType(expected);
+    return;
+  }
+  if (auto* list = dynamic_cast<ListAST*>(ast)) {
+    if (styio_is_list_type(expected)) {
+      list->setDataType(normalize_callable_concrete_type(expected));
+      StyioDataType element = styio_data_type_from_name(
+        styio_list_elem_type_name(expected));
+      for (auto* value : list->getElements()) {
+        apply_callable_expected_type_to_tail(value, element);
+      }
+    }
+    return;
+  }
+  if (auto* dict = dynamic_cast<DictAST*>(ast)) {
+    if (styio_is_dict_type(expected)) {
+      dict->setDataType(normalize_callable_concrete_type(expected));
+      StyioDataType value_type = styio_data_type_from_name(
+        styio_dict_value_type_name(expected));
+      for (const auto& entry : dict->getEntries()) {
+        apply_callable_expected_type_to_tail(entry.value, value_type);
+      }
+    }
+    return;
+  }
+  if (auto* binary = dynamic_cast<BinOpAST*>(ast)) {
+    binary->setDType(normalize_callable_concrete_type(expected));
+    return;
+  }
+  if (auto* ret = dynamic_cast<ReturnAST*>(ast)) {
+    apply_callable_expected_type_to_tail(ret->getExpr(), expected);
+    return;
+  }
+  if (auto* block = dynamic_cast<BlockAST*>(ast)) {
+    if (!block->stmts.empty() && block->followings.empty()) {
+      apply_callable_expected_type_to_tail(block->stmts.back(), expected);
+    }
+    return;
+  }
+  if (auto* match = dynamic_cast<MatchCasesAST*>(ast)) {
+    CasesAST* cases = match->getCases();
+    for (const auto& entry : cases->case_list) {
+      apply_callable_expected_type_to_tail(entry.second, expected);
+    }
+    apply_callable_expected_type_to_tail(cases->case_default, expected);
+    return;
+  }
+  if (auto* merge = dynamic_cast<WaveMergeAST*>(ast)) {
+    apply_callable_expected_type_to_tail(merge->getTrueVal(), expected);
+    apply_callable_expected_type_to_tail(merge->getFalseVal(), expected);
+    return;
+  }
+  if (auto* dispatch = dynamic_cast<WaveDispatchAST*>(ast)) {
+    apply_callable_expected_type_to_tail(dispatch->getTrueArm(), expected);
+    apply_callable_expected_type_to_tail(dispatch->getFalseArm(), expected);
+  }
+}
+
+std::string
+callable_capture_mode_name(CallableCaptureMode mode) {
+  switch (mode) {
+    case CallableCaptureMode::SharedBorrow:
+      return "shared_borrow";
+    case CallableCaptureMode::ExclusiveBorrow:
+      return "exclusive_borrow";
+    case CallableCaptureMode::Consume:
+      return "consume";
+  }
+  return "shared_borrow";
+}
+
+bool
+callable_static_capture_type_supported(
+  const StyioDataType& type
+) {
+  if (type.handle_family != StyioHandleFamily::None
+      || type.is_resource_type) {
+    return false;
+  }
+  switch (type.option) {
+    case StyioDataTypeOption::Bool:
+    case StyioDataTypeOption::Integer:
+    case StyioDataTypeOption::Float:
+    case StyioDataTypeOption::Char:
+      return true;
+    default:
+      return false;
+  }
+}
+
+void
+validate_affine_capture_environment(
+  StyioSemaContext* an,
+  StyioAST* definition,
+  const std::string& callable_name,
+  std::string_view escape_point,
+  bool escaping
+) {
+  const std::vector<std::string> declared =
+    explicit_capture_names_of_func_def(definition);
+  if (declared.empty()) {
+    return;
+  }
+
+  if (!callable_def_is_final_binding_latest(definition)) {
+    throw StyioTypeError(
+      "callable `" + callable_name
+      + "` capture `" + declared.front()
+      + "` is a shared_borrow at " + std::string(escape_point)
+      + "; affine capture environments require final `:=` callable bindings"
+    );
+  }
+
+  if (an->find_imported_callable_definition(callable_name) != nullptr) {
+    throw StyioTypeError(
+      "callable `" + callable_name
+      + "` capture `" + declared.front()
+      + "` is a shared_borrow at " + std::string(escape_point)
+      + "; imported closures have no portable program-static environment fact"
+    );
+  }
+
+  const auto* facts =
+    an->find_callable_capture_facts(callable_name);
+  if (facts == nullptr || facts->size() != declared.size()) {
+    throw StyioTypeError(
+      "callable `" + callable_name
+      + "` capture `" + declared.front()
+      + "` is a shared_borrow at " + std::string(escape_point)
+      + "; no top-level program-static environment was proven"
+    );
+  }
+
+  for (const auto& fact : *facts) {
+    const StyioDataType* type =
+      an->find_local_binding_type(
+        styio::session::kInvalidSymbolId,
+        fact.name);
+    const std::string mode =
+      callable_capture_mode_name(fact.mode);
+    if (type == nullptr || type->isUndefined()) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name + "` is a " + mode
+        + " at " + std::string(escape_point)
+        + "; missing a checked program-static binding type"
+      );
+    }
+    if (!callable_static_capture_type_supported(*type)) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name + "` is a " + mode
+        + " at " + std::string(escape_point)
+        + "; type `" + type->name
+        + "` has no approved program-static representation and drop path"
+      );
+    }
+    if (fact.mode == CallableCaptureMode::Consume) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name + "` is consume at "
+        + std::string(escape_point)
+        + "; a unique invocation and deterministic drop path were not proven"
+      );
+    }
+    if (escaping
+        && fact.mode == CallableCaptureMode::ExclusiveBorrow) {
+      throw StyioTypeError(
+        "callable `" + callable_name
+        + "` capture `" + fact.name
+        + "` is an exclusive_borrow at "
+        + std::string(escape_point)
+        + "; an escaping callable value has no alias-free ownership proof"
+      );
+    }
+  }
+}
+
 }  // namespace
+
+void
+StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
+  callable_constraint_solver_stats_ = {};
+  callable_type_schemes_.clear();
+  callable_effect_rows_.clear();
+  callable_capture_facts_.clear();
+  effect_monomorphic_instances_.clear();
+  callable_specializations_.clear();
+  callable_specialization_cache_.clear();
+  callable_semantic_body_digests_.clear();
+  callable_definition_dependency_digests_.clear();
+  reachable_imported_concrete_callables_.clear();
+  callable_specialization_graph_.reset();
+  active_callable_specialization_.reset();
+
+  if (ast == nullptr) {
+    return;
+  }
+
+  for (const auto& imported : imported_callable_definitions_) {
+    const std::string name = callable_name_of_def(imported.definition);
+    if (imported.has_scheme) {
+      callable_type_schemes_[name] = imported.scheme;
+    }
+    callable_effect_rows_[name] = imported.effects;
+  }
+
+  std::unordered_map<std::string, StyioAST*> definitions;
+  for (auto* statement : ast->getStmts()) {
+    if ((dynamic_cast<FunctionAST*>(statement) != nullptr
+         || dynamic_cast<SimpleFuncAST*>(statement) != nullptr)
+        && callable_def_is_final_binding_latest(statement)) {
+      definitions[callable_name_of_def(statement)] = statement;
+    }
+  }
+  std::unordered_map<std::string, StyioAST*> available_definitions =
+    definitions;
+  for (const auto& imported : imported_callable_definitions_) {
+    available_definitions[callable_name_of_def(imported.definition)] =
+      imported.definition;
+  }
+
+  std::vector<std::string> definition_names;
+  definition_names.reserve(definitions.size());
+  for (const auto& [name, def] : definitions) {
+    callable_effect_rows_[name] =
+      callable_local_effect_row(this, def, available_definitions);
+    if (!explicit_capture_names_of_func_def(def).empty()) {
+      callable_capture_facts_[name] =
+        callable_capture_facts_for_definition(def);
+    }
+    definition_names.push_back(name);
+  }
+  std::sort(definition_names.begin(), definition_names.end());
+
+  std::unordered_map<std::string, std::vector<std::string>> callers;
+  for (const auto& name : definition_names) {
+    for (const auto& callee :
+         callable_effect_rows_.at(name).direct_callees) {
+      callers[callee].push_back(name);
+    }
+  }
+  for (auto& [callee, dependent_callers] : callers) {
+    (void)callee;
+    std::sort(dependent_callers.begin(), dependent_callers.end());
+  }
+
+  std::vector<std::string> effect_worklist = definition_names;
+  std::unordered_set<std::string> queued_effects(
+    definition_names.begin(),
+    definition_names.end());
+  for (std::size_t cursor = 0;
+       cursor < effect_worklist.size();
+       ++cursor) {
+    std::string name = std::move(effect_worklist[cursor]);
+    queued_effects.erase(name);
+    auto& effects = callable_effect_rows_.at(name);
+    const styio::sema::CallableEffectRow previous_row = effects.row;
+    for (const auto& callee : effects.direct_callees) {
+      auto dependency = callable_effect_rows_.find(callee);
+      if (dependency == callable_effect_rows_.end()) {
+        add_callable_effect(effects, CallableEffectLabel::Unknown);
+        continue;
+      }
+      effects.row.merge_known(dependency->second.row);
+      if (dependency->second.row.open_tail().has_value()) {
+        effects.row.set_open_tail(0);
+      }
+    }
+    if (effects.row == previous_row) {
+      continue;
+    }
+    auto dependent_callers = callers.find(name);
+    if (dependent_callers == callers.end()) {
+      continue;
+    }
+    for (const auto& caller : dependent_callers->second) {
+      if (queued_effects.insert(caller).second) {
+        effect_worklist.push_back(caller);
+      }
+    }
+  }
+  std::unordered_map<std::string, std::unordered_set<std::string>> graph;
+  std::vector<std::string> seeds;
+  for (const auto& name : definition_names) {
+    const auto& effects = callable_effect_rows_.at(name);
+    std::unordered_set<std::string> calls(
+      effects.direct_callees.begin(),
+      effects.direct_callees.end());
+    graph[name] = std::move(calls);
+    if (effects.relation_seed
+        && effects.proven_pure()) {
+      seeds.push_back(name);
+    }
+  }
+  std::sort(seeds.begin(), seeds.end());
+
+  std::unordered_set<std::string> selected;
+  std::vector<std::string> pending = seeds;
+  while (!pending.empty()) {
+    std::string name = std::move(pending.back());
+    pending.pop_back();
+    if (!selected.insert(name).second) {
+      continue;
+    }
+    std::vector<std::string> dependencies(
+      graph[name].begin(),
+      graph[name].end());
+    std::sort(dependencies.begin(), dependencies.end());
+    for (auto it = dependencies.rbegin(); it != dependencies.rend(); ++it) {
+      if (definitions.count(*it) != 0) {
+        pending.push_back(*it);
+      }
+    }
+  }
+  std::vector<std::string> nodes(selected.begin(), selected.end());
+  std::sort(nodes.begin(), nodes.end());
+  std::unordered_map<std::string, int> index;
+  std::unordered_map<std::string, int> lowlink;
+  std::unordered_set<std::string> on_stack;
+  std::vector<std::string> stack;
+  std::vector<std::vector<std::string>> components;
+  int next_index = 0;
+
+  std::function<void(const std::string&)> strong_connect;
+  strong_connect = [&](const std::string& name)
+  {
+    index[name] = next_index;
+    lowlink[name] = next_index;
+    ++next_index;
+    stack.push_back(name);
+    on_stack.insert(name);
+
+    std::vector<std::string> dependencies;
+    for (const auto& target : graph[name]) {
+      if (selected.count(target) != 0) {
+        dependencies.push_back(target);
+      }
+    }
+    std::sort(dependencies.begin(), dependencies.end());
+    for (const auto& target : dependencies) {
+      if (index.find(target) == index.end()) {
+        strong_connect(target);
+        lowlink[name] = std::min(lowlink[name], lowlink[target]);
+      }
+      else if (on_stack.count(target) != 0) {
+        lowlink[name] = std::min(lowlink[name], index[target]);
+      }
+    }
+
+    if (lowlink[name] != index[name]) {
+      return;
+    }
+    std::vector<std::string> component;
+    while (!stack.empty()) {
+      std::string member = std::move(stack.back());
+      stack.pop_back();
+      on_stack.erase(member);
+      component.push_back(member);
+      if (member == name) {
+        break;
+      }
+    }
+    std::sort(component.begin(), component.end());
+    components.push_back(std::move(component));
+  };
+
+  for (const auto& name : nodes) {
+    if (index.find(name) == index.end()) {
+      strong_connect(name);
+    }
+  }
+
+  std::unordered_map<std::string, std::size_t> component_for;
+  for (std::size_t i = 0; i < components.size(); ++i) {
+    for (const auto& name : components[i]) {
+      component_for[name] = i;
+    }
+  }
+
+  std::vector<bool> inferred(components.size(), false);
+  std::vector<bool> inferring(components.size(), false);
+  std::function<void(std::size_t)> infer_component;
+  infer_component = [&](std::size_t component_index)
+  {
+    if (inferred[component_index]) {
+      return;
+    }
+    if (inferring[component_index]) {
+      throw StyioTypeError(
+        "internal error: recursive callable component ordering cycle"
+      );
+    }
+    inferring[component_index] = true;
+
+    for (const auto& name : components[component_index]) {
+      std::vector<std::string> dependencies(
+        graph[name].begin(),
+        graph[name].end());
+      std::sort(dependencies.begin(), dependencies.end());
+      for (const auto& target : dependencies) {
+        auto target_component = component_for.find(target);
+        if (target_component != component_for.end()
+            && target_component->second != component_index) {
+          infer_component(target_component->second);
+        }
+      }
+    }
+
+    CallableTypeUnifier unifier;
+    std::vector<CallableTypeConstraint> component_constraints;
+    std::unordered_map<std::string, CallableMonotype> provisional;
+    for (const auto& name : components[component_index]) {
+      StyioAST* def = definitions.at(name);
+      CallableMonotype signature;
+      for (auto* param : params_of_func_def(def)) {
+        StyioDataType declared = param->getDType()->getDataType();
+        signature.params.push_back(
+          declared.isUndefined()
+            ? unifier.fresh()
+            : callable_concrete_term(declared));
+      }
+      StyioDataType declared_result = callable_declared_result_type(def);
+      signature.result = declared_result.isUndefined()
+                           ? unifier.fresh()
+                           : callable_concrete_term(declared_result);
+      provisional[name] = std::move(signature);
+    }
+
+    for (const auto& name : components[component_index]) {
+      StyioAST* def = definitions.at(name);
+      CallableSymbolicInfer symbolic(
+        unifier,
+        callable_type_schemes_,
+        provisional,
+        available_definitions,
+        component_constraints);
+      auto params = params_of_func_def(def);
+      for (std::size_t i = 0; i < params.size(); ++i) {
+        symbolic.bind_local(
+          params[i]->getNameAsStr(),
+          provisional.at(name).params[i]);
+      }
+      try {
+        CallableTypeTerm body_result =
+          symbolic.infer(callable_body_of_def(def));
+        unifier.unify(
+          provisional.at(name).result,
+          body_result,
+          "result of `" + name + "`"
+        );
+      }
+      catch (const StyioTypeError& error) {
+        throw StyioTypeError(
+          "cannot infer principal relation for final callable `" + name
+          + "`: " + error.what()
+        );
+      }
+    }
+
+    merge_callable_constraint_solver_stats(
+      callable_constraint_solver_stats_,
+      reduce_callable_constraints(unifier, component_constraints));
+
+    const bool recursive_group =
+      components[component_index].size() > 1
+      || graph[components[component_index].front()].count(
+           components[component_index].front()) != 0;
+
+    for (const auto& name : components[component_index]) {
+      CallableTypeScheme scheme;
+      scheme.name = name;
+      scheme.recursive_group = recursive_group;
+      for (const auto& param : provisional.at(name).params) {
+        scheme.params.push_back(unifier.apply(param));
+      }
+      scheme.result = unifier.apply(provisional.at(name).result);
+
+      std::vector<std::uint32_t> signature_variables;
+      std::unordered_set<std::uint32_t> signature_variable_set;
+      for (const auto& param : scheme.params) {
+        collect_callable_term_variables(
+          param,
+          signature_variables,
+          signature_variable_set);
+      }
+      collect_callable_term_variables(
+        scheme.result,
+        signature_variables,
+        signature_variable_set);
+
+      for (const auto& raw_constraint : component_constraints) {
+        CallableTypeConstraint constraint =
+          apply_callable_constraint(unifier, raw_constraint);
+        bool touches_signature = false;
+        std::vector<std::uint32_t> constraint_variables;
+        std::unordered_set<std::uint32_t> seen_constraint_variables;
+        collect_callable_term_variables(
+          constraint.subject,
+          constraint_variables,
+          seen_constraint_variables);
+        if (constraint.kind == CallableConstraintKind::Indexable) {
+          collect_callable_term_variables(
+            constraint.argument,
+            constraint_variables,
+            seen_constraint_variables);
+          collect_callable_term_variables(
+            constraint.result,
+            constraint_variables,
+            seen_constraint_variables);
+        }
+        else if (constraint.kind == CallableConstraintKind::Iterable) {
+          collect_callable_term_variables(
+            constraint.result,
+            constraint_variables,
+            seen_constraint_variables);
+        }
+        for (std::uint32_t variable : constraint_variables) {
+          if (signature_variable_set.count(variable) != 0) {
+            touches_signature = true;
+          }
+          else if (touches_signature) {
+            throw StyioTypeError(
+              "cannot infer principal relation for final callable `" + name
+              + "`: constraint `" + callable_constraint_text(constraint)
+              + "` contains a hidden underconstrained variable"
+            );
+          }
+        }
+        if (!touches_signature) {
+          continue;
+        }
+        for (std::uint32_t variable : constraint_variables) {
+          if (signature_variable_set.count(variable) == 0) {
+            throw StyioTypeError(
+              "cannot infer principal relation for final callable `" + name
+              + "`: constraint `" + callable_constraint_text(constraint)
+              + "` contains a hidden underconstrained variable"
+            );
+          }
+        }
+        scheme.constraints.push_back(std::move(constraint));
+      }
+
+      std::unordered_map<std::uint32_t, std::uint32_t> normalization;
+      for (auto& param : scheme.params) {
+        param = normalize_callable_term_variables(param, normalization);
+      }
+      scheme.result =
+        normalize_callable_term_variables(scheme.result, normalization);
+      for (auto& constraint : scheme.constraints) {
+        constraint =
+          normalize_callable_constraint_variables(
+            constraint,
+            normalization);
+      }
+      std::sort(
+        scheme.constraints.begin(),
+        scheme.constraints.end(),
+        [](const auto& lhs, const auto& rhs)
+        {
+          return lhs.canonical < rhs.canonical;
+        });
+      scheme.constraints.erase(
+        std::unique(
+          scheme.constraints.begin(),
+          scheme.constraints.end(),
+          [](const auto& lhs, const auto& rhs)
+          {
+            return lhs.canonical == rhs.canonical;
+          }),
+        scheme.constraints.end());
+
+      std::unordered_set<std::uint32_t> seen_variables;
+      for (const auto& param : scheme.params) {
+        collect_callable_term_variables(
+          param,
+          scheme.quantified_variables,
+          seen_variables);
+      }
+      collect_callable_term_variables(
+        scheme.result,
+        scheme.quantified_variables,
+        seen_variables);
+      std::sort(
+        scheme.quantified_variables.begin(),
+        scheme.quantified_variables.end());
+
+      const auto local_usages =
+        callable_local_usage_sets(definitions.at(name));
+      for (std::size_t i = 0;
+           i < scheme.params.size() && i < local_usages.size();
+           ++i) {
+        if (local_usages[i].empty()) {
+          continue;
+        }
+        std::vector<std::uint32_t> variables;
+        std::unordered_set<std::uint32_t> seen;
+        collect_callable_term_variables(
+          scheme.params[i],
+          variables,
+          seen);
+        for (const std::uint32_t variable : variables) {
+          callable_usage_requirement_for(scheme, variable)
+            .usages.merge(local_usages[i]);
+        }
+      }
+      scheme.canonical_relation =
+        callable_scheme_relation_text(scheme);
+      callable_type_schemes_[name] = std::move(scheme);
+    }
+
+    inferring[component_index] = false;
+    inferred[component_index] = true;
+  };
+
+  for (std::size_t i = 0; i < components.size(); ++i) {
+    infer_component(i);
+  }
+
+  const auto usage_edges =
+    callable_usage_call_edges(
+      definitions,
+      callable_type_schemes_);
+  bool usage_changed = true;
+  while (usage_changed) {
+    usage_changed = false;
+    for (const auto& edge : usage_edges) {
+      auto caller = callable_type_schemes_.find(edge.caller);
+      const auto callee =
+        callable_type_schemes_.find(edge.callee);
+      if (caller == callable_type_schemes_.end()
+          || callee == callable_type_schemes_.end()
+          || edge.caller_parameter
+               >= caller->second.params.size()
+          || edge.callee_parameter
+               >= callee->second.params.size()) {
+        continue;
+      }
+
+      std::vector<std::uint32_t> callee_variables;
+      std::unordered_set<std::uint32_t> seen_callee;
+      collect_callable_term_variables(
+        callee->second.params[edge.callee_parameter],
+        callee_variables,
+        seen_callee);
+      CallableUsageSet propagated;
+      for (const std::uint32_t variable : callee_variables) {
+        const auto requirement = std::lower_bound(
+          callee->second.usage_requirements.begin(),
+          callee->second.usage_requirements.end(),
+          variable,
+          [](const auto& candidate, std::uint32_t value)
+          {
+            return candidate.variable < value;
+          });
+        if (requirement
+              != callee->second.usage_requirements.end()
+            && requirement->variable == variable) {
+          propagated.merge(requirement->usages);
+        }
+      }
+      if (propagated.empty()) {
+        continue;
+      }
+
+      std::vector<std::uint32_t> caller_variables;
+      std::unordered_set<std::uint32_t> seen_caller;
+      collect_callable_term_variables(
+        caller->second.params[edge.caller_parameter],
+        caller_variables,
+        seen_caller);
+      for (const std::uint32_t variable : caller_variables) {
+        usage_changed =
+          callable_usage_requirement_for(
+            caller->second,
+            variable)
+            .usages.merge(propagated)
+          || usage_changed;
+      }
+    }
+  }
+  for (const auto& name : definition_names) {
+    auto scheme = callable_type_schemes_.find(name);
+    if (scheme != callable_type_schemes_.end()) {
+      scheme->second.canonical_relation =
+        callable_scheme_relation_text(scheme->second);
+    }
+  }
+
+  auto dependency_fingerprints =
+    build_callable_dependency_fingerprints(
+      this,
+      available_definitions);
+  callable_semantic_body_digests_ =
+    std::move(dependency_fingerprints.body_digests);
+  callable_definition_dependency_digests_ =
+    std::move(dependency_fingerprints.dependency_digests);
+
+  for (auto* statement : ast->getStmts()) {
+    StyioAST* expression = statement;
+    if (dynamic_cast<FunctionAST*>(statement) != nullptr
+        || dynamic_cast<SimpleFuncAST*>(statement) != nullptr) {
+      expression = callable_body_of_def(statement);
+    }
+    walk_callable_expression(
+      expression,
+      [&](StyioAST* node)
+      {
+        auto* call = dynamic_cast<FuncCallAST*>(node);
+        if (call == nullptr) {
+          return;
+        }
+        const auto* imported =
+          find_imported_callable_definition(call->getNameAsStr());
+        if (imported == nullptr
+            || (imported->exported
+                && imported->visible_from_modules.count("") != 0)) {
+          return;
+        }
+        throw StyioTypeError(
+          "callable `" + call->getNameAsStr()
+          + "` is not exported to this module by imported module `"
+          + imported->module_id + "`"
+        );
+      });
+  }
+}
+
+const StyioSemaContext::CallableTypeScheme*
+StyioSemaContext::find_callable_type_scheme(
+  std::string_view name
+) const {
+  auto it = callable_type_schemes_.find(std::string(name));
+  return it == callable_type_schemes_.end() ? nullptr : &it->second;
+}
+
+const StyioSemaContext::CallableEffectRowFacts*
+StyioSemaContext::find_callable_effect_row(
+  std::string_view name
+) const {
+  auto it = callable_effect_rows_.find(std::string(name));
+  return it == callable_effect_rows_.end() ? nullptr : &it->second;
+}
+
+const std::vector<StyioSemaContext::CallableCaptureFact>*
+StyioSemaContext::find_callable_capture_facts(
+  std::string_view name
+) const {
+  auto it = callable_capture_facts_.find(std::string(name));
+  return it == callable_capture_facts_.end()
+           ? nullptr
+           : &it->second;
+}
+
+void
+StyioSemaContext::enforce_effect_monomorphic_instance(
+  std::string_view name,
+  const std::vector<StyioDataType>& arg_types
+) {
+  const CallableEffectRowFacts* effects =
+    find_callable_effect_row(name);
+  if (effects == nullptr
+      || !effects->relation_seed
+      || effects->proven_pure()) {
+    return;
+  }
+
+  auto [it, inserted] = effect_monomorphic_instances_.emplace(
+    std::string(name),
+    arg_types);
+  if (inserted) {
+    return;
+  }
+  if (it->second.size() != arg_types.size()) {
+    throw StyioTypeError(
+      "effectful callable `" + std::string(name)
+      + "` changed arity after its monomorphic instance was fixed"
+    );
+  }
+  for (std::size_t i = 0; i < arg_types.size(); ++i) {
+    if (sema_types_equal(this, it->second[i], arg_types[i])) {
+      continue;
+    }
+    throw StyioTypeError(
+      "callable `" + std::string(name)
+      + "` is monomorphic because its effect row is `"
+      + callable_effect_row_diagnostic(*effects) + "`; parameter "
+      + std::to_string(i) + " was fixed as `"
+      + it->second[i].name + "` and cannot be reused as `"
+      + arg_types[i].name + "`"
+    );
+  }
+}
+
+StyioSemaContext::CallableSpecialization
+StyioSemaContext::instantiate_callable_type_scheme(
+  FuncCallAST* call,
+  const std::vector<StyioDataType>& arg_types
+) {
+  if (call == nullptr) {
+    throw StyioTypeError(
+      "generic callable instantiation requires a call expression"
+    );
+  }
+  const CallableTypeScheme* scheme =
+    find_callable_type_scheme(call->getNameAsStr());
+  if (scheme == nullptr) {
+    throw StyioTypeError(
+      "callable `" + call->getNameAsStr()
+      + "` has no inferred relation"
+    );
+  }
+  if (arg_types.size() != scheme->params.size()) {
+    throw StyioTypeError(
+      "function `" + call->getNameAsStr() + "` expects "
+      + std::to_string(scheme->params.size()) + " argument(s), got "
+      + std::to_string(arg_types.size())
+    );
+  }
+
+  std::unordered_map<std::uint32_t, StyioDataType> bindings;
+  if (!call->getExpectedType().isUndefined()) {
+    match_callable_term_to_concrete(
+      scheme->result,
+      call->getExpectedType(),
+      bindings,
+      "expected result of `" + call->getNameAsStr() + "`"
+    );
+  }
+  for (std::size_t i = 0; i < arg_types.size(); ++i) {
+    match_callable_term_to_concrete(
+      scheme->params[i],
+      arg_types[i],
+      bindings,
+      "argument " + std::to_string(i)
+      + " of `" + call->getNameAsStr() + "`"
+    );
+  }
+  merge_callable_constraint_solver_stats(
+    callable_constraint_solver_stats_,
+    solve_callable_constraint_instance(*scheme, bindings));
+  validate_callable_usage_instance(*scheme, bindings);
+
+  CallableSpecialization specialization;
+  specialization.source_name = scheme->name;
+  if (const auto* imported =
+        find_imported_callable_definition(scheme->name)) {
+    specialization.owner_module = imported->module_id;
+    specialization.portable_body_digest =
+      imported->portable_body_digest;
+    specialization.interface_abi_digest =
+      imported->interface_abi_digest;
+  }
+  specialization.param_types.reserve(scheme->params.size());
+  for (const auto& param : scheme->params) {
+    specialization.param_types.push_back(
+      resolve_callable_term_to_concrete(
+        param,
+        bindings,
+        scheme->name));
+  }
+  specialization.result_type =
+    resolve_callable_term_to_concrete(
+      scheme->result,
+      bindings,
+      scheme->name);
+  specialization.canonical_key =
+    callable_concrete_key(
+      specialization.owner_module.empty()
+        ? scheme->name
+        : specialization.owner_module + "::" + scheme->name,
+      specialization.param_types,
+      specialization.result_type);
+
+  StyioAST* definition = find_function_def(
+    call->func_name->getSymbolId(),
+    scheme->name);
+  if (definition == nullptr) {
+    throw StyioTypeError(
+      "callable specialization has no checked definition for `"
+      + scheme->name + "`"
+    );
+  }
+  if (specialization.portable_body_digest.empty()) {
+    auto [body_digest, inserted] =
+      callable_semantic_body_digests_.emplace(definition, std::string());
+    if (inserted) {
+      StyioRepr representation;
+      body_digest->second =
+        styio::sema::callable_interface_sha256_hex(
+          definition->toString(&representation));
+    }
+    specialization.portable_body_digest = body_digest->second;
+  }
+
+  const std::string dependency_facts =
+    specialization.interface_abi_digest.empty()
+      ? callable_specialization_dependency_digest_
+      : specialization.interface_abi_digest;
+  const auto* effects =
+    find_callable_effect_row(scheme->name);
+  auto definition_dependencies =
+    callable_definition_dependency_digests_.find(scheme->name);
+  if (definition_dependencies
+      == callable_definition_dependency_digests_.end()) {
+    throw StyioTypeError(
+      "callable specialization has no dependency fingerprint for `"
+      + scheme->name + "`"
+    );
+  }
+  specialization.content_digest =
+    callable_specialization_content_digest(
+      specialization.canonical_key,
+      scheme->canonical_relation,
+      effects == nullptr
+        ? styio::sema::CallableEffectRow::unknown().canonical()
+        : effects->row.canonical(),
+      specialization.portable_body_digest,
+      definition_dependencies->second,
+      dependency_facts,
+      callable_specialization_backend_abi_);
+  specialization.lowered_name =
+    callable_specialized_symbol(
+      scheme->name,
+      specialization.content_digest);
+
+  callable_specialization_graph_.register_item(
+    specialization.content_digest,
+    specialization.canonical_key);
+  auto cached =
+    callable_specialization_cache_.find(
+      specialization.content_digest);
+  if (cached != callable_specialization_cache_.end()) {
+    if (cached->second.canonical_key
+          != specialization.canonical_key
+        || cached->second.lowered_name
+             != specialization.lowered_name) {
+      throw StyioTypeError(
+        "callable specialization cache identity collision for `"
+        + specialization.canonical_key + "`"
+      );
+    }
+    call->setInferredType(cached->second.result_type);
+    call->setLoweredCalleeName(cached->second.lowered_name);
+    return cached->second;
+  }
+
+  auto [inserted, ok] =
+    callable_specialization_cache_.emplace(
+      specialization.content_digest,
+      specialization);
+  if (!ok) {
+    throw StyioTypeError(
+      "internal error: callable specialization cache insertion failed"
+    );
+  }
+  auto& specializations =
+    callable_specializations_[scheme->name];
+  const auto position =
+    std::lower_bound(
+      specializations.begin(),
+      specializations.end(),
+      specialization.content_digest,
+      [](const CallableSpecialization& item, const std::string& digest)
+      {
+        return item.content_digest < digest;
+      });
+  specializations.insert(position, inserted->second);
+  call->setInferredType(specialization.result_type);
+  call->setLoweredCalleeName(specialization.lowered_name);
+  return specialization;
+}
+
+const std::vector<StyioSemaContext::CallableSpecialization>&
+StyioSemaContext::callable_specializations(
+  std::string_view name
+) const {
+  static const std::vector<CallableSpecialization> empty;
+  auto it = callable_specializations_.find(std::string(name));
+  return it == callable_specializations_.end() ? empty : it->second;
+}
+
+bool
+StyioSemaContext::callable_has_runtime_specializations(
+  std::string_view name
+) const {
+  const CallableTypeScheme* scheme = find_callable_type_scheme(name);
+  return scheme != nullptr;
+}
+
+bool
+StyioSemaContext::imported_concrete_callable_is_reachable(
+  std::string_view name
+) const {
+  return reachable_imported_concrete_callables_.count(
+           std::string(name)) != 0;
+}
+
+void
+StyioSemaContext::prepare_imported_concrete_callable_body(
+  std::string_view name
+) {
+  const ImportedCallableDefinition* imported =
+    find_imported_callable_definition(name);
+  if (imported == nullptr || imported->has_scheme) {
+    return;
+  }
+  const std::string source_name(name);
+  auto definition_dependencies =
+    callable_definition_dependency_digests_.find(source_name);
+  if (definition_dependencies
+      == callable_definition_dependency_digests_.end()) {
+    throw StyioTypeError(
+      "imported concrete callable has no dependency fingerprint for `"
+      + source_name + "`"
+    );
+  }
+
+  CallableSpecialization concrete;
+  concrete.source_name = source_name;
+  concrete.owner_module = imported->module_id;
+  concrete.param_types = imported->concrete_params;
+  concrete.result_type = imported->concrete_result;
+  concrete.portable_body_digest = imported->portable_body_digest;
+  concrete.interface_abi_digest = imported->interface_abi_digest;
+  concrete.canonical_key =
+    callable_concrete_key(
+      imported->module_id + "::" + source_name,
+      concrete.param_types,
+      concrete.result_type);
+  const std::string relation =
+    callable_concrete_key(
+      source_name,
+      concrete.param_types,
+      concrete.result_type);
+  const CallableEffectRowFacts* effects =
+    find_callable_effect_row(source_name);
+  concrete.content_digest =
+    callable_specialization_content_digest(
+      concrete.canonical_key,
+      relation,
+      effects == nullptr
+        ? styio::sema::CallableEffectRow::unknown().canonical()
+        : effects->row.canonical(),
+      concrete.portable_body_digest,
+      definition_dependencies->second,
+      concrete.interface_abi_digest,
+      callable_specialization_backend_abi_);
+
+  callable_specialization_graph_.register_item(
+    concrete.content_digest,
+    concrete.canonical_key);
+  reachable_imported_concrete_callables_.insert(source_name);
+  prepare_callable_specialization_body(
+    imported->definition,
+    concrete);
+}
+
+void
+StyioSemaContext::prepare_callable_specialization_body(
+  StyioAST* def,
+  const CallableSpecialization& specialization
+) {
+  if (def == nullptr) {
+    throw StyioTypeError(
+      "generic callable specialization requires a definition"
+    );
+  }
+  auto params = params_of_func_def(def);
+  if (params.size() != specialization.param_types.size()) {
+    throw StyioTypeError(
+      "generic specialization arity drift for callable `"
+      + specialization.source_name + "`"
+    );
+  }
+  if (!callable_specialization_graph_.begin_expansion(
+        specialization.content_digest)) {
+    return;
+  }
+
+  const auto saved_types = local_binding_types;
+  const auto saved_types_by_sid = local_binding_types_by_sid;
+  const auto saved_funcs = func_defs;
+  const auto saved_funcs_by_sid = func_defs_by_sid;
+  const auto saved_fixed = fixed_assignment_names_;
+  const auto saved_fixed_by_sid = fixed_assignment_names_by_sid_;
+  const auto saved_bind = binding_info_;
+  const auto saved_bind_by_sid = binding_info_by_sid_;
+  const auto saved_consumed_tasks = consumed_task_names_;
+  const auto saved_consumed_tasks_by_sid = consumed_task_names_by_sid_;
+  const auto saved_consumed_resources = consumed_resource_names_;
+  const auto saved_consumed_resources_by_sid = consumed_resource_names_by_sid_;
+  const auto saved_owned_resources = owned_resource_names_;
+  const auto saved_owned_resources_by_sid = owned_resource_names_by_sid_;
+  const auto saved_snapshot_names = snapshot_var_names_;
+  const auto saved_snapshot_names_by_sid = snapshot_var_names_by_sid_;
+  const auto saved_function_stack = active_function_body_stack_;
+  const auto saved_function_sid_stack = active_function_body_sid_stack_;
+  const auto saved_active_functions = active_function_body_inference_;
+  const auto saved_active_functions_by_sid =
+    active_function_body_inference_by_sid_;
+  const auto saved_inferred_returns = inferred_function_return_types_;
+  const auto saved_inferred_returns_by_sid =
+    inferred_function_return_types_by_sid_;
+
+  auto restore = [&]()
+  {
+    local_binding_types = saved_types;
+    local_binding_types_by_sid = saved_types_by_sid;
+    func_defs = saved_funcs;
+    func_defs_by_sid = saved_funcs_by_sid;
+    fixed_assignment_names_ = saved_fixed;
+    fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
+    binding_info_ = saved_bind;
+    binding_info_by_sid_ = saved_bind_by_sid;
+    consumed_task_names_ = saved_consumed_tasks;
+    consumed_task_names_by_sid_ = saved_consumed_tasks_by_sid;
+    consumed_resource_names_ = saved_consumed_resources;
+    consumed_resource_names_by_sid_ = saved_consumed_resources_by_sid;
+    owned_resource_names_ = saved_owned_resources;
+    owned_resource_names_by_sid_ = saved_owned_resources_by_sid;
+    snapshot_var_names_ = saved_snapshot_names;
+    snapshot_var_names_by_sid_ = saved_snapshot_names_by_sid;
+    active_function_body_stack_ = saved_function_stack;
+    active_function_body_sid_stack_ = saved_function_sid_stack;
+    active_function_body_inference_ = saved_active_functions;
+    active_function_body_inference_by_sid_ =
+      saved_active_functions_by_sid;
+    inferred_function_return_types_ = saved_inferred_returns;
+    inferred_function_return_types_by_sid_ =
+      saved_inferred_returns_by_sid;
+    callable_specialization_graph_.end_expansion(
+      specialization.content_digest);
+  };
+
+  try {
+    for (std::size_t i = 0; i < params.size(); ++i) {
+      record_local_binding_type(
+        params[i]->getNameAsStr(),
+        params[i]->var_name->getSymbolId(),
+        specialization.param_types[i]);
+    }
+
+    StyioAST* body = callable_body_of_def(def);
+    apply_callable_expected_type_to_tail(
+      body,
+      specialization.result_type);
+    push_active_function_body(
+      specialization.source_name,
+      styio::session::kInvalidSymbolId);
+    body->typeInfer(this);
+    StyioDataType inferred_result =
+      function_body_tail_type_latest(this, body);
+    if (!inferred_result.equals(specialization.result_type)) {
+      throw StyioTypeError(
+        "generic specialization result mismatch for callable `"
+        + specialization.source_name + "`: expected `"
+        + specialization.result_type.name + "`, got `"
+        + inferred_result.name + "`"
+      );
+    }
+  }
+  catch (...) {
+    restore();
+    throw;
+  }
+  restore();
+}
 
 void
 StyioSemaContext::push_active_function_body(const std::string& name) {
@@ -1889,10 +6641,227 @@ StyioSemaContext::typeInfer(NameAST* ast) {
   if (is_consumed_resource_name(ast->getSymbolId(), ast->getAsStr())) {
     throw StyioTypeError("use-after-destroy: resource `" + ast->getAsStr() + "` was already destroyed");
   }
+
+  const StyioDataType expected =
+    ast->getExpectedCallableType();
+  if (const StyioDataType* local =
+        find_local_binding_type(ast->getSymbolId(), ast->getAsStr())) {
+    if (!expected.isUndefined()) {
+      if (!styio_is_callable_type(*local)) {
+        throw StyioTypeError(
+          "value `" + ast->getAsStr() + "` has type `"
+          + local->name + "`, but callable type `"
+          + expected.name + "` is required"
+        );
+      }
+      if (!types_equal(*local, expected)) {
+        throw StyioTypeError(
+          "callable value `" + ast->getAsStr()
+          + "` has invariant type `" + local->name
+          + "`, expected `" + expected.name + "`"
+        );
+      }
+    }
+    ast->setInferredType(*local);
+    return;
+  }
+
+  StyioAST* definition =
+    find_function_def(ast->getSymbolId(), ast->getAsStr());
+  const CallableTypeScheme* scheme =
+    find_callable_type_scheme(ast->getAsStr());
+  if (scheme == nullptr) {
+    if (!expected.isUndefined()
+        && find_native_function_def(
+             ast->getSymbolId(), ast->getAsStr()) != nullptr) {
+      throw StyioTypeError(
+        "native callable `" + ast->getAsStr()
+        + "` cannot be coerced to a Styio callable value"
+      );
+    }
+    if (!expected.isUndefined()) {
+      if (definition != nullptr
+          && !callable_def_is_final_binding_latest(definition)) {
+        throw StyioTypeError(
+          "callable `" + ast->getAsStr()
+          + "` must use final `:=` binding before it can become "
+            "a callable value"
+        );
+      }
+      if (definition != nullptr) {
+        if (!imported_callable_is_visible(ast->getAsStr())) {
+          const auto* imported =
+            find_imported_callable_definition(ast->getAsStr());
+          throw StyioTypeError(
+            "callable `" + ast->getAsStr()
+            + "` is not exported to the active module by imported module `"
+            + (imported == nullptr
+                 ? std::string("unknown")
+                 : imported->module_id)
+            + "`"
+          );
+        }
+        if (const CallableEffectRowFacts* effects =
+              find_callable_effect_row(ast->getAsStr())) {
+          if (!effects->captures.empty()) {
+            if (explicit_capture_names_of_func_def(
+                  definition).empty()) {
+              throw StyioTypeError(
+                "callable `" + ast->getAsStr()
+                + "` captures `" + effects->captures.front()
+                + "`; monomorphic callable values admit final "
+                  "noncapturing items only"
+              );
+            }
+            validate_affine_capture_environment(
+              this,
+              definition,
+              ast->getAsStr(),
+              "callable-value escape",
+              true);
+          }
+        }
+
+        std::vector<StyioDataType> declared_params;
+        for (auto* param : params_of_func_def(definition)) {
+          StyioDataType type =
+            normalize_callable_concrete_type(
+              param->getDType()->getDataType());
+          if (type.isUndefined()) {
+            throw StyioTypeError(
+              "callable `" + ast->getAsStr()
+              + "` has no complete concrete signature and no "
+                "generalizable principal relation"
+            );
+          }
+          declared_params.push_back(type);
+        }
+        StyioDataType declared_result =
+          normalize_callable_concrete_type(
+            declared_function_return_type_latest(definition));
+        if (declared_result.isUndefined()) {
+          throw StyioTypeError(
+            "callable `" + ast->getAsStr()
+            + "` has no complete concrete signature and no "
+              "generalizable principal relation"
+          );
+        }
+        StyioDataType declared_callable =
+          styio_make_callable_type(
+            declared_params,
+            declared_result);
+        if (!types_equal(declared_callable, expected)) {
+          throw StyioTypeError(
+            "callable item `" + ast->getAsStr()
+            + "` has invariant signature `"
+            + declared_callable.name + "`, expected `"
+            + expected.name + "`"
+          );
+        }
+        if (find_imported_callable_definition(
+              ast->getAsStr()) != nullptr) {
+          prepare_imported_concrete_callable_body(
+            ast->getAsStr());
+        }
+        ast->setInferredType(expected);
+        ast->setLoweredCallableName(
+          ast->getAsStr());
+        return;
+      }
+      throw StyioTypeError(
+        "unknown callable item `" + ast->getAsStr() + "`"
+      );
+    }
+    return;
+  }
+
+  if (expected.isUndefined()) {
+    reject_generalized_callable_value_escape(ast->getAsStr());
+  }
+
+  if (definition == nullptr) {
+    throw StyioTypeError(
+      "callable item `" + ast->getAsStr()
+      + "` has no checked definition"
+    );
+  }
+  if (!callable_def_is_final_binding_latest(definition)) {
+    throw StyioTypeError(
+      "callable `" + ast->getAsStr()
+      + "` must use final `:=` binding before it can become "
+        "a callable value"
+    );
+  }
+  if (!imported_callable_is_visible(ast->getAsStr())) {
+    const auto* imported =
+      find_imported_callable_definition(ast->getAsStr());
+    throw StyioTypeError(
+      "callable `" + ast->getAsStr()
+      + "` is not exported to the active module by imported module `"
+      + (imported == nullptr
+           ? std::string("unknown")
+           : imported->module_id)
+      + "`"
+    );
+  }
+  if (const CallableEffectRowFacts* effects =
+        find_callable_effect_row(ast->getAsStr())) {
+    if (!effects->captures.empty()) {
+      if (explicit_capture_names_of_func_def(
+            definition).empty()) {
+        throw StyioTypeError(
+          "callable `" + ast->getAsStr()
+          + "` captures `" + effects->captures.front()
+          + "`; monomorphic callable values admit final "
+            "noncapturing items only"
+        );
+      }
+      validate_affine_capture_environment(
+        this,
+        definition,
+        ast->getAsStr(),
+        "callable-value escape",
+        true);
+    }
+  }
+
+  std::vector<StyioDataType> param_types =
+    styio_callable_param_types(expected);
+  StyioDataType result_type =
+    styio_callable_result_type(expected);
+  if (result_type.isUndefined()) {
+    throw StyioTypeError(
+      "callable item `" + ast->getAsStr()
+      + "` requires one complete concrete callable type"
+    );
+  }
+
+  enforce_effect_monomorphic_instance(
+    ast->getAsStr(),
+    param_types);
+  std::unique_ptr<FuncCallAST> synthetic(
+    FuncCallAST::Create(
+      NameAST::Create(
+        ast->getAsStr(),
+        ast->getSymbolId()),
+      {}));
+  synthetic->setExpectedType(result_type);
+  CallableSpecialization specialization =
+    instantiate_callable_type_scheme(
+      synthetic.get(),
+      param_types);
+  prepare_callable_specialization_body(
+    definition,
+    specialization);
+  ast->setInferredType(expected);
+  ast->setLoweredCallableName(
+    specialization.lowered_name);
 }
 
 void
 StyioSemaContext::typeInfer(TypeAST* ast) {
+  require_supported_callable_storage(
+    ast->getDataType());
 }
 
 void
@@ -2031,12 +7000,39 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   };
 
   auto var_type = ast->getVar()->getDType()->type;
+  require_supported_callable_storage(var_type);
+  if (styio_is_callable_type(var_type)) {
+    throw StyioTypeError(
+      "monomorphic callable values require final `:=` binding; "
+      "mutable `=` callable slots are not available"
+    );
+  }
+  StyioDataType rhs_expected_type = var_type;
+  if (rhs_expected_type.isUndefined()) {
+    const StyioDataType* previous_type =
+      find_local_binding_type(bound_sid, bound_name);
+    auto* rhs_list = dynamic_cast<ListAST*>(ast->getValue());
+    auto* rhs_dict = dynamic_cast<DictAST*>(ast->getValue());
+    if (previous_type != nullptr
+        && ((rhs_list != nullptr
+             && rhs_list->getElements().empty()
+             && styio_is_list_type(*previous_type))
+            || (rhs_dict != nullptr
+                && rhs_dict->getEntries().empty()
+                && styio_is_dict_type(*previous_type)))) {
+      rhs_expected_type = *previous_type;
+    }
+  }
 
-  if (var_type.option != StyioDataTypeOption::Undefined) {
-    apply_stdin_resource_effect_expected_type(ast->getValue(), var_type);
+  if (!rhs_expected_type.isUndefined()) {
+    apply_stdin_resource_effect_expected_type(
+      ast->getValue(), rhs_expected_type);
+    apply_callable_expected_type_to_tail(
+      ast->getValue(), rhs_expected_type);
     if (ast->getValue()->getNodeType() == StyioNodeType::BinOp) {
-      if (!styio_is_matrix_type(var_type)) {
-        static_cast<BinOpAST*>(ast->getValue())->setDType(var_type);
+      if (!styio_is_matrix_type(rhs_expected_type)) {
+        static_cast<BinOpAST*>(ast->getValue())->setDType(
+          rhs_expected_type);
       }
     }
   }
@@ -2065,11 +7061,11 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   if (var_type.option == StyioDataTypeOption::Undefined) {
     switch (ast->getValue()->getNodeType()) {
       case StyioNodeType::Integer: {
-        ast->getVar()->setDataType(static_cast<IntAST*>(ast->getValue())->getDataType());
+        ast->getVar()->setDataType(kI64Type);
       } break;
 
       case StyioNodeType::Float: {
-        ast->getVar()->setDataType(static_cast<FloatAST*>(ast->getValue())->getDataType());
+        ast->getVar()->setDataType(kF64Type);
       } break;
 
       case StyioNodeType::BinOp: {
@@ -2131,6 +7127,12 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   StyioDataType concrete_type = inferred_rhs_type;
   if (var_type.option != StyioDataTypeOption::Undefined) {
     concrete_type = var_type;
+  }
+  if (styio_is_callable_type(concrete_type)) {
+    throw StyioTypeError(
+      "monomorphic callable values require final `:=` binding; "
+      "mutable `=` callable slots are not available"
+    );
   }
   BindingValueKind kind = expr_value_kind(ast->getValue());
   if (ast->getValue()->getNodeType() == StyioNodeType::TaskBlock) {
@@ -2199,10 +7201,30 @@ StyioSemaContext::typeInfer(FinalBindAST* ast) {
     }
   }
   auto vt = ast->getVar()->getDType()->type;
+  require_supported_callable_storage(vt);
   if (vt.option != StyioDataTypeOption::Undefined) {
     apply_stdin_resource_effect_expected_type(ast->getValue(), vt);
+    apply_callable_expected_type_to_tail(ast->getValue(), vt);
   }
   ast->getValue()->typeInfer(this);
+  if (styio_is_callable_type(vt)) {
+    StyioDataType rhs_type =
+      infer_expr_type(this, ast->getValue());
+    if (!styio_is_callable_type(rhs_type)) {
+      throw StyioTypeError(
+        "binding `" + ast->getName()
+        + "` expects callable type `" + vt.name
+        + "`, got `" + rhs_type.name + "`"
+      );
+    }
+    if (!types_equal(vt, rhs_type)) {
+      throw StyioTypeError(
+        "binding `" + ast->getName()
+        + "` expects invariant callable type `" + vt.name
+        + "`, got `" + rhs_type.name + "`"
+      );
+    }
+  }
   if (vt.option == StyioDataTypeOption::Undefined) {
     vt = infer_expr_type(this, ast->getValue());
     ast->getVar()->setDataType(vt);
@@ -2400,11 +7422,18 @@ StyioSemaContext::typeInfer(TupleAST* ast) {
     return;
   }
 
-  StyioDataType aggregated_type = elements[0]->getDataType();
+  for (auto* element : elements) {
+    element->typeInfer(this);
+  }
+
+  StyioDataType aggregated_type = infer_expr_type(this, elements[0]);
   bool is_consistent = !aggregated_type.isUndefined();
   if (is_consistent) {
     for (size_t i = 1; i < elements.size(); i += 1) {
-      if (!sema_types_equal(this, elements[i]->getDataType(), aggregated_type)) {
+      if (!sema_types_equal(
+            this,
+            infer_expr_type(this, elements[i]),
+            aggregated_type)) {
         is_consistent = false;
         break;
       }
@@ -2450,8 +7479,15 @@ StyioSemaContext::typeInfer(ListAST* ast) {
   for (auto* elem : ast->getElements()) {
     elem->typeInfer(this);
   }
+  StyioDataType inferred = infer_list_literal_type(this, ast);
+  if (ast->getElements().empty() && inferred.isUndefined()) {
+    throw StyioTypeError(
+      "empty list literal is underconstrained; add a concrete surrounding "
+      "list annotation"
+    );
+  }
   ast->setConsistency(true);
-  ast->setDataType(infer_list_literal_type(this, ast));
+  ast->setDataType(inferred);
   maybe_intern_type(ast->getDataType());
 }
 
@@ -2463,6 +7499,12 @@ StyioSemaContext::typeInfer(DictAST* ast) {
     entry.value->typeInfer(this);
   }
   StyioDataType dict_type = infer_dict_literal_type(this, ast);
+  if (entries.empty() && dict_type.isUndefined()) {
+    throw StyioTypeError(
+      "empty dict literal is underconstrained; add a concrete surrounding "
+      "dict annotation"
+    );
+  }
   ast->setConsistency(true);
   ast->setDataType(dict_type);
   maybe_intern_type(ast->getDataType());
@@ -2485,7 +7527,16 @@ StyioSemaContext::typeInfer(SizeOfAST* ast) {
 
 void
 StyioSemaContext::typeInfer(ListOpAST* ast) {
-  ast->getList()->typeInfer(this);
+  auto* selected_name = dynamic_cast<NameAST*>(ast->getList());
+  const bool generalized_scheme_selector =
+    selected_name != nullptr
+    && find_local_binding_type(
+         selected_name->getSymbolId(),
+         selected_name->getAsStr()) == nullptr
+    && find_callable_type_scheme(selected_name->getAsStr()) != nullptr;
+  if (!generalized_scheme_selector) {
+    ast->getList()->typeInfer(this);
+  }
   if (ast->getSlot1()) {
     ast->getSlot1()->typeInfer(this);
   }
@@ -3040,6 +8091,17 @@ StyioSemaContext::typeInfer(BinOpAST* ast) {
          || op == StyioOpType::Binary_Mod
          || op == StyioOpType::Binary_Pow)
         && infer_numeric_string_coercion(this, ast, lhs, rhs)) {
+      return;
+    }
+    if ((op == StyioOpType::Binary_Add
+         || op == StyioOpType::Binary_Sub
+         || op == StyioOpType::Binary_Mul
+         || op == StyioOpType::Binary_Div
+         || op == StyioOpType::Binary_Mod
+         || op == StyioOpType::Binary_Pow)
+        && type_is_numeric_family(lhs_type)
+        && type_is_numeric_family(rhs_type)) {
+      ast->setDType(getMaxType(lhs_type, rhs_type));
       return;
     }
     auto lhs_hint = lhs->getNodeType();
@@ -3668,6 +8730,51 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     );
   }
 
+  if (ast->func_callee == nullptr) {
+    const StyioDataType* local_callee_type =
+      find_local_binding_type(
+        ast->func_name->getSymbolId(),
+        ast->getNameAsStr());
+    if (local_callee_type != nullptr
+        && styio_is_callable_type(*local_callee_type)) {
+      const std::vector<StyioDataType> param_types =
+        styio_callable_param_types(*local_callee_type);
+      const StyioDataType result_type =
+        styio_callable_result_type(*local_callee_type);
+      if (ast->getArgList().size() != param_types.size()) {
+        throw StyioTypeError(
+          "callable value `" + ast->getNameAsStr()
+          + "` of type `" + local_callee_type->name
+          + "` expects " + std::to_string(param_types.size())
+          + " argument(s), got "
+          + std::to_string(ast->getArgList().size())
+        );
+      }
+      for (std::size_t i = 0; i < param_types.size(); ++i) {
+        StyioAST* arg = ast->getArgList()[i];
+        apply_callable_expected_type_to_tail(
+          arg,
+          param_types[i]);
+        arg->typeInfer(this);
+        const StyioDataType arg_type =
+          infer_expr_type(this, arg);
+        if (!func_param_accepts_arg(
+              param_types[i],
+              arg_type,
+              this)) {
+          throw StyioTypeError(
+            "callable value argument " + std::to_string(i)
+            + " expects `" + param_types[i].name
+            + "`, got `" + arg_type.name + "`"
+          );
+        }
+      }
+      ast->setIndirectCallableType(*local_callee_type);
+      ast->setInferredType(result_type);
+      return;
+    }
+  }
+
   if (ast->func_callee == nullptr && is_matrix_intrinsic_name(ast->getNameAsStr())) {
     for (auto* arg : ast->getArgList()) {
       arg->typeInfer(this);
@@ -3680,41 +8787,108 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     ast->func_name->getSymbolId(),
     ast->getNameAsStr()
   );
+  if (func_def != nullptr
+      && !imported_callable_is_visible(ast->getNameAsStr())) {
+    const auto* imported =
+      find_imported_callable_definition(ast->getNameAsStr());
+    throw StyioTypeError(
+      "callable `" + ast->getNameAsStr()
+      + "` is not exported to the active module by imported module `"
+      + (imported == nullptr ? std::string("unknown") : imported->module_id)
+      + "`"
+    );
+  }
+  if (func_def != nullptr
+      && !explicit_capture_names_of_func_def(func_def).empty()) {
+    validate_affine_capture_environment(
+      this,
+      func_def,
+      ast->getNameAsStr(),
+      "direct call `" + ast->getNameAsStr() + "(...)`",
+      false);
+  }
+  const auto* native_def =
+    func_def == nullptr
+      ? find_native_function_def(
+          ast->func_name->getSymbolId(),
+          ast->getNameAsStr())
+      : nullptr;
+  const CallableTypeScheme* callable_scheme =
+    func_def == nullptr
+      ? nullptr
+      : find_callable_type_scheme(ast->getNameAsStr());
+  const auto func_args =
+    func_def == nullptr
+      ? std::vector<ParamAST*>{}
+      : params_of_func_def(func_def);
   vector<StyioDataType> arg_types;
 
-  for (auto arg : ast->getArgList()) {
+  for (std::size_t i = 0; i < ast->getArgList().size(); ++i) {
+    StyioAST* arg = ast->getArgList()[i];
+    StyioDataType expected_arg{
+      StyioDataTypeOption::Undefined, "undefined", 0
+    };
+    if (i < func_args.size()) {
+      expected_arg = func_args[i]->getDType()->getDataType();
+    }
+    if (expected_arg.isUndefined()
+        && callable_scheme != nullptr
+        && i < callable_scheme->params.size()) {
+      if (auto closed =
+            closed_callable_term_type(callable_scheme->params[i])) {
+        expected_arg = *closed;
+      }
+    }
+    if (expected_arg.isUndefined()
+        && native_def != nullptr
+        && i < native_def->arg_types.size()) {
+      expected_arg = native_def->arg_types[i];
+    }
+    apply_callable_expected_type_to_tail(arg, expected_arg);
     arg->typeInfer(this);
     arg_types.push_back(infer_expr_type(this, arg));
   }
 
+  if (func_def != nullptr) {
+    enforce_effect_monomorphic_instance(
+      ast->getNameAsStr(),
+      arg_types);
+    if (callable_scheme != nullptr) {
+      CallableSpecialization specialization =
+        instantiate_callable_type_scheme(ast, arg_types);
+      prepare_callable_specialization_body(
+        func_def,
+        specialization);
+      return;
+    }
+  }
+
   if (func_def == nullptr) {
-    const auto* native = find_native_function_def(
-      ast->func_name->getSymbolId(),
-      ast->getNameAsStr()
-    );
-    if (native == nullptr) {
+    if (native_def == nullptr) {
       throw StyioTypeError("unknown function `" + ast->getNameAsStr() + "`");
     }
-    if (arg_types.size() != native->arg_types.size()) {
+    if (arg_types.size() != native_def->arg_types.size()) {
       throw StyioTypeError(
         "function `" + ast->getNameAsStr() + "` expects "
-        + std::to_string(native->arg_types.size()) + " argument(s), got "
+        + std::to_string(native_def->arg_types.size()) + " argument(s), got "
         + std::to_string(arg_types.size())
       );
     }
-    for (size_t i = 0; i < native->arg_types.size(); ++i) {
-      if (!func_param_accepts_arg(native->arg_types[i], arg_types[i], this)) {
+    for (size_t i = 0; i < native_def->arg_types.size(); ++i) {
+      if (!func_param_accepts_arg(
+            native_def->arg_types[i],
+            arg_types[i],
+            this)) {
         throw StyioTypeError(
           "function argument type mismatch for native parameter "
-          + std::to_string(i) + ": expected " + native->arg_types[i].name
+          + std::to_string(i) + ": expected "
+          + native_def->arg_types[i].name
           + ", got " + arg_types[i].name
         );
       }
     }
     return;
   }
-
-  auto func_args = params_of_func_def(func_def);
 
   if (arg_types.size() != func_args.size()) {
     throw StyioTypeError(
@@ -3736,6 +8910,15 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
         + "': expected " + declared_type.name + ", got " + arg_types[i].name
       );
     }
+  }
+
+  const ImportedCallableDefinition* imported_concrete =
+    find_imported_callable_definition(ast->getNameAsStr());
+  if (imported_concrete != nullptr
+      && !imported_concrete->has_scheme) {
+    prepare_imported_concrete_callable_body(
+      ast->getNameAsStr());
+    return;
   }
 
   const std::string function_name = ast->getNameAsStr();
@@ -3816,6 +8999,9 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       if (auto* f = dynamic_cast<FunctionAST*>(func_def)) {
         if (f->func_body != nullptr) {
           apply_matrix_literal_context(this, f->func_body, declared_return);
+          apply_callable_expected_type_to_tail(
+            f->func_body,
+            declared_return);
           f->func_body->typeInfer(this);
           StyioDataType return_type = function_body_tail_type_latest(this, f->func_body);
           require_matrix_return_compatible_latest(function_name, declared_return, return_type);
@@ -3825,6 +9011,9 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
       else if (auto* sf = dynamic_cast<SimpleFuncAST*>(func_def)) {
         if (sf->ret_expr != nullptr) {
           apply_matrix_literal_context(this, sf->ret_expr, declared_return);
+          apply_callable_expected_type_to_tail(
+            sf->ret_expr,
+            declared_return);
           sf->ret_expr->typeInfer(this);
           StyioDataType return_type = infer_expr_type(this, sf->ret_expr);
           require_matrix_return_compatible_latest(function_name, declared_return, return_type);
@@ -3928,9 +9117,21 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
   auto saved_bind = binding_info_;
   auto saved_bind_by_sid = binding_info_by_sid_;
 
-  ast->getThen()->typeInfer(this);
+  const ResourceTypestateFactSnapshot incoming_resources =
+    snapshot_resource_typestate_facts();
+  ++resource_typestate_dataflow_stats_.branch_snapshot_count;
+
+  try {
+    ast->getThen()->typeInfer(this);
+  }
+  catch (...) {
+    release_resource_typestate_snapshot(incoming_resources);
+    throw;
+  }
   auto then_types = local_binding_types;
   auto then_bind = binding_info_;
+  const ResourceTypestateFactSnapshot then_resources =
+    snapshot_resource_typestate_facts();
 
   local_binding_types = saved;
   local_binding_types_by_sid = saved_by_sid;
@@ -3938,11 +9139,22 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
   fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
   binding_info_ = saved_bind;
   binding_info_by_sid_ = saved_bind_by_sid;
+  install_resource_typestate_facts(incoming_resources);
 
   if (ast->getElse() != nullptr) {
-    ast->getElse()->typeInfer(this);
+    ++resource_typestate_dataflow_stats_.branch_snapshot_count;
+    try {
+      ast->getElse()->typeInfer(this);
+    }
+    catch (...) {
+      release_resource_typestate_snapshot(then_resources);
+      release_resource_typestate_snapshot(incoming_resources);
+      throw;
+    }
     auto else_types = local_binding_types;
     auto else_bind = binding_info_;
+    const ResourceTypestateFactSnapshot else_resources =
+      snapshot_resource_typestate_facts();
 
     local_binding_types = saved;
     local_binding_types_by_sid = saved_by_sid;
@@ -3950,6 +9162,22 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
     fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
     binding_info_ = saved_bind;
     binding_info_by_sid_ = saved_bind_by_sid;
+
+    install_resource_typestate_facts(then_resources);
+    for (const auto& name : else_resources.names) {
+      if (consumed_resource_names_.insert(name).second) {
+        ++resource_typestate_dataflow_stats_.fact_insertion_count;
+      }
+    }
+    for (const auto sid : else_resources.symbols) {
+      if (consumed_resource_names_by_sid_.insert(sid).second) {
+        ++resource_typestate_dataflow_stats_.fact_insertion_count;
+      }
+    }
+    ++resource_typestate_dataflow_stats_.join_count;
+    release_resource_typestate_snapshot(else_resources);
+    release_resource_typestate_snapshot(then_resources);
+    release_resource_typestate_snapshot(incoming_resources);
 
     for (auto const& entry : then_bind) {
       auto eit = else_bind.find(entry.first);
@@ -3991,6 +9219,20 @@ StyioSemaContext::typeInfer(CondFlowAST* ast) {
   fixed_assignment_names_by_sid_ = saved_fixed_by_sid;
   binding_info_ = saved_bind;
   binding_info_by_sid_ = saved_bind_by_sid;
+  install_resource_typestate_facts(then_resources);
+  for (const auto& name : incoming_resources.names) {
+    if (consumed_resource_names_.insert(name).second) {
+      ++resource_typestate_dataflow_stats_.fact_insertion_count;
+    }
+  }
+  for (const auto sid : incoming_resources.symbols) {
+    if (consumed_resource_names_by_sid_.insert(sid).second) {
+      ++resource_typestate_dataflow_stats_.fact_insertion_count;
+    }
+  }
+  ++resource_typestate_dataflow_stats_.join_count;
+  release_resource_typestate_snapshot(then_resources);
+  release_resource_typestate_snapshot(incoming_resources);
 }
 
 void
@@ -4004,6 +9246,12 @@ StyioSemaContext::typeInfer(FunctionAST* ast) {
       "tuple function return annotations require tuple value IR; tuple returns are not implemented"
     );
   }
+  for (auto* param : ast->params) {
+    require_supported_callable_storage(
+      param->getDType()->getDataType());
+  }
+  require_supported_callable_storage(
+    declared_function_return_type_latest(ast));
   maybe_intern_function_signature_types(this, ast->params, ast->ret_type);
   record_function_def(ast->getNameAsStr(), ast->func_name->getSymbolId(), ast);
 }
@@ -4015,6 +9263,12 @@ StyioSemaContext::typeInfer(SimpleFuncAST* ast) {
       "tuple function return annotations require tuple value IR; tuple returns are not implemented"
     );
   }
+  for (auto* param : ast->params) {
+    require_supported_callable_storage(
+      param->getDType()->getDataType());
+  }
+  require_supported_callable_storage(
+    declared_function_return_type_latest(ast));
   maybe_intern_function_signature_types(this, ast->params, ast->ret_type);
   record_function_def(ast->func_name->getAsStr(), ast->func_name->getSymbolId(), ast);
 }
@@ -4473,6 +9727,7 @@ StyioSemaContext::typeInfer(SeriesIntrinsicAST* ast) {
 
 void
 StyioSemaContext::typeInfer(MainBlockAST* ast) {
+  reset_resource_typestate_dataflow_stats();
   snapshot_var_names_.clear();
   snapshot_var_names_by_sid_.clear();
   func_defs.clear();
@@ -4512,7 +9767,10 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   active_function_body_inference_by_sid_.clear();
   active_function_body_stack_.clear();
   active_function_body_sid_stack_.clear();
+  inferred_function_return_types_.clear();
+  inferred_function_return_types_by_sid_.clear();
   active_resource_receiver_family_.clear();
+  register_imported_callable_definitions();
   auto stmts = ast->getStmts();
   std::vector<std::string> exported_symbols;
   for (auto const& s : stmts) {
@@ -4563,11 +9821,29 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
       method->typeInfer(this);
     }
   }
+  prepare_callable_type_schemes(ast);
   for (auto const& s : stmts) {
     if (dynamic_cast<ResourceMethodDefAST*>(s) != nullptr) {
       continue;
     }
     s->typeInfer(this);
+  }
+  std::vector<std::string> capture_callables;
+  capture_callables.reserve(callable_capture_facts_.size());
+  for (const auto& [name, facts] : callable_capture_facts_) {
+    (void)facts;
+    capture_callables.push_back(name);
+  }
+  std::sort(capture_callables.begin(), capture_callables.end());
+  for (const auto& name : capture_callables) {
+    validate_affine_capture_environment(
+      this,
+      find_function_def(
+        styio::session::kInvalidSymbolId,
+        name),
+      name,
+      "environment formation",
+      false);
   }
   styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
 }

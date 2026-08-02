@@ -1,6 +1,6 @@
 styio.ast.main {
 |- styio.ast.bind.flex {
-  |- var : styio.ast.var { x : int }
+  |- var : styio.ast.var { x : i64 }
   |- val = { 1 : int }}
 |- styio.ast.bind.flex {
   |- var : styio.ast.var { result : i64 }

@@ -4,6 +4,7 @@ set(STYIO_RUNTIME_SUPPORT_SOURCES
 )
 
 set(STYIO_BACKEND_SOURCES
+  StyioCodeGen/CallableSpecializationObjectCache.cpp
   StyioCodeGen/GetTypeG.cpp
   StyioCodeGen/CodeGenG.cpp
   StyioCodeGen/LLVMEmission.cpp

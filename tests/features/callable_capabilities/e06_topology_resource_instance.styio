@@ -1,0 +1,3 @@
+@bucket : i64|..2|
+# identity := (value) => value
+>_(identity(@bucket))

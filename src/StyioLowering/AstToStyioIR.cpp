@@ -139,7 +139,23 @@ func_ret_is_unspecified(const std::variant<TypeAST*, TypeTupleAST*>& ret_type) {
 }
 
 StyioDataType
-param_data_type(ParamAST* p) {
+param_data_type(
+  ParamAST* p,
+  AstToStyioIRLowerer* an,
+  std::string_view callable_name,
+  std::size_t param_index
+) {
+  if (an != nullptr) {
+    if (const auto* specialization =
+          an->active_callable_specialization(callable_name)) {
+      if (param_index >= specialization->param_types.size()) {
+        throw StyioTypeError(
+          "generic specialization parameter index is out of range"
+        );
+      }
+      return specialization->param_types[param_index];
+    }
+  }
   if (!p || !p->var_type || p->var_type->getDataType().option == StyioDataTypeOption::Undefined) {
     return lowering_i64_type();
   }
@@ -147,11 +163,15 @@ param_data_type(ParamAST* p) {
 }
 
 SGFuncArg*
-param_to_sgarg(ParamAST* p, AstToStyioIRLowerer* an) {
-  StyioDataTypeOption opty = p->var_type->getDataType().option;
-  SGType* ty = (opty == StyioDataTypeOption::Undefined)
-                 ? SGType::Create(lowering_i64_type())
-                 : static_cast<SGType*>(p->var_type->toStyioIR(an));
+param_to_sgarg(
+  ParamAST* p,
+  AstToStyioIRLowerer* an,
+  std::string_view callable_name,
+  std::size_t param_index
+) {
+  StyioDataType type =
+    param_data_type(p, an, callable_name, param_index);
+  SGType* ty = SGType::Create(type);
   return SGFuncArg::Create(p->getName(), ty);
 }
 
@@ -233,6 +253,13 @@ ast_has_tail_value(StyioAST* ast) {
 static constexpr const char* kMissingFunctionTailMessage =
   "function body requires a return value; add <| expr or a final value expression";
 
+styio::lowering::StyioIRPassPipelineOptions
+intermediate_sg_block_pipeline_options() {
+  styio::lowering::StyioIRPassPipelineOptions options;
+  options.verifier_options.defer_unresolved_loop_control = true;
+  return options;
+}
+
 SGBlock*
 lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false);
 
@@ -275,7 +302,10 @@ lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_valu
     for (auto* following : blk->followings) {
       stmts.push_back(following->toStyioIR(an));
     }
-    return static_cast<SGBlock*>(styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(stmts))));
+    return static_cast<SGBlock*>(
+      styio::lowering::require_default_styio_ir_pass_pipeline(
+        SGBlock::Create(std::move(stmts)),
+        intermediate_sg_block_pipeline_options()));
   }
   std::vector<StyioIR*> one;
   one.push_back(implicit_tail_value ? lower_tail_stmt(an, body) : body->toStyioIR(an));
@@ -1636,10 +1666,20 @@ class StateExprCloneVisitor
 
   StyioAST* clone(FuncCallAST* expr) {
     std::vector<StyioAST*> args = clone_child_list(expr->getArgList());
+    FuncCallAST* cloned = nullptr;
     if (expr->func_callee != nullptr) {
-      return FuncCallAST::Create(clone(expr->func_callee), NameAST::Clone(expr->func_name), std::move(args));
+      cloned = FuncCallAST::Create(
+        clone(expr->func_callee),
+        NameAST::Clone(expr->func_name),
+        std::move(args));
     }
-    return FuncCallAST::Create(NameAST::Clone(expr->func_name), std::move(args));
+    else {
+      cloned = FuncCallAST::Create(
+        NameAST::Clone(expr->func_name),
+        std::move(args));
+    }
+    cloned->copyInferenceMetadataFrom(*expr);
+    return cloned;
   }
 
   StyioAST* clone(AttrAST* expr) {
@@ -1767,6 +1807,12 @@ class StateExprCloneVisitor
       clone_ret_type(expr->ret_type),
       body
     );
+    std::vector<NameAST*> captures;
+    captures.reserve(expr->getCaptureNames().size());
+    for (auto* capture : expr->getCaptureNames()) {
+      captures.push_back(NameAST::Clone(capture));
+    }
+    cloned->setCaptureNames(std::move(captures));
     cloned->is_self_completed = expr->is_self_completed;
     return cloned;
   }
@@ -1795,13 +1841,20 @@ class StateExprCloneVisitor
     named_repls_ = std::move(saved_repls);
     local_repl_names_ = std::move(saved_local_repls);
 
-    return SimpleFuncAST::Create(
+    auto* cloned = SimpleFuncAST::Create(
       NameAST::Clone(expr->func_name),
       expr->is_unique,
       std::move(params),
       clone_ret_type(expr->ret_type),
       ret_expr
     );
+    std::vector<NameAST*> captures;
+    captures.reserve(expr->getCaptureNames().size());
+    for (auto* capture : expr->getCaptureNames()) {
+      captures.push_back(NameAST::Clone(capture));
+    }
+    cloned->setCaptureNames(std::move(captures));
+    return cloned;
   }
 
   StyioAST* clone(ReturnAST* expr) {
@@ -2360,7 +2413,9 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
     throw;
   }
   restore_local_types();
-  return styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(
+    SGBlock::Create(std::move(stmts)),
+    intermediate_sg_block_pipeline_options());
 }
 
 struct PulseScratch
@@ -2579,6 +2634,10 @@ AstToStyioIRLowerer::toStyioIR(EmptyAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
+  if (!ast->getLoweredCallableName().empty()) {
+    return SGResId::CreateFunctionRef(
+      ast->getLoweredCallableName());
+  }
   const BindingInfo* binding = find_binding_info(ast->getSymbolId(), ast->getAsStr());
   if (binding != nullptr
       && (binding->dynamic_slot || binding->value_kind == BindingValueKind::ListHandle || binding->value_kind == BindingValueKind::DictHandle || binding->value_kind == BindingValueKind::MatrixHandle || binding->value_kind == BindingValueKind::TaskHandle)) {
@@ -3098,7 +3157,9 @@ AstToStyioIRLowerer::toStyioIR(BinCompAST* ast) {
     ast->getLHS()->toStyioIR(this),
     ast->getRHS()->toStyioIR(this),
     op,
-    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1})
+    SGType::Create(StyioDataType{StyioDataTypeOption::Bool, "bool", 1}),
+    expr_lowered_type(this, ast->getLHS()),
+    expr_lowered_type(this, ast->getRHS())
   );
 }
 
@@ -3808,7 +3869,7 @@ AstToStyioIRLowerer::toStyioIR(DBUrlAST* ast) {
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ExtPackAST* ast) {
   (void)ast;
-  return unsupported_ast_lowering("ExtPackAST", "external package declarations are not runtime values");
+  return SGNoOp::Create();
 }
 
 StyioIR*
@@ -3896,6 +3957,18 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
       "one-shot continuation resume `<|` requires continuation lowering; "
       "captured continuations must be resumed or discontinued exactly once"
     );
+  }
+
+  if (ast->isIndirectCallableCall()) {
+    std::vector<StyioIR*> args;
+    args.reserve(ast->getArgList().size());
+    for (auto* arg : ast->getArgList()) {
+      args.push_back(arg->toStyioIR(this));
+    }
+    return SGCall::CreateIndirect(
+      SGResId::Create(ast->getNameAsStr()),
+      ast->getIndirectCallableType(),
+      std::move(args));
   }
 
   if (ast->func_callee == nullptr && is_matrix_intrinsic_name(ast->getNameAsStr())) {
@@ -4031,7 +4104,10 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
     args.push_back(a->toStyioIR(this));
   }
   return SGCall::Create(
-    SGResId::Create(ast->getNameAsStr()),
+    SGResId::Create(
+      ast->getLoweredCalleeName().empty()
+        ? ast->getNameAsStr()
+        : ast->getLoweredCalleeName()),
     std::move(args)
   );
 }
@@ -4200,12 +4276,23 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   auto saved_local_types = local_binding_types;
   auto saved_local_types_by_sid = local_binding_types_by_sid;
   std::vector<SGFuncArg*> fargs;
-  for (auto* p : ast->params) {
-    record_local_binding_type(p->getName(), p->var_name->getSymbolId(), param_data_type(p));
-    fargs.push_back(param_to_sgarg(p, this));
+  for (std::size_t i = 0; i < ast->params.size(); ++i) {
+    auto* p = ast->params[i];
+    record_local_binding_type(
+      p->getName(),
+      p->var_name->getSymbolId(),
+      param_data_type(p, this, ast->getNameAsStr(), i));
+    fargs.push_back(
+      param_to_sgarg(p, this, ast->getNameAsStr(), i));
   }
   SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
-  if (func_ret_is_unspecified(ast->ret_type)) {
+  const auto* specialization =
+    active_callable_specialization(ast->getNameAsStr());
+  if (specialization != nullptr) {
+    delete rt;
+    rt = SGType::Create(specialization->result_type);
+  }
+  else if (func_ret_is_unspecified(ast->ret_type)) {
     StyioDataType inferred_ret = infer_tail_value_type(this, ast->func_body);
     if (!inferred_ret.isUndefined()) {
       delete rt;
@@ -4258,11 +4345,28 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   }
   local_binding_types = std::move(saved_local_types);
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+  const auto* effect_facts =
+    find_callable_effect_row(ast->getNameAsStr());
+  std::vector<std::string> capture_names;
+  capture_names.reserve(ast->getCaptureNames().size());
+  for (auto* capture : ast->getCaptureNames()) {
+    capture_names.push_back(capture->getAsStr());
+  }
   SGFunc* fn = SGFunc::Create(
     rt,
-    SGResId::Create(ast->getNameAsStr()),
+    SGResId::Create(
+      specialization == nullptr
+        ? ast->getNameAsStr()
+        : specialization->lowered_name),
     std::move(fargs),
-    body
+    body,
+    effect_facts == nullptr
+      ? styio::sema::CallableEffectRow::unknown()
+      : effect_facts->row,
+    std::move(capture_names),
+    specialization == nullptr
+      ? std::string()
+      : specialization->content_digest
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;
@@ -4276,12 +4380,27 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   auto saved_local_types = local_binding_types;
   auto saved_local_types_by_sid = local_binding_types_by_sid;
   std::vector<SGFuncArg*> fargs;
-  for (auto* p : ast->params) {
-    record_local_binding_type(p->getName(), p->var_name->getSymbolId(), param_data_type(p));
-    fargs.push_back(param_to_sgarg(p, this));
+  for (std::size_t i = 0; i < ast->params.size(); ++i) {
+    auto* p = ast->params[i];
+    record_local_binding_type(
+      p->getName(),
+      p->var_name->getSymbolId(),
+      param_data_type(p, this, ast->func_name->getAsStr(), i));
+    fargs.push_back(
+      param_to_sgarg(
+        p,
+        this,
+        ast->func_name->getAsStr(),
+        i));
   }
   SGType* rt = func_ret_to_sgtype(ast->ret_type, this);
-  if (func_ret_is_unspecified(ast->ret_type)) {
+  const auto* specialization =
+    active_callable_specialization(ast->func_name->getAsStr());
+  if (specialization != nullptr) {
+    delete rt;
+    rt = SGType::Create(specialization->result_type);
+  }
+  else if (func_ret_is_unspecified(ast->ret_type)) {
     StyioDataType inferred_ret = infer_tail_value_type(this, ast->ret_expr);
     if (!inferred_ret.isUndefined()) {
       delete rt;
@@ -4318,11 +4437,28 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   }
   local_binding_types = std::move(saved_local_types);
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+  const auto* effect_facts =
+    find_callable_effect_row(ast->func_name->getAsStr());
+  std::vector<std::string> capture_names;
+  capture_names.reserve(ast->getCaptureNames().size());
+  for (auto* capture : ast->getCaptureNames()) {
+    capture_names.push_back(capture->getAsStr());
+  }
   SGFunc* fn = SGFunc::Create(
     rt,
-    SGResId::Create(ast->func_name->getAsStr()),
+    SGResId::Create(
+      specialization == nullptr
+        ? ast->func_name->getAsStr()
+        : specialization->lowered_name),
     std::move(fargs),
-    body
+    body,
+    effect_facts == nullptr
+      ? styio::sema::CallableEffectRow::unknown()
+      : effect_facts->row,
+    std::move(capture_names),
+    specialization == nullptr
+      ? std::string()
+      : specialization->content_digest
   );
   set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
   return fn;
@@ -4786,7 +4922,9 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
   for (auto* following : ast->followings) {
     ir_stmts.push_back(following->toStyioIR(this));
   }
-  return styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(ir_stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(
+    SGBlock::Create(std::move(ir_stmts)),
+    intermediate_sg_block_pipeline_options());
 }
 
 StyioIR*
@@ -4802,6 +4940,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   file_resource_bindings_.clear();
   resource_method_body_defs_.clear();
   resource_receiver_expr_bindings_.clear();
+  register_imported_callable_definitions();
   for (auto* stmt : ast->getStmts()) {
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
       record_function_def(f->getNameAsStr(), f->func_name->getSymbolId(), f);
@@ -4818,6 +4957,30 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
 
   for (auto stmt : ast->getStmts()) {
     set_post_pulse_hist_context(pending_region, pending_plan);
+    std::string generic_name;
+    if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
+      generic_name = f->getNameAsStr();
+    }
+    else if (auto* sf = dynamic_cast<SimpleFuncAST*>(stmt)) {
+      generic_name = sf->func_name->getAsStr();
+    }
+    if (!generic_name.empty()
+        && callable_has_runtime_specializations(generic_name)) {
+      const auto specializations = callable_specializations(generic_name);
+      for (const auto& specialization : specializations) {
+        activate_callable_specialization(specialization);
+        try {
+          prepare_callable_specialization_body(stmt, specialization);
+          ir_stmts.push_back(stmt->toStyioIR(this));
+        }
+        catch (...) {
+          clear_active_callable_specialization();
+          throw;
+        }
+        clear_active_callable_specialization();
+      }
+      continue;
+    }
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
       if (find_function_def(f->func_name->getSymbolId(), f->getNameAsStr()) != f) {
         continue;
@@ -4848,6 +5011,78 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
       }
     }
     ir_stmts.push_back(ir);
+  }
+
+  std::vector<const ImportedCallableDefinition*> imported_definitions;
+  imported_definitions.reserve(imported_callable_definitions().size());
+  for (const auto& imported : imported_callable_definitions()) {
+    imported_definitions.push_back(&imported);
+  }
+  std::sort(
+    imported_definitions.begin(),
+    imported_definitions.end(),
+    [](const auto* lhs, const auto* rhs)
+    {
+      if (lhs->module_id != rhs->module_id) {
+        return lhs->module_id < rhs->module_id;
+      }
+      std::string lhs_name;
+      std::string rhs_name;
+      if (auto* function =
+            dynamic_cast<FunctionAST*>(lhs->definition)) {
+        lhs_name = function->getNameAsStr();
+      }
+      else if (auto* function =
+                 dynamic_cast<SimpleFuncAST*>(lhs->definition)) {
+        lhs_name = function->func_name->getAsStr();
+      }
+      if (auto* function =
+            dynamic_cast<FunctionAST*>(rhs->definition)) {
+        rhs_name = function->getNameAsStr();
+      }
+      else if (auto* function =
+                 dynamic_cast<SimpleFuncAST*>(rhs->definition)) {
+        rhs_name = function->func_name->getAsStr();
+      }
+      return lhs_name < rhs_name;
+    });
+  for (const auto* imported : imported_definitions) {
+    StyioAST* definition = imported->definition;
+    std::string name;
+    if (auto* function = dynamic_cast<FunctionAST*>(definition)) {
+      name = function->getNameAsStr();
+    }
+    else if (auto* function =
+               dynamic_cast<SimpleFuncAST*>(definition)) {
+      name = function->func_name->getAsStr();
+    }
+    if (name.empty()) {
+      throw StyioTypeError(
+        "imported callable interface contains a non-callable body"
+      );
+    }
+    if (imported->has_scheme) {
+      const auto specializations = callable_specializations(name);
+      for (const auto& specialization : specializations) {
+        activate_callable_specialization(specialization);
+        try {
+          prepare_callable_specialization_body(
+            definition,
+            specialization);
+          ir_stmts.push_back(definition->toStyioIR(this));
+        }
+        catch (...) {
+          clear_active_callable_specialization();
+          throw;
+        }
+        clear_active_callable_specialization();
+      }
+      continue;
+    }
+    if (!imported_concrete_callable_is_reachable(name)) {
+      continue;
+    }
+    ir_stmts.push_back(definition->toStyioIR(this));
   }
   set_post_pulse_hist_context(-1, nullptr);
 

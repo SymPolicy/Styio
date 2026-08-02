@@ -198,6 +198,8 @@ class StyioToLLVM : public StyioCodeGenVisitor
 
   unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
+  unordered_map<string, llvm::GlobalVariable*> callable_capture_globals_;
+  std::unordered_set<string> active_callable_capture_names_;
 
   /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
   unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;
@@ -260,11 +262,17 @@ public:
 
   void print_llvm_ir();
   void execute();
+  std::string callable_cache_stats_json() const {
+    return theORCJIT == nullptr
+      ? std::string()
+      : theORCJIT->callableCacheStatsJson();
+  }
 
   /** Module IR without ANSI or extra banners (for golden tests). */
   std::string dump_llvm_ir() const;
 
   /* CodeGen Get LLVM Type */
+  llvm::Type* toLLVMType(const StyioDataType& data_type);
   llvm::Type* toLLVMType(SGResId* node);
   llvm::Type* toLLVMType(SGType* node);
   llvm::Type* toLLVMType(SGNoOp* node);

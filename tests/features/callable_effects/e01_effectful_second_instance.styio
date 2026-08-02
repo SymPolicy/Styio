@@ -1,0 +1,6 @@
+# emit := (value) => {
+    >_(value)
+    <| value
+}
+emit(7)
+emit("no")

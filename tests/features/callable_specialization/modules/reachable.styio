@@ -1,0 +1,8 @@
+@export { concrete_bridge }
+
+# identity := (value) => value
+# private_concrete : i64 = (value: i64) => value
+# unused_concrete : i64 = (value: i64) => value + 1
+# concrete_bridge : i64 = (value: i64) => identity(private_concrete(value))
+
+concrete_bridge(0)

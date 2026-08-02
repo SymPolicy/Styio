@@ -1,0 +1,4 @@
+# helper : i64 := (value: i64) => value + 0
+# composed := (value) => helper(value)
+
+>_(composed(7))

@@ -1,0 +1,2 @@
+# item_at := (items, index) => items[index]
+>_(item_at(7, 0))

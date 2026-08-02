@@ -1,34 +1,43 @@
 id = "add-syntax-with-skills"
 title = "Add Syntax With Skills"
-purpose = "Orchestrate new Styio syntax work through repo-local skills, implementation surfaces, docs, and gates."
-last_updated = "2026-05-20"
+purpose = "Orchestrate syntax work from a distributed feature SSOT through dependency/readiness resolution, implementation, and convergence evidence."
+last_updated = "2026-07-30"
 doc = "ADD-SYNTAX-WITH-SKILLS.md"
 skill = "skills/styio-syntax-change/skill.toml"
 
 steps = [
   "load the skill and surface map",
-  "freeze accepted examples and reserved symbols",
+  "create or update one distributed feature SSOT",
+  "freeze canonical, reserved, and rejected examples",
+  "declare document roles, dependencies, prerequisites, owner, and lifecycle states",
+  "generate and validate the syntax feature graph",
+  "obtain language-owner resolution",
+  "require accepted decision and ready derived state before implementation",
   "update token enum, token names, and lexer",
   "update IDE tokenizer",
   "update authoritative nightly parser",
   "update retired parser-route audit evidence only when the change touches retired syntax",
   "update AST, type, and IR behavior",
-  "update docs and runbooks",
   "add tests and runtime smoke",
+  "update feature evidence and affected composed views or runbooks",
   "run gates",
 ]
 
 implementation_order = [
+  "distributed feature SSOT and dependency graph",
+  "language-owner decision and readiness gate",
   "token enum/name/lexer",
   "IDE tokenizer",
   "authoritative nightly parser",
   "retired parser-route audit evidence only when the change touches retired syntax",
   "AST/type/IR behavior",
-  "docs and runbooks",
   "tests",
+  "feature evidence and affected composed views or runbooks",
 ]
 
 required_evidence = [
+  "one feature SSOT with complete document roles, dependency edges, prerequisite evidence, and owner resolution",
+  "fresh generated syntax feature graph with derived readiness ready",
   "lexer coverage for every new token",
   "authoritative nightly parser coverage for every accepted form with no accepted-grammar fallback",
   "semantic negative coverage for every accepted-but-not-lowered form",
@@ -37,6 +46,8 @@ required_evidence = [
 ]
 
 gates = [
+  "python3 scripts/syntax-feature-state-gate.py",
+  "python3 tests/syntax_feature_state_gate_test.py",
   "cmake --build build/default --target styio_security_test styio -j2",
   "ctest --test-dir build/default -L security --output-on-failure",
   "ctest --test-dir build/default -R ^StyioParserEngine\\. --output-on-failure",
@@ -52,6 +63,9 @@ accepted_but_unlowered = "typed fail-closed diagnostic"
 
 [handoff]
 report = [
+  "feature SSOT path",
+  "decision delivery and readiness states",
+  "dependency and prerequisite closure",
   "accepted syntax",
   "reserved syntax",
   "unsupported lowering paths",

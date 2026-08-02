@@ -1,0 +1,4 @@
+# double_inner := (value) => value + value
+# double_outer := (value) => double_inner(value)
+>_(double_outer(5))
+>_(double_outer(2.5))

@@ -1,0 +1,6 @@
+# emit_inner := (value) => {
+    >_(value)
+    <| value
+}
+# emit_outer := (value) => emit_inner(value)
+>_(emit_outer(9))

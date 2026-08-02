@@ -270,6 +270,13 @@ The example uses `|..2|` because it needs the previous and current published val
 
 **Current RTG implementation note:** RTG is an internal compiler safety layer, not a new source-level syntax contract. It validates resource AST nodes and edges before lowering, including standard streams, handle acquire, writes, redirects, iterators, zip, snapshots, instant pulls, hidden intrinsic ledgers, task resources, ownership, mutation, commit, failure-domain, and backpressure relationships.
 
+Inferred callable schemes also preserve this topology boundary. Before binding
+a scheme variable, Sema inspects the original handle family, resource shape,
+typestate, capabilities, and recursively nested item types. Topology resources,
+resource sequences, streams, files, tasks, and matrices cannot be normalized
+into plain value or collection instances; they remain concrete monomorphic
+types until schemes can carry their ownership and protocol facts.
+
 **Next compiler-work note:** [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md) tracks the remaining parser/type/lowering migration work for this design.
 
 ---

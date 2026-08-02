@@ -1,0 +1,3 @@
+# identity := (value) => value
+>_(identity(1))
+>_(identity("hello"))

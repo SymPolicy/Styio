@@ -8,7 +8,7 @@
 
 `StyioServices` is the repository home for language-facing services that can be consumed outside the core compiler implementation. These services are the reusable frontend surface for tools that need to inspect, validate, build, or provide editor support for Styio source code.
 
-The service layer is consumer-neutral, but first-party projects such as Vityo and `spio` may bind to it more deeply than a generic external editor. Those convenience adapters must still reuse the shared StyioServices facts, capability states, diagnostic taxonomy, parser evidence, and workspace identity instead of creating separate grammar, diagnostic, or semantic authorities.
+The service layer is consumer-neutral, but Vityo may bind to it more deeply than a generic external editor. Those convenience adapters must still reuse the shared StyioServices facts, capability states, diagnostic taxonomy, parser evidence, and workspace identity instead of creating separate grammar, diagnostic, or semantic authorities. Pafio consumes only Styio's compiler capability and compile-plan handoff contracts.
 
 Primary source roots:
 

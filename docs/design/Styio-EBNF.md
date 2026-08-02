@@ -1,8 +1,8 @@
 # Styio Formal Grammar (EBNF)
 
-**Purpose:** 词法与语法的 **EBNF 权威定义**；资源拓扑相关附录与叙述以 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md) 为准，语义细节以 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 为准。
+**Purpose:** Define the composed lexical and grammar EBNF for Styio; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), resource-topology narrative lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), and shared semantic principles live in [`Styio-Language-Design.md`](./Styio-Language-Design.md).
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-07-31
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -27,6 +27,23 @@
 ## 2. Lexical Grammar
 
 The lexer follows the **Maximal Munch Principle**: when multiple token interpretations are possible, the longest valid match wins.
+
+### 2.0 Keyword-Free Token Contract
+
+Styio defines no keyword token kind. Every word-shaped token is emitted as
+`NAME`; primitive and user type names use that same token kind.
+
+A quoted alphabetic spelling in this document is therefore an exact-spelling
+predicate over `NAME`, not a reserved lexer terminal. Such a predicate is
+allowed only after a leading symbol and structural position have already opened
+the containing grammar family. For example, `@` followed by `NAME("import")`
+may open a top-level import declaration, but `import` remains an ordinary
+identifier elsewhere. `true` and `false` are expression-context literal
+spellings recognized from `NAME`, not keyword tokens.
+
+No production may introduce a fixed word as an unanchored declaration,
+control-flow, or operator head. This lexical contract is owned semantically by
+[Styio-Language-Design.md](./Styio-Language-Design.md) section 1.1.1.
 
 ### 2.1 Character Sets
 
@@ -177,8 +194,7 @@ statement          = declaration
                    | resource_order_stmt
                    | match_bind_expr
                    | flow_pipeline
-                   | expression_stmt
-                   | schema_def ;
+                   | expression_stmt ;
 ```
 
 ---
@@ -200,10 +216,22 @@ import_path       = identifier { '/' identifier }
 
 Notes:
 
-1. `@import` is only valid at file top level.
+1. `@import` is only valid at file top level. `import` is lexed as `NAME`;
+   its spelling is inspected only after top-level `@` has opened this
+   declaration family.
 2. `/` is the native package/module path spelling.
 3. `.` is accepted compatibility syntax and is normalized to slash form internally.
 4. One import item must not mix `/` and `.`.
+5. Import syntax carries no inline signature or generic body. Executable
+   callable imports resolve through compiler-produced sibling `.styioi`
+   metadata; schema, source, dependency, body, and ABI drift fail before
+   lowering.
+6. Only exported callables of a direct import enter the importing source's
+   namespace. Private helper facts remain available only while checking or
+   specializing their owning imported body.
+7. Cross-module dependency cycles are rejected in the current
+   separate-compilation slice. This is a semantic module-graph rule and adds no
+   recursive-import grammar production.
 
 ### 4.2 Callable / Operation-Channel Binding
 
@@ -239,6 +267,7 @@ type_expr          = type_primary { type_suffix } ;
 
 type_primary       = scalar_type
                    | identifier [ '[' type_arg_list ']' ]
+                   | callable_type
                    | tuple_type ;
 
 scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
@@ -247,6 +276,8 @@ scalar_type        = 'i8' | 'i16' | 'i32' | 'i64' | 'i128'
                    | 'matrix' ;
 
 type_arg_list      = type_expr { ',' type_expr } ;
+
+callable_type      = '#' '(' [ type_expr { ',' type_expr } ] ')' ':' type_expr ;
 
 tuple_type         = '(' type_expr ',' type_expr { ',' type_expr } ')' ;
 
@@ -275,6 +306,66 @@ Notes:
    `# sink = @stdout` is invalid because `@stdout` must stay visibly a resource.
    Native `@ extern(...)` import bindings are the separate native-callable import
    form, not resource aliasing.
+5. The brackets in `type_primary` are type application in type position, as in
+   `list[i64]`; they do not create callable generic parameters.
+6. `callable_decl` deliberately has no production between `identifier` and
+   `callable_decl_tail` for a generic binder. Therefore `# name[T] ...` is a
+   syntax error.
+7. An eligible final, non-recursive callable receives one compiler-inferred
+   principal rank-1 type relation at its definition site. Compiler-generated
+   type-variable names may be published in module-interface metadata but are
+   not source tokens.
+8. A source annotation such as `: T` refers to an existing type named `T`; it
+   never declares an implicit generic variable. Concrete parameter and result
+   annotations remain valid for monomorphic contracts.
+9. A recursive call-graph component is inferred as one group. Each member has
+   one provisional monotype, and every reference from inside the group reuses
+   that member's same provisional type variables.
+10. After a recursive group has one stable solution, each eligible final
+    binding may be generalized and its principal rank-1 relation published.
+    This permits ordinary inferred generic recursion.
+11. An internal recursive edge that requires the same member at a different
+    instantiation is polymorphic recursion and is rejected. Diagnostics report
+    the conflicting instantiations instead of requesting `[T]`.
+12. Callable invocation has no explicit type-argument production. Instances are
+    selected only by ordinary arguments and the concrete expected type supplied
+    by the surrounding context.
+13. In value position, `name[T](...)` remains an ordinary `selector` followed by
+    `call`; it is never reinterpreted as callable specialization. It is rejected
+    when the selected target is not indexable or the selector expression is
+    otherwise invalid.
+14. An inferred callable scheme is consumed by a direct named `call` or by a
+    bare final noncapturing callable item under one complete concrete
+    `callable_type` context. For example,
+    `operation: #(i64): i64 := identity` freezes one `i64 -> i64` item.
+    A bare scheme name without that context remains a semantic error.
+15. The type variables in an inferred scheme range only over immutable scalar
+    values and recursively plain materialized `list`/`dict` types. Resource,
+    stream, file, task, matrix, topology-resource, and other
+    capability-sensitive handle types remain concrete monomorphic contracts;
+    no new source capability or lifetime binder is introduced.
+16. Concrete callable instances are compiler-owned mono items reached from
+    ordinary direct calls or contextual callable-item coercion. Their
+    deterministic content identities include the concrete relation, effects,
+    portable semantic body, transitive dependencies, target, and ABI facts.
+    Schema-v4 imports reconstruct that body from validated portable StyioIR
+    without parsing imported source. There is no
+    explicit-instantiation production or source spelling; recursive or
+    pathological instance growth fails with a concrete instance-path
+    diagnostic.
+17. `callable_type` is invariant and admits neither topology suffixes nor
+    implicit arity, parameter, result, variance, or numeric-signature
+    adaptation. Because the result is a complete `type_expr`, a trailing suffix
+    in `#(i64): i64..` belongs to the result type; it does not turn the callable
+    value into a topology resource. Runtime callable slots use final `:=`
+    bindings only. Callable address equality and generalized callable storage
+    are outside this production.
+18. `capture_list` is nonempty, duplicate-free, and exact. It follows the
+    callable's parameter/result signature and precedes its binding/body
+    operator. The active affine slice lowers proven scalar captures to
+    program-static reactive slots: shared borrows may escape under one complete
+    monomorphic callable type, exclusive borrows remain direct-call-only, and
+    consume or missing representation/drop facts fail before lowering.
 
 ### 4.3 Type Rewrite Declaration
 
@@ -290,16 +381,6 @@ Examples:
 __ : list[T] := T..
 __ : string := char..
 __ : dict[K, V] := (K, V)..
-```
-
-### 4.4 Schema Declaration
-
-```ebnf
-schema_def         = '#' identifier ':=' 'schema' '{'
-                       { schema_field }
-                     '}' ;
-
-schema_field       = '@' '[' ( integer | identifier ) ']' identifier ;
 ```
 
 ---
@@ -499,6 +580,12 @@ member_access      = '.' identifier ;
 expression_list    = expression { ',' expression } ;
 ```
 
+The `selector` followed by `call` sequence does not create callable type
+arguments. For example, `identity[i64](1)` follows ordinary value-position
+postfix parsing and is never a generic instantiation. A generic callable use is
+instantiated from call arguments and its concrete expected result context; an
+underconstrained call is rejected instead of accepting authored type arguments.
+
 `range_expr` is the naked expression-level range form, such as `start..end`.
 It is not a list literal. Step range spelling such as `start..end..step` is
 reserved, not active syntax, and not canonical.
@@ -538,6 +625,9 @@ primary_expr       = identifier
                    | '?' '(' expression ')'        (* guard condition prefix; followed by => for value selection *)
                    | block ;
 ```
+
+`true` and `false` are tokenized as `NAME` and interpreted as Boolean literal
+spellings only in expression context. They do not create keyword tokens.
 
 ---
 
@@ -731,7 +821,7 @@ pending writes, resource block snapshots, consuming methods, and commit boundari
 program_topology         = { top_level_decl_topology } EOF ;
 
 top_level_decl_topology  = resource_decl_topology
-                   | (* existing: function, schema, stmt … *) ;
+                   | (* existing callable and statement forms *) ;
 
 resource_decl_topology   = "@" identifier ":" type_topology
                      { "," "@" identifier ":" type_topology }

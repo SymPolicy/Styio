@@ -30,8 +30,6 @@ bool ok = styio::config::parse_compile_plan("compile-plan.json", request, error)
 | Function or Type | Header | Use |
 |------------------|--------|-----|
 | `CompilePlanRequest` | `CompilePlanContract.hpp` | Holds the normalized request envelope consumed by compiler build/check/run/test flows. |
-| `default_build_mode_name()` | `CompilePlanContract.hpp` | Returns the canonical default build mode. |
-| `is_supported_build_mode(...)` | `CompilePlanContract.hpp` | Validates compile-plan build-mode values. |
 | `probe_compile_plan_diag_dir(...)` | `CompilePlanContract.hpp` | Extracts a diagnostics directory before full plan validation. |
 | `parse_compile_plan(...)` | `CompilePlanContract.hpp` | Parses and validates the resolved compile-plan JSON contract. |
 | `SourceBuildInfoOptions` | `SourceBuildInfo.hpp` | Carries compiler version, channel, and edition metadata for source-build info output. |

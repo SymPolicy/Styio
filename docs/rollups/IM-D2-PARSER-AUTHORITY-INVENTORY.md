@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation contract for IM-D2 so accepted Styio grammar is judged by the compiler-owned parser instead of legacy fallback, editor snapshot drift, or consumer-local syntax approximations.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-08-02
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D2`.
 
@@ -11,6 +11,7 @@
 | Contract item | Implemented position | Evidence |
 |---------------|----------------------|----------|
 | Parser authority | The hand-written nightly compiler parser is the only accepted grammar authority | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |
+| Expression precedence authority | One constexpr operator-metadata table in `src/StyioToken/Token.hpp` (`StyioExprOperatorInfo` / `StyioExprAssociativity` / `StyioExprOperatorKind` + `styio_expr_operator_info(StyioTokenType)`) is the only accepted-expression infix precedence, associativity, operator-kind, and AST-operation authority; `parse_expr(StyioContext&)` is the canonical full-expression entry, and `StyioOpType` enum ordinals / hash lookups never decide precedence | [../../docs/plan/roadmap/optimization/parser-core-unification/Architecture.md](../../docs/plan/roadmap/optimization/parser-core-unification/Architecture.md), `StyioParserInternal.CanonicalExpressionOperatorMetadataIsTheOnlyAuthority` |
 | Parser engine dispatch | Unknown internal parser engine enum values are named `invalid` and fail closed instead of falling back to `legacy`, including format-string embedded expression parsing | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp), `StyioParserInternal.ParserHelperFailureEdgesStayExplicit` |
 | Public syntax service | `styio check --syntax --json --file` uses nightly parser only; `legacy` is rejected | [../../src/StyioServices/StyioCLI/SyntaxCheck.cpp](../../src/StyioServices/StyioCLI/SyntaxCheck.cpp), `StyioDiagnostics.SyntaxCheckRejectsNonAuthoritativeParserEngine` |
 | Accepted grammar no-fallback | Nightly top-level statement declines now fail with a syntax diagnostic instead of calling `parse_stmt_or_expr_legacy` | [../../src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp) |
@@ -44,3 +45,7 @@ The legacy parser remains present as migration and parity tooling, but it is not
 The parser-authority contract part of IM-D2 is implemented: public syntax validation is locked to nightly, nightly parser fallback points fail closed, IDE semantic analysis uses strict compiler parse facts, and the service manifest documents that editor syntax snapshots are not grammar authority.
 
 Remaining parser work is feature implementation debt, not an IM-D2 decision: a future syntax form must either be accepted by the nightly parser with no fallback and tests, or rejected with a stable diagnostic until it is intentionally designed.
+
+## OPT-C Closure Position
+
+The Checkpoint C (`OPT-C`) expression parser-core unification lands under the same IM-D2 no-fallback contract: accepted expressions route through one canonical `parse_expr` core driven by the single constexpr operator-metadata authority, with O(n) token visits, `kStyioExprMaxDepth` = 128 active expression frames, stable nightly diagnostics, zero legacy fallback, and zero internal legacy bridges. Its complete-migration contract removes the split precedence authorities (`TokenPrecedenceMap`, enum-ordinal comparison, and the accepted-path recursive-descent helpers) rather than retaining them as alternatives.

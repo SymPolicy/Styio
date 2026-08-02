@@ -40,9 +40,11 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
@@ -56,13 +58,163 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 namespace {
+constexpr llvm::StringLiteral
+  kCallableSpecializationDigestAttribute =
+    "styio.callable.specialization.digest";
+constexpr llvm::StringLiteral
+  kCallableSpecializationCacheMetadata =
+    "styio.callable.specialization.cache";
+
+struct StyioCallableSpecializationModule
+{
+  std::string content_digest;
+  std::string symbol;
+  std::unique_ptr<llvm::Module> module;
+};
+
+bool
+styio_is_lower_sha256(llvm::StringRef value) {
+  return value.size() == 64
+    && llvm::all_of(
+      value,
+      [](char ch)
+      {
+        return (ch >= '0' && ch <= '9')
+          || (ch >= 'a' && ch <= 'f');
+      });
+}
+
+std::vector<StyioCallableSpecializationModule>
+styio_partition_callable_specializations(
+  llvm::Module& source
+) {
+  struct Candidate
+  {
+    llvm::Function* function = nullptr;
+    std::string content_digest;
+    std::string symbol;
+  };
+
+  std::vector<Candidate> candidates;
+  for (llvm::Function& function : source) {
+    if (!function.hasFnAttribute(
+          kCallableSpecializationDigestAttribute)) {
+      continue;
+    }
+    const llvm::StringRef digest =
+      function.getFnAttribute(
+        kCallableSpecializationDigestAttribute)
+        .getValueAsString();
+    if (function.isDeclaration()
+        || !styio_is_lower_sha256(digest)
+        || !function.getName().ends_with(digest)) {
+      throw StyioTypeError(
+        "LLVM callable specialization cache identity is invalid");
+    }
+    candidates.push_back(Candidate{
+      &function,
+      digest.str(),
+      function.getName().str(),
+    });
+  }
+  std::sort(
+    candidates.begin(),
+    candidates.end(),
+    [](const Candidate& lhs, const Candidate& rhs)
+    {
+      return lhs.content_digest < rhs.content_digest;
+    });
+  for (std::size_t index = 1;
+       index < candidates.size();
+       ++index) {
+    if (candidates[index - 1].content_digest
+        == candidates[index].content_digest) {
+      throw StyioTypeError(
+        "LLVM callable specialization cache digest is not unique");
+    }
+  }
+
+  for (llvm::GlobalVariable& global : source.globals()) {
+    if (global.getName().starts_with("__styio_capture.")) {
+      global.setLinkage(llvm::GlobalValue::ExternalLinkage);
+    }
+  }
+
+  std::vector<StyioCallableSpecializationModule> partitions;
+  partitions.reserve(candidates.size());
+  for (const Candidate& candidate : candidates) {
+    llvm::ValueToValueMapTy mapping;
+    std::unique_ptr<llvm::Module> partition =
+      llvm::CloneModule(
+        source,
+        mapping,
+        [&](const llvm::GlobalValue* value)
+        {
+          return value == candidate.function
+            || value->hasLocalLinkage();
+        });
+    partition->setModuleIdentifier(candidate.content_digest);
+    auto* metadata = partition->getOrInsertNamedMetadata(
+      kCallableSpecializationCacheMetadata);
+    metadata->addOperand(
+      llvm::MDNode::get(
+        partition->getContext(),
+        {
+          llvm::MDString::get(
+            partition->getContext(),
+            candidate.content_digest),
+          llvm::MDString::get(
+            partition->getContext(),
+            candidate.symbol),
+        }));
+
+    llvm::ModuleAnalysisManager analyses;
+    (void)llvm::GlobalDCEPass().run(
+      *partition,
+      analyses);
+
+    llvm::Function* cloned =
+      partition->getFunction(candidate.symbol);
+    std::string verifier_error;
+    llvm::raw_string_ostream verifier_stream(verifier_error);
+    if (cloned == nullptr
+        || cloned->isDeclaration()
+        || llvm::verifyModule(*partition, &verifier_stream)) {
+      verifier_stream.flush();
+      throw StyioTypeError(
+        "LLVM callable specialization partition verification failed: "
+        + verifier_error);
+    }
+    partitions.push_back(StyioCallableSpecializationModule{
+      candidate.content_digest,
+      candidate.symbol,
+      std::move(partition),
+    });
+  }
+
+  for (const Candidate& candidate : candidates) {
+    candidate.function->deleteBody();
+  }
+  std::string verifier_error;
+  llvm::raw_string_ostream verifier_stream(verifier_error);
+  if (llvm::verifyModule(source, &verifier_stream)) {
+    verifier_stream.flush();
+    throw StyioTypeError(
+      "LLVM main-module verification failed after callable "
+      "specialization partitioning: " + verifier_error);
+  }
+  return partitions;
+}
+
 int64_t
 styio_undef_i64() {
   return std::numeric_limits<int64_t>::min();
@@ -854,6 +1006,15 @@ llvm::Value*
 StyioToLLVM::toLLVMIR(SGResId* node) {
   const string& name = node->as_str();
 
+  if (node->function_reference) {
+    llvm::Function* function = theModule->getFunction(name);
+    if (function == nullptr) {
+      throw StyioTypeError(
+        "unknown callable specialization `" + name + "`");
+    }
+    return function;
+  }
+
   if (bounded_ring_head_slot_.contains(name)) {
     llvm::AllocaInst* arr = mutable_variables[name];
     llvm::AllocaInst* headSlot = bounded_ring_head_slot_[name];
@@ -905,6 +1066,14 @@ StyioToLLVM::toLLVMIR(SGResId* node) {
   if (mutable_variables.contains(name)) {
     llvm::AllocaInst* variable = mutable_variables[name];
     return theBuilder->CreateLoad(variable->getAllocatedType(), variable);
+  }
+
+  auto capture = callable_capture_globals_.find(name);
+  if (active_callable_capture_names_.contains(name)
+      && capture != callable_capture_globals_.end()) {
+    return theBuilder->CreateLoad(
+      capture->second->getValueType(),
+      capture->second);
   }
 
   return theBuilder->getInt64(0);
@@ -1167,6 +1336,25 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
   llvm::Value* l_val = node->lhs_expr->toLLVMIR(this);
   llvm::Value* r_val = node->rhs_expr->toLLVMIR(this);
+  const bool compares_strings =
+    node->lhs_type.option == StyioDataTypeOption::String
+    && node->rhs_type.option == StyioDataTypeOption::String;
+  auto compare_strings = [&]() -> llvm::Value*
+  {
+    if (!l_val->getType()->isPointerTy()
+        || !r_val->getType()->isPointerTy()) {
+      throw StyioTypeError(
+        "string comparison lowering requires string operands");
+    }
+    llvm::Type* i32 = theBuilder->getInt32Ty();
+    llvm::FunctionCallee strcmp_fn = theModule->getOrInsertFunction(
+      "strcmp",
+      llvm::FunctionType::get(
+        i32,
+        {char_ptr_ty, char_ptr_ty},
+        false));
+    return theBuilder->CreateCall(strcmp_fn, {l_val, r_val});
+  };
 
   if (styio_is_matrix_type(data_type)) {
     const bool lhs_matrix = styio_is_matrix_type(node->lhs_type);
@@ -1499,6 +1687,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpEQ(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1514,6 +1707,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Not_Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpNE(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1529,6 +1727,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Greater_Than: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSGT(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1544,6 +1747,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Greater_Than_Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSGE(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1559,6 +1767,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Less_Than: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSLT(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1574,6 +1787,11 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
     } break;
 
     case StyioOpType::Less_Than_Equal: {
+      if (compares_strings) {
+        return theBuilder->CreateICmpSLE(
+          compare_strings(),
+          theBuilder->getInt32(0));
+      }
       if (l_val->getType()->isDoubleTy() || r_val->getType()->isDoubleTy()) {
         l_val = ptr_to_f64_for_arith(l_val);
         r_val = ptr_to_f64_for_arith(r_val);
@@ -1771,6 +1989,20 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
   llvm::AllocaInst* variable;
   bool is_existing_slot = false;
 
+  auto capture = callable_capture_globals_.find(varname);
+  if (active_callable_capture_names_.contains(varname)
+      && capture != callable_capture_globals_.end()) {
+    llvm::Value* next_value = node->value->toLLVMIR(this);
+    if (next_value->getType() != capture->second->getValueType()) {
+      throw StyioTypeError(
+        "affine capture `" + varname
+        + "` initializer does not match its program-static storage type"
+      );
+    }
+    theBuilder->CreateStore(next_value, capture->second);
+    return capture->second;
+  }
+
   if (named_values.contains(varname)) {
     /* ERROR */
     throw StyioTypeError(
@@ -1868,7 +2100,9 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
   llvm::Value* next_value = node->value->toLLVMIR(this);
   const bool is_string_slot =
     node->var->var_type->data_type.option == StyioDataTypeOption::String
-    || variable->getAllocatedType()->isPointerTy();
+    || (variable->getAllocatedType()->isPointerTy()
+        && node->var->var_type->data_type.option
+             != StyioDataTypeOption::Func);
 
   theBuilder->CreateStore(next_value, variable);
   if (is_string_slot) {
@@ -1888,6 +2122,19 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGFinalBind* node) {
   std::string varname = node->var->var_name->as_str();
+  auto capture = callable_capture_globals_.find(varname);
+  if (active_callable_capture_names_.contains(varname)
+      && capture != callable_capture_globals_.end()) {
+    llvm::Value* value = node->value->toLLVMIR(this);
+    if (value->getType() != capture->second->getValueType()) {
+      throw StyioTypeError(
+        "affine capture `" + varname
+        + "` initializer does not match its program-static storage type"
+      );
+    }
+    theBuilder->CreateStore(value, capture->second);
+    return capture->second;
+  }
   if (named_values.contains(varname)) {
     /* ERROR */
     throw StyioTypeError(
@@ -1958,7 +2205,9 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
   named_values[varname] = value;
 
   theBuilder->CreateStore(value, variable);
-  if (variable->getAllocatedType()->isPointerTy()) {
+  if (variable->getAllocatedType()->isPointerTy()
+      && node->var->var_type->data_type.option
+           != StyioDataTypeOption::Func) {
     register_cstr_slot_for_raii(variable);
     forget_owned_cstr_temp(value);
   }
@@ -2080,6 +2329,11 @@ StyioToLLVM::declare_sgfunc(SGFunc* node) {
   size_t i = 0;
   for (llvm::Argument& arg : F->args()) {
     arg.setName(node->func_args[i++]->id);
+  }
+  if (!node->specialization_content_digest.empty()) {
+    F->addFnAttr(
+      kCallableSpecializationDigestAttribute,
+      node->specialization_content_digest);
   }
 }
 
@@ -2305,6 +2559,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
   auto saved_owned_resource = owned_resource_temps_;
+  auto saved_active_captures = active_callable_capture_names_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
@@ -2320,6 +2575,10 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
   owned_resource_temps_.clear();
+  active_callable_capture_names_.clear();
+  active_callable_capture_names_.insert(
+    node->capture_names.begin(),
+    node->capture_names.end());
 
   llvm::BasicBlock* block = llvm::BasicBlock::Create(
     *theContext,
@@ -2374,6 +2633,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
   owned_resource_temps_ = std::move(saved_owned_resource);
+  active_callable_capture_names_ =
+    std::move(saved_active_captures);
 }
 
 llvm::Value*
@@ -2384,6 +2645,97 @@ StyioToLLVM::toLLVMIR(SGFunc* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCall* node) {
+  if (node->is_indirect()) {
+    if (!styio_is_callable_type(node->callable_type)) {
+      throw StyioTypeError(
+        "indirect call requires a canonical callable type");
+    }
+    const std::vector<StyioDataType> param_types =
+      styio_callable_param_types(node->callable_type);
+    const StyioDataType result_type =
+      styio_callable_result_type(node->callable_type);
+    if (node->func_args.size() != param_types.size()) {
+      throw StyioTypeError(
+        "indirect callable of type `" + node->callable_type.name
+        + "` expects " + std::to_string(param_types.size())
+        + " argument(s), got "
+        + std::to_string(node->func_args.size()));
+    }
+
+    std::vector<llvm::Type*> llvm_param_types;
+    llvm_param_types.reserve(param_types.size());
+    for (const auto& type : param_types) {
+      llvm_param_types.push_back(toLLVMType(type));
+    }
+    llvm::Type* llvm_result_type =
+      toLLVMType(result_type);
+    auto* function_type = llvm::FunctionType::get(
+      llvm_result_type,
+      llvm_param_types,
+      false);
+
+    llvm::Value* callee =
+      node->indirect_callee->toLLVMIR(this);
+    if (callee == nullptr || !callee->getType()->isPointerTy()) {
+      throw StyioTypeError(
+        "indirect callable value did not lower to a function pointer");
+    }
+
+    std::vector<llvm::Value*> args;
+    args.reserve(node->func_args.size());
+    for (std::size_t i = 0; i < node->func_args.size(); ++i) {
+      llvm::Value* value =
+        node->func_args[i]->toLLVMIR(this);
+      llvm::Type* target = llvm_param_types[i];
+      if (target->isDoubleTy()
+          && value->getType()->isPointerTy()) {
+        value = cstr_to_f64_checked(value);
+      }
+      else if (target->isDoubleTy()
+               && value->getType()->isIntegerTy()) {
+        value = theBuilder->CreateSIToFP(value, target);
+      }
+      else if (target->isIntegerTy()
+               && value->getType()->isDoubleTy()) {
+        value = theBuilder->CreateFPToSI(value, target);
+      }
+      else if (target->isIntegerTy()
+               && value->getType()->isPointerTy()) {
+        value = cstr_to_i64_checked(value);
+        if (target->getIntegerBitWidth() != 64) {
+          value = theBuilder->CreateIntCast(
+            value, target, true);
+        }
+      }
+      else if (target->isIntegerTy()
+               && value->getType()->isIntegerTy()
+               && target != value->getType()) {
+        value = theBuilder->CreateIntCast(
+          value, target, true);
+      }
+      else if (target->isFloatTy()
+               && value->getType()->isDoubleTy()) {
+        value = theBuilder->CreateFPTrunc(value, target);
+      }
+      else if (target->isDoubleTy()
+               && value->getType()->isFloatTy()) {
+        value = theBuilder->CreateFPExt(value, target);
+      }
+      else if (target != value->getType()) {
+        throw StyioTypeError(
+          "indirect callable argument " + std::to_string(i)
+          + " cannot be lowered from `" + param_types[i].name
+          + "` to its declared ABI type");
+      }
+      args.push_back(value);
+    }
+
+    llvm::Value* output =
+      theBuilder->CreateCall(function_type, callee, args);
+    emit_runtime_error_guard_return();
+    return output;
+  }
+
   std::string fname = node->func_name->as_str();
   auto builtin_list_family_from_suffix = [&](const std::string& suffix) -> StyioValueFamily {
     if (suffix == "bool") {
@@ -2803,7 +3155,9 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGBlock* node) {
-  styio::ir::require_verified_styio_ir(node);
+  styio::ir::StyioIRVerifierOptions verifier_options;
+  verifier_options.defer_unresolved_loop_control = !loop_stack_.empty();
+  styio::ir::require_verified_styio_ir(node, verifier_options);
   push_file_handle_scope();
   llvm::Value* last = nullptr;
   StyioIR* last_ir = nullptr;
@@ -2886,6 +3240,53 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
     }
   }
 
+  std::unordered_set<std::string> requested_captures;
+  for (auto* function : ordered_funcs) {
+    requested_captures.insert(
+      function->capture_names.begin(),
+      function->capture_names.end());
+  }
+  callable_capture_globals_.clear();
+  for (auto* statement : node->stmts) {
+    SGVar* variable = nullptr;
+    if (auto* binding = dynamic_cast<SGFlexBind*>(statement)) {
+      variable = binding->var;
+    }
+    else if (auto* binding =
+               dynamic_cast<SGFinalBind*>(statement)) {
+      variable = binding->var;
+    }
+    if (variable == nullptr
+        || requested_captures.count(
+             variable->var_name->as_str()) == 0) {
+      continue;
+    }
+    const std::string& name =
+      variable->var_name->as_str();
+    if (callable_capture_globals_.count(name) != 0) {
+      continue;
+    }
+    llvm::Type* type =
+      variable->var_type->toLLVMType(this);
+    auto* storage = new llvm::GlobalVariable(
+      *theModule,
+      type,
+      false,
+      llvm::GlobalValue::InternalLinkage,
+      llvm::Constant::getNullValue(type),
+      "__styio_capture." + name);
+    callable_capture_globals_[name] = storage;
+  }
+  for (const auto& capture : requested_captures) {
+    if (callable_capture_globals_.count(capture) == 0) {
+      throw StyioTypeError(
+        "affine capture `" + capture
+        + "` has no top-level program-static binding"
+      );
+    }
+  }
+  active_callable_capture_names_.clear();
+
   for (auto* f : ordered_funcs) {
     declare_sgfunc(f);
   }
@@ -2902,6 +3303,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
   llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(*theContext, "main_entry", main_func);
 
   theBuilder->SetInsertPoint(entry_block);
+  active_callable_capture_names_ = requested_captures;
 
   push_file_handle_scope();
 
@@ -2923,6 +3325,7 @@ StyioToLLVM::toLLVMIR(SGMainEntry* node) {
     pop_file_handle_scope();
     theBuilder->CreateRet(truncate_for_main_ret(last_main));
   }
+  active_callable_capture_names_.clear();
 
   return main_func;
 }
@@ -5010,6 +5413,15 @@ StyioToLLVM::toLLVMIR(SCDictToString* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
+  if (!node->barrier_facts.is_canonical()) {
+    throw StyioTypeError(
+      "SIOStreamZip.barrier_facts must be canonical before codegen");
+  }
+
+  const bool materialized_list_zip =
+    !node->a_is_file && !node->b_is_file
+    && !node->a_is_stdin && !node->b_is_stdin;
+
   llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
   llvm::IntegerType* i64t = theBuilder->getInt64Ty();
   llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
@@ -5114,6 +5526,11 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     }
     emit_bounded_ring_pending_commits();
   };
+  auto abandon_uncommitted_pulse_frame = [&]() {
+    pulse_ledger_base_ = nullptr;
+    pulse_snap_base_ = nullptr;
+    pulse_active_plan_ = nullptr;
+  };
 
   auto finish_zip = [&]() {
     if (pulse_sz > 0 && node->pulse_region_id >= 0) {
@@ -5207,8 +5624,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
       "materialized list handles, @file streams, @stdin streams, and finite stream/list pairs)");
   };
 
-  if (!node->a_is_file && !node->b_is_file && !node->a_is_stdin && !node->b_is_stdin
-      && !static_literal_zip) {
+  if (materialized_list_zip && !static_literal_zip) {
     if (!ir_yields_list_handle(node->iterable_a) || !ir_yields_list_handle(node->iterable_b)) {
       unsupported_zip();
     }
@@ -5291,16 +5707,19 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     run_pulse_prologue();
     node->body->toLLVMIR(this);
-    run_pulse_epilogue();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
 
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
+      run_pulse_epilogue();
       release_zip_elem(family_a, slot_a);
       release_zip_elem(family_b, slot_b);
       theBuilder->CreateBr(step_bb);
+    }
+    else {
+      abandon_uncommitted_pulse_frame();
     }
 
     theBuilder->SetInsertPoint(step_bb);
@@ -5461,7 +5880,6 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
   if (static_literal_zip) {
     size_t na = lit_a->elems.size();
     size_t nb = lit_b->elems.size();
-    size_t nmin = na < nb ? na : nb;
 
     llvm::ArrayType* at_a = nullptr;
     llvm::GlobalVariable* gv_a = nullptr;
@@ -5554,10 +5972,14 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     theBuilder->SetInsertPoint(hdr_bb);
     llvm::Value* iv = theBuilder->CreateLoad(i64t, idx_slot);
-    llvm::Value* lim =
-      llvm::ConstantInt::get(i64t, static_cast<uint64_t>(nmin), /*signed=*/true);
-    llvm::Value* ok = theBuilder->CreateICmpSLT(iv, lim);
-    theBuilder->CreateCondBr(ok, body_bb, exit_bb);
+    llvm::Value* lim_a =
+      llvm::ConstantInt::get(i64t, static_cast<uint64_t>(na), /*signed=*/true);
+    llvm::Value* lim_b =
+      llvm::ConstantInt::get(i64t, static_cast<uint64_t>(nb), /*signed=*/true);
+    llvm::Value* ready_a = theBuilder->CreateICmpSLT(iv, lim_a);
+    llvm::Value* ready_b = theBuilder->CreateICmpSLT(iv, lim_b);
+    theBuilder->CreateCondBr(
+      theBuilder->CreateAnd(ready_a, ready_b), body_bb, exit_bb);
 
     loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
     theBuilder->SetInsertPoint(body_bb);
@@ -5581,14 +6003,17 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
 
     run_pulse_prologue();
     node->body->toLLVMIR(this);
-    run_pulse_epilogue();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
 
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
+      run_pulse_epilogue();
       theBuilder->CreateBr(step_bb);
+    }
+    else {
+      abandon_uncommitted_pulse_frame();
     }
 
     theBuilder->SetInsertPoint(step_bb);
@@ -6386,9 +6811,39 @@ StyioToLLVM::execute() {
     throw StyioTypeError("LLVM module verification failed: " + verifier_error);
   }
   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
-  auto TSM = llvm::orc::ThreadSafeModule(std::move(theModule), std::move(theContext));
   llvm::ExitOnError exit_on_error;
-  exit_on_error(theORCJIT->addModule(std::move(TSM), RT));
+  if (theORCJIT->callableCacheEnabled()) {
+    auto specialization_modules =
+      styio_partition_callable_specializations(*theModule);
+    theBuilder.reset();
+    llvm::orc::ThreadSafeContext thread_context(
+      std::move(theContext));
+    for (auto& specialization : specialization_modules) {
+      auto specialization_tsm = llvm::orc::ThreadSafeModule(
+        std::move(specialization.module),
+        thread_context);
+      exit_on_error(
+        theORCJIT->addModule(
+          std::move(specialization_tsm),
+          RT));
+    }
+    auto main_tsm = llvm::orc::ThreadSafeModule(
+      std::move(theModule),
+      thread_context);
+    exit_on_error(
+      theORCJIT->addModule(
+        std::move(main_tsm),
+        RT));
+  }
+  else {
+    auto TSM = llvm::orc::ThreadSafeModule(
+      std::move(theModule),
+      std::move(theContext));
+    exit_on_error(
+      theORCJIT->addModule(
+        std::move(TSM),
+        RT));
+  }
 
   auto ExprSymbol = theORCJIT->lookup("main");
   if (!ExprSymbol) {

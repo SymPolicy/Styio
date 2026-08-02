@@ -136,6 +136,37 @@ So Styio should check:
 - `.length` and `.size` require `Sized`
 - `<<` requires a left-hand sink with `push` or `collect`
 
+### 5.3 Inferred callable generalization boundary
+
+The implemented inferred-callable domain does not generalize over arbitrary
+`Handle<Rep, Item, Caps, State>` values. A relation variable admits plain
+immutable scalar representations plus exact materialized `list` and `dict`
+families whose nested types recursively satisfy the same rule.
+
+File and standard-stream handles, tasks, matrices, topology resources,
+resource-shaped sequences, range handles, and other stateful or
+representation-sensitive families remain monomorphic. Sema applies this
+predicate to the original `StyioDataType` before relation normalization, so
+resource shape, typestate, family, and capabilities cannot be erased by a
+collection-shaped spelling.
+
+This is an implemented safety boundary, not capability-polymorphic source
+syntax. Inferred schemes now carry a closed compiler-owned usage set over
+`consume`, `copy`, `exclusive_borrow`, and `shared_borrow`. Sema derives the
+currently observable facts from pure parameter use, propagates exact
+parameter-to-parameter call edges to a fixed point, serializes the result in
+`.styioi` schema v4, and revalidates every instance against the original
+`StyioDataType`.
+
+This metadata does not widen the admitted handle universe. Task transfer,
+resource state families, topology identity, and materialized matrix shape are
+distinct disabled fact families and fail closed with fact-specific
+diagnostics. `exclusive_borrow` has a canonical representation and validator,
+but no source emitter until an owning pure mutation form supplies executable
+evidence. Authored capability rows, send/sync syntax, lifetime variables,
+matrix shape arithmetic, and generic resource methods remain future
+type-system work.
+
 ---
 
 ## 6. Typestate
