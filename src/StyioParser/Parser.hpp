@@ -1563,6 +1563,9 @@ parse_cond_flow(StyioContext& context);
 StyioAST*
 parse_index_op(StyioContext& context, StyioAST* theList);
 
+StyioAST*
+parse_index_suffix_nightly(StyioContext& context, StyioAST* base);
+
 /*
   parse_var_tuple
 */

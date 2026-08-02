@@ -2081,6 +2081,23 @@ TEST(StyioParserInternal, UnifiedExpressionPostfixEdgesStayExplicit) {
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Index);
   }
   {
+    DirectContext direct("series[avg, 3]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* intrinsic = dynamic_cast<SeriesIntrinsicAST*>(ast.get());
+    ASSERT_NE(intrinsic, nullptr);
+    EXPECT_EQ(intrinsic->getOp(), SeriesIntrinsicOp::Avg);
+  }
+  {
+    DirectContext direct("items[?, true]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    EXPECT_NE(dynamic_cast<GuardSelectorAST*>(ast.get()), nullptr);
+  }
+  {
+    DirectContext direct("items[?=, 7]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    EXPECT_NE(dynamic_cast<EqProbeAST*>(ast.get()), nullptr);
+  }
+  {
     DirectContext direct("1[2]");
     std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);

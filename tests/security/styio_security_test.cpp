@@ -5930,8 +5930,11 @@ TEST(StyioSecurityParserContext, CoversLegacyContainerConditionAndLoopHelpersDir
     "name%1",
   };
   for (const auto& source : iterable_name_binops) {
+    SCOPED_TRACE(source);
     DirectParserContext ctx(source);
-    std::unique_ptr<StyioAST> expr(parse_iterable(ctx.get()));
+    StyioAST* raw_expr = nullptr;
+    ASSERT_NO_THROW(raw_expr = parse_iterable(ctx.get()));
+    std::unique_ptr<StyioAST> expr(raw_expr);
     auto* binop = dynamic_cast<BinOpAST*>(expr.get());
     ASSERT_NE(binop, nullptr) << source;
   }
@@ -6263,7 +6266,7 @@ TEST(StyioSecurityParserContext, CoversLegacyBinopTupleListAndReturnHelpersDirec
   {
     SCOPED_TRACE("parse_list_or_loop invalid range loop");
     DirectParserContext ctx("name..3]");
-    EXPECT_THROW(parse_list_or_loop(ctx.get()), StyioParseError);
+    EXPECT_THROW(parse_list_or_loop(ctx.get()), StyioSyntaxError);
   }
   {
     SCOPED_TRACE("parse_return");
@@ -6711,8 +6714,11 @@ TEST(StyioSecurityParserContext, CoversModernIndexTailsAndCharLiteralEdgesDirect
   auto expect_modern_index =
     [](const std::string& source, StyioNodeType op)
   {
+    SCOPED_TRACE(source);
     DirectParserContext ctx(source);
-    std::unique_ptr<StyioAST> ast(parse_expr(ctx.get()));
+    StyioAST* raw_ast = nullptr;
+    ASSERT_NO_THROW(raw_ast = parse_expr(ctx.get()));
+    std::unique_ptr<StyioAST> ast(raw_ast);
     auto* list_op = dynamic_cast<ListOpAST*>(ast.get());
     ASSERT_NE(list_op, nullptr) << source;
     EXPECT_EQ(list_op->getOp(), op) << source;
@@ -6724,8 +6730,11 @@ TEST(StyioSecurityParserContext, CoversModernIndexTailsAndCharLiteralEdgesDirect
   expect_modern_index("items[1..]", StyioNodeType::Access_By_Slice);
 
   {
+    SCOPED_TRACE("series[avg, 3]");
     DirectParserContext ctx("series[avg, 3]");
-    std::unique_ptr<StyioAST> ast(parse_expr(ctx.get()));
+    StyioAST* raw_ast = nullptr;
+    ASSERT_NO_THROW(raw_ast = parse_expr(ctx.get()));
+    std::unique_ptr<StyioAST> ast(raw_ast);
     auto* intrinsic = dynamic_cast<SeriesIntrinsicAST*>(ast.get());
     ASSERT_NE(intrinsic, nullptr);
     EXPECT_EQ(intrinsic->getNodeType(), StyioNodeType::SeriesIntrinsic);
@@ -6734,15 +6743,21 @@ TEST(StyioSecurityParserContext, CoversModernIndexTailsAndCharLiteralEdgesDirect
     EXPECT_EQ(intrinsic->getWindow()->getNodeType(), StyioNodeType::Integer);
   }
   {
+    SCOPED_TRACE("series[max, 3]");
     DirectParserContext ctx("series[max, 3]");
-    std::unique_ptr<StyioAST> ast(parse_expr(ctx.get()));
+    StyioAST* raw_ast = nullptr;
+    ASSERT_NO_THROW(raw_ast = parse_expr(ctx.get()));
+    std::unique_ptr<StyioAST> ast(raw_ast);
     auto* intrinsic = dynamic_cast<SeriesIntrinsicAST*>(ast.get());
     ASSERT_NE(intrinsic, nullptr);
     EXPECT_EQ(intrinsic->getOp(), SeriesIntrinsicOp::Max);
   }
   {
+    SCOPED_TRACE("items[?, true]");
     DirectParserContext ctx("items[?, true]");
-    std::unique_ptr<StyioAST> ast(parse_expr(ctx.get()));
+    StyioAST* raw_ast = nullptr;
+    ASSERT_NO_THROW(raw_ast = parse_expr(ctx.get()));
+    std::unique_ptr<StyioAST> ast(raw_ast);
     auto* selector = dynamic_cast<GuardSelectorAST*>(ast.get());
     ASSERT_NE(selector, nullptr);
     EXPECT_EQ(selector->getNodeType(), StyioNodeType::GuardSelector);
@@ -6750,8 +6765,11 @@ TEST(StyioSecurityParserContext, CoversModernIndexTailsAndCharLiteralEdgesDirect
     EXPECT_EQ(selector->getCond()->getNodeType(), StyioNodeType::Bool);
   }
   {
+    SCOPED_TRACE("items[?=, 7]");
     DirectParserContext ctx("items[?=, 7]");
-    std::unique_ptr<StyioAST> ast(parse_expr(ctx.get()));
+    StyioAST* raw_ast = nullptr;
+    ASSERT_NO_THROW(raw_ast = parse_expr(ctx.get()));
+    std::unique_ptr<StyioAST> ast(raw_ast);
     auto* probe = dynamic_cast<EqProbeAST*>(ast.get());
     ASSERT_NE(probe, nullptr);
     EXPECT_EQ(probe->getNodeType(), StyioNodeType::EqProbeSelector);
@@ -6853,7 +6871,7 @@ TEST(StyioSecurityParserContext, DeepUnclosedIndexListSeedHitsNestingBudget) {
   );
 }
 
-TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsRecoveryBudget) {
+TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedFailsClosedAtUnsupportedElement) {
   const std::string src =
     "x[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{[[[[[[[[x)\n";
 
@@ -6867,12 +6885,15 @@ TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedHitsRecoveryBudget) {
     false
   ));
 
-  EXPECT_THROW(
-    {
-      std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
-    },
-    StyioParserResourceLimitError
-  );
+  try {
+    std::unique_ptr<StyioAST> parsed(parse_expr_subset_nightly(*session.context()));
+    FAIL() << "expected deep malformed index seed to fail closed";
+  } catch (const StyioSyntaxError& ex) {
+    EXPECT_NE(
+      std::string(ex.what()).find("unsupported syntax in authoritative nightly parser"),
+      std::string::npos
+    );
+  }
 }
 
 TEST(StyioSecurityParserContext, DeepBraceNestedIndexSeedFailsClosedBeforeBridgeBudget) {
@@ -7207,7 +7228,7 @@ TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
   delete ctx;
 }
 
-TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestoresCursor) {
+TEST(StyioSecurityNightlyParserStmt, TryParseSubsetOwnsBindingAndLeavesFallbackFollow) {
   const std::string src = "x = 1 | 2\n";
   auto tokens = StyioTokenizer::tokenize(src);
   StyioContext* ctx = StyioContext::Create(
@@ -7218,14 +7239,16 @@ TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestor
     false
   );
 
-  const auto saved = ctx->save_cursor();
   ParseAttempt<StyioAST> attempt;
   EXPECT_NO_THROW({
     attempt = try_parse_stmt_subset_nightly(*ctx);
   });
-  EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
-  EXPECT_EQ(attempt.node, nullptr);
-  EXPECT_EQ(ctx->save_cursor(), saved);
+  EXPECT_EQ(attempt.status, ParseAttemptStatus::Parsed);
+  auto* bind = dynamic_cast<FlexBindAST*>(attempt.node);
+  ASSERT_NE(bind, nullptr);
+  ASSERT_NE(bind->getValue(), nullptr);
+  EXPECT_EQ(bind->getValue()->getNodeType(), StyioNodeType::Integer);
+  EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_PIPE);
 
   delete ctx;
   free_tokens(tokens);

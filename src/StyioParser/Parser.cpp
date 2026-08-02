@@ -689,7 +689,6 @@ parse_bound_extern_after_at_latest(
   return parse_extern_block_after_at_name_latest(context, std::move(exported_symbols));
 }
 
-static StyioAST* parse_token_index_suffix(StyioContext& context, StyioAST* base);
 TypeAST* parse_styio_type(StyioContext& context);
 static StyioAST* parse_expr_postfix(StyioContext& context, StyioAST* lhs);
 static ResourceRefAST* parse_resource_ref_after_at_latest(StyioContext& context);
@@ -792,7 +791,7 @@ parse_name_and_following_unsafe(StyioContext& context) {
 
     /* Wave dispatch: x[?, c], x[?=, v], x[i] */
     case StyioTokenType::TOK_LBOXBRAC: {
-      output = parse_token_index_suffix(context, name.release());
+      output = parse_index_suffix_nightly(context, name.release());
     } break;
 
     default: {
@@ -2970,8 +2969,8 @@ parse_guard_value_expr_latest(StyioContext& context) {
   return cond.release();
 }
 
-static StyioAST*
-parse_token_index_suffix(StyioContext& context, StyioAST* base) {
+StyioAST*
+parse_index_suffix_nightly(StyioContext& context, StyioAST* base) {
   std::unique_ptr<StyioAST> base_owner(base);
   context.try_match_panic(StyioTokenType::TOK_LBOXBRAC);
   context.skip();
@@ -3619,42 +3618,13 @@ parse_iterable(StyioContext& context) {
 
   if (StyioUnicode::is_identifier_start(context.get_curr_char())) {
     output = parse_name(context);
+    context.skip();
 
-    context.drop_all_spaces_comments();
-
-    switch (context.get_curr_char()) {
-      case '+': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, StyioOpType::Binary_Add);
-      } break;
-
-      case '-': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, StyioOpType::Binary_Sub);
-      } break;
-
-      case '*': {
-        context.move(1);
-        if (context.check_drop('*')) {
-          output = parse_binop_rhs(context, output, StyioOpType::Binary_Pow);
-        }
-        else {
-          output = parse_binop_rhs(context, output, StyioOpType::Binary_Mul);
-        }
-      } break;
-
-      case '/': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, StyioOpType::Binary_Div);
-      } break;
-
-      case '%': {
-        context.move(1);
-        output = parse_binop_rhs(context, output, StyioOpType::Binary_Mod);
-      } break;
-
-      default:
-        break;
+    const auto* operator_info = styio_expr_operator_info(context.cur_tok_type());
+    if (operator_info != nullptr
+        && operator_info->kind == StyioExprOperatorKind::Arithmetic) {
+      context.move_forward(1, "parse_iterable:arithmetic_operator");
+      output = parse_binop_rhs(context, output, operator_info->ast_op);
     }
 
     return output;
