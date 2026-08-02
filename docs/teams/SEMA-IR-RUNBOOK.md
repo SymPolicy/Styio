@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-02
 
 ## Mission
 
@@ -110,6 +110,7 @@ High-value docs:
 74. Explicit `$(...)` callable environments use one exact, sorted free-name set and compiler-derived capture modes. Read-only use is `shared_borrow`, captured rebinding is `exclusive_borrow`, and destroy/acquire transfer is `consume`. The converged runtime slice requires a final top-level callable and a program-static scalar binding (`bool`, integer, floating-point, or `char`): shared environments may escape under one complete invariant callable type, exclusive environments are direct-call-only, and consume, unsupported representation/drop families, missing/unused captures, imported environments, or absent static bindings fail before lowering. Carry the capture names through typed `SGFunc`; do not normalize resource/topology identity or invent heap ownership.
 75. Persistent native cache identity remains a Sema-to-IR fact, not a cache lookup in Sema. Recompute the full specialization digest from the current canonical relation, effects, usage requirements, portable body, transitive callable dependencies, direct module/interface dependencies, and backend ABI on every compilation; carry that exact digest through the specialized `SGFunc`, and have the IR verifier require canonical lowercase SHA-256 plus agreement with the lowered symbol suffix. Do not deserialize types, effects, usage facts, or dependencies from a native cache entry, and do not let cache presence skip semantic analysis or portable-body verification.
 76. Deferred rank-2 callbacks and open user constraints remain non-implementation boundaries even after a dependency floor converges. Do not infer universal callback rank from finite call sites, insert eta-expansion to repair scheme mismatch, generalize captures/effects, discover ambient instances, or add witness dictionaries. If the owner later resolves Q3.1–Q3.3 and Q6.1–Q6.3, implement the static paths independently: a final noncapturing callable item as an enclosing-specialization scheme witness, and a canonical `(constraint-id, nominal-type-id)` instance identity resolved from owner interfaces before specialization.
+77. Structured function results retain their full tuple shape through type inference, lowering, verification, walking, optimization, and codegen. Represent construction and projection explicitly, traverse every child, preserve expression-match final-value and return semantics, and carry resource ownership metadata so nested handles cannot be silently treated as scalar tuple fields.
 
 ## Change Classes
 

@@ -110,6 +110,7 @@ public:
   StyioAST* resolveResourceReceiverExprLatest(StyioAST* expr) const;
 
 private:
+  std::unordered_set<std::string> active_function_parameter_names_;
   std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
   std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodDefAST*>> resource_method_body_defs_;
   std::unordered_map<std::string, StyioAST*> resource_receiver_expr_bindings_;

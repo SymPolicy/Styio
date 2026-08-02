@@ -40,7 +40,7 @@ enum class DiagnosticCode : std::uint16_t {
   TypeResourceEffectFallbackMismatch,
   TypeCallArgumentMismatch,
   TypeMatrixLiteralInvalid,
-  TypeUnsupportedTupleReturn,
+  TypeTupleContract,
   TypeFunctionMissingReturn,
   TypeStreamHashTagRouteUnsupported,
   TypeStreamZipUnsupportedSource,
@@ -148,8 +148,8 @@ inline constexpr std::string_view kTypeCallArgumentMismatch =
   "STYIO_TYPE_CALL_ARGUMENT_MISMATCH";
 inline constexpr std::string_view kTypeMatrixLiteralInvalid =
   "STYIO_TYPE_MATRIX_LITERAL_INVALID";
-inline constexpr std::string_view kTypeUnsupportedTupleReturn =
-  "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
+inline constexpr std::string_view kTypeTupleContract =
+  "STYIO_TYPE_TUPLE_CONTRACT";
 inline constexpr std::string_view kTypeFunctionMissingReturn =
   "STYIO_TYPE_FUNCTION_MISSING_RETURN";
 inline constexpr std::string_view kTypeStreamHashTagRouteUnsupported =
@@ -386,8 +386,18 @@ classify_type_or_lowering_code(std::string_view message) {
       || contains(message, "matrix elements must be numeric scalar values")) {
     return std::string(kTypeMatrixLiteralInvalid);
   }
-  if (contains(message, "tuple function return annotations require tuple value IR")) {
-    return std::string(kTypeUnsupportedTupleReturn);
+  if (contains(message, "tuple return")
+      || contains(message, "tuple projection")
+      || contains(message, "tuple parameter")
+      || contains(message, "runtime tuple literal")
+      || contains(message, "nested tuple element")
+      || contains(message, "tuple literal element")
+      || contains(message, "tuple mutation")
+      || contains(message, "tuple iteration")
+      || contains(message, "tuple result")
+      || contains(message, "tuple function return annotation")
+      || contains(message, "tuple type")) {
+    return std::string(kTypeTupleContract);
   }
   if (contains(message, "function body requires a return value")) {
     return std::string(kTypeFunctionMissingReturn);
@@ -447,7 +457,7 @@ inline std::string_view diagnostic_code_name(DiagnosticCode code) {
     case DiagnosticCode::TypeResourceEffectFallbackMismatch: return "STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH";
     case DiagnosticCode::TypeCallArgumentMismatch: return "STYIO_TYPE_CALL_ARGUMENT_MISMATCH";
     case DiagnosticCode::TypeMatrixLiteralInvalid: return "STYIO_TYPE_MATRIX_LITERAL_INVALID";
-    case DiagnosticCode::TypeUnsupportedTupleReturn: return "STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN";
+    case DiagnosticCode::TypeTupleContract: return "STYIO_TYPE_TUPLE_CONTRACT";
     case DiagnosticCode::TypeFunctionMissingReturn: return "STYIO_TYPE_FUNCTION_MISSING_RETURN";
     case DiagnosticCode::TypeStreamHashTagRouteUnsupported: return "STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED";
     case DiagnosticCode::TypeStreamZipUnsupportedSource: return "STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE";
