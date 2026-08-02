@@ -1580,6 +1580,21 @@ private:
           break;
         }
         enforce_expr_delimiter_budget_latest(context_, "index expression");
+        const auto index_saved = context_.save_cursor();
+        context_.move_forward(1, "new_expr:index_probe");
+        context_.skip();
+        const bool has_special_selector =
+          (context_.cur_tok_type() == StyioTokenType::NAME
+           && (context_.cur_tok()->textString() == "avg"
+               || context_.cur_tok()->textString() == "max"))
+          || context_.cur_tok_type() == StyioTokenType::TOK_QUEST
+          || context_.cur_tok_type() == StyioTokenType::MATCH;
+        context_.restore_cursor(index_saved);
+        if (has_special_selector) {
+          owner.reset(parse_index_suffix_nightly(context_, owner.release()));
+          continue;
+        }
+
         context_.move_forward(1, "new_expr:index_open");
         context_.skip();
         std::unique_ptr<StyioAST> idx;
