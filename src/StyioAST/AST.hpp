@@ -321,7 +321,15 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Tuple, "TypeTuple", 0};
+    std::vector<StyioDataType> elements;
+    elements.reserve(type_list.size());
+    for (auto* type : type_list) {
+      elements.push_back(
+        type == nullptr
+          ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+          : type->getDataType());
+    }
+    return styio_make_tuple_type(std::move(elements));
   }
 };
 

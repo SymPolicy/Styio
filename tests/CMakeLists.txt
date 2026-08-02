@@ -413,6 +413,20 @@ add_test(
 )
 set_tests_properties(stdio_input_t08_stdin_typed_f64_list_pull PROPERTIES LABELS "language_feature;stdio_input")
 
+add_test(
+  NAME stdio_input_t09_string_chars
+  COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}" run --styio "${STYIO_EXE}" --source "${STYIO_FEATURES}/stdio_input/t09_string_chars.styio" --cwd "${CMAKE_SOURCE_DIR}" --stdin-file "${STYIO_FEATURES}/stdio_input/data/string_chars_input.txt" --expect-stdout "${STYIO_FEATURES}/stdio_input/expected/t09_string_chars.out"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(stdio_input_t09_string_chars PROPERTIES LABELS "language_feature;stdio_input")
+
+add_test(
+  NAME stdio_input_t10_stdin_stream_break
+  COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}" run --styio "${STYIO_EXE}" --source "${STYIO_FEATURES}/stdio_input/t10_stdin_stream_break.styio" --cwd "${CMAKE_SOURCE_DIR}" --stdin-file "${STYIO_FEATURES}/stdio_input/data/stream_break_input.txt" --expect-stdout "${STYIO_FEATURES}/stdio_input/expected/t10_stdin_stream_break.out"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(stdio_input_t10_stdin_stream_break PROPERTIES LABELS "language_feature;stdio_input")
+
 # Semantic failure tests must check the diagnostic contract, not only nonzero exit.
 styio_feature_stderr_failure_golden_test(stdio_input stdio_input)
 styio_feature_stderr_failure_golden_test(task_resources task_resources)

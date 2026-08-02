@@ -1,0 +1,6 @@
+// A stdin stream body is a loop body: break after the first item.
+
+@stdin >> #(line) => {
+  line -> @stdout
+  ^^^
+}

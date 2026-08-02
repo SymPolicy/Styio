@@ -933,8 +933,10 @@ TEST(StyioTypeInferInternal, AttachedTypeTableInternsBindingTypesThroughSema) {
     std::unique_ptr<TupleAST> tuple(TupleAST::Create({first, second}));
     EXPECT_EQ(tuple_table.size(), 0u);
     tuple->typeInfer(&tuple_analyzer);
-    EXPECT_TRUE(tuple->isConsistent());
-    EXPECT_EQ(tuple->getDataType().name, "i64");
+    EXPECT_FALSE(tuple->isConsistent());
+    ASSERT_TRUE(styio_is_shaped_tuple_type(tuple->getDataType()));
+    EXPECT_EQ(tuple->getDataType().name, "(i64,i64)");
+    EXPECT_EQ(tuple->getDataType().tuple_elements->size(), 2u);
     EXPECT_EQ(tuple_table.size(), 1u);
   }
 
@@ -944,6 +946,8 @@ TEST(StyioTypeInferInternal, AttachedTypeTableInternsBindingTypesThroughSema) {
     std::unique_ptr<TupleAST> tuple(TupleAST::Create({first, second}));
     tuple->typeInfer(&tuple_analyzer);
     EXPECT_FALSE(tuple->isConsistent());
+    ASSERT_TRUE(styio_is_shaped_tuple_type(tuple->getDataType()));
+    EXPECT_EQ(tuple->getDataType().name, "(i64,f64)");
     EXPECT_EQ(tuple_table.size(), 2u);
   }
 
@@ -1633,8 +1637,7 @@ TEST(StyioTypeInferInternal, BinOpFlowBindAndIterSeqBranchesStayExplicit) {
   {
     AstToStyioIRLowerer analyzer;
     std::unique_ptr<TupleAST> tuple(TupleAST::Create({NameAST::Create("unknown"), IntAST::Create("1")}));
-    tuple->typeInfer(&analyzer);
-    EXPECT_FALSE(tuple->isConsistent());
+    EXPECT_THROW(tuple->typeInfer(&analyzer), StyioTypeError);
   }
 }
 
@@ -2331,19 +2334,28 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       {},
       TypeTupleAST::Create({TypeAST::Create("i64")}),
       BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})));
-    EXPECT_TRUE(declared_function_return_type_latest(tuple_return.get()).isUndefined());
+    const StyioDataType declared =
+      declared_function_return_type_latest(tuple_return.get());
+    ASSERT_TRUE(styio_is_shaped_tuple_type(declared));
+    EXPECT_EQ(declared.tuple_elements->size(), 1u);
     std::unique_ptr<PassAST> pass(PassAST::Create());
     EXPECT_TRUE(declared_function_return_type_latest(pass.get()).isUndefined());
   }
 
-  EXPECT_FALSE(match_pattern_supported_latest(nullptr, nullptr));
+  EXPECT_FALSE(match_pattern_supported_latest(
+    nullptr,
+    nullptr,
+    StyioDataTypeOption::Integer));
   {
     std::unique_ptr<BinCompAST> eq_left(new BinCompAST(
       CompType::EQ,
       NameAST::Create("x"),
       IntAST::Create("1")));
     std::string scrutinee = "x";
-    EXPECT_TRUE(match_pattern_supported_latest(eq_left.get(), &scrutinee));
+    EXPECT_TRUE(match_pattern_supported_latest(
+      eq_left.get(),
+      &scrutinee,
+      StyioDataTypeOption::Integer));
   }
   {
     std::unique_ptr<BinCompAST> eq_right(new BinCompAST(
@@ -2351,7 +2363,10 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       IntAST::Create("1"),
       NameAST::Create("x")));
     std::string scrutinee = "x";
-    EXPECT_TRUE(match_pattern_supported_latest(eq_right.get(), &scrutinee));
+    EXPECT_TRUE(match_pattern_supported_latest(
+      eq_right.get(),
+      &scrutinee,
+      StyioDataTypeOption::Integer));
   }
   {
     std::unique_ptr<BinCompAST> non_eq(new BinCompAST(
@@ -2359,7 +2374,10 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       NameAST::Create("x"),
       IntAST::Create("1")));
     std::string scrutinee = "x";
-    EXPECT_FALSE(match_pattern_supported_latest(non_eq.get(), &scrutinee));
+    EXPECT_FALSE(match_pattern_supported_latest(
+      non_eq.get(),
+      &scrutinee,
+      StyioDataTypeOption::Integer));
   }
   EXPECT_TRUE(container_value_assignable(i64, undefined_type()));
   EXPECT_TRUE(container_value_assignable(f64, i64));
@@ -2926,3 +2944,31 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
 }
 
 }  // namespace
+
+TEST(StyioStructuredFunctionResultsTypeInfer, ShapesTupleAndRejectsInvalidProjection) {
+  AstToStyioIRLowerer analyzer;
+  auto* tuple = TupleAST::Create({
+    IntAST::Create("1"),
+    BoolAST::Create(true),
+    ListAST::Create({IntAST::Create("7")})});
+  std::unique_ptr<TupleAST> owned_tuple(tuple);
+  ASSERT_NO_THROW(tuple->typeInfer(&analyzer));
+  ASSERT_TRUE(styio_is_shaped_tuple_type(tuple->getDataType()));
+  ASSERT_EQ(tuple->getDataType().tuple_elements->size(), 3u);
+  EXPECT_EQ((*tuple->getDataType().tuple_elements)[2].name, "list[i64]");
+
+  auto* projected_source = TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")});
+  projected_source->typeInfer(&analyzer);
+  std::unique_ptr<ListOpAST> out_of_range(new ListOpAST(
+    StyioNodeType::Access_By_Index, projected_source, IntAST::Create("2")));
+  EXPECT_THROW(out_of_range->typeInfer(&analyzer), StyioTypeError);
+
+  auto* dynamic_source = TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")});
+  dynamic_source->typeInfer(&analyzer);
+  std::unique_ptr<ListOpAST> nonliteral(new ListOpAST(
+    StyioNodeType::Access_By_Index, dynamic_source, FloatAST::Create("0.0")));
+  EXPECT_THROW(nonliteral->typeInfer(&analyzer), StyioTypeError);
+
+  std::unique_ptr<TupleAST> empty(TupleAST::Create({}));
+  EXPECT_THROW(empty->typeInfer(&analyzer), StyioTypeError);
+}
