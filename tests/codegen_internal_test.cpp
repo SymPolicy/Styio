@@ -41,6 +41,7 @@
 #undef private
 #include "StyioException/Exception.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
+#include "../benchmark/internal/bench_utils.hpp"
 
 namespace {
 
@@ -1641,6 +1642,141 @@ TEST(StyioCodeGenInternal, ResourceEffectZipNativeAndDriverEdgesStayExplicit) {
   EXPECT_NO_THROW(generator->execute());
   const std::string stderr_text = testing::internal::GetCapturedStderr();
   EXPECT_NE(stderr_text.find("main not found"), std::string::npos);
+}
+
+TEST(StyioZipBarrierFacts, ListListCodegenUsesTwoMemberReadiness) {
+  auto* zip = SIOStreamZip::Create(
+    SCListLiteral::Create(
+      {SGConstInt::Create(1), SGConstInt::Create(2), SGConstInt::Create(3)},
+      "i64"),
+    false,
+    false,
+    "left",
+    SCListLiteral::Create({SGConstInt::Create(10)}, "i64"),
+    false,
+    false,
+    "right",
+    false,
+    false,
+    "i64",
+    "i64",
+    SGBlock::Create({SGNoOp::Create()}));
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({zip}));
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+
+  const std::string ir = generator->dump_llvm_ir();
+  const std::size_t header_begin = ir.find("zip_ll_hdr:");
+  const std::size_t body_begin = ir.find("zip_ll_body:", header_begin);
+  ASSERT_NE(header_begin, std::string::npos) << ir;
+  ASSERT_NE(body_begin, std::string::npos) << ir;
+  const std::string header = ir.substr(header_begin, body_begin - header_begin);
+  const auto count_occurrences = [](const std::string& text, const std::string& needle) {
+    std::size_t count = 0;
+    for (std::size_t pos = 0;
+         (pos = text.find(needle, pos)) != std::string::npos;
+         pos += needle.size()) {
+      ++count;
+    }
+    return count;
+  };
+  EXPECT_EQ(count_occurrences(header, "icmp slt i64"), 2u) << header;
+  EXPECT_NE(header.find("and i1"), std::string::npos) << header;
+  EXPECT_EQ(count_occurrences(ir, "br label %zip_ll_step"), 1u) << ir;
+}
+
+TEST(StyioZipBarrierFacts, EarlyBodyTerminatorHasNoCommitEdge) {
+  auto* zip = SIOStreamZip::Create(
+    SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+    false,
+    false,
+    "left",
+    SCListLiteral::Create({SGConstInt::Create(10)}, "i64"),
+    false,
+    false,
+    "right",
+    false,
+    false,
+    "i64",
+    "i64",
+    SGBlock::Create({SGBreak::Create()}));
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({zip}));
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_EQ(ir.find("br label %zip_ll_step"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("br label %zip_ll_exit"), std::string::npos) << ir;
+}
+
+TEST(StyioZipBarrierFacts, BenchmarkJsonCountersAreExact) {
+  styio::bench::BenchmarkResult result;
+  styio::bench::BenchmarkSample sample;
+  sample.phase = "zip_barrier_facts";
+  sample.label = "zip_barrier_facts_256";
+  sample.zip_barrier_fact_bundle_count = 256;
+  sample.zip_barrier_fact_valid_count = 256;
+  sample.zip_barrier_fact_metadata_bytes =
+    256 * static_cast<std::int64_t>(sizeof(SGStreamZipBarrierFacts));
+  result.samples.push_back(sample);
+
+  const std::string json = result.to_json();
+  const std::string expected =
+    "{\n"
+    "  \"schema\": \"styio.benchmark.v1\",\n"
+    "  \"git_sha\": \"\",\n"
+    "  \"build_type\": \"\",\n"
+    "  \"timestamp\": 0,\n"
+    "  \"samples\": [\n"
+    "    {\"phase\": \"zip_barrier_facts\", "
+    "\"label\": \"zip_barrier_facts_256\", "
+    "\"duration_ns\": 0, "
+    "\"zip_barrier_fact_bundle_count\": 256, "
+    "\"zip_barrier_fact_valid_count\": 256, "
+    "\"zip_barrier_fact_metadata_bytes\": "
+    + std::to_string(256 * sizeof(SGStreamZipBarrierFacts))
+    + "}\n"
+      "  ]\n"
+      "}\n";
+  EXPECT_EQ(json, expected);
+}
+
+TEST(StyioZipBarrierFacts, DirectMalformedListListIRFailsClosed) {
+  auto* zip = SIOStreamZip::Create(
+    SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+    false,
+    false,
+    "left",
+    SCListLiteral::Create({SGConstInt::Create(2)}, "i64"),
+    false,
+    false,
+    "right",
+    false,
+    false,
+    "i64",
+    "i64",
+    SGBlock::Create({SGNoOp::Create()}));
+  zip->barrier_facts.readiness = static_cast<SGStreamZipReadiness>(255);
+  expect_direct_codegen_throws(zip, "SIOStreamZip.barrier_facts must be canonical");
+}
+
+TEST(StyioZipBarrierFacts, DirectMalformedStreamIRAlsoFailsClosed) {
+  auto* zip = SIOStreamZip::Create(
+    SGConstString::Create("input.txt"),
+    true,
+    false,
+    "line",
+    SCListLiteral::Create({SGConstInt::Create(2)}, "i64"),
+    false,
+    false,
+    "value",
+    true,
+    false,
+    "string",
+    "i64",
+    SGBlock::Create({SGNoOp::Create()}));
+  zip->barrier_facts.commit = static_cast<SGStreamZipCommit>(255);
+  expect_direct_codegen_throws(zip, "SIOStreamZip.barrier_facts must be canonical");
 }
 
 TEST(StyioCodeGenInternal, StreamZipMissingFileFailsClosedAtRuntime) {

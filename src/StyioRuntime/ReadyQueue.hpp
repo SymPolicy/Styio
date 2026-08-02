@@ -4,190 +4,157 @@
 
 #include <condition_variable>
 #include <cstddef>
-#include <cstdlib>
 #include <deque>
-#include <memory>
 #include <mutex>
-#include <thread>
 
 namespace styio::runtime {
 
 enum class ReadyQueueKind {
-  MutexDeque,
-  BoundedMPMC,
+  BoundedWait = 1,
 };
 
-/// Abstract ready-queue for the task scheduler.
-/// Enables swapping implementations behind a common interface.
-class IReadyQueue {
+enum class ReadyQueuePushResult {
+  Accepted,
+  Closed,
+};
+
+struct ReadyQueueSnapshot {
+  std::size_t capacity = 0;
+  std::size_t current_depth = 0;
+  std::size_t peak_depth = 0;
+  std::size_t accepted_pushes = 0;
+  std::size_t pops = 0;
+  std::size_t pressure_events = 0;
+  std::size_t producer_waits = 0;
+  std::size_t consumer_waits = 0;
+  std::size_t close_wake_ups = 0;
+  bool closed = false;
+};
+
+/// The task scheduler's single ready-queue owner.
+///
+/// Storage, lifecycle, and counters are protected by one mutex. A closed queue
+/// rejects new pushes but continues to return accepted items until drained.
+class BoundedReadyQueue {
 public:
-  virtual ~IReadyQueue() = default;
-
-  /// Identify the concrete backend for assertions and diagnostics.
-  virtual ReadyQueueKind kind() const = 0;
-
-  /// Push a task onto the queue (thread-safe).
-  virtual void push(void* task) = 0;
-
-  /// Try to pop a task. Returns nullptr if queue is empty.
-  virtual void* try_pop() = 0;
-
-  /// Non-blocking snapshot of queue size (approximate for MPMC queues).
-  virtual std::size_t approximate_size() const = 0;
-
-  /// True if queue is currently empty (may be stale for MPMC queues).
-  virtual bool empty() const = 0;
-
-  /// Notify waiting consumers that a task is available.
-  virtual void notify_one() = 0;
-
-  /// Notify all waiting consumers (used at shutdown).
-  virtual void notify_all() = 0;
-
-  /// Wait with timeout. Returns true if notified, false on timeout.
-  virtual bool wait_for(std::unique_lock<std::mutex>& lock,
-                        std::condition_variable& cv) = 0;
-};
-
-// ---------------------------------------------------------------------------
-// MutexDequeReadyQueue - current default implementation.
-// Wraps std::mutex + std::deque + std::condition_variable.
-// ---------------------------------------------------------------------------
-class MutexDequeReadyQueue : public IReadyQueue {
-public:
-  ReadyQueueKind kind() const override { return ReadyQueueKind::MutexDeque; }
-
-  void push(void* task) override {
-    std::lock_guard<std::mutex> lock(mu_);
-    queue_.push_back(task);
-  }
-
-  void* try_pop() override {
-    std::lock_guard<std::mutex> lock(mu_);
-    if (queue_.empty()) return nullptr;
-    void* t = queue_.front();
-    queue_.pop_front();
-    return t;
-  }
-
-  std::size_t approximate_size() const override {
-    std::lock_guard<std::mutex> lock(mu_);
-    return queue_.size();
-  }
-
-  bool empty() const override {
-    std::lock_guard<std::mutex> lock(mu_);
-    return queue_.empty();
-  }
-
-  void notify_one() override { cv_.notify_one(); }
-  void notify_all() override { cv_.notify_all(); }
-
-  bool wait_for(std::unique_lock<std::mutex>& lock,
-                std::condition_variable& /*cv*/) override {
-    cv_.wait(lock);
-    return true;
-  }
-
-  /// Direct access to the internal mutex (for condition_variable usage).
-  std::mutex& mutex() { return mu_; }
-
-private:
-  mutable std::mutex mu_;
-  std::condition_variable cv_;
-  std::deque<void*> queue_;
-};
-
-// ---------------------------------------------------------------------------
-// BoundedMPMCReadyQueue - bounded multi-producer/multi-consumer queue.
-// Controlled by STYIO_USE_MPMC_QUEUE environment variable.
-// ---------------------------------------------------------------------------
-class BoundedMPMCReadyQueue : public IReadyQueue {
   static constexpr std::size_t kDefaultCapacity = 4096;
 
-public:
-  explicit BoundedMPMCReadyQueue(std::size_t capacity = kDefaultCapacity)
-    : capacity_(capacity == 0 ? kDefaultCapacity : capacity) {
+  explicit BoundedReadyQueue(std::size_t capacity = kDefaultCapacity)
+    : capacity_(valid_capacity(capacity) ? capacity : kDefaultCapacity) {
   }
 
-  ReadyQueueKind kind() const override { return ReadyQueueKind::BoundedMPMC; }
+  BoundedReadyQueue(const BoundedReadyQueue&) = delete;
+  BoundedReadyQueue& operator=(const BoundedReadyQueue&) = delete;
 
-  void push(void* task) override {
-    for (;;) {
-      {
-        std::lock_guard<std::mutex> lock(mu_);
-        if (queue_.size() < capacity_) {
-          queue_.push_back(task);
-          cv_.notify_one();
-          return;
-        }
-      }
-      std::this_thread::yield();
+  static constexpr bool valid_capacity(std::size_t capacity) {
+    return capacity > 0 && capacity <= kDefaultCapacity;
+  }
+
+  ReadyQueueKind kind() const { return ReadyQueueKind::BoundedWait; }
+
+  ReadyQueuePushResult push(void* task) {
+    std::unique_lock<std::mutex> lock(mu_);
+    if (closed_) {
+      return ReadyQueuePushResult::Closed;
     }
+    if (queue_.size() == capacity_) {
+      ++pressure_events_;
+      ++producer_waits_;
+      ++waiting_producers_;
+      not_full_.wait(lock, [this]() {
+        return closed_ || queue_.size() < capacity_;
+      });
+      --waiting_producers_;
+      if (closed_) {
+        return ReadyQueuePushResult::Closed;
+      }
+    }
+    queue_.push_back(task);
+    ++accepted_pushes_;
+    if (queue_.size() > peak_depth_) {
+      peak_depth_ = queue_.size();
+    }
+    lock.unlock();
+    not_empty_.notify_one();
+    return ReadyQueuePushResult::Accepted;
   }
 
-  void* try_pop() override {
-    std::lock_guard<std::mutex> lock(mu_);
+  /// Returns no item only once the queue is both closed and drained.
+  void* wait_pop() {
+    std::unique_lock<std::mutex> lock(mu_);
+    if (queue_.empty() && !closed_) {
+      ++consumer_waits_;
+      ++waiting_consumers_;
+      not_empty_.wait(lock, [this]() { return closed_ || !queue_.empty(); });
+      --waiting_consumers_;
+    }
     if (queue_.empty()) {
       return nullptr;
     }
     void* task = queue_.front();
     queue_.pop_front();
+    ++pops_;
+    lock.unlock();
+    not_full_.notify_one();
     return task;
   }
 
-  std::size_t approximate_size() const override {
+  void close() {
+    std::unique_lock<std::mutex> lock(mu_);
+    if (closed_) {
+      return;
+    }
+    closed_ = true;
+    close_wake_ups_ += waiting_producers_ + waiting_consumers_;
+    lock.unlock();
+    not_empty_.notify_all();
+    not_full_.notify_all();
+  }
+
+  ReadyQueueSnapshot snapshot() const {
     std::lock_guard<std::mutex> lock(mu_);
-    return queue_.size();
+    return ReadyQueueSnapshot{
+      capacity_,
+      queue_.size(),
+      peak_depth_,
+      accepted_pushes_,
+      pops_,
+      pressure_events_,
+      producer_waits_,
+      consumer_waits_,
+      close_wake_ups_,
+      closed_,
+    };
   }
 
-  bool empty() const override {
+  void reset_counters() {
     std::lock_guard<std::mutex> lock(mu_);
-    return queue_.empty();
+    peak_depth_ = queue_.size();
+    accepted_pushes_ = 0;
+    pops_ = 0;
+    pressure_events_ = 0;
+    producer_waits_ = 0;
+    consumer_waits_ = 0;
+    close_wake_ups_ = 0;
   }
-
-  void notify_one() override { cv_.notify_one(); }
-  void notify_all() override { cv_.notify_all(); }
-
-  bool wait_for(std::unique_lock<std::mutex>& lock,
-                std::condition_variable& /*cv*/) override {
-    cv_.wait(lock);
-    return true;
-  }
-
-  std::condition_variable& cv() { return cv_; }
 
 private:
-  std::size_t capacity_;
+  const std::size_t capacity_;
   mutable std::mutex mu_;
-  std::condition_variable cv_;
+  std::condition_variable not_empty_;
+  std::condition_variable not_full_;
   std::deque<void*> queue_;
+  bool closed_ = false;
+  std::size_t peak_depth_ = 0;
+  std::size_t accepted_pushes_ = 0;
+  std::size_t pops_ = 0;
+  std::size_t pressure_events_ = 0;
+  std::size_t producer_waits_ = 0;
+  std::size_t consumer_waits_ = 0;
+  std::size_t close_wake_ups_ = 0;
+  std::size_t waiting_producers_ = 0;
+  std::size_t waiting_consumers_ = 0;
 };
-
-/// Factory: create the appropriate queue based on environment.
-inline bool ready_queue_env_requests_mpmc() {
-#if defined(_WIN32)
-  char* raw_value = nullptr;
-  size_t raw_length = 0;
-  if (_dupenv_s(&raw_value, &raw_length, "STYIO_USE_MPMC_QUEUE") != 0 || raw_value == nullptr) {
-    return false;
-  }
-  std::unique_ptr<char, decltype(&std::free)> value(raw_value, &std::free);
-  return value.get()[0] == '1' || value.get()[0] == 'y' || value.get()[0] == 'Y';
-#else
-  if (const char* env = std::getenv("STYIO_USE_MPMC_QUEUE")) {
-    return env[0] == '1' || env[0] == 'y' || env[0] == 'Y';
-  }
-  return false;
-#endif
-}
-
-inline std::unique_ptr<IReadyQueue> make_ready_queue() {
-  if (ready_queue_env_requests_mpmc()) {
-    return std::make_unique<BoundedMPMCReadyQueue>();
-  }
-  return std::make_unique<MutexDequeReadyQueue>();
-}
 
 } // namespace styio::runtime
 

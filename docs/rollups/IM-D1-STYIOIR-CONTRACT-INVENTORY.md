@@ -2,7 +2,7 @@
 
 **Purpose:** Record the implementation inventory for IM-D1 so StyioIR contract work is judged by explicit lowering behavior instead of scattered placeholder returns.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-01
 
 **Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D1`.
 
@@ -55,14 +55,14 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `TypeTupleAST`, `OptArgAST`, `OptKwArgAST`, `VarTupleAST` | Declaration metadata | Fails closed when lowered directly; function parents now reject tuple return annotations until tuple value IR exists. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Lowers to value-carrying `SGCast` for `Bool_To_Int` and `Int_To_Float`; other user-facing cast syntax still requires a separate language decision. |
 | `InfiniteAST` | Retired/undefined sequence syntax | Fails closed. |
-| `TupleAST`, `ExtractorAST`, `SetAST` | Implementation debt | Fails closed until tuple/set value IR is implemented. |
+| `TupleAST`, `ExtractorAST`, `SetAST`, `CheckIsinAST`, `AnonyFuncAST` | Implementation debt | Fails closed until tuple/set values, standalone membership guards, or closure/function-value IR are implemented. |
 | `StdStreamAST` | Parent-consumed resource syntax | Fails closed when lowered directly; parent resource operations consume it. |
 | `EmptyResourceAST` | Resource sentinel syntax | Fails closed when lowered directly; parent redirect/release operations consume it. |
-| `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST` | External resource metadata | Fails closed until runtime value semantics are defined. |
+| `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST` | Implementation debt | Fails closed until external resource paths have accepted runtime value semantics. |
 | `ExtPackAST` | Accepted callable-module dependency metadata | The module graph resolves and validates imports before executable lowering; direct lowering then emits `SGNoOp` because the declaration has no runtime value. |
 | `ReadFileAST` | Retired syntax | Fails closed in favor of file resources. |
-| `ForwardAST`, `BackwardAST`, `CODPAST`, `CheckEqualAST`, `CheckIsinAST`, `HashTagNameAST` | Retired or parser-metadata flow syntax | Fails closed outside the owning high-level construct. |
-| `AnonyFuncAST` | Implementation debt | Fails closed until closure/function-value IR is implemented. |
+| `ForwardAST`, `BackwardAST`, `CODPAST` | Retired flow syntax | Fails closed unless a future design explicitly reactivates it. |
+| `CheckEqualAST`, `HashTagNameAST` | Parent-consumed parser metadata | Fails closed outside the owning match or iterator construct. |
 | `CasesAST`, `StateDeclAST` | Parent-consumed syntax | Fails closed when lowered directly; `MatchCasesAST`, function-level match sugar, and pulse topology planning own valid lowering paths. |
 
 ## Empty Sema Visitor Classification
@@ -72,7 +72,8 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `CommentAST`, `EmptyAST`, `PassAST`, `EOFAST` | Intentional no-op | No extra sema action unless the no-op contract changes. |
 | `BoolAST`, `IntAST`, `FloatAST`, `CharAST`, `StringAST`, `TypeAST` | Leaf type carrier | Their type comes from the node or type token. Keep inference side-effect free. Accepted leaf literals that can appear in resource/state helper bodies must also have inline-clone coverage; `IntAST`, `BoolAST`, `FloatAST`, `CharAST`, `StringAST`, `FmtStrAST`, statement-preface, scalar local `=` / `:=`, and local list/dict/matrix `=` / `:=` scalar/string-returning or local-container-returning resource methods, and returned `ResourceEffectAST` value expressions are now covered for resource-method bodies or single-return value paths, with `FmtStrAST` embedded expressions and `ResourceEffectAST` success/fallback/handler branches owning their own inference. |
 | `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `TypeTupleAST`, `VarTupleAST` | Declaration metadata | Parent declarations must validate and bind them. Function return annotations reject `TypeTupleAST` until tuple value IR exists; direct runtime lowering is rejected. |
-| `NoneAST`, `InfiniteAST`, `TupleAST`, `ExtractorAST`, `SetAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. |
+| `NoneAST`, `ExtractorAST`, `SetAST`, `CheckIsinAST`, `AnonyFuncAST` | Implementation debt | Add real sema and IR only when the language semantics are accepted; otherwise keep typed rejection. `TupleAST` performs element inference but remains implementation debt at the IR boundary. |
+| `InfiniteAST` | Retired syntax | Keep typed rejection until the AST/parser route is deleted or explicitly reactivated. |
 | `TypeConvertAST` | Accepted compiler-owned scalar promotion | Keep the value-carrying `SGCast` path limited to internally selected scalar promotions until source-level cast syntax is accepted. |
 | `RangeAST` | Accepted collection syntax | Validate integer `start` and `end`; materialize `[start..end]` as `list[i64]` for expression/value use, keep iterator lowering on the dedicated range loop path, keep resource-method inline-clone coverage for dynamic range bodies, and leave source step ranges reserved/rejected. |
 | `StructAST`, `EmptyResourceAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `ReadFileAST` | Partially retired or metadata-heavy syntax | Keep fail-closed or parent-consumed behavior until the owning design SSOT accepts runtime semantics. |
@@ -80,12 +81,49 @@ These nodes are no longer allowed to pass through lowering as integer zero:
 | `ResourceAST`, `ResourceMethodDefAST`, `ResourceOrderAST` | Accepted resource/topology metadata | Lowering is explicit `SGNoOp`; collection and validation happen before executable lowering without creating runtime placeholder values. |
 | `ExportDeclAST`, `ExternBlockAST` | Contract metadata | Sema may remain side-effect free while native interop ownership is collected elsewhere. |
 | `BreakAST`, `ContinueAST`, `ReturnAST` | Control-flow syntax | `ReturnAST` now infers its expression for accepted function/task/match contexts, and block-form function result tails feed returned function-call resource methods when the called function has an explicit `<| expr` or final value tail; explicit `matrix` function return annotations provide matrix literal context to nested-list tails and reject flat-list tails before runtime. A future control-flow verifier can add dominance/reachability checks. |
-| `ForwardAST`, `BackwardAST`, `CODPAST`, `CheckEqualAST`, `CheckIsinAST`, `HashTagNameAST` | Retired or parser-metadata syntax | Keep fail-closed unless a future design reactivates them. |
+| `ForwardAST`, `BackwardAST`, `CODPAST` | Retired syntax | Keep fail-closed unless a future design reactivates them. |
+| `CheckEqualAST`, `HashTagNameAST` | Parent-consumed parser metadata | Keep direct lowering fail-closed; their owning constructs validate them. |
 | `CasesAST`, `MatchCasesAST` | Accepted parent/context-sensitive match syntax | Match parents now infer scrutinee, integer patterns, arm/default bodies, branch-local scopes, and `i64`/`f64`/`bool`/`char`/`string` tail result kinds; resource-method single-return match bodies preserve those scalar/string families through inline cloning; direct `CasesAST` lowering remains parent-consumed. |
 | `StateRefAST` | Parent/context-sensitive pulse syntax | Continue tightening sema in the owning pulse checkpoints. |
+
+## P0 Placeholder Audit
+
+The 2026-08-01 P0 scan treats a placeholder as one of four things: an empty Sema visitor, a direct fail-closed lowering boundary, a generated zero value, or a verifier/inline-clone fallthrough. The scan is exhaustive for `src/StyioSema/TypeInfer.cpp`, `src/StyioLowering/AstToStyioIR.cpp`, `src/StyioIR/StyioIRWalker.hpp`, and `src/StyioIR/Verifier.cpp`; it does not classify unrelated parser, runtime, IDE, or optimizer work.
+
+### Empty Sema visitors
+
+| Classification | AST families | Owner and evidence |
+|----------------|--------------|--------------------|
+| Intentional no-op, leaf carrier, declaration metadata, or parent-consumed syntax | `CommentAST`, `EmptyAST`, `TypeTupleAST`, `BoolAST`, `IntAST`, `FloatAST`, `CharAST`, `StringAST`, `VarAST`, `ParamAST`, `OptArgAST`, `OptKwArgAST`, `VarTupleAST`, `UndefinedLitAST`, `ResourceAST`, `EmptyResourceAST`, `ExtPackAST`, `ExportDeclAST`, `ExternBlockAST`, `EOFAST`, `BreakAST`, `ContinueAST`, `PassAST`, `CheckEqualAST`, `HashTagNameAST`, `StateRefAST` | Sema / IR owns the parent contracts. Focused evidence is `StyioTypeInferenceContract.LeafNoopAndFailClosedTypeInferNodesStayExplicit`, `StyioIRContract.NoOpAstNodesLowerToExplicitNoOp`, and direct lowering tests in `tests/lowering_internal_test.cpp`. |
+| Dead or retired syntax kept fail-closed during migration | `InfiniteAST`, `ReadFileAST`, `ForwardAST`, `BackwardAST`, `CODPAST` | Frontend and Sema / IR jointly own deletion or an explicit future reactivation. `InfiniteAST` and `ReadFileAST` carry migration markers; all five fail closed before codegen. |
+| Implementation debt requiring an accepted language/runtime contract | `NoneAST`, `StructAST`, `ExtractorAST`, `SetAST`, `ResPathAST`, `RemotePathAST`, `WebUrlAST`, `DBUrlAST`, `CheckIsinAST`, `AnonyFuncAST` | Sema / IR owns type rules; Codegen / Runtime joins only after semantics are accepted. Current focused evidence keeps direct unsupported paths explicit. |
+
+The scan found 41 empty visitors: 26 intentional or parent-owned, 5 retired, and 10 implementation-debt families. `FmtStrAST` is not empty: it infers every embedded expression. `TupleAST` is also not empty: it inspects element types, while runtime tuple lowering remains unsupported.
+
+### Direct lowering, generated values, and clone boundaries
+
+| Surface | Classification | Current contract |
+|---------|----------------|------------------|
+| 29 `unsupported_ast_lowering(...)` returns | Typed unsupported boundary | 14 are declaration/parent-consumed or invalid-shape guards, 5 are retired syntax, and 10 correspond to implementation-debt families. Every route raises `StyioTypeError`; none returns an executable placeholder value. |
+| Two `SGConstInt::Create(0)` calls in `zero_value_for_type_latest(...)` | Intentional generated storage value | Both are concrete initialization for integer-like resource or bounded-ring storage. No direct AST lowering path uses integer zero as a substitute result. |
+| `StateExprCloneVisitor` default branch | Typed unsupported boundary | The supported switch clones accepted state/resource-method expression and statement families. Any unlisted AST kind raises `StyioTypeError`; focused clone tests cover both accepted families and the unsupported fallback. No silent null or fabricated value is produced. |
+| `lower_resource_method_value_body_latest(...)` nullable result | Intentional shape probe | `nullptr` means the body is not the specialized single-value form, after which the caller uses ordinary block lowering. It is not a runtime value and not a failure placeholder. |
+
+### Verifier audit and smallest next closure
+
+The unified walker exposes 20 leaf visits that the verifier intentionally inherits without child traversal. Eighteen are self-contained constants, identifiers, types, declarations, loads, paths, or stream leaves. `SGBreak` and `SGContinue` now have explicit verifier overrides that enforce the same enclosing-loop boundary already required by codegen.
+
+The first P1 implementation closure, **IR loop-control legality**, is implemented:
+
+1. track loop nesting while verifying `SGLoop`, `SGForEach`, and `SGRangeFor`;
+2. reject `SGBreak` and `SGContinue` when no enclosing loop exists, while retaining the current single-level break contract;
+3. add focused verifier tests for valid nested loop control and invalid top-level loop control;
+4. cover the verifier contract through the active `styio_security_test` target before the one group regression.
+
+This cluster is confined to StyioIR verification and its focused tests. It does not combine parser, Sema, runtime, IDE, tuple/set/closure semantics, resource-path values, or M7 iterator routing.
 
 ## IM-D1 Closure Position
 
 The StyioIR contract part of IM-D1 is implemented: no active direct AST lowering path should silently use `SGConstInt(0)` as a placeholder, codegen requires verified active IR, and intentional no-op source forms use explicit `SGNoOp`.
 
-Remaining work in this area is no longer an implicit IM-D1 decision. It is feature implementation debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, broader match result families beyond the current `i64`/`f64`/`bool`/`char`/`string` lowering path, retired flow syntax, resource/path value semantics, and the still-incomplete state inline clone surface beyond the covered scalar leaf, `CharAST`, `FmtStrAST`, `SizeOfAST`, scalar local `FlexBindAST` / `FinalBindAST` prefaces plus local list/dict/matrix `FlexBindAST` / `FinalBindAST` prefaces that return scalar/string tails or local list/dict/matrix container handles, `MatchCasesAST` scalar/string, `RangeAST`, `StreamZipAST` materialized list/list statements, internal `CondFlowAST` / local-temp-safe `ParallelAssignAST` clone paths, `ResourceEffectAST`, `FuncCallAST` with value-producing called functions including explicit matrix-return functions, local `FunctionAST` / `SimpleFuncAST` helper definitions, and returned container-bound resource-method paths need separate accepted-language decisions or focused implementation slices before they can become runnable.
+Remaining work in this area is no longer an implicit IM-D1 decision. It is explicit feature debt: tuple/set values, null/unit semantics, source-level cast syntax beyond compiler-owned scalar promotion, closures, standalone membership guards, broader match result families beyond the current `i64`/`f64`/`bool`/`char`/`string` path, retired flow syntax, resource/path value semantics, and M7 iterator-sequence routing. The inline clone switch is not an open placeholder by itself: it must grow only when one of those source families is accepted for state or resource-method bodies.

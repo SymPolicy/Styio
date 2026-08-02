@@ -24,6 +24,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -4213,25 +4214,44 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
   {
     SeededResourceMethodLowerer analyzer;
     analyzer.seedMethod("file", "control_edges", styio_data_type_from_name("i64"));
-    auto* body = BlockAST::Create({
-      ResourceRefAST::Create(NameAST::Create("whole_resource")),
-      ResourceReceiverAST::Create("stream"),
-      BreakAST::Create(2),
-      ContinueAST::Create(),
-      ReturnAST::Create(IntAST::Create("1")),
-    });
-    body->set_followings({PassAST::Create()});
-    auto program = seeded_program("control_edges", body);
+    const auto control_body = []() {
+      auto* body = BlockAST::Create({
+        ResourceRefAST::Create(NameAST::Create("whole_resource")),
+        ResourceReceiverAST::Create("stream"),
+        BreakAST::Create(2),
+        ContinueAST::Create(),
+        ReturnAST::Create(IntAST::Create("1")),
+      });
+      body->set_followings({PassAST::Create()});
+      return body;
+    };
 
-    std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));
-    auto* entry = dynamic_cast<SGMainEntry*>(ir.get());
-    ASSERT_NE(entry, nullptr);
-    auto* final_bind = dynamic_cast<SGFinalBind*>(entry->stmts.back());
-    ASSERT_NE(final_bind, nullptr);
-    auto* value_block = dynamic_cast<SGBlock*>(final_bind->value);
-    ASSERT_NE(value_block, nullptr);
-    EXPECT_NE(dynamic_cast<SGBreak*>(value_block->stmts[2]), nullptr);
-    EXPECT_NE(dynamic_cast<SGContinue*>(value_block->stmts[3]), nullptr);
+    std::unique_ptr<MainBlockAST> registration(MainBlockAST::Create({
+      ResourceDeclAST::Create({
+        {NameAST::Create("whole_resource"), TypeAST::Create(styio_make_topology_resource_type(
+          styio_data_type_from_name("i64"),
+          StyioResourceShapeKind::Fixed,
+          1
+        ))}
+      }),
+      ResourceMethodDefAST::Create(
+        "file", "control_edges", false, false, {}, control_body()),
+    }));
+    std::unique_ptr<StyioIR> registration_ir(registration->toStyioIR(&analyzer));
+
+    std::unique_ptr<FuncCallAST> direct_call(FuncCallAST::Create(
+      file_receiver(), NameAST::Create("control_edges"), {}));
+    std::unique_ptr<StyioIR> cloned_ir(direct_call->toStyioIR(&analyzer));
+    auto* cloned_block = dynamic_cast<SGBlock*>(cloned_ir.get());
+    ASSERT_NE(cloned_block, nullptr);
+    ASSERT_GE(cloned_block->stmts.size(), 4u);
+    EXPECT_NE(dynamic_cast<SGBreak*>(cloned_block->stmts[2]), nullptr);
+    EXPECT_NE(dynamic_cast<SGContinue*>(cloned_block->stmts[3]), nullptr);
+
+    auto program = seeded_program("control_edges", control_body());
+    EXPECT_THROW({
+      std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));
+    }, StyioTypeError);
   }
 
   {
@@ -4441,6 +4461,115 @@ TEST(StyioIRContract, UnsupportedAstNodesFailClosedInsteadOfPlaceholder) {
     StyioTypeError);
 }
 
+TEST(StyioIRContract, VerifierRejectsLoopControlOutsideLoopsAndAcceptsNestedLoops) {
+  const auto verify_owned = [](StyioIR* root) {
+    std::unique_ptr<StyioIR> owner(root);
+    return styio::ir::verify_styio_ir(owner.get());
+  };
+
+  const auto top_level = verify_owned(SGMainEntry::Create({
+    SGBreak::Create(),
+    SGContinue::Create(),
+  }));
+  ASSERT_FALSE(top_level.ok());
+  ASSERT_EQ(top_level.diagnostics.size(), 2u);
+  EXPECT_EQ(top_level.diagnostics[0].phase, "ir_verify");
+  EXPECT_EQ(top_level.diagnostics[0].code, "STYIO_IR_VERIFY_CONTRACT");
+  EXPECT_EQ(top_level.diagnostics[0].message, "break outside enclosing loop");
+  EXPECT_EQ(top_level.diagnostics[1].phase, "ir_verify");
+  EXPECT_EQ(top_level.diagnostics[1].code, "STYIO_IR_VERIFY_CONTRACT");
+  EXPECT_EQ(top_level.diagnostics[1].message, "continue outside enclosing loop");
+
+  const auto loop_body = verify_owned(SGLoop::CreateWhile(
+    SGConstBool::Create(false),
+    SGBlock::Create({SGBreak::Create(), SGContinue::Create()})));
+  EXPECT_TRUE(loop_body.ok())
+    << (loop_body.diagnostics.empty() ? "" : loop_body.diagnostics.front().message);
+
+  const auto foreach_body = verify_owned(SGForEach::Create(
+    SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+    "item",
+    "i64",
+    SGBlock::Create({SGBreak::Create(), SGContinue::Create()})));
+  EXPECT_TRUE(foreach_body.ok())
+    << (foreach_body.diagnostics.empty() ? "" : foreach_body.diagnostics.front().message);
+
+  const auto range_body = verify_owned(SGRangeFor::Create(
+    SGConstInt::Create(0),
+    SGConstInt::Create(1),
+    SGConstInt::Create(1),
+    "i",
+    SGBlock::Create({SGBreak::Create(), SGContinue::Create()})));
+  EXPECT_TRUE(range_body.ok())
+    << (range_body.diagnostics.empty() ? "" : range_body.diagnostics.front().message);
+
+  const auto nested_then_restored = verify_owned(SGMainEntry::Create({
+    SGLoop::CreateInfinite(SGBlock::Create({
+      SGForEach::Create(
+        SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+        "item",
+        "i64",
+        SGBlock::Create({
+          SGRangeFor::Create(
+            SGConstInt::Create(0),
+            SGConstInt::Create(1),
+            SGConstInt::Create(1),
+            "i",
+            SGBlock::Create({SGBreak::Create(), SGContinue::Create()})),
+          SGContinue::Create(),
+        })),
+      SGBreak::Create(),
+    })),
+    SGBreak::Create(),
+    SGContinue::Create(),
+  }));
+  ASSERT_FALSE(nested_then_restored.ok());
+  ASSERT_EQ(nested_then_restored.diagnostics.size(), 2u);
+  EXPECT_EQ(nested_then_restored.diagnostics[0].message, "break outside enclosing loop");
+  EXPECT_EQ(nested_then_restored.diagnostics[1].message, "continue outside enclosing loop");
+
+  const auto pre_body_operands = verify_owned(SGMainEntry::Create({
+    SGLoop::CreateWhile(SGBreak::Create(), SGBlock::Create({})),
+    SGForEach::Create(
+      SGContinue::Create(),
+      "item",
+      "i64",
+      SGBlock::Create({})),
+    SGRangeFor::Create(
+      SGBreak::Create(),
+      SGContinue::Create(),
+      SGBreak::Create(),
+      "i",
+      SGBlock::Create({})),
+  }));
+  ASSERT_FALSE(pre_body_operands.ok());
+  ASSERT_EQ(pre_body_operands.diagnostics.size(), 5u);
+  EXPECT_EQ(pre_body_operands.diagnostics[0].message, "break outside enclosing loop");
+  EXPECT_EQ(pre_body_operands.diagnostics[1].message, "continue outside enclosing loop");
+  EXPECT_EQ(pre_body_operands.diagnostics[2].message, "break outside enclosing loop");
+  EXPECT_EQ(pre_body_operands.diagnostics[3].message, "continue outside enclosing loop");
+  EXPECT_EQ(pre_body_operands.diagnostics[4].message, "break outside enclosing loop");
+
+  const auto inherited_outer_depth = verify_owned(SGLoop::CreateInfinite(SGBlock::Create({
+    SGLoop::CreateWhile(SGBreak::Create(), SGBlock::Create({})),
+    SGForEach::Create(
+      SGContinue::Create(),
+      "item",
+      "i64",
+      SGBlock::Create({})),
+    SGRangeFor::Create(
+      SGBreak::Create(),
+      SGContinue::Create(),
+      SGBreak::Create(),
+      "i",
+      SGBlock::Create({})),
+  })));
+  EXPECT_TRUE(inherited_outer_depth.ok())
+    << (inherited_outer_depth.diagnostics.empty()
+          ? ""
+          : inherited_outer_depth.diagnostics.front().message);
+}
+
 TEST(StyioIRContract, VerifierRejectsInactiveIR) {
   styio::ir::StyioIRVerifierResult null_result = styio::ir::verify_styio_ir(nullptr);
   EXPECT_FALSE(null_result.ok());
@@ -4643,13 +4772,546 @@ TEST(StyioIRPassManager, OptLevelOneRunsCanonicalization) {
 
   auto result = manager.run(ir, opts);
   EXPECT_TRUE(result.ok());
-  EXPECT_FALSE(result.passes.empty());
-  EXPECT_EQ(result.passes.front().name, "styioir-canonicalization");
-  EXPECT_GT(result.passes.front().duration_ns, 0ULL);
+  ASSERT_EQ(result.passes.size(), 3u);
+  EXPECT_EQ(result.passes[0].name, "styioir-dead-suffix-elimination");
+  EXPECT_EQ(result.passes[1].name, "styioir-canonicalization");
+  EXPECT_EQ(result.passes[2].name, "styioir-constant-folding");
   EXPECT_TRUE(result.passes.front().verifier_before_ok);
   EXPECT_TRUE(result.passes.front().verifier_after_ok);
   // Root may have been transformed by canonicalization
   delete result.root;
+}
+
+TEST(StyioSecurityIROptimizer, RemovesExactEffectfulSuffixAndPreservesReachableIdentity) {
+  auto* live = SIOPrint::Create({SGConstString::Create("live")});
+  auto* value = SGConstInt::Create(7);
+  auto* terminator = SGReturn::Create(value);
+  auto* root = SGBlock::Create({
+    live,
+    terminator,
+    SIOPrint::Create({SGConstString::Create("dead")}),
+    SGConstInt::Create(99),
+  });
+
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  const auto stats = styio::lowering::run_dead_stmt_elim_pass(root);
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  ASSERT_EQ(root->stmts.size(), 2u);
+  EXPECT_EQ(root->stmts[0], live);
+  EXPECT_EQ(root->stmts[1], terminator);
+  EXPECT_EQ(terminator->expr, value);
+  EXPECT_EQ(stats.statement_containers_visited, 1u);
+  EXPECT_EQ(stats.statements_examined, 2u);
+  EXPECT_EQ(stats.statements_removed, 2u);
+  EXPECT_EQ(stats.statement_containers_changed, 1u);
+  EXPECT_TRUE(stats.changed());
+
+  StyioRepr before_second_repr;
+  const std::string before_second = root->toString(&before_second_repr);
+  const auto second = styio::lowering::run_dead_stmt_elim_pass(root);
+  StyioRepr after_second_repr;
+  EXPECT_EQ(second.statements_removed, 0u);
+  EXPECT_EQ(second.statement_containers_changed, 0u);
+  EXPECT_EQ(root->toString(&after_second_repr), before_second);
+  EXPECT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  EXPECT_EQ(root->stmts[0], live);
+  EXPECT_EQ(root->stmts[1], terminator);
+  delete root;
+}
+
+TEST(StyioSecurityIROptimizer, HandlesLoopControlFinalEmptyAndFirstTerminator) {
+  auto* break_body = SGBlock::Create({SGNoOp::Create(), SGBreak::Create(), SIOPrint::Create({SGConstString::Create("dead")})});
+  auto* continue_body = SGBlock::Create({SGNoOp::Create(), SGContinue::Create(), SIOPrint::Create({SGConstString::Create("dead")})});
+  auto* final_body = SGBlock::Create({SGNoOp::Create(), SGBreak::Create()});
+  auto* empty_body = SGBlock::Create({});
+  auto* multiple_body = SGBlock::Create({SGBreak::Create(), SGContinue::Create(), SGNoOp::Create()});
+  auto* root = SGMainEntry::Create({
+    SGLoop::CreateInfinite(break_body),
+    SGLoop::CreateInfinite(continue_body),
+    SGLoop::CreateInfinite(final_body),
+    SGLoop::CreateInfinite(empty_body),
+    SGLoop::CreateInfinite(multiple_body),
+  });
+
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  const auto stats = styio::lowering::run_dead_stmt_elim_pass(root);
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  EXPECT_EQ(break_body->stmts.size(), 2u);
+  EXPECT_EQ(continue_body->stmts.size(), 2u);
+  EXPECT_EQ(final_body->stmts.size(), 2u);
+  EXPECT_TRUE(empty_body->stmts.empty());
+  ASSERT_EQ(multiple_body->stmts.size(), 1u);
+  EXPECT_NE(dynamic_cast<SGBreak*>(multiple_body->stmts[0]), nullptr);
+  EXPECT_EQ(stats.statement_containers_visited, 6u);
+  EXPECT_EQ(stats.statements_removed, 4u);
+  EXPECT_EQ(stats.statement_containers_changed, 3u);
+  delete root;
+}
+
+TEST(StyioSecurityIROptimizer, CoversAllOwnersWithoutPropagatingNestedTermination) {
+  auto* block = SGBlock::Create({SGNoOp::Create(), SGReturn::Create(SGConstInt::Create(1)), SGNoOp::Create()});
+  auto* entry = SGEntry::Create({SGNoOp::Create(), SGReturn::Create(SGConstInt::Create(2)), SGNoOp::Create()});
+  auto* main = SGMainEntry::Create({SGNoOp::Create(), SGReturn::Create(SGConstInt::Create(3)), SGNoOp::Create()});
+  EXPECT_EQ(styio::lowering::run_dead_stmt_elim_pass(block).statements_removed, 1u);
+  EXPECT_EQ(styio::lowering::run_dead_stmt_elim_pass(entry).statements_removed, 1u);
+  EXPECT_EQ(styio::lowering::run_dead_stmt_elim_pass(main).statements_removed, 1u);
+  EXPECT_EQ(block->stmts.size(), 2u);
+  EXPECT_EQ(entry->stmts.size(), 2u);
+  EXPECT_EQ(main->stmts.size(), 2u);
+  delete block;
+  delete entry;
+  delete main;
+
+  auto* live_after_if = SIOPrint::Create({SGConstString::Create("after-if")});
+  auto* live_after_block = SIOPrint::Create({SGConstString::Create("after-block")});
+  auto* nested_block = SGBlock::Create({SGReturn::Create(SGConstInt::Create(5))});
+  auto* negative = SGMainEntry::Create({
+    SGIf::Create(
+      SGConstBool::Create(true),
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))}),
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(0))})),
+    live_after_if,
+    nested_block,
+    live_after_block,
+  });
+  ASSERT_TRUE(styio::ir::verify_styio_ir(negative).ok());
+  styio::lowering::run_dead_stmt_elim_pass(negative);
+  ASSERT_EQ(negative->stmts.size(), 4u);
+  EXPECT_EQ(negative->stmts[1], live_after_if);
+  EXPECT_EQ(negative->stmts[2], nested_block);
+  EXPECT_EQ(negative->stmts[3], live_after_block);
+  delete negative;
+}
+
+TEST(StyioSecurityIROptimizer, PreservesMainEntryCompileTimeLiveSuffixNodes) {
+  auto* terminator = SGReturn::Create(SGConstInt::Create(0));
+  auto* function = SGFunc::Create(
+    SGType::Create(styio_data_type_from_name("i64")),
+    SGResId::Create("late_function"),
+    {},
+    SGBlock::Create({SGReturn::Create(SGConstInt::Create(42))}));
+  auto* export_decl = SGExportDecl::Create({"late_function"});
+  auto* extern_block = SGExternBlock::Create(
+    "c",
+    "int late_external(void) { return 7; }",
+    {},
+    {"late_external"});
+  auto* flex_bind = SGFlexBind::Create(
+    SGVar::Create(
+      SGResId::Create("late_flex"),
+      SGType::Create(styio_data_type_from_name("i64"))),
+    SGConstInt::Create(1));
+  auto* final_bind = SGFinalBind::Create(
+    SGVar::Create(
+      SGResId::Create("late_final"),
+      SGType::Create(styio_data_type_from_name("i64"))),
+    SGConstInt::Create(2));
+  auto* root = SGMainEntry::Create({
+    terminator,
+    SIOPrint::Create({SGConstString::Create("dead-before-metadata")}),
+    function,
+    export_decl,
+    extern_block,
+    flex_bind,
+    final_bind,
+    SIOPrint::Create({SGConstString::Create("dead-after-metadata")}),
+  });
+
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  const auto stats = styio::lowering::run_dead_stmt_elim_pass(root);
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  ASSERT_EQ(root->stmts.size(), 6u);
+  EXPECT_EQ(root->stmts[0], terminator);
+  EXPECT_EQ(root->stmts[1], function);
+  EXPECT_EQ(root->stmts[2], export_decl);
+  EXPECT_EQ(root->stmts[3], extern_block);
+  EXPECT_EQ(root->stmts[4], flex_bind);
+  EXPECT_EQ(root->stmts[5], final_bind);
+  EXPECT_EQ(stats.statement_containers_visited, 2u);
+  EXPECT_EQ(stats.statements_examined, 7u);
+  EXPECT_EQ(stats.statements_removed, 2u);
+  EXPECT_EQ(stats.statement_containers_changed, 1u);
+  delete root;
+}
+
+TEST(StyioSecurityIROptimizer, TrimsRepresentativeDeepOwningTreeInOneWalk) {
+  auto* stream_body = SGBlock::Create({
+    SGNoOp::Create(), SGReturn::Create(SGConstInt::Create(1)), SGNoOp::Create()});
+  auto* task_body = SGBlock::Create({
+    SIOStdStreamLineIter::Create("line", stream_body),
+    SGReturn::Create(SGConstInt::Create(2)),
+    SGNoOp::Create(),
+  });
+  auto* loop_body = SGBlock::Create({
+    SIOTaskCreate::Create(task_body, styio_data_type_from_name("i64")),
+    SGBreak::Create(),
+    SGNoOp::Create(),
+  });
+  auto* match_body = SGBlock::Create({
+    SGLoop::CreateInfinite(loop_body),
+    SGReturn::Create(SGConstInt::Create(3)),
+    SGNoOp::Create(),
+  });
+  auto* if_body = SGBlock::Create({
+    SGMatch::Create(
+      SGConstInt::Create(1),
+      {{1, match_body}},
+      nullptr,
+      SGMatchReprKind::Stmt),
+    SGReturn::Create(SGConstInt::Create(4)),
+    SGNoOp::Create(),
+  });
+  auto* function_body = SGBlock::Create({
+    SGIf::Create(SGConstBool::Create(true), if_body),
+    SGReturn::Create(SGConstInt::Create(5)),
+    SGNoOp::Create(),
+  });
+  auto* root = SGMainEntry::Create({
+    SGFunc::Create(
+      SGType::Create(styio_data_type_from_name("i64")),
+      SGResId::Create("deep"),
+      {},
+      function_body),
+    SGNoOp::Create(),
+  });
+
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  const auto stats = styio::lowering::run_dead_stmt_elim_pass(root);
+  ASSERT_TRUE(styio::ir::verify_styio_ir(root).ok());
+  EXPECT_EQ(stream_body->stmts.size(), 2u);
+  EXPECT_EQ(task_body->stmts.size(), 2u);
+  EXPECT_EQ(loop_body->stmts.size(), 2u);
+  EXPECT_EQ(match_body->stmts.size(), 2u);
+  EXPECT_EQ(if_body->stmts.size(), 2u);
+  EXPECT_EQ(function_body->stmts.size(), 2u);
+  EXPECT_EQ(root->stmts.size(), 2u);
+  EXPECT_EQ(stats.statement_containers_visited, 7u);
+  EXPECT_EQ(stats.statements_examined, 14u);
+  EXPECT_EQ(stats.statements_removed, 6u);
+  EXPECT_EQ(stats.statement_containers_changed, 6u);
+  delete root;
+}
+
+TEST(StyioIRPassManager, DeadSuffixRecordDumpsStatisticsAndVerifierGates) {
+  auto* root = SGMainEntry::Create({
+    SGReturn::Create(SGConstInt::Create(1)),
+    SIOPrint::Create({SGConstString::Create("dead")}),
+  });
+  styio::lowering::StyioIRPassPipelineOptions options;
+  options.collect_ir_dumps = true;
+  auto result = styio::lowering::run_default_styio_ir_pass_pipeline(root, options);
+  ASSERT_TRUE(result.ok());
+  ASSERT_EQ(result.passes.size(), 3u);
+  const auto& dead = result.passes[0];
+  EXPECT_EQ(dead.name, "styioir-dead-suffix-elimination");
+  EXPECT_TRUE(dead.verifier_before_ok);
+  EXPECT_TRUE(dead.verifier_after_ok);
+  EXPECT_EQ(dead.statistics.statements_removed, 1u);
+  EXPECT_EQ(dead.statistics.statement_containers_visited, 1u);
+  EXPECT_EQ(dead.statistics.statements_examined, 1u);
+  EXPECT_EQ(dead.statistics.statement_containers_changed, 1u);
+  EXPECT_NE(dead.ir_before, dead.ir_after);
+  EXPECT_NE(dead.ir_before.find("styio.ir.print"), std::string::npos);
+  EXPECT_EQ(dead.ir_after.find("styio.ir.print"), std::string::npos);
+  EXPECT_EQ(result.initial_ir, dead.ir_before);
+  EXPECT_EQ(result.final_ir, result.passes.back().ir_after);
+  EXPECT_FALSE(result.passes[1].statistics.changed());
+  EXPECT_FALSE(result.passes[2].statistics.changed());
+  delete result.root;
+
+  auto* inactive = new InactiveTestIR();
+  auto* invalid = SGMainEntry::Create({SGReturn::Create(SGConstInt::Create(1)), inactive});
+  auto rejected = styio::lowering::run_default_styio_ir_pass_pipeline(invalid);
+  EXPECT_FALSE(rejected.ok());
+  EXPECT_TRUE(rejected.passes.empty());
+  ASSERT_EQ(invalid->stmts.size(), 2u);
+  EXPECT_EQ(invalid->stmts[1], inactive);
+  delete invalid;
+}
+
+TEST(StyioIRPassManager, DefersDeadSuffixUntilLoopControlLegalityIsResolved) {
+  styio::lowering::StyioIRPassPipelineOptions deferred_options;
+  deferred_options.verifier_options.defer_unresolved_loop_control = true;
+
+  {
+    auto* trailing_break = SGBreak::Create();
+    auto* fragment = SGBlock::Create({
+      SGReturn::Create(SGConstInt::Create(1)),
+      trailing_break,
+    });
+    auto result = styio::lowering::run_default_styio_ir_pass_pipeline(
+      fragment,
+      deferred_options);
+    ASSERT_TRUE(result.ok());
+    ASSERT_EQ(result.passes.size(), 2u);
+    EXPECT_EQ(result.passes[0].name, "styioir-canonicalization");
+    EXPECT_EQ(result.passes[1].name, "styioir-constant-folding");
+    ASSERT_EQ(fragment->stmts.size(), 2u);
+    EXPECT_EQ(fragment->stmts[1], trailing_break);
+    EXPECT_FALSE(styio::ir::verify_styio_ir(fragment).ok());
+    delete fragment;
+  }
+
+  auto* dead = SIOPrint::Create({SGConstString::Create("dead")});
+  auto* loop_body = SGBlock::Create({SGBreak::Create(), dead});
+
+  styio::lowering::StyioIRPassManager explicit_manager;
+  explicit_manager.add_dead_suffix_elimination_pass();
+  const auto rejected = explicit_manager.run(loop_body, deferred_options);
+  EXPECT_FALSE(rejected.ok());
+  EXPECT_TRUE(rejected.passes.empty());
+  ASSERT_FALSE(rejected.diagnostics.empty());
+  EXPECT_EQ(
+    rejected.diagnostics.front().message,
+    "dead-suffix elimination requires resolved loop-control legality");
+  ASSERT_EQ(loop_body->stmts.size(), 2u);
+  EXPECT_EQ(loop_body->stmts[1], dead);
+
+  const auto deferred = styio::lowering::run_default_styio_ir_pass_pipeline(
+    loop_body,
+    deferred_options);
+  ASSERT_TRUE(deferred.ok());
+  ASSERT_EQ(loop_body->stmts.size(), 2u);
+  EXPECT_EQ(loop_body->stmts[1], dead);
+
+  auto* root = SGMainEntry::Create({SGLoop::CreateInfinite(loop_body)});
+  const auto resolved =
+    styio::lowering::run_default_styio_ir_pass_pipeline(root);
+  ASSERT_TRUE(resolved.ok());
+  ASSERT_FALSE(resolved.passes.empty());
+  EXPECT_EQ(resolved.passes.front().statistics.statements_removed, 1u);
+  ASSERT_EQ(loop_body->stmts.size(), 1u);
+  delete root;
+}
+
+TEST(StyioIRPassManager, RejectsAliasedOrCyclicOwnershipBeforeDeadSuffixMutation) {
+  const auto has_ownership_diagnostic = [](const auto& result) {
+    return std::any_of(
+      result.diagnostics.begin(),
+      result.diagnostics.end(),
+      [](const auto& diagnostic) {
+        return diagnostic.message
+          == "StyioIR ownership graph reuses a node or contains a cycle";
+      });
+  };
+
+  auto* reused = SGNoOp::Create();
+  auto* root = SGMainEntry::Create({
+    reused,
+    SGReturn::Create(SGConstInt::Create(0)),
+    reused,
+  });
+
+  // General structural verification remains DAG-compatible. Mutation requires
+  // the stronger owning-tree contract applied by the pass manager below.
+  EXPECT_TRUE(styio::ir::verify_styio_ir(root).ok());
+
+  const auto result =
+    styio::lowering::run_default_styio_ir_pass_pipeline(root);
+  EXPECT_FALSE(result.ok());
+  EXPECT_TRUE(result.passes.empty());
+  ASSERT_EQ(root->stmts.size(), 3u);
+  EXPECT_EQ(root->stmts[0], reused);
+  EXPECT_EQ(root->stmts[2], reused);
+  EXPECT_TRUE(has_ownership_diagnostic(result));
+
+  root->stmts.pop_back();
+  delete root;
+
+  auto* cyclic_root = SGMainEntry::Create({
+    SGReturn::Create(SGConstInt::Create(0)),
+  });
+  cyclic_root->stmts.push_back(cyclic_root);
+
+  const auto cyclic_result =
+    styio::lowering::run_default_styio_ir_pass_pipeline(cyclic_root);
+  EXPECT_FALSE(cyclic_result.ok());
+  EXPECT_TRUE(cyclic_result.passes.empty());
+  ASSERT_EQ(cyclic_root->stmts.size(), 2u);
+  EXPECT_EQ(cyclic_root->stmts[1], cyclic_root);
+  EXPECT_TRUE(has_ownership_diagnostic(cyclic_result));
+
+  cyclic_root->stmts.pop_back();
+  delete cyclic_root;
+}
+
+TEST(StyioSecurityIROptimizer, ReportsLinearWorkAndExactAllocationDestruction) {
+  const auto make_identical = []() {
+    return SGMainEntry::Create({
+      SGLoop::CreateInfinite(SGBlock::Create({
+        SGNoOp::Create(), SGBreak::Create(), SGNoOp::Create()})),
+    });
+  };
+  std::unique_ptr<SGMainEntry> identical_a(make_identical());
+  std::unique_ptr<SGMainEntry> identical_b(make_identical());
+  const auto identical_a_stats =
+    styio::lowering::run_dead_stmt_elim_pass(identical_a.get());
+  const auto identical_b_stats =
+    styio::lowering::run_dead_stmt_elim_pass(identical_b.get());
+  EXPECT_EQ(
+    identical_a_stats.statement_containers_visited,
+    identical_b_stats.statement_containers_visited);
+  EXPECT_EQ(identical_a_stats.statements_examined, identical_b_stats.statements_examined);
+  EXPECT_EQ(identical_a_stats.statements_removed, identical_b_stats.statements_removed);
+  EXPECT_EQ(
+    identical_a_stats.statement_containers_changed,
+    identical_b_stats.statement_containers_changed);
+
+  for (std::size_t suffix_size : {8u, 32u}) {
+    std::vector<StyioIR*> statements;
+    statements.push_back(SGNoOp::Create());
+    statements.push_back(SGReturn::Create(SGConstInt::Create(1)));
+    for (std::size_t index = 0; index < suffix_size; ++index) {
+      statements.push_back(SGNoOp::Create());
+    }
+    auto* root = SGBlock::Create(std::move(statements));
+    const auto stats = styio::lowering::run_dead_stmt_elim_pass(root);
+    EXPECT_EQ(stats.statements_examined + stats.statements_removed, suffix_size + 2u);
+    delete root;
+  }
+
+  styio::session_alloc::SessionAllocationStats allocations;
+  auto* previous = styio::session_alloc::set_current_ir_stats(&allocations);
+  auto* root = SGBlock::Create({
+    SGNoOp::Create(),
+    SGReturn::Create(SGConstInt::Create(1)),
+    SIOPrint::Create({SGConstString::Create("dead")}),
+    SGNoOp::Create(),
+  });
+  const auto raw_before = allocations.raw_allocations;
+  const auto arena_before = allocations.arena_allocations;
+  const auto destructors_before = allocations.destructor_calls;
+  const auto live_nodes = [&]() {
+    return allocations.raw_allocations + allocations.arena_allocations
+      - allocations.destructor_calls;
+  };
+  const auto live_before = live_nodes();
+  const auto stats = styio::lowering::run_dead_stmt_elim_pass(root);
+  EXPECT_EQ(stats.statements_removed, 2u);
+  EXPECT_EQ(allocations.raw_allocations, raw_before);
+  EXPECT_EQ(allocations.arena_allocations, arena_before);
+  EXPECT_EQ(live_before - live_nodes(), 3u);
+  EXPECT_EQ(allocations.destructor_calls - destructors_before, 3u);
+  delete root;
+  EXPECT_EQ(live_nodes(), 0u);
+  EXPECT_EQ(allocations.destructor_calls, raw_before);
+  styio::session_alloc::set_current_ir_stats(previous);
+}
+
+TEST(StyioSecurityIROptimizer, MatchesSuffixFreeRootsThroughRealJitExecution) {
+  const auto execute = [](SGMainEntry* root) {
+    EXPECT_TRUE(styio::ir::verify_styio_ir(root).ok());
+    testing::internal::CaptureStdout();
+    try {
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      llvm::InitializeNativeTargetAsmParser();
+      llvm::ExitOnError exit_on_error;
+      std::unique_ptr<StyioJIT_ORC> jit = exit_on_error(StyioJIT_ORC::Create());
+      StyioToLLVM generator(std::move(jit));
+      root->toLLVMIR(&generator);
+      generator.execute();
+    }
+    catch (...) {
+      (void)testing::internal::GetCapturedStdout();
+      throw;
+    }
+    std::fflush(stdout);
+    return testing::internal::GetCapturedStdout();
+  };
+
+  const auto compare = [&](SGMainEntry* with_suffix, SGMainEntry* expected) {
+    std::unique_ptr<SGMainEntry> actual_owner(with_suffix);
+    std::unique_ptr<SGMainEntry> expected_owner(expected);
+    ASSERT_TRUE(styio::ir::verify_styio_ir(actual_owner.get()).ok());
+    ASSERT_TRUE(styio::ir::verify_styio_ir(expected_owner.get()).ok());
+
+    const auto result = styio::lowering::run_default_styio_ir_pass_pipeline(actual_owner.get());
+    ASSERT_TRUE(result.ok());
+    ASSERT_FALSE(result.passes.empty());
+    EXPECT_GT(result.passes.front().statistics.statements_removed, 0u);
+    StyioRepr actual_repr;
+    StyioRepr expected_repr;
+    EXPECT_EQ(
+      actual_owner->toString(&actual_repr),
+      expected_owner->toString(&expected_repr));
+    EXPECT_EQ(execute(actual_owner.get()), execute(expected_owner.get()));
+  };
+
+  const auto make_return_root = [](bool include_suffix) {
+    std::vector<StyioIR*> body{
+      SIOPrint::Create({SGConstString::Create("before-return")}),
+      SGReturn::Create(SGConstInt::Create(7)),
+    };
+    if (include_suffix) {
+      body.push_back(SIOPrint::Create({SGConstString::Create("dead-return")}));
+    }
+    return SGMainEntry::Create({
+      SGFunc::Create(
+        SGType::Create(styio_data_type_from_name("i64")),
+        SGResId::Create("dead_suffix_return"),
+        {},
+        SGBlock::Create(std::move(body))),
+      SIOPrint::Create({SGCall::Create(SGResId::Create("dead_suffix_return"), {})}),
+    });
+  };
+  compare(make_return_root(true), make_return_root(false));
+
+  const auto make_break_root = [](bool include_suffix) {
+    std::vector<StyioIR*> body{
+      SIOPrint::Create({SGConstString::Create("before-break")}),
+      SGBreak::Create(),
+    };
+    if (include_suffix) {
+      body.push_back(SIOPrint::Create({SGConstString::Create("dead-break")}));
+    }
+    return SGMainEntry::Create({
+      SGLoop::CreateWhile(SGConstBool::Create(true), SGBlock::Create(std::move(body))),
+      SIOPrint::Create({SGConstString::Create("after-break")}),
+    });
+  };
+  compare(make_break_root(true), make_break_root(false));
+
+  const auto make_continue_root = [](bool include_suffix) {
+    std::vector<StyioIR*> body{
+      SIOPrint::Create({SGConstString::Create("before-continue")}),
+      SGContinue::Create(),
+    };
+    if (include_suffix) {
+      body.push_back(SIOPrint::Create({SGConstString::Create("dead-continue")}));
+    }
+    return SGMainEntry::Create({
+      SGRangeFor::Create(
+        SGConstInt::Create(0),
+        SGConstInt::Create(2),
+        SGConstInt::Create(1),
+        "i",
+        SGBlock::Create(std::move(body))),
+      SIOPrint::Create({SGConstString::Create("after-continue")}),
+    });
+  };
+  compare(make_continue_root(true), make_continue_root(false));
+
+  const auto make_main_predeclaration_root = [](bool include_dead_suffix) {
+    std::vector<StyioIR*> statements{
+      SIOPrint::Create({
+        SGCall::Create(SGResId::Create("dead_suffix_late_function"), {})}),
+      SGReturn::Create(SGConstInt::Create(0)),
+    };
+    if (include_dead_suffix) {
+      statements.push_back(
+        SIOPrint::Create({SGConstString::Create("dead-main-suffix")}));
+    }
+    statements.push_back(SGFunc::Create(
+      SGType::Create(styio_data_type_from_name("i64")),
+      SGResId::Create("dead_suffix_late_function"),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(23))})));
+    return SGMainEntry::Create(std::move(statements));
+  };
+  compare(
+    make_main_predeclaration_root(true),
+    make_main_predeclaration_root(false));
 }
 
 TEST(StyioIRPassManager, VerifierCatchesInactiveNodeBeforePass) {
@@ -7774,6 +8436,62 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectDiscardStatement) {
   EXPECT_EQ(repr.find("styio.ast.FlowBind"), std::string::npos);
 }
 
+TEST(StyioSecurityResourceTypestate, conditional_close_rejects_post_join_property_use) {
+  const std::string src =
+    "f := @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "?(true) => { f -> @() } | { ^ }\n"
+    ">_(f.path)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected a maybe-closed handle use to fail in Sema";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_NE(std::string(ex.what()).find("use-after-destroy"), std::string::npos)
+      << ex.what();
+  }
+}
+
+TEST(StyioSecurityResourceTypestate, both_open_branches_allow_post_join_property_use) {
+  const std::string src =
+    "f := @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "?(true) => { ^ } | { ^ }\n"
+    ">_(f.path)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
+TEST(StyioSecurityResourceTypestate, conditional_close_rejects_post_join_file_pull) {
+  const std::string src =
+    "f = @file(\"tests/features/file_resources/data/numbers.txt\")\n"
+    "?(true) => { f -> @() } | { ^ }\n"
+    "value = ?| (<< f) | 7\n"
+    ">_(value)\n";
+
+  try {
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly);
+    FAIL() << "expected a maybe-closed handle pull to fail in Sema";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_EQ(
+      std::string(ex.what()),
+      "\nStyio.TypeError:\n"
+      "use-after-destroy: resource `f` was already destroyed");
+  }
+}
+
+TEST(StyioSecurityResourceTypestate, file_rebind_after_join_reopens_handle) {
+  const std::string src =
+    "f = @file(\"tests/features/file_resources/data/hello.txt\")\n"
+    "?(true) => { f -> @() } | { ^ }\n"
+    "f = @file(\"tests/features/file_resources/data/numbers.txt\")\n"
+    ">_(f.path)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly));
+}
+
 TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectFallbackStatement) {
   const std::string src =
     "?| \"x\" -> @stdout | \"fallback\" -> @stderr\n";
@@ -10206,6 +10924,102 @@ TEST(StyioSecurityNightlySemantics, CharMaterializedListsFeedZipBarrier) {
     compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
   EXPECT_NE(llvm_ir.find("styio_list_get_char"), std::string::npos);
   EXPECT_NE(llvm_ir.find("styio_char_cstr"), std::string::npos);
+}
+
+TEST(StyioSecurityZipBarrierFacts, VerifierRejectsEveryMalformedClosedFact) {
+  const auto expect_rejected = [](const auto& mutate) {
+    std::unique_ptr<SIOStreamZip> zip(SIOStreamZip::Create(
+      SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+      false,
+      false,
+      "left",
+      SCListLiteral::Create({SGConstInt::Create(2)}, "i64"),
+      false,
+      false,
+      "right",
+      false,
+      false,
+      "i64",
+      "i64",
+      SGBlock::Create({SGNoOp::Create()})));
+    mutate(zip->barrier_facts);
+    const auto result = styio::ir::verify_styio_ir(zip.get());
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.diagnostics.size(), 1u);
+    EXPECT_EQ(
+      result.diagnostics.front().message,
+      "SIOStreamZip.barrier_facts must be canonical");
+  };
+
+  expect_rejected([](auto& facts) {
+    facts.frame_identity = static_cast<SGStreamZipFrameIdentity>(255);
+  });
+  expect_rejected([](auto& facts) {
+    std::swap(facts.members[0], facts.members[1]);
+  });
+  expect_rejected([](auto& facts) {
+    facts.members[1] = SGStreamZipBarrierMember::SourceA;
+  });
+  expect_rejected([](auto& facts) {
+    facts.members[0] = static_cast<SGStreamZipBarrierMember>(255);
+  });
+  expect_rejected([](auto& facts) {
+    facts.readiness = static_cast<SGStreamZipReadiness>(255);
+  });
+  expect_rejected([](auto& facts) {
+    facts.commit = static_cast<SGStreamZipCommit>(255);
+  });
+  expect_rejected([](auto& facts) {
+    facts.termination = static_cast<SGStreamZipTermination>(255);
+  });
+}
+
+TEST(StyioSecurityZipBarrierFacts, FactoryOwnsFactsAndBodyDefinesLoopDomain) {
+  static_assert(!std::is_default_constructible_v<SIOStreamZip>);
+
+  std::unique_ptr<SIOStreamZip> zip(SIOStreamZip::Create(
+    SCListLiteral::Create({SGConstInt::Create(1)}, "i64"),
+    false,
+    false,
+    "left",
+    SCListLiteral::Create({SGConstInt::Create(2)}, "i64"),
+    false,
+    false,
+    "right",
+    false,
+    false,
+    "i64",
+    "i64",
+    SGBlock::Create({
+      SGIf::Create(
+        SGConstBool::Create(true),
+        SGBlock::Create({SGBreak::Create()}),
+        SGBlock::Create({SGContinue::Create()})),
+    })));
+
+  ASSERT_TRUE(zip->barrier_facts.is_canonical());
+  const auto result = styio::ir::verify_styio_ir(zip.get());
+  EXPECT_TRUE(result.ok())
+    << (result.diagnostics.empty() ? "" : result.diagnostics.front().message);
+}
+
+TEST(StyioSecurityZipBarrierFacts, UnequalListsExecuteOnlyMatchedPairs) {
+  const std::string src =
+    "[1,2,3] >> #(left) & [10,20] >> #(right) => {\n"
+    "  >_(left * 100 + right)\n"
+    "}\n";
+
+  testing::internal::CaptureStdout();
+  try {
+    execute_program_engine_with_stdin_latest(
+      src, StyioParserEngine::Nightly, "");
+  }
+  catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    throw;
+  }
+  std::fflush(stdout);
+  EXPECT_EQ(testing::internal::GetCapturedStdout(), "110\n220\n");
 }
 
 TEST(StyioSecurityNightlySemantics, MatrixSelectorSnapshotsFeedZipBarrier) {

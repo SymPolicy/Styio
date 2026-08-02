@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-02
 
 ## Mission
 
@@ -29,7 +29,7 @@ Build and test targets:
 ## Daily Workflow
 
 1. Read [../design/Styio-EBNF.md](../design/Styio-EBNF.md), [../design/Styio-Symbol-Reference.md](../design/Styio-Symbol-Reference.md), and relevant language sections before changing syntax.
-2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), and the parser gate sections in [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) when touching parser authority paths; use Git history only if active docs are still insufficient.
+2. Check [../rollups/CURRENT-STATE.md](../rollups/CURRENT-STATE.md), [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), [../rollups/C0-PARSER-PRATT-READINESS.md](../rollups/C0-PARSER-PRATT-READINESS.md), and the parser gate sections in [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) when touching parser authority paths; use Git history only if active docs are still insufficient.
 3. Make lexer and parser changes in the smallest parse subset possible.
 4. Add or update a failing fixture before changing accepted behavior.
 5. Update [../../workflows/TEST-CATALOG.md](../../workflows/TEST-CATALOG.md) when adding feature or parser acceptance coverage.
@@ -79,6 +79,7 @@ Build and test targets:
 46. Styio has no word-token keywords. Tokenize every identifier-shaped word as `NAME`; inspect exact spellings only after punctuation or an already-selected structural production supplies the context. Keep keyword-like ordinary bindings executable and keep Boolean literal spellings lexically classified as `NAME`.
 47. Callable type syntax is a recursive type-position form, `#(T1, T2): R`, with one whitespace-free canonical identity stored in `StyioDataType`. Parse nested parameter and result callable types through the normal type parser and preserve right-side result precedence: in `#(i64): i64..`, the repetition suffix belongs to the result type, not the callable value. Do not add a second signature representation in the parser or reinterpret value-position `#` declarations as type syntax.
 48. Explicit callable capture syntax is `$(name, ...)` after the declared parameter/result signature and before the callable binding/body operator, for example `# add : i64 $(seed) := (value: i64) => value + seed`. The capture list must be nonempty and duplicate-free, must remain attached to `FunctionAST` / `SimpleFuncAST`, and must be recognized by the nightly hash-function route before generic expression fallback. Exact free-name, ownership, and escape validation belongs to Sema; the parser must not infer or silently add captures.
+49. The accepted expression parser has one core and one precedence authority. `parse_expr(StyioContext&)` is the canonical full-expression entry; nightly subset and delimiter-bounded entries are routing wrappers around it, never separate precedence implementations. `src/StyioToken/Token.hpp` owns `StyioExprOperatorInfo`, `StyioExprAssociativity`, `StyioExprOperatorKind`, and the constexpr `styio_expr_operator_info(StyioTokenType)` lookup — the only accepted-expression infix precedence, associativity, operator-kind, and AST-operation authority. Enum ordinals and hash lookups never decide precedence; `StyioOpType` is an AST operation identity only. The core is an LLVM-style iterative left fold with rust-analyzer binding-power semantics: the RHS minimum is `p + 1` for left-associative and `p` for right-associative operators, and the loop stops without consuming on a non-operator token, an allowed follow token, or a lower-precedence token. Work is O(n) in tokens with `expression_token_visits <= 8 * token_count + 8`, zero expression-core scratch allocations on flat chains, and `kStyioExprMaxDepth` = 128 active expression frames; the 129th fails with `StyioParserResourceLimitError` ("expression exceeds parser recursion limit of 128") while existing delimiter nesting stays capped at 64. Once an accepted expression FIRST token is recognized, the nightly parser owns the route: malformed or unsupported continuations are fatal and never rewind into legacy expression, block, statement, match, list, dict, iterator, or hash parsers; accepted AST shapes, line-break boundaries, resource-effect delimiter ownership, and stable nightly diagnostics remain unchanged.
 
 ## Change Classes
 
@@ -95,6 +96,7 @@ ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -R '^StyioParserEngine\.'
 ctest --test-dir build/default -R '^StyioDiagnostics\.SyntaxCheckRejectsNonAuthoritativeParserEngine$'
 ctest --test-dir build/default -R '^parser_shadow_gate_'
+ctest --test-dir build -R '^StyioParserInternal\.' --output-on-failure
 ```
 
 When touching fuzz-sensitive boundaries:

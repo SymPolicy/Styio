@@ -65,7 +65,16 @@ public:
     std::int64_t blocking_pulls,
     std::int64_t failed_pulls,
     std::int64_t invalid_pulls,
-    std::int64_t max_queue_depth);
+    std::int64_t max_queue_depth,
+    std::int64_t queue_capacity,
+    std::int64_t queue_current_depth,
+    std::int64_t queue_accepted_pushes,
+    std::int64_t queue_pops,
+    std::int64_t queue_pressure_events,
+    std::int64_t queue_producer_waits,
+    std::int64_t queue_consumer_waits,
+    std::int64_t queue_close_wake_ups,
+    std::int64_t queue_closed);
   void add_counter(std::string name, std::int64_t value);
   void mark_status(std::string status, std::string detail = std::string());
 
@@ -110,6 +119,15 @@ private:
     std::int64_t failed_pulls = 0;
     std::int64_t invalid_pulls = 0;
     std::int64_t max_queue_depth = 0;
+    std::int64_t queue_capacity = 0;
+    std::int64_t queue_current_depth = 0;
+    std::int64_t queue_accepted_pushes = 0;
+    std::int64_t queue_pops = 0;
+    std::int64_t queue_pressure_events = 0;
+    std::int64_t queue_producer_waits = 0;
+    std::int64_t queue_consumer_waits = 0;
+    std::int64_t queue_close_wake_ups = 0;
+    std::int64_t queue_closed = 0;
   };
 
   bool enabled_ = false;

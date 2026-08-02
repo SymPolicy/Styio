@@ -3931,7 +3931,9 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   disabled.mark_status("ignored");
   disabled.set_source_summary(12, 2);
   disabled.set_parser_route_stats(1, 2, 3, 4);
-  disabled.set_async_scheduler_stats(1, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+  disabled.set_async_scheduler_stats(
+    1, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23, 24);
   EXPECT_TRUE(disabled.write());
   EXPECT_FALSE(disabled.written());
   const std::string disabled_json = disabled.to_json();
@@ -3957,7 +3959,9 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   profiler.record_phase("manual\nphase", 42);
   profiler.mark_status("ok", std::string("detail ") + static_cast<char>(1));
   profiler.set_parser_route_stats(3, 2, 1, 0);
-  profiler.set_async_scheduler_stats(1, 4, 1, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11);
+  profiler.set_async_scheduler_stats(
+    1, 4, 1, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 11,
+    4096, 0, 9, 9, 2, 2, 4, 0, 0);
 
   StyioToken* name = StyioToken::Create(StyioTokenType::NAME, "name");
   StyioToken* integer = StyioToken::Create(StyioTokenType::INTEGER, "1");
@@ -3998,6 +4002,8 @@ TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures
   EXPECT_NE(json.find("\"nightly_subset_statements\": 3"), std::string::npos);
   EXPECT_NE(json.find("\"ready_queue_kind\": 1"), std::string::npos);
   EXPECT_NE(json.find("\"max_queue_depth\": 11"), std::string::npos);
+  EXPECT_NE(json.find("\"queue_capacity\": 4096"), std::string::npos);
+  EXPECT_NE(json.find("\"queue_pressure_events\": 2"), std::string::npos);
   EXPECT_NE(json.find("\"name\": \"second\""), std::string::npos);
 
   std::string error;

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-08-01
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -59,15 +59,16 @@
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| Placeholder lowering remains widespread | High | Representative `SGConstInt(0)` placeholders still exist for multiple AST kinds in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Codegen / Runtime, Test Quality | Replace silent placeholder lowering with real lowering or explicit typed failure; do not keep placeholder nodes on active execution paths |
-| Type inference coverage remains structurally incomplete | High | Empty visitors still exist for active AST families such as `CommentAST`, `InfiniteAST`, `FmtStrAST`, `ForwardAST`, and anonymous functions in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) | Sema / IR, Test Quality | Build an explicit inventory of empty visitors and classify each as dead syntax, intentional no-op, or implementation debt |
-| State inline clone path still has unsupported-node fallthrough | Medium | Unsupported AST fallback remains in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Test Quality | Continue shrinking the unsupported clone surface until state-helper inlining is total for accepted language forms |
+| Direct placeholder lowering | Closed | The P0 audit found no active AST route that fabricates `SGConstInt(0)`; the two remaining zero constructors initialize concrete resource storage in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Sema / IR, Test Quality | Preserve typed failure for unsupported AST families and explicit `SGNoOp` for intentional no-op forms |
+| Empty Sema visitor classification | Closed for P0 | All 41 empty visitors are classified in [IM-D1-STYIOIR-CONTRACT-INVENTORY.md](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md): 26 intentional or parent-owned, 5 retired, and 10 implementation-debt families; `FmtStrAST` is confirmed non-empty | Sema / IR, Test Quality | Re-open only one accepted implementation-debt family at a time |
+| Inline clone unsupported-node fallthrough | Typed boundary | `StateExprCloneVisitor` explicitly clones the accepted state/resource-method surface and raises `StyioTypeError` for unlisted AST kinds; focused clone tests cover accepted and rejected paths | Sema / IR, Test Quality | Extend the switch only with the implementation slice that accepts the corresponding source form |
+| Loop-control verifier context | Closed | [src/StyioIR/Verifier.cpp](../../src/StyioIR/Verifier.cpp) tracks body-scoped nesting for all three loop IR nodes and rejects top-level `SGBreak` / `SGContinue`; focused contract coverage lives in [tests/security/styio_security_test.cpp](../../tests/security/styio_security_test.cpp) | Sema / IR, Test Quality | Preserve the single-level control contract and reopen only for an independently approved semantic extension |
 
 ### 5.3 Codegen / Runtime
 
 | Gap | Severity | Current evidence | Owning teams | Next checkpoint intent |
 |-----|----------|------------------|--------------|------------------------|
-| M7 multi-stream processing is not complete end-to-end | High | `IterSeqAST` exists in parser output in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp), but type inference is empty in [src/StyioSema/TypeInfer.cpp](../../src/StyioSema/TypeInfer.cpp) and IR lowering is still a placeholder in [src/StyioLowering/AstToStyioIR.cpp](../../src/StyioLowering/AstToStyioIR.cpp) | Frontend, Sema / IR, Codegen / Runtime | Pick one accepted M7 slice and carry it through parser, sema, lowering, runtime, and milestone tests in one checkpoint chain |
+| M7 multi-stream processing is not complete end-to-end | High | `IterSeqAST` exists in parser output in [src/StyioParser/Parser.cpp](../../src/StyioParser/Parser.cpp); Sema and lowering now reject hash-tag routing explicitly with `StyioTypeError` instead of emitting a placeholder, so the feature remains unavailable rather than silently miscompiled | Frontend, Sema / IR, Codegen / Runtime | Pick one accepted M7 slice and carry it through parser, sema, lowering, runtime, and milestone tests in one checkpoint chain |
 | Zip lowering still supports only a narrow source set | High | Unsupported source combinations still throw in [src/StyioCodeGen/CodeGenG.cpp](../../src/StyioCodeGen/CodeGenG.cpp) | Codegen / Runtime, Sema / IR, Test Quality | Expand supported combinations according to M7 acceptance order, not ad hoc one-off cases |
 | Some accepted runtime-oriented syntax still depends on special-case routing rather than a unified protocol | Medium | This is reflected both in current parser/analyzer shape and in the still-target-only capability design [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md) | Codegen / Runtime, Sema / IR | Use next-stage runtime work to reduce parser-shape-driven behavior branching |
 
@@ -110,8 +111,8 @@ Start the next stage from checkpoint-sized implementation slices. Do not recreat
 
 | Checkpoint | First output | Owner path | Required proof |
 |------------|--------------|------------|----------------|
-| P0 | Inventory active Sema/lowering placeholders by AST family and classify each as dead syntax, intentional no-op, or implementation debt | W1 / Sema / IR | Focused inventory diff plus `python3 scripts/docs-audit.py` |
-| P1 | Retire one placeholder cluster by implementing real lowering or fail-closed diagnostics | W1 / Sema / IR + Codegen / Runtime | Targeted unit tests, affected `styio_pipeline` cases, and `security` when diagnostics or ownership change |
+| P0 (closed 2026-08-01) | Inventory active Sema/lowering placeholders, clone fallthrough, generated zeros, and verifier leaves | W1 / Sema / IR | [IM-D1-STYIOIR-CONTRACT-INVENTORY.md](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md) plus `python3 scripts/docs-audit.py` |
+| P1 (first closure complete 2026-08-01) | Enforce IR loop-control legality without changing parser, Sema, codegen, or runtime semantics | W1 / Sema / IR + Test Quality | Focused `StyioIRContract` tests plus existing break/continue security cases |
 | P2 | Carry one M7 stream/zip source combination through parser, sema, lowering, runtime, and tests | W2 / Frontend + Sema / IR + Codegen / Runtime | M7 milestone case, five-layer evidence, and parser shadow gates |
 | P3 | Advance one Topology v2 compiler slice without adding legacy syntax back | W6 / Frontend + Sema / IR + Test Quality | Resource-topology unit tests, active-syntax docs update, and migration diagnostics when retired syntax is touched |
 | P4 | Route resource/task pressure evidence through `styio-benchmark` while keeping Styio-side probes stable | Perf / Stability + Test Quality | `styio-benchmark` report path or documented handoff plus Styio probe gate |

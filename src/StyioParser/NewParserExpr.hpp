@@ -3,6 +3,8 @@
 #define STYIO_NEW_PARSER_EXPR_H_
 
 #include <exception>
+#include <optional>
+#include <utility>
 
 #include "../StyioException/Exception.hpp"
 #include "Parser.hpp"
@@ -20,6 +22,7 @@ struct ParseAttempt
   ParseAttemptStatus status = ParseAttemptStatus::Declined;
   T* node = nullptr;
   std::exception_ptr error;
+  std::optional<std::pair<size_t, size_t>> failure_range;
 
   static ParseAttempt parsed(T* value) {
     ParseAttempt out;
@@ -32,10 +35,14 @@ struct ParseAttempt
     return ParseAttempt {};
   }
 
-  static ParseAttempt fatal(std::exception_ptr ex) {
+  static ParseAttempt fatal(
+    std::exception_ptr ex,
+    std::optional<std::pair<size_t, size_t>> range = std::nullopt
+  ) {
     ParseAttempt out;
     out.status = ParseAttemptStatus::Fatal;
     out.error = ex;
+    out.failure_range = range;
     return out;
   }
 };

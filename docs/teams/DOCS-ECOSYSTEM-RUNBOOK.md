@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-01
 
 ## Mission
 
@@ -24,6 +24,7 @@ Primary paths:
 10. `scripts/team-docs-gate.py`
 11. `scripts/workflow-scheduler.py`
 12. `scripts/delivery-gate.sh`
+13. `scripts/manifest_tool.py`
 
 Key SSOTs:
 
@@ -93,7 +94,7 @@ Key SSOTs:
 58. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
 59. When local divergent history is reintroduced after an upstream governance update, preserve the old branch or stash reference in a rollup ledger and migrate only slices that fit current repository ownership. Do not restore deleted plan trees, old service paths, or superseded ecosystem names as active docs.
 60. Keep rollup ledgers and migration notes free of developer-machine absolute paths; describe portability behavior generically unless an owned contract explicitly requires a literal path form.
-61. Track valid generated-index support files and installed shared assets even when broad ignore patterns match their directories. When `docs/plan/reports/` or `share/styio/prelude/` files become required by docs audit, install layout, or source-build metadata, force-track the owned files and refresh `DOC-STATS.md` in the same change.
+61. Track valid generated-index support files and installed shared assets even when broad ignore patterns match their directories. When `share/styio/prelude/` files become required by docs audit, install layout, or source-build metadata, force-track the owned files and refresh `DOC-STATS.md` in the same change.
 62. When `>>` language docs distinguish pulse transfer from standalone continue, keep EBNF, language design, active syntax, resource docs, symbol reference, rollups, agent specs, examples, and the owning implementation runbooks aligned in the same checkpoint.
 63. When writable-resource iterable writes change between whole-value serialization and per-item pulse emission, keep resource identifier docs, EBNF, language design, active syntax, symbol reference, handle capability wording, Sema / IR ownership, and security evidence aligned in the same checkpoint.
 64. Keep one durable SSOT under `docs/design/syntax/features/` for each syntax feature. Update its lifecycle, dependencies, prerequisites, implementation owner, and golden evidence first; regenerate `SYNTAX-FEATURE-GRAPH.json` with `scripts/syntax-feature-state-gate.py` instead of editing the composed graph by hand or creating a parallel registry.
@@ -115,6 +116,7 @@ Key SSOTs:
 80. Keep affine capturing closures in their own feature SSOT. Shared language views must place the exact nonempty `$(...)` list between the callable signature and binding/body operator, distinguish shared escape from exclusive direct-call and rejected consume modes, and scope the converged environment to program-static scalar storage. Do not imply resource/container capture, imported environments, heap boxes, garbage collection, implicit free-name capture, or generalized closures.
 81. Keep persistent callable specialization reuse in its own compiler-cache feature SSOT. Compact language views should say only that the operation is opt-in, keyed by the fresh full specialization digest, isolated by compiler/LLVM/codegen/target/channel/backend facts, bounded by explicit age/byte/file limits, and semantics-neutral on miss or corruption. Put binary entry layout, ORC partitioning, verification, atomic-write, pruning, and statistics details in the child SSOT and owning runbooks; do not turn CLI cache controls into source syntax or imply distributed trust.
 82. Converged prerequisites do not auto-promote a deferred language feature. Refresh its non-authoritative question set from specifications, official compiler documentation, accepted proposals, or primary papers; record concrete implementation lessons and failure modes; map them to Styio's functional, keyword-free, ownership, interface, and specialization constraints; and keep every unanswered subquestion linked from the existing deferred child SSOT. Do not create a parallel feature SSOT or describe a recommended answer as approved.
+83. Keep project planning on the current three-layer Better Plan model: `Capabilities.json` owns durable observed capability facts, `Manifest.json` owns Plan purpose and lifecycle summaries, and each `Checkpoints.json` owns globally resolvable execution dependencies. Validate source-file bindings and both readable projections after every state migration, delete superseded nodes and legacy enum values in the same change, and keep the structured algorithm roadmap aligned with `CURRENT-STATE.md` and the next-stage gap ledger.
 
 ## Change Classes
 

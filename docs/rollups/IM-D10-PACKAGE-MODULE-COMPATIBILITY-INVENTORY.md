@@ -101,5 +101,5 @@ release evidence and does not move external product behavior into Styio.
 ## References
 
 - [Pafio handoff](../external/for-pafio/Styio-Nano-Pafio-Coordination.md)
-- [ecosystem machine contract matrix](../plan/Styio-Ecosystem-CLI-Contract-Matrix.md)
+- [ecosystem machine contract matrix](../external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md)
 - [repository map](../specs/REPOSITORY-MAP.md)

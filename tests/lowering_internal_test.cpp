@@ -135,18 +135,20 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
     delete std::get<TypeTupleAST*>(ret);
   }
 
-  EXPECT_EQ(param_data_type(nullptr).name, "i64");
+  EXPECT_EQ(param_data_type(nullptr, &analyzer, "probe", 0).name, "i64");
   {
     std::unique_ptr<ParamAST> p(ParamAST::Create(NameAST::Create("p")));
-    EXPECT_EQ(param_data_type(p.get()).name, "i64");
-    std::unique_ptr<SGFuncArg> arg(param_to_sgarg(p.get(), &analyzer));
+    EXPECT_EQ(param_data_type(p.get(), &analyzer, "probe", 0).name, "i64");
+    std::unique_ptr<SGFuncArg> arg(
+      param_to_sgarg(p.get(), &analyzer, "probe", 0));
     EXPECT_EQ(arg->id, "p");
     EXPECT_EQ(arg->arg_type->data_type.name, "i64");
   }
   {
     std::unique_ptr<ParamAST> p(ParamAST::Create(NameAST::Create("q"), TypeAST::Create("bool")));
-    EXPECT_EQ(param_data_type(p.get()).name, "bool");
-    std::unique_ptr<SGFuncArg> arg(param_to_sgarg(p.get(), &analyzer));
+    EXPECT_EQ(param_data_type(p.get(), &analyzer, "probe", 0).name, "bool");
+    std::unique_ptr<SGFuncArg> arg(
+      param_to_sgarg(p.get(), &analyzer, "probe", 0));
     EXPECT_EQ(arg->arg_type->data_type.name, "bool");
   }
 
@@ -548,20 +550,23 @@ TEST(StyioLoweringInternal, PassManagerRunsCanonicalizationAndVerifierStages) {
 
     ASSERT_TRUE(result.ok()) << result.diagnostics.front().message;
     EXPECT_EQ(result.root, root.get());
-    ASSERT_EQ(result.passes.size(), 2u);  // Canonicalization + ConstantFolding
-    EXPECT_EQ(result.passes[0].name, "styioir-canonicalization");
+    ASSERT_EQ(result.passes.size(), 3u);
+    EXPECT_EQ(result.passes[0].name, "styioir-dead-suffix-elimination");
     EXPECT_TRUE(result.passes[0].verifier_before_ok);
     EXPECT_TRUE(result.passes[0].verifier_after_ok);
-    EXPECT_EQ(result.passes[1].name, "styioir-constant-folding");
+    EXPECT_EQ(result.passes[1].name, "styioir-canonicalization");
     EXPECT_TRUE(result.passes[1].verifier_before_ok);
     EXPECT_TRUE(result.passes[1].verifier_after_ok);
+    EXPECT_EQ(result.passes[2].name, "styioir-constant-folding");
+    EXPECT_TRUE(result.passes[2].verifier_before_ok);
+    EXPECT_TRUE(result.passes[2].verifier_after_ok);
     EXPECT_FALSE(result.initial_ir.empty());
     EXPECT_FALSE(result.final_ir.empty());
     EXPECT_EQ(result.initial_ir, result.passes[0].ir_before);
-    EXPECT_EQ(result.final_ir, result.passes[1].ir_after);
+    EXPECT_EQ(result.final_ir, result.passes[2].ir_after);
     EXPECT_NE(result.initial_ir, result.final_ir);
-    EXPECT_NE(result.passes[0].ir_before.find("styio.ir.match"), std::string::npos);
-    EXPECT_NE(result.passes[0].ir_after.find("styio.ir.block"), std::string::npos);
+    EXPECT_NE(result.passes[1].ir_before.find("styio.ir.match"), std::string::npos);
+    EXPECT_NE(result.passes[1].ir_after.find("styio.ir.block"), std::string::npos);
     auto* wrapper = dynamic_cast<SGBlock*>(root->stmts[0]);
     ASSERT_NE(wrapper, nullptr);
     ASSERT_EQ(wrapper->stmts.size(), 2u);
@@ -1835,6 +1840,48 @@ TEST(StyioLoweringInternal, IteratorAndZipPulsePlansAttachToIterableIrNodes) {
     std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
   }
+}
+
+TEST(StyioZipBarrierFacts, LoweringBuildsCanonicalFactsForUnequalLists) {
+  auto* left = ListAST::Create(
+    {IntAST::Create("1"), IntAST::Create("2"), IntAST::Create("3")});
+  auto* right = ListAST::Create({IntAST::Create("10")});
+  left->setDataType(styio_make_list_type("i64"));
+  right->setDataType(styio_make_list_type("i64"));
+
+  AstToStyioIRLowerer analyzer;
+  std::unique_ptr<StreamZipAST> ast(StreamZipAST::Create(
+    left,
+    {ParamAST::Create(NameAST::Create("left"))},
+    right,
+    {ParamAST::Create(NameAST::Create("right"))},
+    BlockAST::Create({PassAST::Create()})));
+  std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
+  auto* zip = dynamic_cast<SIOStreamZip*>(ir.get());
+
+  ASSERT_NE(zip, nullptr);
+  EXPECT_FALSE(zip->a_is_file);
+  EXPECT_FALSE(zip->a_is_stdin);
+  EXPECT_FALSE(zip->b_is_file);
+  EXPECT_FALSE(zip->b_is_stdin);
+  EXPECT_EQ(
+    zip->barrier_facts.frame_identity,
+    SGStreamZipFrameIdentity::MatchedPairOrdinal);
+  EXPECT_EQ(
+    zip->barrier_facts.members[0],
+    SGStreamZipBarrierMember::SourceA);
+  EXPECT_EQ(
+    zip->barrier_facts.members[1],
+    SGStreamZipBarrierMember::SourceB);
+  EXPECT_EQ(
+    zip->barrier_facts.readiness,
+    SGStreamZipReadiness::AllMembersPresent);
+  EXPECT_EQ(zip->barrier_facts.commit, SGStreamZipCommit::AfterBodyOnce);
+  EXPECT_EQ(
+    zip->barrier_facts.termination,
+    SGStreamZipTermination::ShortestFiniteInput);
+  EXPECT_TRUE(zip->barrier_facts.is_canonical());
+  EXPECT_TRUE(styio::ir::verify_styio_ir(zip).ok());
 }
 
 TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {

@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <future>
 #include <optional>
 #include <string>
 #include <thread>
@@ -55,6 +58,24 @@ void test_runtime_log_sink(const char* stream, const char* message) {
     std::string(stream != nullptr ? stream : "<null>")
     + "="
     + std::string(message != nullptr ? message : "<null>"));
+}
+
+struct BlockingTaskContext {
+  std::atomic<bool>* entered;
+  std::atomic<bool>* release;
+  int64_t value;
+};
+
+int64_t run_blocking_task(void* raw) {
+  auto* context = static_cast<BlockingTaskContext*>(raw);
+  context->entered->store(true, std::memory_order_release);
+  context->entered->notify_all();
+  context->release->wait(false, std::memory_order_acquire);
+  return context->value;
+}
+
+int64_t run_value_task(void* raw) {
+  return *static_cast<int64_t*>(raw);
 }
 
 }  // namespace
@@ -565,13 +586,16 @@ TEST(StyioExternLibInternal, NullAndWrongKindHandleCastsStayExplicit) {
 
 TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit) {
   EnvVarGuard threads("STYIO_TASK_THREADS");
-  threads.set("128");
-  EnvVarGuard queue_backend("STYIO_USE_MPMC_QUEUE");
-  queue_backend.set("1");
+  threads.set("1");
+  EnvVarGuard capacity("STYIO_TASK_QUEUE_CAPACITY");
+  capacity.set("1");
 
   EXPECT_EQ(
     StyioTaskScheduler::instance().ready_queue_kind(),
-    styio::runtime::ReadyQueueKind::BoundedMPMC);
+    styio::runtime::ReadyQueueKind::BoundedWait);
+  const auto queue = StyioTaskScheduler::instance().ready_queue_snapshot();
+  EXPECT_EQ(queue.capacity, 1u);
+  EXPECT_FALSE(queue.closed);
 
   std::atomic<bool> start_workers{false};
   std::vector<std::size_t> worker_counts(32, 0);
@@ -589,9 +613,72 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
     starter.join();
   }
   for (const std::size_t workers : worker_counts) {
-    EXPECT_GE(workers, 1u);
-    EXPECT_LE(workers, 64u);
+    EXPECT_EQ(workers, 1u);
   }
+
+  styio_task_scheduler_profile_reset();
+  styio_task_scheduler_profile_enable(1);
+  std::atomic<bool> entered{false};
+  std::atomic<bool> release{false};
+  auto* first = new StyioTask(StyioTaskValueKind::I64);
+  first->i64_fn = run_blocking_task;
+  first->ctx = std::malloc(sizeof(BlockingTaskContext));
+  ASSERT_NE(first->ctx, nullptr);
+  *static_cast<BlockingTaskContext*>(first->ctx) = {&entered, &release, 40};
+  StyioTaskScheduler::instance().enqueue(first);
+  entered.wait(false, std::memory_order_acquire);
+
+  auto make_value_task = [](int64_t value) {
+    auto* task = new StyioTask(StyioTaskValueKind::I64);
+    task->i64_fn = run_value_task;
+    task->ctx = std::malloc(sizeof(int64_t));
+    if (task->ctx != nullptr) {
+      *static_cast<int64_t*>(task->ctx) = value;
+    }
+    return task;
+  };
+  StyioTask* second = make_value_task(1);
+  StyioTask* third = make_value_task(1);
+  ASSERT_NE(second->ctx, nullptr);
+  ASSERT_NE(third->ctx, nullptr);
+  StyioTaskScheduler::instance().enqueue(second);
+  auto third_enqueue = std::async(std::launch::async, [&]() {
+    StyioTaskScheduler::instance().enqueue(third);
+  });
+  const auto pressure_deadline = std::chrono::steady_clock::now()
+    + std::chrono::seconds(2);
+  while (StyioTaskScheduler::instance().ready_queue_snapshot().producer_waits < 1
+         && std::chrono::steady_clock::now() < pressure_deadline) {
+    std::this_thread::yield();
+  }
+  ASSERT_EQ(
+    StyioTaskScheduler::instance().ready_queue_snapshot().producer_waits,
+    1u);
+  styio_runtime_clear_error();
+  release.store(true, std::memory_order_release);
+  release.notify_all();
+  ASSERT_EQ(
+    third_enqueue.wait_for(std::chrono::seconds(2)),
+    std::future_status::ready);
+  wait_until_task_ready(first);
+  wait_until_task_ready(second);
+  wait_until_task_ready(third);
+  StyioTaskSchedulerProfileSnapshot snapshot{};
+  styio_task_scheduler_profile_snapshot(&snapshot);
+  EXPECT_EQ(snapshot.ready_queue_kind, 1);
+  EXPECT_EQ(snapshot.queue_capacity, 1);
+  EXPECT_EQ(snapshot.queue_current_depth, 0);
+  EXPECT_EQ(snapshot.queue_accepted_pushes, 3);
+  EXPECT_EQ(snapshot.queue_pops, 3);
+  EXPECT_EQ(snapshot.queue_pressure_events, 1);
+  EXPECT_EQ(snapshot.queue_producer_waits, 1);
+  EXPECT_EQ(snapshot.max_queue_depth, 1);
+  EXPECT_EQ(snapshot.queue_closed, 0);
+  EXPECT_FALSE(styio::runtime::has_error());
+  styio_task_scheduler_profile_enable(0);
+  delete first;
+  delete second;
+  delete third;
 
   auto* task = new StyioTask(StyioTaskValueKind::I64);
   ++g_active_task_handles;

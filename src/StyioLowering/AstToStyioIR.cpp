@@ -253,6 +253,13 @@ ast_has_tail_value(StyioAST* ast) {
 static constexpr const char* kMissingFunctionTailMessage =
   "function body requires a return value; add <| expr or a final value expression";
 
+styio::lowering::StyioIRPassPipelineOptions
+intermediate_sg_block_pipeline_options() {
+  styio::lowering::StyioIRPassPipelineOptions options;
+  options.verifier_options.defer_unresolved_loop_control = true;
+  return options;
+}
+
 SGBlock*
 lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false);
 
@@ -295,7 +302,10 @@ lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_valu
     for (auto* following : blk->followings) {
       stmts.push_back(following->toStyioIR(an));
     }
-    return static_cast<SGBlock*>(styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(stmts))));
+    return static_cast<SGBlock*>(
+      styio::lowering::require_default_styio_ir_pass_pipeline(
+        SGBlock::Create(std::move(stmts)),
+        intermediate_sg_block_pipeline_options()));
   }
   std::vector<StyioIR*> one;
   one.push_back(implicit_tail_value ? lower_tail_stmt(an, body) : body->toStyioIR(an));
@@ -2403,7 +2413,9 @@ lower_resource_method_value_body_latest(AstToStyioIRLowerer* an, StyioAST* body)
     throw;
   }
   restore_local_types();
-  return styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(
+    SGBlock::Create(std::move(stmts)),
+    intermediate_sg_block_pipeline_options());
 }
 
 struct PulseScratch
@@ -4910,7 +4922,9 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
   for (auto* following : ast->followings) {
     ir_stmts.push_back(following->toStyioIR(this));
   }
-  return styio::lowering::require_default_styio_ir_pass_pipeline(SGBlock::Create(std::move(ir_stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(
+    SGBlock::Create(std::move(ir_stmts)),
+    intermediate_sg_block_pipeline_options());
 }
 
 StyioIR*

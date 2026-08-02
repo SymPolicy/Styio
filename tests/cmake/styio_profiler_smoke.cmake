@@ -46,9 +46,19 @@ set(_needles
   "\"parser_route\""
   "\"nightly_subset_statements\""
   "\"async_scheduler\""
+  "\"ready_queue_kind\": 1"
   "\"spawned_tasks\""
   "\"completed_tasks\""
   "\"fast_ready_pulls\""
+  "\"queue_capacity\""
+  "\"queue_current_depth\""
+  "\"queue_accepted_pushes\""
+  "\"queue_pops\""
+  "\"queue_pressure_events\""
+  "\"queue_producer_waits\""
+  "\"queue_consumer_waits\""
+  "\"queue_close_wake_ups\""
+  "\"queue_closed\""
 )
 
 foreach(_needle IN LISTS _needles)

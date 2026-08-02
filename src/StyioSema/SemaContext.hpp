@@ -3,6 +3,7 @@
 #define STYIO_SEMA_CONTEXT_H_
 
 // [STL]
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <optional>
@@ -268,12 +269,17 @@ public:
     const std::string& name,
     styio::session::SymbolId sid
   ) {
-    consumed_resource_names_.insert(name);
     if (sid == styio::session::kInvalidSymbolId) {
-      sid = intern_semantic_symbol(name);
+      sid = lookup_semantic_symbol(name);
     }
     if (sid != styio::session::kInvalidSymbolId) {
-      consumed_resource_names_by_sid_.insert(sid);
+      if (consumed_resource_names_by_sid_.insert(sid).second) {
+        ++resource_typestate_dataflow_stats_.fact_insertion_count;
+      }
+      return;
+    }
+    if (consumed_resource_names_.insert(name).second) {
+      ++resource_typestate_dataflow_stats_.fact_insertion_count;
     }
   }
 
@@ -284,9 +290,8 @@ public:
     if (sid == styio::session::kInvalidSymbolId) {
       sid = lookup_semantic_symbol(name);
     }
-    if (sid != styio::session::kInvalidSymbolId
-        && consumed_resource_names_by_sid_.count(sid) != 0) {
-      return true;
+    if (sid != styio::session::kInvalidSymbolId) {
+      return consumed_resource_names_by_sid_.count(sid) != 0;
     }
     return consumed_resource_names_.count(std::string(name)) != 0;
   }
@@ -295,13 +300,14 @@ public:
     const std::string& name,
     styio::session::SymbolId sid
   ) {
-    consumed_resource_names_.erase(name);
     if (sid == styio::session::kInvalidSymbolId) {
       sid = lookup_semantic_symbol(name);
     }
     if (sid != styio::session::kInvalidSymbolId) {
       consumed_resource_names_by_sid_.erase(sid);
+      return;
     }
+    consumed_resource_names_.erase(name);
   }
 
   void clear_consumed_resource_names() {
@@ -529,6 +535,20 @@ public:
     std::string canonical;
   };
 
+  struct CallableConstraintSolverStats
+  {
+    std::size_t run_count = 0;
+    std::size_t input_constraint_count = 0;
+    std::size_t attempt_count = 0;
+    std::size_t requeue_count = 0;
+    std::size_t strict_binding_event_count = 0;
+    std::size_t defaulted_variable_count = 0;
+    std::size_t peak_frontier_count = 0;
+    std::size_t peak_blocked_count = 0;
+    std::size_t peak_live_waiter_count = 0;
+    std::size_t peak_scheduler_storage_slots = 0;
+  };
+
   struct CallableUsageRequirement
   {
     std::uint32_t variable = 0;
@@ -634,6 +654,57 @@ public:
     std::vector<std::string> param_names;
     std::vector<StyioDataType> param_types;
   };
+
+  struct ResourceTypestateDataflowStats
+  {
+    std::size_t branch_snapshot_count = 0;
+    std::size_t join_count = 0;
+    std::size_t fact_insertion_count = 0;
+    std::size_t peak_temporary_fact_slots = 0;
+  };
+
+  struct ResourceTypestateFactSnapshot
+  {
+    std::unordered_set<std::string> names;
+    std::unordered_set<styio::session::SymbolId> symbols;
+
+    std::size_t size() const {
+      return names.size() + symbols.size();
+    }
+  };
+
+  const ResourceTypestateDataflowStats&
+  resource_typestate_dataflow_stats() const {
+    return resource_typestate_dataflow_stats_;
+  }
+
+  void reset_resource_typestate_dataflow_stats() {
+    resource_typestate_dataflow_stats_ = {};
+    resource_typestate_temporary_fact_slots_ = 0;
+  }
+
+  ResourceTypestateFactSnapshot snapshot_resource_typestate_facts() {
+    ResourceTypestateFactSnapshot snapshot{
+      consumed_resource_names_, consumed_resource_names_by_sid_};
+    resource_typestate_temporary_fact_slots_ += snapshot.size();
+    resource_typestate_dataflow_stats_.peak_temporary_fact_slots = std::max(
+      resource_typestate_dataflow_stats_.peak_temporary_fact_slots,
+      resource_typestate_temporary_fact_slots_);
+    return snapshot;
+  }
+
+  void release_resource_typestate_snapshot(
+    const ResourceTypestateFactSnapshot& snapshot
+  ) {
+    resource_typestate_temporary_fact_slots_ -= snapshot.size();
+  }
+
+  void install_resource_typestate_facts(
+    const ResourceTypestateFactSnapshot& snapshot
+  ) {
+    consumed_resource_names_ = snapshot.names;
+    consumed_resource_names_by_sid_ = snapshot.symbols;
+  }
 
   styio::session::SymbolId intern_semantic_symbol(std::string_view spelling) {
     if (type_table_symbols_ == nullptr) {
@@ -933,6 +1004,11 @@ public:
     return callable_type_schemes_;
   }
 
+  const CallableConstraintSolverStats&
+  callable_constraint_solver_stats() const {
+    return callable_constraint_solver_stats_;
+  }
+
   const std::unordered_map<std::string, CallableEffectRowFacts>&
   callable_effect_row_facts() const {
     return callable_effect_rows_;
@@ -1050,6 +1126,8 @@ protected:
   std::unordered_map<HandleAcquireAST*, StyioDataType> collect_bind_handle_acquire_types_;
   std::unordered_set<std::string> consumed_task_names_;
   std::unordered_set<std::string> consumed_resource_names_;
+  ResourceTypestateDataflowStats resource_typestate_dataflow_stats_;
+  std::size_t resource_typestate_temporary_fact_slots_ = 0;
   std::unordered_set<std::string> owned_resource_names_;
   std::vector<std::unordered_set<std::string>> task_outer_resource_names_stack_;
   std::vector<std::unordered_set<styio::session::SymbolId>> task_outer_resource_names_by_sid_stack_;
@@ -1060,6 +1138,7 @@ protected:
   std::vector<styio::session::SymbolId> active_function_body_sid_stack_;
   std::unordered_map<styio::session::SymbolId, StyioDataType> inferred_function_return_types_by_sid_;
   std::unordered_map<std::string, CallableTypeScheme> callable_type_schemes_;
+  CallableConstraintSolverStats callable_constraint_solver_stats_;
   std::unordered_map<std::string, CallableEffectRowFacts> callable_effect_rows_;
   std::unordered_map<std::string, std::vector<CallableCaptureFact>>
     callable_capture_facts_;

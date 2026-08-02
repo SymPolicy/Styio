@@ -44,6 +44,24 @@ std::vector<std::pair<size_t, size_t>> build_line_seps(const std::string& src) {
   return seps;
 }
 
+std::string flat_add_expression(size_t operand_count) {
+  std::ostringstream out;
+  out << "1";
+  for (size_t i = 1; i < operand_count; ++i) {
+    out << " + 1";
+  }
+  return out.str();
+}
+
+std::string power_expression(size_t operand_count) {
+  std::ostringstream out;
+  out << "2";
+  for (size_t i = 1; i < operand_count; ++i) {
+    out << " ** 2";
+  }
+  return out.str();
+}
+
 void free_tokens(std::vector<StyioToken*>& tokens) {
   for (auto* token : tokens) {
     delete token;
@@ -123,6 +141,10 @@ class DirectContext {
     return *context_;
   }
 
+  size_t token_count() const {
+    return tokens_.size();
+  }
+
   void align_token(StyioTokenType type, size_t occurrence = 0) {
     size_t seen = 0;
     for (size_t i = 0; i < tokens_.size(); ++i) {
@@ -147,35 +169,231 @@ class DirectContext {
 
 }  // namespace
 
-TEST(StyioParserInternal, ReassociatesResourceSinksAndParsesResourceHelpers) {
+TEST(StyioParserInternal, CanonicalExpressionOperatorMetadataIsTheOnlyAuthority) {
+  const std::vector<StyioExprOperatorInfo> expected{
+    {StyioTokenType::YIELD_PIPE, 10, StyioExprAssociativity::Left, StyioExprOperatorKind::Apply, StyioOpType::Undefined},
+    {StyioTokenType::TOK_PIPE, 20, StyioExprAssociativity::Left, StyioExprOperatorKind::Fallback, StyioOpType::Undefined},
+    {StyioTokenType::LOGIC_OR, 30, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_OR},
+    {StyioTokenType::LOGIC_AND, 40, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_AND},
+    {StyioTokenType::BINOP_EQ, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Equal},
+    {StyioTokenType::BINOP_NE, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Not_Equal},
+    {StyioTokenType::BINOP_GT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+    {StyioTokenType::TOK_RANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+    {StyioTokenType::BINOP_GE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than_Equal},
+    {StyioTokenType::BINOP_LT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+    {StyioTokenType::TOK_LANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+    {StyioTokenType::BINOP_LE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than_Equal},
+    {StyioTokenType::TOK_PLUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Add},
+    {StyioTokenType::TOK_MINUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Sub},
+    {StyioTokenType::TOK_STAR, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mul},
+    {StyioTokenType::TOK_SLASH, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Div},
+    {StyioTokenType::TOK_PERCENT, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mod},
+    {StyioTokenType::BINOP_POW, 90, StyioExprAssociativity::Right, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Pow},
+  };
+  ASSERT_EQ(std::size(kStyioExprOperators), expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    SCOPED_TRACE(i);
+    const auto* actual = styio_expr_operator_info(expected[i].token);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_EQ(actual, &kStyioExprOperators[i]);
+    EXPECT_EQ(actual->precedence, expected[i].precedence);
+    EXPECT_EQ(actual->associativity, expected[i].associativity);
+    EXPECT_EQ(actual->kind, expected[i].kind);
+    EXPECT_EQ(actual->ast_op, expected[i].ast_op);
+  }
+
+  const auto* add = styio_expr_operator_info(StyioTokenType::TOK_PLUS);
+  ASSERT_NE(add, nullptr);
+  EXPECT_EQ(add->precedence, 70);
+  EXPECT_EQ(add->associativity, StyioExprAssociativity::Left);
+  EXPECT_EQ(add->kind, StyioExprOperatorKind::Arithmetic);
+  EXPECT_EQ(add->ast_op, StyioOpType::Binary_Add);
+
+  const auto* multiply = styio_expr_operator_info(StyioTokenType::TOK_STAR);
+  ASSERT_NE(multiply, nullptr);
+  EXPECT_GT(multiply->precedence, add->precedence);
+  EXPECT_EQ(multiply->associativity, StyioExprAssociativity::Left);
+  EXPECT_EQ(multiply->ast_op, StyioOpType::Binary_Mul);
+
+  const auto* power = styio_expr_operator_info(StyioTokenType::BINOP_POW);
+  ASSERT_NE(power, nullptr);
+  EXPECT_GT(power->precedence, multiply->precedence);
+  EXPECT_EQ(power->associativity, StyioExprAssociativity::Right);
+  EXPECT_EQ(power->ast_op, StyioOpType::Binary_Pow);
+
+  const auto* logic_or = styio_expr_operator_info(StyioTokenType::LOGIC_OR);
+  ASSERT_NE(logic_or, nullptr);
+  EXPECT_EQ(logic_or->kind, StyioExprOperatorKind::Logic);
+  EXPECT_LT(logic_or->precedence, add->precedence);
+
+  const auto* fallback = styio_expr_operator_info(StyioTokenType::TOK_PIPE);
+  ASSERT_NE(fallback, nullptr);
+  EXPECT_EQ(fallback->kind, StyioExprOperatorKind::Fallback);
+  EXPECT_LT(fallback->precedence, logic_or->precedence);
+
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::BINOP_BITAND), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::BINOP_BITOR), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::BINOP_BITXOR), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::LOGIC_XOR), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::TOK_EQUAL), nullptr);
+  EXPECT_EQ(styio_expr_operator_info(StyioTokenType::ARROW_SINGLE_RIGHT), nullptr);
+}
+
+TEST(StyioParserInternal, UnifiedExpressionCorePreservesPrecedenceAndAssociativity) {
   {
-    std::unique_ptr<StyioAST> ast(reassociate_add_into_resource_sink_latest_draft(
-      StyioOpType::Binary_Add,
-      StringAST::Create("prefix"),
-      ResourceWriteAST::Create(
-        StringAST::Create("payload"),
-        StdStreamAST::Create(StdStreamKind::Stdout))));
-    ASSERT_EQ(ast->getNodeType(), StyioNodeType::ResourceWrite);
-    auto* write = static_cast<ResourceWriteAST*>(ast.get());
-    ASSERT_NE(dynamic_cast<BinOpAST*>(write->getData()), nullptr);
+    DirectContext direct("1 + 2 * 3");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* add = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(add, nullptr);
+    EXPECT_EQ(add->getOp(), StyioOpType::Binary_Add);
+    auto* multiply = dynamic_cast<BinOpAST*>(add->getRHS());
+    ASSERT_NE(multiply, nullptr);
+    EXPECT_EQ(multiply->getOp(), StyioOpType::Binary_Mul);
   }
   {
-    std::unique_ptr<StyioAST> ast(reassociate_add_into_resource_sink_latest_draft(
-      StyioOpType::Binary_Add,
-      StringAST::Create("prefix"),
-      ResourceRedirectAST::Create(
-        StringAST::Create("payload"),
-        FileResourceAST::Create(StringAST::Create("out"), false))));
-    ASSERT_EQ(ast->getNodeType(), StyioNodeType::ResourceRedirect);
-    auto* redirect = static_cast<ResourceRedirectAST*>(ast.get());
-    ASSERT_NE(dynamic_cast<BinOpAST*>(redirect->getData()), nullptr);
+    DirectContext direct("8 / 4 % 3");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* modulo = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(modulo, nullptr);
+    EXPECT_EQ(modulo->getOp(), StyioOpType::Binary_Mod);
+    auto* divide = dynamic_cast<BinOpAST*>(modulo->getLHS());
+    ASSERT_NE(divide, nullptr);
+    EXPECT_EQ(divide->getOp(), StyioOpType::Binary_Div);
   }
   {
-    std::unique_ptr<StyioAST> ast(reassociate_add_into_resource_sink_latest_draft(
-      StyioOpType::Binary_Sub,
-      IntAST::Create("3"),
-      IntAST::Create("1")));
-    ASSERT_EQ(ast->getNodeType(), StyioNodeType::BinOp);
+    DirectContext direct("2 ** 3 ** 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* outer = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(outer, nullptr);
+    EXPECT_EQ(outer->getOp(), StyioOpType::Binary_Pow);
+    auto* inner = dynamic_cast<BinOpAST*>(outer->getRHS());
+    ASSERT_NE(inner, nullptr);
+    EXPECT_EQ(inner->getOp(), StyioOpType::Binary_Pow);
+  }
+  {
+    DirectContext direct("a == b && c != d || e");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* logical_or = dynamic_cast<CondAST*>(ast.get());
+    ASSERT_NE(logical_or, nullptr);
+    EXPECT_EQ(logical_or->getSign(), LogicType::OR);
+    auto* logical_and = dynamic_cast<CondAST*>(logical_or->getLHS());
+    ASSERT_NE(logical_and, nullptr);
+    EXPECT_EQ(logical_and->getSign(), LogicType::AND);
+  }
+  {
+    DirectContext direct("a | b | c");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* outer = dynamic_cast<FallbackAST*>(ast.get());
+    ASSERT_NE(outer, nullptr);
+    EXPECT_NE(dynamic_cast<FallbackAST*>(outer->getPrimary()), nullptr);
+  }
+}
+
+TEST(StyioParserInternal, UnifiedExpressionCoreKeepsFlatWorkLinearAndDepthBounded) {
+  {
+    DirectContext direct(flat_add_expression(4096));
+    StyioParserRouteStats stats;
+    direct.get().set_parser_route_stats_latest(&stats);
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    direct.get().set_parser_route_stats_latest(nullptr);
+    ASSERT_NE(ast, nullptr);
+    EXPECT_LE(stats.expression_token_visits, 8 * direct.token_count() + 8);
+    EXPECT_EQ(stats.expression_scratch_allocations, 0u);
+    EXPECT_EQ(stats.expression_ast_nodes, 4095u);
+    EXPECT_LT(stats.expression_max_depth, kStyioExprMaxDepth);
+  }
+  {
+    DirectContext direct(power_expression(kStyioExprMaxDepth));
+    EXPECT_NO_THROW({
+      std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+      EXPECT_NE(ast, nullptr);
+    });
+  }
+  {
+    DirectContext direct(power_expression(kStyioExprMaxDepth + 1));
+    try {
+      std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+      FAIL() << "expected right-associative expression depth failure";
+    }
+    catch (const StyioParserResourceLimitError& ex) {
+      EXPECT_NE(
+        std::string(ex.what()).find("expression exceeds parser recursion limit of 128"),
+        std::string::npos);
+    }
+  }
+}
+
+TEST(StyioParserInternal, UnifiedExpressionCoreOwnsFollowFatalAndDeclineRoutes) {
+  {
+    DirectContext direct("1 + 2 | fallback");
+    auto attempt = try_parse_expr_subset_until_latest(
+      direct.get(), {StyioTokenType::TOK_PIPE});
+    ASSERT_EQ(attempt.status, ParseAttemptStatus::Parsed);
+    std::unique_ptr<StyioAST> ast(attempt.node);
+    auto* add = dynamic_cast<BinOpAST*>(ast.get());
+    ASSERT_NE(add, nullptr);
+    EXPECT_EQ(add->getOp(), StyioOpType::Binary_Add);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::TOK_PIPE);
+  }
+  {
+    DirectContext direct(")");
+    const auto saved = direct.get().save_cursor();
+    auto attempt = try_parse_expr_subset_until_latest(direct.get(), {});
+    EXPECT_EQ(attempt.status, ParseAttemptStatus::Declined);
+    EXPECT_EQ(attempt.node, nullptr);
+    EXPECT_EQ(direct.get().save_cursor(), saved);
+  }
+  {
+    DirectContext direct("1 +");
+    const auto saved = direct.get().save_cursor();
+    auto attempt = try_parse_expr_subset_until_latest(direct.get(), {});
+    ASSERT_EQ(attempt.status, ParseAttemptStatus::Fatal);
+    EXPECT_EQ(attempt.node, nullptr);
+    EXPECT_EQ(direct.get().save_cursor(), saved);
+    ASSERT_NE(attempt.error, nullptr);
+    try {
+      std::rethrow_exception(attempt.error);
+      FAIL() << "expected preserved expression failure";
+    }
+    catch (const StyioSyntaxError& ex) {
+      EXPECT_NE(std::string(ex.what()).find(
+        "unexpected token in nightly parser expression subset"), std::string::npos);
+    }
+  }
+  {
+    DirectContext direct("base . 1");
+    try {
+      std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+      FAIL() << "expected missing-member failure";
+    }
+    catch (const StyioSyntaxError& ex) {
+      const std::string payload = "expected name after '.' in nightly parser subset";
+      const std::string message = ex.what();
+      const size_t payload_start = message.find(payload);
+      ASSERT_NE(payload_start, std::string::npos);
+      EXPECT_EQ(message.substr(payload_start), payload);
+    }
+  }
+}
+
+TEST(StyioParserInternal, UnifiedResourceSuffixesAndResourceHelpersStayExplicit) {
+  {
+    DirectContext direct("\"prefix\" + \"payload\" >> @stdout");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* write = dynamic_cast<ResourceWriteAST*>(ast.get());
+    ASSERT_NE(write, nullptr);
+    auto* data = dynamic_cast<BinOpAST*>(write->getData());
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->getOp(), StyioOpType::Binary_Add);
+  }
+  {
+    DirectContext direct("\"prefix\" + \"payload\" -> @stdout");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    auto* redirect = dynamic_cast<ResourceRedirectAST*>(ast.get());
+    ASSERT_NE(redirect, nullptr);
+    auto* data = dynamic_cast<BinOpAST*>(redirect->getData());
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->getOp(), StyioOpType::Binary_Add);
   }
   {
     DirectContext direct("#(item: i64, raw)");
@@ -215,7 +433,7 @@ TEST(StyioParserInternal, ReassociatesResourceSinksAndParsesResourceHelpers) {
   }
 }
 
-TEST(StyioParserInternal, LegacyArgumentTypesAndBinopBranchesStayExplicit) {
+TEST(StyioParserInternal, ArgumentTypesAndUnifiedExpressionBranchesStayExplicit) {
   {
     DirectContext direct("with_default:i64=7", true);
     direct.get().restore_cursor({2, 0});
@@ -240,25 +458,24 @@ TEST(StyioParserInternal, LegacyArgumentTypesAndBinopBranchesStayExplicit) {
     EXPECT_NE(type->getTypeName().find("i64"), std::string::npos);
   }
   {
-    DirectContext direct("2 * 3");
-    std::unique_ptr<StyioAST> ast(parse_binop_rhs(
-      direct.get(),
-      IntAST::Create("1"),
-      StyioOpType::Binary_Add));
+    DirectContext direct("1 + 2 * 3");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Add);
-    ASSERT_NE(dynamic_cast<BinOpAST*>(bin->getRHS()), nullptr);
+    auto* rhs = dynamic_cast<BinOpAST*>(bin->getRHS());
+    ASSERT_NE(rhs, nullptr);
+    EXPECT_EQ(rhs->getOp(), StyioOpType::Binary_Mul);
   }
   {
     DirectContext direct("@stdin");
-    std::unique_ptr<StyioAST> ast(parse_binop_item(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::StdinResource);
   }
   {
     DirectContext direct("1 + 2 * 3");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Add);
@@ -266,30 +483,30 @@ TEST(StyioParserInternal, LegacyArgumentTypesAndBinopBranchesStayExplicit) {
   }
   {
     DirectContext direct("-name");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Sub);
   }
   {
     DirectContext direct("<| 7");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Return);
   }
   {
     DirectContext direct("|<| 8");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Return);
   }
   {
     DirectContext direct("dict{}");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_EQ(ast->getNodeType(), StyioNodeType::Dict);
     EXPECT_TRUE(static_cast<DictAST*>(ast.get())->getEntries().empty());
   }
   {
     DirectContext direct("dict");
-    std::unique_ptr<StyioAST> ast(parse_binop_item(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
   }
@@ -675,17 +892,17 @@ TEST(StyioParserInternal, HashFunctionCommonEdgesStayExplicit) {
   }
 }
 
-TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
+TEST(StyioParserInternal, UnifiedOperatorForwardAndCodpEdgesStayExplicit) {
   {
     DirectContext direct("base ** 2");
-    std::unique_ptr<StyioAST> ast(parse_name_and_following_unsafe(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Pow);
   }
   {
     DirectContext direct("base / 2");
-    std::unique_ptr<StyioAST> ast(parse_name_and_following_unsafe(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Div);
@@ -693,11 +910,11 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
   {
     SCOPED_TRACE("dot without member");
     DirectContext direct("base . 1");
-    EXPECT_THROW((void)parse_name_and_following_unsafe(direct.get()), StyioSyntaxError);
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("+ 5");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
   }
   {
@@ -716,7 +933,7 @@ TEST(StyioParserInternal, LegacyOperatorForwardAndCodpEdgesStayExplicit) {
   }
   {
     DirectContext direct("? 1");
-    EXPECT_THROW((void)parse_arithmetic_expr(direct.get()), StyioSyntaxError);
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("(1, 2)");
@@ -1233,7 +1450,7 @@ TEST(StyioParserInternal, ValueGuardIteratorAndPostfixEdgesStayExplicit) {
     SCOPED_TRACE("insert by index");
     DirectContext direct("[^2 <- 9]");
     direct.align_token(StyioTokenType::INTEGER);
-    EXPECT_THROW((void)parse_index_op(direct.get(), NameAST::Create("items")), StyioParseError);
+    EXPECT_THROW((void)parse_index_op(direct.get(), NameAST::Create("items")), StyioSyntaxError);
   }
   {
     DirectContext direct("|value|");
@@ -1466,8 +1683,8 @@ TEST(StyioParserInternal, LegacyScannerRouteAndReceiverEdgesStayExplicit) {
   }
   {
     ResourceMethodReceiverScopeLatest scope("file");
-    DirectContext direct("file");
-    std::unique_ptr<StyioAST> receiver(parse_after_at_expr_atom_latest(direct.get(), false));
+    DirectContext direct("@file");
+    std::unique_ptr<StyioAST> receiver(parse_at_expr_atom_latest(direct.get()));
     ASSERT_NE(receiver, nullptr);
     EXPECT_EQ(receiver->getNodeType(), StyioNodeType::ResourceReceiver);
   }
@@ -1831,7 +2048,7 @@ TEST(StyioParserInternal, ParserStaticHelpersCoverAdditionalFalseEdges) {
   }
 }
 
-TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
+TEST(StyioParserInternal, UnifiedExpressionPostfixEdgesStayExplicit) {
   {
     std::unique_ptr<FuncCallAST> call(make_callable_apply_latest(
       AttrAST::Create(NameAST::Create("obj"), NameAST::Create("member")),
@@ -1840,115 +2057,140 @@ TEST(StyioParserInternal, LegacyExpressionPostfixEdgesStayExplicit) {
     EXPECT_EQ(call->getNodeType(), StyioNodeType::Call);
   }
   {
-    DirectContext direct("<| 2");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("fn")));
+    DirectContext direct("fn <| 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
   }
   {
     DirectContext direct("fn\n<| 2");
-    direct.get().move_forward(2, "apply_pipe_newline");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("fn")));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
   }
   {
-    DirectContext direct("(1)");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("fn")));
+    DirectContext direct("fn(1)");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
   }
   {
-    DirectContext direct("[0]");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), NameAST::Create("items")));
+    DirectContext direct("items[0]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Index);
   }
   {
-    DirectContext direct("[2]");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    DirectContext direct("1[2]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
   }
   {
-    DirectContext direct("- 2");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    DirectContext direct("1 - 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Sub);
   }
   {
-    DirectContext direct("** 2");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    DirectContext direct("1 ** 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Pow);
   }
   {
-    DirectContext direct("/ 2");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    DirectContext direct("1 / 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Div);
   }
   {
-    DirectContext direct("% 2");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    DirectContext direct("1 % 2");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     auto* bin = dynamic_cast<BinOpAST*>(ast.get());
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->getOp(), StyioOpType::Binary_Mod);
   }
   {
-    DirectContext direct("<~");
-    EXPECT_THROW(
-      (void)parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")),
-      StyioSyntaxError);
+    DirectContext direct("1 <~");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("3.5");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Float);
   }
   {
     DirectContext direct("-1");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
   }
   {
     DirectContext direct("$\"value {1}\"");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_expr(direct.get()));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::FmtStr);
   }
   {
     DirectContext direct("$ name");
-    EXPECT_THROW((void)parse_arithmetic_expr(direct.get()), StyioSyntaxError);
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
   }
   {
     DirectContext direct("1\n[2]");
-    direct.get().move_forward(1, "after_int");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
   }
   {
     DirectContext direct("1\n(2)");
-    direct.get().move_forward(1, "after_int");
-    std::unique_ptr<StyioAST> ast(parse_arithmetic_tail_from_atom(direct.get(), IntAST::Create("1")));
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Integer);
   }
   {
-    DirectContext direct(". 1");
-    EXPECT_THROW((void)parse_expr_postfix(direct.get(), NameAST::Create("base")), StyioSyntaxError);
+    DirectContext direct("base . 1");
+    EXPECT_THROW((void)parse_expr(direct.get()), StyioSyntaxError);
   }
   {
-    DirectContext direct("(1)");
-    std::unique_ptr<StyioAST> ast(parse_expr_postfix(direct.get(), NameAST::Create("callable")));
+    DirectContext direct("callable(1)");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
     ASSERT_NE(ast, nullptr);
     EXPECT_EQ(ast->getNodeType(), StyioNodeType::Call);
+  }
+  {
+    DirectContext direct("f(x)(y)[0]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Index);
+  }
+  {
+    DirectContext direct("xs[0...2]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Access_By_Slice);
+  }
+  {
+    DirectContext direct("fn\n(1)");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
+  }
+  {
+    DirectContext direct("xs\n[0]");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::Id);
+  }
+  {
+    DirectContext direct("@stdout\n(1)");
+    std::unique_ptr<StyioAST> ast(parse_expr(direct.get()));
+    ASSERT_NE(ast, nullptr);
+    EXPECT_EQ(ast->getNodeType(), StyioNodeType::StdoutResource);
   }
 }
 
