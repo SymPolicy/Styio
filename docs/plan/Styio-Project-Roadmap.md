@@ -2,9 +2,9 @@
 
 **Purpose:** Present one reviewable project roadmap that separates established foundations, current compiler-correctness work, proposed optimization checkpoints, and release coordination.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-03
 
-**Plan status:** Approved baseline. P0 and the first P1 compiler-correctness closure are complete; proposed or deferred checkpoints still require explicit selection before implementation.
+**Plan status:** Approved baseline. Compiler-correctness and optimization delivery groups in the Manifest are complete. Ecosystem Release is closed as Styio-only functional acceptance; cross-repository matrix work is waived for this candidate.
 
 ## 前置条件
 
@@ -21,7 +21,7 @@
 2. 永久性治理规则是已建立的 foundation，不应长期伪装成 `in_progress` 任务。
 3. 编译器正确性优先于性能改写：P0 placeholder inventory 与首个 IR loop-control legality 闭环已经完成，后续仍一次只选择一个独立实现簇。
 4. 算法优化按真实依赖拆分。P0 完成后，Parser C、IR Pass D、Type Solver E 可以作为三个独立候选前沿；Resource F 依赖 E，Stream G 依赖 F。
-5. 生态发布不默认等待全部长期优化工作。维护者先选择 release scope，再冻结修订并运行一次最终回归与一次跨仓库矩阵。
+5. 本次发布边界为 Styio-only：维护者已冻结本仓功能验收为唯一门禁，并明确排除跨仓库生态互通矩阵与 Pafio/Platform/Vityo 参与。
 6. 每个实现阶段在获批后再细化为 Better Plan `group`：一个设计节点、一个或多个互不冲突的实现节点、一个最终验证节点。
 
 ## 2. 计划树
@@ -32,15 +32,15 @@ Delivery Governance                          [已建立能力事实；不是 Pla
 Styio Project Roadmap                         [已批准基线]
 ├── Compiler Correctness                     [P0 + 首个 P1 闭环已完成]
 │   └── IR Loop-Control Legality              [已验收]
-├── Algorithmic Optimization                 [A/B 已完成；后续等待评审]
-│   ├── C Parser Core                        [依赖 P0 + B]
-│   ├── D Verified IR Passes                 [依赖 P0 + A]
-│   ├── E Type Constraint Engine             [依赖 P0]
-│   ├── F Resource Typestate/Dataflow        [依赖 E]
-│   └── G Stream Concurrency                 [依赖 F]
-└── Ecosystem Release                        [等待 release scope]
-    ├── Freeze Candidate Revisions
-    └── Final Regressions + Cross-repo Matrix
+├── Algorithmic Optimization                 [A–G 交付组已完成]
+│   ├── C Parser Core                        [已验收]
+│   ├── D Verified IR Passes                 [已验收]
+│   ├── E Type Constraint Engine             [已验收]
+│   ├── F Resource Typestate/Dataflow        [已验收]
+│   └── G Stream Concurrency                 [已验收]
+└── Ecosystem Release                        [Styio-only 已关闭]
+    ├── RELEASE-SCOPE Styio-only functional acceptance [已完成]
+    └── RELEASE-MATRIX Cross-repo matrix [已跳过]
 ```
 
 ## 3. 当前事实与拟议工作
@@ -48,11 +48,11 @@ Styio Project Roadmap                         [已批准基线]
 | 范围 | 当前事实 | 下一步提案 | 状态 |
 |------|----------|------------|------|
 | Delivery Governance | 文档、工作流、测试和交付门禁已有明确入口；它是能力事实，不是 Plan | 仅在具体交付发现共享基座缺口时创建独立 foundation closure | 已建立 |
-| Compiler Correctness | P0 已完成；IR verifier 现已区分最终根与显式中间 fragment，合法循环控制保持可用，最终根顶层 break/continue fail-closed | 从剩余显式 feature debt 或 C/D/E 候选前沿中再选择一个独立闭环 | 首个 P1 已完成 |
+| Compiler Correctness | P0 已完成；IR verifier 现已区分最终根与显式中间 fragment，合法循环控制保持可用，最终根顶层 break/continue fail-closed | 从剩余显式 feature debt 中再选择一个独立闭环 | 首个 P1 已完成 |
 | Optimization A/B | IR Walker/Pass Manager 与 span-first tokenizer 已有当前状态证据 | 不做追溯性重写，仅作为后续节点的已完成前置事实 | 已完成 |
-| Optimization C/D/E | Parser、IR passes、type solver 是不同模块边界 | P0 后允许独立评审和并行准备，任何代码执行仍需单独批准 | 待评审 |
-| Optimization F/G | Resource dataflow 与 stream concurrency 涉及状态、所有权和并发安全 | F 在 E 后，G 在 F 后；每次只关闭一个场景 | 待评审 |
-| Ecosystem Release | 产品归属与机器契约已冻结，固定修订验收尚未完成 | 维护者先决定本次 release 是否包含 C–G 中的任何节点 | 延后 |
+| Optimization C/D/E | Parser、IR passes、type solver 交付组已在 Manifest 中完成 | 仅在新证据要求时开独立修复或扩展闭环 | 已完成 |
+| Optimization F/G | Resource dataflow 与 stream concurrency 交付组已在 Manifest 中完成 | 仅在新场景或预存功能债需要时再开独立闭环 | 已完成 |
+| Ecosystem Release | 产品归属已冻结；维护者选择 Styio-only，跨仓矩阵已跳过 | 以 Styio 本仓全量功能回归为唯一发布验收；pipeline 预存失败另开修复 | 已完成 |
 
 ## 4. 阶段闭环
 
@@ -70,7 +70,7 @@ Checkpoint C、D、E 不建立人为串行关系：它们分别归属 parser、v
 
 ### Stage 3 — Ecosystem Release
 
-发布阶段先决定 release scope，而不是默认把所有 backlog 都塞进一次发布。范围确认后冻结不可变修订，每个受影响仓库只跑一次最终全量回归，然后运行一次跨仓库验收矩阵。失败只回到对应 owner 的最小修复闭环。
+维护者已决定本次候选为 Styio-only：不要求生态互通验收。参与仓库仅为 `styio-nightly`；验收是一次本仓全量功能回归。跨仓库矩阵节点已跳过，失败只回到 Styio owner 的最小修复闭环。
 
 ## 5. 并行与串行边界
 
@@ -79,13 +79,13 @@ Checkpoint C、D、E 不建立人为串行关系：它们分别归属 parser、v
 | 后续 correctness inventory | 不同 feature-debt 家族的证据核对可分离 | 下一实现簇选择、语义冻结与最终验收 |
 | C / D / E 准备 | 开源实现调研、基准输入、现状证据、测试发现 | 每个检查点自己的公共语义或接口决策 |
 | F / G | F 的文档与测试发现可提前进行 | E → F → G 的语义与实现交付 |
-| Ecosystem release | 各 owner 的 focused evidence 可并行收集 | release scope → revision freeze → final regressions → matrix |
+| Ecosystem release | 不适用：本次无 Styio 本仓验收 | Styio-only scope 已冻结；跨仓矩阵已跳过 |
 
-## 6. 请维护者反馈的决策
+## 6. 已关闭的维护者决策
 
-1. 下一闭环应选择剩余 compiler-correctness feature debt、Parser C、Verified IR Pass D，还是 Type Solver E？C、D、E 仍按独立候选前沿处理。
-2. 下一次 ecosystem release 应只基于当前功能基线，还是必须包含 C–G 中的某个明确检查点？
-3. F → G 的串行关系是否符合预期，还是 stream 的某个纯运行时子场景可以脱离 resource typestate 单独推进？
+1. 本次发布不做生态互通验收；Styio 保证本仓功能验收即可。
+2. 参与仓库：仅 `styio-nightly`。显式排除 Pafio、Platform、Vityo 矩阵参与。
+3. 候选冻结条件：以受测 Styio 修订为候选；唯一验收是一次 Styio 全量功能回归。
 
 ## 验收条件
 
