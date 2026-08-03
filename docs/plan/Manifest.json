@@ -174,27 +174,30 @@
   },
   {
     "id": "24263843-fc9d-4b45-9ccc-3338190438cf",
-    "status": "deferred",
+    "status": "completed",
     "title": "Ecosystem Release",
     "directory": "roadmap/ecosystem-release",
     "source_files": [
       "docs/plan/Styio-Project-Roadmap.md",
+      "docs/plan/roadmap/ecosystem-release/Evidence.md",
       "docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
       "docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md",
       "scripts/ecosystem-cli-doc-gate.py"
     ],
-    "purpose": "Coordinate one bounded fixed-revision release after the maintainer selects its scope.",
-    "goal": "Freeze candidate revisions and run one final owner regression plus one cross-repository acceptance matrix.",
-    "description": "Product ownership is established; candidate selection and release acceptance remain intentionally deferred.",
+    "purpose": "Record the maintainer-selected Styio-only release boundary after ownership is frozen.",
+    "goal": "Freeze Styio-only functional acceptance and waive cross-repository ecosystem matrix work for this candidate.",
+    "description": "Ownership remains documented; release scope is Styio-only with one repo-local full functional regression as the sole acceptance gate; Pafio, Platform, and Vityo matrix participation is excluded.",
     "checkpoints": "roadmap/ecosystem-release/Checkpoints.json",
     "kind": "release",
     "tree_mode": "show",
     "node_status": "show",
     "entry_gate": {
-      "title": "Maintainer selects the release scope",
-      "prerequisites": [],
+      "title": "Maintainer selected Styio-only release scope",
+      "prerequisites": [
+        "0829a3ff-4881-4770-b4d9-158b83b24389"
+      ],
       "conditions": [
-        "State whether the release uses the current baseline or includes named optimization checkpoints."
+        "Participating repository is styio-nightly only; cross-repository ecosystem matrix is waived."
       ]
     }
   },

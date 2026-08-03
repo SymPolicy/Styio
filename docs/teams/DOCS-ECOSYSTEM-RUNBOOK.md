@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-03
 
 ## Mission
 
@@ -118,6 +118,7 @@ Key SSOTs:
 82. Converged prerequisites do not auto-promote a deferred language feature. Refresh its non-authoritative question set from specifications, official compiler documentation, accepted proposals, or primary papers; record concrete implementation lessons and failure modes; map them to Styio's functional, keyword-free, ownership, interface, and specialization constraints; and keep every unanswered subquestion linked from the existing deferred child SSOT. Do not create a parallel feature SSOT or describe a recommended answer as approved.
 83. Keep project planning on the current three-layer Better Plan model: `Capabilities.json` owns durable observed capability facts, `Manifest.json` owns Plan purpose and lifecycle summaries, and each `Checkpoints.json` owns globally resolvable execution dependencies. Validate source-file bindings and both readable projections after every state migration, delete superseded nodes and legacy enum values in the same change, and keep the structured algorithm roadmap aligned with `CURRENT-STATE.md` and the next-stage gap ledger.
 84. Keep `Styio-Project-Roadmap.md` and `roadmap/Checkpoints.json` as the readable and structured project-roadmap roots. Move external contracts to their owning handoff collection and delete superseded plan documents, checkpoint trees, and report indexes in the same migration instead of preserving compatibility copies.
+85. When the maintainer freezes a Styio-only release boundary, update `Manifest.json`, `roadmap/ecosystem-release/Checkpoints.json`, and `Styio-Project-Roadmap.md` together: record Styio-only functional acceptance as the sole gate, skip or waive the cross-repository matrix with an explicit reason, and do not imply that Pafio, Platform, or Vityo participation is required for that candidate.
 
 ## Change Classes
 
