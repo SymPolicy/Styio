@@ -28,7 +28,7 @@
   },
   {
     "id": "0829a3ff-4881-4770-b4d9-158b83b24389",
-    "status": "deferred",
+    "status": "completed",
     "role": "evidence",
     "code": "RELEASE-SCOPE",
     "title": "Select the release scope",
@@ -39,18 +39,18 @@
     "difficulty": "critical",
     "verification_profile": "code",
     "goal": "Decide which completed capabilities belong in the next fixed-revision candidate.",
-    "description": "Choose the current functional baseline or name specific optimization checkpoints; do not absorb unrelated backlog merely because it exists in the roadmap.",
-    "status_reason": "Awaiting maintainer feedback on the next release boundary.",
+    "description": "Maintainer froze Styio-only functional acceptance: include the current in-tree completed compiler baseline; exclude cross-repository ecosystem matrix and Pafio/Platform/Vityo participation; freeze the Styio revision under test as the candidate.",
     "acceptance_criteria": [
       {
-        "checked": false,
-        "text": "The release scope names included capabilities, explicit exclusions, participating repositories, and the candidate-freeze condition."
+        "checked": true,
+        "text": "The release scope names included capabilities, explicit exclusions, participating repositories, and the candidate-freeze condition.",
+        "evidence": "Maintainer decision 2026-08-03: no ecosystem interoperability matrix; participating repository is styio-nightly only; included capabilities are the current Styio functional baseline already delivered in completed Plans; explicit exclusions are Pafio/Platform/Vityo and any wait on consumer repos; candidate-freeze condition is the Styio revision under test; sole acceptance is ./scripts/checkpoint-health.sh --no-asan --no-fuzz as recorded in docs/plan/roadmap/ecosystem-release/Evidence.md."
       }
     ],
     "commit": {
       "repository": ".git",
-      "message": "docs(plan): select release scope",
-      "target": "cross-repository release matrix"
+      "message": "docs(plan): freeze Styio-only release scope",
+      "target": "styio-nightly"
     },
     "next": [
       "be588371-0918-4c6a-8243-08f70f4735a7"
@@ -58,7 +58,7 @@
   },
   {
     "id": "be588371-0918-4c6a-8243-08f70f4735a7",
-    "status": "pending",
+    "status": "skipped",
     "role": "validation_matrix",
     "code": "RELEASE-MATRIX",
     "title": "Run fixed-revision release acceptance",
@@ -81,6 +81,7 @@
       "message": "docs(plan): record release acceptance",
       "target": "cross-repository release matrix"
     },
-    "next": []
+    "next": [],
+    "status_reason": "Maintainer waived cross-repository ecosystem matrix for this candidate; Styio-only functional acceptance is the sole release gate."
   }
 ]
