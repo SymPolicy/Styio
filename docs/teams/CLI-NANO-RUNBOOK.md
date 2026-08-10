@@ -2,11 +2,13 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-10
 
 ## Mission
 
 Own user-facing command execution, the bootstrap packaging path for `styio-nano`, and the compiler-side handoff contracts consumed by `pafio-nightly`. This team protects CLI options, error formatting, exit codes, machine-info capabilities, source-build metadata, nano profile compile definitions, and the static nano package contract. It does not own long-term package-manager UX, which belongs to `pafio-nightly`.
+
+Native builds use compiler-owned content-addressed object caches for runtime and generated user objects. Cache validation, corruption recovery, concurrent publication, and privacy-safe opt-in phase profiling remain CLI correctness contracts.
 
 ## Owned Surface
 

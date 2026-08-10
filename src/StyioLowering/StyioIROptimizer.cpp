@@ -851,7 +851,15 @@ public:
     walker_.optimize_block = [this](SGBlock*& block) { this->optimize_block_impl(block); };
   }
 
+  uint64_t nodes_visited() const noexcept {
+    return nodes_visited_;
+  }
+
   StyioIR* optimize(StyioIR* ir) {
+    if (ir == nullptr) {
+      return nullptr;
+    }
+    ++nodes_visited_;
     if (auto* block = dynamic_cast<SGBlock*>(ir)) {
       optimize_sequence(block->stmts);
       return block;
@@ -870,6 +878,7 @@ public:
 
 private:
   StyioIROptimizerWalker walker_;
+  uint64_t nodes_visited_ = 0;
 
   void optimize_sequence(std::vector<StyioIR*>& stmts) {
     for (auto*& stmt : stmts) {
@@ -976,7 +985,13 @@ static StyioIR* try_constant_fold(SGBinOp* node) {
 /// constant expressions with their evaluated results.
 class ConstantFoldWalker : public styio::ir::StyioIRWalker {
 public:
+  uint64_t nodes_visited = 0;
+
   void fold(StyioIR* root) { walk(root); }
+
+  void beforeNode(StyioIR*) override {
+    ++nodes_visited;
+  }
 
 private:
   // SGBinOp: attempt constant folding
@@ -1073,6 +1088,16 @@ private:
 
 #ifndef STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
 
+namespace {
+
+struct StyioIRPassApplicability {
+  bool dead_suffix = false;
+  bool canonicalization = false;
+  bool constant_folding = false;
+};
+
+}  // namespace
+
 /// Run one pass of constant folding over the IR tree.
 void run_constant_fold_pass(StyioIR* root) {
   if (!root) return;
@@ -1080,10 +1105,26 @@ void run_constant_fold_pass(StyioIR* root) {
   walker.fold(root);
 }
 
+static StyioIRPassStatistics
+run_constant_fold_pass_with_statistics(StyioIR* root) {
+  StyioIRPassStatistics statistics;
+  if (root == nullptr) {
+    return statistics;
+  }
+  ConstantFoldWalker walker;
+  walker.fold(root);
+  statistics.nodes_visited = walker.nodes_visited;
+  return statistics;
+}
+
 class DeadSuffixEliminationWalker final : public styio::ir::StyioIRWalker
 {
 public:
   StyioIRPassStatistics statistics;
+
+  void beforeNode(StyioIR*) override {
+    ++statistics.nodes_visited;
+  }
 
   void visitSGBlock(SGBlock* node) override {
     visit_sequence(node->stmts);
@@ -1181,7 +1222,9 @@ bool
 append_verifier_diagnostics(
   const StyioIR* root,
   const styio::ir::StyioIRVerifierOptions& verifier_options,
-  std::vector<styio::ir::StyioIRVerifierDiagnostic>& diagnostics
+  std::vector<styio::ir::StyioIRVerifierDiagnostic>& diagnostics,
+  std::vector<std::uint64_t>* nodes_visited = nullptr,
+  StyioIRPassApplicability* applicability = nullptr
 ) {
   try {
     auto pass_boundary_options = verifier_options;
@@ -1192,6 +1235,15 @@ append_verifier_diagnostics(
       diagnostics.end(),
       verifier.diagnostics.begin(),
       verifier.diagnostics.end());
+    if (nodes_visited != nullptr) {
+      nodes_visited->push_back(
+        static_cast<std::uint64_t>(verifier.nodes_visited));
+    }
+    if (applicability != nullptr) {
+      applicability->dead_suffix = verifier.has_dead_suffix_candidate;
+      applicability->canonicalization = verifier.has_canonicalization_candidate;
+      applicability->constant_folding = verifier.has_constant_folding_candidate;
+    }
     return verifier.ok();
   }
   catch (const std::exception& ex) {
@@ -1200,6 +1252,9 @@ append_verifier_diagnostics(
       std::string(styio::services::diagnostics::kIrVerifyContract),
       ex.what(),
     });
+    if (nodes_visited != nullptr) {
+      nodes_visited->push_back(0);
+    }
     return false;
   }
 }
@@ -1243,7 +1298,37 @@ StyioIRPassManager::run(
     if (options.collect_ir_dumps) {
       result.final_ir = render_ir_dump(result.root);
     }
+    if (options.result_sink != nullptr) {
+      *options.result_sink = result;
+    }
     return result;
+  };
+
+  StyioIRPassApplicability applicability;
+  bool applicability_collected = false;
+  const auto verify_boundary = [&](const StyioIR* boundary,
+                                   bool collect_applicability = false) {
+    const auto started = std::chrono::steady_clock::now();
+    const bool ok = append_verifier_diagnostics(
+      boundary,
+      options.verifier_options,
+      result.diagnostics,
+      &result.verifier_nodes_visited,
+      collect_applicability ? &applicability : nullptr);
+    const auto ended = std::chrono::steady_clock::now();
+    const auto duration_ns = static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(ended - started).count());
+    result.verifier_duration_ns.push_back(duration_ns);
+    if (collect_applicability) {
+      applicability_collected = true;
+      // Candidate discovery is folded into this verifier walk; retaining its
+      // node count makes the merged work explicit without double-counting a
+      // second timing bucket.
+      if (!result.verifier_nodes_visited.empty()) {
+        result.applicability_nodes_visited = result.verifier_nodes_visited.back();
+      }
+    }
+    return ok;
   };
 
   if (options.verifier_options.defer_unresolved_loop_control
@@ -1259,29 +1344,72 @@ StyioIRPassManager::run(
     return finish();
   }
 
-  if (options.verify_before
-      && !append_verifier_diagnostics(
-        result.root,
-        options.verifier_options,
-        result.diagnostics)) {
+  // Verify once before any pass.  The verifier also collects rewrite
+  // applicability in the same walk, so an invalid or unverified tree never
+  // reaches a pass and a no-candidate tree can reuse this boundary as final.
+  const bool verify_initial = options.verify_before;
+  if (verify_initial && !verify_boundary(result.root, !passes_.empty())) {
     return finish();
   }
 
-  for (PassKind pass : passes_) {
+  const bool optimized_deferred_verification =
+    options.verify_before
+    && !options.verify_after_each_pass
+    && options.pass_observer == nullptr;
+  bool pass_executed_since_verification = false;
+
+  for (std::size_t pass_index = 0; pass_index < passes_.size(); ++pass_index) {
+    const PassKind pass = passes_[pass_index];
     StyioIRPassRecord record;
     record.name = pass_name(pass);
+    switch (pass) {
+      case PassKind::DeadSuffixElimination:
+        record.applicable = !applicability_collected || applicability.dead_suffix;
+        break;
+      case PassKind::Canonicalization:
+        record.applicable = !applicability_collected || applicability.canonicalization;
+        break;
+      case PassKind::ConstantFolding:
+        record.applicable = !applicability_collected || applicability.constant_folding;
+        break;
+    }
     if (options.collect_ir_dumps) {
       record.ir_before = render_ir_dump(result.root);
     }
 
-    if (options.verify_before
-        && !append_verifier_diagnostics(
-          result.root,
-          options.verifier_options,
-          result.diagnostics)) {
+    bool verify_before_pass = options.verify_before;
+    if (optimized_deferred_verification) {
+      // A skipped pass cannot mutate an already verified tree.  Verify only
+      // after a prior applicable pass mutation; the initial boundary already
+      // protects the first applicable pass.
+      verify_before_pass = record.applicable && pass_executed_since_verification;
+    }
+    if (verify_before_pass && !verify_boundary(result.root)) {
       record.verifier_before_ok = false;
       result.passes.push_back(record);
       return finish();
+    }
+    if (verify_before_pass) {
+      pass_executed_since_verification = false;
+    }
+
+    if (!record.applicable) {
+      // Keep a record for every configured pass so diagnostics and mutation
+      // tests retain stable pass indexing, but avoid a no-op full-tree walk.
+      if (options.pass_observer) {
+        options.pass_observer(pass_index, result.root);
+        pass_executed_since_verification = true;
+      }
+      if (options.collect_ir_dumps) {
+        record.ir_after = render_ir_dump(result.root);
+      }
+      if (options.verify_after_each_pass && !verify_boundary(result.root)) {
+        record.verifier_after_ok = false;
+        result.passes.push_back(record);
+        return finish();
+      }
+      result.passes.push_back(record);
+      continue;
     }
 
     const auto started = std::chrono::steady_clock::now();
@@ -1293,12 +1421,17 @@ StyioIRPassManager::run(
       case PassKind::Canonicalization: {
         Optimizer optimizer;
         result.root = optimizer.optimize(result.root);
+        record.statistics.nodes_visited = optimizer.nodes_visited();
         break;
       }
       case PassKind::ConstantFolding: {
-        run_constant_fold_pass(result.root);
+        record.statistics = run_constant_fold_pass_with_statistics(result.root);
         break;
       }
+    }
+    pass_executed_since_verification = true;
+    if (options.pass_observer) {
+      options.pass_observer(pass_index, result.root);
     }
     const auto ended = std::chrono::steady_clock::now();
     if (options.collect_timing) {
@@ -1310,16 +1443,23 @@ StyioIRPassManager::run(
       record.ir_after = render_ir_dump(result.root);
     }
 
-    if (options.verify_after_each_pass
-        && !append_verifier_diagnostics(
-          result.root,
-          options.verifier_options,
-          result.diagnostics)) {
+    if (options.verify_after_each_pass && !verify_boundary(result.root)) {
       record.verifier_after_ok = false;
       result.passes.push_back(record);
       return finish();
     }
+    if (options.verify_after_each_pass) {
+      pass_executed_since_verification = false;
+    }
     result.passes.push_back(record);
+  }
+
+  // Production lowering may defer per-pass post-gates.  If a pass (or a test
+  // observer) mutated the tree, validate the final boundary before codegen;
+  // otherwise the initial verifier result is already the final result.
+  if (options.verify_before && !options.verify_after_each_pass
+      && pass_executed_since_verification) {
+    verify_boundary(result.root);
   }
 
   return finish();

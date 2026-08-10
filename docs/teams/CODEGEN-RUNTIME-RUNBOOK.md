@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-10
 
 ## Mission
 
@@ -80,7 +80,7 @@ Runtime stability:
 
 ```bash
 ctest --test-dir build/default -L soak_smoke
-STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
+/path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --quick
 ```
 
 For deeper runtime or allocation work:
@@ -88,7 +88,7 @@ For deeper runtime or allocation work:
 ```bash
 ctest --test-dir build/default -L soak_deep
 STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
-  ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+  /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 
 ## Cross-Team Dependencies

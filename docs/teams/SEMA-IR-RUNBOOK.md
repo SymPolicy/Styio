@@ -2,11 +2,13 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-10
 
 ## Mission
 
 Own the compiler middle layer from parsed AST to StyioIR and stable textual representation. This team protects AST ownership, type contracts, lowering shape, and reprs used by diagnostics and five-layer goldens. It does not own parser syntax or LLVM emission.
+
+The current performance contract preserves canonical builtin type IDs, merges pass-applicability facts into verified IR traversal, skips inapplicable rewrites, and allows the scalar-only resource-topology fast path only after explicit eligibility checks. Final verification remains fail-closed.
 
 ## Owned Surface
 

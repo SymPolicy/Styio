@@ -132,13 +132,13 @@ jobs:
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
+          python3 tests/gates/parser-shadow-suite-gate.py ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
 
       - name: Parser shadow gate (functions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts-m2
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
+          python3 tests/gates/parser-shadow-suite-gate.py ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
 
       - name: Upload parser shadow artifacts
         if: failure()

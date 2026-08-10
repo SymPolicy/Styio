@@ -2,11 +2,13 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-10
 
 ## Mission
 
 Own the evidence that Styio behavior is accepted, reproducible, and recoverable. This team protects CTest registration, fixture layout, golden oracles, C++ reference equivalence cases, fuzz/security coverage, and test catalog accuracy. It does not decide language semantics without the design SSOT.
+
+Parser shadow checks are compiler correctness gates under `tests/gates/`. Performance workloads, probe-specific JSON contracts, and benchmark reports are tested in `styio-benchmark` through the explicit CMake integration rather than duplicated in this repository.
 
 ## Owned Surface
 
