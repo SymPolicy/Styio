@@ -2,11 +2,13 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-10
 
 ## Mission
 
 Own documentation structure and cross-repository clarity. This team protects SSOT discipline, generated indexes, archive provenance, external repository boundaries, handoff notes, and reusable templates. It does not redefine language semantics, accepted tests, or package-manager ownership.
+
+The active benchmark boundary is external: current instructions point directly to `styio-benchmark`, while `benchmark/` documents only the explicit optional CMake seam. Redirect wrappers and duplicate benchmark ownership are not maintained.
 
 ## Owned Surface
 

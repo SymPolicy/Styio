@@ -1,3 +1,50 @@
+set(STYIO_BENCHMARK_ROOT "" CACHE PATH
+    "Explicit path to the external styio-benchmark checkout")
+option(STYIO_REQUIRE_EXTERNAL_BENCHMARK
+       "Fail configure when STYIO_BENCHMARK_ROOT is unset or incomplete"
+       OFF)
+
+if(NOT STYIO_BENCHMARK_ROOT)
+  if(STYIO_REQUIRE_EXTERNAL_BENCHMARK)
+    message(FATAL_ERROR
+      "STYIO_REQUIRE_EXTERNAL_BENCHMARK=ON requires an explicit "
+      "-DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark")
+  endif()
+  message(STATUS
+    "[Styio] STYIO_BENCHMARK_ROOT is unset; benchmark targets are not registered.")
+  return()
+endif()
+
+get_filename_component(STYIO_BENCHMARK_ROOT_RESOLVED
+  "${STYIO_BENCHMARK_ROOT}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+set(_styio_benchmark_required_files
+  "workloads/core/manifest.json"
+  "workloads/core/run-core.py"
+  "styio-probes/bench_utils.hpp"
+  "styio-probes/core_bench.cpp"
+  "styio-probes/styio_soak_test.cpp"
+  "styio-probes/styio_task_scheduler_perf_test.cpp"
+  "tests/core_bench_json_smoke.py")
+set(_styio_benchmark_missing_files)
+foreach(_styio_benchmark_file IN LISTS _styio_benchmark_required_files)
+  if(NOT EXISTS "${STYIO_BENCHMARK_ROOT_RESOLVED}/${_styio_benchmark_file}")
+    list(APPEND _styio_benchmark_missing_files "${_styio_benchmark_file}")
+  endif()
+endforeach()
+if(_styio_benchmark_missing_files)
+  list(JOIN _styio_benchmark_missing_files ", " _styio_benchmark_missing_text)
+  if(STYIO_REQUIRE_EXTERNAL_BENCHMARK)
+    message(FATAL_ERROR
+      "STYIO_BENCHMARK_ROOT is incomplete; missing: ${_styio_benchmark_missing_text}")
+  endif()
+  message(STATUS
+    "[Styio] External benchmark integration disabled; missing: ${_styio_benchmark_missing_text}")
+  return()
+endif()
+
+set(STYIO_BENCHMARK_ROOT "${STYIO_BENCHMARK_ROOT_RESOLVED}" CACHE PATH
+    "Explicit path to the external styio-benchmark checkout" FORCE)
+
 include(GoogleTest)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
@@ -23,79 +70,79 @@ if(DEFINED LLVM_DIR)
 endif()
 list(JOIN STYIO_BENCHMARK_RUNTIME_PATH_MODS "\\;" STYIO_BENCHMARK_RUNTIME_PATH_MODS_ESCAPED)
 
-# In-repo core benchmark binary (TASK-00).
-add_subdirectory(internal)
+set(STYIO_BENCHMARK_PROBE_DIR "${STYIO_BENCHMARK_ROOT}/styio-probes")
+set(STYIO_BENCHMARK_CORE_DIR "${STYIO_BENCHMARK_ROOT}/workloads/core")
+message(STATUS "[Styio] Benchmark sources: ${STYIO_BENCHMARK_ROOT}")
 
-set(STYIO_BENCHMARK_ROOT "" CACHE PATH
-    "Path to the external styio-benchmark checkout that owns migrated benchmark probe sources")
-option(STYIO_REQUIRE_EXTERNAL_BENCHMARK
-       "Fail CMake configure when the external styio-benchmark checkout is unavailable"
-       OFF)
+add_executable(styio_core_bench
+  "${STYIO_BENCHMARK_PROBE_DIR}/core_bench.cpp")
+target_link_libraries(styio_core_bench PRIVATE styio_core)
+target_include_directories(styio_core_bench PRIVATE
+  "${STYIO_BENCHMARK_PROBE_DIR}"
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated")
+styio_apply_llvm_compile_settings(styio_core_bench)
+if(NOT CMAKE_BUILD_TYPE)
+  set_target_properties(styio_core_bench PROPERTIES COMPILE_FLAGS "-O2 -DNDEBUG")
+endif()
+
+add_test(NAME styio_core_benchmark_internal
+  COMMAND $<TARGET_FILE:styio_core_bench> --stdout)
+set_tests_properties(styio_core_benchmark_internal PROPERTIES
+  LABELS "benchmark;performance;core_internal"
+  ENVIRONMENT "STYIO_BENCH_WARMUP=1;STYIO_BENCH_MEASURED=3")
 
 set(STYIO_CORE_BENCHMARK_RESULT
-    "${CMAKE_BINARY_DIR}/benchmark/core/core-benchmark-smoke.json")
-add_test(
-  NAME styio_core_benchmark_smoke
+    "${CMAKE_BINARY_DIR}/benchmark/core/core-benchmark-result.json")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark/core")
+add_test(NAME styio_core_benchmark_json_output
+  COMMAND $<TARGET_FILE:styio_core_bench> --output "${STYIO_CORE_BENCHMARK_RESULT}")
+set_tests_properties(styio_core_benchmark_json_output PROPERTIES
+  LABELS "benchmark;performance;core_internal"
+  ENVIRONMENT "STYIO_BENCH_WARMUP=1;STYIO_BENCH_MEASURED=3")
+
+add_test(NAME styio_core_benchmark_json_contract
   COMMAND "${Python3_EXECUTABLE}"
-          "${CMAKE_SOURCE_DIR}/benchmark/core/run-core.py"
-          --repo-root "${CMAKE_SOURCE_DIR}"
-          --manifest "${CMAKE_SOURCE_DIR}/benchmark/core/manifest.json"
+          "${STYIO_BENCHMARK_ROOT}/tests/core_bench_json_smoke.py"
+          --binary "$<TARGET_FILE:styio_core_bench>"
+          --output "${CMAKE_BINARY_DIR}/benchmark/core/core-benchmark-contract.json"
+          --warmup 1 --measured 1)
+set_tests_properties(styio_core_benchmark_json_contract PROPERTIES
+  LABELS "benchmark;performance;core_internal")
+
+add_executable(styio_core_benchmark_evidence_test
+  "${STYIO_BENCHMARK_ROOT}/tests/core_benchmark_evidence_test.cpp")
+target_link_libraries(styio_core_benchmark_evidence_test PRIVATE
+  styio_core GTest::gtest_main)
+target_include_directories(styio_core_benchmark_evidence_test PRIVATE
+  "${STYIO_BENCHMARK_PROBE_DIR}"
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated")
+styio_apply_llvm_compile_settings(styio_core_benchmark_evidence_test)
+gtest_discover_tests(styio_core_benchmark_evidence_test
+  PROPERTIES LABELS "benchmark\\;performance\\;core_internal")
+
+add_test(NAME styio_core_benchmark_smoke
+  COMMAND "${Python3_EXECUTABLE}"
+          "${STYIO_BENCHMARK_CORE_DIR}/run-core.py"
+          --repo-root "${STYIO_BENCHMARK_ROOT}"
+          --manifest "${STYIO_BENCHMARK_CORE_DIR}/manifest.json"
           --styio "$<TARGET_FILE:styio>"
           --iterations 1
-          --output "${STYIO_CORE_BENCHMARK_RESULT}"
-)
+          --output "${CMAKE_BINARY_DIR}/benchmark/core/core-workload-smoke.json")
 set_tests_properties(styio_core_benchmark_smoke PROPERTIES
   LABELS "benchmark;performance;core_smoke"
-  ENVIRONMENT_MODIFICATION "${STYIO_BENCHMARK_RUNTIME_PATH_MODS}"
-)
+  ENVIRONMENT_MODIFICATION "${STYIO_BENCHMARK_RUNTIME_PATH_MODS}")
 
-function(styio_resolve_benchmark_root out_var)
-  set(candidates)
-  if(STYIO_BENCHMARK_ROOT)
-    list(APPEND candidates "${STYIO_BENCHMARK_ROOT}")
-  endif()
-  if(DEFINED ENV{STYIO_BENCHMARK_ROOT})
-    list(APPEND candidates "$ENV{STYIO_BENCHMARK_ROOT}")
-  endif()
-  list(APPEND candidates
-    "${CMAKE_SOURCE_DIR}/../styio-benchmark"
-    "${CMAKE_SOURCE_DIR}/../../eBioRing/styio-benchmark"
-    "$ENV{HOME}/DevSpace/eBioRing/styio-benchmark"
-    "$ENV{HOME}/eBioRing/styio-benchmark"
-  )
-
-  foreach(candidate IN LISTS candidates)
-    if(candidate STREQUAL "")
-      continue()
-    endif()
-    get_filename_component(candidate_abs "${candidate}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
-    if(EXISTS "${candidate_abs}/styio-probes/styio_soak_test.cpp"
-       AND EXISTS "${candidate_abs}/styio-probes/styio_task_scheduler_perf_test.cpp")
-      set(${out_var} "${candidate_abs}" PARENT_SCOPE)
-      return()
-    endif()
-  endforeach()
-
-  set(${out_var} "" PARENT_SCOPE)
-endfunction()
-
-styio_resolve_benchmark_root(STYIO_BENCHMARK_ROOT_RESOLVED)
-if(NOT STYIO_BENCHMARK_ROOT_RESOLVED)
-  if(STYIO_REQUIRE_EXTERNAL_BENCHMARK)
-    message(FATAL_ERROR
-      "Styio benchmark probe sources have moved to styio-benchmark/styio-probes. "
-      "Set -DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark or export STYIO_BENCHMARK_ROOT.")
-  endif()
-  message(STATUS
-    "[Styio] External styio-benchmark probes not found; only the in-repo core benchmark smoke will be registered.")
+if(WIN32)
+  set_tests_properties(
+    styio_core_benchmark_internal
+    styio_core_benchmark_json_output
+    styio_core_benchmark_json_contract
+    PROPERTIES DISABLED TRUE)
 endif()
 
 if(STYIO_BENCHMARK_ROOT_RESOLVED)
-  set(STYIO_BENCHMARK_ROOT "${STYIO_BENCHMARK_ROOT_RESOLVED}" CACHE PATH
-      "Path to the external styio-benchmark checkout that owns migrated benchmark probe sources" FORCE)
-  set(STYIO_BENCHMARK_PROBE_DIR "${STYIO_BENCHMARK_ROOT}/styio-probes")
-  message(STATUS "[Styio] Benchmark probes: ${STYIO_BENCHMARK_PROBE_DIR}")
-
   add_executable(styio_soak_test
     "${STYIO_BENCHMARK_PROBE_DIR}/styio_soak_test.cpp"
   )

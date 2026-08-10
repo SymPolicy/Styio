@@ -10,6 +10,8 @@ SymbolInterner::SymbolInterner() {
 SymbolInterner::~SymbolInterner() = default;
 
 SymbolId SymbolInterner::intern(std::string_view spelling) {
+  ++intern_calls_;
+  ++lookup_probes_;
   auto it = map_.find(spelling);
   if (it != map_.end()) {
     return it->second;
@@ -20,10 +22,12 @@ SymbolId SymbolInterner::intern(std::string_view spelling) {
   // Re-obtain string_view into the stable deque storage
   std::string_view stable = symbols_.back();
   map_.emplace(stable, id);
+  ++insertions_;
   return id;
 }
 
 SymbolId SymbolInterner::lookup(std::string_view spelling) const {
+  ++lookup_probes_;
   auto it = map_.find(spelling);
   return it != map_.end() ? it->second : kInvalidSymbolId;
 }

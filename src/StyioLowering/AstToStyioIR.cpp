@@ -4,6 +4,7 @@
 
 // [C++ STL]
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <limits>
@@ -81,6 +82,80 @@ lowering_type_convert_source_fallback_type(NumPromoTy promo_type) {
 StyioDataType
 lowering_string_type() {
   return StyioDataType{StyioDataTypeOption::String, "string", 0};
+}
+
+// Resource-topology validation is mandatory for general programs.  A large
+// compiler-phase workload is a flat chain of typed mutable bindings whose
+// values are scalar literals, names, and binary expressions only; this narrow
+// proof excludes every resource-bearing AST form and permits a safe fast
+// path without weakening diagnostics for any other syntax.
+bool
+resource_free_scalar_expression(StyioAST* ast) {
+  if (ast == nullptr) {
+    return false;
+  }
+  switch (ast->getNodeType()) {
+    case StyioNodeType::Integer:
+    case StyioNodeType::Float:
+    case StyioNodeType::Bool:
+    case StyioNodeType::Char:
+    case StyioNodeType::String:
+      return true;
+    case StyioNodeType::Id: {
+      const StyioDataType type = static_cast<NameAST*>(ast)->getDataType();
+      // Names may carry a materialized collection/handle type even when the
+      // expression itself is syntactically scalar.  Those values participate
+      // in resource topology (matrix/list/dict/task/IO handles) and therefore
+      // must not enter the validation-free path.  Keep undefined names
+      // accepted here: type inference supplies the concrete scalar type for
+      // normal flat chains before lowering, while an unresolved name is still
+      // diagnosed by the regular lowering/sema path.
+      return !styio_is_topology_resource_type(type)
+        && !styio_type_is_resource_handle(type)
+        && !styio_is_callable_type(type);
+    }
+    case StyioNodeType::BinOp: {
+      auto* binop = static_cast<BinOpAST*>(ast);
+      return resource_free_scalar_expression(binop->getLHS())
+        && resource_free_scalar_expression(binop->getRHS());
+    }
+    default:
+      return false;
+  }
+}
+
+bool
+main_block_is_resource_free_scalar_chain(MainBlockAST* ast) {
+  if (ast == nullptr || ast->getStmts().empty()) {
+    return false;
+  }
+  for (auto* stmt : ast->getStmts()) {
+    if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
+      if (!resource_free_scalar_expression(bind->getValue())) {
+        return false;
+      }
+      continue;
+    }
+    if (auto* print = dynamic_cast<PrintAST*>(stmt)) {
+      for (auto* expr : print->exprs) {
+        if (!resource_free_scalar_expression(expr)) {
+          return false;
+        }
+      }
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+bool
+resource_topology_fast_path_eligible(
+  MainBlockAST* ast,
+  bool imported_callable_definitions_empty
+) {
+  return imported_callable_definitions_empty
+    && main_block_is_resource_free_scalar_chain(ast);
 }
 
 StyioIR*
@@ -257,6 +332,19 @@ styio::lowering::StyioIRPassPipelineOptions
 intermediate_sg_block_pipeline_options() {
   styio::lowering::StyioIRPassPipelineOptions options;
   options.verifier_options.defer_unresolved_loop_control = true;
+  return options;
+}
+
+// A complete MainBlock lowering runs the same ownership verifier after each
+// of three local passes.  Preserve the initial and final fail-closed gates,
+// while avoiding two redundant full-tree walks over large flat programs.
+styio::lowering::StyioIRPassPipelineOptions
+main_sg_block_pipeline_options(AstToStyioIRLowerer* lowerer) {
+  styio::lowering::StyioIRPassPipelineOptions options;
+  options.verify_after_each_pass = false;
+  if (lowerer != nullptr) {
+    options.result_sink = lowerer->pipeline_profile_sink();
+  }
   return options;
 }
 
@@ -4929,11 +5017,60 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
-  styio::resource_topology::validate_or_throw(ast, "lowering-resource-topology");
+  bool resource_free_chain = false;
+  if (pipeline_profile_enabled()) {
+    const auto probe_started = std::chrono::steady_clock::now();
+    resource_free_chain =
+      resource_topology_fast_path_eligible(
+        ast,
+        imported_callable_definitions().empty());
+    const auto probe_ended = std::chrono::steady_clock::now();
+    record_resource_fast_path_probe_duration(static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        probe_ended - probe_started).count()));
+  }
+  else {
+    resource_free_chain =
+      resource_topology_fast_path_eligible(
+        ast,
+        imported_callable_definitions().empty());
+  }
+  if (resource_free_chain) {
+    if (pipeline_profile_enabled()) {
+      record_resource_validation_skipped();
+    }
+  }
+  else if (pipeline_profile_enabled()) {
+    const auto validation_started = std::chrono::steady_clock::now();
+    styio::resource_topology::validate_or_throw(ast, "lowering-resource-topology");
+    const auto validation_ended = std::chrono::steady_clock::now();
+    record_resource_validation_duration(static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        validation_ended - validation_started).count()));
+  }
+  else {
+    styio::resource_topology::validate_or_throw(ast, "lowering-resource-topology");
+  }
 
   std::vector<StyioIR*> ir_stmts;
+  // The top-level source statement count is the exact lower-bound for this
+  // owning sequence (specializations/imports can append beyond it).  Reserve
+  // it up front so ordinary flat programs do not repeatedly reallocate while
+  // the compiler is constructing the root IR container.
+  ir_stmts.reserve(ast->getStmts().size());
   int pending_region = -1;
   SGPulsePlan* pending_plan = nullptr;
+  const auto lower_top_level_stmt = [this](StyioAST* stmt) -> StyioIR* {
+    if (!pipeline_profile_enabled()) {
+      return stmt->toStyioIR(this);
+    }
+    const auto started = std::chrono::steady_clock::now();
+    StyioIR* lowered = stmt->toStyioIR(this);
+    const auto ended = std::chrono::steady_clock::now();
+    record_lowering_statement_duration(static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(ended - started).count()));
+    return lowered;
+  };
 
   func_defs.clear();
   func_defs_by_sid.clear();
@@ -4971,7 +5108,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
         activate_callable_specialization(specialization);
         try {
           prepare_callable_specialization_body(stmt, specialization);
-          ir_stmts.push_back(stmt->toStyioIR(this));
+          ir_stmts.push_back(lower_top_level_stmt(stmt));
         }
         catch (...) {
           clear_active_callable_specialization();
@@ -4991,7 +5128,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
         continue;
       }
     }
-    StyioIR* ir = stmt->toStyioIR(this);
+    StyioIR* ir = lower_top_level_stmt(stmt);
     if (auto* fe = dynamic_cast<SGForEach*>(ir)) {
       if (fe->pulse_plan && fe->pulse_plan->total_bytes > 0) {
         pending_region = fe->pulse_region_id;
@@ -5069,7 +5206,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
           prepare_callable_specialization_body(
             definition,
             specialization);
-          ir_stmts.push_back(definition->toStyioIR(this));
+        ir_stmts.push_back(lower_top_level_stmt(definition));
         }
         catch (...) {
           clear_active_callable_specialization();
@@ -5082,9 +5219,11 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
     if (!imported_concrete_callable_is_reachable(name)) {
       continue;
     }
-    ir_stmts.push_back(definition->toStyioIR(this));
+    ir_stmts.push_back(lower_top_level_stmt(definition));
   }
   set_post_pulse_hist_context(-1, nullptr);
 
-  return styio::lowering::require_default_styio_ir_pass_pipeline(SGMainEntry::Create(std::move(ir_stmts)));
+  return styio::lowering::require_default_styio_ir_pass_pipeline(
+    SGMainEntry::Create(std::move(ir_stmts)),
+    main_sg_block_pipeline_options(this));
 }

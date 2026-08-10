@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -621,6 +622,265 @@ TEST(StyioLoweringInternal, PassManagerRunsCanonicalizationAndVerifierStages) {
     EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
     EXPECT_NE(result.diagnostics.front().message.find("SIOInstantPull.handle_var"), std::string::npos);
   }
+}
+
+TEST(StyioLoweringInternal, DeferredVerifierRejectsIntermediateAndFinalMutations) {
+  auto append_invalid_pull = [](StyioIR* root) {
+    auto* main = dynamic_cast<SGMainEntry*>(root);
+    ASSERT_NE(main, nullptr);
+    main->stmts.push_back(SIOInstantPull::CreateFromHandle(""));
+  };
+
+  {
+    std::unique_ptr<SGMainEntry> root(
+      SGMainEntry::Create({SGReturn::Create(SGConstInt::Create(1))}));
+    styio::lowering::StyioIRPassPipelineOptions options;
+    options.verify_after_each_pass = false;
+    options.pass_observer = [&](std::size_t pass_index, StyioIR* current) {
+      if (pass_index == 0) {
+        append_invalid_pull(current);
+      }
+    };
+    const auto result =
+      styio::lowering::run_default_styio_ir_pass_pipeline(root.get(), options);
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.passes.size(), 2u);
+    EXPECT_FALSE(result.passes.back().verifier_before_ok);
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+    EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+  }
+
+  {
+    std::unique_ptr<SGMainEntry> root(
+      SGMainEntry::Create({SGReturn::Create(SGConstInt::Create(1))}));
+    styio::lowering::StyioIRPassPipelineOptions options;
+    options.verify_after_each_pass = false;
+    options.pass_observer = [&](std::size_t pass_index, StyioIR* current) {
+      if (pass_index == 2) {
+        append_invalid_pull(current);
+      }
+    };
+    const auto result =
+      styio::lowering::run_default_styio_ir_pass_pipeline(root.get(), options);
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.passes.size(), 3u);
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+    EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+  }
+
+  {
+    // The initial verifier is also the final boundary when no rewrite is
+    // applicable; an invalid IR never enters a pass or codegen consumer.
+    std::unique_ptr<SGMainEntry> root(
+      SGMainEntry::Create({SIOInstantPull::CreateFromHandle("")}));
+    styio::lowering::StyioIRPassPipelineOptions options;
+    options.verify_after_each_pass = false;
+    const auto result =
+      styio::lowering::run_default_styio_ir_pass_pipeline(root.get(), options);
+    EXPECT_FALSE(result.ok());
+    EXPECT_TRUE(result.passes.empty());
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().phase, "ir_verify");
+    EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
+    EXPECT_NE(result.diagnostics.front().message.find("SIOInstantPull.handle_var"), std::string::npos);
+  }
+}
+
+TEST(StyioLoweringInternal, ApplicabilityKeepsCandidatePassesAndDiagnosticsEquivalent) {
+  using RootFactory = std::function<SGMainEntry*()>;
+  const auto run_pair = [](const RootFactory& factory,
+                           std::size_t expected_pass,
+                           const char* label) {
+    std::unique_ptr<SGMainEntry> legacy(factory());
+    std::unique_ptr<SGMainEntry> deferred(factory());
+
+    styio::lowering::StyioIRPassPipelineOptions legacy_options;
+    legacy_options.collect_ir_dumps = true;
+    const auto legacy_result =
+      styio::lowering::run_default_styio_ir_pass_pipeline(
+        legacy.get(), legacy_options);
+
+    styio::lowering::StyioIRPassPipelineOptions deferred_options;
+    deferred_options.collect_ir_dumps = true;
+    deferred_options.verify_after_each_pass = false;
+    const auto deferred_result =
+      styio::lowering::run_default_styio_ir_pass_pipeline(
+        deferred.get(), deferred_options);
+
+    ASSERT_TRUE(legacy_result.ok()) << label;
+    ASSERT_TRUE(deferred_result.ok()) << label;
+    ASSERT_EQ(legacy_result.passes.size(), 3u) << label;
+    ASSERT_EQ(deferred_result.passes.size(), 3u) << label;
+    ASSERT_LT(expected_pass, deferred_result.passes.size()) << label;
+    EXPECT_TRUE(deferred_result.passes[expected_pass].applicable) << label;
+    for (std::size_t i = 0; i < deferred_result.passes.size(); ++i) {
+      if (i != expected_pass) {
+        EXPECT_FALSE(deferred_result.passes[i].applicable) << label << " pass " << i;
+      }
+    }
+    EXPECT_EQ(legacy_result.final_ir, deferred_result.final_ir) << label;
+    ASSERT_EQ(legacy_result.diagnostics.size(), deferred_result.diagnostics.size()) << label;
+    for (std::size_t i = 0; i < legacy_result.diagnostics.size(); ++i) {
+      EXPECT_EQ(legacy_result.diagnostics[i].phase, deferred_result.diagnostics[i].phase) << label;
+      EXPECT_EQ(legacy_result.diagnostics[i].code, deferred_result.diagnostics[i].code) << label;
+      EXPECT_EQ(legacy_result.diagnostics[i].message, deferred_result.diagnostics[i].message) << label;
+    }
+  };
+
+  run_pair(
+    []() {
+      return SGMainEntry::Create({
+        SGReturn::Create(SGConstInt::Create(1)),
+        SIOPrint::Create({SGConstString::Create("dead")}),
+      });
+    },
+    0,
+    "dead-suffix");
+
+  run_pair(
+    []() {
+      return SGMainEntry::Create({
+        SGMatch::Create(
+          SGResId::Create("source"),
+          {},
+          SGBlock::Create({
+            SGFlexBind::Create(sg_i64_var("memo"), SGResId::Create("source")),
+            SGReturn::Create(SGResId::Create("memo")),
+          }),
+          SGMatchReprKind::ExprInt),
+      });
+    },
+    1,
+    "canonicalization");
+
+  const auto constant_binary = []() {
+    return SGBinOp::Create(
+      SGConstInt::Create(1),
+      SGConstInt::Create(2),
+      StyioOpType::Binary_Add,
+      SGType::Create(i64_type()),
+      i64_type(),
+      i64_type());
+  };
+  run_pair(
+    [&constant_binary]() {
+      return SGMainEntry::Create({
+        SGReturn::Create(constant_binary()),
+      });
+    },
+    2,
+    "constant-folding");
+
+  // Candidates nested beneath a block, a callable body, a call argument, and
+  // a control-flow arm must still be discovered by the single applicability
+  // walk; this guards against false negatives in child dispatch.
+  run_pair(
+    [&constant_binary]() {
+      return SGMainEntry::Create({
+        SGFunc::Create(
+          SGType::Create(i64_type()),
+          SGResId::Create("nested"),
+          {},
+          SGBlock::Create({
+            SGIf::Create(
+              SGConstBool::Create(true),
+              SGBlock::Create({SGReturn::Create(constant_binary())}),
+              SGBlock::Create({SGReturn::Create(SGConstInt::Create(0))})),
+          })),
+        SGCall::Create(SGResId::Create("nested"), {constant_binary()}),
+      });
+    },
+    2,
+    "nested-children");
+}
+
+TEST(StyioLoweringInternal, ResourceTopologyFastPathIsNarrowAndResourceFree) {
+  std::unique_ptr<MainBlockAST> scalar_chain(MainBlockAST::Create({
+    FlexBindAST::Create(VarAST::Create(NameAST::Create("v0")), IntAST::Create("0")),
+    FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("v1")),
+      BinOpAST::Create(
+        StyioOpType::Binary_Add,
+        NameAST::Create("v0"),
+        IntAST::Create("1"))),
+    PrintAST::Create({NameAST::Create("v1")}),
+  }));
+  EXPECT_TRUE(main_block_is_resource_free_scalar_chain(scalar_chain.get()));
+
+  std::unique_ptr<MainBlockAST> resource_use(MainBlockAST::Create({
+    InstantPullAST::Create(
+      StdStreamAST::Create(StdStreamKind::Stdin),
+      styio_data_type_from_name("string")),
+  }));
+  EXPECT_FALSE(main_block_is_resource_free_scalar_chain(resource_use.get()));
+}
+
+TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsNestedResourceShapes) {
+  using NegativeFactory = std::function<StyioAST*()>;
+  const std::vector<std::pair<std::string, NegativeFactory>> cases = {
+    {"resource", []() {
+       return static_cast<StyioAST*>(StdStreamAST::Create(StdStreamKind::Stdin));
+     }},
+    {"call", []() {
+       return static_cast<StyioAST*>(FuncCallAST::Create(NameAST::Create("f"), {}));
+     }},
+    {"matrix-name", []() {
+       auto* name = NameAST::Create("matrix_value");
+       name->setInferredType(styio_make_matrix_type("i64"));
+       return static_cast<StyioAST*>(name);
+     }},
+    {"list", []() {
+       return static_cast<StyioAST*>(ListAST::Create({IntAST::Create("1")}));
+     }},
+    {"dict", []() {
+       return static_cast<StyioAST*>(DictAST::Create({
+         {StringAST::Create("k"), IntAST::Create("1")}}));
+     }},
+    {"task", []() {
+       return static_cast<StyioAST*>(TaskBlockAST::Create(
+         BlockAST::Create({PassAST::Create()})));
+     }},
+    {"io", []() {
+       return static_cast<StyioAST*>(InstantPullAST::Create(
+         StdStreamAST::Create(StdStreamKind::Stdin),
+         styio_data_type_from_name("string")));
+     }},
+    {"unknown-node", []() {
+       return static_cast<StyioAST*>(NoneAST::Create());
+     }},
+    {"empty-node", []() {
+       return static_cast<StyioAST*>(EmptyAST::Create());
+     }},
+    {"resource-typed-name", []() {
+       auto* name = NameAST::Create("resource_value");
+       name->setInferredType(styio_make_topology_resource_type(
+         styio_data_type_from_name("i64"),
+         StyioResourceShapeKind::Scalar));
+       return static_cast<StyioAST*>(name);
+     }},
+  };
+
+  for (const auto& [label, make_negative] : cases) {
+    std::unique_ptr<MainBlockAST> block(MainBlockAST::Create({
+      FlexBindAST::Create(
+        VarAST::Create(NameAST::Create("value")),
+        BinOpAST::Create(
+          StyioOpType::Binary_Add,
+          IntAST::Create("1"),
+          make_negative()))}));
+    EXPECT_FALSE(main_block_is_resource_free_scalar_chain(block.get())) << label;
+  }
+}
+
+TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsImportedCallables) {
+  std::unique_ptr<MainBlockAST> scalar_chain(MainBlockAST::Create({
+    FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("value")), IntAST::Create("1"))}));
+  ASSERT_TRUE(main_block_is_resource_free_scalar_chain(scalar_chain.get()));
+  EXPECT_TRUE(resource_topology_fast_path_eligible(scalar_chain.get(), true));
+  EXPECT_FALSE(resource_topology_fast_path_eligible(scalar_chain.get(), false));
 }
 
 TEST(StyioLoweringInternal, VerifierRejectsUnsupportedActiveIRNodes) {

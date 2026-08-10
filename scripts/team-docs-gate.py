@@ -105,8 +105,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "tests/",
             "src/StyioTesting/",
             "tests/workflow_scheduler_test.py",
-            "benchmark/parser-shadow-suite-gate.py",
-            "benchmark/parser-shadow-suite-gate.sh",
+            "tests/gates/parser-shadow-suite-gate.py",
             "scripts/fuzz-regression-pack.sh",
             "scripts/coverage-gate.sh",
             "scripts/checkpoint-health.sh",
@@ -118,7 +117,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/PERF-STABILITY-RUNBOOK.md"),
         (
             "benchmark/",
-            "scripts/benchmark-compare.py",
+            "src/StyioProfiler/",
         ),
     ),
     TeamRule(

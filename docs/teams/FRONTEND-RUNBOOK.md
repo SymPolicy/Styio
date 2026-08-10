@@ -2,11 +2,13 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-10
 
 ## Mission
 
 Own the source-to-AST front end: token definitions, lexer behavior, parser routing, parser diagnostics, lookahead helpers, and the authoritative nightly parser boundary. Do not own language meaning beyond implementing the design SSOT.
+
+Delimiter nesting queries use a parser-owned prefix table built once per token stream; operation-count tests protect linear construction and constant-time lookup without changing accepted syntax or diagnostics.
 
 ## Owned Surface
 

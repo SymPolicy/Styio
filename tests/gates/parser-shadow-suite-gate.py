@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Portable parser shadow suite gate.
-
-This mirrors benchmark/parser-shadow-suite-gate.sh so CTest can run the gate on
-Windows without requiring a Unix shell toolchain.
-"""
+"""Portable parser correctness gate for shadow-parser feature suites."""
 
 from __future__ import annotations
 

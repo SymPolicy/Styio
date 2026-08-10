@@ -291,58 +291,10 @@ kind = "gate"
 purpose = "Register and run ordered workflow tool profiles."
 last_reviewed = "2026-06-28"
 
-[[tool]]
-id = "benchmark-parser-shadow-suite-gate"
-path = "benchmark/parser-shadow-suite-gate.sh"
-owner = "Frontend"
-kind = "gate"
-purpose = "Run parser shadow comparisons for feature suites and enforce no accepted-grammar fallback."
-last_reviewed = "2026-06-28"
-
-[[tool]]
-id = "benchmark-parser-shadow-suite-gate-python"
-path = "benchmark/parser-shadow-suite-gate.py"
-owner = "Frontend"
-kind = "gate"
-purpose = "Run portable parser shadow comparisons for CTest and Windows-native validation."
-last_reviewed = "2026-06-28"
-
-[[tool]]
-id = "benchmark-compare"
-path = "scripts/benchmark-compare.py"
-owner = "Performance / Stability"
-kind = "gate"
-purpose = "Compare benchmark JSON outputs and fail when regressions exceed the configured threshold."
-last_reviewed = "2026-06-28"
-
-[[tool]]
-id = "benchmark-perf-report"
-path = "benchmark/perf-report.py"
-owner = "Performance / Stability"
-kind = "report"
-purpose = "Forward structured performance report rendering to the active styio-benchmark checkout."
-last_reviewed = "2026-06-28"
-
-[[tool]]
-id = "benchmark-perf-route"
-path = "benchmark/perf-route.sh"
-owner = "Performance / Stability"
-kind = "adapter"
-purpose = "Run the active styio-benchmark performance route against this Styio checkout."
-last_reviewed = "2026-06-28"
-
-[[tool]]
-id = "benchmark-soak-minimize"
-path = "benchmark/soak-minimize.sh"
-owner = "Performance / Stability"
-kind = "adapter"
-purpose = "Run the active styio-benchmark soak minimizer against this Styio checkout."
-last_reviewed = "2026-06-28"
-
 [[module_coverage]]
 module = "Frontend"
 runbook = "docs/teams/FRONTEND-RUNBOOK.md"
-tool_ids = ["benchmark-parser-shadow-suite-gate", "benchmark-parser-shadow-suite-gate-python", "parser-retired-route-audit", "parser-retired-route-audit-python"]
+tool_ids = ["parser-retired-route-audit", "parser-retired-route-audit-python"]
 maintenance_command = "ctest --test-dir build/default -R '^(StyioParserEngine\\.|parser_shadow_gate_|parser_legacy_entry_audit$)' --output-on-failure"
 
 [[module_coverage]]
@@ -378,14 +330,8 @@ maintenance_command = "python3 scripts/syntax-feature-state-gate.py && cd gramma
 [[module_coverage]]
 module = "Test Quality"
 runbook = "docs/teams/TEST-QUALITY-RUNBOOK.md"
-tool_ids = ["coverage-gate", "fuzz-regression-pack", "checkpoint-health", "benchmark-parser-shadow-suite-gate", "benchmark-parser-shadow-suite-gate-python"]
+tool_ids = ["coverage-gate", "fuzz-regression-pack", "checkpoint-health"]
 maintenance_command = "ctest --test-dir build/default -L language_feature --output-on-failure"
-
-[[module_coverage]]
-module = "Performance / Stability"
-runbook = "docs/teams/PERF-STABILITY-RUNBOOK.md"
-tool_ids = ["benchmark-perf-route", "benchmark-soak-minimize", "benchmark-perf-report", "benchmark-compare"]
-maintenance_command = "STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick"
 
 [[module_coverage]]
 module = "Docs / Ecosystem"

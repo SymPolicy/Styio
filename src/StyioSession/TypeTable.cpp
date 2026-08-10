@@ -8,7 +8,9 @@ intern_type_name(SymbolInterner* symbols, std::string_view spelling) {
   if (symbols == nullptr || spelling.empty()) {
     return kInvalidSymbolId;
   }
-  return symbols->intern(std::string(spelling));
+  // SymbolInterner supports transparent string_view lookup; avoid creating a
+  // temporary std::string for every canonical type-key construction.
+  return symbols->intern(spelling);
 }
 
 TypeKey
@@ -33,6 +35,21 @@ TypeTable::TypeTable() {
 }
 
 TypeId TypeTable::intern(const TypeKey& key) {
+  ++intern_calls_;
+  // Canonical builtins are requested repeatedly during semantic analysis.
+  // Resolve them before hashing the full structural key; this preserves the
+  // TypeId contract while avoiding repeated unordered_map work.
+  const TypeId builtin_ids[] = {
+    builtin_i64_, builtin_f64_, builtin_bool_, builtin_string_, builtin_void_};
+  for (TypeId builtin_id : builtin_ids) {
+    if (builtin_id != kInvalidTypeId
+        && builtin_id < types_.size()
+        && types_[builtin_id] == key) {
+      ++builtin_cache_hits_;
+      return builtin_id;
+    }
+  }
+  ++lookup_probes_;
   auto it = map_.find(key);
   if (it != map_.end()) {
     return it->second;
@@ -40,6 +57,35 @@ TypeId TypeTable::intern(const TypeKey& key) {
   TypeId id = static_cast<TypeId>(types_.size());
   types_.push_back(key);
   map_.emplace(types_.back(), id);
+  ++insertions_;
+  // Lazily pin canonical scalar IDs as they first appear.  CompilationSession
+  // intentionally does not pre-register builtins, so this keeps the same
+  // first-use TypeId ordering while enabling the direct path on repeats.
+  if (builtin_i64_ == kInvalidTypeId
+      && key.option == StyioDataTypeOption::Integer
+      && key.bit_width == 64) {
+    builtin_i64_ = id;
+  }
+  if (builtin_f64_ == kInvalidTypeId
+      && key.option == StyioDataTypeOption::Float
+      && key.bit_width == 64) {
+    builtin_f64_ = id;
+  }
+  if (builtin_bool_ == kInvalidTypeId
+      && key.option == StyioDataTypeOption::Bool
+      && key.bit_width == 1) {
+    builtin_bool_ = id;
+  }
+  if (builtin_string_ == kInvalidTypeId
+      && key.option == StyioDataTypeOption::String
+      && key.bit_width == 0) {
+    builtin_string_ = id;
+  }
+  if (builtin_void_ == kInvalidTypeId
+      && key.option == StyioDataTypeOption::Undefined
+      && key.bit_width == 0) {
+    builtin_void_ = id;
+  }
   return id;
 }
 
