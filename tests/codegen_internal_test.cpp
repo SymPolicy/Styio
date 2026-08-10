@@ -241,11 +241,11 @@ TEST(StyioCodeGenInternal, BuiltinListAndMatrixCoercionsStayExplicit) {
     }),
     SGCall::Create(SGResId::Create("__styio_list_push_char"), {
       SGConstInt::Create(1),
-      SGConstFloat::Create("2.5"),
+      SGConstInt::Create(65),
     }),
     SGCall::Create(SGResId::Create("__styio_list_push_cstr"), {
       SGConstInt::Create(1),
-      SGConstInt::Create(9),
+      SGConstString::Create("value"),
     }),
     SGCall::Create(SGResId::Create("__styio_list_push_bool"), {
       SGConstInt::Create(1),

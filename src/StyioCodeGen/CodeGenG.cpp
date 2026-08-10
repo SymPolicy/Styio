@@ -6810,6 +6810,11 @@ StyioToLLVM::execute() {
     verifier_stream.flush();
     throw StyioTypeError("LLVM module verification failed: " + verifier_error);
   }
+  llvm::Function* entrypoint = theModule->getFunction("main");
+  if (entrypoint == nullptr || entrypoint->isDeclaration()) {
+    std::cerr << "styio: main not found" << std::endl;
+    return;
+  }
   auto RT = theORCJIT->getMainJITDylib().createResourceTracker();
   llvm::ExitOnError exit_on_error;
   if (theORCJIT->callableCacheEnabled()) {
