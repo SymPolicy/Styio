@@ -1,4 +1,4 @@
-set(STYIO_BENCHMARK_ROOT "" CACHE PATH
+set(STYIO_BENCHMARK_ROOT "" CACHE STRING
     "Explicit path to the external styio-benchmark checkout")
 option(STYIO_REQUIRE_EXTERNAL_BENCHMARK
        "Fail configure when STYIO_BENCHMARK_ROOT is unset or incomplete"
@@ -42,7 +42,7 @@ if(_styio_benchmark_missing_files)
   return()
 endif()
 
-set(STYIO_BENCHMARK_ROOT "${STYIO_BENCHMARK_ROOT_RESOLVED}" CACHE PATH
+set(STYIO_BENCHMARK_ROOT "${STYIO_BENCHMARK_ROOT_RESOLVED}" CACHE STRING
     "Explicit path to the external styio-benchmark checkout" FORCE)
 
 include(GoogleTest)

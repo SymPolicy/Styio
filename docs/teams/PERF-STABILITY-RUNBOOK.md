@@ -8,6 +8,8 @@
 
 Own the compiler-side profiler and the explicit integration seam used by `styio-benchmark`. All performance workloads, probe implementations, runners, reports, baselines, and cross-runtime comparisons live in `styio-benchmark`; this repository retains compiler correctness tests and `benchmark/CMakeLists.txt` only. It does not accept behavior changes without the implementation and Test Quality owners.
 
+Relative `STYIO_BENCHMARK_ROOT` values are resolved from the Styio source directory so the same explicit command works from either the compiler checkout or its two-repository parent.
+
 ## Owned Surface
 
 Primary paths:
