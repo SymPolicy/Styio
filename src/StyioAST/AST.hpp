@@ -1323,6 +1323,18 @@ public:
   const StyioDataType getDataType() const {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
+
+  std::string toString(StyioRepr* visitor, int indent = 0) override {
+    return visitor->toString(this, indent);
+  }
+
+  void typeInfer(StyioSemaContext* visitor) override {
+    visitor->typeInfer(this);
+  }
+
+  StyioIR* toStyioIR(AstToStyioIRLowerer* visitor) override {
+    return visitor->toStyioIR(this);
+  }
 };
 
 /*

@@ -3179,7 +3179,9 @@ TEST(StyioTypeInferenceContract, LeafNoopAndFailClosedTypeInferNodesStayExplicit
   noops.emplace_back(OptArgAST::Create(NameAST::Create("opt")));
   noops.emplace_back(OptKwArgAST::Create(NameAST::Create("kw")));
   noops.emplace_back(VarTupleAST::Create({VarAST::Create(NameAST::Create("a"))}));
-  noops.emplace_back(ExtractorAST::Create(TupleAST::Create({IntAST::Create("1")}), NameAST::Create("first")));
+  noops.emplace_back(ExtractorAST::Create(
+    TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")}),
+    NameAST::Create("first")));
   noops.emplace_back(SetAST::Create({IntAST::Create("1")}));
   noops.emplace_back(UndefinedLitAST::Create());
   noops.emplace_back(WaveDispatchAST::Create(BoolAST::Create(true), IntAST::Create("1"), IntAST::Create("0")));

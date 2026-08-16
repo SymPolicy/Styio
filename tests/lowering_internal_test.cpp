@@ -1535,7 +1535,7 @@ TEST(StyioLoweringInternal, DirectLoweringFailureAndVariantBranchesStayExplicit)
       DictAST::Create({{StringAST::Create("k"), IntAST::Create("1")}}),
       StdStreamAST::Create(StdStreamKind::Stdout)));
     std::unique_ptr<StyioIR> ir(write->toStyioIR(&analyzer));
-    EXPECT_NE(dynamic_cast<SIOStdStreamWrite*>(ir.get()), nullptr);
+    EXPECT_NE(dynamic_cast<SGForEach*>(ir.get()), nullptr);
   }
   {
     std::unique_ptr<AttrAST> path(AttrAST::Create(

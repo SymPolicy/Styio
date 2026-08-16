@@ -3386,7 +3386,7 @@ require_matrix_return_compatible_latest(
 }
 
 void
-require_tuple_return_compatible_latest(
+require_compatible_tuple_return(
   StyioSemaContext* an,
   const std::string& function_name,
   const StyioDataType& declared,
@@ -3792,7 +3792,7 @@ is_name_ast_latest(StyioAST* ast, const std::string& name) {
 }
 
 bool
-match_pattern_supported_latest(
+match_pattern_is_supported(
   StyioAST* pattern,
   const std::string* scrutinee_name,
   StyioDataTypeOption scrutinee_option) {
@@ -7102,6 +7102,9 @@ void
 StyioSemaContext::typeInfer(FlexBindAST* ast) {
   const std::string& bound_name = ast->getNameAsStr();
   const auto bound_sid = ast->getVar()->getName()->getSymbolId();
+  const bool binding_exists =
+    find_local_binding_type(bound_sid, bound_name) != nullptr
+    || find_binding_info(bound_sid, bound_name) != nullptr;
   if (is_fixed_assignment_name(bound_sid, bound_name)) {
     throw StyioSyntaxError(
       "variable `" + bound_name +
@@ -7308,7 +7311,7 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
       "mutable `=` callable slots are not available"
     );
   }
-  if (concrete_type.option == StyioDataTypeOption::Tuple) {
+  if (concrete_type.option == StyioDataTypeOption::Tuple && binding_exists) {
     throw StyioTypeError(
       "tuple mutation through flexible `=` bindings is not supported; use immutable `:=`");
   }
@@ -7628,6 +7631,7 @@ StyioSemaContext::typeInfer(TupleAST* ast) {
   }
   ast->setConsistency(false);
   ast->setDataType(styio_make_tuple_type(std::move(shape)));
+  maybe_intern_type(ast->getDataType());
 }
 
 void
@@ -9225,13 +9229,13 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
           f->func_body->typeInfer(this);
           StyioDataType return_type = function_body_tail_type_latest(this, f->func_body);
           require_matrix_return_compatible_latest(function_name, declared_return, return_type);
-          require_tuple_return_compatible_latest(
+          require_compatible_tuple_return(
             this, function_name, declared_return, return_type);
           walk_callable_expression(
             f->func_body,
             [&](StyioAST* node) {
               if (auto* ret = dynamic_cast<ReturnAST*>(node)) {
-                require_tuple_return_compatible_latest(
+                require_compatible_tuple_return(
                   this,
                   function_name,
                   declared_return,
@@ -9250,7 +9254,7 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
           sf->ret_expr->typeInfer(this);
           StyioDataType return_type = infer_expr_type(this, sf->ret_expr);
           require_matrix_return_compatible_latest(function_name, declared_return, return_type);
-          require_tuple_return_compatible_latest(
+          require_compatible_tuple_return(
             this, function_name, declared_return, return_type);
           record_inferred_function_return_type(return_type);
         }
@@ -9909,7 +9913,7 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
       throw StyioTypeError("match arm requires a pattern expression");
     }
     pr.first->typeInfer(this);
-    if (!match_pattern_supported_latest(
+    if (!match_pattern_is_supported(
           pr.first,
           scrutinee_name,
           scrutinee_type.option)) {
