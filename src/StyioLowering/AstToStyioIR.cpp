@@ -193,9 +193,12 @@ func_ret_to_sgtype(
     return SGType::Create(lowering_i64_type());
   }
   if (std::holds_alternative<TypeTupleAST*>(ret_type)) {
-    throw StyioTypeError(
-      "tuple function return annotations require tuple value IR; tuple returns are not implemented"
-    );
+    TypeTupleAST* tuple = std::get<TypeTupleAST*>(ret_type);
+    if (tuple == nullptr || !styio_is_shaped_tuple_type(tuple->getDataType())) {
+      throw StyioTypeError(
+        "tuple function return annotation requires a shaped tuple type");
+    }
+    return SGType::Create(tuple->getDataType());
   }
   TypeAST* t = std::get<TypeAST*>(ret_type);
   if (!t || t->getDataType().option == StyioDataTypeOption::Undefined) {
@@ -251,6 +254,9 @@ param_to_sgarg(
 }
 
 bool ast_has_tail_value(StyioAST* ast);
+StyioDataType expr_lowered_type(
+  AstToStyioIRLowerer* an,
+  StyioAST* expr);
 
 bool
 ast_is_statement_only_tail(StyioAST* ast) {
@@ -363,7 +369,9 @@ lower_tail_stmt(AstToStyioIRLowerer* an, StyioAST* stmt) {
     return lower_func_body(an, blk, true);
   }
   if (ast_can_be_implicit_tail_value(stmt)) {
-    return SGReturn::Create(stmt->toStyioIR(an));
+    return SGReturn::Create(
+      stmt->toStyioIR(an),
+      expr_lowered_type(an, stmt));
   }
   return stmt->toStyioIR(an);
 }
@@ -465,7 +473,6 @@ try_parse_int_literal_value(StyioAST* ast, std::int64_t& out) {
   if (!lit) {
     return false;
   }
-
   try {
     out = std::stoll(lit->getValue());
     return true;
@@ -473,6 +480,19 @@ try_parse_int_literal_value(StyioAST* ast, std::int64_t& out) {
   catch (const std::exception&) {
     return false;
   }
+}
+
+bool
+try_parse_match_literal_value(StyioAST* ast, std::int64_t& out) {
+  if (auto* character = dynamic_cast<CharAST*>(ast)) {
+    const std::string& value = character->getValue();
+    if (value.empty()) {
+      return false;
+    }
+    out = static_cast<std::int8_t>(value.front());
+    return true;
+  }
+  return try_parse_int_literal_value(ast, out);
 }
 
 bool
@@ -484,7 +504,7 @@ is_name_ast(StyioAST* ast, const std::string& name) {
 std::optional<std::int64_t>
 match_case_pattern_value_for_name(StyioAST* pattern, const std::string* scrutinee_name) {
   std::int64_t literal = 0;
-  if (try_parse_int_literal_value(pattern, literal)) {
+  if (try_parse_match_literal_value(pattern, literal)) {
     return literal;
   }
 
@@ -494,11 +514,11 @@ match_case_pattern_value_for_name(StyioAST* pattern, const std::string* scrutine
   }
 
   if (is_name_ast(cmp->getLHS(), *scrutinee_name)
-      && try_parse_int_literal_value(cmp->getRHS(), literal)) {
+      && try_parse_match_literal_value(cmp->getRHS(), literal)) {
     return literal;
   }
   if (is_name_ast(cmp->getRHS(), *scrutinee_name)
-      && try_parse_int_literal_value(cmp->getLHS(), literal)) {
+      && try_parse_match_literal_value(cmp->getLHS(), literal)) {
     return literal;
   }
 
@@ -572,10 +592,14 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
   }
   if (auto* call = dynamic_cast<FuncCallAST*>(expr)) {
     if (call->func_callee != nullptr
-        && styio_builtin_method_kind(call->getNameAsStr()) == StyioBuiltinMethodKind::StringLines) {
+        && styio_is_predefined_string_operation_name(call->getNameAsStr())) {
       StyioDataType callee_type = expr_lowered_type(an, call->func_callee);
       if (callee_type.option == StyioDataTypeOption::String) {
-        return styio_make_list_type("string");
+        return styio_make_list_type(
+          styio_builtin_method_kind(call->getNameAsStr())
+              == StyioBuiltinMethodKind::StringChars
+            ? "char"
+            : "string");
       }
     }
     if (call->func_callee != nullptr) {
@@ -626,6 +650,24 @@ expr_lowered_type(AstToStyioIRLowerer* an, StyioAST* expr) {
       }
     }
     StyioDataType base_type = expr_lowered_type(an, access->getList());
+    if (access->getOp() == StyioNodeType::Access_By_Index
+        && base_type.option == StyioDataTypeOption::Tuple) {
+      auto* literal = dynamic_cast<IntAST*>(access->getSlot1());
+      if (!styio_is_shaped_tuple_type(base_type) || literal == nullptr) {
+        return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+      }
+      try {
+        std::size_t used = 0;
+        const long long index = std::stoll(literal->value, &used, 10);
+        if (used == literal->value.size() && index >= 0
+            && static_cast<std::size_t>(index) < base_type.tuple_elements->size()) {
+          return (*base_type.tuple_elements)[static_cast<std::size_t>(index)];
+        }
+      }
+      catch (...) {
+      }
+      return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
     if (access->getOp() == StyioNodeType::Access_By_Index && styio_is_matrix_type(base_type)) {
       return styio_make_list_type(styio_matrix_elem_type_name(base_type));
     }
@@ -1244,7 +1286,7 @@ lower_cases_with_scrutinee(
     std::optional<std::int64_t> arm_value =
       match_case_pattern_value_for_name(pr.first, scrutinee_name);
     if (!arm_value.has_value()) {
-      throw StyioTypeError("match arms need integer literal patterns in this language feature");
+      throw StyioTypeError("match arms need integer or char literal patterns");
     }
     arms.push_back({*arm_value, lower_func_body(an, pr.second, implicit_tail_value)});
   }
@@ -2726,6 +2768,13 @@ AstToStyioIRLowerer::toStyioIR(NameAST* ast) {
     return SGResId::CreateFunctionRef(
       ast->getLoweredCallableName());
   }
+  // Function arguments are borrowed raw ABI values, never dynamic cells.
+  // A same-named outer collection binding may still have dynamic-slot facts
+  // in the shared semantic context; do not let that fact change parameter
+  // loads into SGDynLoad against an i64 argument alloca.
+  if (active_function_parameter_names_.contains(ast->getAsStr())) {
+    return SGResId::Create(ast->getAsStr());
+  }
   const BindingInfo* binding = find_binding_info(ast->getSymbolId(), ast->getAsStr());
   if (binding != nullptr
       && (binding->dynamic_slot || binding->value_kind == BindingValueKind::ListHandle || binding->value_kind == BindingValueKind::DictHandle || binding->value_kind == BindingValueKind::MatrixHandle || binding->value_kind == BindingValueKind::TaskHandle)) {
@@ -2773,8 +2822,11 @@ AstToStyioIRLowerer::toStyioIR(TypeAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(TypeTupleAST* ast) {
-  (void)ast;
-  return unsupported_ast_lowering("TypeTupleAST", "type tuples are declaration metadata, not runtime values");
+  StyioDataType type = ast->getDataType();
+  if (!styio_is_shaped_tuple_type(type) || type.tuple_elements->size() < 2) {
+    throw StyioTypeError("tuple type lowering requires at least two shaped elements");
+  }
+  return SGType::Create(std::move(type));
 }
 
 StyioIR*
@@ -3030,8 +3082,17 @@ AstToStyioIRLowerer::toStyioIR(StructAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(TupleAST* ast) {
-  (void)ast;
-  return unsupported_ast_lowering("TupleAST", "tuple value IR is not implemented");
+  StyioDataType type = ast->getDataType();
+  if (!styio_is_shaped_tuple_type(type) || type.tuple_elements->size() < 2
+      || type.tuple_elements->size() != ast->getElements().size()) {
+    throw StyioTypeError("tuple literal lowering requires a complete structural shape");
+  }
+  std::vector<StyioIR*> values;
+  values.reserve(ast->getElements().size());
+  for (auto* element : ast->getElements()) {
+    values.push_back(element->toStyioIR(this));
+  }
+  return SGTupleCreate::Create(values, *type.tuple_elements);
 }
 
 StyioIR*
@@ -3213,6 +3274,33 @@ AstToStyioIRLowerer::toStyioIR(ListOpAST* ast) {
     }
   }
   StyioDataType base_type = expr_lowered_type(this, ast->getList());
+  if (base_type.option == StyioDataTypeOption::Tuple
+      && ast->getOp() == StyioNodeType::Access_By_Index) {
+    if (!styio_is_shaped_tuple_type(base_type)) {
+      throw StyioTypeError("tuple projection lowering requires a shaped tuple");
+    }
+    auto* literal = dynamic_cast<IntAST*>(ast->getSlot1());
+    if (literal == nullptr) {
+      throw StyioTypeError("tuple projection index must be an integer literal");
+    }
+    std::size_t used = 0;
+    long long index = -1;
+    try {
+      index = std::stoll(literal->value, &used, 10);
+    }
+    catch (...) {
+      throw StyioTypeError("tuple projection index must be an integer literal");
+    }
+    if (used != literal->value.size() || index < 0
+        || static_cast<std::size_t>(index) >= base_type.tuple_elements->size()) {
+      throw StyioTypeError("tuple projection index is out of range");
+    }
+    return SGTupleGet::Create(
+      ast->getList()->toStyioIR(this),
+      static_cast<std::size_t>(index),
+      (*base_type.tuple_elements)[static_cast<std::size_t>(index)],
+      base_type);
+  }
   if (styio_is_matrix_type(base_type) && ast->getOp() == StyioNodeType::Access_By_Index) {
     return SCMatrixRow::Create(
       ast->getList()->toStyioIR(this),
@@ -4008,7 +4096,9 @@ AstToStyioIRLowerer::toStyioIR(PassAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ReturnAST* ast) {
-  return SGReturn::Create(ast->getExpr()->toStyioIR(this));
+  return SGReturn::Create(
+    ast->getExpr()->toStyioIR(this),
+    expr_lowered_type(this, ast->getExpr()));
 }
 
 StyioIR*
@@ -4032,11 +4122,18 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
 
   if (ast->func_callee != nullptr && styio_is_predefined_string_operation_kind(builtin_method)) {
     if (!ast->getArgList().empty()) {
-      throw StyioTypeError("string.lines() does not take arguments");
+      throw StyioTypeError("string method does not take arguments");
     }
     return SGCall::Create(
-      SGResId::Create("__styio_string_lines"),
-      {ast->func_callee->toStyioIR(this)}
+      SGResId::Create(
+        builtin_method == StyioBuiltinMethodKind::StringChars
+          ? "__styio_string_chars"
+          : "__styio_string_lines"),
+      {ast->func_callee->toStyioIR(this)},
+      styio_make_list_type(
+        builtin_method == StyioBuiltinMethodKind::StringChars
+          ? "char"
+          : "string")
     );
   }
 
@@ -4196,7 +4293,8 @@ AstToStyioIRLowerer::toStyioIR(FuncCallAST* ast) {
       ast->getLoweredCalleeName().empty()
         ? ast->getNameAsStr()
         : ast->getLoweredCalleeName()),
-    std::move(args)
+    std::move(args),
+    expr_lowered_type(this, ast)
   );
 }
 
@@ -4363,9 +4461,12 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   set_post_pulse_hist_context(-1, nullptr);
   auto saved_local_types = local_binding_types;
   auto saved_local_types_by_sid = local_binding_types_by_sid;
+  auto saved_function_parameter_names = active_function_parameter_names_;
+  active_function_parameter_names_.clear();
   std::vector<SGFuncArg*> fargs;
   for (std::size_t i = 0; i < ast->params.size(); ++i) {
     auto* p = ast->params[i];
+    active_function_parameter_names_.insert(p->getName());
     record_local_binding_type(
       p->getName(),
       p->var_name->getSymbolId(),
@@ -4418,7 +4519,7 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
           SGResId::Create(scrutinee_name),
           &scrutinee_name,
           &rt->data_type
-        ))
+        ), rt->data_type)
       });
     }
     else {
@@ -4428,11 +4529,13 @@ AstToStyioIRLowerer::toStyioIR(FunctionAST* ast) {
   catch (...) {
     local_binding_types = std::move(saved_local_types);
     local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+    active_function_parameter_names_ = std::move(saved_function_parameter_names);
     set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
     throw;
   }
   local_binding_types = std::move(saved_local_types);
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+  active_function_parameter_names_ = std::move(saved_function_parameter_names);
   const auto* effect_facts =
     find_callable_effect_row(ast->getNameAsStr());
   std::vector<std::string> capture_names;
@@ -4467,9 +4570,12 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   set_post_pulse_hist_context(-1, nullptr);
   auto saved_local_types = local_binding_types;
   auto saved_local_types_by_sid = local_binding_types_by_sid;
+  auto saved_function_parameter_names = active_function_parameter_names_;
+  active_function_parameter_names_.clear();
   std::vector<SGFuncArg*> fargs;
   for (std::size_t i = 0; i < ast->params.size(); ++i) {
     auto* p = ast->params[i];
+    active_function_parameter_names_.insert(p->getName());
     record_local_binding_type(
       p->getName(),
       p->var_name->getSymbolId(),
@@ -4520,11 +4626,13 @@ AstToStyioIRLowerer::toStyioIR(SimpleFuncAST* ast) {
   catch (...) {
     local_binding_types = std::move(saved_local_types);
     local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+    active_function_parameter_names_ = std::move(saved_function_parameter_names);
     set_post_pulse_hist_context(saved_hist_r, saved_hist_p);
     throw;
   }
   local_binding_types = std::move(saved_local_types);
   local_binding_types_by_sid = std::move(saved_local_types_by_sid);
+  active_function_parameter_names_ = std::move(saved_function_parameter_names);
   const auto* effect_facts =
     find_callable_effect_row(ast->func_name->getAsStr());
   std::vector<std::string> capture_names;

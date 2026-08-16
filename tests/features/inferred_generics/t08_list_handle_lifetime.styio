@@ -1,0 +1,63 @@
+# mutate_borrowed := (values: list[i64]) => {
+    [1..3] >> #(value) => {
+        values.push(value)
+    }
+    <| 0
+}
+
+# build_values : list[i64] := () => {
+    values: list[i64] := []
+    [4..6] >> #(value) => {
+        values.push(value)
+    }
+    <| values
+}
+
+# return_borrowed : list[i64] := (values: list[i64]) => values
+# first := (values: list[i64]) => values[0]
+
+// The outer dynamic slot deliberately shares its spelling with the function
+// parameter. Parameter loads must use the raw call ABI, not outer-slot facts.
+values: list[i64] := [99]
+# mutate_same_named_parameter := (values: list[i64]) => {
+    values.push(100)
+    <| 0
+}
+
+# build_with_auxiliary : list[i64] := () => {
+    result: list[i64] := [7]
+    auxiliary: list[i64] := [8]
+    result.push(auxiliary[0])
+    <| result
+}
+
+original: list[i64] := [0]
+mutate_borrowed(original)
+>_(original)
+
+built: list[i64] := build_values()
+>_(built[2])
+>_(first(built))
+>_(first(build_values()))
+
+returned: list[i64] := return_borrowed(original)
+returned.push(9)
+>_(original)
+>_(returned)
+
+with_auxiliary: list[i64] := build_with_auxiliary()
+>_(with_auxiliary)
+
+parameter_values: list[i64] := [10]
+mutate_same_named_parameter(parameter_values)
+>_(values)
+>_(parameter_values)
+
+[0, 1, 2] >> #(value) => {
+    scratch: list[i64] := [value]
+    value ?= {
+        0 => { >> }
+        1 => { ^^^ }
+        _ => { >_(scratch) }
+    }
+}

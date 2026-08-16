@@ -355,6 +355,8 @@ public:
   std::string toString(SGFormatString* node, int indent = 0);
   
   std::string toString(SGStruct* node, int indent = 0);
+  std::string toString(SGTupleCreate* node, int indent = 0);
+  std::string toString(SGTupleGet* node, int indent = 0);
 
   std::string toString(SGCast* node, int indent = 0);
 

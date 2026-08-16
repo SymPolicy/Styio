@@ -122,6 +122,7 @@ class StyioIRVerifier : public StyioIRWalker
   const bool defer_unresolved_loop_control_;
   const bool require_unique_ownership_;
   std::size_t loop_depth_ = 0;
+  std::optional<StyioDataType> function_return_type_;
 
 public:
   explicit StyioIRVerifier(const StyioIRVerifierOptions& options) :
@@ -185,6 +186,47 @@ private:
     }
   }
 
+  static bool
+  tuple_element_type_supported(const StyioDataType& type) {
+    if (type.isUndefined()) {
+      return false;
+    }
+    switch (type.option) {
+      case StyioDataTypeOption::Bool:
+      case StyioDataTypeOption::Integer:
+      case StyioDataTypeOption::Float:
+      case StyioDataTypeOption::Char:
+      case StyioDataTypeOption::String:
+      case StyioDataTypeOption::List:
+      case StyioDataTypeOption::Dict:
+      case StyioDataTypeOption::Matrix:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void
+  validate_tuple_type(const StyioDataType& type, const std::string& field) {
+    if (type.option != StyioDataTypeOption::Tuple) {
+      return;
+    }
+    if (!styio_is_shaped_tuple_type(type)) {
+      add_error(field + " tuple is missing structural shape metadata");
+      return;
+    }
+    if (type.tuple_elements->size() < 2) {
+      add_error(field + " tuple shape requires at least two elements");
+    }
+    for (std::size_t i = 0; i < type.tuple_elements->size(); ++i) {
+      if (!tuple_element_type_supported((*type.tuple_elements)[i])) {
+        add_error(
+          field + " tuple element " + std::to_string(i)
+          + " has an unsupported or unshaped type");
+      }
+    }
+  }
+
   // ---------------------------------------------------------------
   // Override dispatch to add is_active check before traversal
   // ---------------------------------------------------------------
@@ -230,10 +272,58 @@ private:
   // ---------------------------------------------------------------
 
   void
+  visitSGType(SGType* node) override {
+    validate_tuple_type(node->data_type, "SGType");
+  }
+
+  void
   visitSGStruct(SGStruct* node) override {
     walk_optional(node->name);
     for (auto* elem : node->elements) {
       walk_required(elem, "SGStruct.elements");
+    }
+  }
+
+  void
+  visitSGTupleCreate(SGTupleCreate* node) override {
+    if (node->elements.size() < 2) {
+      add_error("SGTupleCreate requires at least two elements");
+    }
+    if (node->elements.size() != node->element_types.size()) {
+      add_error("SGTupleCreate element/value count mismatch");
+    }
+    for (std::size_t i = 0; i < node->element_types.size(); ++i) {
+      const StyioDataType& type = node->element_types[i];
+      if (!tuple_element_type_supported(type)) {
+        add_error(
+          "SGTupleCreate element " + std::to_string(i)
+          + " has an unsupported or unshaped type");
+      }
+    }
+    for (auto* element : node->elements) {
+      walk_required(element, "SGTupleCreate.elements");
+    }
+  }
+
+  void
+  visitSGTupleGet(SGTupleGet* node) override {
+    walk_required(node->tuple, "SGTupleGet.tuple");
+    if (!tuple_element_type_supported(node->element_type)) {
+      add_error("SGTupleGet requires one supported concrete element type");
+    }
+    if (!styio_is_shaped_tuple_type(node->tuple_type)) {
+      add_error("SGTupleGet source tuple is missing structural shape metadata");
+      return;
+    }
+    validate_tuple_type(node->tuple_type, "SGTupleGet.tuple_type");
+    if (node->index >= node->tuple_type.tuple_elements->size()) {
+      add_error("SGTupleGet projection index is out of range");
+      return;
+    }
+    if (!node->element_type.equals(
+          (*node->tuple_type.tuple_elements)[node->index])) {
+      add_error(
+        "SGTupleGet result type does not match the indexed tuple element");
     }
   }
 
@@ -278,6 +368,10 @@ private:
 
   void
   visitSGFuncArg(SGFuncArg* node) override {
+    if (node->arg_type != nullptr
+        && node->arg_type->data_type.option == StyioDataTypeOption::Tuple) {
+      add_error("tuple parameters are not supported by the direct-call ABI");
+    }
     walk_required(node->arg_type, "SGFuncArg.arg_type");
   }
 
@@ -310,7 +404,12 @@ private:
     for (auto* arg : node->func_args) {
       walk_required(arg, "SGFunc.func_args");
     }
+    const auto saved_return_type = function_return_type_;
+    function_return_type_ = node->ret_type == nullptr
+      ? std::nullopt
+      : std::optional<StyioDataType>(node->ret_type->data_type);
     walk_required(node->func_block, "SGFunc.func_block");
+    function_return_type_ = saved_return_type;
   }
 
   void
@@ -323,9 +422,16 @@ private:
         add_error(
           "SGCall indirect call requires a canonical callable type");
       }
+      if (node->result_type.option == StyioDataTypeOption::Tuple) {
+        add_error("indirect callable tuple results are not supported");
+      }
     }
     else {
       walk_required(node->func_name, "SGCall.func_name");
+    }
+    if (node->result_type.option == StyioDataTypeOption::Tuple
+        && !styio_is_shaped_tuple_type(node->result_type)) {
+      add_error("SGCall.result_type tuple is missing structural shape metadata");
     }
     for (auto* arg : node->func_args) {
       walk_required(arg, "SGCall.func_args");
@@ -334,6 +440,24 @@ private:
 
   void
   visitSGReturn(SGReturn* node) override {
+    validate_tuple_type(node->result_type, "SGReturn.result_type");
+    if (function_return_type_.has_value()) {
+      const StyioDataType& expected = *function_return_type_;
+      const bool tuple_contract =
+        expected.option == StyioDataTypeOption::Tuple
+        || node->result_type.option == StyioDataTypeOption::Tuple;
+      if (tuple_contract) {
+        if (!styio_is_shaped_tuple_type(expected)) {
+          add_error("SGReturn enclosing function tuple result is unshaped");
+        }
+        else if (!styio_is_shaped_tuple_type(node->result_type)) {
+          add_error("SGReturn tuple result is missing structural shape metadata");
+        }
+        else if (!expected.equals(node->result_type)) {
+          add_error("SGReturn tuple shape does not match SGFunc.ret_type");
+        }
+      }
+    }
     walk_required(node->expr, "SGReturn.expr");
   }
 
@@ -418,10 +542,18 @@ private:
   void
   visitSGMatch(SGMatch* node) override {
     walk_required(node->scrutinee, "SGMatch.scrutinee");
+    const auto saved_return_type = function_return_type_;
+    if (node->repr_kind != SGMatchReprKind::Stmt) {
+      // Expression-match arms use SGReturn as a region yield. They are not
+      // returns from the enclosing function and must not be checked against
+      // its result contract.
+      function_return_type_ = std::nullopt;
+    }
     for (const auto& arm : node->int_arms) {
       walk_required(arm.second, "SGMatch.int_arms");
     }
     walk_optional(node->default_arm);
+    function_return_type_ = saved_return_type;
   }
 
   void
@@ -612,7 +744,7 @@ private:
   void
   visitSIOFileLineIter(SIOFileLineIter* node) override {
     walk_optional(node->path_expr);
-    walk_required(node->body, "SIOFileLineIter.body");
+    walk_loop_body(node->body, "SIOFileLineIter.body");
   }
 
   void
@@ -668,7 +800,7 @@ private:
 
   void
   visitSIOStdStreamLineIter(SIOStdStreamLineIter* node) override {
-    walk_required(node->body, "SIOStdStreamLineIter.body");
+    walk_loop_body(node->body, "SIOStdStreamLineIter.body");
   }
 
   void

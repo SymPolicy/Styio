@@ -1,0 +1,501 @@
+[
+  {
+    "id": "5c6a9c6e-66f0-4581-9371-e9d31d725113",
+    "status": "completed",
+    "role": "group_design",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Freeze the exact minimum-length break spelling, parser ownership, diagnostic, migration, and executable acceptance contract.",
+    "description": "Define the smallest complete syntax migration without changing XOR, list indexing, nearest-loop semantics, or IR depth normalization.",
+    "requirements": [
+      "REQ-BREAK-MINIMUM-SPELLING"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+        "docs/plan/roadmap/break-statement-spelling/Validation.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+        "docs/plan/roadmap/break-statement-spelling/Validation.md"
+      ],
+      "acceptance_paths": [
+        "tests/features/control_flow",
+        "tests/security/styio_security_test.cpp"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "pending Designer freeze",
+        "algorithms": "pending Designer freeze",
+        "data_structures": "pending Designer freeze",
+        "state": "pending Designer freeze",
+        "isolation": "break statement spelling only",
+        "concurrency": "implementation follows frozen design"
+      },
+      "test_seams": [
+        "minimum accepted run",
+        "single-caret diagnostic",
+        "long run normalization",
+        "downstream source migration"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The design distinguishes standalone break syntax from infix XOR and other caret contexts."
+      },
+      {
+        "checked": true,
+        "text": "The design freezes two carets as the minimum, three as the convention, and any longer contiguous run as valid."
+      },
+      {
+        "checked": true,
+        "text": "The design defines a complete source and documentation migration with deterministic diagnostics."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs: define minimum break spelling",
+      "target": "temporary task branch"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "python3 -m json.tool docs/plan/roadmap/break-statement-spelling/Checkpoints.json >/dev/null"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+        "docs/plan/roadmap/break-statement-spelling/Validation.md"
+      ]
+    },
+    "next": [
+      "d74550c0-eafb-4650-93f5-c14c2eb41474"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted"
+    }
+  },
+  {
+    "id": "d74550c0-eafb-4650-93f5-c14c2eb41474",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "5c6a9c6e-66f0-4581-9371-e9d31d725113"
+    ],
+    "platform": "any",
+    "difficulty": "standard",
+    "verification_profile": "code",
+    "goal": "Enforce and migrate the two-or-more consecutive caret break syntax.",
+    "description": "Closure: feature - break statement spelling. Context: both parser routes currently accept a single caret and existing sources rely on it. Target: reject one caret, accept every contiguous run of length at least two, recommend three, and migrate all active examples and authoritative documentation. Design Considerations: preserve nearest-loop normalization and non-break caret contexts. Design Value: makes accidental break punctuation fail visibly. Constraints & Risks: no multi-level break semantics and no XOR change.",
+    "requirements": [
+      "REQ-BREAK-MINIMUM-SPELLING"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+      "owned_paths": [
+        "src/StyioParser/Parser.cpp",
+        "src/StyioParser/NewParserExpr.cpp",
+        "tests/parser_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "tests/features/control_flow",
+        "tests/features/stdio_input",
+        "tests/features/inferred_generics",
+        "docs/design/Styio-Language-Design.md",
+        "docs/design/Styio-EBNF.md",
+        "docs/design/Styio-Symbol-Reference.md"
+      ],
+      "scaffold_paths": [
+        "tests/features/control_flow"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/break-statement-spelling/Validation.md"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "both parser routes and active consumers migrate together",
+        "algorithms": "one bounded linear scan of the contiguous token run",
+        "data_structures": "no new runtime structure",
+        "state": "break depth remains normalized to one",
+        "isolation": "statement-start caret runs only",
+        "concurrency": "single ownership-coupled implementation"
+      },
+      "test_seams": [
+        "legacy and nightly parser parity",
+        "single-caret message",
+        "two/three/long caret runs",
+        "Brainfuck acceptance"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "A single standalone caret is a syntax error that instructs the author to use two or more consecutive carets.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "cf1f7d045bdf0d715a0535026854257832cc9d8bb59cad0c9cfd84690ec8e8b4",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "da03cfb565d56c237d26e956fb75541e54f8a80a2bbfe341e0b88747e52e6590",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "b4d679ee91e8940598761a2a57011ef1b720e25bc8245a4483ee94b3eeadf5ce",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Two, three, and longer contiguous caret runs parse as one nearest-loop break in both parser routes.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "cf1f7d045bdf0d715a0535026854257832cc9d8bb59cad0c9cfd84690ec8e8b4",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "da03cfb565d56c237d26e956fb75541e54f8a80a2bbfe341e0b88747e52e6590",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "b4d679ee91e8940598761a2a57011ef1b720e25bc8245a4483ee94b3eeadf5ce",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "All active Styio sources and the canonical Brainfuck example use valid migrated spelling with no legacy single-caret break remaining.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "cf1f7d045bdf0d715a0535026854257832cc9d8bb59cad0c9cfd84690ec8e8b4",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "da03cfb565d56c237d26e956fb75541e54f8a80a2bbfe341e0b88747e52e6590",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "b4d679ee91e8940598761a2a57011ef1b720e25bc8245a4483ee94b3eeadf5ce",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:44:02Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "fix: require multi-caret break spelling",
+      "target": "temporary task branch"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build -j2 --target styio_parser_internal_test styio_security_test styio",
+        "ctest --test-dir build -R 'BreakSpelling' --output-on-failure",
+        "! rg -n --pcre2 '(?<!\\^)\\^(?!\\^)' --glob '*.styio' --glob '!build/**' --glob '!cmake-build-*/**' . ../../SymPolicy/styio-example/brainfuck-compiler/src/brainfuck.styio"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "src/StyioParser",
+        "tests/parser_internal_test.cpp",
+        "tests/security/styio_security_test.cpp",
+        "tests/features/control_flow",
+        "tests/features/stdio_input",
+        "tests/features/inferred_generics",
+        "docs/design"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-02T08:44:02Z",
+        "contract_digest": "a11035675917e2f9bf0462d85348f5ece0af9b3add38d8fa2dec8a1e01981a3b",
+        "content_fingerprint": "7eb4d501142931094c59330c53f2e92da85b5a36848a2d8bfaaa6e065ec24c1b"
+      }
+    },
+    "next": [
+      "eeb4599e-ee0c-4359-a86d-5f1e9b645be5"
+    ],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 2,
+      "outcome": "accepted",
+      "design_digest": "2c5e04d16330594ec16ff2627ff61c8b7d45393616b827260be456fcaba849e5",
+      "acceptance_fingerprint": "d057c9f0c230061844e3e526c46d1d41844e74f6c2a25169b881c64aa60d53ab"
+    }
+  },
+  {
+    "id": "eeb4599e-ee0c-4359-a86d-5f1e9b645be5",
+    "status": "completed",
+    "role": "final_validation",
+    "prerequisites": [
+      "d74550c0-eafb-4650-93f5-c14c2eb41474"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Review the complete break-spelling migration and run its impacted parser, control-flow, and downstream regression once.",
+    "description": "Review parser parity, diagnostic quality, full source migration, authoritative documentation, and nearest-loop behavior before one final regression.",
+    "requirements": [
+      "REQ-BREAK-MINIMUM-SPELLING"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/break-statement-spelling/Evidence.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/break-statement-spelling/Evidence.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/break-statement-spelling/Validation.md"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one review then one impacted regression",
+        "algorithms": "verify linear run consumption",
+        "data_structures": "none",
+        "state": "nearest-loop normalization unchanged",
+        "isolation": "parser, active sources, and canonical example",
+        "concurrency": "serialized final validation"
+      },
+      "test_seams": [
+        "parser routes",
+        "public diagnostic",
+        "feature labels",
+        "Brainfuck example"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The parser and documentation expose exactly one minimum-length break contract.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "417041ba695f2bb110ac6715991ba2a343d122ca7fd27c82bceab1d5b03992ac",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "da03cfb565d56c237d26e956fb75541e54f8a80a2bbfe341e0b88747e52e6590",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "007985d11d8c853dbcbdb4f86772339b7d7c2ee3b8de9bb51d3d345435f15531",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "8561df173d941deafe2f7cb34f8b268bb281da8630b824775c9fd38ed718cdc9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "eedb0743434e4e159328c04f707f997fd9935d00683e211e6ddfe100d11fbeb9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "3b0fabd1c592417a6365362041331ef80567b8dbe13158c162f7408f693af8fc",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "466c2f308b48c7661d646fdd068fbecea974c665fe65dbf8ed508f224180ce0b",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Single-caret rejection and valid arbitrary-length runs are covered by executable tests.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "417041ba695f2bb110ac6715991ba2a343d122ca7fd27c82bceab1d5b03992ac",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "da03cfb565d56c237d26e956fb75541e54f8a80a2bbfe341e0b88747e52e6590",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "007985d11d8c853dbcbdb4f86772339b7d7c2ee3b8de9bb51d3d345435f15531",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "8561df173d941deafe2f7cb34f8b268bb281da8630b824775c9fd38ed718cdc9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "eedb0743434e4e159328c04f707f997fd9935d00683e211e6ddfe100d11fbeb9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "3b0fabd1c592417a6365362041331ef80567b8dbe13158c162f7408f693af8fc",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "466c2f308b48c7661d646fdd068fbecea974c665fe65dbf8ed508f224180ce0b",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Compiler feature tests and canonical Brainfuck acceptance pass after complete migration.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "417041ba695f2bb110ac6715991ba2a343d122ca7fd27c82bceab1d5b03992ac",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "da03cfb565d56c237d26e956fb75541e54f8a80a2bbfe341e0b88747e52e6590",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "007985d11d8c853dbcbdb4f86772339b7d7c2ee3b8de9bb51d3d345435f15531",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "8561df173d941deafe2f7cb34f8b268bb281da8630b824775c9fd38ed718cdc9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "eedb0743434e4e159328c04f707f997fd9935d00683e211e6ddfe100d11fbeb9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "3b0fabd1c592417a6365362041331ef80567b8dbe13158c162f7408f693af8fc",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "466c2f308b48c7661d646fdd068fbecea974c665fe65dbf8ed508f224180ce0b",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T08:55:28Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test: validate minimum break spelling",
+      "target": "temporary task branch"
+    },
+    "regression": {
+      "scope": "full",
+      "commands": [
+        "cmake --build build -j2 --target styio styio_parser_internal_test styio_security_test",
+        "ctest --test-dir build -R 'BreakSpelling' --output-on-failure",
+        "ctest --test-dir build -L control_flow --output-on-failure",
+        "ctest --test-dir build -L stdio_input --output-on-failure",
+        "ctest --test-dir build -L inferred_generics --output-on-failure",
+        "STYIO_BIN=$PWD/build/bin/styio make -C ../../SymPolicy/styio-example/brainfuck-compiler test",
+        "git diff --check"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "src/StyioParser",
+        "tests/features/control_flow",
+        "tests/features/stdio_input",
+        "tests/features/inferred_generics",
+        "docs/design",
+        "docs/plan/roadmap/break-statement-spelling/Architecture.md",
+        "docs/plan/roadmap/break-statement-spelling/Validation.md",
+        "docs/plan/roadmap/break-statement-spelling/Evidence.md"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-02T08:55:28Z",
+        "contract_digest": "1520cccea181df3cd3051b1f32000ed242bfff20536e2a487e5a287ff435fe22",
+        "content_fingerprint": "1121dc306a400ad3f87c153775e9d8138416e4fd80a7cbe96025c31102d31b6e"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted",
+      "review": {
+        "recorded_at": "2026-08-02T08:54:01Z",
+        "dispatch_id": "e2ac6735-6a50-4609-96db-b80d585f0aa1"
+      },
+      "design_digest": "aca0c98b32d4c812382505e515df608abc25e0106418a294e57114692fe84ee4",
+      "scaffold_fingerprint": "8fdd0bbad585d0a03e2efc720907c46d85820a3c0349cc938781b744866ac7fa",
+      "acceptance_fingerprint": "8dde2a51f8cd4616743b2c23c9cf1c4a0a92f9591c7cad048462922308ca36fc"
+    }
+  }
+]
