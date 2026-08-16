@@ -96,6 +96,10 @@ public:
   TypeId builtin_void() const noexcept { return builtin_void_; }
 
   std::size_t size() const noexcept { return types_.size() - 1; }
+  std::size_t intern_calls() const noexcept { return intern_calls_; }
+  std::size_t lookup_probes() const noexcept { return lookup_probes_; }
+  std::size_t insertions() const noexcept { return insertions_; }
+  std::size_t builtin_cache_hits() const noexcept { return builtin_cache_hits_; }
   void reserve(std::size_t n) { types_.reserve(n + 1); map_.reserve(n); }
 
 private:
@@ -107,6 +111,10 @@ private:
   TypeId builtin_bool_ = kInvalidTypeId;
   TypeId builtin_string_ = kInvalidTypeId;
   TypeId builtin_void_ = kInvalidTypeId;
+  std::size_t intern_calls_ = 0;
+  std::size_t lookup_probes_ = 0;
+  std::size_t insertions_ = 0;
+  std::size_t builtin_cache_hits_ = 0;
 };
 
 } // namespace styio::session

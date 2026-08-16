@@ -2,7 +2,10 @@
 #ifndef STYIO_AST_TO_STYIO_IR_LOWERER_H_
 #define STYIO_AST_TO_STYIO_IR_LOWERER_H_
 
+#include <cstdint>
+
 #include "../StyioSema/SemaContext.hpp"
+#include "StyioIROptimizer.hpp"
 
 class AstToStyioIRLowerer : public StyioSemaContext
 {
@@ -109,11 +112,71 @@ public:
   StyioIR* toStyioIR(MainBlockAST* ast) override;
   StyioAST* resolveResourceReceiverExprLatest(StyioAST* expr) const;
 
+  void enable_pipeline_profile(bool enabled) noexcept {
+    pipeline_profile_enabled_ = enabled;
+  }
+
+  bool pipeline_profile_enabled() const noexcept {
+    return pipeline_profile_enabled_;
+  }
+
+  styio::lowering::StyioIRPassPipelineResult* pipeline_profile_sink() noexcept {
+    return pipeline_profile_enabled_ ? &pipeline_profile_result_ : nullptr;
+  }
+
+  const styio::lowering::StyioIRPassPipelineResult& pipeline_profile_result() const noexcept {
+    return pipeline_profile_result_;
+  }
+
+  std::uint64_t lowering_statement_duration_ns() const noexcept {
+    return lowering_statement_duration_ns_;
+  }
+
+  std::uint64_t lowering_statement_count() const noexcept {
+    return lowering_statement_count_;
+  }
+
+  std::uint64_t resource_validation_duration_ns() const noexcept {
+    return resource_validation_duration_ns_;
+  }
+
+  void record_resource_validation_duration(std::uint64_t duration_ns) noexcept {
+    resource_validation_duration_ns_ += duration_ns;
+  }
+
+  std::uint64_t resource_validation_skipped() const noexcept {
+    return resource_validation_skipped_;
+  }
+
+  void record_resource_validation_skipped() noexcept {
+    ++resource_validation_skipped_;
+  }
+
+  std::uint64_t resource_fast_path_probe_duration_ns() const noexcept {
+    return resource_fast_path_probe_duration_ns_;
+  }
+
+  void record_resource_fast_path_probe_duration(std::uint64_t duration_ns) noexcept {
+    resource_fast_path_probe_duration_ns_ += duration_ns;
+  }
+
+  void record_lowering_statement_duration(std::uint64_t duration_ns) noexcept {
+    lowering_statement_duration_ns_ += duration_ns;
+    ++lowering_statement_count_;
+  }
+
 private:
   std::unordered_set<std::string> active_function_parameter_names_;
   std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
   std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodDefAST*>> resource_method_body_defs_;
   std::unordered_map<std::string, StyioAST*> resource_receiver_expr_bindings_;
+  styio::lowering::StyioIRPassPipelineResult pipeline_profile_result_;
+  bool pipeline_profile_enabled_ = false;
+  std::uint64_t lowering_statement_duration_ns_ = 0;
+  std::uint64_t lowering_statement_count_ = 0;
+  std::uint64_t resource_validation_duration_ns_ = 0;
+  std::uint64_t resource_validation_skipped_ = 0;
+  std::uint64_t resource_fast_path_probe_duration_ns_ = 0;
 };
 
 #endif

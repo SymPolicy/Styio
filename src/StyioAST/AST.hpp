@@ -39,6 +39,10 @@ public:
   static void*
   operator new(std::size_t sz) {
     void* mem = styio::session_alloc::allocate_ast_object(sz);
+    ++live_node_count_;
+    if (live_node_count_ > peak_node_count_) {
+      peak_node_count_ = live_node_count_;
+    }
     if (!styio::session_alloc::ast_arena_active()) {
       tracked_nodes_.insert(static_cast<StyioAST*>(mem));
     }
@@ -48,6 +52,9 @@ public:
   static void
   operator delete(void* ptr) noexcept {
     if (ptr != nullptr) {
+      if (live_node_count_ > 0) {
+        --live_node_count_;
+      }
       tracked_nodes_.erase(static_cast<StyioAST*>(ptr));
     }
     styio::session_alloc::free_object(ptr);
@@ -63,6 +70,16 @@ public:
   static std::size_t
   tracked_node_count() noexcept {
     return tracked_nodes_.size();
+  }
+
+  static std::size_t
+  live_node_count() noexcept {
+    return live_node_count_;
+  }
+
+  static std::size_t
+  peak_node_count() noexcept {
+    return peak_node_count_;
   }
 
   /* Type Hint */
@@ -81,6 +98,8 @@ public:
 
 private:
   inline static thread_local std::unordered_set<StyioAST*> tracked_nodes_;
+  inline static thread_local std::size_t live_node_count_ = 0;
+  inline static thread_local std::size_t peak_node_count_ = 0;
 };
 
 /* ========================================================================== */
@@ -151,11 +170,11 @@ private:
 
 public:
   NameAST(string name) :
-      name_str(name) {
+      name_str(std::move(name)) {
   }
 
   NameAST(string name, styio::session::SymbolId sid) :
-      name_str(name), sid_(sid) {
+      name_str(std::move(name)), sid_(sid) {
   }
 
   static NameAST* Create() {
@@ -163,11 +182,11 @@ public:
   }
 
   static NameAST* Create(string name) {
-    return new NameAST(name);
+    return new NameAST(std::move(name));
   }
 
   static NameAST* Create(string name, styio::session::SymbolId sid) {
-    return new NameAST(name, sid);
+    return new NameAST(std::move(name), sid);
   }
 
   /// Clone a NameAST, preserving its SymbolId.

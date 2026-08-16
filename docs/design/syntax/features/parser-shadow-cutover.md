@@ -26,7 +26,7 @@ diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md"]
 teaching = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 implementation = ["src/StyioParser/Parser.cpp"]
-evidence = ["tests/features/scalar_expressions/t01_int_arith.styio", "tests/features/functions/t01_simple_func.styio", "benchmark/parser-shadow-suite-gate.py"]
+evidence = ["tests/features/scalar_expressions/t01_int_arith.styio", "tests/features/functions/t01_simple_func.styio", "tests/gates/parser-shadow-suite-gate.py"]
 
 [prerequisites]
 language-owner-approval = "docs/specs/AGENT-SPEC.md"
@@ -37,7 +37,7 @@ semantic-contract = "docs/rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md"
 diagnostic-boundary = "workflows/TEST-CATALOG.md"
 compatibility-decision = "workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md"
 golden-evidence = "tests/features/scalar_expressions/t01_int_arith.styio"
-shadow-accounting = "benchmark/parser-shadow-suite-gate.py"
+shadow-accounting = "tests/gates/parser-shadow-suite-gate.py"
 
 [implementation]
 path = "src/StyioParser/Parser.cpp"

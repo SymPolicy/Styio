@@ -3294,7 +3294,7 @@
         "diagnostic-boundary": "workflows/TEST-CATALOG.md",
         "compatibility-decision": "workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
         "golden-evidence": "tests/features/scalar_expressions/t01_int_arith.styio",
-        "shadow-accounting": "benchmark/parser-shadow-suite-gate.py"
+        "shadow-accounting": "tests/gates/parser-shadow-suite-gate.py"
       },
       "implementation": {
         "path": "src/StyioParser/Parser.cpp",
@@ -3326,7 +3326,7 @@
         "evidence": [
           "tests/features/scalar_expressions/t01_int_arith.styio",
           "tests/features/functions/t01_simple_func.styio",
-          "benchmark/parser-shadow-suite-gate.py"
+          "tests/gates/parser-shadow-suite-gate.py"
         ]
       },
       "golden_cases": [

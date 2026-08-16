@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-16
 
 ## Mission
 
@@ -59,6 +59,7 @@ Related docs:
 29. Persistent callable caching is opt-in and object-level. Keep the cache-disabled path on the original single LLVM module with no cache hashing or filesystem work. When enabled, partition only functions carrying a verified full specialization digest, sort partitions by digest, retain private constants with their owner, leave inter-specialization/runtime references external, and verify every partition plus the residual main module. `CallableSpecializationObjectCache` must bind an object to the fresh full digest and compiler/LLVM/codegen/target/backend namespace, structurally verify bounded entries before ORC sees them, use owner-only atomic same-directory writes, and turn every cache corruption or I/O failure into recompilation rather than a language/runtime error.
 30. Keep `SGEntry` and `SGMainEntry` on default-strict StyioIR verification before LLVM emission. Direct `SGBlock` codegen may enable only `defer_unresolved_loop_control` while `loop_stack_` is nonempty, because the active codegen loop supplies that fragment's enclosing-loop context; keep every other structural check enabled and never apply this exception to a final root.
 31. Structured tuple results are generation-checked runtime handles. Keep tuple declarations, definitions, ORC registrations, and codegen calls synchronized; make tuple storage own nested string/list/dict/matrix handles, make projections clone returned resource handles, and release every owned element deterministically when the tuple handle is released.
+32. Before JIT execution, require the current LLVM module to define its own non-declaration `main`; never satisfy an entrypoint lookup from the host process symbol table. Preserve the existing `styio: main not found` diagnostic for entrypoint-free modules.
 
 ## Change Classes
 
@@ -81,7 +82,7 @@ Runtime stability:
 
 ```bash
 ctest --test-dir build/default -L soak_smoke
-STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
+/path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --quick
 ```
 
 For deeper runtime or allocation work:
@@ -89,7 +90,7 @@ For deeper runtime or allocation work:
 ```bash
 ctest --test-dir build/default -L soak_deep
 STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
-  ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+  /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 
 ## Cross-Team Dependencies

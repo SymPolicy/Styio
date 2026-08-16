@@ -8,6 +8,8 @@
 
 Own the evidence that Styio behavior is accepted, reproducible, and recoverable. This team protects CTest registration, fixture layout, golden oracles, C++ reference equivalence cases, fuzz/security coverage, and test catalog accuracy. It does not decide language semantics without the design SSOT.
 
+Parser shadow checks are compiler correctness gates under `tests/gates/`. Performance workloads, probe-specific JSON contracts, and benchmark reports are tested in `styio-benchmark` through the explicit CMake integration rather than duplicated in this repository.
+
 ## Owned Surface
 
 Primary paths:
@@ -91,6 +93,7 @@ Primary paths:
 65. Workflow-scheduler regression coverage must treat the formal ecosystem contract path as the trigger authority. When that contract moves, update the trigger, its exact-path assertion, and the ecosystem document gate together; assert the owning external path and do not keep an obsolete plan path as a compatibility trigger.
 66. Parser cutover security tests must distinguish recognized ownership from true decline. A recognized binding may stop on an allowed fallback follow token without consuming it; malformed deep input may fail closed at its first unsupported element before reaching the depth ceiling. Keep special index selectors in both focused parser coverage and the security owner gate, and do not preserve pre-cutover exception or cursor expectations as compatibility contracts.
 67. Runtime-value and break-spelling deliveries need focused lifetime and route-isolation evidence: execute `String.chars` list handles and structured function tuple results with nested ownership; prove fresh tuple binding, attached-table type interning, direct-call result validation, and invalid tuple projection rejection; cover both parser routes for two, conventional three, and longer contiguous carets; reject lone and separated carets; preserve XOR/list-caret behavior; and run the downstream Brainfuck compiler acceptance as the cross-repository proof.
+68. Keep direct internal test fixtures aligned with fail-closed collection coercion and iterable-write lowering: use type-valid inputs for positive codegen cases, keep mismatches in negative tests, and inspect the pulse body when a container write lowers through `SGForEach`.
 
 ## Change Classes
 

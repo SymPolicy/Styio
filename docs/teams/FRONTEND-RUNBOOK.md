@@ -8,6 +8,8 @@
 
 Own the source-to-AST front end: token definitions, lexer behavior, parser routing, parser diagnostics, lookahead helpers, and the authoritative nightly parser boundary. Do not own language meaning beyond implementing the design SSOT.
 
+Delimiter nesting queries use a parser-owned prefix table built once per token stream; operation-count tests protect linear construction and constant-time lookup without changing accepted syntax or diagnostics.
+
 ## Owned Surface
 
 Primary paths:

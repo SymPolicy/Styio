@@ -514,7 +514,7 @@ endforeach()
 
 add_test(
   NAME parser_shadow_gate_scalar_expressions_zero_fallback_and_internal_bridges
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/benchmark/parser-shadow-suite-gate.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/gates/parser-shadow-suite-gate.py"
           --require-zero-fallback
           --require-zero-internal-bridges
           "${STYIO_EXE}"
@@ -528,7 +528,7 @@ set_tests_properties(parser_shadow_gate_scalar_expressions_zero_fallback_and_int
 
 add_test(
   NAME parser_shadow_gate_functions_zero_fallback_and_internal_bridges
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/benchmark/parser-shadow-suite-gate.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/gates/parser-shadow-suite-gate.py"
           --require-zero-fallback
           --require-zero-internal-bridges
           "${STYIO_EXE}"
@@ -542,7 +542,7 @@ set_tests_properties(parser_shadow_gate_functions_zero_fallback_and_internal_bri
 
 add_test(
   NAME parser_shadow_gate_file_resources_dual_zero_expected_nonzero
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/benchmark/parser-shadow-suite-gate.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/gates/parser-shadow-suite-gate.py"
           --require-zero-fallback
           --require-zero-internal-bridges
           "${STYIO_EXE}"
@@ -556,7 +556,7 @@ set_tests_properties(parser_shadow_gate_file_resources_dual_zero_expected_nonzer
 
 add_test(
   NAME parser_shadow_gate_stream_processing_zero_fallback
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/benchmark/parser-shadow-suite-gate.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/gates/parser-shadow-suite-gate.py"
           --require-zero-fallback
           "${STYIO_EXE}"
           "${STYIO_FEATURES}/stream_processing"
@@ -569,7 +569,7 @@ set_tests_properties(parser_shadow_gate_stream_processing_zero_fallback PROPERTI
 
 add_test(
   NAME parser_shadow_gate_stream_processing_zero_internal_bridges
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/benchmark/parser-shadow-suite-gate.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/gates/parser-shadow-suite-gate.py"
           --require-zero-fallback
           --require-zero-internal-bridges
           "${STYIO_EXE}"

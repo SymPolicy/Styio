@@ -71,7 +71,7 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | `IDE-LSP-RUNBOOK.md` | `src/StyioServices/StyioIDE/`, `src/StyioServices/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
 | `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioServices/StyioIDE/TreeSitterBackend.*` |
 | `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `tests/workflow_scheduler_test.py`, parser shadow suite gates, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |
-| `PERF-STABILITY-RUNBOOK.md` | `benchmark/`, `scripts/benchmark-compare.py` |
+| `PERF-STABILITY-RUNBOOK.md` | `benchmark/`, `src/StyioProfiler/` |
 | `DOCS-ECOSYSTEM-RUNBOOK.md` | `README.md`, `docs/`, `library/`, `workflows/`, `templates/`, docs maintenance scripts, `scripts/delivery-gate.sh`, `scripts/stdlib-manifest-gate.py`, `scripts/team-docs-gate.py`, `scripts/workflow-scheduler.py` |
 
 Generated `docs/**/INDEX.md` files do not themselves require runbook updates. They are regenerated inventory, not a maintenance decision.
