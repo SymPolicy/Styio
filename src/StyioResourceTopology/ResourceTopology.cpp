@@ -293,10 +293,13 @@ private:
     if (auto* call = dynamic_cast<FuncCallAST*>(ast)) {
       const StyioBuiltinMethodKind builtin_method = styio_builtin_method_kind(call->getNameAsStr());
       if (call->func_callee != nullptr
-          && builtin_method == StyioBuiltinMethodKind::StringLines) {
+          && styio_is_predefined_string_operation_kind(builtin_method)) {
         const StyioDataType callee = type_hint(call->func_callee);
         if (callee.option == StyioDataTypeOption::String) {
-          return styio_make_list_type("string");
+          return styio_make_list_type(
+            builtin_method == StyioBuiltinMethodKind::StringChars
+              ? "char"
+              : "string");
         }
       }
       if (call->func_callee != nullptr

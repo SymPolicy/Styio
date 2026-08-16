@@ -395,8 +395,12 @@ ir_yields_list_handle(StyioIR* value) {
     return styio_value_family_from_type_name(get->value_type) == StyioValueFamily::ListHandle;
   }
   if (auto* call = dynamic_cast<SGCall*>(value)) {
+    if (styio_is_list_type(call->result_type)) {
+      return true;
+    }
     return call->func_name != nullptr
       && (call->func_name->as_str() == "__styio_string_lines"
+          || call->func_name->as_str() == "__styio_string_chars"
           || call->func_name->as_str() == "__styio_list_range_i64");
   }
   return false;
@@ -442,6 +446,9 @@ ir_yields_dict_handle(StyioIR* value) {
   if (auto* get = dynamic_cast<SCDictGet*>(value)) {
     return styio_value_family_from_type_name(get->value_type) == StyioValueFamily::DictHandle;
   }
+  if (auto* call = dynamic_cast<SGCall*>(value)) {
+    return styio_is_dict_type(call->result_type);
+  }
   return false;
 }
 
@@ -461,6 +468,9 @@ ir_yields_matrix_handle(StyioIR* value) {
     return styio_is_matrix_type(bin->data_type->data_type);
   }
   if (auto* call = dynamic_cast<SGCall*>(value)) {
+    if (styio_is_matrix_type(call->result_type)) {
+      return true;
+    }
     std::string name = call->func_name != nullptr ? call->func_name->as_str() : "";
     return name.rfind("__styio_matrix_new_", 0) == 0
       || name.rfind("__styio_matrix_identity_", 0) == 0
@@ -637,6 +647,13 @@ StyioToLLVM::matrix_release_fn() {
 }
 
 llvm::FunctionCallee
+StyioToLLVM::tuple_release_fn() {
+  return theModule->getOrInsertFunction(
+    "styio_tuple_release",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {theBuilder->getInt64Ty()}, false));
+}
+
+llvm::FunctionCallee
 StyioToLLVM::task_release_fn() {
   return theModule->getOrInsertFunction(
     "styio_task_release",
@@ -770,7 +787,13 @@ StyioToLLVM::track_owned_resource_temp(llvm::Value* v, TempResourceKind kind) {
   if (!v) {
     return;
   }
+  if (owned_resource_temps_.contains(v)) {
+    return;
+  }
   owned_resource_temps_[v] = kind;
+  if (!owned_resource_scope_stack_.empty()) {
+    owned_resource_scope_stack_.back().push_back(v);
+  }
 }
 
 std::optional<StyioToLLVM::TempResourceKind>
@@ -784,6 +807,9 @@ StyioToLLVM::take_owned_resource_temp(llvm::Value* v) {
   }
   TempResourceKind kind = it->second;
   owned_resource_temps_.erase(it);
+  for (auto& scope : owned_resource_scope_stack_) {
+    std::erase(scope, v);
+  }
   return kind;
 }
 
@@ -791,7 +817,36 @@ void
 StyioToLLVM::forget_owned_resource_temp(llvm::Value* v) {
   if (v) {
     owned_resource_temps_.erase(v);
+    for (auto& scope : owned_resource_scope_stack_) {
+      std::erase(scope, v);
+    }
   }
+}
+
+void
+StyioToLLVM::emit_owned_resource_scope_cleanup(std::size_t scope_index) {
+  if (scope_index >= owned_resource_scope_stack_.size()) {
+    return;
+  }
+  std::unordered_set<llvm::Value*> released;
+  for (llvm::Value* value : owned_resource_scope_stack_[scope_index]) {
+    auto it = owned_resource_temps_.find(value);
+    if (it != owned_resource_temps_.end() && released.insert(value).second) {
+      free_resource_if_runtime_owned(value, it->second);
+    }
+  }
+}
+
+void
+StyioToLLVM::emit_owned_resource_cleanup_to_depth(std::size_t keep_depth) {
+  for (std::size_t scope = owned_resource_scope_stack_.size(); scope-- > keep_depth;) {
+    emit_owned_resource_scope_cleanup(scope);
+  }
+}
+
+void
+StyioToLLVM::emit_all_owned_resource_cleanup() {
+  emit_owned_resource_cleanup_to_depth(0);
 }
 
 void
@@ -808,6 +863,9 @@ StyioToLLVM::free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kin
       break;
     case TempResourceKind::Matrix:
       theBuilder->CreateCall(matrix_release_fn(), {v});
+      break;
+    case TempResourceKind::Tuple:
+      theBuilder->CreateCall(tuple_release_fn(), {v});
       break;
   }
 }
@@ -846,6 +904,51 @@ StyioToLLVM::clone_resource_handle_for_runtime_owner(llvm::Value* v, StyioValueF
     clone_name,
     llvm::FunctionType::get(theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
   return theBuilder->CreateCall(clone_fn, {v});
+}
+
+llvm::Value*
+StyioToLLVM::prepare_owned_resource_return(
+  StyioIR* source,
+  llvm::Value* value,
+  TempResourceKind kind) {
+  if (value == nullptr) {
+    return value;
+  }
+
+  auto tracked = owned_resource_temps_.find(value);
+  if (tracked != owned_resource_temps_.end() && tracked->second == kind) {
+    (void)take_owned_resource_temp(value);
+    return value;
+  }
+
+  auto* load = dynamic_cast<SGDynLoad*>(source);
+  const bool matching_dynamic_load =
+    load != nullptr
+    && ((kind == TempResourceKind::List
+         && load->kind == SGDynLoadKind::ListHandle)
+        || (kind == TempResourceKind::Dict
+            && load->kind == SGDynLoadKind::DictHandle)
+        || (kind == TempResourceKind::Matrix
+            && load->kind == SGDynLoadKind::MatrixHandle));
+  if (matching_dynamic_load) {
+    auto slot = mutable_variables.find(load->var_name);
+    if (slot != mutable_variables.end()
+        && slot->second != nullptr
+        && slot->second->getAllocatedType() == dynamic_cell_type()) {
+      // Move the local's owned handle into the return value. Leaving the cell
+      // undefined keeps the ordinary scope cleanup from releasing it again.
+      init_dynamic_slot_undef(slot->second);
+      return value;
+    }
+  }
+
+  const StyioValueFamily family =
+    kind == TempResourceKind::List
+      ? StyioValueFamily::ListHandle
+      : (kind == TempResourceKind::Dict
+          ? StyioValueFamily::DictHandle
+          : StyioValueFamily::MatrixHandle);
+  return clone_resource_handle_for_runtime_owner(value, family);
 }
 
 void
@@ -1179,6 +1282,152 @@ StyioToLLVM::toLLVMIR(SGStruct* node) {
 }
 
 llvm::Value*
+StyioToLLVM::toLLVMIR(SGTupleCreate* node) {
+  if (node == nullptr || node->elements.size() < 2
+      || node->elements.size() != node->element_types.size()) {
+    throw StyioTypeError("tuple construction IR has an invalid shape");
+  }
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::FunctionCallee create = theModule->getOrInsertFunction(
+    "styio_tuple_new",
+    llvm::FunctionType::get(i64, {i64}, false));
+  llvm::Value* tuple = theBuilder->CreateCall(
+    create,
+    {llvm::ConstantInt::get(i64, node->elements.size())});
+  track_owned_resource_temp(tuple, TempResourceKind::Tuple);
+
+  for (std::size_t i = 0; i < node->elements.size(); ++i) {
+    const StyioDataType& type = node->element_types[i];
+    llvm::Value* value = node->elements[i]->toLLVMIR(this);
+    llvm::Value* index = llvm::ConstantInt::get(i64, i);
+    const char* setter_name = nullptr;
+    llvm::Type* value_type = i64;
+
+    if (type.option == StyioDataTypeOption::Float) {
+      setter_name = "styio_tuple_set_f64_owned";
+      value_type = theBuilder->getDoubleTy();
+      if (value->getType()->isIntegerTy()) {
+        value = theBuilder->CreateSIToFP(value, value_type);
+      }
+    }
+    else if (type.option == StyioDataTypeOption::String) {
+      setter_name = "styio_tuple_set_cstr_owned";
+      value_type = llvm::PointerType::get(*theContext, 0);
+      if (!take_owned_cstr_temp(value)) {
+        value = theBuilder->CreateCall(clone_cstr_fn(), {value});
+      }
+    }
+    else if (styio_is_list_type(type)
+             || styio_is_dict_type(type)
+             || styio_is_matrix_type(type)) {
+      TempResourceKind kind = styio_is_list_type(type)
+        ? TempResourceKind::List
+        : (styio_is_dict_type(type)
+            ? TempResourceKind::Dict
+            : TempResourceKind::Matrix);
+      setter_name = styio_is_list_type(type)
+        ? "styio_tuple_set_list_owned"
+        : (styio_is_dict_type(type)
+            ? "styio_tuple_set_dict_owned"
+            : "styio_tuple_set_matrix_owned");
+      auto tracked = owned_resource_temps_.find(value);
+      if (tracked != owned_resource_temps_.end() && tracked->second == kind) {
+        (void)take_owned_resource_temp(value);
+      }
+      else {
+        StyioValueFamily family = styio_is_list_type(type)
+          ? StyioValueFamily::ListHandle
+          : (styio_is_dict_type(type)
+              ? StyioValueFamily::DictHandle
+              : StyioValueFamily::MatrixHandle);
+        value = clone_resource_handle_for_runtime_owner(value, family);
+      }
+    }
+    else if (type.option == StyioDataTypeOption::Integer
+             || type.option == StyioDataTypeOption::Bool
+             || type.option == StyioDataTypeOption::Char) {
+      setter_name = "styio_tuple_set_i64_owned";
+      if (!value->getType()->isIntegerTy(64)) {
+        value = theBuilder->CreateSExtOrTrunc(value, i64);
+      }
+    }
+    else {
+      throw StyioTypeError(
+        "tuple construction does not support element type `" + type.name + "`");
+    }
+
+    llvm::FunctionCallee setter = theModule->getOrInsertFunction(
+      setter_name,
+      llvm::FunctionType::get(
+        theBuilder->getVoidTy(), {i64, i64, value_type}, false));
+    theBuilder->CreateCall(setter, {tuple, index, value});
+  }
+  emit_runtime_error_guard_return();
+  return tuple;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SGTupleGet* node) {
+  if (node == nullptr || node->tuple == nullptr || node->element_type.isUndefined()) {
+    throw StyioTypeError("tuple projection IR is incomplete");
+  }
+  if (!styio_is_shaped_tuple_type(node->tuple_type)
+      || node->index >= node->tuple_type.tuple_elements->size()
+      || !node->element_type.equals(
+        (*node->tuple_type.tuple_elements)[node->index])) {
+    throw StyioTypeError(
+      "tuple projection IR does not match its structural source shape");
+  }
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::Value* tuple = node->tuple->toLLVMIR(this);
+  llvm::Value* index = llvm::ConstantInt::get(i64, node->index);
+  const StyioDataType& type = node->element_type;
+  const char* getter_name = "styio_tuple_get_i64";
+  llvm::Type* result_type = i64;
+  if (type.option == StyioDataTypeOption::Float) {
+    getter_name = "styio_tuple_get_f64";
+    result_type = theBuilder->getDoubleTy();
+  }
+  else if (type.option == StyioDataTypeOption::String) {
+    getter_name = "styio_tuple_get_cstr";
+    result_type = llvm::PointerType::get(*theContext, 0);
+  }
+  else if (styio_is_list_type(type)) getter_name = "styio_tuple_get_list";
+  else if (styio_is_dict_type(type)) getter_name = "styio_tuple_get_dict";
+  else if (styio_is_matrix_type(type)) getter_name = "styio_tuple_get_matrix";
+  else if (type.option != StyioDataTypeOption::Integer
+           && type.option != StyioDataTypeOption::Bool
+           && type.option != StyioDataTypeOption::Char) {
+    throw StyioTypeError(
+      "tuple projection does not support element type `" + type.name + "`");
+  }
+  llvm::FunctionCallee getter = theModule->getOrInsertFunction(
+    getter_name,
+    llvm::FunctionType::get(result_type, {i64, i64}, false));
+  llvm::Value* result = theBuilder->CreateCall(getter, {tuple, index});
+  emit_runtime_error_guard_return();
+  if (type.option == StyioDataTypeOption::String) {
+    track_owned_cstr_temp(result);
+  }
+  else if (styio_is_list_type(type)) {
+    track_owned_resource_temp(result, TempResourceKind::List);
+  }
+  else if (styio_is_dict_type(type)) {
+    track_owned_resource_temp(result, TempResourceKind::Dict);
+  }
+  else if (styio_is_matrix_type(type)) {
+    track_owned_resource_temp(result, TempResourceKind::Matrix);
+  }
+  else if (type.option == StyioDataTypeOption::Bool) {
+    result = theBuilder->CreateTrunc(result, theBuilder->getInt1Ty());
+  }
+  else if (type.option == StyioDataTypeOption::Char) {
+    result = theBuilder->CreateTrunc(result, theBuilder->getInt8Ty());
+  }
+  return result;
+}
+
+llvm::Value*
 StyioToLLVM::toLLVMIR(SGCast* node) {
   if (node == nullptr || node->value == nullptr || node->to_type == nullptr) {
     throw StyioTypeError("cast lowering requires a value and target type");
@@ -1486,8 +1735,6 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
           }
         }
       }
-      free_owned_resource_temp_if_tracked(l_val);
-      free_owned_resource_temp_if_tracked(r_val);
       track_owned_resource_temp(out, TempResourceKind::Matrix);
       return out;
     };
@@ -1502,8 +1749,6 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       llvm::Value* out = matrix_helper_call(
         std::string("styio_matrix_") + op_name + "_" + suffix,
         {coerce_i64(l_val), coerce_i64(r_val)});
-      free_owned_resource_temp_if_tracked(l_val);
-      free_owned_resource_temp_if_tracked(r_val);
       emit_runtime_error_guard_return();
       return out;
     }
@@ -1513,7 +1758,6 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
       llvm::Value* out = result_f64
         ? matrix_helper_call("styio_matrix_scale_f64", {coerce_i64(matrix), coerce_f64(scalar)})
         : matrix_helper_call("styio_matrix_scale_i64", {coerce_i64(matrix), coerce_i64(scalar)});
-      free_owned_resource_temp_if_tracked(matrix);
       emit_runtime_error_guard_return();
       return out;
     }
@@ -2559,7 +2803,9 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
   auto saved_owned_resource = owned_resource_temps_;
+  auto saved_owned_resource_scopes = owned_resource_scope_stack_;
   auto saved_active_captures = active_callable_capture_names_;
+  auto saved_return_resource_kind = current_function_return_resource_kind_;
   mutable_variables.clear();
   named_values.clear();
   bounded_ring_head_slot_.clear();
@@ -2575,7 +2821,21 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
   owned_resource_temps_.clear();
+  owned_resource_scope_stack_.clear();
   active_callable_capture_names_.clear();
+  current_function_return_resource_kind_.reset();
+  if (styio_is_list_type(node->ret_type->data_type)) {
+    current_function_return_resource_kind_ = TempResourceKind::List;
+  }
+  else if (styio_is_dict_type(node->ret_type->data_type)) {
+    current_function_return_resource_kind_ = TempResourceKind::Dict;
+  }
+  else if (styio_is_matrix_type(node->ret_type->data_type)) {
+    current_function_return_resource_kind_ = TempResourceKind::Matrix;
+  }
+  else if (node->ret_type->data_type.option == StyioDataTypeOption::Tuple) {
+    current_function_return_resource_kind_ = TempResourceKind::Tuple;
+  }
   active_callable_capture_names_.insert(
     node->capture_names.begin(),
     node->capture_names.end());
@@ -2633,8 +2893,10 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
   owned_resource_temps_ = std::move(saved_owned_resource);
+  owned_resource_scope_stack_ = std::move(saved_owned_resource_scopes);
   active_callable_capture_names_ =
     std::move(saved_active_captures);
+  current_function_return_resource_kind_ = saved_return_resource_kind;
 }
 
 llvm::Value*
@@ -2654,6 +2916,9 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
       styio_callable_param_types(node->callable_type);
     const StyioDataType result_type =
       styio_callable_result_type(node->callable_type);
+    if (result_type.option == StyioDataTypeOption::Tuple) {
+      throw StyioTypeError("indirect callable tuple results are not supported");
+    }
     if (node->func_args.size() != param_types.size()) {
       throw StyioTypeError(
         "indirect callable of type `" + node->callable_type.name
@@ -2733,6 +2998,15 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     llvm::Value* output =
       theBuilder->CreateCall(function_type, callee, args);
     emit_runtime_error_guard_return();
+    if (styio_is_list_type(result_type)) {
+      track_owned_resource_temp(output, TempResourceKind::List);
+    }
+    else if (styio_is_dict_type(result_type)) {
+      track_owned_resource_temp(output, TempResourceKind::Dict);
+    }
+    else if (styio_is_matrix_type(result_type)) {
+      track_owned_resource_temp(output, TempResourceKind::Matrix);
+    }
     return output;
   }
 
@@ -2796,7 +3070,6 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
       list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
     }
     theBuilder->CreateCall(pop_fn, {list});
-    free_owned_resource_temp_if_tracked(list_raw);
     return theBuilder->getInt64(0);
   }
 
@@ -2816,6 +3089,27 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     }
     llvm::Value* out = theBuilder->CreateCall(lines_fn, {raw});
     free_owned_cstr_temp_if_tracked(raw);
+    track_owned_resource_temp(out, TempResourceKind::List);
+    return out;
+  }
+
+  if (fname == "__styio_string_chars") {
+    if (node->func_args.size() != 1) {
+      throw StyioTypeError(
+        "runtime string.chars expects 1 argument, got "
+        + std::to_string(node->func_args.size()));
+    }
+    llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
+    llvm::FunctionCallee chars_fn = theModule->getOrInsertFunction(
+      "styio_string_chars",
+      llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr}, false));
+    llvm::Value* raw = node->func_args[0]->toLLVMIR(this);
+    if (!raw->getType()->isPointerTy()) {
+      throw StyioTypeError("runtime string.chars requires a string argument");
+    }
+    llvm::Value* out = theBuilder->CreateCall(chars_fn, {raw});
+    free_owned_cstr_temp_if_tracked(raw);
+    emit_runtime_error_guard_return();
     track_owned_resource_temp(out, TempResourceKind::List);
     return out;
   }
@@ -2948,7 +3242,6 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
              || value_family == StyioValueFamily::MatrixHandle) {
       free_owned_resource_temp_if_tracked(value_raw);
     }
-    free_owned_resource_temp_if_tracked(list_raw);
     return theBuilder->getInt64(0);
   }
 
@@ -3114,6 +3407,21 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
 
   llvm::Value* out = theBuilder->CreateCall(ft, callee, args);
   emit_runtime_error_guard_return();
+  if (styio_is_list_type(node->result_type)) {
+    track_owned_resource_temp(out, TempResourceKind::List);
+  }
+  else if (styio_is_dict_type(node->result_type)) {
+    track_owned_resource_temp(out, TempResourceKind::Dict);
+  }
+  else if (styio_is_matrix_type(node->result_type)) {
+    track_owned_resource_temp(out, TempResourceKind::Matrix);
+  }
+  else if (node->result_type.option == StyioDataTypeOption::Tuple) {
+    if (!styio_is_shaped_tuple_type(node->result_type)) {
+      throw StyioTypeError("direct tuple call is missing result shape metadata");
+    }
+    track_owned_resource_temp(out, TempResourceKind::Tuple);
+  }
   return out;
 }
 
@@ -3140,15 +3448,45 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
   if (fn == nullptr || fn->getReturnType()->isVoidTy()) {
     return theBuilder->CreateRetVoid();
   }
-  llvm::Value* ret = coerce_for_return(v, fn->getReturnType());
+  llvm::Value* return_value = v;
+  if (current_function_return_resource_kind_ == TempResourceKind::List) {
+    return_value = prepare_owned_resource_return(
+      node->expr, v, TempResourceKind::List);
+  }
+  else if (current_function_return_resource_kind_ == TempResourceKind::Dict) {
+    return_value = prepare_owned_resource_return(
+      node->expr, v, TempResourceKind::Dict);
+  }
+  else if (current_function_return_resource_kind_ == TempResourceKind::Matrix) {
+    return_value = prepare_owned_resource_return(
+      node->expr, v, TempResourceKind::Matrix);
+  }
+  else if (current_function_return_resource_kind_ == TempResourceKind::Tuple) {
+    auto tracked = owned_resource_temps_.find(v);
+    if (tracked != owned_resource_temps_.end()
+        && tracked->second == TempResourceKind::Tuple) {
+      (void)take_owned_resource_temp(v);
+      return_value = v;
+    }
+    else {
+      llvm::FunctionCallee clone = theModule->getOrInsertFunction(
+        "styio_tuple_clone",
+        llvm::FunctionType::get(
+          theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
+      return_value = theBuilder->CreateCall(clone, {v});
+    }
+  }
+  else if (fn->getReturnType()->isPointerTy() && v->getType()->isPointerTy()) {
+    return_value = clone_cstr_for_runtime_owner(v);
+  }
+  llvm::Value* ret = coerce_for_return(return_value, fn->getReturnType());
   if (ret == nullptr) {
     ret = default_runtime_return_value(fn->getReturnType());
   }
-  if (emit_active_file_handle_cleanup()) {
-    emit_runtime_error_guard_return_after_cleanup();
-    if (theBuilder->GetInsertBlock()->getTerminator()) {
-      return ret;
-    }
+  emit_active_scope_cleanup();
+  emit_runtime_error_guard_return_after_cleanup();
+  if (theBuilder->GetInsertBlock()->getTerminator()) {
+    return ret;
   }
   return theBuilder->CreateRet(ret);
 }
@@ -4257,6 +4595,7 @@ StyioToLLVM::push_file_handle_scope() {
   cstr_slot_scope_stack_.emplace_back();
   dynamic_slot_scope_stack_.emplace_back();
   bounded_ring_cstr_scope_stack_.emplace_back();
+  owned_resource_scope_stack_.emplace_back();
 }
 
 void
@@ -4317,6 +4656,8 @@ StyioToLLVM::emit_scope_cleanup_to_depth(std::size_t keep_depth) {
   if (keep_depth >= file_handle_scope_stack_.size()) {
     return;
   }
+
+  emit_owned_resource_cleanup_to_depth(keep_depth);
 
   std::unordered_set<llvm::AllocaInst*> closed_file_slots;
   bool emitted_file_cleanup = false;
@@ -4379,6 +4720,7 @@ StyioToLLVM::emit_scope_cleanup_to_depth(std::size_t keep_depth) {
 
 void
 StyioToLLVM::emit_active_scope_cleanup() {
+  emit_all_owned_resource_cleanup();
   (void)emit_active_file_handle_cleanup();
   std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
   for (auto scope_it = cstr_slot_scope_stack_.rbegin();
@@ -4438,12 +4780,25 @@ StyioToLLVM::discard_file_handle_scope_metadata() {
   if (!bounded_ring_cstr_scope_stack_.empty()) {
     bounded_ring_cstr_scope_stack_.pop_back();
   }
+  if (!owned_resource_scope_stack_.empty()) {
+    for (llvm::Value* value : owned_resource_scope_stack_.back()) {
+      owned_resource_temps_.erase(value);
+    }
+    owned_resource_scope_stack_.pop_back();
+  }
 }
 
 void
 StyioToLLVM::pop_file_handle_scope() {
   if (file_handle_scope_stack_.empty()) {
     return;
+  }
+  if (!owned_resource_scope_stack_.empty()) {
+    emit_owned_resource_scope_cleanup(owned_resource_scope_stack_.size() - 1);
+    for (llvm::Value* value : owned_resource_scope_stack_.back()) {
+      owned_resource_temps_.erase(value);
+    }
+    owned_resource_scope_stack_.pop_back();
   }
   bool emitted_file_cleanup = false;
   if (!file_handle_scope_stack_.back().empty()) {
@@ -4727,23 +5082,34 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     pulse_active_plan_ = node->pulse_plan.get();
   }
 
+  loop_stack_.push_back(LoopFrame{
+    exit_bb,
+    hdr,
+    file_handle_scope_stack_.size(),
+  });
   node->body->toLLVMIR(this);
 
-  if (pulse_sz > 0) {
+  llvm::BasicBlock* body_end = theBuilder->GetInsertBlock();
+  const bool body_falls_through = body_end != nullptr && body_end->getTerminator() == nullptr;
+  if (pulse_sz > 0 && body_falls_through) {
     llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
     llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
     emit_pulse_commit_all(li8, node->pulse_plan.get());
+  }
+  if (pulse_sz > 0) {
     pulse_ledger_base_ = nullptr;
     pulse_snap_base_ = nullptr;
     pulse_active_plan_ = nullptr;
   }
-  emit_bounded_ring_pending_commits();
+  if (body_falls_through) {
+    emit_bounded_ring_pending_commits();
+  }
 
   mutable_variables.erase(node->line_var);
-  llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
-  if (b2 && !b2->getTerminator()) {
+  if (body_falls_through) {
     theBuilder->CreateBr(hdr);
   }
+  loop_stack_.pop_back();
 
   theBuilder->SetInsertPoint(exit_bb);
   if (pulse_sz > 0 && node->pulse_region_id >= 0) {
@@ -4912,7 +5278,6 @@ StyioToLLVM::toLLVMIR(SCListLen* node) {
     list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(len_fn, {list});
-  free_owned_resource_temp_if_tracked(list);
   return out;
 }
 
@@ -4960,7 +5325,6 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
     idx = theBuilder->CreateSExtOrTrunc(idx, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(get_fn, {list, idx});
-  free_owned_resource_temp_if_tracked(list);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -5012,7 +5376,6 @@ StyioToLLVM::toLLVMIR(SCListSlice* node) {
   llvm::Value* out = theBuilder->CreateCall(
     slice_fn,
     {list, start, end, theBuilder->getInt32(node->end != nullptr ? 1 : 0)});
-  free_owned_resource_temp_if_tracked(list);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -5085,7 +5448,6 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
            || value_family == StyioValueFamily::MatrixHandle) {
     free_owned_resource_temp_if_tracked(value_raw);
   }
-  free_owned_resource_temp_if_tracked(list_raw);
   return nullptr;
 }
 
@@ -5100,7 +5462,6 @@ StyioToLLVM::toLLVMIR(SCListToString* node) {
     list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(str_fn, {list});
-  free_owned_resource_temp_if_tracked(list);
   track_owned_cstr_temp(out);
   return out;
 }
@@ -5127,7 +5488,6 @@ StyioToLLVM::toLLVMIR(SCMatrixGet* node) {
     col = theBuilder->CreateSExtOrTrunc(col, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(get_fn, {matrix, row, col});
-  free_owned_resource_temp_if_tracked(matrix);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -5152,7 +5512,6 @@ StyioToLLVM::toLLVMIR(SCMatrixRow* node) {
     row = theBuilder->CreateSExtOrTrunc(row, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(row_fn, {matrix, row});
-  free_owned_resource_temp_if_tracked(matrix);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -5191,7 +5550,6 @@ StyioToLLVM::toLLVMIR(SCMatrixRowsSlice* node) {
   llvm::Value* out = theBuilder->CreateCall(
     slice_fn,
     {matrix, start, end, theBuilder->getInt32(node->end != nullptr ? 1 : 0)});
-  free_owned_resource_temp_if_tracked(matrix);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -5210,7 +5568,6 @@ StyioToLLVM::toLLVMIR(SCMatrixToString* node) {
     matrix = theBuilder->CreateSExtOrTrunc(matrix, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(str_fn, {matrix});
-  free_owned_resource_temp_if_tracked(matrix);
   emit_runtime_error_guard_return();
   track_owned_cstr_temp(out);
   return out;
@@ -5240,7 +5597,6 @@ StyioToLLVM::toLLVMIR(SCDictLen* node) {
     dict = theBuilder->CreateSExtOrTrunc(dict, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(len_fn, {dict});
-  free_owned_resource_temp_if_tracked(dict);
   return out;
 }
 
@@ -5278,7 +5634,6 @@ StyioToLLVM::toLLVMIR(SCDictGet* node) {
   }
   llvm::Value* out = theBuilder->CreateCall(get_fn, {dict, key});
   free_owned_cstr_temp_if_tracked(key);
-  free_owned_resource_temp_if_tracked(dict);
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
   }
@@ -5350,7 +5705,6 @@ StyioToLLVM::toLLVMIR(SCDictSet* node) {
            || value_family == StyioValueFamily::DictHandle) {
     free_owned_resource_temp_if_tracked(value);
   }
-  free_owned_resource_temp_if_tracked(dict);
   return nullptr;
 }
 
@@ -5364,7 +5718,6 @@ StyioToLLVM::toLLVMIR(SCDictKeys* node) {
     dict = theBuilder->CreateSExtOrTrunc(dict, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(keys_fn, {dict});
-  free_owned_resource_temp_if_tracked(dict);
   track_owned_resource_temp(out, TempResourceKind::List);
   return out;
 }
@@ -5390,7 +5743,6 @@ StyioToLLVM::toLLVMIR(SCDictValues* node) {
     dict = theBuilder->CreateSExtOrTrunc(dict, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(values_fn, {dict});
-  free_owned_resource_temp_if_tracked(dict);
   track_owned_resource_temp(out, TempResourceKind::List);
   return out;
 }
@@ -5406,7 +5758,6 @@ StyioToLLVM::toLLVMIR(SCDictToString* node) {
     dict = theBuilder->CreateSExtOrTrunc(dict, theBuilder->getInt64Ty());
   }
   llvm::Value* out = theBuilder->CreateCall(str_fn, {dict});
-  free_owned_resource_temp_if_tracked(dict);
   track_owned_cstr_temp(out);
   return out;
 }
@@ -6652,7 +7003,7 @@ StyioToLLVM::toLLVMIR(SGMatch* node) {
     if (ty->isIntegerTy()) {
       return theBuilder->CreateSExtOrTrunc(v, i64ti);
     }
-    throw StyioTypeError("match scrutinee must be integer-typed");
+    throw StyioTypeError("match scrutinee must have integer or char type");
   };
 
   if (node->repr_kind == SGMatchReprKind::Stmt) {
