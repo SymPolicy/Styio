@@ -120,6 +120,7 @@ public:
     add_symbol("styio_list_f64_read_stdin", &styio_list_f64_read_stdin);
     add_symbol("styio_list_cstr_read_stdin", &styio_list_cstr_read_stdin);
     add_symbol("styio_string_lines", &styio_string_lines);
+    add_symbol("styio_string_chars", &styio_string_chars);
     add_symbol("styio_char_cstr", &styio_char_cstr);
     add_symbol("styio_list_new_bool", &styio_list_new_bool);
     add_symbol("styio_list_new_char", &styio_list_new_char);
@@ -168,6 +169,22 @@ public:
     add_symbol("styio_list_to_cstr", &styio_list_to_cstr);
     add_symbol("styio_list_release", &styio_list_release);
     add_symbol("styio_list_active_count", &styio_list_active_count);
+    add_symbol("styio_tuple_new", &styio_tuple_new);
+    add_symbol("styio_tuple_set_i64_owned", &styio_tuple_set_i64_owned);
+    add_symbol("styio_tuple_set_f64_owned", &styio_tuple_set_f64_owned);
+    add_symbol("styio_tuple_set_cstr_owned", &styio_tuple_set_cstr_owned);
+    add_symbol("styio_tuple_set_list_owned", &styio_tuple_set_list_owned);
+    add_symbol("styio_tuple_set_dict_owned", &styio_tuple_set_dict_owned);
+    add_symbol("styio_tuple_set_matrix_owned", &styio_tuple_set_matrix_owned);
+    add_symbol("styio_tuple_get_i64", &styio_tuple_get_i64);
+    add_symbol("styio_tuple_get_f64", &styio_tuple_get_f64);
+    add_symbol("styio_tuple_get_cstr", &styio_tuple_get_cstr);
+    add_symbol("styio_tuple_get_list", &styio_tuple_get_list);
+    add_symbol("styio_tuple_get_dict", &styio_tuple_get_dict);
+    add_symbol("styio_tuple_get_matrix", &styio_tuple_get_matrix);
+    add_symbol("styio_tuple_clone", &styio_tuple_clone);
+    add_symbol("styio_tuple_release", &styio_tuple_release);
+    add_symbol("styio_tuple_active_count", &styio_tuple_active_count);
 
     add_symbol("styio_matrix_new_i64", &styio_matrix_new_i64);
     add_symbol("styio_matrix_new_f64", &styio_matrix_new_f64);

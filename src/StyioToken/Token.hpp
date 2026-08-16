@@ -3,6 +3,7 @@
 #define STYIO_TOKEN_H_
 
 #include <cstdint>
+#include <memory>
 #include <new>
 #include <optional>
 #include <string>
@@ -134,6 +135,9 @@ struct StyioDataType
   std::string resource_value_type_name;
   StyioResourceShapeKind resource_shape = StyioResourceShapeKind::None;
   std::size_t resource_shape_bound = 0;
+  std::shared_ptr<const std::vector<StyioDataType>> tuple_elements;
+  std::shared_ptr<const std::vector<StyioDataType>> callable_params;
+  std::shared_ptr<const StyioDataType> callable_result;
 
   bool isUndefined() const {
     return option == StyioDataTypeOption::Undefined;
@@ -193,7 +197,41 @@ struct StyioDataType
   }
 
   bool equals(const StyioDataType& other) const {
-    return canonical_view() == other.canonical_view();
+    if (canonical_view() != other.canonical_view()) {
+      return false;
+    }
+    const auto vectors_equal = [](const auto& lhs, const auto& rhs) {
+      if (static_cast<bool>(lhs) != static_cast<bool>(rhs)) {
+        return false;
+      }
+      if (!lhs) {
+        return true;
+      }
+      if (lhs->size() != rhs->size()) {
+        return false;
+      }
+      for (std::size_t i = 0; i < lhs->size(); ++i) {
+        if (!(*lhs)[i].equals((*rhs)[i])) {
+          return false;
+        }
+      }
+      return true;
+    };
+    if (!vectors_equal(tuple_elements, other.tuple_elements)) {
+      return false;
+    }
+    // Callable metadata is a lossless cache for signatures constructed from
+    // AST types, while older/name-parsed callable values carry only the same
+    // canonical signature in `name`.  Preserve that established identity:
+    // compare cached structure when both sides have it, but do not make cache
+    // presence itself part of type equality.  Tuple shape metadata remains
+    // strict above because an unshaped tuple is invalid after Sema.
+    if (callable_params && other.callable_params
+        && !vectors_equal(callable_params, other.callable_params)) {
+      return false;
+    }
+    return !callable_result || !other.callable_result
+      || callable_result->equals(*other.callable_result);
   }
 };
 
@@ -229,11 +267,45 @@ styio_make_callable_type(
   }
   name += "):";
   name += result.name;
-  return StyioDataType{
+  StyioDataType type{
     StyioDataTypeOption::Func,
     std::move(name),
     0
   };
+  type.callable_params =
+    std::make_shared<const std::vector<StyioDataType>>(params);
+  type.callable_result = std::make_shared<const StyioDataType>(result);
+  return type;
+}
+
+inline StyioDataType
+styio_make_tuple_type(std::vector<StyioDataType> elements) {
+  std::string name = "(";
+  for (std::size_t i = 0; i < elements.size(); ++i) {
+    if (i != 0) {
+      name += ",";
+    }
+    name += elements[i].name;
+  }
+  name += ")";
+  StyioDataType type{
+    StyioDataTypeOption::Tuple,
+    std::move(name),
+    0};
+  type.capabilities =
+    styio_caps(StyioTypeCapability::Indexable)
+    | styio_caps(StyioTypeCapability::Sized)
+    | styio_caps(StyioTypeCapability::Cloneable);
+  type.tuple_elements =
+    std::make_shared<const std::vector<StyioDataType>>(
+      std::move(elements));
+  return type;
+}
+
+inline bool
+styio_is_shaped_tuple_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Tuple
+    && type.tuple_elements != nullptr;
 }
 
 inline bool
@@ -1321,6 +1393,9 @@ styio_data_type_from_name(const std::string& type_name) {
 
 inline std::vector<StyioDataType>
 styio_callable_param_types(const StyioDataType& type) {
+  if (type.callable_params != nullptr) {
+    return *type.callable_params;
+  }
   std::vector<StyioDataType> params;
   for (const auto& name : styio_callable_param_type_names(type)) {
     params.push_back(styio_data_type_from_name(name));
@@ -1330,6 +1405,9 @@ styio_callable_param_types(const StyioDataType& type) {
 
 inline StyioDataType
 styio_callable_result_type(const StyioDataType& type) {
+  if (type.callable_result != nullptr) {
+    return *type.callable_result;
+  }
   const std::string name = styio_callable_result_type_name(type);
   return name.empty()
     ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}

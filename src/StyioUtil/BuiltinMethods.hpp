@@ -13,6 +13,7 @@ enum class StyioBuiltinMethodKind
   ListInsert,
   ListPop,
   StringLines,
+  StringChars,
   ResourceWrite,
   ResourceClose,
   ResourceDrop,
@@ -33,6 +34,9 @@ styio_builtin_method_kind(const std::string& name) {
   }
   if (name == "lines") {
     return StyioBuiltinMethodKind::StringLines;
+  }
+  if (name == "chars") {
+    return StyioBuiltinMethodKind::StringChars;
   }
   if (name == "write") {
     return StyioBuiltinMethodKind::ResourceWrite;
@@ -66,7 +70,8 @@ styio_is_predefined_list_operation_name(const std::string& name) {
 
 inline bool
 styio_is_predefined_string_operation_kind(StyioBuiltinMethodKind kind) {
-  return kind == StyioBuiltinMethodKind::StringLines;
+  return kind == StyioBuiltinMethodKind::StringLines
+    || kind == StyioBuiltinMethodKind::StringChars;
 }
 
 inline bool

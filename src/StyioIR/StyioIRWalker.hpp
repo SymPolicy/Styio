@@ -148,6 +148,16 @@ public:
   }
 
   virtual void
+  visitSGTupleCreate(SGTupleCreate* node) {
+    walkVector(node->elements);
+  }
+
+  virtual void
+  visitSGTupleGet(SGTupleGet* node) {
+    walk(node->tuple);
+  }
+
+  virtual void
   visitSGCast(SGCast* node) {
     walk(node->value);
     walk(node->from_type);
@@ -660,6 +670,12 @@ protected:
     }
     else if (auto* n = dynamic_cast<SGStruct*>(node)) {
       visitSGStruct(n);
+    }
+    else if (auto* n = dynamic_cast<SGTupleCreate*>(node)) {
+      visitSGTupleCreate(n);
+    }
+    else if (auto* n = dynamic_cast<SGTupleGet*>(node)) {
+      visitSGTupleGet(n);
     }
     else if (auto* n = dynamic_cast<SGFuncArg*>(node)) {
       visitSGFuncArg(n);

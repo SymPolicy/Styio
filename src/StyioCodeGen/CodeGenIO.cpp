@@ -441,23 +441,34 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
     pulse_active_plan_ = node->pulse_plan.get();
   }
 
+  loop_stack_.push_back(LoopFrame{
+    exit_bb,
+    hdr,
+    file_handle_scope_stack_.size(),
+  });
   node->body->toLLVMIR(this);
 
-  if (pulse_sz > 0) {
+  llvm::BasicBlock* body_end = theBuilder->GetInsertBlock();
+  const bool body_falls_through = body_end != nullptr && body_end->getTerminator() == nullptr;
+  if (pulse_sz > 0 && body_falls_through) {
     llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
     llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
     emit_pulse_commit_all(li8, node->pulse_plan.get());
+  }
+  if (pulse_sz > 0) {
     pulse_ledger_base_ = nullptr;
     pulse_snap_base_ = nullptr;
     pulse_active_plan_ = nullptr;
   }
-  emit_bounded_ring_pending_commits();
+  if (body_falls_through) {
+    emit_bounded_ring_pending_commits();
+  }
 
   mutable_variables.erase(node->line_var);
-  llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
-  if (b2 && !b2->getTerminator()) {
+  if (body_falls_through) {
     theBuilder->CreateBr(hdr);
   }
+  loop_stack_.pop_back();
 
   theBuilder->SetInsertPoint(exit_bb);
   if (pulse_sz > 0 && node->pulse_region_id >= 0) {
@@ -623,6 +634,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
   auto saved_owned_resource = owned_resource_temps_;
+  auto saved_owned_resource_scopes = owned_resource_scope_stack_;
+  auto saved_return_resource_kind = current_function_return_resource_kind_;
 
   mutable_variables.clear();
   named_values.clear();
@@ -639,6 +652,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
   owned_resource_temps_.clear();
+  owned_resource_scope_stack_.clear();
+  current_function_return_resource_kind_.reset();
 
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*theContext, "task_entry", task_fn);
   theBuilder->SetInsertPoint(entry);
@@ -722,6 +737,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
   owned_resource_temps_ = std::move(saved_owned_resource);
+  owned_resource_scope_stack_ = std::move(saved_owned_resource_scopes);
+  current_function_return_resource_kind_ = saved_return_resource_kind;
   theBuilder->SetInsertPoint(caller_bb);
 
   llvm::FunctionCallee spawn_fn = nullptr;

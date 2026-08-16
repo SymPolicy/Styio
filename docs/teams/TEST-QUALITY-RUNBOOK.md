@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-16
 
 ## Mission
 
@@ -90,6 +90,7 @@ Primary paths:
 64. Persistent callable-cache coverage must retain an unchanged cache-disabled execution, then prove cold per-specialization object writes and warm native hits with identical stdout. Use a fixture that combines an inter-specialization call and a private string constant. In one isolated temporary root, cover transitive callee-body invalidation and backend namespace separation; independently cover a truncated-entry miss/rewrite, simultaneous writers converging without temporary files, and deterministic age, aggregate-byte, and file-count pruning. Statistics assertions must require the path-free schema-v1 JSON and all four nonnegative timing fields. Invalid limits without an explicit cache root remain CLI errors, while cache I/O/corruption must never become a language or runtime failure.
 65. Workflow-scheduler regression coverage must treat the formal ecosystem contract path as the trigger authority. When that contract moves, update the trigger, its exact-path assertion, and the ecosystem document gate together; assert the owning external path and do not keep an obsolete plan path as a compatibility trigger.
 66. Parser cutover security tests must distinguish recognized ownership from true decline. A recognized binding may stop on an allowed fallback follow token without consuming it; malformed deep input may fail closed at its first unsupported element before reaching the depth ceiling. Keep special index selectors in both focused parser coverage and the security owner gate, and do not preserve pre-cutover exception or cursor expectations as compatibility contracts.
+67. Runtime-value and break-spelling deliveries need focused lifetime and route-isolation evidence: execute `String.chars` list handles and structured function tuple results with nested ownership; prove fresh tuple binding, attached-table type interning, direct-call result validation, and invalid tuple projection rejection; cover both parser routes for two, conventional three, and longer contiguous carets; reject lone and separated carets; preserve XOR/list-caret behavior; and run the downstream Brainfuck compiler acceptance as the cross-repository proof.
 
 ## Change Classes
 

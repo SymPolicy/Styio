@@ -4639,6 +4639,7 @@ TEST(StyioFeatureCorpus, NightlyExecutesStdinPullDesignSamples) {
     {"tests/features/stdio_input/t04_stdin_multi_pull.styio", "1\n2\n"},
     {"tests/features/stdio_input/t07_stdin_typed_tuple_pull.styio", "10.5\n2.5\n"},
     {"tests/features/stdio_input/t08_stdin_typed_f64_list_pull.styio", "[1.25, 2.5, 3.75]\n"},
+    {"tests/features/stdio_input/t09_string_chars.styio", "\nA+ z\né\n"},
   };
 
   const fs::path source_root = fs::path(STYIO_SOURCE_DIR);
@@ -7281,7 +7282,7 @@ TEST(StyioResourceLifecycle, LoopBreakAndContinueRunFileScopeCleanupSmoke) {
     ASSERT_TRUE(out.is_open());
     out << "[1] >> #(i) => {\n";
     out << "  f <- @file(\"" << data.generic_string() << "\")\n";
-    out << "  ^\n";
+    out << "  ^^^\n";
     out << "  >_(\"unreachable-break\")\n";
     out << "}\n";
     out << "[1] >> #(i) => {\n";
@@ -13601,7 +13602,7 @@ TEST(StyioDiagnostics, ScalarAndInferredFunctionReturnsStayExecutable) {
   fs::remove(input);
 }
 
-TEST(StyioDiagnostics, TupleFunctionReturnAnnotationReportsTypeCode) {
+TEST(StyioDiagnostics, TupleReturnShapeMismatchReportsTupleContractCode) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
   const fs::path input =
@@ -13629,10 +13630,10 @@ TEST(StyioDiagnostics, TupleFunctionReturnAnnotationReportsTypeCode) {
   EXPECT_NE(result.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"phase\":\"type\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"code\":\"STYIO_TYPE_UNSUPPORTED_TUPLE_RETURN\""),
+    result.stdout_text.find("\"code\":\"STYIO_TYPE_TUPLE_CONTRACT\""),
     std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("tuple function return annotations require tuple value IR"),
+    result.stdout_text.find("tuple return"),
     std::string::npos);
   EXPECT_EQ(result.stdout_text.find("\n7\n"), std::string::npos);
 

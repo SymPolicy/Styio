@@ -217,6 +217,76 @@ public:
   }
 };
 
+class SGTupleCreate : public StyioIRTraits<SGTupleCreate>
+{
+public:
+  std::vector<StyioIR*> elements;
+  std::vector<StyioDataType> element_types;
+
+  SGTupleCreate(
+    std::vector<StyioIR*> values,
+    std::vector<StyioDataType> types) :
+      elements(std::move(values)),
+      element_types(std::move(types)) {
+  }
+
+  ~SGTupleCreate() override {
+    styio_delete_ir_nodes(elements);
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override {
+    out.insert(out.end(), elements.begin(), elements.end());
+  }
+
+  static SGTupleCreate* Create(
+    std::vector<StyioIR*> values,
+    std::vector<StyioDataType> types) {
+    return styio::session_alloc::make_ir<SGTupleCreate>(
+      std::move(values), std::move(types));
+  }
+};
+
+class SGTupleGet : public StyioIRTraits<SGTupleGet>
+{
+public:
+  StyioIR* tuple;
+  std::size_t index;
+  StyioDataType element_type;
+  StyioDataType tuple_type;
+
+  SGTupleGet(
+    StyioIR* value,
+    std::size_t position,
+    StyioDataType type,
+    StyioDataType source_type) :
+      tuple(value),
+      index(position),
+      element_type(std::move(type)),
+      tuple_type(std::move(source_type)) {
+  }
+
+  ~SGTupleGet() override {
+    delete tuple;
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override {
+    out.push_back(tuple);
+  }
+
+  static SGTupleGet* Create(
+    StyioIR* value,
+    std::size_t position,
+    StyioDataType type,
+    StyioDataType source_type = StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0}) {
+    return styio::session_alloc::make_ir<SGTupleGet>(
+      value,
+      position,
+      std::move(type),
+      std::move(source_type));
+  }
+};
+
 class SGCast : public StyioIRTraits<SGCast>
 {
 public:
@@ -503,10 +573,21 @@ public:
   StyioDataType callable_type{
     StyioDataTypeOption::Undefined, "undefined", 0
   };
+  StyioDataType result_type{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
   std::vector<StyioIR*> func_args;
 
-  SGCall(SGResId* func_name, std::vector<StyioIR*> func_args) :
-      func_name(std::move(func_name)), func_args(std::move(func_args)) {
+  SGCall(
+    SGResId* func_name,
+    std::vector<StyioIR*> func_args,
+    StyioDataType result_type = {
+      StyioDataTypeOption::Undefined, "undefined", 0
+    }
+  ) :
+      func_name(std::move(func_name)),
+      result_type(std::move(result_type)),
+      func_args(std::move(func_args)) {
   }
 
   SGCall(
@@ -516,6 +597,7 @@ public:
   ) :
       indirect_callee(indirect_callee),
       callable_type(std::move(callable_type)),
+      result_type(styio_callable_result_type(this->callable_type)),
       func_args(std::move(func_args)) {
   }
 
@@ -531,8 +613,17 @@ public:
 
   void collect_children(std::vector<StyioIR*>& out) override;
 
-  static SGCall* Create(SGResId* func_name, std::vector<StyioIR*> func_args) {
-    return styio::session_alloc::make_ir<SGCall>(std::move(func_name), std::move(func_args));
+  static SGCall* Create(
+    SGResId* func_name,
+    std::vector<StyioIR*> func_args,
+    StyioDataType result_type = {
+      StyioDataTypeOption::Undefined, "undefined", 0
+    }
+  ) {
+    return styio::session_alloc::make_ir<SGCall>(
+      std::move(func_name),
+      std::move(func_args),
+      std::move(result_type));
   }
 
   static SGCall* CreateIndirect(
@@ -599,17 +690,23 @@ class SGReturn : public StyioIRTraits<SGReturn>
 {
 public:
   StyioIR* expr;
+  StyioDataType result_type;
 
-  SGReturn(StyioIR* expr) :
-      expr(expr) {
+  SGReturn(StyioIR* expr, StyioDataType type) :
+      expr(expr), result_type(std::move(type)) {
   }
 
   ~SGReturn() override {
     delete expr;
   }
 
-  static SGReturn* Create(StyioIR* expr) {
-    return styio::session_alloc::make_ir<SGReturn>(expr);
+  static SGReturn* Create(
+    StyioIR* expr,
+    StyioDataType type = StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0}) {
+    return styio::session_alloc::make_ir<SGReturn>(
+      expr,
+      std::move(type));
   }
 };
 

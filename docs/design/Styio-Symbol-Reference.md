@@ -99,7 +99,7 @@ containing one range expression.
 | `?=` | Pattern Match | `TOK_MATCH` | Trigger pattern matching block; the match body and selected arm block follow block-entry snapshot/commit semantics |
 | `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **As an expression:** `?(expr) => value \| fallback`. **As a statement:** `?(expr) => { ... }` with optional fallback `\| { ... }`; block branches follow block-entry snapshot/commit semantics. **After `[...] >>`:** `?(expr) =>` → conditioned loop (`InfiniteLoopAST`). |
 | `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body; when the result is a block, it creates a snapshot/commit block stage |
-| `^` ... `^^^^` | Break | `BREAK_TOKEN` | Exit the nearest enclosing loop; count is normalized to 1 |
+| `^^`, conventionally `^^^`, or longer | Break | `BREAK_TOKEN` | At least two contiguous carets; exit the nearest enclosing loop; count is normalized to 1 |
 | `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN` | Standalone statement only. Skip the rest of the current block for this pulse/session and resume at the next pulse/session of the nearest continue-capable domain; token length is ignored. |
 | `[...]` | Infinite Generator / All Selector | `[` + dot run + `]` | Without a left side, produces an infinite pulse stream. After a value/resource, selects all currently enumerable values. |
 | `start..end` | Range Expression | `ELLIPSIS` | Naked expression-level range. It is not a list literal. Step range spelling is reserved and not active syntax. |
@@ -225,8 +225,9 @@ callable-address identity are not active syntax.
 | `(<< @res)` in parens | Legacy compatibility pull |
 | `<~` | Reserved token (always 2-char token); parser rejects active use |
 | `~>` | Reserved token (always 2-char token); parser rejects active use |
-| `^` contiguous | Break (count ignored; always nearest loop) |
-| `^^ ^^` with space | **Illegal** — two separate breaks, rejected by parser |
+| `^` alone | **Illegal** — use at least `^^`; `^^^` is conventional |
+| `^^` or a longer contiguous run | Break (count ignored; always nearest loop) |
+| `^ ^`, `^/*gap*/^`, `^^ ^^`, or `^^/*gap*/^^` | **Illegal** — trivia never joins runs and adjacent same-statement breaks are rejected |
 
 ---
 

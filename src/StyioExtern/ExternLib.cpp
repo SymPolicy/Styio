@@ -39,11 +39,13 @@ constexpr const char* kRuntimeSubcodeFileCleanupFailure = "STYIO_RUNTIME_FILE_CL
 constexpr const char* kRuntimeSubcodeInvalidListHandle = "STYIO_RUNTIME_INVALID_LIST_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidDictHandle = "STYIO_RUNTIME_INVALID_DICT_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidMatrixHandle = "STYIO_RUNTIME_INVALID_MATRIX_HANDLE";
+constexpr const char* kRuntimeSubcodeInvalidTupleHandle = "STYIO_RUNTIME_INVALID_TUPLE_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidTaskHandle = "STYIO_RUNTIME_INVALID_TASK_HANDLE";
 constexpr const char* kRuntimeSubcodeTaskConsumed = "STYIO_RUNTIME_TASK_CONSUMED";
 constexpr const char* kRuntimeSubcodeListParse = "STYIO_RUNTIME_LIST_PARSE";
 constexpr const char* kRuntimeSubcodeListIndex = "STYIO_RUNTIME_LIST_INDEX";
 constexpr const char* kRuntimeSubcodeListElemKind = "STYIO_RUNTIME_LIST_ELEM_KIND";
+constexpr const char* kRuntimeSubcodeAllocation = "STYIO_RUNTIME_ALLOCATION";
 constexpr const char* kRuntimeSubcodeDictKey = "STYIO_RUNTIME_DICT_KEY";
 constexpr const char* kRuntimeSubcodeMatrixIndex = "STYIO_RUNTIME_MATRIX_INDEX";
 constexpr const char* kRuntimeSubcodeMatrixShape = "STYIO_RUNTIME_MATRIX_SHAPE";
@@ -533,6 +535,7 @@ thread_local int64_t g_active_list_handles = 0;
 thread_local int64_t g_active_dict_handles = 0;
 thread_local int64_t g_active_matrix_handles = 0;
 thread_local int64_t g_active_task_handles = 0;
+thread_local int64_t g_active_tuple_handles = 0;
 thread_local StyioDictRuntimeImpl g_default_dict_runtime_impl = StyioDictRuntimeImpl::OrderedHash;
 
 void close_list(void* raw);
@@ -545,6 +548,98 @@ int64_t clone_matrix_handle_value(int64_t h);
 void append_list_handle_repr(std::string& out, int64_t h);
 void append_dict_handle_repr(std::string& out, int64_t h);
 void append_matrix_handle_repr(std::string& out, int64_t h);
+
+enum class StyioTupleElemKind : std::uint8_t
+{
+  Unset = 0,
+  I64 = 1,
+  F64 = 2,
+  String = 3,
+  List = 4,
+  Dict = 5,
+  Matrix = 6,
+};
+
+struct StyioTuplePayload
+{
+  StyioTupleElemKind kind = StyioTupleElemKind::Unset;
+  int64_t i64 = 0;
+  double f64 = 0.0;
+  std::string string;
+};
+
+struct StyioTupleValue
+{
+  explicit StyioTupleValue(std::size_t arity) : elements(arity) {}
+  std::vector<StyioTuplePayload> elements;
+};
+
+class StyioTupleRegistry
+{
+  struct Slot {
+    std::uint32_t generation = 1;
+    std::unique_ptr<StyioTupleValue> value;
+  };
+  std::vector<Slot> slots_;
+  std::vector<std::uint32_t> free_;
+
+  static int64_t encode(std::uint32_t index, std::uint32_t generation) {
+    return static_cast<int64_t>(
+      (static_cast<std::uint64_t>(generation) << 32)
+      | (static_cast<std::uint64_t>(index) + 1));
+  }
+
+  static bool decode(int64_t handle, std::uint32_t& index, std::uint32_t& generation) {
+    const std::uint64_t bits = static_cast<std::uint64_t>(handle);
+    const std::uint32_t low = static_cast<std::uint32_t>(bits);
+    generation = static_cast<std::uint32_t>(bits >> 32);
+    if (low == 0 || generation == 0) {
+      return false;
+    }
+    index = low - 1;
+    return true;
+  }
+
+public:
+  int64_t acquire(std::unique_ptr<StyioTupleValue> value) {
+    if (!value) return 0;
+    std::uint32_t index = 0;
+    if (free_.empty()) {
+      index = static_cast<std::uint32_t>(slots_.size());
+      slots_.push_back(Slot{});
+    }
+    else {
+      index = free_.back();
+      free_.pop_back();
+    }
+    Slot& slot = slots_[index];
+    slot.value = std::move(value);
+    return encode(index, slot.generation);
+  }
+
+  StyioTupleValue* lookup(int64_t handle) {
+    std::uint32_t index = 0;
+    std::uint32_t generation = 0;
+    if (!decode(handle, index, generation) || index >= slots_.size()) return nullptr;
+    Slot& slot = slots_[index];
+    return slot.generation == generation ? slot.value.get() : nullptr;
+  }
+
+  std::unique_ptr<StyioTupleValue> take(int64_t handle) {
+    std::uint32_t index = 0;
+    std::uint32_t generation = 0;
+    if (!decode(handle, index, generation) || index >= slots_.size()) return {};
+    Slot& slot = slots_[index];
+    if (slot.generation != generation || !slot.value) return {};
+    auto value = std::move(slot.value);
+    ++slot.generation;
+    if (slot.generation == 0) ++slot.generation;
+    free_.push_back(index);
+    return value;
+  }
+};
+
+thread_local StyioTupleRegistry g_tuple_registry;
 
 thread_local struct HandleTableCleanup {
   ~HandleTableCleanup() {
@@ -744,8 +839,12 @@ stash_list(StyioListBase* list) {
   if (list == nullptr) {
     return 0;
   }
-  ++g_active_list_handles;
-  return g_handle_table.acquire(StyioHandleTable::HandleKind::List, list);
+  const int64_t handle =
+    g_handle_table.acquire(StyioHandleTable::HandleKind::List, list);
+  if (handle != 0) {
+    ++g_active_list_handles;
+  }
+  return handle;
 }
 
 StyioListBase*
@@ -919,8 +1018,12 @@ stash_matrix(StyioMatrixBase* matrix) {
   if (matrix == nullptr) {
     return 0;
   }
-  ++g_active_matrix_handles;
-  return g_handle_table.acquire(StyioHandleTable::HandleKind::Matrix, matrix);
+  const int64_t handle =
+    g_handle_table.acquire(StyioHandleTable::HandleKind::Matrix, matrix);
+  if (handle != 0) {
+    ++g_active_matrix_handles;
+  }
+  return handle;
 }
 
 StyioMatrixBase*
@@ -1114,8 +1217,12 @@ stash_dict(StyioDictBase* dict) {
   if (dict == nullptr) {
     return 0;
   }
-  ++g_active_dict_handles;
-  return g_handle_table.acquire(StyioHandleTable::HandleKind::Dict, dict);
+  const int64_t handle =
+    g_handle_table.acquire(StyioHandleTable::HandleKind::Dict, dict);
+  if (handle != 0) {
+    ++g_active_dict_handles;
+  }
+  return handle;
 }
 
 StyioDictBase*
@@ -2447,6 +2554,35 @@ styio_string_lines(const char* text) {
   return stash_list(list);
 }
 
+extern "C" DLLEXPORT int64_t
+styio_string_chars(const char* text) {
+  if (text == nullptr) {
+    set_runtime_error_once(
+      kRuntimeSubcodeAllocation,
+      "string.chars() received a null string");
+    return 0;
+  }
+  try {
+    auto* list = new StyioListChar();
+    std::unique_ptr<StyioListChar> owner(list);
+    const size_t length = std::strlen(text);
+    list->elems.reserve(length);
+    const auto* bytes = reinterpret_cast<const unsigned char*>(text);
+    for (size_t i = 0; i < length; ++i) {
+      list->elems.push_back(static_cast<int8_t>(bytes[i]));
+    }
+    const int64_t handle = stash_list(list);
+    owner.release();
+    return handle;
+  }
+  catch (const std::bad_alloc&) {
+    set_runtime_error_once(
+      kRuntimeSubcodeAllocation,
+      "string.chars() allocation failed");
+    return 0;
+  }
+}
+
 bool
 check_list_index(size_t size, int64_t idx, bool allow_end = false) {
   if (idx < 0) {
@@ -2711,6 +2847,204 @@ styio_list_insert_matrix(int64_t h, int64_t idx, int64_t value) {
 extern "C" DLLEXPORT int64_t
 styio_list_clone(int64_t h) {
   return clone_list_handle_value(h);
+}
+
+namespace {
+
+void release_tuple_payload(StyioTuplePayload& payload) {
+  if (payload.kind == StyioTupleElemKind::List) styio_list_release(payload.i64);
+  else if (payload.kind == StyioTupleElemKind::Dict) styio_dict_release(payload.i64);
+  else if (payload.kind == StyioTupleElemKind::Matrix) styio_matrix_release(payload.i64);
+  payload = StyioTuplePayload{};
+}
+
+void release_tuple_value(StyioTupleValue& tuple) {
+  for (auto& payload : tuple.elements) release_tuple_payload(payload);
+}
+
+StyioTuplePayload* tuple_payload(
+  int64_t handle, int64_t index, StyioTupleElemKind expected) {
+  StyioTupleValue* tuple = g_tuple_registry.lookup(handle);
+  if (tuple == nullptr) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
+    return nullptr;
+  }
+  if (index < 0 || static_cast<std::size_t>(index) >= tuple->elements.size()) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "tuple projection index is out of range");
+    return nullptr;
+  }
+  StyioTuplePayload& payload = tuple->elements[static_cast<std::size_t>(index)];
+  if (payload.kind != expected) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "tuple projection element kind mismatch");
+    return nullptr;
+  }
+  return &payload;
+}
+
+void tuple_store(int64_t handle, int64_t index, StyioTuplePayload payload) {
+  StyioTupleValue* tuple = g_tuple_registry.lookup(handle);
+  if (tuple == nullptr || index < 0
+      || static_cast<std::size_t>(index) >= tuple->elements.size()) {
+    release_tuple_payload(payload);
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid tuple construction target");
+    return;
+  }
+  StyioTuplePayload& destination = tuple->elements[static_cast<std::size_t>(index)];
+  release_tuple_payload(destination);
+  destination = std::move(payload);
+}
+
+}  // namespace
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_new(int64_t arity) {
+  if (arity < 2 || arity > static_cast<int64_t>(std::numeric_limits<std::uint32_t>::max())) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "tuple arity must be at least two");
+    return 0;
+  }
+  auto tuple = std::make_unique<StyioTupleValue>(static_cast<std::size_t>(arity));
+  const int64_t handle = g_tuple_registry.acquire(std::move(tuple));
+  if (handle != 0) ++g_active_tuple_handles;
+  return handle;
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_i64_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::I64;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_f64_owned(
+  int64_t h, int64_t index, double value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::F64;
+  payload.f64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_cstr_owned(
+  int64_t h, int64_t index, const char* value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::String;
+  if (value != nullptr) payload.string = value;
+  styio_free_cstr(value);
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_list_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::List;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_dict_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::Dict;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_matrix_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::Matrix;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_i64(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::I64);
+  return payload == nullptr ? 0 : payload->i64;
+}
+
+extern "C" DLLEXPORT double
+styio_tuple_get_f64(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::F64);
+  return payload == nullptr ? 0.0 : payload->f64;
+}
+
+extern "C" DLLEXPORT const char*
+styio_tuple_get_cstr(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::String);
+  return payload == nullptr ? nullptr : styio_clone_cstr(payload->string.c_str());
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_list(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::List);
+  return payload == nullptr ? 0 : styio_list_clone(payload->i64);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_dict(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::Dict);
+  return payload == nullptr ? 0 : styio_dict_clone(payload->i64);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_matrix(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::Matrix);
+  return payload == nullptr ? 0 : styio_matrix_clone(payload->i64);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_clone(int64_t h) {
+  StyioTupleValue* source = g_tuple_registry.lookup(h);
+  if (source == nullptr) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
+    return 0;
+  }
+  const int64_t clone = styio_tuple_new(static_cast<int64_t>(source->elements.size()));
+  if (clone == 0) return 0;
+  for (std::size_t i = 0; i < source->elements.size(); ++i) {
+    const auto& payload = source->elements[i];
+    const int64_t index = static_cast<int64_t>(i);
+    switch (payload.kind) {
+      case StyioTupleElemKind::I64: styio_tuple_set_i64_owned(clone, index, payload.i64); break;
+      case StyioTupleElemKind::F64: styio_tuple_set_f64_owned(clone, index, payload.f64); break;
+      case StyioTupleElemKind::String:
+        styio_tuple_set_cstr_owned(clone, index, styio_clone_cstr(payload.string.c_str())); break;
+      case StyioTupleElemKind::List:
+        styio_tuple_set_list_owned(clone, index, styio_list_clone(payload.i64)); break;
+      case StyioTupleElemKind::Dict:
+        styio_tuple_set_dict_owned(clone, index, styio_dict_clone(payload.i64)); break;
+      case StyioTupleElemKind::Matrix:
+        styio_tuple_set_matrix_owned(clone, index, styio_matrix_clone(payload.i64)); break;
+      case StyioTupleElemKind::Unset:
+        styio_tuple_release(clone);
+        set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "cannot clone incomplete tuple");
+        return 0;
+    }
+  }
+  return clone;
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_release(int64_t h) {
+  auto tuple = g_tuple_registry.take(h);
+  if (!tuple) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
+    return;
+  }
+  release_tuple_value(*tuple);
+  if (g_active_tuple_handles > 0) --g_active_tuple_handles;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_active_count() {
+  return g_active_tuple_handles;
 }
 
 extern "C" DLLEXPORT int64_t

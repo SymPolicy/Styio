@@ -2,7 +2,7 @@
 
 **Purpose:** Record the current size of each `docs/teams/` runbook using the repository-local `scripts/docs-audit.py` word-count and character-count rules; this is a maintenance snapshot, not a quality target.
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-16
 
 ## Counting Method
 
@@ -26,16 +26,16 @@ python3 scripts/docs-audit.py --manifest valid --format json --output /tmp/styio
 | Team | Document | Word count | Character count |
 |------|----------|------------|-----------------|
 | CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | 2,571 | 12,093 |
-| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 2,554 | 12,312 |
+| Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | 2,614 | 12,668 |
 | Coordination | [COORDINATION-RUNBOOK.md](./COORDINATION-RUNBOOK.md) | 2,021 | 7,559 |
-| Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 5,191 | 25,386 |
-| Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 6,192 | 27,261 |
+| Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | 5,264 | 25,809 |
+| Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | 6,282 | 27,727 |
 | Grammar | [GRAMMAR-RUNBOOK.md](./GRAMMAR-RUNBOOK.md) | 1,020 | 4,089 |
 | IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | 1,539 | 6,677 |
 | Performance / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | 2,843 | 12,796 |
-| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 9,325 | 45,288 |
-| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 4,790 | 23,314 |
-| **Total** | Team runbooks only | **38,046** | **176,775** |
+| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | 9,418 | 45,844 |
+| Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | 4,892 | 23,876 |
+| **Total** | Team runbooks only | **38,464** | **179,138** |
 
 ## Support File Size
 
