@@ -43,7 +43,6 @@
 #include "StyioException/Exception.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
 #include "StyioIR/Verifier.hpp"
-#include "../benchmark/internal/bench_utils.hpp"
 
 namespace {
 
@@ -244,11 +243,11 @@ TEST(StyioCodeGenInternal, BuiltinListAndMatrixCoercionsStayExplicit) {
     }),
     SGCall::Create(SGResId::Create("__styio_list_push_char"), {
       SGConstInt::Create(1),
-      SGConstFloat::Create("2.5"),
+      SGConstInt::Create(65),
     }),
     SGCall::Create(SGResId::Create("__styio_list_push_cstr"), {
       SGConstInt::Create(1),
-      SGConstInt::Create(9),
+      SGConstString::Create("value"),
     }),
     SGCall::Create(SGResId::Create("__styio_list_push_bool"), {
       SGConstInt::Create(1),
@@ -1718,38 +1717,6 @@ TEST(StyioZipBarrierFacts, EarlyBodyTerminatorHasNoCommitEdge) {
   const std::string ir = generator->dump_llvm_ir();
   EXPECT_EQ(ir.find("br label %zip_ll_step"), std::string::npos) << ir;
   EXPECT_NE(ir.find("br label %zip_ll_exit"), std::string::npos) << ir;
-}
-
-TEST(StyioZipBarrierFacts, BenchmarkJsonCountersAreExact) {
-  styio::bench::BenchmarkResult result;
-  styio::bench::BenchmarkSample sample;
-  sample.phase = "zip_barrier_facts";
-  sample.label = "zip_barrier_facts_256";
-  sample.zip_barrier_fact_bundle_count = 256;
-  sample.zip_barrier_fact_valid_count = 256;
-  sample.zip_barrier_fact_metadata_bytes =
-    256 * static_cast<std::int64_t>(sizeof(SGStreamZipBarrierFacts));
-  result.samples.push_back(sample);
-
-  const std::string json = result.to_json();
-  const std::string expected =
-    "{\n"
-    "  \"schema\": \"styio.benchmark.v1\",\n"
-    "  \"git_sha\": \"\",\n"
-    "  \"build_type\": \"\",\n"
-    "  \"timestamp\": 0,\n"
-    "  \"samples\": [\n"
-    "    {\"phase\": \"zip_barrier_facts\", "
-    "\"label\": \"zip_barrier_facts_256\", "
-    "\"duration_ns\": 0, "
-    "\"zip_barrier_fact_bundle_count\": 256, "
-    "\"zip_barrier_fact_valid_count\": 256, "
-    "\"zip_barrier_fact_metadata_bytes\": "
-    + std::to_string(256 * sizeof(SGStreamZipBarrierFacts))
-    + "}\n"
-      "  ]\n"
-      "}\n";
-  EXPECT_EQ(json, expected);
 }
 
 TEST(StyioZipBarrierFacts, DirectMalformedListListIRFailsClosed) {

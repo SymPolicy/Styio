@@ -26,6 +26,69 @@ enum class HandleState
   Released,
 };
 
+bool
+verifier_constant_fold_candidate(StyioIR* node) {
+  auto* binop = dynamic_cast<SGBinOp*>(node);
+  if (binop == nullptr) {
+    return false;
+  }
+  const bool int_pair = dynamic_cast<SGConstInt*>(binop->lhs_expr) != nullptr
+    && dynamic_cast<SGConstInt*>(binop->rhs_expr) != nullptr;
+  const bool float_pair = dynamic_cast<SGConstFloat*>(binop->lhs_expr) != nullptr
+    && dynamic_cast<SGConstFloat*>(binop->rhs_expr) != nullptr;
+  const bool bool_pair = dynamic_cast<SGConstBool*>(binop->lhs_expr) != nullptr
+    && dynamic_cast<SGConstBool*>(binop->rhs_expr) != nullptr;
+  if (int_pair || float_pair) {
+    switch (binop->operand) {
+      case StyioOpType::Binary_Add:
+      case StyioOpType::Binary_Sub:
+      case StyioOpType::Binary_Mul:
+      case StyioOpType::Binary_Div:
+        return true;
+      default:
+        break;
+    }
+  }
+  return bool_pair
+    && (binop->operand == StyioOpType::Equal
+        || binop->operand == StyioOpType::Not_Equal);
+}
+
+bool
+verifier_is_direct_terminator(StyioIR* statement) {
+  return dynamic_cast<SGReturn*>(statement) != nullptr
+    || dynamic_cast<SGBreak*>(statement) != nullptr
+    || dynamic_cast<SGContinue*>(statement) != nullptr;
+}
+
+bool
+verifier_main_entry_compile_time_live(StyioIR* statement) {
+  return dynamic_cast<SGFunc*>(statement) != nullptr
+    || dynamic_cast<SGExportDecl*>(statement) != nullptr
+    || dynamic_cast<SGExternBlock*>(statement) != nullptr
+    || dynamic_cast<SGFlexBind*>(statement) != nullptr
+    || dynamic_cast<SGFinalBind*>(statement) != nullptr;
+}
+
+bool
+verifier_sequence_has_dead_suffix(
+  const std::vector<StyioIR*>& statements,
+  bool preserve_main_entry_compile_time_nodes
+) {
+  for (std::size_t index = 0; index < statements.size(); ++index) {
+    if (!verifier_is_direct_terminator(statements[index])) {
+      continue;
+    }
+    for (std::size_t suffix = index + 1; suffix < statements.size(); ++suffix) {
+      if (!preserve_main_entry_compile_time_nodes
+          || !verifier_main_entry_compile_time_live(statements[suffix])) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /*
   StyioIRVerifier — uses StyioIRWalker for centralized node dispatch
   and child traversal, adding IR structural validation on top.
@@ -178,6 +241,13 @@ private:
         add_error("StyioIR ownership graph reuses a node or contains a cycle");
       }
       return;
+    }
+    ++result_.nodes_visited;
+    if (dynamic_cast<SGMatch*>(node) != nullptr) {
+      result_.has_canonicalization_candidate = true;
+    }
+    if (verifier_constant_fold_candidate(node)) {
+      result_.has_constant_folding_candidate = true;
     }
     if (!node->is_active()) {
       add_error(
@@ -393,6 +463,8 @@ private:
 
   void
   visitSGBlock(SGBlock* node) override {
+    result_.has_dead_suffix_candidate = result_.has_dead_suffix_candidate
+      || verifier_sequence_has_dead_suffix(node->stmts, false);
     for (auto* stmt : node->stmts) {
       walk_required(stmt, "SGBlock.stmts");
     }
@@ -400,6 +472,8 @@ private:
 
   void
   visitSGEntry(SGEntry* node) override {
+    result_.has_dead_suffix_candidate = result_.has_dead_suffix_candidate
+      || verifier_sequence_has_dead_suffix(node->stmts, false);
     for (auto* stmt : node->stmts) {
       walk_required(stmt, "SGEntry.stmts");
     }
@@ -407,6 +481,8 @@ private:
 
   void
   visitSGMainEntry(SGMainEntry* node) override {
+    result_.has_dead_suffix_candidate = result_.has_dead_suffix_candidate
+      || verifier_sequence_has_dead_suffix(node->stmts, true);
     for (auto* stmt : node->stmts) {
       walk_required(stmt, "SGMainEntry.stmts");
     }

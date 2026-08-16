@@ -2,6 +2,7 @@
 #ifndef STYIO_IR_VERIFIER_H_
 #define STYIO_IR_VERIFIER_H_
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,13 @@ struct StyioIRVerifierOptions
 struct StyioIRVerifierResult
 {
   std::vector<StyioIRVerifierDiagnostic> diagnostics;
+  // Privacy-safe structural work count used by compiler phase profiling.
+  std::size_t nodes_visited = 0;
+  // Candidate bits collected during the same verifier walk.  The lowering
+  // pipeline consumes these to avoid a second full-tree applicability scan.
+  bool has_dead_suffix_candidate = false;
+  bool has_canonicalization_candidate = false;
+  bool has_constant_folding_candidate = false;
 
   bool ok() const {
     return diagnostics.empty();

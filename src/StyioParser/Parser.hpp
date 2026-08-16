@@ -74,6 +74,14 @@ struct StyioParseDiagnostic
 class StyioContext
 {
 private:
+  struct TokenNesting
+  {
+    int paren = 0;
+    int bracket = 0;
+    int brace = 0;
+    int bounded = 0;
+  };
+
   static StyioToken* eof_fallback_token() {
     static StyioToken* tok = StyioToken::CreatePersistent(StyioTokenType::TOK_EOF, "EOF");
     return tok;
@@ -139,6 +147,9 @@ private:
   std::vector<size_t> token_cursor_positions;                             /* token index -> cur_pos */
   std::vector<size_t> next_non_trivia_index;                              /* token index -> next non-trivia */
   std::vector<size_t> next_non_space_no_linebreak_index;                  /* token index -> next non-space */
+  std::vector<TokenNesting> token_nesting_prefix;                         /* nesting before token index */
+  mutable size_t token_nesting_query_count_ = 0;
+  size_t token_nesting_prefix_steps_ = 0;
   bool diagnostic_cache_ready = false;
 
   StyioRepr* ast_repr = nullptr;
@@ -164,6 +175,43 @@ private:
       }
       next_non_trivia_index[i] = next_non_trivia;
       next_non_space_no_linebreak_index[i] = next_non_space;
+    }
+
+    // Delimiter-budget checks run for every expression.  Store the same
+    // clamped prefix state once so nested-chain parsing remains O(tokens)
+    // instead of rescanning the entire prefix for each expression.
+    token_nesting_prefix.assign(tokens.size() + 1, TokenNesting{});
+    token_nesting_prefix_steps_ = tokens.size();
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      token_nesting_prefix[i + 1] = token_nesting_prefix[i];
+      switch (tokens[i]->type) {
+        case StyioTokenType::TOK_LPAREN:
+          token_nesting_prefix[i + 1].paren += 1;
+          break;
+        case StyioTokenType::TOK_RPAREN:
+          token_nesting_prefix[i + 1].paren = std::max(0, token_nesting_prefix[i + 1].paren - 1);
+          break;
+        case StyioTokenType::TOK_LBOXBRAC:
+          token_nesting_prefix[i + 1].bracket += 1;
+          break;
+        case StyioTokenType::TOK_RBOXBRAC:
+          token_nesting_prefix[i + 1].bracket = std::max(0, token_nesting_prefix[i + 1].bracket - 1);
+          break;
+        case StyioTokenType::TOK_LCURBRAC:
+          token_nesting_prefix[i + 1].brace += 1;
+          break;
+        case StyioTokenType::TOK_RCURBRAC:
+          token_nesting_prefix[i + 1].brace = std::max(0, token_nesting_prefix[i + 1].brace - 1);
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_OPEN:
+          token_nesting_prefix[i + 1].bounded += 1;
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+          token_nesting_prefix[i + 1].bounded = std::max(0, token_nesting_prefix[i + 1].bounded - 1);
+          break;
+        default:
+          break;
+      }
     }
   }
 
@@ -268,48 +316,12 @@ private:
     cur_pos = token_cursor_position_at(target);
   }
 
-  struct TokenNesting
-  {
-    int paren = 0;
-    int bracket = 0;
-    int brace = 0;
-    int bounded = 0;
-  };
-
   TokenNesting token_nesting_before(size_t index) const {
-    TokenNesting nesting;
-    const size_t limit = std::min(index, tokens.size());
-    for (size_t i = 0; i < limit; ++i) {
-      switch (tokens[i]->type) {
-        case StyioTokenType::TOK_LPAREN:
-          nesting.paren += 1;
-          break;
-        case StyioTokenType::TOK_RPAREN:
-          nesting.paren = std::max(0, nesting.paren - 1);
-          break;
-        case StyioTokenType::TOK_LBOXBRAC:
-          nesting.bracket += 1;
-          break;
-        case StyioTokenType::TOK_RBOXBRAC:
-          nesting.bracket = std::max(0, nesting.bracket - 1);
-          break;
-        case StyioTokenType::TOK_LCURBRAC:
-          nesting.brace += 1;
-          break;
-        case StyioTokenType::TOK_RCURBRAC:
-          nesting.brace = std::max(0, nesting.brace - 1);
-          break;
-        case StyioTokenType::BOUNDED_BUFFER_OPEN:
-          nesting.bounded += 1;
-          break;
-        case StyioTokenType::BOUNDED_BUFFER_CLOSE:
-          nesting.bounded = std::max(0, nesting.bounded - 1);
-          break;
-        default:
-          break;
-      }
+    ++token_nesting_query_count_;
+    if (token_nesting_prefix.empty()) {
+      return {};
     }
-    return nesting;
+    return token_nesting_prefix[std::min(index, token_nesting_prefix.size() - 1)];
   }
 
 public:
@@ -375,12 +387,12 @@ public:
   }
 
   /// Create a NameAST with the given spelling, interning it if a SymbolInterner is attached.
-  NameAST* interned_name(std::string spelling) {
+  NameAST* interned_name(std::string_view spelling) {
     styio::session::SymbolId sid = styio::session::kInvalidSymbolId;
     if (symbol_interner_) {
       sid = symbol_interner_->intern(spelling);
     }
-    return NameAST::Create(std::move(spelling), sid);
+    return NameAST::Create(std::string(spelling), sid);
   }
 
   /*
@@ -540,6 +552,9 @@ public:
   size_t route_cache_hit_count() const { return route_cache_hit_count_; }
   size_t route_cache_miss_count() const { return route_cache_miss_count_; }
   size_t route_cache_disabled_count() const { return route_cache_disabled_count_; }
+
+  size_t token_nesting_query_count() const { return token_nesting_query_count_; }
+  size_t token_nesting_prefix_steps() const { return token_nesting_prefix_steps_; }
 
   // Increment counters (called from const refs in parser route functions).
   void note_route_scan() const { route_scan_count_++; }

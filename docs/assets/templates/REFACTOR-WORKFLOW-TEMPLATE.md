@@ -148,5 +148,5 @@ fix: make AST tracked cleanup non-owning to avoid double free
 
 ```bash
 tmp_dir="$(mktemp -d)"
-./benchmark/parser-shadow-suite-gate.sh ./build/default/bin/styio ./tests/features/scalar_expressions "$tmp_dir"
+python3 tests/gates/parser-shadow-suite-gate.py ./build/default/bin/styio ./tests/features/scalar_expressions "$tmp_dir"
 ```

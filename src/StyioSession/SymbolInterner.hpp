@@ -38,6 +38,12 @@ public:
   /// Number of interned symbols.
   std::size_t size() const noexcept { return symbols_.empty() ? 0 : symbols_.size() - 1; }
 
+  /// Operation counters used by the opt-in front-end profiler.  They are
+  /// intentionally session-local and carry no source text or path data.
+  std::size_t intern_calls() const noexcept { return intern_calls_; }
+  std::size_t lookup_probes() const noexcept { return lookup_probes_; }
+  std::size_t insertions() const noexcept { return insertions_; }
+
   /// Pre-allocate storage for expected number of unique names.
   void reserve(std::size_t expected);
 
@@ -65,6 +71,9 @@ private:
 
   // Map from string_view (into symbols_ deque) to SymbolId (1-based, stored as id-1 index)
   std::unordered_map<std::string_view, SymbolId, TransparentHash, TransparentEq> map_;
+  std::size_t intern_calls_ = 0;
+  mutable std::size_t lookup_probes_ = 0;
+  std::size_t insertions_ = 0;
 };
 
 } // namespace styio::session

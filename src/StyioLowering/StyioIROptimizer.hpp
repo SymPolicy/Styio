@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,8 @@
 #include "../StyioIR/StyioIR.hpp"
 
 namespace styio::lowering {
+
+struct StyioIRPassPipelineResult;
 
 struct StyioIRPassPipelineOptions
 {
@@ -20,6 +23,14 @@ struct StyioIRPassPipelineOptions
   styio::ir::StyioIRVerifierOptions verifier_options;
   bool collect_timing = true;
   bool collect_ir_dumps = false;
+  // Optional diagnostics hook used by focused tests to mutate a pass result
+  // and prove that the next pre-gate or final gate still rejects bad IR.
+  // Production callers leave this empty and pay no callback cost beyond the
+  // predictable branch.
+  std::function<void(std::size_t, StyioIR*)> pass_observer;
+  // Optional sink for phase profiling. Production callers leave this null,
+  // avoiding result-copy bookkeeping on the normal path.
+  StyioIRPassPipelineResult* result_sink = nullptr;
 };
 
 struct StyioIRPassStatistics
@@ -28,6 +39,7 @@ struct StyioIRPassStatistics
   uint64_t statements_examined = 0;
   uint64_t statements_removed = 0;
   uint64_t statement_containers_changed = 0;
+  uint64_t nodes_visited = 0;
 
   bool changed() const {
     return statements_removed != 0;
@@ -38,6 +50,7 @@ struct StyioIRPassRecord
 {
   std::string name;
   uint64_t duration_ns = 0;
+  bool applicable = true;
   bool verifier_before_ok = true;
   bool verifier_after_ok = true;
   std::string ir_before;
@@ -52,6 +65,10 @@ struct StyioIRPassPipelineResult
   std::vector<styio::ir::StyioIRVerifierDiagnostic> diagnostics;
   std::string initial_ir;
   std::string final_ir;
+  std::uint64_t applicability_duration_ns = 0;
+  std::uint64_t applicability_nodes_visited = 0;
+  std::vector<std::uint64_t> verifier_duration_ns;
+  std::vector<std::uint64_t> verifier_nodes_visited;
 
   bool ok() const {
     return diagnostics.empty();
