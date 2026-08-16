@@ -38,6 +38,37 @@ namespace
 
 constexpr int kMaxParserDelimiterNestingLatest = 64;
 
+constexpr const char* kBreakMinimumSpellingDiagnosticLatest =
+  "break statement requires at least two consecutive '^' characters; "
+  "use '^^' (minimum) or '^^^' (conventional)";
+
+std::optional<size_t>
+separated_break_run_index(const StyioContext& context) {
+  const auto& tokens = context.get_tokens();
+  size_t cursor = context.get_token_index();
+  while (cursor < tokens.size()) {
+    const StyioTokenType type = tokens[cursor]->type;
+    if (type == StyioTokenType::TOK_SPACE) {
+      cursor += 1;
+      continue;
+    }
+    if (type == StyioTokenType::COMMENT_CLOSED) {
+      const std::string_view comment = tokens[cursor]->lexeme();
+      if (comment.find('\n') != std::string_view::npos
+          || comment.find('\r') != std::string_view::npos) {
+        return std::nullopt;
+      }
+      cursor += 1;
+      continue;
+    }
+    if (type == StyioTokenType::TOK_HAT) {
+      return cursor;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
 void
 enforce_parser_delimiter_budget_latest(StyioContext& context, const char* construct) {
   if (context.delimiter_nesting_before_current_token() < kMaxParserDelimiterNestingLatest) {
@@ -5067,8 +5098,19 @@ parse_stmt_or_expr_legacy(
     } break;
 
     case StyioTokenType::TOK_HAT: {
-      while (context.check(StyioTokenType::TOK_HAT)) {
-        context.move_forward(1, "break^");
+      const size_t run_length = context.check_seq_of(StyioTokenType::TOK_HAT);
+      if (run_length < 2) {
+        throw StyioSyntaxError(
+          context.mark_cur_tok(kBreakMinimumSpellingDiagnosticLatest)
+        );
+      }
+      context.move_forward(run_length, "break^");
+      if (const auto next_run = separated_break_run_index(context)) {
+        context.move_forward(*next_run - context.get_token_index(), "break:separated_run");
+        throw StyioSyntaxError(context.mark_cur_tok(
+          "separate break statements with a newline or ';'; spaced caret runs "
+          "do not form one break statement"
+        ));
       }
       return BreakAST::Create(1u);
     } break;

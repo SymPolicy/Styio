@@ -140,5 +140,50 @@
       "src/StyioIR/GenIR/SIOIR.hpp"
     ],
     "description": "The bounded stream scheduling, synchronization, cancellation, and pressure boundary."
+  },
+  {
+    "key": "styio-nightly/compiler/runtime-value-interfaces",
+    "parent": "styio-nightly/compiler",
+    "title": "Runtime Value Interfaces",
+    "kind": "component",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "src/StyioCodeGen/CodeGenIO.cpp",
+      "src/StyioCodeGen/CodeGenG.cpp",
+      "src/StyioExtern/ExternLib.cpp"
+    ],
+    "description": "The observed standard-input text conversion and mutable runtime-handle calling-convention boundary."
+  },
+  {
+    "key": "styio-nightly/compiler/runtime-value-interfaces/structured-results",
+    "parent": "styio-nightly/compiler/runtime-value-interfaces",
+    "title": "Structured Function Results",
+    "kind": "interface",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "modified",
+    "source_files": [
+      "src/StyioAST/AST.hpp",
+      "src/StyioSema/TypeInfer.cpp",
+      "src/StyioLowering/AstToStyioIR.cpp",
+      "src/StyioCodeGen/CodeGenG.cpp"
+    ],
+    "description": "The parser-visible but currently blocked tuple value, function-return ABI, aggregate projection, and nested collection ownership boundary."
+  },
+  {
+    "key": "styio-nightly/compiler/correctness/break-spelling",
+    "parent": "styio-nightly/compiler/correctness",
+    "title": "Break Statement Spelling",
+    "kind": "feature",
+    "basis": "observed",
+    "disclosure": "examined",
+    "touch": "in_scope",
+    "source_files": [
+      "src/StyioParser/NewParserExpr.cpp",
+      "docs/design/Styio-Language-Design.md"
+    ],
+    "description": "The compiler-owned syntax boundary for contiguous caret break statements, parser diagnostics, and nearest-loop normalization."
   }
 ]

@@ -20,6 +20,8 @@ class SGConstString;
 class SGFormatString;
 
 class SGStruct;
+class SGTupleCreate;
+class SGTupleGet;
 
 class SGCast;
 

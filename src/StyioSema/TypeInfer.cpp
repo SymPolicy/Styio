@@ -351,6 +351,8 @@ StyioDataType const kStringType{
 };
 
 using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
+std::optional<StyioDataType>
+closed_callable_term_type(const CallableTypeTerm& term);
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
 using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
 using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
@@ -464,6 +466,16 @@ void
 require_supported_callable_storage(
   const StyioDataType& type
 ) {
+  if (styio_is_callable_type(type)) {
+    for (const auto& param : styio_callable_param_types(type)) {
+      if (param.option == StyioDataTypeOption::Tuple) {
+        throw StyioTypeError("tuple parameters are not supported for callable values");
+      }
+    }
+    if (styio_callable_result_type(type).option == StyioDataTypeOption::Tuple) {
+      throw StyioTypeError("indirect callable tuple results are not supported");
+    }
+  }
   if (type_requires_unsupported_callable_storage(type)) {
     throw StyioTypeError(
       "callable values cannot be stored inside list, dict, "
@@ -741,11 +753,16 @@ callable_name_of_def(StyioAST* def) {
 StyioDataType
 callable_declared_result_type(StyioAST* def) {
   auto read_variant = [](const std::variant<TypeAST*, TypeTupleAST*>& result) {
-    if (result.valueless_by_exception()
-        || !std::holds_alternative<TypeAST*>(result)) {
+    if (result.valueless_by_exception()) {
       return StyioDataType{
         StyioDataTypeOption::Undefined, "undefined", 0
       };
+    }
+    if (std::holds_alternative<TypeTupleAST*>(result)) {
+      TypeTupleAST* tuple = std::get<TypeTupleAST*>(result);
+      return tuple == nullptr
+        ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+        : tuple->getDataType();
     }
     TypeAST* type = std::get<TypeAST*>(result);
     return type == nullptr
@@ -2577,6 +2594,28 @@ public:
         unifier_.apply(key),
         unifier_.apply(value));
     }
+    if (auto* tuple = dynamic_cast<TupleAST*>(ast)) {
+      if (tuple->getElements().size() < 2) {
+        throw StyioTypeError("runtime tuple literal requires at least two elements");
+      }
+      std::vector<StyioDataType> elements;
+      elements.reserve(tuple->getElements().size());
+      for (auto* element : tuple->getElements()) {
+        auto concrete = closed_callable_term_type(
+          unifier_.apply(infer(element)));
+        if (!concrete.has_value()) {
+          throw StyioTypeError(
+            "tuple literal elements must have concrete inferred types");
+        }
+        if (concrete->option == StyioDataTypeOption::Tuple) {
+          throw StyioTypeError("nested tuple elements are not supported");
+        }
+        elements.push_back(*concrete);
+      }
+      StyioDataType tuple_type = styio_make_tuple_type(std::move(elements));
+      tuple->setDataType(tuple_type);
+      return callable_concrete_term(tuple_type);
+    }
     if (auto* access = dynamic_cast<ListOpAST*>(ast)) {
       if (access->getOp() != StyioNodeType::Access_By_Index
           || access->getSlot1() == nullptr) {
@@ -2600,6 +2639,27 @@ public:
           subject.arguments.at(0),
           "dict index");
         return unifier_.apply(subject.arguments.at(1));
+      }
+      if (subject.kind == CallableTypeTerm::Kind::Concrete
+          && subject.concrete.option == StyioDataTypeOption::Tuple) {
+        auto* literal = dynamic_cast<IntAST*>(access->getSlot1());
+        if (!styio_is_shaped_tuple_type(subject.concrete) || literal == nullptr) {
+          throw StyioTypeError("tuple projection index must be an integer literal");
+        }
+        std::size_t used = 0;
+        long long index = -1;
+        try {
+          index = std::stoll(literal->value, &used, 10);
+        }
+        catch (...) {
+          throw StyioTypeError("tuple projection index must be an integer literal");
+        }
+        if (used != literal->value.size() || index < 0
+            || static_cast<std::size_t>(index) >= subject.concrete.tuple_elements->size()) {
+          throw StyioTypeError("tuple projection index is out of range");
+        }
+        return callable_concrete_term(
+          (*subject.concrete.tuple_elements)[static_cast<std::size_t>(index)]);
       }
       CallableTypeTerm result = unifier_.fresh();
       record_constraint(
@@ -3041,8 +3101,14 @@ infer_list_literal_type(StyioSemaContext* an, ListAST* list) {
 StyioDataType
 declared_function_return_type_latest(StyioAST* def) {
   auto declared_from_variant = [](const std::variant<TypeAST*, TypeTupleAST*>& ret_type) {
-    if (ret_type.valueless_by_exception() || !std::holds_alternative<TypeAST*>(ret_type)) {
+    if (ret_type.valueless_by_exception()) {
       return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    }
+    if (std::holds_alternative<TypeTupleAST*>(ret_type)) {
+      TypeTupleAST* tuple = std::get<TypeTupleAST*>(ret_type);
+      return tuple == nullptr
+        ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+        : tuple->getDataType();
     }
     TypeAST* ty = std::get<TypeAST*>(ret_type);
     return ty != nullptr
@@ -3073,7 +3139,13 @@ maybe_intern_function_signature_types(
     }
     an->maybe_intern_type(param->getDType()->getDataType());
   }
-  if (ret_type.valueless_by_exception() || !std::holds_alternative<TypeAST*>(ret_type)) {
+  if (ret_type.valueless_by_exception()) {
+    return;
+  }
+  if (std::holds_alternative<TypeTupleAST*>(ret_type)) {
+    if (TypeTupleAST* tuple = std::get<TypeTupleAST*>(ret_type)) {
+      an->maybe_intern_type(tuple->getDataType());
+    }
     return;
   }
   TypeAST* return_type = std::get<TypeAST*>(ret_type);
@@ -3311,6 +3383,42 @@ require_matrix_return_compatible_latest(
     );
   }
   require_same_matrix_shape(declared_return, actual_return);
+}
+
+void
+require_compatible_tuple_return(
+  StyioSemaContext* an,
+  const std::string& function_name,
+  const StyioDataType& declared,
+  const StyioDataType& actual
+) {
+  if (declared.option != StyioDataTypeOption::Tuple) {
+    return;
+  }
+  if (!styio_is_shaped_tuple_type(declared)
+      || !styio_is_shaped_tuple_type(actual)) {
+    throw StyioTypeError(
+      "function `" + function_name
+      + "` tuple return requires fully shaped tuple types");
+  }
+  if (declared.tuple_elements->size() != actual.tuple_elements->size()) {
+    throw StyioTypeError(
+      "function `" + function_name + "` tuple return arity mismatch: expected "
+      + std::to_string(declared.tuple_elements->size()) + ", got "
+      + std::to_string(actual.tuple_elements->size()));
+  }
+  for (std::size_t i = 0; i < declared.tuple_elements->size(); ++i) {
+    if (!sema_types_equal(
+          an,
+          (*declared.tuple_elements)[i],
+          (*actual.tuple_elements)[i])) {
+      throw StyioTypeError(
+        "function `" + function_name + "` tuple return element "
+        + std::to_string(i) + " type mismatch: expected `"
+        + (*declared.tuple_elements)[i].name + "`, got `"
+        + (*actual.tuple_elements)[i].name + "`");
+    }
+  }
 }
 
 void
@@ -3684,8 +3792,20 @@ is_name_ast_latest(StyioAST* ast, const std::string& name) {
 }
 
 bool
-match_pattern_supported_latest(StyioAST* pattern, const std::string* scrutinee_name) {
-  if (dynamic_cast<IntAST*>(pattern) != nullptr) {
+match_pattern_is_supported(
+  StyioAST* pattern,
+  const std::string* scrutinee_name,
+  StyioDataTypeOption scrutinee_option) {
+  auto literal_matches = [&](StyioAST* candidate) {
+    if (scrutinee_option == StyioDataTypeOption::Integer) {
+      return dynamic_cast<IntAST*>(candidate) != nullptr;
+    }
+    if (scrutinee_option == StyioDataTypeOption::Char) {
+      return dynamic_cast<CharAST*>(candidate) != nullptr;
+    }
+    return false;
+  };
+  if (literal_matches(pattern)) {
     return true;
   }
   auto* cmp = dynamic_cast<BinCompAST*>(pattern);
@@ -3693,9 +3813,9 @@ match_pattern_supported_latest(StyioAST* pattern, const std::string* scrutinee_n
     return false;
   }
   return (is_name_ast_latest(cmp->getLHS(), *scrutinee_name)
-          && dynamic_cast<IntAST*>(cmp->getRHS()) != nullptr)
+          && literal_matches(cmp->getRHS()))
          || (is_name_ast_latest(cmp->getRHS(), *scrutinee_name)
-             && dynamic_cast<IntAST*>(cmp->getLHS()) != nullptr);
+             && literal_matches(cmp->getLHS()));
 }
 
 bool
@@ -3763,11 +3883,14 @@ apply_stdin_resource_effect_expected_type(StyioAST* expr, const StyioDataType& e
   if (expected_type.isUndefined()) {
     return;
   }
-  auto* effect = dynamic_cast<ResourceEffectAST*>(expr);
-  if (effect == nullptr || !effect->isValueRequired()) {
-    return;
+  auto* pull = dynamic_cast<InstantPullAST*>(expr);
+  if (pull == nullptr) {
+    auto* effect = dynamic_cast<ResourceEffectAST*>(expr);
+    if (effect == nullptr || !effect->isValueRequired()) {
+      return;
+    }
+    pull = dynamic_cast<InstantPullAST*>(effect->getOperation());
   }
-  auto* pull = dynamic_cast<InstantPullAST*>(effect->getOperation());
   if (pull == nullptr) {
     return;
   }
@@ -3805,7 +3928,11 @@ infer_predefined_string_operation_type(StyioSemaContext* an, FuncCallAST* call) 
   if (callee_type.option != StyioDataTypeOption::String) {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
   }
-  return styio_make_list_type("string");
+  return styio_make_list_type(
+    styio_builtin_method_kind(call->getNameAsStr())
+        == StyioBuiltinMethodKind::StringChars
+      ? "char"
+      : "string");
 }
 
 bool
@@ -3861,6 +3988,9 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
         }
       }
     }
+    else if (auto* tuple = std::get<TypeTupleAST*>(f->ret_type)) {
+      return tuple->getDataType();
+    }
     StyioDataType inferred_return = an->inferred_function_return_type(
       f->func_name->getSymbolId(),
       f->getNameAsStr());
@@ -3890,6 +4020,9 @@ func_ret_type_of_def(StyioSemaContext* an, StyioAST* def) {
           return dt;
         }
       }
+    }
+    else if (auto* tuple = std::get<TypeTupleAST*>(f->ret_type)) {
+      return tuple->getDataType();
     }
     StyioDataType inferred_return = an->inferred_function_return_type(
       f->func_name->getSymbolId(),
@@ -3973,6 +4106,8 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
       return kStringType;
     case StyioNodeType::List:
       return infer_list_literal_type(an, static_cast<ListAST*>(expr));
+    case StyioNodeType::Tuple:
+      return static_cast<TupleAST*>(expr)->getDataType();
     case StyioNodeType::Dict:
       return infer_dict_literal_type(an, static_cast<DictAST*>(expr));
     case StyioNodeType::Range:
@@ -4029,6 +4164,24 @@ infer_expr_type(StyioSemaContext* an, StyioAST* expr) {
         }
       }
       StyioDataType base_type = infer_expr_type(an, access->getList());
+      if (base_type.option == StyioDataTypeOption::Tuple) {
+        auto* literal = dynamic_cast<IntAST*>(access->getSlot1());
+        if (!styio_is_shaped_tuple_type(base_type) || literal == nullptr) {
+          return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+        }
+        try {
+          std::size_t used = 0;
+          const long long index = std::stoll(literal->value, &used, 10);
+          if (used != literal->value.size() || index < 0
+              || static_cast<std::size_t>(index) >= base_type.tuple_elements->size()) {
+            return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+          }
+          return (*base_type.tuple_elements)[static_cast<std::size_t>(index)];
+        }
+        catch (...) {
+          return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+        }
+      }
       if (styio_is_matrix_type(base_type)) {
         return styio_make_list_type(styio_matrix_elem_type_name(base_type));
       }
@@ -6866,6 +7019,19 @@ StyioSemaContext::typeInfer(TypeAST* ast) {
 
 void
 StyioSemaContext::typeInfer(TypeTupleAST* ast) {
+  if (ast == nullptr || ast->type_list.size() < 2) {
+    throw StyioTypeError(
+      "tuple return annotation requires at least two element types");
+  }
+  for (std::size_t i = 0; i < ast->type_list.size(); ++i) {
+    TypeAST* element = ast->type_list[i];
+    if (element == nullptr || element->getDataType().isUndefined()) {
+      throw StyioTypeError(
+        "tuple return element " + std::to_string(i)
+        + " has an undefined type");
+    }
+    element->typeInfer(this);
+  }
 }
 
 void
@@ -6936,6 +7102,9 @@ void
 StyioSemaContext::typeInfer(FlexBindAST* ast) {
   const std::string& bound_name = ast->getNameAsStr();
   const auto bound_sid = ast->getVar()->getName()->getSymbolId();
+  const bool binding_exists =
+    find_local_binding_type(bound_sid, bound_name) != nullptr
+    || find_binding_info(bound_sid, bound_name) != nullptr;
   if (is_fixed_assignment_name(bound_sid, bound_name)) {
     throw StyioSyntaxError(
       "variable `" + bound_name +
@@ -7128,11 +7297,23 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   if (var_type.option != StyioDataTypeOption::Undefined) {
     concrete_type = var_type;
   }
+  // Preserve the inferred type on an unannotated mutable slot. Lowering uses
+  // the VarAST storage type to choose the LLVM alloca width; leaving indexed
+  // `list[char]` results undefined widened their i8 value to the default i64
+  // slot and later produced ill-typed char comparisons.
+  if (var_type.option == StyioDataTypeOption::Undefined
+      && !concrete_type.isUndefined()) {
+    ast->getVar()->setDataType(concrete_type);
+  }
   if (styio_is_callable_type(concrete_type)) {
     throw StyioTypeError(
       "monomorphic callable values require final `:=` binding; "
       "mutable `=` callable slots are not available"
     );
+  }
+  if (concrete_type.option == StyioDataTypeOption::Tuple && binding_exists) {
+    throw StyioTypeError(
+      "tuple mutation through flexible `=` bindings is not supported; use immutable `:=`");
   }
   BindingValueKind kind = expr_value_kind(ast->getValue());
   if (ast->getValue()->getNodeType() == StyioNodeType::TaskBlock) {
@@ -7373,6 +7554,9 @@ StyioSemaContext::typeInfer(ParallelAssignAST* ast) {
     }
     idx->typeInfer(this);
     StyioDataType base_type = infer_expr_type(this, idx->getList());
+    if (base_type.option == StyioDataTypeOption::Tuple) {
+      throw StyioTypeError("tuple projection is immutable and cannot be assigned");
+    }
     StyioDataType rhs_type = infer_expr_type(this, ast->getRHS()[i]);
     if (styio_is_dict_type(base_type)) {
       StyioDataType target_type =
@@ -7415,35 +7599,39 @@ StyioSemaContext::typeInfer(StructAST* ast) {
 
 void
 StyioSemaContext::typeInfer(TupleAST* ast) {
-  /* if no element against the consistency, the tuple will have a type. */
   auto elements = ast->getElements();
-
-  if (elements.empty()) {
-    return;
+  if (elements.size() < 2) {
+    throw StyioTypeError(
+      "runtime tuple literal requires at least two elements");
   }
-
+  std::vector<StyioDataType> shape;
+  shape.reserve(elements.size());
   for (auto* element : elements) {
     element->typeInfer(this);
-  }
-
-  StyioDataType aggregated_type = infer_expr_type(this, elements[0]);
-  bool is_consistent = !aggregated_type.isUndefined();
-  if (is_consistent) {
-    for (size_t i = 1; i < elements.size(); i += 1) {
-      if (!sema_types_equal(
-            this,
-            infer_expr_type(this, elements[i]),
-            aggregated_type)) {
-        is_consistent = false;
-        break;
-      }
+    StyioDataType element_type = infer_expr_type(this, element);
+    if (element_type.isUndefined()) {
+      throw StyioTypeError(
+        "tuple literal element " + std::to_string(shape.size())
+        + " has an undefined type");
     }
+    if (element_type.option == StyioDataTypeOption::Tuple) {
+      throw StyioTypeError(
+        "nested tuple element " + std::to_string(shape.size())
+        + " is not supported in this language slice");
+    }
+    if (element_type.option == StyioDataTypeOption::Func
+        || element_type.option == StyioDataTypeOption::Struct
+        || element_type.option == StyioDataTypeOption::Defined
+        || styio_is_topology_resource_type(element_type)) {
+      throw StyioTypeError(
+        "tuple literal element " + std::to_string(shape.size())
+        + " uses an unsupported runtime type `" + element_type.name + "`");
+    }
+    shape.push_back(std::move(element_type));
   }
-
-  if (is_consistent) {
-    ast->setConsistency(is_consistent);
-    ast->setDataType(aggregated_type);
-  }
+  ast->setConsistency(false);
+  ast->setDataType(styio_make_tuple_type(std::move(shape)));
+  maybe_intern_type(ast->getDataType());
 }
 
 void
@@ -7570,6 +7758,39 @@ StyioSemaContext::typeInfer(ListOpAST* ast) {
     return;
   }
   if (ast->getOp() != StyioNodeType::Access_By_Index) {
+    return;
+  }
+
+  if (list_type.option == StyioDataTypeOption::Tuple) {
+    if (!styio_is_shaped_tuple_type(list_type)) {
+      throw StyioTypeError("tuple projection requires a shaped tuple type");
+    }
+    auto* literal = dynamic_cast<IntAST*>(ast->getSlot1());
+    if (literal == nullptr) {
+      throw StyioTypeError(
+        "tuple projection index must be a non-negative integer literal");
+    }
+    try {
+      std::size_t used = 0;
+      const long long index = std::stoll(literal->value, &used, 10);
+      if (used != literal->value.size() || index < 0) {
+        throw StyioTypeError(
+          "tuple projection index must be a non-negative integer literal");
+      }
+      if (static_cast<std::size_t>(index) >= list_type.tuple_elements->size()) {
+        throw StyioTypeError(
+          "tuple projection index " + std::to_string(index)
+          + " is out of range for arity "
+          + std::to_string(list_type.tuple_elements->size()));
+      }
+    }
+    catch (const StyioTypeError&) {
+      throw;
+    }
+    catch (...) {
+      throw StyioTypeError(
+        "tuple projection index must be a non-negative integer literal");
+    }
     return;
   }
 
@@ -8655,10 +8876,10 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
     }
     StyioDataType callee_type = infer_expr_type(this, ast->func_callee);
     if (callee_type.option != StyioDataTypeOption::String) {
-      throw StyioTypeError("string.lines() requires a string receiver");
+      throw StyioTypeError("string method requires a string receiver");
     }
     if (!ast->getArgList().empty()) {
-      throw StyioTypeError("string.lines() does not take arguments");
+      throw StyioTypeError("string method does not take arguments");
     }
     return;
   }
@@ -8928,6 +9149,9 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
   }
   const StyioDataType declared_return =
     declared_function_return_type_latest(func_def);
+  if (declared_return.option == StyioDataTypeOption::Tuple) {
+    ast->setInferredType(declared_return);
+  }
   const bool function_body_active =
     active_function_body_inference_.count(function_name) != 0
     || (function_sid != styio::session::kInvalidSymbolId
@@ -9005,6 +9229,19 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
           f->func_body->typeInfer(this);
           StyioDataType return_type = function_body_tail_type_latest(this, f->func_body);
           require_matrix_return_compatible_latest(function_name, declared_return, return_type);
+          require_compatible_tuple_return(
+            this, function_name, declared_return, return_type);
+          walk_callable_expression(
+            f->func_body,
+            [&](StyioAST* node) {
+              if (auto* ret = dynamic_cast<ReturnAST*>(node)) {
+                require_compatible_tuple_return(
+                  this,
+                  function_name,
+                  declared_return,
+                  infer_expr_type(this, ret->getExpr()));
+              }
+            });
           record_inferred_function_return_type(return_type);
         }
       }
@@ -9017,6 +9254,8 @@ StyioSemaContext::typeInfer(FuncCallAST* ast) {
           sf->ret_expr->typeInfer(this);
           StyioDataType return_type = infer_expr_type(this, sf->ret_expr);
           require_matrix_return_compatible_latest(function_name, declared_return, return_type);
+          require_compatible_tuple_return(
+            this, function_name, declared_return, return_type);
           record_inferred_function_return_type(return_type);
         }
       }
@@ -9241,14 +9480,19 @@ StyioSemaContext::typeInfer(AnonyFuncAST* ast) {
 
 void
 StyioSemaContext::typeInfer(FunctionAST* ast) {
-  if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
-    throw StyioTypeError(
-      "tuple function return annotations require tuple value IR; tuple returns are not implemented"
-    );
-  }
   for (auto* param : ast->params) {
+    if (param->getDType()->getDataType().option == StyioDataTypeOption::Tuple) {
+      throw StyioTypeError("tuple parameters are not supported in this language slice");
+    }
     require_supported_callable_storage(
       param->getDType()->getDataType());
+  }
+  if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+    TypeTupleAST* tuple = std::get<TypeTupleAST*>(ast->ret_type);
+    if (tuple == nullptr) {
+      throw StyioTypeError("tuple function return annotation is missing its shape");
+    }
+    tuple->typeInfer(this);
   }
   require_supported_callable_storage(
     declared_function_return_type_latest(ast));
@@ -9258,14 +9502,19 @@ StyioSemaContext::typeInfer(FunctionAST* ast) {
 
 void
 StyioSemaContext::typeInfer(SimpleFuncAST* ast) {
-  if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
-    throw StyioTypeError(
-      "tuple function return annotations require tuple value IR; tuple returns are not implemented"
-    );
-  }
   for (auto* param : ast->params) {
+    if (param->getDType()->getDataType().option == StyioDataTypeOption::Tuple) {
+      throw StyioTypeError("tuple parameters are not supported in this language slice");
+    }
     require_supported_callable_storage(
       param->getDType()->getDataType());
+  }
+  if (std::holds_alternative<TypeTupleAST*>(ast->ret_type)) {
+    TypeTupleAST* tuple = std::get<TypeTupleAST*>(ast->ret_type);
+    if (tuple == nullptr) {
+      throw StyioTypeError("tuple function return annotation is missing its shape");
+    }
+    tuple->typeInfer(this);
   }
   require_supported_callable_storage(
     declared_function_return_type_latest(ast));
@@ -9289,6 +9538,9 @@ StyioSemaContext::typeInfer(IteratorAST* ast) {
   auto saved_bind_by_sid = binding_info_by_sid_;
   ast->collection->typeInfer(this);
   StyioDataType collection_type = infer_expr_type(this, ast->collection);
+  if (collection_type.option == StyioDataTypeOption::Tuple) {
+    throw StyioTypeError("tuple iteration is not supported in this language slice");
+  }
   if (!styio_type_is_iterable(collection_type)) {
     throw StyioTypeError("iteration requires an iterable value");
   }
@@ -9593,8 +9845,9 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
 
   ast->getScrutinee()->typeInfer(this);
   StyioDataType scrutinee_type = infer_expr_type(this, ast->getScrutinee());
-  if (scrutinee_type.option != StyioDataTypeOption::Integer) {
-    throw StyioTypeError("match scrutinee must be integer-typed");
+  if (scrutinee_type.option != StyioDataTypeOption::Integer
+      && scrutinee_type.option != StyioDataTypeOption::Char) {
+    throw StyioTypeError("match scrutinee must have integer or char type");
   }
 
   auto* scrutinee_name_ast = dynamic_cast<NameAST*>(ast->getScrutinee());
@@ -9660,8 +9913,11 @@ StyioSemaContext::typeInfer(MatchCasesAST* ast) {
       throw StyioTypeError("match arm requires a pattern expression");
     }
     pr.first->typeInfer(this);
-    if (!match_pattern_supported_latest(pr.first, scrutinee_name)) {
-      throw StyioTypeError("match arms need integer literal patterns in this language feature");
+    if (!match_pattern_is_supported(
+          pr.first,
+          scrutinee_name,
+          scrutinee_type.option)) {
+      throw StyioTypeError("match arm literal type must match its integer or char scrutinee");
     }
 
     StyioDataType branch_type = infer_branch(pr.second);

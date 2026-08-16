@@ -1,0 +1,441 @@
+[
+  {
+    "id": "15fa17f4-ca0f-49cd-95a2-c0ea45a33739",
+    "status": "completed",
+    "role": "group_design",
+    "prerequisites": [],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Freeze the string-input and mutable-list ownership contracts required by the Brainfuck compiler.",
+    "description": "Freeze exact syntax, IR, runtime ownership, diagnostics, downstream handoffs, and executable acceptance for one cohesive value-interface repair.",
+    "design": {
+      "artifact": "docs/plan/roadmap/runtime-value-interfaces/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/runtime-value-interfaces/Architecture.md",
+        "docs/plan/roadmap/runtime-value-interfaces/Validation.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/runtime-value-interfaces/Architecture.md",
+        "docs/plan/roadmap/runtime-value-interfaces/Validation.md"
+      ],
+      "acceptance_paths": [
+        "tests/features/stdio_input",
+        "tests/features/inferred_generics"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [],
+      "decisions": {
+        "composition": "direct compiler/runtime boundary repair",
+        "algorithms": "bounded linear text materialization and explicit handle ownership",
+        "data_structures": "runtime strings and handle table entries",
+        "state": "one explicit owner per runtime handle",
+        "isolation": "string input and list ownership freeze before example migration",
+        "concurrency": "independent compiler fixes after design"
+      },
+      "test_seams": [
+        "focused language-feature runtime fixtures"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The design defines a natural string source contract without integer-list transport encoding."
+      },
+      {
+        "checked": true,
+        "text": "The design assigns one explicit owner across list arguments, loop captures, returns, and caller use."
+      },
+      {
+        "checked": true,
+        "text": "The design freezes focused compiler regressions and downstream example acceptance."
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "docs: design runtime value interface repair",
+      "target": "downstream temporary branch"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "python3 $HOME/.agents/skills/better-plan/scripts/manifest_tool.py validate docs/plan"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "docs/plan/roadmap/runtime-value-interfaces"
+      ]
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted"
+    }
+  },
+  {
+    "id": "500f2a60-7d13-495e-9b73-1fb09748b4f7",
+    "status": "completed",
+    "role": "implementation",
+    "prerequisites": [
+      "15fa17f4-ca0f-49cd-95a2-c0ea45a33739"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Implement natural string character materialization and correct mutable list ownership across user-defined function boundaries.",
+    "description": "Closure: capability - parser-through-runtime value interfaces required by a real text compiler. Context: the Brainfuck example exposed integer-list transport and invalid handle failures. Target: string input can materialize ordered characters and list arguments/returns remain valid through mutation, loops, and caller use. Design Considerations: use linear materialization and explicit borrow/transfer ownership; preserve generation checks. Design Value: removes adapters and fixes a correctness defect at its owner. Constraints & Risks: no compatibility shim, no unrelated container redesign, bounded cleanup, deterministic diagnostics.",
+    "requirements": [
+      "REQ-RUNTIME-VALUE-INTERFACES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/runtime-value-interfaces/Architecture.md",
+      "owned_paths": [
+        "src/StyioUtil/BuiltinMethods.hpp",
+        "src/StyioSema/TypeInfer.cpp",
+        "src/StyioLowering/AstToStyioIR.cpp",
+        "src/StyioCodeGen/CodeGenG.cpp",
+        "src/StyioCodeGen/CodeGenIO.cpp",
+        "src/StyioExtern/ExternLib.cpp",
+        "src/StyioExtern/ExternLib.hpp",
+        "src/StyioJIT/StyioJIT_ORC.hpp",
+        "tests/styio_test.cpp",
+        "tests/codegen_internal_test.cpp",
+        "tests/features/stdio_input/t09_string_chars.styio",
+        "tests/features/stdio_input/expected/t09_string_chars.out",
+        "tests/features/inferred_generics/t08_list_handle_lifetime.styio",
+        "tests/features/inferred_generics/expected/t08_list_handle_lifetime.out"
+      ],
+      "scaffold_paths": [
+        "tests/features/stdio_input/t09_string_chars.styio",
+        "tests/features/stdio_input/expected/t09_string_chars.out",
+        "tests/features/inferred_generics/t08_list_handle_lifetime.styio",
+        "tests/features/inferred_generics/expected/t08_list_handle_lifetime.out"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/runtime-value-interfaces/Validation.md"
+      ],
+      "symbols": [
+        {
+          "path": "src/StyioCodeGen/CodeGenG.cpp",
+          "kind": "function",
+          "name": "StyioToLLVM::toLLVMIR",
+          "operation": "modify",
+          "signature": "runtime collection calls, captures, and returns preserve one valid owner"
+        },
+        {
+          "path": "src/StyioExtern/ExternLib.cpp",
+          "kind": "function",
+          "name": "styio_string_chars",
+          "operation": "add",
+          "signature": "string -> list[char]"
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "string.chars",
+          "producer": "src/StyioExtern/ExternLib.cpp",
+          "consumers": [
+            "src/StyioCodeGen/CodeGenG.cpp",
+            "tests/features/stdio_input/t09_string_chars.styio"
+          ],
+          "inputs": "one Styio string",
+          "outputs": "owned list[char] preserving byte order",
+          "errors": [
+            "runtime allocation failure"
+          ]
+        },
+        {
+          "name": "collection handle call boundary",
+          "producer": "src/StyioCodeGen/CodeGenG.cpp",
+          "consumers": [
+            "tests/features/inferred_generics/t08_list_handle_lifetime.styio"
+          ],
+          "inputs": "owned or borrowed list handle",
+          "outputs": "one valid post-call owner",
+          "errors": [
+            "invalid handle fails closed"
+          ]
+        }
+      ],
+      "dependencies": [],
+      "decisions": {
+        "composition": "one direct parser-through-runtime repair",
+        "algorithms": "single-pass character materialization and explicit retain/release transfer",
+        "data_structures": "generation-checked runtime handles and list[char]",
+        "state": "callee borrows arguments; returned handle ownership transfers to caller",
+        "isolation": "do not alter unrelated resources or containers beyond shared handle rules",
+        "concurrency": "serialized because both fixes meet in codegen ownership"
+      },
+      "test_seams": [
+        "string.chars runtime output",
+        "function parameter mutation",
+        "dynamic list return after loop capture",
+        "active handle counter balance"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "A Styio string can be converted to an ordered list[char] without integer transport encoding.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "4272aa5ea8b54caa380d6ed4d8466661b1c9ec26b799b76d7d89b992312734b9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "398c7444d59c8bcc47ca42aa4ac7574f607760c8e9e0a05353c896ee2c55ee50",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "A function can mutate a list argument without invalidating the caller handle.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "4272aa5ea8b54caa380d6ed4d8466661b1c9ec26b799b76d7d89b992312734b9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "398c7444d59c8bcc47ca42aa4ac7574f607760c8e9e0a05353c896ee2c55ee50",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "A function can construct a list in a loop, return it, and the caller can index and pass it onward.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "4272aa5ea8b54caa380d6ed4d8466661b1c9ec26b799b76d7d89b992312734b9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "398c7444d59c8bcc47ca42aa4ac7574f607760c8e9e0a05353c896ee2c55ee50",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Focused runtime handle counters return to baseline with no double release or leak.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "4272aa5ea8b54caa380d6ed4d8466661b1c9ec26b799b76d7d89b992312734b9",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "398c7444d59c8bcc47ca42aa4ac7574f607760c8e9e0a05353c896ee2c55ee50",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T05:38:04Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "fix: preserve runtime value interfaces",
+      "target": "downstream temporary branch"
+    },
+    "regression": {
+      "scope": "focused",
+      "commands": [
+        "cmake --build build -j2 --target styio styio_test styio_codegen_internal_test",
+        "ctest --test-dir build -R '^(stdio_input_|inferred_generics_|StyioCodegenInternal|StyioFeatureIntegration)' --output-on-failure"
+      ],
+      "criteria": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "paths": [
+        "src/StyioCodeGen/CodeGenG.cpp",
+        "src/StyioExtern/ExternLib.cpp",
+        "tests/features/stdio_input",
+        "tests/features/inferred_generics"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-02T05:38:04Z",
+        "contract_digest": "09735ac95a14345f4246cc7fe23a5554773d74a898f2e17bfaf4974ea4e65454",
+        "content_fingerprint": "2af770a1216fad355c8c3211e73f3a1dc8cc0eda9afc8b0605b2b7696a14f406"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 1,
+      "outcome": "accepted",
+      "design_digest": "3e173088ca97d43c4e700f9e94953b6b5fcf924a0035136986a64f8d0fecea31",
+      "acceptance_fingerprint": "8b797da457b7fc57009b7baa80b614e825b9dce0f8cbf9002fab14c3d8ca8484"
+    }
+  },
+  {
+    "id": "385e0c1b-3b68-47e2-a8b2-e982eb3e2c2e",
+    "status": "completed",
+    "role": "final_validation",
+    "prerequisites": [
+      "500f2a60-7d13-495e-9b73-1fb09748b4f7"
+    ],
+    "platform": "any",
+    "difficulty": "critical",
+    "verification_profile": "code",
+    "goal": "Review the runtime value repair once and run its complete impacted regression.",
+    "description": "Review the complete parser-through-runtime string and list ownership closure, repair safe defects, record evidence, and execute the frozen impacted regression exactly once.",
+    "requirements": [
+      "REQ-RUNTIME-VALUE-INTERFACES"
+    ],
+    "design": {
+      "artifact": "docs/plan/roadmap/runtime-value-interfaces/Architecture.md",
+      "owned_paths": [
+        "docs/plan/roadmap/runtime-value-interfaces/Evidence.md"
+      ],
+      "scaffold_paths": [
+        "docs/plan/roadmap/runtime-value-interfaces/Evidence.md"
+      ],
+      "acceptance_paths": [
+        "docs/plan/roadmap/runtime-value-interfaces/Validation.md"
+      ],
+      "symbols": [],
+      "interfaces": [],
+      "dependencies": [
+        {
+          "from": "500f2a60-7d13-495e-9b73-1fb09748b4f7",
+          "to": "385e0c1b-3b68-47e2-a8b2-e982eb3e2c2e",
+          "reason": "final validation consumes the completed runtime implementation"
+        }
+      ],
+      "decisions": {
+        "composition": "one end-to-end review and impacted regression",
+        "algorithms": "verify linear conversion and bounded ownership",
+        "data_structures": "inspect runtime handle counts",
+        "state": "prove no leaks or invalid transfers",
+        "isolation": "review only impacted value interfaces",
+        "concurrency": "serialized after implementation"
+      },
+      "test_seams": [
+        "language feature golden tests",
+        "codegen internal tests",
+        "runtime integration tests"
+      ]
+    },
+    "acceptance_criteria": [
+      {
+        "checked": true,
+        "text": "The Reviewer finds no unresolved correctness defect in string materialization or list ownership transfer.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "61c9d7237019c3502d6f065d575caa9bccd089f66f4a2cf8a3c5c275a0a384b7",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T06:13:26Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "e9f17d98f2cae74b0365f612d55ad0ca322871d37637769e749135b32a1204f1",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T06:13:26Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "The complete impacted compiler and runtime regression passes.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "61c9d7237019c3502d6f065d575caa9bccd089f66f4a2cf8a3c5c275a0a384b7",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T06:13:26Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "e9f17d98f2cae74b0365f612d55ad0ca322871d37637769e749135b32a1204f1",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T06:13:26Z"
+          }
+        ]
+      },
+      {
+        "checked": true,
+        "text": "Evidence records the exact language behavior consumed by downstream examples.",
+        "evidence_refs": [
+          {
+            "type": "command",
+            "command_sha256": "61c9d7237019c3502d6f065d575caa9bccd089f66f4a2cf8a3c5c275a0a384b7",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T06:13:26Z"
+          },
+          {
+            "type": "command",
+            "command_sha256": "e9f17d98f2cae74b0365f612d55ad0ca322871d37637769e749135b32a1204f1",
+            "exit_code": 0,
+            "recorded_at": "2026-08-02T06:13:26Z"
+          }
+        ]
+      }
+    ],
+    "commit": {
+      "repository": ".git",
+      "message": "test: validate runtime value interfaces",
+      "target": "downstream temporary branch"
+    },
+    "regression": {
+      "scope": "full",
+      "commands": [
+        "cmake --build build -j2 --target styio styio_test styio_codegen_internal_test styio_externlib_internal_test",
+        "ctest --test-dir build -R '^(stdio_input_|inferred_generics_|StyioCodegenInternal|StyioExternlibInternal|StyioFeatureIntegration)' --output-on-failure"
+      ],
+      "criteria": [
+        0,
+        1,
+        2
+      ],
+      "paths": [
+        "src/StyioCodeGen",
+        "src/StyioExtern",
+        "tests/features/stdio_input",
+        "tests/features/inferred_generics"
+      ],
+      "last_pass": {
+        "recorded_at": "2026-08-02T06:13:26Z",
+        "contract_digest": "4591caa4bc396cd50c6d501198785478b30131b264c1e005548a796b5bf0fa0c",
+        "content_fingerprint": "96d45e35317405dfc8b15bba46217ff7fd1d499dc7b581ece7d66ca069b09939"
+      }
+    },
+    "next": [],
+    "acceptance": {
+      "phase": "accepted",
+      "attempt": 0,
+      "outcome": "accepted",
+      "review": {
+        "recorded_at": "2026-08-02T06:12:36Z",
+        "dispatch_id": "f9d89da0-30ce-425e-81bd-08d93b0009cf"
+      },
+      "design_digest": "00e43b942aadf3ebf6bc992d9218dce71e4de1791a6414a7d098b3318e8773d8",
+      "scaffold_fingerprint": "50e3b2d3ed3cbd7b9c91c452327b10909c49530f7e8911507664431e87a33c1b",
+      "acceptance_fingerprint": "421a207a0c93468211b1da32e880dd5c7599707c29355cd8d806b9ee62204db5"
+    }
+  }
+]

@@ -95,6 +95,7 @@ StyioToLLVM::toLLVMType(const StyioDataType& data_type) {
     case StyioDataTypeOption::List:
     case StyioDataTypeOption::Dict:
     case StyioDataTypeOption::Matrix:
+    case StyioDataTypeOption::Tuple:
       return theBuilder->getInt64Ty();
     default:
       return theBuilder->getInt64Ty();
@@ -146,6 +147,17 @@ llvm::Type*
 StyioToLLVM::toLLVMType(SGStruct* node) {
   return theBuilder->getInt64Ty();
 };
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGTupleCreate* node) {
+  (void)node;
+  return theBuilder->getInt64Ty();
+}
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SGTupleGet* node) {
+  return toLLVMType(node->element_type);
+}
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGCast* node) {
