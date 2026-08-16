@@ -96,6 +96,8 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   class SGFormatString,
 
   class SGStruct,
+  class SGTupleCreate,
+  class SGTupleGet,
 
   class SGCast,
 
@@ -287,6 +289,8 @@ public:
   llvm::Type* toLLVMType(SGFormatString* node);
 
   llvm::Type* toLLVMType(SGStruct* node);
+  llvm::Type* toLLVMType(SGTupleCreate* node);
+  llvm::Type* toLLVMType(SGTupleGet* node);
 
   llvm::Type* toLLVMType(SGCast* node);
 
@@ -389,6 +393,8 @@ public:
   llvm::Value* toLLVMIR(SGFormatString* node);
 
   llvm::Value* toLLVMIR(SGStruct* node);
+  llvm::Value* toLLVMIR(SGTupleCreate* node);
+  llvm::Value* toLLVMIR(SGTupleGet* node);
 
   llvm::Value* toLLVMIR(SGCast* node);
 
@@ -499,7 +505,7 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
-  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix };
+  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix, Tuple };
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
@@ -509,6 +515,8 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
   std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
+  std::vector<std::vector<llvm::Value*>> owned_resource_scope_stack_;
+  std::optional<TempResourceKind> current_function_return_resource_kind_;
   std::uint64_t task_function_counter_ = 0;
   std::uint64_t file_handle_temp_counter_ = 0;
   int resource_effect_operation_depth_ = 0;
@@ -553,6 +561,7 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   llvm::FunctionCallee list_release_fn();
   llvm::FunctionCallee dict_release_fn();
   llvm::FunctionCallee matrix_release_fn();
+  llvm::FunctionCallee tuple_release_fn();
   llvm::FunctionCallee task_release_fn();
   llvm::Value* clone_cstr_for_runtime_owner(llvm::Value* v);
   void track_owned_cstr_temp(llvm::Value* v);
@@ -565,7 +574,14 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   void forget_owned_resource_temp(llvm::Value* v);
   void free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kind);
   void free_owned_resource_temp_if_tracked(llvm::Value* v);
+  void emit_owned_resource_scope_cleanup(std::size_t scope_index);
+  void emit_owned_resource_cleanup_to_depth(std::size_t keep_depth);
+  void emit_all_owned_resource_cleanup();
   llvm::Value* clone_resource_handle_for_runtime_owner(llvm::Value* v, StyioValueFamily family);
+  llvm::Value* prepare_owned_resource_return(
+    StyioIR* source,
+    llvm::Value* value,
+    TempResourceKind kind);
   void free_resource_handle_if_runtime_owned(llvm::Value* v, StyioValueFamily family);
   void emit_active_scope_cleanup();
   void store_bounded_ring_value(

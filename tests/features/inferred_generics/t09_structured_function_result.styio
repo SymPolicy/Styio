@@ -1,0 +1,17 @@
+# compile : (i64, i64, list[i64]) := (source: list[i64]) => {
+    bytecode: list[i64] := [source[0]]
+    [1..2] >> #(round) => {
+        scratch: list[i64] := [round]
+    }
+    <| (0, 0, bytecode)
+}
+
+result := compile([7])
+status := result[0]
+detail := result[1]
+bytecode: list[i64] := result[2]
+bytecode.push(9)
+
+>_(status)
+>_(detail)
+>_(bytecode)

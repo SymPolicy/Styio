@@ -130,8 +130,13 @@ TEST(StyioLoweringInternal, FunctionTailAndMatchHelpersStayExplicit) {
     delete std::get<TypeAST*>(ret);
   }
   {
-    std::variant<TypeAST*, TypeTupleAST*> ret(TypeTupleAST::Create({TypeAST::Create("i64")}));
-    EXPECT_THROW((void)func_ret_to_sgtype(ret, &analyzer), StyioTypeError);
+    std::variant<TypeAST*, TypeTupleAST*> ret(TypeTupleAST::Create(
+      {TypeAST::Create("i64"), TypeAST::Create("string")}));
+    std::unique_ptr<SGType> lowered(func_ret_to_sgtype(ret, &analyzer));
+    ASSERT_TRUE(styio_is_shaped_tuple_type(lowered->data_type));
+    ASSERT_EQ(lowered->data_type.tuple_elements->size(), 2u);
+    EXPECT_EQ((*lowered->data_type.tuple_elements)[0].name, "i64");
+    EXPECT_EQ((*lowered->data_type.tuple_elements)[1].name, "string");
     EXPECT_FALSE(func_ret_is_unspecified(ret));
     delete std::get<TypeTupleAST*>(ret);
   }

@@ -1324,6 +1324,22 @@ StyioRepr::toString(SGStruct* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SGTupleCreate* node, int indent) {
+  (void)indent;
+  return "styio.ir.tuple_create { arity="
+    + std::to_string(node->elements.size()) + " }";
+}
+
+std::string
+StyioRepr::toString(SGTupleGet* node, int indent) {
+  (void)indent;
+  return "styio.ir.tuple_get { index="
+    + std::to_string(node->index) + " type="
+    + node->element_type.name + " source="
+    + node->tuple_type.name + " }";
+}
+
+std::string
 StyioRepr::toString(SGCast* node, int indent) {
   return std::string("styio.ir.cast {\n")
          + make_padding(indent) + "from "

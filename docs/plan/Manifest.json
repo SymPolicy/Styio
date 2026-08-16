@@ -250,5 +250,74 @@
     "tree_mode": "show",
     "node_status": "show",
     "decision_issues": []
+  },
+  {
+    "id": "bee74ceb-f933-4615-9eaa-6b91290b0ea3",
+    "status": "completed",
+    "title": "String Input and List Handle Correctness",
+    "directory": "roadmap/runtime-value-interfaces",
+    "source_files": [
+      "src/StyioCodeGen/CodeGenIO.cpp",
+      "src/StyioCodeGen/CodeGenG.cpp",
+      "src/StyioExtern/ExternLib.cpp",
+      "tests/features/stdio_input",
+      "tests/features/inferred_generics"
+    ],
+    "purpose": "Close the runtime-value defects exposed while implementing a real Styio Brainfuck compiler example.",
+    "goal": "Provide natural string-to-character input and correct mutable list ownership across function boundaries, then consume both in the canonical example.",
+    "description": "Owns one cohesive parser-through-runtime value-interface closure: line string ingestion and character materialization, mutable list parameter/return lifetime, focused regressions, and the downstream Brainfuck example migration; unrelated CLI argument design and other container families remain out of scope.",
+    "checkpoints": "roadmap/runtime-value-interfaces/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/runtime-value-interfaces",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "251f883f-a6b4-4cf8-a40c-ef01e6c54ef2",
+    "status": "completed",
+    "title": "Structured Function Results",
+    "directory": "roadmap/structured-function-results",
+    "source_files": [
+      "src/StyioAST/AST.hpp",
+      "src/StyioSema/TypeInfer.cpp",
+      "src/StyioLowering/AstToStyioIR.cpp",
+      "src/StyioIR/GenIR/SGIR.hpp",
+      "src/StyioCodeGen/CodeGenG.cpp",
+      "tests/features/control_flow",
+      "tests/features/inferred_generics"
+    ],
+    "purpose": "Replace ad-hoc integer protocols with one general structured value boundary discovered through the Brainfuck compiler example.",
+    "goal": "Make heterogeneous tuple values, including nested collection handles, safe function return values and consume them in the canonical Brainfuck compiler.",
+    "description": "Owns one parser-through-codegen tuple-value closure, projection/destructuring surface, nested handle ownership, focused regressions, and complete downstream migration away from the status-prefixed bytecode list; named records, mutable tuple fields, variadic tuples, and unrelated aggregate families remain out of scope.",
+    "checkpoints": "roadmap/structured-function-results/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/runtime-value-interfaces/structured-results",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
+  },
+  {
+    "id": "affc9613-7a61-4d0b-bd29-cea9afc1905e",
+    "status": "completed",
+    "title": "Minimum Break Spelling",
+    "directory": "roadmap/break-statement-spelling",
+    "source_files": [
+      "docs/design/Styio-Language-Design.md",
+      "docs/design/Styio-EBNF.md",
+      "docs/design/Styio-Symbol-Reference.md",
+      "src/StyioParser/NewParserExpr.cpp",
+      "src/StyioParser/Parser.cpp",
+      "tests/features/control_flow"
+    ],
+    "purpose": "Restore the intended visible distinction between an accidental single caret and an authored loop break.",
+    "goal": "Require every break statement to use a contiguous run of at least two carets while keeping any longer run equivalent to nearest-loop break.",
+    "description": "Owns one compiler syntax closure across both parser routes, deterministic single-caret diagnostics, authoritative language documentation, existing source migration, and the canonical Brainfuck example; XOR and break depth semantics remain unchanged.",
+    "checkpoints": "roadmap/break-statement-spelling/Checkpoints.json",
+    "kind": "group",
+    "capability_key": "styio-nightly/compiler/correctness/break-spelling",
+    "tree_mode": "show",
+    "node_status": "show",
+    "decision_issues": []
   }
 ]

@@ -158,7 +158,7 @@ These tokens use contiguous repetitions. Break and standalone continue keep the
 spelling flexible but do not assign semantic depth to the count.
 
 ```ebnf
-BREAK_TOKEN        = '^' { '^' } ;           (* length >= 1, contiguous, depth = 1 *)
+BREAK_TOKEN        = '^' '^' { '^' } ;       (* length >= 2, contiguous, depth = 1 *)
 CONTINUE_TOKEN     = '>' '>' { '>' } ;       (* length >= 2, contiguous, standalone context, depth = 1 *)
 ```
 
@@ -765,7 +765,7 @@ the StyioIR optimizer before LLVM codegen.
 ## 12. Control Flow Statements
 
 ```ebnf
-break_stmt         = BREAK_TOKEN ;      (* ^ or ^^ or ^^^ etc.; always nearest loop *)
+break_stmt         = BREAK_TOKEN ;      (* ^^ or ^^^ or longer; always nearest loop *)
 continue_stmt      = CONTINUE_TOKEN ;   (* >> or >>> or >>>> etc.; count ignored *)
 ```
 
@@ -803,7 +803,13 @@ The lexer always prefers the two-character compound token over individual charac
 
 ### Rule 5: Break Token Contiguity
 
-`^^` followed by whitespace then `^^` produces **two separate** break tokens — which is semantically illegal. The parser must reject consecutive break tokens in the same statement.
+`^` alone is a syntax error; its diagnostic directs the author to use at least
+two consecutive carets and identifies `^^^` as the conventional spelling.
+Whitespace and comments never join caret runs: `^ ^` and `^/*gap*/^` remain
+invalid one-caret runs. Likewise, `^^` followed by whitespace or a comment and
+then `^^` produces **two separate** break tokens and is illegal in one logical
+statement. A newline or explicit statement separator may separate two break
+statements. Every legal run has nearest-loop depth `1`.
 
 ---
 

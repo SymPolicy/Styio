@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -41,6 +42,7 @@
 #undef private
 #include "StyioException/Exception.hpp"
 #include "StyioIR/GenIR/GenIR.hpp"
+#include "StyioIR/Verifier.hpp"
 
 namespace {
 
@@ -334,6 +336,15 @@ TEST(StyioCodeGenInternal, BuiltinCallGuardsFailBeforeBadLlvmEmission) {
   expect_codegen_throws({
     SGCall::Create(SGResId::Create("__styio_string_lines"), {}),
   }, "runtime string.lines expects 1 argument");
+
+  expect_codegen_throws({
+    SGCall::Create(SGResId::Create("__styio_string_chars"), {
+      SGConstInt::Create(1),
+    }),
+  }, "runtime string.chars requires a string argument");
+  expect_codegen_throws({
+    SGCall::Create(SGResId::Create("__styio_string_chars"), {}),
+  }, "runtime string.chars expects 1 argument");
 
   expect_codegen_throws({
     SGCall::Create(SGResId::Create("__styio_list_range_i64"), {
@@ -1772,4 +1783,305 @@ TEST(StyioCodeGenInternal, StreamZipMissingFileFailsClosedAtRuntime) {
   EXPECT_EQ(styio_runtime_has_error(), 1);
   EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_FILE_OPEN_READ");
   styio_runtime_clear_error();
+}
+
+TEST(StyioRuntimeValueInterfaces, StringCharsMaterializesOrderedBytesWithoutLeaking) {
+  styio_runtime_clear_error();
+  const int64_t baseline = styio_list_active_count();
+
+  int64_t empty = styio_string_chars("");
+  ASSERT_NE(empty, 0);
+  EXPECT_EQ(styio_list_len(empty), 0);
+
+  int64_t ascii = styio_string_chars("A+ z");
+  ASSERT_NE(ascii, 0);
+  EXPECT_EQ(styio_list_len(ascii), 4);
+  EXPECT_EQ(styio_list_get_char(ascii, 0), static_cast<int8_t>('A'));
+  EXPECT_EQ(styio_list_get_char(ascii, 3), static_cast<int8_t>('z'));
+
+  int64_t utf8 = styio_string_chars("\xC3\xA9");
+  ASSERT_NE(utf8, 0);
+  EXPECT_EQ(styio_list_len(utf8), 2);
+  EXPECT_EQ(styio_list_get_char(utf8, 0), static_cast<int8_t>(0xC3));
+  EXPECT_EQ(styio_list_get_char(utf8, 1), static_cast<int8_t>(0xA9));
+
+  styio_list_release(empty);
+  styio_list_release(ascii);
+  styio_list_release(utf8);
+  EXPECT_EQ(styio_list_active_count(), baseline);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+
+  EXPECT_EQ(styio_string_chars(nullptr), 0);
+  EXPECT_EQ(styio_list_active_count(), baseline);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(styio_runtime_last_error_subcode(), "STYIO_RUNTIME_ALLOCATION");
+  styio_runtime_clear_error();
+}
+
+TEST(StyioRuntimeValueInterfaces, CollectionCallsAndLoopExitsBalanceActiveHandles) {
+  styio_runtime_clear_error();
+  const int64_t list_baseline = styio_list_active_count();
+  const int64_t dict_baseline = styio_dict_active_count();
+  const int64_t matrix_baseline = styio_matrix_active_count();
+
+  std::unique_ptr<SGCall> indirect_list_call(SGCall::CreateIndirect(
+    SGResId::Create("list_factory"),
+    styio_make_callable_type({}, list_type()),
+    {}));
+  EXPECT_TRUE(styio_is_list_type(indirect_list_call->result_type));
+
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFunc::Create(
+      SGType::Create(list_type()),
+      SGResId::Create("return_borrowed_list"),
+      {SGFuncArg::Create("value", SGType::Create(list_type()))},
+      SGBlock::Create({SGReturn::Create(SGResId::Create("value"))})),
+    SGFunc::Create(
+      SGType::Create(list_type()),
+      SGResId::Create("return_dynamic_list"),
+      {},
+      SGBlock::Create({
+        SGFinalBind::Create(dynamic_var("local_list", list_type()), list_i64()),
+        SGReturn::Create(SGDynLoad::Create("local_list", SGDynLoadKind::ListHandle)),
+      })),
+    SGFunc::Create(
+      SGType::Create(dict_type()),
+      SGResId::Create("return_borrowed_dict"),
+      {SGFuncArg::Create("value", SGType::Create(dict_type()))},
+      SGBlock::Create({SGReturn::Create(SGResId::Create("value"))})),
+    SGFunc::Create(
+      SGType::Create(dict_type()),
+      SGResId::Create("return_dynamic_dict"),
+      {},
+      SGBlock::Create({
+        SGFinalBind::Create(dynamic_var("local_dict", dict_type()), dict_i64()),
+        SGReturn::Create(SGDynLoad::Create("local_dict", SGDynLoadKind::DictHandle)),
+      })),
+    SGFunc::Create(
+      SGType::Create(matrix_type()),
+      SGResId::Create("return_borrowed_matrix"),
+      {SGFuncArg::Create("value", SGType::Create(matrix_type()))},
+      SGBlock::Create({SGReturn::Create(SGResId::Create("value"))})),
+    SGFunc::Create(
+      SGType::Create(matrix_type()),
+      SGResId::Create("return_dynamic_matrix"),
+      {},
+      SGBlock::Create({
+        SGFinalBind::Create(dynamic_var("local_matrix", matrix_type()), matrix_i64()),
+        SGReturn::Create(SGDynLoad::Create("local_matrix", SGDynLoadKind::MatrixHandle)),
+      })),
+    SGFinalBind::Create(dynamic_var("original_list", list_type()), list_i64()),
+    SGFinalBind::Create(
+      dynamic_var("returned_list", list_type()),
+      SGCall::Create(
+        SGResId::Create("return_borrowed_list"),
+        {SGDynLoad::Create("original_list", SGDynLoadKind::ListHandle)},
+        list_type())),
+    SGFinalBind::Create(
+      dynamic_var("built_list", list_type()),
+      SGCall::Create(SGResId::Create("return_dynamic_list"), {}, list_type())),
+    SGFinalBind::Create(dynamic_var("original_dict", dict_type()), dict_i64()),
+    SGFinalBind::Create(
+      dynamic_var("returned_dict", dict_type()),
+      SGCall::Create(
+        SGResId::Create("return_borrowed_dict"),
+        {SGDynLoad::Create("original_dict", SGDynLoadKind::DictHandle)},
+        dict_type())),
+    SGFinalBind::Create(
+      dynamic_var("built_dict", dict_type()),
+      SGCall::Create(SGResId::Create("return_dynamic_dict"), {}, dict_type())),
+    SCDictLen::Create(SGDynLoad::Create("returned_dict", SGDynLoadKind::DictHandle)),
+    SCDictLen::Create(SGDynLoad::Create("built_dict", SGDynLoadKind::DictHandle)),
+    SGFinalBind::Create(dynamic_var("original_matrix", matrix_type()), matrix_i64()),
+    SGFinalBind::Create(
+      dynamic_var("returned_matrix", matrix_type()),
+      SGCall::Create(
+        SGResId::Create("return_borrowed_matrix"),
+        {SGDynLoad::Create("original_matrix", SGDynLoadKind::MatrixHandle)},
+        matrix_type())),
+    SGFinalBind::Create(
+      dynamic_var("built_matrix", matrix_type()),
+      SGCall::Create(SGResId::Create("return_dynamic_matrix"), {}, matrix_type())),
+    SCMatrixGet::Create(
+      SGDynLoad::Create("returned_matrix", SGDynLoadKind::MatrixHandle),
+      SGConstInt::Create(0),
+      SGConstInt::Create(0),
+      "i64"),
+    SCMatrixGet::Create(
+      SGDynLoad::Create("built_matrix", SGDynLoadKind::MatrixHandle),
+      SGConstInt::Create(0),
+      SGConstInt::Create(0),
+      "i64"),
+    SGForEach::Create(
+      SCListLiteral::Create({SGConstInt::Create(1), SGConstInt::Create(2)}, "i64"),
+      "continue_value",
+      "i64",
+      SGBlock::Create({
+        SGFinalBind::Create(
+          dynamic_var("continue_scratch", list_type()),
+          list_i64()),
+        SGContinue::Create(),
+      })),
+    SGForEach::Create(
+      SCListLiteral::Create({SGConstInt::Create(1), SGConstInt::Create(2)}, "i64"),
+      "break_value",
+      "i64",
+      SGBlock::Create({
+        SGFinalBind::Create(
+          dynamic_var("break_scratch", list_type()),
+          list_i64()),
+        SGBreak::Create(),
+      })),
+    SGForEach::Create(
+      SCListLiteral::Create({SGConstInt::Create(1), SGConstInt::Create(2)}, "i64"),
+      "normal_value",
+      "i64",
+      SGBlock::Create({
+        SGFinalBind::Create(
+          dynamic_var("normal_scratch", list_type()),
+          list_i64()),
+      })),
+  }));
+
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+  ASSERT_NO_THROW(generator->execute());
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  EXPECT_EQ(styio_list_active_count(), list_baseline);
+  EXPECT_EQ(styio_dict_active_count(), dict_baseline);
+  EXPECT_EQ(styio_matrix_active_count(), matrix_baseline);
+}
+
+TEST(StyioStructuredFunctionResults, TupleRegistryOwnsAndProjectsNestedListExactlyOnce) {
+  styio_runtime_clear_error();
+  const int64_t tuple_baseline = styio_tuple_active_count();
+  const int64_t list_baseline = styio_list_active_count();
+
+  int64_t nested = styio_list_new_i64();
+  styio_list_push_i64(nested, 7);
+  int64_t tuple = styio_tuple_new(3);
+  ASSERT_NE(tuple, 0);
+  styio_tuple_set_i64_owned(tuple, 0, 0);
+  styio_tuple_set_i64_owned(tuple, 1, 0);
+  styio_tuple_set_list_owned(tuple, 2, nested);
+  EXPECT_EQ(styio_tuple_active_count(), tuple_baseline + 1);
+  EXPECT_EQ(styio_list_active_count(), list_baseline + 1);
+
+  int64_t projected = styio_tuple_get_list(tuple, 2);
+  ASSERT_NE(projected, 0);
+  styio_list_push_i64(projected, 9);
+  EXPECT_EQ(styio_list_len(projected), 2);
+  EXPECT_EQ(styio_list_active_count(), list_baseline + 2);
+
+  styio_tuple_release(tuple);
+  EXPECT_EQ(styio_tuple_active_count(), tuple_baseline);
+  EXPECT_EQ(styio_list_active_count(), list_baseline + 1);
+  EXPECT_EQ(styio_list_get(projected, 0), 7);
+
+  int64_t replacement = styio_tuple_new(2);
+  ASSERT_NE(replacement, 0);
+  EXPECT_NE(replacement, tuple);
+  EXPECT_EQ(styio_tuple_get_i64(tuple, 0), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(
+    styio_runtime_last_error_subcode(),
+    "STYIO_RUNTIME_INVALID_TUPLE_HANDLE");
+  styio_runtime_clear_error();
+
+  styio_tuple_release(replacement);
+  styio_list_release(projected);
+  EXPECT_EQ(styio_tuple_active_count(), tuple_baseline);
+  EXPECT_EQ(styio_list_active_count(), list_baseline);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioStructuredFunctionResults, VerifierRejectsUnshapedTupleResults) {
+  std::unique_ptr<SGFunc> function(SGFunc::Create(
+    SGType::Create(StyioDataType{StyioDataTypeOption::Tuple, "tuple", 0}),
+    SGResId::Create("bad_tuple_result"),
+    {},
+    SGBlock::Create({SGReturn::Create(SGConstInt::Create(0))})));
+  const auto result = styio::ir::verify_styio_ir(function.get());
+  EXPECT_FALSE(result.ok());
+  ASSERT_FALSE(result.diagnostics.empty());
+  EXPECT_NE(
+    result.diagnostics.front().message.find("shape"),
+    std::string::npos);
+}
+
+TEST(StyioStructuredFunctionResults, VerifierChecksProjectionAndReturnShapes) {
+  const StyioDataType source_type =
+    styio_make_tuple_type({i64_type(), bool_type()});
+
+  {
+    std::unique_ptr<SGTupleGet> projection(SGTupleGet::Create(
+      SGTupleCreate::Create(
+        {SGConstInt::Create(7), SGConstBool::Create(true)},
+        *source_type.tuple_elements),
+      1,
+      bool_type(),
+      source_type));
+    EXPECT_TRUE(styio::ir::verify_styio_ir(projection.get()).ok());
+  }
+
+  {
+    std::unique_ptr<SGTupleGet> projection(SGTupleGet::Create(
+      SGTupleCreate::Create(
+        {SGConstInt::Create(7), SGConstBool::Create(true)},
+        *source_type.tuple_elements),
+      1,
+      i64_type(),
+      source_type));
+    const auto result = styio::ir::verify_styio_ir(projection.get());
+    EXPECT_FALSE(result.ok());
+  }
+
+  {
+    const StyioDataType actual_type =
+      styio_make_tuple_type({i64_type(), i64_type()});
+    std::unique_ptr<SGFunc> function(SGFunc::Create(
+      SGType::Create(source_type),
+      SGResId::Create("mismatched_tuple_result"),
+      {},
+      SGBlock::Create({SGReturn::Create(
+        SGTupleCreate::Create(
+          {SGConstInt::Create(7), SGConstInt::Create(9)},
+          *actual_type.tuple_elements),
+        actual_type)})));
+    const auto result = styio::ir::verify_styio_ir(function.get());
+    EXPECT_FALSE(result.ok());
+    EXPECT_TRUE(std::any_of(
+      result.diagnostics.begin(),
+      result.diagnostics.end(),
+      [](const auto& diagnostic) {
+        return diagnostic.message.find("does not match SGFunc.ret_type")
+          != std::string::npos;
+      }));
+  }
+}
+
+TEST(StyioStructuredFunctionResults, VerifierTreatsExpressionMatchReturnsAsRegionYields) {
+  const StyioDataType result_type =
+    styio_make_tuple_type({i64_type(), i64_type(), list_type()});
+  std::unique_ptr<SGFunc> function(SGFunc::Create(
+    SGType::Create(result_type),
+    SGResId::Create("tuple_result_with_match_expression"),
+    {},
+    SGBlock::Create({
+      SGFinalBind::Create(
+        dynamic_var("opcode", i64_type()),
+        SGMatch::Create(
+          SGConstChar::Create('>'),
+          {{static_cast<std::int64_t>('>'), SGBlock::Create({
+            SGReturn::Create(SGConstInt::Create(1), i64_type())})}},
+          SGBlock::Create({SGReturn::Create(SGConstInt::Create(0), i64_type())}),
+          SGMatchReprKind::ExprInt)),
+      SGReturn::Create(
+        SGTupleCreate::Create(
+          {SGConstInt::Create(0), SGConstInt::Create(0), list_i64()},
+          *result_type.tuple_elements),
+        result_type),
+    })));
+
+  EXPECT_TRUE(styio::ir::verify_styio_ir(function.get()).ok());
 }
