@@ -702,19 +702,23 @@ parsed as a normal list containing one range expression. Step range spellings
 such as `[start..end..step]` or `[0..n..2]` are reserved and are not active
 syntax.
 
-### 6.5 Break: `^...` (Immediate Loop)
+### 6.5 Break: `^^...` (Immediate Loop)
 
 ```
-^       // break out of the nearest enclosing loop
-^^      // same as ^
-^^^^    // same as ^
+^       // invalid: at least two consecutive carets are required
+^^      // shortest legal spelling; break out of the nearest enclosing loop
+^^^     // conventional spelling
+^^^^    // same nearest-loop break; longer runs remain legal
 ```
 
 Rules:
-- `^` characters must be **contiguous** (no spaces)
-- any contiguous run of `^` is one break statement
+- a break contains at least two **contiguous** `^` characters
+- `^^^` is the conventional authored spelling, while `^^` is the minimum
+- any longer contiguous run of `^` is also one break statement, with no maximum length
 - the count of `^` characters has no semantic depth and is normalized to 1
-- `^^ ^^` is **illegal** — it is two adjacent break statements, not a deeper break
+- `^ ^` and `^/*gap*/^` are invalid; trivia never joins separate runs
+- `^^ ^^` and `^^/*gap*/^^` are **illegal** in one logical statement — they are two adjacent break statements, not a deeper break
+- a newline or explicit statement separator may separate two break statements
 - a break outside an enclosing loop is rejected by code generation
 
 ### 6.6 Continue: `>>...` (Standalone, Variable Length, >=2)

@@ -2210,7 +2210,7 @@ TEST(StyioTypeInferenceContract, CollectionSizeListOpAndParallelAssignmentEdgesS
 
     std::unique_ptr<StyioAST> tuple(TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")}));
     tuple->typeInfer(&analyzer);
-    EXPECT_EQ(tuple->getDataType().name, "i64");
+    EXPECT_EQ(tuple->getDataType().name, "(i64,i64)");
 
     std::unique_ptr<StyioAST> range(new RangeAST(IntAST::Create("0"), IntAST::Create("4"), IntAST::Create("1")));
     EXPECT_NO_THROW(range->typeInfer(&analyzer));
@@ -3179,7 +3179,9 @@ TEST(StyioTypeInferenceContract, LeafNoopAndFailClosedTypeInferNodesStayExplicit
   noops.emplace_back(OptArgAST::Create(NameAST::Create("opt")));
   noops.emplace_back(OptKwArgAST::Create(NameAST::Create("kw")));
   noops.emplace_back(VarTupleAST::Create({VarAST::Create(NameAST::Create("a"))}));
-  noops.emplace_back(ExtractorAST::Create(TupleAST::Create({IntAST::Create("1")}), NameAST::Create("first")));
+  noops.emplace_back(ExtractorAST::Create(
+    TupleAST::Create({IntAST::Create("1"), IntAST::Create("2")}),
+    NameAST::Create("first")));
   noops.emplace_back(SetAST::Create({IntAST::Create("1")}));
   noops.emplace_back(UndefinedLitAST::Create());
   noops.emplace_back(WaveDispatchAST::Create(BoolAST::Create(true), IntAST::Create("1"), IntAST::Create("0")));
@@ -3329,42 +3331,41 @@ TEST(StyioIRContract, TypeConvertAstLowersToValueCarryingCast) {
   }
 }
 
-TEST(StyioIRContract, TupleReturnAnnotationsFailClosedForFunctionLowering) {
-  auto expect_tuple_return_rejected = [](const char* label, std::unique_ptr<StyioAST> ast)
-  {
+TEST(StyioIRContract, ShapedTupleReturnAnnotationsLowerToDirectHandleFunctions) {
+  auto expect_tuple_return_lowered = [](const char* label, StyioAST* ast) {
     SCOPED_TRACE(label);
     AstToStyioIRLowerer analyzer;
-    try {
-      std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
-      FAIL() << "expected tuple return annotation lowering to fail";
-    }
-    catch (const StyioTypeError& err) {
-      EXPECT_NE(
-        std::string(err.what()).find("tuple function return annotations"),
-        std::string::npos);
-    }
+    std::unique_ptr<StyioAST> owned(ast);
+    std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
+    auto* function = dynamic_cast<SGFunc*>(ir.get());
+    ASSERT_NE(function, nullptr);
+    ASSERT_NE(function->ret_type, nullptr);
+    EXPECT_TRUE(styio_is_shaped_tuple_type(function->ret_type->data_type));
   };
 
-  expect_tuple_return_rejected(
+  auto* block_tuple = TupleAST::Create({IntAST::Create("1"), FloatAST::Create("2.5")});
+  block_tuple->setDataType(styio_make_tuple_type({
+    styio_data_type_from_name("i64"), styio_data_type_from_name("f64")}));
+  expect_tuple_return_lowered(
     "FunctionAST",
-    std::unique_ptr<StyioAST>(FunctionAST::Create(
+    FunctionAST::Create(
       NameAST::Create("tuple_fn"),
       false,
       {},
       TypeTupleAST::Create({TypeAST::Create("i64"), TypeAST::Create("f64")}),
-      BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})
-    ))
-  );
-  expect_tuple_return_rejected(
+      BlockAST::Create({ReturnAST::Create(block_tuple)})));
+
+  auto* simple_tuple = TupleAST::Create({IntAST::Create("1"), FloatAST::Create("2.5")});
+  simple_tuple->setDataType(styio_make_tuple_type({
+    styio_data_type_from_name("i64"), styio_data_type_from_name("f64")}));
+  expect_tuple_return_lowered(
     "SimpleFuncAST",
-    std::unique_ptr<StyioAST>(SimpleFuncAST::Create(
+    SimpleFuncAST::Create(
       NameAST::Create("tuple_simple"),
       false,
       {},
       TypeTupleAST::Create({TypeAST::Create("i64"), TypeAST::Create("f64")}),
-      IntAST::Create("1")
-    ))
-  );
+      simple_tuple));
 }
 
 TEST(StyioIRContract, FunctionLoweringDefaultsUntypedParamsAndRejectsEmptyBodies) {
@@ -8462,7 +8463,7 @@ TEST(StyioSecurityNightlyParserStmt, ParsesResourceEffectDiscardStatement) {
 TEST(StyioSecurityResourceTypestate, conditional_close_rejects_post_join_property_use) {
   const std::string src =
     "f := @file(\"tests/features/file_resources/data/hello.txt\")\n"
-    "?(true) => { f -> @() } | { ^ }\n"
+    "?(true) => { f -> @() } | { ^^^ }\n"
     ">_(f.path)\n";
 
   try {
@@ -8478,7 +8479,7 @@ TEST(StyioSecurityResourceTypestate, conditional_close_rejects_post_join_propert
 TEST(StyioSecurityResourceTypestate, both_open_branches_allow_post_join_property_use) {
   const std::string src =
     "f := @file(\"tests/features/file_resources/data/hello.txt\")\n"
-    "?(true) => { ^ } | { ^ }\n"
+    "?(true) => { ^^^ } | { ^^^ }\n"
     ">_(f.path)\n";
 
   EXPECT_NO_THROW(
@@ -8488,7 +8489,7 @@ TEST(StyioSecurityResourceTypestate, both_open_branches_allow_post_join_property
 TEST(StyioSecurityResourceTypestate, conditional_close_rejects_post_join_file_pull) {
   const std::string src =
     "f = @file(\"tests/features/file_resources/data/numbers.txt\")\n"
-    "?(true) => { f -> @() } | { ^ }\n"
+    "?(true) => { f -> @() } | { ^^^ }\n"
     "value = ?| (<< f) | 7\n"
     ">_(value)\n";
 
@@ -8507,7 +8508,7 @@ TEST(StyioSecurityResourceTypestate, conditional_close_rejects_post_join_file_pu
 TEST(StyioSecurityResourceTypestate, file_rebind_after_join_reopens_handle) {
   const std::string src =
     "f = @file(\"tests/features/file_resources/data/hello.txt\")\n"
-    "?(true) => { f -> @() } | { ^ }\n"
+    "?(true) => { f -> @() } | { ^^^ }\n"
     "f = @file(\"tests/features/file_resources/data/numbers.txt\")\n"
     ">_(f.path)\n";
 
@@ -8811,7 +8812,7 @@ TEST(StyioSecurityNightlyCodegen, BreakRunsFileScopeCleanupBeforeLoopExitBranch)
   const std::string src =
     "[1] >> #(i) => {\n"
     "  f <- @file(\"tests/features/file_resources/data/hello.txt\")\n"
-    "  ^\n"
+    "  ^^^\n"
     "}\n"
     ">_(\"after\")\n";
 
@@ -8873,7 +8874,7 @@ TEST(StyioSecurityNightlyCodegen, LongStandaloneContinueNormalizesToNearestLoop)
 
 TEST(StyioSecurityNightlyCodegen, RejectsBreakAndContinueOutsideLoop) {
   try {
-    compile_program_to_llvm_ir_engine_latest("^\n", StyioParserEngine::Nightly);
+    compile_program_to_llvm_ir_engine_latest("^^^\n", StyioParserEngine::Nightly);
     FAIL() << "expected top-level break to fail closed";
   }
   catch (const StyioTypeError& err) {
@@ -10025,18 +10026,18 @@ TEST(StyioSecurityNightlyParserStmt, ParsesGenericFunctionTypeAnnotations) {
   EXPECT_NE(engine_repr.find("styio.ast.attr { xs.length }"), std::string::npos);
 }
 
-TEST(StyioSecurityNightlyParserStmt, RejectsTupleFunctionReturnAnnotationBeforeLoweringFallback) {
+TEST(StyioSecurityNightlyParserStmt, RejectsTupleReturnShapeMismatchBeforeCodegen) {
   const std::string src =
     "# pair : (i64, i64) := (x: i64) => x\n"
     ">_(pair(7))\n";
 
   try {
     parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly);
-    FAIL() << "expected tuple return annotation to fail closed";
+    FAIL() << "expected tuple return shape mismatch to fail closed";
   }
   catch (const StyioTypeError& err) {
     EXPECT_NE(
-      std::string(err.what()).find("tuple function return annotations require tuple value IR"),
+      std::string(err.what()).find("tuple return"),
       std::string::npos);
   }
 }
@@ -14865,11 +14866,190 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnIteratorStmtSubsetSamples) {
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnInfiniteLoopSubsetSamples) {
   const std::vector<std::string> samples = {
     "x = 0\n[...] >> ?(x < 3) => {\n    x += 1\n}\n>_(x)\n",
-    "[...] => {\n    >_(1)\n    ^\n}\n",
+    "[...] => {\n    >_(1)\n    ^^^\n}\n",
   };
 
   for (const auto& src : samples) {
     EXPECT_EQ(parse_program_to_repr_latest(src, true), parse_program_to_repr_latest(src, false)) << src;
+  }
+}
+
+TEST(StyioSecurityBreakSpelling, RejectsSingleCaretWithStableRouteParityDiagnostic) {
+  constexpr const char* expected =
+    "break statement requires at least two consecutive '^' characters; "
+    "use '^^' (minimum) or '^^^' (conventional)";
+
+  auto diagnostic = [](const std::string& source, StyioParserEngine engine) {
+    try {
+      (void)parse_program_engine_to_repr_latest(source, engine);
+    }
+    catch (const StyioSyntaxError& error) {
+      return std::string(error.what());
+    }
+    return std::string();
+  };
+
+  const std::vector<std::pair<std::string, std::string>> cases = {
+    {"^\n", std::string("\nStyio.SyntaxError:\n^\n^- ") + expected},
+    {
+      "[...] => {\n  ^\n}\n",
+      std::string("\nStyio.SyntaxError:\n  ^\n  ^- ") + expected,
+    },
+  };
+  for (const auto& [source, exact_diagnostic] : cases) {
+    const std::string nightly = diagnostic(source, StyioParserEngine::Nightly);
+    const std::string legacy = diagnostic(source, StyioParserEngine::Legacy);
+    ASSERT_FALSE(nightly.empty()) << source;
+    EXPECT_EQ(nightly, legacy) << source;
+    EXPECT_EQ(nightly, exact_diagnostic) << source;
+    EXPECT_EQ(nightly, diagnostic(source, StyioParserEngine::Nightly)) << source;
+    EXPECT_EQ(legacy, diagnostic(source, StyioParserEngine::Legacy)) << source;
+  }
+}
+
+TEST(StyioSecurityBreakSpelling, AcceptsMinimumConventionalAndUnboundedRunsAtDepthOne) {
+  const std::vector<std::string> spellings = {
+    "^^",
+    "^^^",
+    "^^^^",
+    std::string(64, '^'),
+  };
+
+  for (const auto& spelling : spellings) {
+    {
+      DirectParserContext context(spelling);
+      std::unique_ptr<StyioAST> statement(parse_stmt_or_expr_legacy(context.get()));
+      auto* break_statement = dynamic_cast<BreakAST*>(statement.get());
+      ASSERT_NE(break_statement, nullptr) << spelling.size();
+      EXPECT_EQ(break_statement->getDepth(), 1u);
+      EXPECT_EQ(context.get().get_token_index(), spelling.size());
+    }
+    {
+      DirectParserContext context(spelling);
+      std::unique_ptr<StyioAST> statement(parse_stmt_subset_nightly(context.get()));
+      auto* break_statement = dynamic_cast<BreakAST*>(statement.get());
+      ASSERT_NE(break_statement, nullptr) << spelling.size();
+      EXPECT_EQ(break_statement->getDepth(), 1u);
+      EXPECT_EQ(context.get().get_token_index(), spelling.size());
+    }
+
+    const std::string loop_source = "[...] => {\n  " + spelling + "\n}\n";
+    for (const StyioParserEngine engine : {
+           StyioParserEngine::Nightly,
+           StyioParserEngine::Legacy,
+         }) {
+      DirectParserContext context(loop_source);
+      std::unique_ptr<MainBlockAST> ast(
+        parse_main_block_with_engine_latest(context.get(), engine));
+      AstToStyioIRLowerer analyzer;
+      ast->typeInfer(&analyzer);
+      std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
+
+      class BreakCounter final : public styio::ir::StyioIRWalker
+      {
+      public:
+        std::size_t count = 0;
+        unsigned depth = 0;
+
+        void visitSGBreak(SGBreak* node) override {
+          count += 1;
+          depth = node->depth;
+        }
+      } counter;
+      counter.walk(ir.get());
+      EXPECT_EQ(counter.count, 1u) << spelling.size();
+      EXPECT_EQ(counter.depth, 1u) << spelling.size();
+    }
+  }
+}
+
+TEST(StyioSecurityBreakSpelling, RejectsSeparatedRunsAndPreservesCaretContexts) {
+  constexpr const char* minimum_spelling_diagnostic =
+    "break statement requires at least two consecutive '^' characters; "
+    "use '^^' (minimum) or '^^^' (conventional)";
+  auto syntax_diagnostic = [](const std::string& source, StyioParserEngine engine) {
+    try {
+      (void)parse_program_engine_to_repr_latest(source, engine);
+    }
+    catch (const StyioSyntaxError& error) {
+      return std::string(error.what());
+    }
+    return std::string();
+  };
+
+  const std::vector<std::pair<std::string, std::string>> one_caret_runs = {
+    {
+      "^ ^\n",
+      std::string("\nStyio.SyntaxError:\n^ ^\n^--- ") + minimum_spelling_diagnostic,
+    },
+    {
+      "^/*gap*/^\n",
+      std::string("\nStyio.SyntaxError:\n^/*gap*/^\n^--------- ") + minimum_spelling_diagnostic,
+    },
+  };
+  for (const auto& [source, expected_diagnostic] : one_caret_runs) {
+    const std::string nightly = syntax_diagnostic(source, StyioParserEngine::Nightly);
+    const std::string legacy = syntax_diagnostic(source, StyioParserEngine::Legacy);
+    EXPECT_EQ(nightly, expected_diagnostic) << source;
+    EXPECT_EQ(legacy, expected_diagnostic) << source;
+  }
+
+  const std::vector<std::string> separated_valid_runs = {
+    "^^ ^^\n",
+    "^^/*gap*/^^\n",
+  };
+  for (const auto& source : separated_valid_runs) {
+    const std::string nightly = syntax_diagnostic(source, StyioParserEngine::Nightly);
+    const std::string legacy = syntax_diagnostic(source, StyioParserEngine::Legacy);
+    ASSERT_FALSE(nightly.empty()) << source;
+    EXPECT_EQ(nightly, legacy) << source;
+    EXPECT_NE(nightly.find("spaced caret runs do not form one break statement"),
+              std::string::npos) << source;
+  }
+
+  const std::string separated_statements = "^^\n^^\n";
+  for (const StyioParserEngine engine : {
+         StyioParserEngine::Nightly,
+         StyioParserEngine::Legacy,
+       }) {
+    DirectParserContext context(separated_statements);
+    std::unique_ptr<MainBlockAST> ast(
+      parse_main_block_with_engine_latest(context.get(), engine));
+    ASSERT_EQ(ast->getStmts().size(), 2u);
+    for (StyioAST* statement : ast->getStmts()) {
+      auto* break_statement = dynamic_cast<BreakAST*>(statement);
+      ASSERT_NE(break_statement, nullptr);
+      EXPECT_EQ(break_statement->getDepth(), 1u);
+    }
+  }
+
+  {
+    DirectParserContext context("^3)");
+    std::unique_ptr<StyioAST> ast(
+      parse_cond_rhs(context.get(), IntAST::Create("5")));
+    auto* xor_expression = dynamic_cast<CondAST*>(ast.get());
+    ASSERT_NE(xor_expression, nullptr);
+    EXPECT_EQ(xor_expression->getSign(), LogicType::XOR);
+  }
+
+  struct ListCaretCase {
+    const char* source;
+    StyioTokenType entry_token;
+    StyioNodeType expected_type;
+  };
+  const std::vector<ListCaretCase> list_caret_forms = {
+    {"[^2]", StyioTokenType::INTEGER, StyioNodeType::Access_By_Index},
+    {"[-: ^2]", StyioTokenType::INTEGER, StyioNodeType::Remove_Item_By_Index},
+    {"[?^ ()]", StyioTokenType::TOK_LPAREN, StyioNodeType::Get_Indices_By_Many_Values},
+  };
+  for (const auto& caret_case : list_caret_forms) {
+    DirectParserContext context(caret_case.source);
+    align_legacy_char_entry_token(context, caret_case.entry_token);
+    std::unique_ptr<StyioAST> ast(
+      parse_index_op(context.get(), NameAST::Create("xs")));
+    auto* list_operation = dynamic_cast<ListOpAST*>(ast.get());
+    ASSERT_NE(list_operation, nullptr) << caret_case.source;
+    EXPECT_EQ(list_operation->getOp(), caret_case.expected_type) << caret_case.source;
   }
 }
 
@@ -14880,7 +15060,7 @@ TEST(StyioSecurityNightlyParserStmt, RejectsOldConditionalLoopSyntax) {
 }
 
 TEST(StyioSecurityNightlySemantics, RejectsNonBoolConditionalLoopGuard) {
-  const std::string src = "[...] >> ?(\"not_bool\") => {\n  ^\n}\n";
+  const std::string src = "[...] >> ?(\"not_bool\") => {\n  ^^^\n}\n";
   EXPECT_THROW(
     parse_typecheck_program_engine_latest(src, StyioParserEngine::Nightly),
     StyioTypeError
@@ -15201,7 +15381,7 @@ TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnFunctionDefSubsetSamples) {
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnBlockControlSubsetSamples) {
   const std::vector<std::string> samples = {
     "{\n    value = 1 + 2\n    <| value\n}\n",
-    "{\n    ...\n    ^\n    >>\n}\n",
+    "{\n    ...\n    ^^^\n    >>\n}\n",
     "# outer := (x: i32) => {\n    # inner := (y: i32) => y + 1\n    <| inner(x) + inner(x + 1)\n}\n>_(outer(3))\n",
   };
 

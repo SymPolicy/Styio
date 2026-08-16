@@ -270,6 +270,16 @@ collect_expr_reads(StyioIR* ir, std::unordered_set<std::string>& names) {
     collect_expr_reads(cond->rhs_expr, names);
     return;
   }
+  if (auto* tuple = dynamic_cast<SGTupleCreate*>(ir)) {
+    for (auto* element : tuple->elements) {
+      collect_expr_reads(element, names);
+    }
+    return;
+  }
+  if (auto* projection = dynamic_cast<SGTupleGet*>(ir)) {
+    collect_expr_reads(projection->tuple, names);
+    return;
+  }
   if (auto* len = dynamic_cast<SCListLen*>(ir)) {
     collect_expr_reads(len->list, names);
     return;
@@ -571,6 +581,16 @@ private:
   void visitSGCond(SGCond* node) override {
     node->lhs_expr = optimize(node->lhs_expr);
     node->rhs_expr = optimize(node->rhs_expr);
+  }
+
+  void visitSGTupleCreate(SGTupleCreate* node) override {
+    for (auto*& element : node->elements) {
+      element = optimize(element);
+    }
+  }
+
+  void visitSGTupleGet(SGTupleGet* node) override {
+    node->tuple = optimize(node->tuple);
   }
 
   void visitSGReturn(SGReturn* node) override {
@@ -1022,6 +1042,14 @@ private:
   void visitSGCond(SGCond* node) override {
     node->lhs_expr = fold_child(node->lhs_expr);
     node->rhs_expr = fold_child(node->rhs_expr);
+  }
+  void visitSGTupleCreate(SGTupleCreate* node) override {
+    for (auto*& element : node->elements) {
+      element = fold_child(element);
+    }
+  }
+  void visitSGTupleGet(SGTupleGet* node) override {
+    node->tuple = fold_child(node->tuple);
   }
   void visitSGReturn(SGReturn* node) override { node->expr = fold_child(node->expr); }
   void visitSGFunc(SGFunc* node) override { if (node->func_block) walk(node->func_block); }
