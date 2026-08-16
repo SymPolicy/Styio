@@ -2030,7 +2030,10 @@ TEST(StyioTypeInferInternal, FunctionReturnAndReceiverScanHelpersStayExplicit) {
       {},
       TypeTupleAST::Create({TypeAST::Create("i64"), TypeAST::Create("f64")}),
       BlockAST::Create({ReturnAST::Create(IntAST::Create("1"))})));
-    EXPECT_THROW(tuple_return->typeInfer(&analyzer), StyioTypeError);
+    ASSERT_NO_THROW(tuple_return->typeInfer(&analyzer));
+    std::unique_ptr<FuncCallAST> tuple_call(FuncCallAST::Create(
+      NameAST::Create("tuple_return"), {}));
+    EXPECT_THROW(tuple_call->typeInfer(&analyzer), StyioTypeError);
   }
   {
     std::unique_ptr<StyioAST> block(BlockAST::Create({
@@ -2342,7 +2345,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
     EXPECT_TRUE(declared_function_return_type_latest(pass.get()).isUndefined());
   }
 
-  EXPECT_FALSE(match_pattern_supported_latest(
+  EXPECT_FALSE(match_pattern_is_supported(
     nullptr,
     nullptr,
     StyioDataTypeOption::Integer));
@@ -2352,7 +2355,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       NameAST::Create("x"),
       IntAST::Create("1")));
     std::string scrutinee = "x";
-    EXPECT_TRUE(match_pattern_supported_latest(
+    EXPECT_TRUE(match_pattern_is_supported(
       eq_left.get(),
       &scrutinee,
       StyioDataTypeOption::Integer));
@@ -2363,7 +2366,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       IntAST::Create("1"),
       NameAST::Create("x")));
     std::string scrutinee = "x";
-    EXPECT_TRUE(match_pattern_supported_latest(
+    EXPECT_TRUE(match_pattern_is_supported(
       eq_right.get(),
       &scrutinee,
       StyioDataTypeOption::Integer));
@@ -2374,7 +2377,7 @@ TEST(StyioTypeInferInternal, ErrorGuardsAndUnsupportedBranchesStayExplicit) {
       NameAST::Create("x"),
       IntAST::Create("1")));
     std::string scrutinee = "x";
-    EXPECT_FALSE(match_pattern_supported_latest(
+    EXPECT_FALSE(match_pattern_is_supported(
       non_eq.get(),
       &scrutinee,
       StyioDataTypeOption::Integer));
@@ -2971,4 +2974,7 @@ TEST(StyioStructuredFunctionResultsTypeInfer, ShapesTupleAndRejectsInvalidProjec
 
   std::unique_ptr<TupleAST> empty(TupleAST::Create({}));
   EXPECT_THROW(empty->typeInfer(&analyzer), StyioTypeError);
+
+  std::unique_ptr<TupleAST> single(TupleAST::Create({IntAST::Create("1")}));
+  EXPECT_THROW(single->typeInfer(&analyzer), StyioTypeError);
 }

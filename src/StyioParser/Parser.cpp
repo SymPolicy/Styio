@@ -43,7 +43,7 @@ constexpr const char* kBreakMinimumSpellingDiagnosticLatest =
   "use '^^' (minimum) or '^^^' (conventional)";
 
 std::optional<size_t>
-separated_break_run_index_latest(const StyioContext& context) {
+separated_break_run_index(const StyioContext& context) {
   const auto& tokens = context.get_tokens();
   size_t cursor = context.get_token_index();
   while (cursor < tokens.size()) {
@@ -5105,7 +5105,7 @@ parse_stmt_or_expr_legacy(
         );
       }
       context.move_forward(run_length, "break^");
-      if (const auto next_run = separated_break_run_index_latest(context)) {
+      if (const auto next_run = separated_break_run_index(context)) {
         context.move_forward(*next_run - context.get_token_index(), "break:separated_run");
         throw StyioSyntaxError(context.mark_cur_tok(
           "separate break statements with a newline or ';'; spaced caret runs "
