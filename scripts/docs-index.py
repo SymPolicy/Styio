@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -164,7 +165,37 @@ def build_entries(base: Path) -> List[Entry]:
         summary = extract_purpose(child)
         last_updated = extract_last_updated(child)
         entries.append(Entry(rel_path, link_target, label, summary, False, last_updated))
-    return entries
+    if base.relative_to(ROOT) == Path("docs/plan"):
+        manifest_path = base / "Manifest.json"
+        if manifest_path.is_file():
+            manifest = json.loads(read_text(manifest_path))
+            for plan in manifest.get("plans", []):
+                directory = str(plan["directory"])
+                target = base / directory / "Plan.md"
+                if target.is_file():
+                    entries.append(
+                        Entry(
+                            f"{directory}/",
+                            rel_link(base, target),
+                            compact_plain(str(plan["title"])),
+                            f"Current Better Plan v3 delivery `{plan['code']}`; semantic state lives in `{plan['plan']}`.",
+                            True,
+                            TODAY,
+                        )
+                    )
+        backlog = ROOT / "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
+        if backlog.is_file():
+            entries.append(
+                Entry(
+                    "../rollups/NEXT-STAGE-GAP-LEDGER.md",
+                    rel_link(base, backlog),
+                    "Carry-forward backlog register",
+                    extract_purpose(backlog),
+                    False,
+                    extract_last_updated(backlog),
+                )
+            )
+    return sorted(entries, key=lambda entry: (not entry.is_dir, entry.rel_path.lower()))
 
 
 def render_table(entries: Iterable[Entry]) -> List[str]:

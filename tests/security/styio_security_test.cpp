@@ -308,12 +308,12 @@ public:
     return "inactive-test-ir";
   }
 
-  llvm::Type* toLLVMType(StyioToLLVM* visitor) override {
+  llvm::Type* toLLVMType(StyioCodeGenVisitor* visitor) override {
     (void)visitor;
     return nullptr;
   }
 
-  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
+  llvm::Value* toLLVMIR(StyioCodeGenVisitor* visitor) override {
     (void)visitor;
     return nullptr;
   }

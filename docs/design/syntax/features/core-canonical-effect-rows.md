@@ -2,7 +2,7 @@
 
 **Purpose:** Own the compiler/interface representation of callable effects as deterministic rows, including the future open-tail fact needed by higher-order relations, without adding authored effect syntax.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-22
 
 ## Feature Contract
 
@@ -30,7 +30,7 @@ semantics = ["docs/design/Styio-Language-Design.md", "docs/design/Styio-Handle-C
 diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 teaching = ["docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"]
-implementation = ["src/StyioSema/EffectRow.hpp", "src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioSema/CallableInterface.hpp", "src/StyioSema/CallableInterface.cpp", "src/StyioIR/GenIR/SGIR.hpp", "src/StyioLowering/AstToStyioIR.cpp", "src/main.cpp"]
+implementation = ["src/StyioIR/CallableEffectRow.hpp", "src/StyioSema/SemaContext.hpp", "src/StyioSema/TypeInfer.cpp", "src/StyioSema/CallableInterface.hpp", "src/StyioSema/CallableInterface.cpp", "src/StyioIR/GenIR/SGIR.hpp", "src/StyioLowering/AstToStyioIR.cpp", "src/main.cpp"]
 evidence = ["tests/features/callable_effects/t02_transitive_effect_summary.styio", "tests/features/callable_effects/e01_effectful_second_instance.styio", "tests/features/callable_effects/e02_captured_environment_second_instance.styio", "tests/features/callable_interfaces/t02_effect_rows.styio"]
 
 [prerequisites]
@@ -46,7 +46,7 @@ research-basis = "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-3
 interface-contract = "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
 
 [implementation]
-path = "src/StyioSema/EffectRow.hpp"
+path = "src/StyioIR/CallableEffectRow.hpp"
 symbol = "class CallableEffectRow"
 owner = "Sema / Modules"
 

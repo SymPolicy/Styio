@@ -2206,7 +2206,6 @@ styio_profile_cmake_includes_pipeline_check_latest(
     text.find("set(STYIO_NANO_INCLUDE_PIPELINE_CHECK ON)") != std::string::npos;
   return true;
 }
-
 static std::vector<std::string>
 styio_nano_source_roots_latest(bool include_pipeline_check) {
   std::vector<std::string> sources = {
@@ -2225,6 +2224,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioToString/ToString.cpp",
     "src/StyioIR/Verifier.cpp",
     "src/StyioIR/PortableCallableBody.cpp",
+    "src/StyioLowering/PortableCallableBody.cpp",
     "src/StyioSema/CallableInterface.cpp",
     "src/StyioSema/CallableModuleLoader.cpp",
     "src/StyioSema/CallableSpecializationGraph.cpp",
@@ -6752,6 +6752,7 @@ main(
         &compile_plan_runtime_executed));
     compile_plan_test_runtime_started = false;
   };
+  CompilationPhase compile_plan_final_phase = CompilationPhase::Empty;
   struct StyioCompilePlanRuntimeEventScopeLatest
   {
     bool active = false;
@@ -6799,7 +6800,6 @@ main(
       styio_clear_runtime_event_sink_latest();
     }
   } compile_plan_runtime_scope;
-  CompilationPhase compile_plan_final_phase = CompilationPhase::Empty;
   compile_plan_runtime_scope.active = compile_plan_request.has_value();
   compile_plan_runtime_scope.request =
     compile_plan_request.has_value() ? &*compile_plan_request : nullptr;

@@ -478,6 +478,31 @@ TEST(StyioCodeGenInternal, ResourceEffectValueEdgesStayExplicit) {
   }, "break outside enclosing loop");
 }
 
+TEST(StyioCodeGenInternal, ResourceEffectClonesBorrowedContainerIncomingValues) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFinalBind::Create(
+      dynamic_var("resource_effect_fallback_list", list_type()),
+      list_i64()),
+    SGFinalBind::Create(
+      dynamic_var("resource_effect_result_list", list_type()),
+      SIOResourceEffect::Create(
+        list_i64(),
+        SGDynLoad::Create(
+          "resource_effect_fallback_list",
+          SGDynLoadKind::ListHandle),
+        false,
+        list_type(),
+        {},
+        true)),
+  }));
+
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_NE(ir.find("resource_effect_value"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("call i64 @styio_list_clone"), std::string::npos) << ir;
+}
+
 TEST(StyioCodeGenInternal, CodeGenFactoryCreatesGenerator) {
   init_llvm_once();
   llvm::ExitOnError exit_on_error;
@@ -1489,6 +1514,28 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
     "styio_matrix_matmul_i64",
     "styio_free_cstr",
   });
+}
+
+TEST(StyioCodeGenInternal, CallableBlockTailSkipsCStringEscapeOwnership) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFunc::Create(
+      SGType::Create(i64_type()),
+      SGResId::Create("callable_tail_target"),
+      {},
+      SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))})),
+    SGBlock::Create({
+      SGFinalBind::Create(
+        var("callable_tail_scope_text", string_type()),
+        SGConstString::Create("held")),
+      SGResId::CreateFunctionRef("callable_tail_target"),
+    }),
+  }));
+
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_NE(ir.find("@callable_tail_target"), std::string::npos);
+  EXPECT_EQ(ir.find("styio_clone_cstr"), std::string::npos) << ir;
 }
 
 TEST(StyioCodeGenInternal, TaskCaptureScannerCoversNestedReturnExpressions) {

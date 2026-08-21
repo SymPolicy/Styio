@@ -28,3 +28,19 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
+
+function(styio_gtest_discover_tests target_name)
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.2")
+    # CMake 4.2+ asks GoogleTest to write discovery JSON in the test working
+    # directory. Many Styio tests intentionally run from the source root, so
+    # disable that output and let CMake's supported stdout parser handle the
+    # list instead of leaving cmake_test_discovery_*.json residue there.
+    gtest_discover_tests(
+      ${target_name}
+      ${ARGN}
+      DISCOVERY_EXTRA_ARGS "--gtest_output="
+    )
+  else()
+    gtest_discover_tests(${target_name} ${ARGN})
+  endif()
+endfunction()

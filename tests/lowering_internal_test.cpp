@@ -56,11 +56,11 @@ public:
     return "unknown-active-ir";
   }
 
-  llvm::Type* toLLVMType(StyioToLLVM*) override {
+  llvm::Type* toLLVMType(StyioCodeGenVisitor*) override {
     return nullptr;
   }
 
-  llvm::Value* toLLVMIR(StyioToLLVM*) override {
+  llvm::Value* toLLVMIR(StyioCodeGenVisitor*) override {
     return nullptr;
   }
 

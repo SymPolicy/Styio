@@ -2,7 +2,7 @@
 
 **Purpose:** Define the required workflow for checking GitHub Actions after a local commit is pushed, including what must be verified before committing and what must be watched after pushing.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-08-21
 
 ## Scope
 
@@ -67,15 +67,15 @@ Cross-repository gates must use the same workspace checkout set that will be vis
 
 ## Delivery Ruleset Governance
 
-Required GitHub merge gates are maintained through GitHub Rulesets, not legacy classic branch protection. `ai-dev` and protected release/default branches must have an active Ruleset requiring the `audit` status check from the `styio-audit` workflow, with strict required status checks enabled.
+Required GitHub merge gates are maintained through GitHub Rulesets, not legacy classic branch protection. The protected integration branch is `nightly`. Its active Ruleset must use strict required status checks and preserve the verified check-run identities: `platform-adaptation / linux-ci-gate`, `platform-adaptation / macos-ci-gate`, `test / smoke`, `test / golden-standard`, `styio-audit`, and `hygiene`. Report-only Windows, coverage, and benchmark observability jobs are not required checks until a separate governance change approves them.
 
 Gate audits must inspect effective branch rules, for example:
 
 ```bash
-gh api repos/styio-org/styio-nightly/rules/branches/ai-dev
+gh api repos/Unka-Malloc/styio-nightly/rulesets
 ```
 
-Do not use `branches/ai-dev/protection/required_status_checks` as the authority for this repository. That legacy classic endpoint can return 404 even when the Ruleset gate is active.
+Do not use `branches/nightly/protection/required_status_checks` as the authority for this repository. That classic endpoint can return 404 even when the Ruleset gate is active.
 
 ## Completion Criteria
 

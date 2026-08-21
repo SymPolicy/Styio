@@ -1,11 +1,9 @@
 # Audit Agent Findings
 
-**Purpose:** Index parallel audit shards written by external audit agents for `styio-nightly`.
+**Purpose:** Define the tracked audit-shard boundary after closed dated findings move to lifecycle provenance and Git history.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-08-21
 
 ## Shards
 
-- [Nightly Compiler Findings 2026-04-22](./nightly-compiler-2026-04-22.md)
-- [Nightly IDE / Parser Audit Shard](./nightly-ide-parser-2026-04-22.md)
-- [Nightly Sema / Codegen Fail-Closed Findings 2026-04-22](./nightly-sema-codegen-2026-04-22.md)
+No current audit shard remains. Closed dated findings retain provenance in [the archive ledger](../../archive/ARCHIVE-LEDGER.md), with exact prose recoverable from Git history.

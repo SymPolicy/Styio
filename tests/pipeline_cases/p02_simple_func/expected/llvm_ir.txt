@@ -17,6 +17,14 @@ add_entry:
   %4 = or i1 %2, %3
   %5 = add i64 %0, %1
   %6 = select i1 %4, i64 -9223372036854775808, i64 %5
+  %7 = call i32 @styio_runtime_has_error()
+  %8 = icmp ne i32 %7, 0
+  br i1 %8, label %runtime_fail, label %runtime_ok
+
+runtime_fail:                                     ; preds = %add_entry
+  ret i64 0
+
+runtime_ok:                                       ; preds = %add_entry
   ret i64 %6
 }
 

@@ -84,6 +84,12 @@ FORBIDDEN_GLOBS = [
 ALWAYS_ALLOWED = {
     "benchmark/reports/README.md",
 }
+ALLOWED_LOCAL_BUILD_PREFIXES = (
+    "build/default/",
+    "build/asan-ubsan/",
+    "build/fuzz/",
+)
+PROFILE_RESIDUE_SUFFIXES = (".gcda", ".gcno", ".profdata", ".profraw")
 REQUIRED_GITIGNORE_PATTERNS = [
     ".DS_Store",
     ".cursor/",
@@ -219,6 +225,11 @@ def tracked_files(repo_root: Path) -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
+def ignored_files(repo_root: Path) -> list[str]:
+    out = run_git(repo_root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
+    return sorted(path for path in out.split("\0") if path)
+
+
 def match_forbidden(path: str) -> str | None:
     for pattern in FORBIDDEN_GLOBS:
         if fnmatch.fnmatch(path, pattern):
@@ -281,6 +292,29 @@ def path_violations(files: list[str], allowlist: set[str]) -> list[str]:
         if pattern is not None:
             problems.append(f"{rel}: matches forbidden pattern {pattern}")
     return problems
+
+
+def ignored_residue_violations(files: list[str], allowlist: set[str]) -> list[str]:
+    problems: set[str] = set()
+    for rel in files:
+        if is_allowlisted(rel, allowlist):
+            continue
+        if rel.startswith(ALLOWED_LOCAL_BUILD_PREFIXES) \
+                and not rel.endswith(PROFILE_RESIDUE_SUFFIXES):
+            continue
+        pattern = match_forbidden(rel)
+        if pattern is None:
+            continue
+        parts = Path(rel).parts
+        if parts and (parts[0] == "build" or parts[0].startswith("build-")):
+            display = parts[0]
+        elif "__pycache__" in parts:
+            index = parts.index("__pycache__")
+            display = Path(*parts[: index + 1]).as_posix()
+        else:
+            display = rel
+        problems.add(f"{display}: ignored residue matches forbidden pattern {pattern}")
+    return sorted(problems)
 
 
 def history_violations(repo_root: Path, rev_range: str, max_bytes: int, allowlist: set[str]) -> list[str]:
@@ -391,7 +425,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Styio repository hygiene gate")
     parser.add_argument(
         "--mode",
-        choices=("worktree", "staged", "tracked", "push"),
+        choices=("worktree", "staged", "tracked", "push", "residue"),
         default="staged",
         help="What to validate",
     )
@@ -418,6 +452,10 @@ def main() -> int:
         problems.extend(doc_reference_violations(repo_root))
         problems = sorted(set(problems))
         return print_report(f"push range {rev_range}", problems)
+
+    if args.mode == "residue":
+        problems = ignored_residue_violations(ignored_files(repo_root), allowlist)
+        return print_report("ignored residue", problems)
 
     if args.mode == "worktree":
         files = worktree_files(repo_root)

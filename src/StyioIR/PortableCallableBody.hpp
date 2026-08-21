@@ -2,15 +2,13 @@
 #ifndef STYIO_IR_PORTABLE_CALLABLE_BODY_HPP_
 #define STYIO_IR_PORTABLE_CALLABLE_BODY_HPP_
 
+#include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "../StyioSema/SemaContext.hpp"
-
-class StyioAST;
+#include "../StyioToken/Token.hpp"
 
 namespace styio::ir {
 
@@ -22,10 +20,40 @@ inline constexpr std::size_t kMaximumPortableCallableInputs = 262144;
 inline constexpr std::size_t kMaximumPortableCallableStringBytes =
   1024 * 1024;
 
-using PortableCallableTypeTerm =
-  StyioSemaContext::CallableTypeTerm;
-using PortableCallableTypeConstraint =
-  StyioSemaContext::CallableTypeConstraint;
+struct PortableCallableTypeTerm
+{
+  enum class Kind : std::uint8_t {
+    Variable = 0,
+    Concrete,
+    List,
+    Dict,
+  };
+
+  Kind kind = Kind::Concrete;
+  std::uint32_t variable = 0;
+  StyioDataType concrete{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  std::vector<PortableCallableTypeTerm> arguments;
+};
+
+enum class PortableCallableConstraintKind : std::uint8_t {
+  Numeric = 0,
+  Comparable,
+  Indexable,
+  Iterable,
+  Cloneable,
+};
+
+struct PortableCallableTypeConstraint
+{
+  PortableCallableConstraintKind kind =
+    PortableCallableConstraintKind::Numeric;
+  PortableCallableTypeTerm subject;
+  PortableCallableTypeTerm argument;
+  PortableCallableTypeTerm result;
+  std::string canonical;
+};
 
 struct PortableCallableSignature
 {
@@ -83,20 +111,11 @@ std::string portable_callable_term_canonical_text(
   const PortableCallableTypeTerm& term
 );
 
-PortableCallableBody build_portable_callable_body(
-  StyioAST* definition,
-  const PortableCallableSignature& signature
-);
-
 std::string verify_and_annotate_portable_callable_body(
   PortableCallableBody& body,
   const PortableCallableSignature& signature,
   const PortableCallableCatalog& catalog,
   bool require_encoded_types
-);
-
-std::unique_ptr<StyioAST> materialize_portable_callable_body(
-  const PortableCallableBody& body
 );
 
 std::string portable_callable_body_semantic_text(

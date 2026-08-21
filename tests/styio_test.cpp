@@ -20,7 +20,7 @@
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioSema/CallableSpecializationGraph.hpp"
 #include "StyioSema/CallableUsage.hpp"
-#include "StyioSema/EffectRow.hpp"
+#include "StyioIR/CallableEffectRow.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
@@ -590,8 +590,8 @@ TEST(StyioCallableSpecializationGraph, ReportsDepthAndGrowthInstancePaths) {
 }
 
 TEST(StyioCallableEffects, CanonicalRowsSortDeduplicateAndMerge) {
-  using styio::sema::CallableEffectLabel;
-  using styio::sema::CallableEffectRow;
+  using styio::ir::CallableEffectLabel;
+  using styio::ir::CallableEffectRow;
 
   CallableEffectRow row;
   EXPECT_TRUE(row.proven_pure());
@@ -5802,8 +5802,8 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   EXPECT_EQ(newer.exit_code, 4);
   EXPECT_NE(legacy.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
   EXPECT_NE(newer.stdout_text.find("\"category\":\"TypeError\""), std::string::npos);
-  EXPECT_NE(legacy.stdout_text.find("match scrutinee must be integer-typed"), std::string::npos);
-  EXPECT_NE(newer.stdout_text.find("match scrutinee must be integer-typed"), std::string::npos);
+  EXPECT_NE(legacy.stdout_text.find("match scrutinee must have integer or char type"), std::string::npos);
+  EXPECT_NE(newer.stdout_text.find("match scrutinee must have integer or char type"), std::string::npos);
 
   fs::remove(input);
 }
