@@ -8,6 +8,28 @@ if(LLVM_PACKAGE_VERSION VERSION_LESS "18.1.0"
     "Styio requires LLVM 18.1.x; found ${LLVM_PACKAGE_VERSION} in ${LLVM_DIR}")
 endif()
 
+# CMake's LLVM dependency discovery can expose an Apple SDK's usr/include as
+# an imported target include directory. Non-Apple Clang installations select
+# their own SDK and resource headers internally; emitting a different SDK as
+# -isystem puts C headers before Clang's wrappers and breaks libc++ include_next
+# handling. SDK C headers are compiler-provided system headers, so mark every
+# discovered SDK usr/include as implicit instead of forwarding it to targets.
+if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  foreach(styio_sdk_include IN ITEMS
+      "${ZLIB_INCLUDE_DIRS}"
+      "${FFI_INCLUDE_DIRS}"
+      "${LibEdit_INCLUDE_DIRS}")
+    if(styio_sdk_include MATCHES "\\.sdk/usr/include$")
+      list(APPEND CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES
+        "${styio_sdk_include}")
+      list(APPEND CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES
+        "${styio_sdk_include}")
+    endif()
+  endforeach()
+  list(REMOVE_DUPLICATES CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES)
+  list(REMOVE_DUPLICATES CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES)
+endif()
+
 # LLVM headers ship a libc++abi-flavored cxxabi.h. On Debian + libstdc++,
 # putting LLVM on the normal -I/-isystem search path lets internal libstdc++
 # includes pick up the wrong cxxabi.h, which breaks GoogleTest and other

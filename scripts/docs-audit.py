@@ -43,10 +43,29 @@ APPROVED_GITHUB_MARKDOWN = {
 APPROVED_EXAMPLE_MARKDOWN = {
     "example/README.md",
 }
-PLAN_DOC_EXEMPT_NAMES = {"README.md", "INDEX.md"}
-PLAN_REQUIRED_SECTIONS = ("前置条件", "验收条件")
-PLAN_PRECONDITION_NEEDLES = ("并行", "子智能体", "基座")
-FOUNDATION_KEY_RE = re.compile(r"^\*\*Foundation key:\*\*\s+([a-z0-9][a-z0-9-]*)\s*$", re.M)
+def generated_plan_roots() -> tuple[Path, ...]:
+    manifest_path = ROOT / "docs" / "plan" / "Manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+    if not isinstance(manifest, dict):
+        return ()
+    roots: list[Path] = []
+    for entry in manifest.get("plans", []):
+        if not isinstance(entry, dict):
+            continue
+        directory = entry.get("directory")
+        if not isinstance(directory, str):
+            continue
+        relative = Path(directory)
+        if len(relative.parts) != 1 or relative.parts[0] in {"", ".", ".."}:
+            continue
+        roots.append(Path("docs/plan") / relative)
+    return tuple(roots)
+
+
+GENERATED_PLAN_ROOTS = generated_plan_roots()
 VERSION_NAMING_TOKEN_RE = re.compile(
     r"(^|[-_.\s])(v[0-9]+|version[0-9]*|ver[0-9]+|new|old|legacy|latest)(?=$|[-_.\s])",
     re.I,
@@ -313,6 +332,11 @@ def has_prefix(path: Path, prefix: Path) -> bool:
 def is_archive_doc(path: Path) -> bool:
     rel = path.relative_to(ROOT)
     return has_prefix(rel, Path("docs/archive"))
+
+
+def is_generated_plan_doc(path: Path) -> bool:
+    rel = path.relative_to(ROOT)
+    return any(has_prefix(rel, root) for root in GENERATED_PLAN_ROOTS)
 
 
 def skip_link_check(path: Path) -> bool:
@@ -739,6 +763,8 @@ def check_naming(errors: List[str]) -> None:
 
 def check_metadata(errors: List[str]) -> None:
     for path in iter_docs():
+        if is_generated_plan_doc(path):
+            continue
         text = path.read_text(encoding="utf-8")
         head = "\n".join(text.splitlines()[:16])
         if not PURPOSE_RE.search(head):
@@ -868,52 +894,9 @@ def check_plan_docs(errors: List[str]) -> None:
 
     readme = plans_dir / "README.md"
     readme_text = readme.read_text(encoding="utf-8") if readme.exists() else ""
-    if "## 通用基座计划索引" not in readme_text:
-        errors.append("docs/plan/README.md is missing required section: ## 通用基座计划索引")
-
-    foundation_keys: Dict[str, Path] = {}
-    for path in sorted(plans_dir.glob("*.md")):
-        if path.name in PLAN_DOC_EXEMPT_NAMES:
-            continue
-        rel = path.relative_to(ROOT)
-        text = path.read_text(encoding="utf-8")
-        headings = h2_headings(text)
-
-        for heading in PLAN_REQUIRED_SECTIONS:
-            if heading not in headings:
-                errors.append(f"plan document is missing required section ## {heading}: {rel}")
-        if all(heading in headings for heading in PLAN_REQUIRED_SECTIONS):
-            if headings.index("前置条件") > headings.index("验收条件"):
-                errors.append(f"plan document must place ## 前置条件 before ## 验收条件: {rel}")
-
-        preconditions = section_body(text, "前置条件")
-        if preconditions:
-            for needle in PLAN_PRECONDITION_NEEDLES:
-                if needle not in preconditions:
-                    errors.append(f"plan ## 前置条件 must state {needle} policy: {rel}")
-        acceptance = section_body(text, "验收条件")
-        if acceptance and len(strip_code_fences(acceptance).strip()) < 20:
-            errors.append(f"plan ## 验收条件 is too thin to be actionable: {rel}")
-
-        keys = FOUNDATION_KEY_RE.findall(text)
-        if len(keys) > 1:
-            errors.append(f"plan document declares multiple foundation keys: {rel}")
-        if keys:
-            key = keys[0]
-            previous = foundation_keys.get(key)
-            if previous is not None:
-                errors.append(
-                    "duplicate foundation plan key "
-                    f"{key}: {previous.relative_to(ROOT)} and {rel}"
-                )
-            foundation_keys[key] = path
-
-    for key, path in sorted(foundation_keys.items()):
-        if key not in readme_text or path.name not in readme_text:
-            errors.append(
-                "docs/plan/README.md foundation index must list "
-                f"{key} -> {path.relative_to(ROOT)}"
-            )
+    for needle in ("better-plan.manifest/v3", "Plan.json", "Checkpoints.json"):
+        if needle not in readme_text:
+            errors.append(f"docs/plan/README.md must document the v3 workspace: missing {needle!r}")
 
 
 def check_commit_readiness_workflow(errors: List[str]) -> None:
@@ -1076,6 +1059,8 @@ def check_public_wording(errors: List[str]) -> None:
         if entry.status != "valid":
             continue
         path = ROOT / entry.path
+        if is_generated_plan_doc(path):
+            continue
         text = strip_code_fences(path.read_text(encoding="utf-8"))
         for line_no, line in enumerate(text.splitlines(), start=1):
             for pattern, reason in PUBLIC_WORDING_FORBIDDEN_PATTERNS:

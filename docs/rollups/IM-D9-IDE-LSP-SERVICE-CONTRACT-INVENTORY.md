@@ -2,7 +2,7 @@
 
 **Purpose:** Record the IDE, LSP, first-party adapter, and service-fact boundary decisions for IM-D9 after reviewing the current Vityo architecture and implementation shape.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-08-22
 
 ## Scope
 
@@ -84,6 +84,9 @@ Capability state is part of the contract. A host must be able to distinguish a f
 |------|----------|----------|
 | Stable project cache roots | `Project::set_root(...)` derives cache directories from the normalized root path as `root-<hex-path>`, so persistent IDE state no longer depends on process-local `std::hash<std::string>` values. | `StyioIdeProject.EnvironmentFallbacksAndWorkspaceSkipsStayExplicit`; `StyioLspServer.WorkspaceSymbolMapsPersistentParameterAndBuiltinKinds` now seeds persistent indexes through `Project::cache_root()`. |
 | Workspace scan failure handling | `Project::scan_workspace()` uses `std::filesystem` error-code traversal with `skip_permission_denied`, records `workspace_scan_error_count()`, and keeps missing or unreadable roots fail-closed with an empty file set instead of throwing. | `StyioIdeProject.EnvironmentFallbacksAndWorkspaceSkipsStayExplicit` covers missing-root fail-closed behavior, stable cache-root shape, generated-directory skips, and zero-error happy-path scanning. |
+| Closed-file and persistent-index invalidation | Closed files are re-read before background indexing, and an empty workspace scan persists an empty symbol set so deleted symbols cannot reappear from an older cache. | `StyioWorkspaceIndex.ClosedFileRefreshesFromDiskBeforeBackgroundIndexing` and `StyioWorkspaceIndex.PersistentIndexClearsDeletedSymbolsOnNewSession`. |
+| UTF-16 semantic-token coordinates | Semantic-token delta positions and token lengths use LSP UTF-16 units while internal IDE offsets remain byte-based. | `StyioSemanticDb.SemanticTokensUseUtf16PositionsAndLengths` covers an emoji before a later token and a string token containing that emoji. |
+| Watched-file refresh filtering | `workspace/didChangeWatchedFiles` schedules only closed `.styio` files inside the selected workspace, preserves deletion refreshes, and coalesces duplicate paths. | `StyioIdeService.WatchFileRefreshFiltersAndCoalescesChangedPaths` and `StyioLspServer.WatchFileChangesFilterAndCoalesceBackgroundRefresh`. |
 
 ## First-Party Adapter Rule
 

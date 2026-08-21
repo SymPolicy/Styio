@@ -1,0 +1,108 @@
+name: styio-windows-smoke
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    name: observability / windows-smoke
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
+
+      - name: Set up MSVC command environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install native LLVM 18 development toolchain
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: styio-llvm18
+          cache-environment: true
+          create-args: >-
+            cmake=3.31.6
+            ninja
+            llvm=18.1.8
+            llvmdev=18.1.8
+            clang-tools=18.1.8
+            zlib=1.3.2
+            zstd=1.5.7
+            libxml2-devel=2.15.3
+
+      - name: Resolve and validate LLVM 18.1.x
+        shell: pwsh
+        run: |
+          $condaPrefix = Join-Path $env:MAMBA_ROOT_PREFIX "envs\styio-llvm18"
+          if (!(Test-Path -LiteralPath $condaPrefix) -and $env:CONDA_PREFIX) {
+            $condaPrefix = $env:CONDA_PREFIX
+          }
+          if (!(Test-Path -LiteralPath $condaPrefix)) {
+            throw "micromamba environment was not found"
+          }
+
+          $llvmRoot = Join-Path $condaPrefix "Library"
+          $llvmDir = Join-Path $llvmRoot "lib\cmake\llvm"
+          $llvmConfig = Join-Path $llvmDir "LLVMConfig.cmake"
+          $llvmConfigExe = Join-Path $llvmRoot "bin\llvm-config.exe"
+          if (!(Test-Path -LiteralPath $llvmConfig)) {
+            throw "LLVMConfig.cmake was not found in the LLVM development package"
+          }
+          if (!(Test-Path -LiteralPath $llvmConfigExe)) {
+            throw "llvm-config.exe was not found in the LLVM development package"
+          }
+
+          $llvmVersion = (& $llvmConfigExe --version).Trim()
+          if ($llvmVersion -notmatch '^18\.1\.') {
+            throw "Styio requires LLVM 18.1.x; found $llvmVersion"
+          }
+
+          Add-Content $env:GITHUB_PATH (Join-Path $llvmRoot "bin")
+          Add-Content $env:GITHUB_PATH (Join-Path $condaPrefix "Scripts")
+          Add-Content $env:GITHUB_ENV "LLVM_DIR=$llvmDir"
+          Add-Content $env:GITHUB_ENV "STYIO_NATIVE_TOOLCHAIN_ROOT=$llvmRoot"
+
+      - name: Configure native Windows smoke build
+        shell: pwsh
+        run: >
+          cmake -S . -B build/windows-smoke -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=cl
+          -DCMAKE_CXX_COMPILER=cl
+          -DLLVM_DIR="$env:LLVM_DIR"
+          -DCMAKE_PREFIX_PATH="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
+          -Dzstd_DIR="$env:STYIO_NATIVE_TOOLCHAIN_ROOT\lib\cmake\zstd"
+          -DSTYIO_NATIVE_TOOLCHAIN_ROOT="$env:STYIO_NATIVE_TOOLCHAIN_ROOT"
+          -DSTYIO_NATIVE_TOOLCHAIN_MODE=auto
+
+      - name: Build compiler and focused test binaries
+        shell: pwsh
+        run: >
+          cmake --build build/windows-smoke --target
+          styio styio_test styio_security_test
+
+      - name: Run Windows five-layer pipeline smoke
+        shell: pwsh
+        run: >
+          ctest --test-dir build/windows-smoke
+          -R '^styio_test_windows_five_layer_pipeline$'
+          --output-on-failure --no-tests=error
+
+      - name: Run Windows diagnostic contract smoke
+        shell: pwsh
+        run: >
+          ctest --test-dir build/windows-smoke
+          -R '^StyioDiagnosticContract\.ClassifiersCoverFallbackAndPhaseFamilies$'
+          --output-on-failure --no-tests=error

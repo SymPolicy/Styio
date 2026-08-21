@@ -633,6 +633,12 @@ TEST(StyioNewParserInternal, ForwardIteratorAndContinuationEdgesStayExplicit) {
     DirectContext direct("?");
     EXPECT_THROW((void)parse_forward_as_list_nightly_draft(direct.get()), StyioParseError);
   }
+  {
+    DirectContext direct(">>next(1)");
+    auto followings = parse_forward_as_list_nightly_draft(direct.get());
+    EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
 
   {
     DirectContext direct(">>(item) { << item }");
