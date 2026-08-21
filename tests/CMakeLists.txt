@@ -897,59 +897,59 @@ if(WIN32)
 else()
   styio_gtest_discover_tests(styio_test
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    PROPERTIES LABELS "styio_pipeline\\;unit"
+    PROPERTIES LABELS "styio_pipeline\\\\;unit"
   )
 endif()
 
 styio_gtest_discover_tests(styio_algorithm_equivalence_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;algorithm_equivalence\\;unit"
+    LABELS "styio_pipeline\\\\;algorithm_equivalence\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_newparser_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;parser_internal\\;unit"
+    LABELS "styio_pipeline\\\\;parser_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_parser_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;parser_internal\\;unit"
+    LABELS "styio_pipeline\\\\;parser_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_typeinfer_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\;safety\;sema_internal\;unit"
+    LABELS "security\\\\;safety\\\\;sema_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_lowering_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\;safety\;lowering_internal\;unit"
+    LABELS "security\\\\;safety\\\\;lowering_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_runtime_scheduler_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "runtime\;unit\;concurrency"
+  PROPERTIES LABELS "runtime\\\\;unit\\\\;concurrency"
 )
 
 styio_gtest_discover_tests(styio_externlib_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "runtime\;unit\;concurrency"
+  PROPERTIES LABELS "runtime\\\\;unit\\\\;concurrency"
 )
 
 styio_gtest_discover_tests(styio_native_interop_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\\;safety\\;native_interop\\;unit"
+    LABELS "security\\\\;safety\\\\;native_interop\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
@@ -968,7 +968,7 @@ else()
   styio_gtest_discover_tests(styio_security_test
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     PROPERTIES
-      LABELS "security\\;safety\\;lexer\\;ffi"
+      LABELS "security\\\\;safety\\\\;lexer\\\\;ffi"
       ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
   )
 endif()
@@ -976,21 +976,21 @@ endif()
 styio_gtest_discover_tests(styio_codegen_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\;safety\;codegen_internal\;unit"
+    LABELS "security\\\\;safety\\\\;codegen_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;resource_topology\\;topology_v2\\;safety\\;unit"
+    LABELS "styio_pipeline\\\\;resource_topology\\\\;topology_v2\\\\;safety\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
 styio_gtest_discover_tests(styio_ide_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "ide\\;lsp\\;unit"
+    LABELS "ide\\\\;lsp\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
