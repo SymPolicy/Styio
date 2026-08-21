@@ -40,7 +40,7 @@ Key SSOTs:
 2. Prefer linking and short summaries over copying rules across documents.
 3. Add `Purpose` and `Last updated` metadata to every active docs file.
 4. Use [../assets/templates/TEAM-RUNBOOK-TEMPLATE.md](../assets/templates/TEAM-RUNBOOK-TEMPLATE.md) for team runbook structure changes.
-5. Regenerate `INDEX.md` files after collection changes.
+5. Regenerate `INDEX.md` files after collection changes. Generated indexes stamp their `Last updated` date in UTC (`datetime.now(timezone.utc)` in `scripts/docs-index.py`), so a CI runner and any maintainer timezone regenerate byte-identical content on the same UTC day; never hand-edit the stamp to a local date.
 6. Use `python3 scripts/docs-scaffold.py ...` for new docs files or new docs collection directories so metadata, collection registration, and generated indexes are created together.
 7. Keep repository-level bootstrap/build entrypoints under `docs/BUILD-AND-DEV-ENV.md`, and push subsystem-only details back down into the owning docs collection instead of overloading `README.md` or `docs/external/for-ide/`.
 8. Run the team runbook maintenance gate before delivery so source/test/docs folder changes cannot land without the mapped runbook update or required runbook format.

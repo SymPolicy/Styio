@@ -8,14 +8,14 @@ import re
 import sys
 import tomllib
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 from docs_config import collection_dirs, collection_index_meta
 
 ROOT = Path(__file__).resolve().parents[1]
-TODAY = date.today().isoformat()
+TODAY = datetime.now(timezone.utc).date().isoformat()
 COLLECTION_DIRS = collection_dirs()
 INDEX_META = collection_index_meta()
 
