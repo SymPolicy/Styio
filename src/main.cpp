@@ -4631,10 +4631,10 @@ styio_native_build_path_within_latest(
 ) {
   const auto relative =
     path.lexically_normal().lexically_relative(root.lexically_normal());
-  return !relative.empty()
-    && relative != "."
-    && relative.native().find(".." + std::string(1, std::filesystem::path::preferred_separator)) != 0
-    && relative.native() != "..";
+  if (relative.empty() || relative == "." || relative == "..") {
+    return false;
+  }
+  return *relative.begin() != "..";
 }
 
 static void

@@ -26,6 +26,8 @@ Key implementation seams inside `src/StyioConfig/`:
 1. `CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
 2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload for compiler maintainers and system package builders.
 
+Portability rule for `src/main.cpp` helpers: compare `std::filesystem::path` values by component (for example `*relative.begin() != ".."`) instead of `path::native()` string operations, because `native()` is `std::wstring` on Windows and rejects `std::string`/`const char*` operations that compile on POSIX. The windows-smoke CI job enforces this surface.
+
 Key handoff document:
 
 1. [../external/for-pafio/Styio-Nano-Pafio-Coordination.md](../external/for-pafio/Styio-Nano-Pafio-Coordination.md)
