@@ -12,10 +12,11 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     return 0;
   }
 
-  CompilationSession session;
-  std::string src(reinterpret_cast<const char*>(data), size);
   try {
-    session.adopt_tokens(StyioTokenizer::tokenize(src));
+    StyioTokenStream stream = StyioTokenizer::tokenizeOwned(
+      std::string(reinterpret_cast<const char*>(data), size));
+    CompilationSession session;
+    session.adopt_tokens(stream.release());
   } catch (const StyioLexError&) {
     // expected for malformed inputs
   } catch (const StyioBaseException&) {

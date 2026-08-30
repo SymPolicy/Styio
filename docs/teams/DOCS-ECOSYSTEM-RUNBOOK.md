@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-30
 
 ## Mission
 
@@ -122,6 +122,7 @@ Key SSOTs:
 84. Keep `Styio-Project-Roadmap.md` and `roadmap/Checkpoints.json` as the readable and structured project-roadmap roots. Move external contracts to their owning handoff collection and delete superseded plan documents, checkpoint trees, and report indexes in the same migration instead of preserving compatibility copies.
 85. Treat EBNF as the token-spelling authority for standalone break syntax, and migrate the language design, symbol reference, active plans, evidence, and executable tests in the same checkpoint. Keep the downstream Brainfuck example as the canonical consumer proving the structured-result and stream-input contracts rather than duplicating its source in compiler docs.
 86. When the maintainer freezes a Styio-only release boundary, update `Manifest.json`, `roadmap/ecosystem-release/Checkpoints.json`, and `Styio-Project-Roadmap.md` together: record Styio-only functional acceptance as the sole gate, skip or waive the cross-repository matrix with an explicit reason, keep the readable roadmap status tables aligned with Manifest completion state, and do not imply that Pafio, Platform, or Vityo participation is required for that candidate.
+87. When weekly fuzz cadence or corpus-backflow docs change, refresh the Frontend and Test Quality runbooks, regenerate `docs/teams/INDEX.md`, and update `DOC-STATS.md` in the same delivery so generated inventory and size snapshots stay aligned.
 
 ## Change Classes
 
