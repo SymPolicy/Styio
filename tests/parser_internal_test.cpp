@@ -970,6 +970,22 @@ TEST(StyioParserInternal, UnifiedOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_THROW((void)parse_forward_as_list(direct.get()), StyioParseError);
   }
   {
+    SCOPED_TRACE("forward list returns at iterator without consuming it");
+    DirectContext direct(">>");
+    auto followings = parse_forward_as_list(direct.get());
+    EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
+    SCOPED_TRACE("forward list keeps trailing iterator for the outer parser");
+    DirectContext direct("=> { 1 } >>");
+    auto followings = parse_forward_as_list(direct.get());
+    ASSERT_EQ(followings.size(), 1u);
+    std::unique_ptr<StyioAST> following(followings[0]);
+    EXPECT_EQ(following->getNodeType(), StyioNodeType::Block);
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
     DirectContext direct(">>(item) => { << item }");
     std::unique_ptr<StyioAST> ast(parse_iterator_with_forward(
       direct.get(),

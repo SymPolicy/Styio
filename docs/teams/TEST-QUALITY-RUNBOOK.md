@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-30
 
 ## Mission
 
@@ -94,6 +94,7 @@ Primary paths:
 66. Parser cutover security tests must distinguish recognized ownership from true decline. A recognized binding may stop on an allowed fallback follow token without consuming it; malformed deep input may fail closed at its first unsupported element before reaching the depth ceiling. Keep special index selectors in both focused parser coverage and the security owner gate, and do not preserve pre-cutover exception or cursor expectations as compatibility contracts.
 67. Runtime-value and break-spelling deliveries need focused lifetime and route-isolation evidence: execute `String.chars` list handles and structured function tuple results with nested ownership; prove fresh tuple binding, attached-table type interning, direct-call result validation, and invalid tuple projection rejection; cover both parser routes for two, conventional three, and longer contiguous carets; reject lone and separated carets; preserve XOR/list-caret behavior; and run the downstream Brainfuck compiler acceptance as the cross-repository proof.
 68. Keep direct internal test fixtures aligned with fail-closed collection coercion and iterable-write lowering: use type-valid inputs for positive codegen cases, keep mismatches in negative tests, and inspect the pulse body when a container write lowers through `SGForEach`.
+69. Weekly lexer/parser campaigns are the only automatic fuzz schedule. Keep `fuzz_smoke` covering harness `tokenizeOwned` contracts, empty/`>>`/lifetime replay, dictionary presence, and regression-pack replay metadata; persist evolved corpora per target rather than restarting from the tracked seed set every run.
 
 ## Change Classes
 
@@ -120,7 +121,7 @@ Fuzz smoke:
 ctest --test-dir build/fuzz -L fuzz_smoke --output-on-failure --no-tests=error
 ```
 
-`fuzz_smoke` 当前走独立 corpus-replay smoke binaries，而不是直接把 PR 门禁绑在 libFuzzer main 的启动行为上；真正的 libFuzzer 目标仍保留给手动/夜间深跑。
+`fuzz_smoke` 当前走独立 corpus-replay smoke binaries，而不是直接把 PR 门禁绑在 libFuzzer main 的启动行为上；真正的 libFuzzer 目标仍保留给手动触发和每周深跑。同一标签还覆盖 harness 合同检查、生命周期回放，以及带 replay 元数据的 regression-pack smoke。
 
 Native macOS platform and coverage evidence:
 

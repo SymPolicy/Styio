@@ -168,3 +168,27 @@ set_tests_properties(
   fuzz_regression_pack_smoke
   PROPERTIES
     LABELS "fuzz;fuzz_smoke;fuzz_regression")
+
+add_test(
+  NAME fuzz_harness_contract_check
+  COMMAND bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_harness_contract_check.sh
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  fuzz_harness_contract_check
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke")
+
+add_test(
+  NAME fuzz_lifetime_replay
+  COMMAND
+    bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_lifetime_replay.sh
+    $<TARGET_FILE:styio_fuzz_lexer_smoke>
+    $<TARGET_FILE:styio_fuzz_parser_smoke>
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  fuzz_lifetime_replay
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke"
+    ENVIRONMENT "ASAN_OPTIONS=detect_container_overflow=0")

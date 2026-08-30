@@ -4636,9 +4636,10 @@ parse_forward_as_list(
         }
       } break;
 
-      /* >> Iterator */
+      /* >> Iterator belongs to the outer parser. Leave it unconsumed. */
       case StyioTokenType::ITERATOR: {
-      } break;
+        return release_followings();
+      }
 
       default: {
         return release_followings();

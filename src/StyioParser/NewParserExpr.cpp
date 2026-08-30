@@ -1175,7 +1175,8 @@ parse_forward_as_list_nightly_draft(StyioContext& context) {
       } break;
 
       case StyioTokenType::ITERATOR: {
-      } break;
+        return release_followings();
+      }
 
       default: {
         return release_followings();

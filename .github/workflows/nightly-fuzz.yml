@@ -1,14 +1,27 @@
 name: styio-nightly-fuzz
 
+# Weekly lexer/parser campaigns. Stable seeds (documented here, used below):
+#   lexer  -seed=1
+#   parser -seed=2
 on:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 3 * * 0"
   workflow_dispatch:
 
 jobs:
-  nightly-fuzz:
+  weekly-fuzz:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: lexer
+            cmake_target: styio_fuzz_lexer
+            seed: "1"
+          - target: parser
+            cmake_target: styio_fuzz_parser
+            seed: "2"
 
     steps:
       - name: Checkout
@@ -36,38 +49,99 @@ jobs:
           -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
           -DSTYIO_ENABLE_FUZZ=ON
 
-      - name: Build fuzzers
-        run: cmake --build build/fuzz --target styio_fuzz_lexer styio_fuzz_parser
+      - name: Build fuzzer
+        run: cmake --build build/fuzz --target ${{ matrix.cmake_target }}
 
-      - name: Verify fuzz binaries
+      - name: Verify fuzz binary
+        run: test -x ./build/fuzz/bin/${{ matrix.cmake_target }}
+
+      - name: Restore evolved corpus
+        uses: actions/cache/restore@v4
+        with:
+          path: fuzz-work/${{ matrix.target }}/restored
+          key: styio-weekly-fuzz-${{ matrix.target }}-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            styio-weekly-fuzz-${{ matrix.target }}-${{ github.ref_name }}-
+
+      - name: Prepare writable corpus
         run: |
-          test -x ./build/fuzz/bin/styio_fuzz_lexer
-          test -x ./build/fuzz/bin/styio_fuzz_parser
+          TRACKED="tests/fuzz/corpus/${{ matrix.target }}"
+          WRITABLE="fuzz-work/${{ matrix.target }}/corpus"
+          RESTORED="fuzz-work/${{ matrix.target }}/restored"
+          mkdir -p "$WRITABLE" "fuzz-artifacts/${{ matrix.target }}"
+          if [[ ! -d "$TRACKED" ]]; then
+            echo "Tracked corpus missing: $TRACKED"
+            exit 1
+          fi
+          cp -R "$TRACKED"/. "$WRITABLE"/
+          if [[ -d "$RESTORED" ]]; then
+            cp -R "$RESTORED"/. "$WRITABLE"/
+          fi
 
       - name: Run deep fuzz
         id: deep_fuzz
         run: |
-          mkdir -p fuzz-artifacts/lexer fuzz-artifacts/parser
-          set +e
-          ASAN_OPTIONS=detect_container_overflow=0 ./build/fuzz/bin/styio_fuzz_lexer \
-            tests/fuzz/corpus/lexer \
-            -max_total_time=600 \
-            -artifact_prefix=fuzz-artifacts/lexer/ \
-            > fuzz-artifacts/lexer.log 2>&1
-          LEX_EXIT=$?
+          TARGET="${{ matrix.target }}"
+          BIN="./build/fuzz/bin/${{ matrix.cmake_target }}"
+          WRITABLE="fuzz-work/${TARGET}/corpus"
+          ARTIFACTS="fuzz-artifacts/${TARGET}"
+          SEED="${{ matrix.seed }}"
+          DICT="tests/fuzz/styio.dict"
+          mkdir -p "$ARTIFACTS"
 
-          ASAN_OPTIONS=detect_container_overflow=0 ./build/fuzz/bin/styio_fuzz_parser \
-            tests/fuzz/corpus/parser \
+          REPLAY="$BIN <input> -runs=1 -timeout=10 -max_len=65536 -seed=${SEED} -dict=${DICT} -use_value_profile=1"
+          echo "effective_replay=${REPLAY}"
+          printf '%s\n' "$REPLAY" > "$ARTIFACTS/replay-command.txt"
+          python3 - "$ARTIFACTS/replay-options.json" "$TARGET" "${{ matrix.cmake_target }}" "$SEED" "$DICT" "$REPLAY" <<'PY'
+import json, sys
+path, target, binary, seed, dictionary, replay = sys.argv[1:7]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump({
+        "target": target,
+        "binary": binary,
+        "seed": int(seed),
+        "max_total_time": 600,
+        "timeout": 10,
+        "max_len": 65536,
+        "use_value_profile": 1,
+        "dict": dictionary,
+        "replay": replay,
+    }, handle, indent=2)
+    handle.write("\n")
+PY
+
+          set +e
+          ASAN_OPTIONS=detect_container_overflow=0 "$BIN" \
+            "$WRITABLE" \
             -max_total_time=600 \
-            -artifact_prefix=fuzz-artifacts/parser/ \
-            > fuzz-artifacts/parser.log 2>&1
-          PARSER_EXIT=$?
+            -timeout=10 \
+            -max_len=65536 \
+            -use_value_profile=1 \
+            -dict="$DICT" \
+            -seed="$SEED" \
+            -print_final_stats=1 \
+            -artifact_prefix="${ARTIFACTS}/" \
+            > "fuzz-artifacts/${TARGET}.log" 2>&1
+          TARGET_EXIT=$?
           set -e
 
-          echo "lexer_exit=$LEX_EXIT" >> "$GITHUB_OUTPUT"
-          echo "parser_exit=$PARSER_EXIT" >> "$GITHUB_OUTPUT"
-          printf '{"lexer":%s,"parser":%s}\n' "$LEX_EXIT" "$PARSER_EXIT" \
-            > fuzz-artifacts/exit-codes.json
+          echo "target_exit=${TARGET_EXIT}" >> "$GITHUB_OUTPUT"
+          printf '{"%s":%s}\n' "$TARGET" "$TARGET_EXIT" > fuzz-artifacts/exit-codes.json
+
+      - name: Save evolved corpus
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: fuzz-work/${{ matrix.target }}/corpus
+          key: styio-weekly-fuzz-${{ matrix.target }}-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload evolved corpus
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: weekly-fuzz-corpus-${{ matrix.target }}
+          path: fuzz-work/${{ matrix.target }}/corpus/
+          if-no-files-found: ignore
 
       - name: Build regression case pack
         if: always()
@@ -75,13 +149,13 @@ jobs:
           ./scripts/fuzz-regression-pack.sh \
             --artifacts-root ./fuzz-artifacts \
             --out-dir ./fuzz-regressions \
-            --run-id "gh-${{ github.run_id }}-${{ github.run_attempt }}"
+            --run-id "gh-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target }}"
 
       - name: Upload fuzz artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: nightly-fuzz-artifacts
+          name: weekly-fuzz-artifacts-${{ matrix.target }}
           path: fuzz-artifacts/
           if-no-files-found: ignore
 
@@ -89,22 +163,19 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: nightly-fuzz-regressions
+          name: weekly-fuzz-regressions-${{ matrix.target }}
           path: fuzz-regressions/
           if-no-files-found: ignore
 
       - name: Fail job on fuzz crash
         if: always()
         run: |
-          LEX_EXIT="${{ steps.deep_fuzz.outputs.lexer_exit }}"
-          PARSER_EXIT="${{ steps.deep_fuzz.outputs.parser_exit }}"
-
-          if [ -z "$LEX_EXIT" ] || [ -z "$PARSER_EXIT" ]; then
-            echo "Deep fuzz did not produce exit codes."
+          TARGET_EXIT="${{ steps.deep_fuzz.outputs.target_exit }}"
+          if [ -z "$TARGET_EXIT" ]; then
+            echo "Deep fuzz did not produce an exit code."
             exit 1
           fi
-
-          if [ "$LEX_EXIT" -ne 0 ] || [ "$PARSER_EXIT" -ne 0 ]; then
-            echo "Fuzz target failed: lexer=$LEX_EXIT parser=$PARSER_EXIT"
+          if [ "$TARGET_EXIT" -ne 0 ]; then
+            echo "Fuzz target failed: ${{ matrix.target }}=$TARGET_EXIT"
             exit 1
           fi
