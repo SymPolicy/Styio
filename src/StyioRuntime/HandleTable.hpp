@@ -37,6 +37,7 @@ public:
 private:
   std::vector<Entry> entries_;
   std::vector<HandleId> free_handles_;
+  std::size_t occupied_count_ = 0;
 
   static bool is_indexable(HandleId id) {
     return id > 0;
@@ -74,6 +75,7 @@ private:
     }
     *entry = Entry{};
     free_handles_.push_back(id);
+    --occupied_count_;
   }
 
 public:
@@ -91,6 +93,7 @@ public:
       entries_.push_back(Entry{kind, ptr, true});
       id = static_cast<HandleId>(entries_.size());
     }
+    ++occupied_count_;
     return id;
   }
 
@@ -167,6 +170,7 @@ public:
       entries_.push_back(Entry{kind, nullptr, false});
       id = static_cast<HandleId>(entries_.size());
     }
+    ++occupied_count_;
     return id;
   }
 
@@ -180,13 +184,7 @@ public:
   }
 
   size_t size() const {
-    size_t count = 0;
-    for (const Entry& entry : entries_) {
-      if (occupied(entry)) {
-        ++count;
-      }
-    }
-    return count;
+    return occupied_count_;
   }
 };
 

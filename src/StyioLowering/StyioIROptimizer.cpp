@@ -1316,6 +1316,12 @@ StyioIRPassManager::run(
   StyioIR* root,
   const StyioIRPassPipelineOptions& options
 ) const {
+  // Any new pass-manager ownership invalidates a prior codegen certificate.
+  // Only require_default_styio_ir_pass_pipeline() republishes it after the
+  // complete, non-deferred boundary succeeds.
+  if (auto* main = dynamic_cast<SGMainEntry*>(root)) {
+    main->verified_for_codegen = false;
+  }
   StyioIRPassPipelineResult result;
   result.root = root;
   if (options.collect_ir_dumps) {
@@ -1538,6 +1544,12 @@ require_default_styio_ir_pass_pipeline(
 ) {
   StyioIRPassPipelineResult result = run_default_styio_ir_pass_pipeline(root, options);
   if (result.ok()) {
+    if (options.verify_before
+        && !options.verifier_options.defer_unresolved_loop_control) {
+      if (auto* main = dynamic_cast<SGMainEntry*>(result.root)) {
+        main->verified_for_codegen = true;
+      }
+    }
     return result.root;
   }
   throw StyioTypeError("StyioIR pass pipeline failed: " + result.diagnostics.front().message);

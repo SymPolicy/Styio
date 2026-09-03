@@ -126,6 +126,7 @@ Key SSOTs:
 88. Run `python3 scripts/repo-hygiene-gate.py --mode residue` before delivery to detect ignored build roots, profiling output, test-discovery files, caches, and platform metadata that tracked-only scans cannot see.
 89. Keep the compiler-entry line ceiling in `scripts/monolith-line-ratchet-gate.py`, the tool registry, and scheduler profiles synchronized; raising the ceiling is not a substitute for the separately registered split backlog.
 90. When weekly fuzz cadence or corpus-backflow docs change, refresh the Frontend and Test Quality runbooks, regenerate `docs/teams/INDEX.md`, and update `DOC-STATS.md` in the same delivery so generated inventory and size snapshots stay aligned.
+91. Describe runtime absence as the implemented tagged value boundary, not as an integer sentinel or implicit algebraic propagation. Keep the language design, research note, intrinsic table, resource-driver contract, performance route, owning runbooks, and test catalog aligned whenever the value ABI changes; distinguish implemented lazy `|` recovery from deferred diagnostic metadata and `??` extraction.
 
 ## Change Classes
 

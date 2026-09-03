@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-04
 
 ## Mission
 
@@ -71,6 +71,7 @@ Key handoff document:
 33. Callable specialization disk reuse is an explicit full/nano operational option. `--callable-cache-dir` is the sole enablement switch; age, byte, and file limits without it are CLI errors. Keep default limits at seven days, 256 MiB, and 4,096 artifacts unless the feature SSOT changes, and keep limit values positive and bounded. `--callable-cache-stats` must emit exactly one path-free schema-v1 JSON object only when requested. Add every cache translation unit to the shared backend source list so full and nano use the same object schema, while their channel facts retain separate namespaces.
 34. Keep the ecosystem machine-contract matrix under `docs/external/for-pafio/` as a formal contract projection, not an implementation plan. When a public command, owner, consumer, producer identity, or hosted boundary changes, update the matrix, Pafio handoff, ecosystem document gate, and consumer mirrors in one closure.
 35. Run `python3 scripts/monolith-line-ratchet-gate.py` for changes that can affect `src/main.cpp`; the measured 7,584-line ceiling may decrease after extraction work but must not increase to accommodate new non-CLI responsibilities.
+36. Treat callable value-ABI revisions as one-way compiler migrations. A new runtime value representation must bump the callable backend ABI marker in full and nano builds; reject older artifacts instead of dual-reading them while preserving source-language diagnostics and opt-in cache controls.
 
 ## Change Classes
 

@@ -84,78 +84,13 @@ lowering_string_type() {
   return StyioDataType{StyioDataTypeOption::String, "string", 0};
 }
 
-// Resource-topology validation is mandatory for general programs.  A large
-// compiler-phase workload is a flat chain of typed mutable bindings whose
-// values are scalar literals, names, and binary expressions only; this narrow
-// proof excludes every resource-bearing AST form and permits a safe fast
-// path without weakening diagnostics for any other syntax.
-bool
-resource_free_scalar_expression(StyioAST* ast) {
-  if (ast == nullptr) {
-    return false;
-  }
-  switch (ast->getNodeType()) {
-    case StyioNodeType::Integer:
-    case StyioNodeType::Float:
-    case StyioNodeType::Bool:
-    case StyioNodeType::Char:
-    case StyioNodeType::String:
-      return true;
-    case StyioNodeType::Id: {
-      const StyioDataType type = static_cast<NameAST*>(ast)->getDataType();
-      // Names may carry a materialized collection/handle type even when the
-      // expression itself is syntactically scalar.  Those values participate
-      // in resource topology (matrix/list/dict/task/IO handles) and therefore
-      // must not enter the validation-free path.  Keep undefined names
-      // accepted here: type inference supplies the concrete scalar type for
-      // normal flat chains before lowering, while an unresolved name is still
-      // diagnosed by the regular lowering/sema path.
-      return !styio_is_topology_resource_type(type)
-        && !styio_type_is_resource_handle(type)
-        && !styio_is_callable_type(type);
-    }
-    case StyioNodeType::BinOp: {
-      auto* binop = static_cast<BinOpAST*>(ast);
-      return resource_free_scalar_expression(binop->getLHS())
-        && resource_free_scalar_expression(binop->getRHS());
-    }
-    default:
-      return false;
-  }
-}
-
-bool
-main_block_is_resource_free_scalar_chain(MainBlockAST* ast) {
-  if (ast == nullptr || ast->getStmts().empty()) {
-    return false;
-  }
-  for (auto* stmt : ast->getStmts()) {
-    if (auto* bind = dynamic_cast<FlexBindAST*>(stmt)) {
-      if (!resource_free_scalar_expression(bind->getValue())) {
-        return false;
-      }
-      continue;
-    }
-    if (auto* print = dynamic_cast<PrintAST*>(stmt)) {
-      for (auto* expr : print->exprs) {
-        if (!resource_free_scalar_expression(expr)) {
-          return false;
-        }
-      }
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
-
 bool
 resource_topology_fast_path_eligible(
   MainBlockAST* ast,
   bool imported_callable_definitions_empty
 ) {
   return imported_callable_definitions_empty
-    && main_block_is_resource_free_scalar_chain(ast);
+    && styio::resource_topology::validation_is_noop_for_scalar_program(ast);
 }
 
 StyioIR*
@@ -1456,10 +1391,25 @@ slot_byte_size(const SGStateSlotDesc& d) {
       return 8 + 8 * n + 8;
     case SGStateSlotKind::WinAvg:
     case SGStateSlotKind::WinMax:
-      return n * 8 + 32 + n * 8 + 8;
+      /* Input window, three accumulator words, tagged current result,
+         tagged result-history window, and history cursor. */
+      return n * 8 + 24 + 16 + n * 16 + 8;
     default:
       return 8;
   }
+}
+
+bool
+state_slot_carries_absence(const SGPulsePlan& plan, int slot_id) {
+  if (slot_id < 0) {
+    throw StyioTypeError("pulse state slot id is invalid");
+  }
+  const auto index = static_cast<std::size_t>(slot_id);
+  if (index >= plan.slots.size() || plan.slots[index].id != slot_id) {
+    throw StyioTypeError("pulse state slot metadata is inconsistent");
+  }
+  const SGStateSlotKind kind = plan.slots[index].kind;
+  return kind == SGStateSlotKind::WinAvg || kind == SGStateSlotKind::WinMax;
 }
 
 void
@@ -5054,7 +5004,9 @@ AstToStyioIRLowerer::toStyioIR(StateRefAST* ast) {
   if (it == pl->ref_to_slot.end()) {
     throw StyioTypeError("unknown state reference");
   }
-  return SGStateSnapLoad::Create(it->second);
+  return SGStateSnapLoad::Create(
+    it->second,
+    state_slot_carries_absence(*pl, it->second));
 }
 
 StyioIR*
@@ -5076,7 +5028,11 @@ AstToStyioIRLowerer::toStyioIR(HistoryProbeAST* ast) {
     throw StyioTypeError("unknown state in history probe");
   }
   int dep = window_n_from_ast(ast->getDepth());
-  return SGStateHistLoad::Create(it->second, dep, ledger_region);
+  return SGStateHistLoad::Create(
+    it->second,
+    dep,
+    ledger_region,
+    state_slot_carries_absence(*pl, it->second));
 }
 
 StyioIR*

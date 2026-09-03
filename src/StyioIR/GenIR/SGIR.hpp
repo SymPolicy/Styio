@@ -700,6 +700,10 @@ public:
     delete expr;
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override {
+    if (expr) out.push_back(expr);
+  }
+
   static SGReturn* Create(
     StyioIR* expr,
     StyioDataType type = StyioDataType{
@@ -759,6 +763,10 @@ class SGMainEntry : public StyioIRTraits<SGMainEntry>
 {
 public:
   std::vector<StyioIR*> stmts;
+  // Set only by the complete lowering pass boundary after its final
+  // ownership/structure verification.  Codegen consumes the root without
+  // repeating the same full-tree walk; hand-built IR remains untrusted.
+  bool verified_for_codegen = false;
 
   SGMainEntry(std::vector<StyioIR*> stmts) :
       stmts(stmts) {
@@ -838,13 +846,14 @@ class SGStateSnapLoad : public StyioIRTraits<SGStateSnapLoad>
 {
 public:
   int slot_id = 0;
+  bool carries_absence = false;
 
-  explicit SGStateSnapLoad(int s) :
-      slot_id(s) {
+  SGStateSnapLoad(int s, bool absence) :
+      slot_id(s), carries_absence(absence) {
   }
 
-  static SGStateSnapLoad* Create(int s) {
-    return styio::session_alloc::make_ir<SGStateSnapLoad>(s);
+  static SGStateSnapLoad* Create(int s, bool carries_absence = false) {
+    return styio::session_alloc::make_ir<SGStateSnapLoad>(s, carries_absence);
   }
 };
 
@@ -855,13 +864,23 @@ public:
   int depth = 1;
   /* >=0: load from finalized pulse ledger after matching SGForEach/SIOFileLineIter exit */
   int pulse_region_id = -1;
+  bool carries_absence = false;
 
-  SGStateHistLoad(int s, int d, int region = -1) :
-      slot_id(s), depth(d), pulse_region_id(region) {
+  SGStateHistLoad(int s, int d, int region, bool absence) :
+      slot_id(s), depth(d), pulse_region_id(region), carries_absence(absence) {
   }
 
-  static SGStateHistLoad* Create(int s, int d, int region = -1) {
-    return styio::session_alloc::make_ir<SGStateHistLoad>(s, d, region);
+  static SGStateHistLoad* Create(
+    int s,
+    int d,
+    int region = -1,
+    bool carries_absence = false
+  ) {
+    return styio::session_alloc::make_ir<SGStateHistLoad>(
+      s,
+      d,
+      region,
+      carries_absence);
   }
 };
 
@@ -1290,6 +1309,7 @@ inline void SGIf::collect_children(std::vector<StyioIR*>& out) {
 inline void SGMatch::collect_children(std::vector<StyioIR*>& out) {
   if (scrutinee) out.push_back(static_cast<StyioIR*>(scrutinee));
   for (auto& p : int_arms) out.push_back(static_cast<StyioIR*>(p.second));
+  if (default_arm) out.push_back(static_cast<StyioIR*>(default_arm));
 }
 
 inline void SGWaveMerge::collect_children(std::vector<StyioIR*>& out) {

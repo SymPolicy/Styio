@@ -271,8 +271,8 @@ If `on_subscribe` returns false, the runtime:
 
 If a driver encounters an error during streaming (network timeout, corrupt data):
 1. Emit a tick with `is_undefined = true` and a `reason_code`
-2. The Styio pipeline receives `@` with tainted metadata
-3. The pipeline continues operating (graceful degradation via `@` propagation)
+2. The Styio pipeline receives an explicitly tagged `@` value with the available reason metadata
+3. The pipeline may persist or format that tagged absence, or recover it through value fallback before ordinary scalar computation
 
 ### 10.3 Reason Codes
 

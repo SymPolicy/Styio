@@ -4555,6 +4555,7 @@ TEST(StyioFeatureCorpus, NightlyExecutesStablePositiveDesignSamples) {
     "tests/features/scalar_expressions/t18_bool.styio",
     "tests/features/scalar_expressions/t19_chain_bind.styio",
     "tests/features/scalar_expressions/t20_combined.styio",
+    "tests/features/scalar_expressions/t21_full_i64_domain.styio",
     "tests/features/state_resources/t01_scan.styio",
     "tests/features/state_resources/t02_running_max.styio",
     "tests/features/state_resources/t03_window_avg.styio",
