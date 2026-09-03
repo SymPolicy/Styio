@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -168,10 +169,15 @@ struct HoverResult
 struct TextBuffer
 {
 private:
-  std::string text_;
-  std::vector<std::size_t> line_starts_;
+  struct Storage
+  {
+    std::string text;
+    std::vector<std::size_t> line_starts;
+  };
 
-  void rebuild_line_starts();
+  std::shared_ptr<const Storage> storage_;
+  static std::shared_ptr<const Storage> make_storage(std::string text);
+  const std::vector<std::size_t>& line_starts() const;
 
 public:
   TextBuffer() = default;
@@ -180,15 +186,16 @@ public:
   void reset(std::string text);
 
   const std::string& text() const {
-    return text_;
+    static const std::string empty;
+    return storage_ ? storage_->text : empty;
   }
 
   bool empty() const {
-    return text_.empty();
+    return text().empty();
   }
 
   std::size_t size() const {
-    return text_.size();
+    return text().size();
   }
 
   Position position_at(std::size_t offset) const;

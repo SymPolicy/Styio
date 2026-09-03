@@ -523,6 +523,19 @@ find_hir_symbol(
 
 }  // namespace
 
+TEST(StyioTextBuffer, CopiesRemainImmutableAfterReset) {
+  styio::ide::TextBuffer original("alpha\nbeta");
+  const styio::ide::TextBuffer snapshot = original;
+
+  original.reset("changed");
+
+  EXPECT_EQ(original.text(), "changed");
+  EXPECT_EQ(snapshot.text(), "alpha\nbeta");
+  const styio::ide::Position position = snapshot.position_at(8);
+  EXPECT_EQ(position.line, 1u);
+  EXPECT_EQ(position.character, 2u);
+}
+
 TEST(StyioVfs, AppliesSequentialTextEdits) {
   styio::ide::VirtualFileSystem vfs;
   const std::string path = make_temp_dir() + "/vfs_multi_edit.styio";

@@ -127,6 +127,7 @@ Key SSOTs:
 89. Keep the compiler-entry line ceiling in `scripts/monolith-line-ratchet-gate.py`, the tool registry, and scheduler profiles synchronized; raising the ceiling is not a substitute for the separately registered split backlog.
 90. When weekly fuzz cadence or corpus-backflow docs change, refresh the Frontend and Test Quality runbooks, regenerate `docs/teams/INDEX.md`, and update `DOC-STATS.md` in the same delivery so generated inventory and size snapshots stay aligned.
 91. Describe runtime absence as the implemented tagged value boundary, not as an integer sentinel or implicit algebraic propagation. Keep the language design, research note, intrinsic table, resource-driver contract, performance route, owning runbooks, and test catalog aligned whenever the value ABI changes; distinguish implemented lazy `|` recovery from deferred diagnostic metadata and `??` extraction.
+92. Keep IDE snapshot-storage and incremental-parser performance evidence in the test catalog, IDE/LSP runbook, grammar runbook, performance runbook, and Test Quality runbook as one documentation unit; refresh `DOC-STATS.md` whenever that unit changes.
 
 ## Change Classes
 
