@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-09-04
 
 ## Mission
 
@@ -31,6 +31,7 @@ Primary paths:
 8. Generated support headers may be edited only for repository-public wording cleanup or regenerated artifact hygiene; keep those edits narrow and rerun grammar/IDE gates when behavior changes.
 9. Tree-sitter and fallback syntax snapshots are non-authoritative editor aids. Accepted grammar must be proven through the hand-written nightly compiler parser and [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), not by Tree-sitter success.
 10. Range editing support must distinguish naked `start..end` as `range_expr` from bracketed `[start..end]` as `materialized_range`; do not let `[start..end]` collapse to a one-element `list_literal`, and keep `[start..end..step]` reserved rather than an active editor grammar form.
+11. Keep Tree-sitter snapshot range helpers single-pass on the source buffer. A newline-range check performs one lookup and reuses its result; verify adapter behavior with the IDE suite and retain the Tree-sitter ON/OFF fallback contract.
 
 ## Change Classes
 

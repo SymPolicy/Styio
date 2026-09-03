@@ -55,6 +55,7 @@ High-value docs:
 23. Keep the required external integration inventory identical in `benchmark/CMakeLists.txt`, the scheduled linkage workflow, and the authority handoff. The contract currently contains eight files: core manifest/runner, probe utility/core/soak/scheduler sources, JSON smoke coverage, and the C++ benchmark evidence test.
 24. The scheduled benchmark job is report-only: inventory every missing path before required-mode configure, retain configure/build logs even on failure, and build `styio_core_benchmark_evidence_test` alongside the core, soak, and scheduler probes when the external checkout is complete.
 25. Compiler-phase scalar sweeps must measure one complete pass and publish all five boundaries from that pass. Preserve linear work by sharing the resource-free topology proof across Sema/lowering and by reusing only the final non-deferred StyioIR verifier result at codegen; never weaken verification for raw IR to improve a phase cell.
+26. IDE latency measurements must preserve the frozen p95 budgets. Optimize incremental parsing by sharing immutable `TextBuffer` storage across VFS, syntax snapshots, and parser cache entries, and by constructing ranged tolerant tokens once. Do not raise the threshold, omit slow samples, or attribute an incremental improvement to Tree-sitter reuse while another full-source token representation or source-string copy remains on the hot path. Run the latency test without competing benchmark processes and repeat it after a cache/storage change.
 
 ## Change Classes
 

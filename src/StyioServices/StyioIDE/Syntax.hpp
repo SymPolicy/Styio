@@ -86,7 +86,7 @@ private:
   struct IncrementalCacheEntry
   {
     SnapshotId snapshot_id = 0;
-    std::string text;
+    TextBuffer buffer;
     std::shared_ptr<void> backend_tree;
   };
 

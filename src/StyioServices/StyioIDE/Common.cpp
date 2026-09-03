@@ -104,73 +104,87 @@ utf16_units_between(const std::string& text, std::size_t start, std::size_t end)
 
 }  // namespace
 
-void
-TextBuffer::rebuild_line_starts() {
-  line_starts_.clear();
-  line_starts_.push_back(0);
-
-  for (std::size_t i = 0; i < text_.size(); ++i) {
-    if (text_[i] == '\n') {
-      line_starts_.push_back(i + 1);
+std::shared_ptr<const TextBuffer::Storage>
+TextBuffer::make_storage(std::string text) {
+  auto storage = std::make_shared<Storage>();
+  storage->text = std::move(text);
+  storage->line_starts.push_back(0);
+  for (std::size_t i = 0; i < storage->text.size(); ++i) {
+    if (storage->text[i] == '\n') {
+      storage->line_starts.push_back(i + 1);
     }
   }
+  return storage;
 }
 
-TextBuffer::TextBuffer(std::string text) :
-    text_(std::move(text)) {
-  rebuild_line_starts();
+const std::vector<std::size_t>&
+TextBuffer::line_starts() const {
+  static const std::vector<std::size_t> empty;
+  return storage_ ? storage_->line_starts : empty;
+}
+
+TextBuffer::TextBuffer(std::string text) {
+  reset(std::move(text));
 }
 
 void
 TextBuffer::reset(std::string text) {
-  text_ = std::move(text);
-  rebuild_line_starts();
+  storage_ = make_storage(std::move(text));
 }
 
 Position
 TextBuffer::position_at(std::size_t offset) const {
-  if (line_starts_.empty()) {
+  const auto& starts = line_starts();
+  const auto& source = text();
+  if (starts.empty()) {
     return Position{};
   }
 
-  if (offset > text_.size()) {
-    offset = text_.size();
+  if (offset > source.size()) {
+    offset = source.size();
   }
 
-  const auto it = std::upper_bound(line_starts_.begin(), line_starts_.end(), offset);
-  const std::size_t line = it == line_starts_.begin() ? 0 : static_cast<std::size_t>((it - line_starts_.begin()) - 1);
-  return Position{line, offset - line_starts_[line]};
+  const auto it = std::upper_bound(starts.begin(), starts.end(), offset);
+  const std::size_t line = it == starts.begin()
+    ? 0
+    : static_cast<std::size_t>((it - starts.begin()) - 1);
+  return Position{line, offset - starts[line]};
 }
 
 Position
 TextBuffer::utf16_position_at(std::size_t offset) const {
   const Position byte_position = position_at(offset);
-  if (line_starts_.empty()) {
+  const auto& starts = line_starts();
+  const auto& source = text();
+  if (starts.empty()) {
     return byte_position;
   }
 
-  const std::size_t line = std::min(byte_position.line, line_starts_.size() - 1);
+  const std::size_t line = std::min(byte_position.line, starts.size() - 1);
   return Position{
     line,
-    utf16_units_between(text_, line_starts_[line], std::min(offset, text_.size()))};
+    utf16_units_between(source, starts[line], std::min(offset, source.size()))};
 }
 
 std::size_t
 TextBuffer::offset_at(Position position) const {
-  if (line_starts_.empty()) {
+  const auto& starts = line_starts();
+  const auto& source = text();
+  if (starts.empty()) {
     return 0;
   }
 
-  const std::size_t line = std::min(position.line, line_starts_.size() - 1);
-  const std::size_t line_start = line_starts_[line];
-  const std::size_t next_line_start = line + 1 < line_starts_.size() ? line_starts_[line + 1] : text_.size();
+  const std::size_t line = std::min(position.line, starts.size() - 1);
+  const std::size_t line_start = starts[line];
+  const std::size_t next_line_start =
+    line + 1 < starts.size() ? starts[line + 1] : source.size();
   const std::size_t line_len = next_line_start >= line_start ? next_line_start - line_start : 0;
   return line_start + std::min(position.character, line_len);
 }
 
 std::size_t
 TextBuffer::utf16_length(TextRange range) const {
-  return utf16_units_between(text_, range.start, range.end);
+  return utf16_units_between(text(), range.start, range.end);
 }
 
 std::vector<std::pair<std::size_t, std::size_t>>
@@ -178,7 +192,8 @@ TextBuffer::build_line_seps() const {
   std::vector<std::pair<std::size_t, std::size_t>> seps;
   std::size_t line_start = 0;
   std::size_t line_len = 0;
-  for (char ch : text_) {
+  const auto& source = text();
+  for (char ch : source) {
     if (ch == '\n') {
       seps.emplace_back(line_start, line_len);
       line_start += line_len + 1;
@@ -187,7 +202,7 @@ TextBuffer::build_line_seps() const {
     }
     line_len += 1;
   }
-  if (!text_.empty() && text_.back() != '\n') {
+  if (!source.empty() && source.back() != '\n') {
     seps.emplace_back(line_start, line_len);
   }
   return seps;

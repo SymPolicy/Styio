@@ -12,12 +12,6 @@ namespace styio::ide {
 
 namespace {
 
-struct TolerantToken
-{
-  StyioTokenType type = StyioTokenType::UNKNOWN;
-  std::string lexeme;
-};
-
 bool
 is_identifier_start(char ch) {
   return std::isalpha(static_cast<unsigned char>(ch)) != 0 || ch == '_';
@@ -28,14 +22,19 @@ is_identifier_continue(char ch) {
   return std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '_';
 }
 
-std::vector<TolerantToken>
+std::vector<SyntaxToken>
 tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics) {
-  std::vector<TolerantToken> tokens;
+  std::vector<SyntaxToken> tokens;
   std::size_t i = 0;
 
   auto push = [&](StyioTokenType type, std::string lexeme)
   {
-    tokens.push_back(TolerantToken{type, std::move(lexeme)});
+    const std::size_t start = i;
+    const std::size_t end = start + lexeme.size();
+    tokens.push_back(SyntaxToken{
+      type,
+      std::move(lexeme),
+      TextRange{start, end}});
   };
 
   while (i < text.size()) {
@@ -384,7 +383,10 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
     i += 1;
   }
 
-  tokens.push_back(TolerantToken{StyioTokenType::TOK_EOF, ""});
+  tokens.push_back(SyntaxToken{
+    StyioTokenType::TOK_EOF,
+    "",
+    TextRange{text.size(), text.size()}});
   return tokens;
 }
 
@@ -688,26 +690,17 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
   std::vector<Diagnostic> diagnostics;
   std::unordered_set<std::string> diagnostic_keys;
   std::unordered_set<std::string> folding_keys;
-  const std::vector<TolerantToken> tolerant_tokens = tokenize_tolerant(snapshot.buffer.text(), diagnostics);
+  syntax.tokens = tokenize_tolerant(snapshot.buffer.text(), diagnostics);
   for (const auto& diagnostic : diagnostics) {
     diagnostic_keys.insert(diagnostic_key(diagnostic));
-  }
-
-  syntax.tokens.reserve(tolerant_tokens.size());
-  std::size_t cursor = 0;
-  for (const auto& token : tolerant_tokens) {
-    syntax.tokens.push_back(SyntaxToken{
-      token.type,
-      token.lexeme,
-      TextRange{cursor, cursor + token.lexeme.size()}});
-    cursor += token.lexeme.size();
   }
 
   const auto cache_it = incremental_cache_.find(snapshot.path);
   const std::shared_ptr<void> previous_tree =
     cache_it != incremental_cache_.end() ? cache_it->second.backend_tree : std::shared_ptr<void>{};
-  const std::string previous_text =
-    cache_it != incremental_cache_.end() ? cache_it->second.text : std::string{};
+  static const std::string empty_text;
+  const std::string& previous_text =
+    cache_it != incremental_cache_.end() ? cache_it->second.buffer.text() : empty_text;
 
   if (const auto tree_sitter_result = parse_with_tree_sitter(snapshot, previous_tree, previous_text); tree_sitter_result.has_value()) {
     syntax.backend = SyntaxBackendKind::TreeSitter;
@@ -716,7 +709,7 @@ SyntaxParser::parse(const DocumentSnapshot& snapshot) const {
     syntax.folding_ranges = tree_sitter_result->folding_ranges;
     incremental_cache_[snapshot.path] = IncrementalCacheEntry{
       snapshot.snapshot_id,
-      snapshot.buffer.text(),
+      snapshot.buffer,
       tree_sitter_result->tree};
     for (const auto& range : syntax.folding_ranges) {
       folding_keys.insert(std::to_string(range.range.start) + ":" + std::to_string(range.range.end));
