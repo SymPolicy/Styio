@@ -162,10 +162,16 @@ active source language. Historical fixtures such as `x = @`, `x + @`,
 `@` remains visible as an absence marker produced by resources/intrinsics and in
 diagnostics.
 
-**Propagation rules:**
-- absence produced by resource/intrinsic execution propagates through supported
-  arithmetic and logical operators
-- absence short-circuits through expressions until explicitly intercepted
+**Representation and use rules:**
+- absence-producing resource and pulse intrinsics carry an explicit
+  `(is_defined, value)` tag in compiler IR and the native value ABI
+- ordinary `i64` remains an untagged machine integer and includes the complete
+  signed 64-bit domain, including `-9223372036854775808`
+- absence-carrying values may be bound, persisted, or formatted as `@`, but
+  must be intercepted with value fallback before ordinary arithmetic,
+  comparison, logical operators, or a callable/runtime argument ABI
+- `value | fallback` evaluates the fallback lazily only when the left value is
+  absent; it never evaluates the fallback for an ordinary scalar value
 
 **Diagnostic tainting (debug mode):**
 In debug builds, `@` carries metadata (reason code, source location) enabling root-cause tracing via `.reason()`.
@@ -1363,9 +1369,13 @@ $"Price is {p}, Volume is {v}" -> @stdout
 
 If a resource schema mismatch is detected (e.g., accessing a non-existent database column), the program terminates immediately at connection time — **before** the first data pulse. No silent degradation.
 
-### 13.2 Algebraic Propagation for Data Errors
+### 13.2 Tagged Absence for Data Errors
 
-Missing data within a stream becomes runtime absence, displayed as `@` in diagnostics and terminal formatting. It propagates through supported downstream computations; user code should not manufacture this state with a standalone `@` literal.
+Missing data within a stream becomes explicitly tagged runtime absence and is
+displayed as `@` in diagnostics and terminal formatting. It does not reserve a
+scalar bit pattern and does not implicitly enter ordinary arithmetic. A value
+fallback must recover it before scalar computation; user code cannot
+manufacture absence with a standalone `@` literal.
 
 ### 13.3 Diagnostic Tracing
 
@@ -1384,13 +1394,10 @@ type behavior, and runtime route are implemented.
 safe_price = price | @last_valid_price[-1]    // value fallback if price carries runtime absence
 ```
 
-Value-level absence fallback is a design target. Current implemented recovery
-evidence is the resource-effect form `?| operation | fallback` and its named
-handler variants described in the active test catalog.
-
-The `|` operator provides a value fallback when the left side carries runtime
-absence. Resource failures do not use bare `|`; they use
-`?| resource_operation | fallback`.
+The `|` operator provides lazy value fallback when the left side carries the
+compiler's tagged runtime-absence representation. The current native value ABI
+covers absence-producing `i64` pulse/state values. Resource failures do not use
+bare `|`; they use `?| resource_operation | fallback`.
 
 ---
 

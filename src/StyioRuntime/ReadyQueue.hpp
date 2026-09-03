@@ -4,8 +4,8 @@
 
 #include <condition_variable>
 #include <cstddef>
-#include <deque>
 #include <mutex>
+#include <vector>
 
 namespace styio::runtime {
 
@@ -40,7 +40,8 @@ public:
   static constexpr std::size_t kDefaultCapacity = 4096;
 
   explicit BoundedReadyQueue(std::size_t capacity = kDefaultCapacity)
-    : capacity_(valid_capacity(capacity) ? capacity : kDefaultCapacity) {
+    : capacity_(valid_capacity(capacity) ? capacity : kDefaultCapacity),
+      slots_(capacity_, nullptr) {
   }
 
   BoundedReadyQueue(const BoundedReadyQueue&) = delete;
@@ -57,22 +58,26 @@ public:
     if (closed_) {
       return ReadyQueuePushResult::Closed;
     }
-    if (queue_.size() == capacity_) {
+    if (size_ == capacity_) {
       ++pressure_events_;
       ++producer_waits_;
       ++waiting_producers_;
       not_full_.wait(lock, [this]() {
-        return closed_ || queue_.size() < capacity_;
+        return closed_ || size_ < capacity_;
       });
       --waiting_producers_;
       if (closed_) {
         return ReadyQueuePushResult::Closed;
       }
     }
-    queue_.push_back(task);
+    slots_[tail_] = task;
+    if (++tail_ == capacity_) {
+      tail_ = 0;
+    }
+    ++size_;
     ++accepted_pushes_;
-    if (queue_.size() > peak_depth_) {
-      peak_depth_ = queue_.size();
+    if (size_ > peak_depth_) {
+      peak_depth_ = size_;
     }
     lock.unlock();
     not_empty_.notify_one();
@@ -82,17 +87,21 @@ public:
   /// Returns no item only once the queue is both closed and drained.
   void* wait_pop() {
     std::unique_lock<std::mutex> lock(mu_);
-    if (queue_.empty() && !closed_) {
+    if (size_ == 0 && !closed_) {
       ++consumer_waits_;
       ++waiting_consumers_;
-      not_empty_.wait(lock, [this]() { return closed_ || !queue_.empty(); });
+      not_empty_.wait(lock, [this]() { return closed_ || size_ != 0; });
       --waiting_consumers_;
     }
-    if (queue_.empty()) {
+    if (size_ == 0) {
       return nullptr;
     }
-    void* task = queue_.front();
-    queue_.pop_front();
+    void* task = slots_[head_];
+    slots_[head_] = nullptr;
+    if (++head_ == capacity_) {
+      head_ = 0;
+    }
+    --size_;
     ++pops_;
     lock.unlock();
     not_full_.notify_one();
@@ -115,7 +124,7 @@ public:
     std::lock_guard<std::mutex> lock(mu_);
     return ReadyQueueSnapshot{
       capacity_,
-      queue_.size(),
+      size_,
       peak_depth_,
       accepted_pushes_,
       pops_,
@@ -129,7 +138,7 @@ public:
 
   void reset_counters() {
     std::lock_guard<std::mutex> lock(mu_);
-    peak_depth_ = queue_.size();
+    peak_depth_ = size_;
     accepted_pushes_ = 0;
     pops_ = 0;
     pressure_events_ = 0;
@@ -143,7 +152,10 @@ private:
   mutable std::mutex mu_;
   std::condition_variable not_empty_;
   std::condition_variable not_full_;
-  std::deque<void*> queue_;
+  std::vector<void*> slots_;
+  std::size_t head_ = 0;
+  std::size_t tail_ = 0;
+  std::size_t size_ = 0;
   bool closed_ = false;
   std::size_t peak_depth_ = 0;
   std::size_t accepted_pushes_ = 0;

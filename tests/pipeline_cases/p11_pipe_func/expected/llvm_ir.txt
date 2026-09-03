@@ -1,144 +1,88 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
-
 @styio_str = private unnamed_addr constant [32 x i8] c"/tmp/styio_pipeline_numbers.txt\00", align 1
-@styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
-
 define i64 @double_it(i64 %x) {
 double_it_entry:
   %x1 = alloca i64, align 8
   store i64 %x, ptr %x1, align 8
-  %0 = load i64, ptr %x1, align 8
-  %1 = icmp eq i64 %0, -9223372036854775808
-  %2 = or i1 %1, false
-  %3 = mul i64 %0, 2
-  %4 = select i1 %2, i64 -9223372036854775808, i64 %3
-  %5 = call i32 @styio_runtime_has_error()
-  %6 = icmp ne i32 %5, 0
-  br i1 %6, label %runtime_fail, label %runtime_ok
-
+  %tmp = load i64, ptr %x1, align 8
+  %tmp = mul i64 %tmp, 2
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail, label %runtime_ok
 runtime_fail:                                     ; preds = %double_it_entry
   ret i64 0
-
 runtime_ok:                                       ; preds = %double_it_entry
-  ret i64 %4
+  ret i64 %tmp
 }
-
 define i32 @main() {
 main_entry:
-  %f = alloca i64, align 8
-  %0 = call i64 @styio_file_open(ptr @styio_str)
-  store i64 %0, ptr %f, align 8
-  %1 = call i32 @styio_runtime_has_error()
-  %2 = icmp ne i32 %1, 0
-  br i1 %2, label %runtime_fail, label %runtime_ok
-
-runtime_fail:                                     ; preds = %main_entry
-  %3 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %3)
-  store i64 0, ptr %f, align 8
-  ret i32 0
-
-runtime_ok:                                       ; preds = %main_entry
-  %4 = load i64, ptr %f, align 8
-  call void @styio_file_rewind(i64 %4)
-  br label %fline_hdr
-
-fline_hdr:                                        ; preds = %print_done, %runtime_ok
-  %5 = load i64, ptr %f, align 8
-  %6 = call ptr @styio_file_read_line(i64 %5)
-  %7 = icmp eq ptr %6, null
-  br i1 %7, label %fline_maybe_done, label %fline_body
-
-fline_body:                                       ; preds = %fline_hdr
   %line = alloca ptr, align 8
-  store ptr %6, ptr %line, align 8
-  %8 = load ptr, ptr %line, align 8
-  %9 = call i64 @styio_cstr_to_i64(ptr %8)
-  %10 = call i32 @styio_runtime_has_error()
-  %11 = icmp ne i32 %10, 0
-  br i1 %11, label %runtime_fail3, label %runtime_ok4
-
-fline_maybe_done:                                 ; preds = %fline_hdr
-  %12 = call i32 @styio_runtime_has_error()
-  %13 = icmp ne i32 %12, 0
-  br i1 %13, label %runtime_fail1, label %runtime_ok2
-
-fline_exit:                                       ; preds = %runtime_ok2
-  %14 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %14)
-  store i64 0, ptr %f, align 8
-  %15 = call i32 @styio_runtime_has_error()
-  %16 = icmp ne i32 %15, 0
-  br i1 %16, label %runtime_fail7, label %runtime_ok8
-
-runtime_fail1:                                    ; preds = %fline_maybe_done
-  %17 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %17)
+  %f = alloca i64, align 8
+  %tmp = call i64 @styio_file_open(ptr @styio_str)
+  store i64 %tmp, ptr %f, align 8
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail, label %runtime_ok
+runtime_fail:                                     ; preds = %main_entry
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
   store i64 0, ptr %f, align 8
   ret i32 0
-
+runtime_ok:                                       ; preds = %main_entry
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_rewind(i64 %tmp)
+  br label %fline_hdr
+fline_hdr:                                        ; preds = %runtime_ok6, %runtime_ok
+  %tmp = load i64, ptr %f, align 8
+  %tmp = call ptr @styio_file_read_line(i64 %tmp)
+  %tmp = icmp eq ptr %tmp, null
+  br i1 %tmp, label %fline_maybe_done, label %fline_body
+fline_body:                                       ; preds = %fline_hdr
+  store ptr %tmp, ptr %line, align 8
+  %tmp = load ptr, ptr %line, align 8
+  %tmp = call i64 @styio_cstr_to_i64(ptr %tmp)
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail3, label %runtime_ok4
+fline_maybe_done:                                 ; preds = %fline_hdr
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail1, label %runtime_ok2
+fline_exit:                                       ; preds = %runtime_ok2
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
+  store i64 0, ptr %f, align 8
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail7, label %runtime_ok8
+runtime_fail1:                                    ; preds = %fline_maybe_done
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
+  store i64 0, ptr %f, align 8
+  ret i32 0
 runtime_ok2:                                      ; preds = %fline_maybe_done
   br label %fline_exit
-
 runtime_fail3:                                    ; preds = %fline_body
-  %18 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %18)
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
   store i64 0, ptr %f, align 8
   ret i32 0
-
 runtime_ok4:                                      ; preds = %fline_body
-  %19 = call i64 @double_it(i64 %9)
-  %20 = call i32 @styio_runtime_has_error()
-  %21 = icmp ne i32 %20, 0
-  br i1 %21, label %runtime_fail5, label %runtime_ok6
-
+  %tmp = call i64 @double_it(i64 %tmp)
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail5, label %runtime_ok6
 runtime_fail5:                                    ; preds = %runtime_ok4
-  %22 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %22)
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
   store i64 0, ptr %f, align 8
   ret i32 0
-
 runtime_ok6:                                      ; preds = %runtime_ok4
-  %23 = icmp eq i64 %19, -9223372036854775808
-  br i1 %23, label %print_at, label %print_i64
-
-print_at:                                         ; preds = %runtime_ok6
-  call void @styio_stdout_write_cstr(ptr @styio_print_at)
-  br label %print_done
-
-print_i64:                                        ; preds = %runtime_ok6
-  %24 = call ptr @styio_i64_dec_cstr(i64 %19)
-  call void @styio_stdout_write_cstr(ptr %24)
-  br label %print_done
-
-print_done:                                       ; preds = %print_i64, %print_at
+  ; STYIO_STDOUT_I64 %tmp
   br label %fline_hdr
-
 runtime_fail7:                                    ; preds = %fline_exit
   ret i32 0
-
 runtime_ok8:                                      ; preds = %fline_exit
   ret i32 0
 }
-
-declare i64 @styio_file_open(ptr)
-
-declare i32 @styio_runtime_has_error()
-
-declare void @styio_file_close(i64)
-
-declare ptr @styio_file_read_line(i64)
-
-declare void @styio_file_rewind(i64)
-
-declare void @styio_stdout_write_cstr(ptr)
-
-declare ptr @styio_i64_dec_cstr(i64)
-
-declare ptr @styio_f64_dec_cstr(double)
-
-declare ptr @styio_char_cstr(i64)
-
-declare i64 @styio_cstr_to_i64(ptr)

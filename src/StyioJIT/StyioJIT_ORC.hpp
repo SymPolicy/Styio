@@ -21,6 +21,7 @@
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Target/TargetMachine.h"
 
 class StyioJIT_ORC
 {
@@ -31,6 +32,7 @@ private:
     CallableCache;
 
   llvm::DataLayout DL;
+  std::unique_ptr<llvm::TargetMachine> OptimizationTargetMachine;
   llvm::orc::MangleAndInterner Mangle;
 
   llvm::orc::RTDyldObjectLinkingLayer ObjectLayer;
@@ -43,6 +45,7 @@ public:
     std::unique_ptr<llvm::orc::ExecutionSession> ES,
     llvm::orc::JITTargetMachineBuilder JTMB,
     llvm::DataLayout DL,
+    std::unique_ptr<llvm::TargetMachine> optimization_target_machine,
     std::unique_ptr<
       styio::codegen::CallableSpecializationObjectCache>
       callable_cache
@@ -50,6 +53,7 @@ public:
       ES(std::move(ES)),
       CallableCache(std::move(callable_cache)),
       DL(std::move(DL)),
+      OptimizationTargetMachine(std::move(optimization_target_machine)),
       Mangle(*this->ES, this->DL),
       ObjectLayer(*this->ES, []()
                   {
@@ -95,6 +99,7 @@ public:
     add_symbol("styio_runtime_last_error_subcode", &styio_runtime_last_error_subcode);
     add_symbol("styio_runtime_error_matches_effect", &styio_runtime_error_matches_effect);
     add_symbol("styio_runtime_clear_error", &styio_runtime_clear_error);
+    add_symbol("styio_runtime_report_integer_division_error", &styio_runtime_report_integer_division_error);
     add_symbol("styio_runtime_set_log_sink", &styio_runtime_set_log_sink);
     add_symbol("styio_stdout_write_cstr", &styio_stdout_write_cstr);
     add_symbol("styio_stderr_write_cstr", &styio_stderr_write_cstr);
@@ -297,11 +302,15 @@ public:
 
     auto ES = std::make_unique<llvm::orc::ExecutionSession>(std::move(*EPC));
 
-    llvm::orc::JITTargetMachineBuilder JTMB(ES->getExecutorProcessControl().getTargetTriple());
+    auto JTMBOrError = llvm::orc::JITTargetMachineBuilder::detectHost();
+    if (!JTMBOrError)
+      return JTMBOrError.takeError();
+    llvm::orc::JITTargetMachineBuilder JTMB = std::move(*JTMBOrError);
 
-    auto DL = JTMB.getDefaultDataLayoutForTarget();
-    if (!DL)
-      return DL.takeError();
+    auto optimization_target_machine = JTMB.createTargetMachine();
+    if (!optimization_target_machine)
+      return optimization_target_machine.takeError();
+    llvm::DataLayout DL = (*optimization_target_machine)->createDataLayout();
 
     std::unique_ptr<
       styio::codegen::CallableSpecializationObjectCache>
@@ -317,12 +326,17 @@ public:
     return std::make_unique<StyioJIT_ORC>(
       std::move(ES),
       std::move(JTMB),
-      std::move(*DL),
+      std::move(DL),
+      std::move(*optimization_target_machine),
       std::move(callable_cache));
   }
 
   const llvm::DataLayout &getDataLayout() const {
     return DL;
+  }
+
+  llvm::TargetMachine& getOptimizationTargetMachine() const {
+    return *OptimizationTargetMachine;
   }
 
   llvm::orc::JITDylib &getMainJITDylib() {

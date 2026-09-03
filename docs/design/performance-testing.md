@@ -3,7 +3,7 @@
 **Purpose:** Point the compiler checkout at the external parity-v2 authority;
 workloads, runner, reports, and thresholds remain in `styio-benchmark`.
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-09-04
 
 The standards-derived contract is
 `styio-benchmark/workloads/parity-v2/contract.json`. It freezes independent
@@ -55,3 +55,14 @@ entries are discarded and the original source-link route remains the fallback.
 Set `STYIO_NATIVE_BUILD_PROFILE_OUT` or `STYIO_NATIVE_PROFILE_OUT` only for
 diagnostic runs outside timed parity samples; their JSON is phase attribution,
 not parity evidence.
+
+Compiler-phase attribution should keep generated straight-line programs linear
+in their binding count. Pre-size top-level semantic/codegen tables, use the
+direct scalar semantic path for new unannotated bool/i64/f64 bindings, share
+the narrow resource-free scalar proof between Sema and lowering, and let a
+complete non-deferred StyioIR boundary carry its final verifier result directly
+into LLVM emission. Hand-built or deferred IR remains untrusted. Rely on the
+verified LLVM O2 pipeline to promote eligible stack slots to SSA instead of
+adding a second whole-IR write-analysis pass. Use the `semantic-analysis` and
+`llvm-emission` reference cells to measure these paths; do not infer a win from
+total compile-and-run time alone.

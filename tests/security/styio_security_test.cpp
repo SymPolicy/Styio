@@ -2018,6 +2018,9 @@ TEST(StyioIRContract, IteratorAndInstantPullLoweringCoversResourceSpecificPaths)
 TEST(StyioIRContract, StateReferenceHistoryAndSeriesContextsStayExplicit) {
   AstToStyioIRLowerer analyzer;
   SGPulsePlan plan;
+  plan.slots.resize(8);
+  plan.slots[7].id = 7;
+  plan.slots[7].kind = SGStateSlotKind::Track;
   plan.ref_to_slot["state"] = 7;
 
   analyzer.set_cur_pulse_plan(&plan);
@@ -2047,6 +2050,17 @@ TEST(StyioIRContract, StateReferenceHistoryAndSeriesContextsStayExplicit) {
     }, StyioTypeError);
   }
   analyzer.set_cur_pulse_plan(nullptr);
+
+  {
+    SGPulsePlan inconsistent_plan;
+    inconsistent_plan.ref_to_slot["state"] = 7;
+    analyzer.set_cur_pulse_plan(&inconsistent_plan);
+    std::unique_ptr<StyioAST> ast(StateRefAST::Create(NameAST::Create("state")));
+    EXPECT_THROW({
+      std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
+    }, StyioTypeError);
+    analyzer.set_cur_pulse_plan(nullptr);
+  }
 
   analyzer.set_post_pulse_hist_context(42, &plan);
   {
@@ -11706,8 +11720,8 @@ TEST(StyioSecurityNightlyCodegen, PulsePlanCodegenCoversStateSlotsAndSeriesIntri
   auto plan = std::make_unique<SGPulsePlan>();
   plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::Acc, 0, 0, 8, 0, "", "total"});
   plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::Track, 1, 8, 32, 2, "", "track"});
-  plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::WinAvg, 2, 40, 88, 3, "", "avg"});
-  plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::WinMax, 3, 128, 72, 2, "", "maxv"});
+  plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::WinAvg, 2, 40, 120, 3, "", "avg"});
+  plan->slots.push_back(SGStateSlotDesc{SGStateSlotKind::WinMax, 3, 160, 96, 2, "", "maxv"});
   plan->commits = {
     {0, "total"},
     {1, "track"},
@@ -11720,7 +11734,7 @@ TEST(StyioSecurityNightlyCodegen, PulsePlanCodegenCoversStateSlotsAndSeriesIntri
     {"avg", 2},
     {"maxv", 3},
   };
-  plan->total_bytes = 200;
+  plan->total_bytes = 256;
 
   auto* pulse_loop = SGForEach::Create(
     SCListLiteral::Create({

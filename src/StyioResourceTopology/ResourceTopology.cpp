@@ -116,6 +116,34 @@ int_ast_positive(IntAST* ast) {
   }
 }
 
+bool
+resource_free_scalar_expression(StyioAST* ast) {
+  if (ast == nullptr) {
+    return false;
+  }
+  switch (ast->getNodeType()) {
+    case StyioNodeType::Integer:
+    case StyioNodeType::Float:
+    case StyioNodeType::Bool:
+    case StyioNodeType::Char:
+    case StyioNodeType::String:
+      return true;
+    case StyioNodeType::Id: {
+      const StyioDataType type = static_cast<NameAST*>(ast)->getDataType();
+      return !styio_is_topology_resource_type(type)
+        && !styio_type_is_resource_handle(type)
+        && !styio_is_callable_type(type);
+    }
+    case StyioNodeType::BinOp: {
+      auto* binop = static_cast<BinOpAST*>(ast);
+      return resource_free_scalar_expression(binop->getLHS())
+        && resource_free_scalar_expression(binop->getRHS());
+    }
+    default:
+      return false;
+  }
+}
+
 class Builder
 {
   BuildOptions options_;
@@ -1670,6 +1698,31 @@ build(MainBlockAST* ast, BuildOptions options) {
 BuildResult
 build(BlockAST* ast, BuildOptions options) {
   return Builder(std::move(options)).build(ast);
+}
+
+bool
+validation_is_noop_for_scalar_program(MainBlockAST* ast) {
+  if (ast == nullptr || ast->getStmts().empty()) {
+    return false;
+  }
+  for (auto* statement : ast->getStmts()) {
+    if (auto* bind = dynamic_cast<FlexBindAST*>(statement)) {
+      if (!resource_free_scalar_expression(bind->getValue())) {
+        return false;
+      }
+      continue;
+    }
+    if (auto* print = dynamic_cast<PrintAST*>(statement)) {
+      for (auto* expression : print->exprs) {
+        if (!resource_free_scalar_expression(expression)) {
+          return false;
+        }
+      }
+      continue;
+    }
+    return false;
+  }
+  return true;
 }
 
 void
