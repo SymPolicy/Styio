@@ -3,6 +3,9 @@
 #define STYIO_IR_BASE_H_
 
 // [C++ STL]
+#include <algorithm>
+#include <cstddef>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -13,8 +16,49 @@
 // [Styio]
 #include "../StyioSession/SessionAllocation.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
-#include "../StyioCodeGen/CodeGenVisitor.hpp"
 #include "IRDecl.hpp"
+
+template <typename... Types>
+class CodeGenVisitor;
+
+template <typename T>
+class CodeGenVisitor<T>
+{
+public:
+  virtual ~CodeGenVisitor() = default;
+  virtual llvm::Type* toLLVMType(T* node) = 0;
+  virtual llvm::Value* toLLVMIR(T* node) = 0;
+};
+
+template <typename T, typename... Types>
+class CodeGenVisitor<T, Types...> : public CodeGenVisitor<Types...>
+{
+public:
+  using CodeGenVisitor<Types...>::toLLVMType;
+  using CodeGenVisitor<Types...>::toLLVMIR;
+
+  virtual llvm::Type* toLLVMType(T* node) = 0;
+  virtual llvm::Value* toLLVMIR(T* node) = 0;
+};
+
+using StyioCodeGenVisitor = CodeGenVisitor<
+  SGResId, SGType, SGNoOp, SGConstBool, SGConstInt, SGConstFloat,
+  SGConstChar, SGConstString, SGFormatString, SGStruct, SGTupleCreate,
+  SGTupleGet, SGCast, SGBinOp, SGCond, SGVar, SGFlexBind, SGFinalBind,
+  SGDynLoad, SGFuncArg, SGFunc, SGCall, SGExportDecl, SGExternBlock,
+  SGReturn, SGLoop, SGForEach, SCListLiteral, SCDictLiteral,
+  SCMatrixLiteral, SGRangeFor, SGIf, SGStateSnapLoad, SGStateHistLoad,
+  SGSeriesAvgStep, SGSeriesMaxStep, SGMatch, SGBreak, SGContinue,
+  SGUndef, SGFallback, SGWaveMerge, SGWaveDispatch, SGGuardSelect,
+  SGEqProbe, SIOHandleAcquire, SIOHandleRelease, SIOFileLineIter,
+  SIOStreamZip, SGSnapshotDecl, SGSnapshotShadowLoad, SIOInstantPull,
+  SIOListReadStdin, SCListClone, SCMatrixClone, SCListLen, SCListGet,
+  SCListSlice, SCListSet, SCListToString, SCMatrixGet, SCMatrixRow,
+  SCMatrixRowsSlice, SCMatrixToString, SCDictClone, SCDictLen,
+  SCDictGet, SCDictSet, SCDictKeys, SCDictValues, SCDictToString,
+  SIOResourceWriteToFile, SIOStdStreamWrite, SIOResourceEffect,
+  SIOStdStreamLineIter, SIOStdStreamPull, SIOTaskCreate, SIOFlowBind,
+  SGBlock, SGEntry, SGMainEntry, SIOPath, SIOPrint, SIORead>;
 
 class StyioIR
 {
@@ -30,10 +74,10 @@ public:
   virtual std::string toString(StyioRepr* visitor, int indent = 0) = 0;
 
   /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(StyioToLLVM* visitor) = 0;
+  virtual llvm::Type* toLLVMType(StyioCodeGenVisitor* visitor) = 0;
 
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(StyioToLLVM* visitor) = 0;
+  virtual llvm::Value* toLLVMIR(StyioCodeGenVisitor* visitor) = 0;
 
   /* True when this node belongs to the active StyioIR surface. */
   virtual bool is_active() const = 0;
@@ -133,11 +177,11 @@ public:
     return visitor->toString(static_cast<Derived*>(this), indent);
   }
 
-  llvm::Type* toLLVMType(StyioToLLVM* visitor) override {
+  llvm::Type* toLLVMType(StyioCodeGenVisitor* visitor) override {
     return visitor->toLLVMType(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
+  llvm::Value* toLLVMIR(StyioCodeGenVisitor* visitor) override {
     return visitor->toLLVMIR(static_cast<Derived*>(this));
   }
 

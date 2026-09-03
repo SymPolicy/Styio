@@ -22,6 +22,7 @@ set(STYIO_FRONTEND_SEMA_IR_SOURCES
   StyioToString/ToString.cpp
   StyioIR/Verifier.cpp
   StyioIR/PortableCallableBody.cpp
+  StyioLowering/PortableCallableBody.cpp
   StyioSema/CallableInterface.cpp
   StyioSema/CallableModuleLoader.cpp
   StyioSema/CallableSpecializationGraph.cpp

@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-08-21
 
 ## Separation Rules
 
@@ -58,6 +58,7 @@ Current registered table:
 | Tool | `repo-hygiene-staged` | 10 | Docs / Ecosystem | Reject forbidden staged artifacts before checkpoint delivery. | `python3 scripts/repo-hygiene-gate.py --mode staged` |
 | Tool | `repo-hygiene-tracked` | 10 | Docs / Ecosystem | Reject forbidden tracked artifacts and repository cleanliness drift. | `python3 scripts/repo-hygiene-gate.py --mode tracked` |
 | Tool | `repo-hygiene-worktree` | 10 | Docs / Ecosystem | Reject forbidden worktree artifacts before local delivery. | `python3 scripts/repo-hygiene-gate.py --mode worktree` |
+| Tool | `monolith-line-ratchet` | 14 | CLI / Nano | Prevent the compiler entry file from growing beyond its measured migration ceiling. | `python3 scripts/monolith-line-ratchet-gate.py` |
 | Tool | `syntax-feature-state` | 15 | Language / Docs | Validate distributed syntax-feature SSOT documents, lifecycle guards, dependency closure, and generated graph freshness. | `python3 scripts/syntax-feature-state-gate.py` |
 | Tool | `runtime-surface` | 20 | Codegen / Runtime | Keep codegen helper calls, ExternLib exports, implementations, and ORC registrations aligned. | `python3 scripts/runtime-surface-gate.py` |
 | Tool | `team-docs-base` | 30 | Docs / Ecosystem | Require runbook updates for branch changes against a base ref. | `python3 scripts/team-docs-gate.py --base {base}` |
@@ -71,11 +72,11 @@ Current registered table:
 
 | Profile | Scope | Ordered Call Chain |
 |---------|-------|--------------------|
-| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tool/skill registry -> local-info scan -> tracked hygiene -> syntax-feature state -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-checkpoint` | Worktree process gates before checkpoint health. | tool/skill registry -> local-info scan -> worktree hygiene -> syntax-feature state -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | tool/skill registry -> staged local-info scan -> staged hygiene -> syntax-feature state -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-push` | Branch handoff against a base ref. | tool/skill registry -> push local-info scan -> push hygiene -> syntax-feature state -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
-| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tool/skill registry -> tracked local-info scan -> incoming local-info scan -> tracked hygiene -> incoming history hygiene -> syntax-feature state -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
+| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tool/skill registry -> local-info scan -> tracked hygiene -> line ratchet -> syntax-feature state -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-checkpoint` | Worktree process gates before checkpoint health. | tool/skill registry -> local-info scan -> worktree hygiene -> line ratchet -> syntax-feature state -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | tool/skill registry -> staged local-info scan -> staged hygiene -> line ratchet -> syntax-feature state -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-push` | Branch handoff against a base ref. | tool/skill registry -> push local-info scan -> push hygiene -> line ratchet -> syntax-feature state -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
+| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tool/skill registry -> tracked local-info scan -> incoming local-info scan -> tracked hygiene -> incoming history hygiene -> line ratchet -> syntax-feature state -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
 
 ## Required Commands
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-08-22
 
 ## Mission
 
@@ -12,8 +12,8 @@ Own edit-time developer experience and host integration. This team makes compile
 
 Primary paths:
 
-1. `src/StyioIDE/`
-2. `src/StyioLSP/`
+1. `src/StyioServices/StyioIDE/`
+2. `src/StyioServices/StyioLSP/`
 3. `docs/external/for-ide/`
 4. `tests/ide/styio_ide_test.cpp`
 
@@ -44,6 +44,7 @@ Build and test targets:
 17. Tolerant IDE tokenization should keep full multi-character continue lexemes such as `>>>` together for editor spans, but it must not imply a different compiler semantic depth than the parser-owned nearest-loop continue.
 18. Native macOS IDE/LSP builds must use the repository-level LLVM 18.1.x prefix and explicitly resolved macOS SDK instead of architecture-specific package paths. The macOS compatibility lane must build the real `styio_lspd` and fail if the byte-level stdio framing test is not registered.
 19. Treat a macOS compatibility build configured with `STYIO_ENABLE_TREE_SITTER=OFF` as offline compiler/LSP host evidence only; Tree-sitter-enabled syntax behavior still requires the focused IDE test path.
+20. Watched-file refreshes must accept only concrete closed `.styio` paths inside the selected workspace, coalesce duplicates, treat an empty change list as a no-op, and preserve an empty background-index tombstone for deleted files so stale persistent symbols cannot reappear.
 
 ## Change Classes
 
@@ -80,6 +81,12 @@ When LSP transport startup changes:
 cmake --build build/default --target styio_lspd
 ctest --test-dir build/default -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
 python3 scripts/docs-audit.py
+```
+
+When workspace indexing or watched-file handling changes:
+
+```bash
+ctest --test-dir build/default -R '^(StyioWorkspaceIndex\.(PersistentIndexClearsDeletedSymbolsOnNewSession|ClosedFileRefreshesFromDiskBeforeBackgroundIndexing)|StyioIdeProject\.EnvironmentFallbacksAndWorkspaceSkipsStayExplicit|StyioIdeService\.WatchFileRefreshFiltersAndCoalescesChangedPaths|StyioLspServer\.WatchFileChangesFilterAndCoalesceBackgroundRefresh)$' --output-on-failure --no-tests=error
 ```
 
 Native macOS compatibility after the repository-level configure:

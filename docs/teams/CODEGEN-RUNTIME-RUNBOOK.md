@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-21
 
 ## Mission
 
@@ -60,6 +60,7 @@ Related docs:
 30. Keep `SGEntry` and `SGMainEntry` on default-strict StyioIR verification before LLVM emission. Direct `SGBlock` codegen may enable only `defer_unresolved_loop_control` while `loop_stack_` is nonempty, because the active codegen loop supplies that fragment's enclosing-loop context; keep every other structural check enabled and never apply this exception to a final root.
 31. Structured tuple results are generation-checked runtime handles. Keep tuple declarations, definitions, ORC registrations, and codegen calls synchronized; make tuple storage own nested string/list/dict/matrix handles, make projections clone returned resource handles, and release every owned element deterministically when the tuple handle is released.
 32. Before JIT execution, require the current LLVM module to define its own non-declaration `main`; never satisfy an entrypoint lookup from the host process symbol table. Preserve the existing `styio: main not found` diagnostic for entrypoint-free modules.
+33. Resource-effect cleanup must be emitted only on control-flow paths dominated by the matching allocation. Treat non-dominating release verification failures as one codegen-family defect and preserve focused pipeline evidence for every affected container and matrix case.
 
 ## Change Classes
 

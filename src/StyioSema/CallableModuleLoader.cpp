@@ -7,6 +7,7 @@
 
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
+#include "../StyioLowering/PortableCallableBodyLowering.hpp"
 
 namespace styio::sema {
 namespace {

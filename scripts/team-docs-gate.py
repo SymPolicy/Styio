@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -11,6 +12,31 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def generated_plan_roots() -> tuple[Path, ...]:
+    manifest_path = ROOT / "docs" / "plan" / "Manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+    if not isinstance(manifest, dict):
+        return ()
+    roots: list[Path] = []
+    for entry in manifest.get("plans", []):
+        if not isinstance(entry, dict):
+            continue
+        directory = entry.get("directory")
+        if not isinstance(directory, str):
+            continue
+        relative = Path(directory)
+        if len(relative.parts) != 1 or relative.parts[0] in {"", ".", ".."}:
+            continue
+        roots.append(Path("docs/plan") / relative)
+    return tuple(roots)
+
+
+GENERATED_PLAN_ROOTS = generated_plan_roots()
 
 
 @dataclass(frozen=True)
@@ -258,6 +284,10 @@ def is_ignored_trigger(path: Path) -> bool:
     if path == DOC_STATS:
         return True
     if path.as_posix().startswith("docs/teams/"):
+        return True
+    if any(path == root or root in path.parents for root in GENERATED_PLAN_ROOTS):
+        return True
+    if path == Path("docs/plan/.better-plan.lock"):
         return True
     return False
 

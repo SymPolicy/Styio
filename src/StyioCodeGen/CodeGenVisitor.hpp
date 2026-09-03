@@ -13,7 +13,7 @@
 #include <vector>
 
 // [Styio]
-#include "../StyioIR/IRDecl.hpp"
+#include "../StyioIR/StyioIR.hpp"
 #include "../StyioJIT/StyioJIT_ORC.hpp"
 #include "../StyioNative/NativeInterop.hpp"
 
@@ -51,135 +51,6 @@ using std::make_shared;
 using std::make_unique;
 using std::shared_ptr;
 using std::unique_ptr;
-
-// Generic Visitor
-template <typename... Types>
-class CodeGenVisitor;
-
-template <typename T>
-class CodeGenVisitor<T>
-{
-public:
-  /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(T* t) = 0;
-
-  /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(T* t) = 0;
-};
-
-template <typename T, typename... Types>
-class CodeGenVisitor<T, Types...> : public CodeGenVisitor<Types...>
-{
-public:
-  using CodeGenVisitor<Types...>::toLLVMType;
-  using CodeGenVisitor<Types...>::toLLVMIR;
-
-  /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(T* t) = 0;
-
-  /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(T* t) = 0;
-};
-
-using StyioCodeGenVisitor = CodeGenVisitor<
-  class SGResId,
-  class SGType,
-  class SGNoOp,
-
-  class SGConstBool,
-
-  class SGConstInt,
-  class SGConstFloat,
-
-  class SGConstChar,
-  class SGConstString,
-  class SGFormatString,
-
-  class SGStruct,
-  class SGTupleCreate,
-  class SGTupleGet,
-
-  class SGCast,
-
-  class SGBinOp,
-  class SGCond,
-
-  class SGVar,
-  class SGFlexBind,
-  class SGFinalBind,
-  class SGDynLoad,
-
-  class SGFuncArg,
-  class SGFunc,
-  class SGCall,
-  class SGExportDecl,
-  class SGExternBlock,
-
-  class SGReturn,
-
-  class SGLoop,
-  class SGForEach,
-  class SCListLiteral,
-  class SCDictLiteral,
-  class SCMatrixLiteral,
-  class SGRangeFor,
-  class SGIf,
-  class SGStateSnapLoad,
-  class SGStateHistLoad,
-  class SGSeriesAvgStep,
-  class SGSeriesMaxStep,
-  class SGMatch,
-  class SGBreak,
-  class SGContinue,
-
-  class SGUndef,
-  class SGFallback,
-  class SGWaveMerge,
-  class SGWaveDispatch,
-  class SGGuardSelect,
-  class SGEqProbe,
-
-  class SIOHandleAcquire,
-  class SIOHandleRelease,
-  class SIOFileLineIter,
-  class SIOStreamZip,
-  class SGSnapshotDecl,
-  class SGSnapshotShadowLoad,
-  class SIOInstantPull,
-  class SIOListReadStdin,
-  class SCListClone,
-  class SCMatrixClone,
-  class SCListLen,
-  class SCListGet,
-  class SCListSlice,
-  class SCListSet,
-  class SCListToString,
-  class SCMatrixGet,
-  class SCMatrixRow,
-  class SCMatrixRowsSlice,
-  class SCMatrixToString,
-  class SCDictClone,
-  class SCDictLen,
-  class SCDictGet,
-  class SCDictSet,
-  class SCDictKeys,
-  class SCDictValues,
-  class SCDictToString,
-  class SIOResourceWriteToFile,
-  class SIOStdStreamWrite,
-  class SIOResourceEffect,
-  class SIOStdStreamLineIter,
-  class SIOStdStreamPull,
-  class SIOTaskCreate,
-  class SIOFlowBind,
-
-  class SGBlock,
-  class SGEntry,
-  class SGMainEntry,
-
-  class SIOPath,
-  class SIOPrint,
-  class SIORead>;
 
 class StyioToLLVM : public StyioCodeGenVisitor
 {

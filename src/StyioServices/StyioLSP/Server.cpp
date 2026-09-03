@@ -865,13 +865,8 @@ Server::handle(llvm::json::Object request) {
 
   if (method == "workspace/didChangeWatchedFiles") {
     const auto watched_paths = watched_file_paths_from_params(params);
-    if (watched_paths.has_value()) {
-      if (watched_paths->empty()) {
-        service_.schedule_background_index_refresh();
-      }
-      else {
-        service_.schedule_background_index_refresh_for_paths(*watched_paths);
-      }
+    if (watched_paths.has_value() && !watched_paths->empty()) {
+      service_.schedule_background_index_refresh_for_paths(*watched_paths);
     }
     return output;
   }

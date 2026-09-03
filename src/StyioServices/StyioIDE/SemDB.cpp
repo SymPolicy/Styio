@@ -661,7 +661,9 @@ SemanticDB::index_workspace() {
 void
 SemanticDB::index_workspace_file(const std::string& path) {
   if (!std::filesystem::exists(path)) {
-    background_index_.erase(path);
+    // Keep an empty indexed-path tombstone so an older persistent symbol for
+    // the deleted file cannot reappear when workspace results are merged.
+    background_index_.update(path, HirModule{});
     return;
   }
 
