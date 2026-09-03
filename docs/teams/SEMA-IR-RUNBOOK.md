@@ -116,6 +116,7 @@ High-value docs:
 78. Internal test binaries consume one compiled frontend boundary rather than recompiling Sema, lowering, and IR translation units per executable. Keep sanitizer linking representative of the production library boundary and keep the architecture layer gate green.
 79. Portable callable payload types and effect rows are IR-owned contracts. Keep serialization and structural verification in `StyioIR`, keep AST construction/materialization in `StyioLowering`, and include both translation units in full and nano source manifests; do not reintroduce a Sema or concrete codegen dependency into the IR headers.
 80. Mark pulse/state IR reads that can carry runtime absence explicitly rather than inferring it from an `i64` payload. Windowed average/max current values and history reads retain that fact through lowering, while ordinary integer bindings keep the full signed 64-bit domain. Absence must reach value fallback, persistence, or formatting as a tagged value; do not restore sentinel comparison or implicit arithmetic propagation in Sema, lowering, or IR.
+81. Sema owns the resource-topology validation lifecycle for each top-level root. Reset before reanalysis, publish scalar-noop only for the import-free narrow scalar proof, publish the move-only validated artifact only after the unchanged `sema-resource-topology` report succeeds, and leave failures unconsumable. Lowering must require the matching root and reuse this const artifact without rebuilding, revalidating, or rerunning the scalar predicate.
 
 ## Change Classes
 

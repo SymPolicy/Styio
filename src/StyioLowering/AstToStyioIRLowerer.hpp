@@ -140,7 +140,7 @@ public:
     return resource_validation_duration_ns_;
   }
 
-  void record_resource_validation_duration(std::uint64_t duration_ns) noexcept {
+  void record_resource_validation_duration(std::uint64_t duration_ns) noexcept override {
     resource_validation_duration_ns_ += duration_ns;
   }
 
@@ -148,7 +148,7 @@ public:
     return resource_validation_skipped_;
   }
 
-  void record_resource_validation_skipped() noexcept {
+  void record_resource_validation_skipped() noexcept override {
     ++resource_validation_skipped_;
   }
 
@@ -156,13 +156,18 @@ public:
     return resource_fast_path_probe_duration_ns_;
   }
 
-  void record_resource_fast_path_probe_duration(std::uint64_t duration_ns) noexcept {
+  void record_resource_fast_path_probe_duration(std::uint64_t duration_ns) noexcept override {
     resource_fast_path_probe_duration_ns_ += duration_ns;
   }
 
   void record_lowering_statement_duration(std::uint64_t duration_ns) noexcept {
     lowering_statement_duration_ns_ += duration_ns;
     ++lowering_statement_count_;
+  }
+
+protected:
+  bool resource_topology_profile_enabled() const noexcept override {
+    return pipeline_profile_enabled_;
   }
 
 private:

@@ -1851,6 +1851,27 @@ TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
   EXPECT_NE(it->second.find("stable"), std::string::npos);
 }
 
+TEST(StyioSemanticBridge, ResourceTopologyDiagnosticRemainsCompilerOwned) {
+  const std::string source =
+    "series = 1\n"
+    "value = series[avg, 5]\n";
+
+  const auto summary =
+    styio::ide::analyze_document("memory://topology_diagnostic.styio", source);
+
+  ASSERT_TRUE(summary.parse_success);
+  ASSERT_EQ(summary.diagnostics.size(), 1u);
+  const auto& diagnostic = summary.diagnostics.front();
+  EXPECT_EQ(diagnostic.source, "styio-compiler");
+  EXPECT_EQ(diagnostic.phase, "type");
+  EXPECT_EQ(
+    diagnostic.message,
+    "\nStyio.TypeError:\n"
+    "sema-resource-topology: series intrinsic must be owned by a state declaration");
+  EXPECT_EQ(diagnostic.message.find("memory://"), std::string::npos);
+  EXPECT_EQ(diagnostic.message.find("0x"), std::string::npos);
+}
+
 TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
   styio::lsp::Server server;
   const std::string root_uri = styio::ide::uri_from_path(make_temp_dir());

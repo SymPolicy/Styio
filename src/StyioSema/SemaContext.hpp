@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -21,6 +22,7 @@ using std::unordered_map;
 #include "../StyioIR/CallableEffectRow.hpp"
 #include "../StyioIR/IRDecl.hpp"
 #include "../StyioIR/PortableCallableBody.hpp"
+#include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
@@ -1067,6 +1069,72 @@ public:
   }
 
 protected:
+  enum class ResourceTopologyLifecycle : std::uint8_t
+  {
+    NotAnalyzed,
+    ScalarNoop,
+    Validated,
+  };
+
+  void reset_resource_topology_analysis() noexcept {
+    resource_topology_artifact_.reset();
+    resource_topology_root_ = nullptr;
+    resource_topology_lifecycle_ = ResourceTopologyLifecycle::NotAnalyzed;
+  }
+
+  void publish_scalar_resource_topology_noop(const MainBlockAST* root) noexcept {
+    resource_topology_artifact_.reset();
+    resource_topology_root_ = root;
+    resource_topology_lifecycle_ = ResourceTopologyLifecycle::ScalarNoop;
+  }
+
+  void publish_validated_resource_topology(
+    const MainBlockAST* root,
+    styio::resource_topology::ValidatedArtifact artifact
+  ) {
+    resource_topology_artifact_.emplace(std::move(artifact));
+    resource_topology_root_ = root;
+    resource_topology_lifecycle_ = ResourceTopologyLifecycle::Validated;
+  }
+
+  ResourceTopologyLifecycle resource_topology_lifecycle() const noexcept {
+    return resource_topology_lifecycle_;
+  }
+
+  const styio::resource_topology::ValidatedArtifact*
+  resource_topology_artifact_for(const MainBlockAST* root) const noexcept {
+    if (resource_topology_lifecycle_ != ResourceTopologyLifecycle::Validated
+        || resource_topology_root_ != root) {
+      return nullptr;
+    }
+    return &*resource_topology_artifact_;
+  }
+
+  const styio::resource_topology::ValidatedArtifact*
+  require_resource_topology_for_lowering(const MainBlockAST* root) const {
+    if (resource_topology_root_ != root
+        || resource_topology_lifecycle_ == ResourceTopologyLifecycle::NotAnalyzed) {
+      throw std::logic_error(
+        "lowering requires matching Sema resource topology state");
+    }
+    if (resource_topology_lifecycle_ == ResourceTopologyLifecycle::ScalarNoop) {
+      return nullptr;
+    }
+    if (!resource_topology_artifact_.has_value()) {
+      throw std::logic_error(
+        "lowering requires a validated Sema resource topology artifact");
+    }
+    return &*resource_topology_artifact_;
+  }
+
+  virtual bool resource_topology_profile_enabled() const noexcept {
+    return false;
+  }
+
+  virtual void record_resource_validation_duration(std::uint64_t) noexcept {}
+  virtual void record_resource_validation_skipped() noexcept {}
+  virtual void record_resource_fast_path_probe_duration(std::uint64_t) noexcept {}
+
   SGPulsePlan* cur_pulse_plan_ = nullptr;
   int active_series_slot_ = -1;
   int post_pulse_hist_region_ = -1;
@@ -1133,6 +1201,11 @@ protected:
   std::string active_resource_receiver_family_;
   styio::session::TypeTable* type_table_ = nullptr;
   styio::session::SymbolInterner* type_table_symbols_ = nullptr;
+  std::optional<styio::resource_topology::ValidatedArtifact>
+    resource_topology_artifact_;
+  const MainBlockAST* resource_topology_root_ = nullptr;
+  ResourceTopologyLifecycle resource_topology_lifecycle_ =
+    ResourceTopologyLifecycle::NotAnalyzed;
 };
 
 #endif

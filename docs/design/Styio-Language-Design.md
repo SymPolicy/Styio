@@ -1,8 +1,8 @@
 # Styio Language Design Specification
 
-**Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), and `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md).
+**Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), and observable semantic facts and consumer boundaries live in [`Styio-Observable-Language.md`](./Styio-Observable-Language.md).
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-09-04
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
