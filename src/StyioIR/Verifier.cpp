@@ -870,7 +870,7 @@ require_verified_styio_ir(
 namespace {
 
 using PortableTerm = PortableCallableTypeTerm;
-using ConstraintKind = StyioSemaContext::CallableConstraintKind;
+using ConstraintKind = PortableCallableConstraintKind;
 
 PortableTerm
 portable_concrete_term(const std::string& name) {

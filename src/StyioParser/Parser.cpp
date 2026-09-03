@@ -1600,7 +1600,20 @@ parse_var_tuple(StyioContext& context) {
 
 static ResourceAST*
 parse_resources_list_in_parens(StyioContext& context) {
-  std::vector<std::pair<StyioAST*, std::string>> res_list;
+  std::vector<std::pair<std::unique_ptr<StyioAST>, std::string>> resource_owners;
+  auto finish_resources = [&]() -> ResourceAST*
+  {
+    std::vector<std::pair<StyioAST*, std::string>> resources;
+    resources.reserve(resource_owners.size());
+    for (auto& entry : resource_owners) {
+      resources.emplace_back(entry.first.get(), entry.second);
+    }
+    ResourceAST* result = ResourceAST::Create(std::move(resources));
+    for (auto& entry : resource_owners) {
+      entry.first.release();
+    }
+    return result;
+  };
 
   do {
     context.skip();
@@ -1608,44 +1621,47 @@ parse_resources_list_in_parens(StyioContext& context) {
       /* ( */
       case StyioTokenType::TOK_RPAREN: {
         context.move_forward(1, "parse_resources");
-        return ResourceAST::Create(res_list);
+        return finish_resources();
       } break;
 
       case StyioTokenType::STRING: {
-        auto the_str = parse_string(context);
+        std::unique_ptr<StyioAST> the_str(parse_string(context));
 
         context.skip();
         if (context.match(StyioTokenType::TOK_COLON) /* : */) {
           context.skip();
           if (context.check(StyioTokenType::NAME) /* check! */) {
             auto the_type_name = parse_name_as_str(context);
-            res_list.push_back(
-              std::make_pair(the_str, the_type_name)
+            resource_owners.push_back(
+              std::make_pair(std::move(the_str), the_type_name)
             );
           }
         }
         else {
-          res_list.push_back(
-            std::make_pair(the_str, std::string(""))
+          resource_owners.push_back(
+            std::make_pair(std::move(the_str), std::string(""))
           );
         }
       } break;
 
       case StyioTokenType::NAME: {
-        auto the_name = parse_name(context);
+        std::unique_ptr<NameAST> the_name(parse_name(context));
 
         context.skip();
         if (context.match(StyioTokenType::ARROW_SINGLE_LEFT)) {
           context.skip();
           if (context.check(StyioTokenType::NAME)) {
-            auto the_expr = parse_var_name_or_value_expr(context);
+            std::unique_ptr<StyioAST> the_expr(parse_var_name_or_value_expr(context));
 
-            res_list.push_back(
+            std::unique_ptr<StyioAST> binding(FinalBindAST::Create(
+              VarAST::Create(the_name.get()),
+              the_expr.get()
+            ));
+            the_name.release();
+            the_expr.release();
+            resource_owners.push_back(
               std::make_pair(
-                FinalBindAST::Create(
-                  VarAST::Create(the_name),
-                  the_expr
-                ),
+                std::move(binding),
                 std::string("")
               )
             );
@@ -1664,7 +1680,7 @@ parse_resources_list_in_parens(StyioContext& context) {
 
   context.try_match_panic(StyioTokenType::TOK_RPAREN);
 
-  return ResourceAST::Create(res_list);
+  return finish_resources();
 }
 
 ResourceAST*
@@ -1691,10 +1707,10 @@ parse_braced_string_path(StyioContext& context) {
   if (not context.check(StyioTokenType::STRING)) {
     throw StyioSyntaxError(context.mark_cur_tok("expected string path in {...}"));
   }
-  StyioAST* p = parse_string(context);
+  std::unique_ptr<StyioAST> p(parse_string(context));
   context.skip();
   context.try_match_panic(StyioTokenType::TOK_RCURBRAC);
-  return p;
+  return p.release();
 }
 
 static StyioAST*
@@ -1704,10 +1720,10 @@ parse_parenthesized_string_path(StyioContext& context) {
   if (not context.check(StyioTokenType::STRING)) {
     throw StyioSyntaxError(context.mark_cur_tok("expected string path in (...)"));
   }
-  StyioAST* p = parse_string(context);
+  std::unique_ptr<StyioAST> p(parse_string(context));
   context.skip();
   context.try_match_panic(StyioTokenType::TOK_RPAREN);
-  return p;
+  return p.release();
 }
 
 StyioAST*
@@ -1758,10 +1774,10 @@ parse_after_at_common(StyioContext& context, bool file_only_resource) {
       return EmptyResourceAST::Create();
     }
     if (context.check(StyioTokenType::STRING)) {
-      StyioAST* path = parse_string(context);
+      std::unique_ptr<StyioAST> path(parse_string(context));
       context.skip();
       context.try_match_panic(StyioTokenType::TOK_RPAREN);
-      return FileResourceAST::Create(path, true);
+      return FileResourceAST::Create(path.release(), true);
     }
     context.restore_cursor(saved);
     if (not file_only_resource) {
@@ -4638,7 +4654,10 @@ parse_forward_as_list(
 
       /* >> Iterator */
       case StyioTokenType::ITERATOR: {
-      } break;
+        // An iterator starts the next statement; it is not a continuation of
+        // the block that was just parsed. Leave the token for the outer parser.
+        return release_followings();
+      }
 
       default: {
         return release_followings();
@@ -4651,11 +4670,11 @@ parse_forward_as_list(
 
 BlockAST*
 parse_block_with_forward(StyioContext& context) {
-  BlockAST* block = parse_block_only(context);
+  std::unique_ptr<BlockAST> block(parse_block_only(context));
 
   block->set_followings(parse_forward_as_list(context));
 
-  return block;
+  return block.release();
 }
 
 CasesAST*

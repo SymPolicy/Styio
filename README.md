@@ -3,8 +3,8 @@
 **Styio is an experimental symbolic language for stream processing, resource
 topology, and intent-oriented execution.**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/styio-org/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/styio-org/styio-nightly/actions/workflows/styio-ci-gate.yml)
-[![License](https://img.shields.io/github/license/styio-org/styio-nightly?style=flat-square)](https://github.com/styio-org/styio-nightly/blob/nightly/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Unka-Malloc/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/Unka-Malloc/styio-nightly/actions/workflows/styio-ci-gate.yml)
+[![License](https://img.shields.io/github/license/Unka-Malloc/styio-nightly?style=flat-square)](https://github.com/Unka-Malloc/styio-nightly/blob/nightly/LICENSE)
 
 [Simplified Chinese](README_zh.md) | [Build guide](docs/BUILD-AND-DEV-ENV.md) | [Repository docs](docs/README.md) | [Examples](example/README.md)
 
@@ -81,6 +81,10 @@ that do not currently run should stay out of the active tree after their durable
 rules are promoted into docs.
 
 ## Project Boundaries
+
+Repository homes: this checkout is the active downstream `Unka-Malloc/styio-nightly`;
+the upstream repository is `SymPolicy/Styio` (formerly `eBioRing/Styio`). The badges
+above point at the downstream repository that runs the advertised checks.
 
 Styio is developed alongside related repositories, but this repository owns the
 compiler, language tests, resource-topology semantics, and CLI contracts. Package

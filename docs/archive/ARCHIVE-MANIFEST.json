@@ -1,11 +1,66 @@
 {
   "schema": "archive-manifest",
-  "last_updated": "2026-05-09",
+  "last_updated": "2026-08-21",
   "archive_root": "docs/archive",
   "rollup_root": "docs/rollups",
   "keep_window": {
     "history": 0,
-    "dated_review": 0
+    "dated_review": 0,
+    "audit": 0
   },
-  "entries": []
+  "entries": [
+    {
+      "source_path": "docs/audit/EXTERNAL-AUDIT-2026-04-22.md",
+      "family": "audit",
+      "status": "archived",
+      "archive_path": "docs/archive/audit/EXTERNAL-AUDIT-2026-04-22.md",
+      "theme": "external audit closure",
+      "value": "All dated findings are closed or transferred to active compiler and IDE inventories with focused test evidence.",
+      "targets": [
+        "docs/adr/IMPLEMENTED-DECISIONS.md",
+        "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md",
+        "docs/rollups/IM-D9-IDE-LSP-SERVICE-CONTRACT-INVENTORY.md"
+      ],
+      "archived_at": "2026-08-21"
+    },
+    {
+      "source_path": "docs/audit/agent-findings/nightly-compiler-2026-04-22.md",
+      "family": "audit",
+      "status": "archived",
+      "archive_path": "docs/archive/audit/agent-findings/nightly-compiler-2026-04-22.md",
+      "theme": "compiler fail-closed closure",
+      "value": "Unsupported lowering and codegen fallback findings are represented by typed boundaries, the active IM-D1 inventory, and focused security coverage.",
+      "targets": [
+        "docs/adr/IMPLEMENTED-DECISIONS.md",
+        "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
+      ],
+      "archived_at": "2026-08-21"
+    },
+    {
+      "source_path": "docs/audit/agent-findings/nightly-ide-parser-2026-04-22.md",
+      "family": "audit",
+      "status": "archived",
+      "archive_path": "docs/archive/audit/agent-findings/nightly-ide-parser-2026-04-22.md",
+      "theme": "IDE and parser boundary closure",
+      "value": "Closed-file refresh, persistent-index clearing, workspace scanning, and malformed-frame handling are closed and represented by the active IDE inventory.",
+      "targets": [
+        "docs/adr/IMPLEMENTED-DECISIONS.md",
+        "docs/rollups/IM-D9-IDE-LSP-SERVICE-CONTRACT-INVENTORY.md"
+      ],
+      "archived_at": "2026-08-21"
+    },
+    {
+      "source_path": "docs/audit/agent-findings/nightly-sema-codegen-2026-04-22.md",
+      "family": "audit",
+      "status": "archived",
+      "archive_path": "docs/archive/audit/agent-findings/nightly-sema-codegen-2026-04-22.md",
+      "theme": "Sema and codegen fail-closed closure",
+      "value": "Unknown calls, arity mismatches, unsupported lowering, and verifier failures are closed or retained as explicit typed implementation debt in IM-D1.",
+      "targets": [
+        "docs/adr/IMPLEMENTED-DECISIONS.md",
+        "docs/rollups/IM-D1-STYIOIR-CONTRACT-INVENTORY.md"
+      ],
+      "archived_at": "2026-08-21"
+    }
+  ]
 }

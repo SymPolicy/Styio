@@ -14,6 +14,14 @@ double_it_entry:
   %2 = or i1 %1, false
   %3 = mul i64 %0, 2
   %4 = select i1 %2, i64 -9223372036854775808, i64 %3
+  %5 = call i32 @styio_runtime_has_error()
+  %6 = icmp ne i32 %5, 0
+  br i1 %6, label %runtime_fail, label %runtime_ok
+
+runtime_fail:                                     ; preds = %double_it_entry
+  ret i64 0
+
+runtime_ok:                                       ; preds = %double_it_entry
   ret i64 %4
 }
 

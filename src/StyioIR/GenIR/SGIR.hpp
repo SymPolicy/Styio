@@ -12,7 +12,7 @@
 
 // [Styio]
 #include "../../StyioToken/Token.hpp"
-#include "../../StyioSema/EffectRow.hpp"
+#include "../CallableEffectRow.hpp"
 #include "../IRDecl.hpp"
 #include "../StyioIR.hpp"
 
@@ -518,7 +518,7 @@ public:
   SGResId* func_name;
   std::vector<SGFuncArg*> func_args;
   SGBlock* func_block;
-  styio::sema::CallableEffectRow effect_row;
+  styio::ir::CallableEffectRow effect_row;
   std::vector<std::string> capture_names;
   std::string specialization_content_digest;
 
@@ -527,7 +527,7 @@ public:
     SGResId* func_name,
     std::vector<SGFuncArg*> func_args,
     SGBlock* func_block,
-    styio::sema::CallableEffectRow effect_row,
+    styio::ir::CallableEffectRow effect_row,
     std::vector<std::string> capture_names,
     std::string specialization_content_digest
   ) :
@@ -549,8 +549,8 @@ public:
     SGResId* func_name,
     std::vector<SGFuncArg*> func_args,
     SGBlock* func_block,
-    styio::sema::CallableEffectRow effect_row =
-      styio::sema::CallableEffectRow::unknown(),
+    styio::ir::CallableEffectRow effect_row =
+      styio::ir::CallableEffectRow::unknown(),
     std::vector<std::string> capture_names = {},
     std::string specialization_content_digest = {}
   ) {

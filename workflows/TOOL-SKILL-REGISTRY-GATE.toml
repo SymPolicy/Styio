@@ -232,8 +232,16 @@ id = "manifest-tool"
 path = "scripts/manifest_tool.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
-purpose = "Validate Better Plan JSON manifests used by repo-local planning workspaces."
-last_reviewed = "2026-07-04"
+purpose = "Validate the current Better Plan v3 workspace manifest, Plan, and Checkpoints structure."
+last_reviewed = "2026-08-21"
+
+[[tool]]
+id = "monolith-line-ratchet"
+path = "scripts/monolith-line-ratchet-gate.py"
+owner = "CLI / Nano"
+kind = "gate"
+purpose = "Prevent src/main.cpp from growing beyond its measured migration ceiling."
+last_reviewed = "2026-08-21"
 
 [[tool]]
 id = "runtime-surface-gate"
@@ -312,7 +320,7 @@ maintenance_command = "ctest --test-dir build/default -L styio_pipeline --output
 [[module_coverage]]
 module = "CLI / Nano"
 runbook = "docs/teams/CLI-NANO-RUNBOOK.md"
-tool_ids = ["source-build-minimal", "gen-styio-nano-profile"]
+tool_ids = ["source-build-minimal", "gen-styio-nano-profile", "monolith-line-ratchet"]
 maintenance_command = "ctest --test-dir build/default -R 'Nano|StyioDiagnostics' --output-on-failure"
 
 [[module_coverage]]

@@ -1,0 +1,119 @@
+name: styio-nightly-benchmark
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-benchmark-linkage:
+    name: observability / benchmark-linkage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    continue-on-error: true
+
+    steps:
+      - name: Checkout Styio
+        uses: actions/checkout@v5
+        with:
+          path: styio-nightly
+
+      - name: Checkout styio-benchmark default branch
+        uses: actions/checkout@v5
+        with:
+          repository: SymPolicy/styio-benchmark
+          path: styio-benchmark
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-18 \
+            libclang-rt-18-dev \
+            lld-18 \
+            llvm-18-dev \
+            libicu-dev \
+            python3
+          python3 -m pip install "cmake==3.31.6"
+
+      - name: Inventory external benchmark integration assets
+        working-directory: styio-nightly
+        shell: bash
+        run: |
+          mkdir -p benchmark-artifacts
+          benchmark_root="../styio-benchmark"
+          required_assets=(
+            "workloads/core/manifest.json"
+            "workloads/core/run-core.py"
+            "styio-probes/bench_utils.hpp"
+            "styio-probes/core_bench.cpp"
+            "styio-probes/styio_soak_test.cpp"
+            "styio-probes/styio_task_scheduler_perf_test.cpp"
+            "tests/core_bench_json_smoke.py"
+            "tests/core_benchmark_evidence_test.cpp"
+          )
+
+          : > benchmark-artifacts/external-asset-inventory.txt
+          missing=()
+          for asset in "${required_assets[@]}"; do
+            if [[ -f "$benchmark_root/$asset" ]]; then
+              printf 'present: %s\n' "$asset" | tee -a benchmark-artifacts/external-asset-inventory.txt
+            else
+              printf 'missing: %s\n' "$asset" | tee -a benchmark-artifacts/external-asset-inventory.txt
+              missing+=("$asset")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'missing benchmark integration assets (%d): %s\n' \
+              "${#missing[@]}" "${missing[*]}" \
+              | tee -a benchmark-artifacts/external-asset-inventory.txt
+          else
+            printf 'all benchmark integration assets are present\n' \
+              | tee -a benchmark-artifacts/external-asset-inventory.txt
+          fi
+
+      - name: Configure and probe external benchmark linkage
+        working-directory: styio-nightly
+        shell: bash
+        run: |
+          set +e
+          cmake -S . -B build/benchmark -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm \
+            -DSTYIO_BENCHMARK_ROOT=../styio-benchmark \
+            -DSTYIO_REQUIRE_EXTERNAL_BENCHMARK=ON \
+            2>&1 | tee benchmark-artifacts/configure.log
+          configure_exit=${PIPESTATUS[0]}
+
+          if (( configure_exit == 0 )); then
+            cmake --build build/benchmark --target \
+              styio_core_bench styio_core_benchmark_evidence_test \
+              styio_soak_test styio_task_scheduler_perf_test \
+              2>&1 | tee benchmark-artifacts/build.log
+            build_exit=${PIPESTATUS[0]}
+          else
+            printf 'probe build skipped because required-mode configure failed\n' \
+              | tee benchmark-artifacts/build.log
+            build_exit=0
+          fi
+
+          if (( configure_exit != 0 )); then
+            exit "$configure_exit"
+          fi
+          exit "$build_exit"
+
+      - name: Upload benchmark linkage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: nightly-benchmark-linkage
+          path: styio-nightly/benchmark-artifacts/
+          if-no-files-found: error

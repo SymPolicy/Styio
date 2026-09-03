@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-21
 
 ## Mission
 
@@ -25,6 +25,8 @@ Key implementation seams inside `src/StyioConfig/`:
 
 1. `CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
 2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload for compiler maintainers and system package builders.
+
+Portability rule for `src/main.cpp` helpers: compare `std::filesystem::path` values by component (for example `*relative.begin() != ".."`) instead of `path::native()` string operations, because `native()` is `std::wstring` on Windows and rejects `std::string`/`const char*` operations that compile on POSIX. The windows-smoke CI job enforces this surface.
 
 Key handoff document:
 
@@ -65,9 +67,10 @@ Key handoff document:
 29. Callable interface publication is explicit compiler orchestration: `--emit-module-interface` requires `--file` and a canonical `--module-id`, writes the requested `.styioi` only after Sema succeeds, and is outside the compile-plan v1 envelope. Imported dependency interfaces are never synthesized as a side effect. Keep the compiler ABI digest aligned across full/nano channel, edition, target triple, and pointer width, and keep nano compile-time boundaries from linking full-only compile-plan services.
 30. Configure callable-specialization identity from the same full/nano compiler ABI contract used by callable interfaces, plus the selected dictionary implementation and validated entry-dependency digest. Both binaries must produce deterministic full-digest mono symbols for the same environment; a CLI call-order change must not alter identity, and no source option may expose explicit instantiation.
 31. Keep the explicit nano package source roots aligned with every translation unit in `STYIO_FRONTEND_SOURCES`, including callable interface loading and specialization graph owners. Header-closure discovery cannot compensate for an omitted `.cpp`; both local-subset creation paths must build and link the materialized `styio_nano` bundle.
-32. Keep full and nano callable-interface compiler ABI identities synchronized with the active `.styioi` schema. Canonical effect rows, usage requirements, contract/body digests, and portable StyioIR schema-v1 payloads in interface schema v4 must use the `styio.callable-interface.v4` namespace in both binaries, reject schema v3 metadata before installing module facts, and bump dependent specialization/dependency fingerprint namespaces rather than retaining a dual-reader compatibility path. Keep `StyioIR/PortableCallableBody.cpp` in both explicit source manifests.
+32. Keep full and nano callable-interface compiler ABI identities synchronized with the active `.styioi` schema. Canonical effect rows, usage requirements, contract/body digests, and portable StyioIR schema-v1 payloads in interface schema v4 must use the `styio.callable-interface.v4` namespace in both binaries, reject schema v3 metadata before installing module facts, and bump dependent specialization/dependency fingerprint namespaces rather than retaining a dual-reader compatibility path. Keep the pure `StyioIR/PortableCallableBody.cpp` serializer/verifier support and the AST-owned `StyioLowering/PortableCallableBody.cpp` conversion support in both explicit source manifests.
 33. Callable specialization disk reuse is an explicit full/nano operational option. `--callable-cache-dir` is the sole enablement switch; age, byte, and file limits without it are CLI errors. Keep default limits at seven days, 256 MiB, and 4,096 artifacts unless the feature SSOT changes, and keep limit values positive and bounded. `--callable-cache-stats` must emit exactly one path-free schema-v1 JSON object only when requested. Add every cache translation unit to the shared backend source list so full and nano use the same object schema, while their channel facts retain separate namespaces.
 34. Keep the ecosystem machine-contract matrix under `docs/external/for-pafio/` as a formal contract projection, not an implementation plan. When a public command, owner, consumer, producer identity, or hosted boundary changes, update the matrix, Pafio handoff, ecosystem document gate, and consumer mirrors in one closure.
+35. Run `python3 scripts/monolith-line-ratchet-gate.py` for changes that can affect `src/main.cpp`; the measured 7,584-line ceiling may decrease after extraction work but must not increase to accommodate new non-CLI responsibilities.
 
 ## Change Classes
 
