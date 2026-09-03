@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 class BlockAST;
@@ -143,6 +144,40 @@ public:
   std::vector<CycleInfo> detect_cycles() const;
 };
 
+/// The immutable proof produced by successful top-level topology validation.
+/// It intentionally exposes only aggregate graph facts: AST source pointers and
+/// mutable graph storage remain confined to the topology implementation.
+class ValidatedArtifact
+{
+  Graph graph_;
+
+  explicit ValidatedArtifact(Graph graph) : graph_(std::move(graph)) {}
+
+  friend ValidatedArtifact validate_or_throw(MainBlockAST*, std::string);
+
+public:
+  ValidatedArtifact(const ValidatedArtifact&) = delete;
+  ValidatedArtifact& operator=(const ValidatedArtifact&) = delete;
+  ValidatedArtifact(ValidatedArtifact&&) noexcept = default;
+  ValidatedArtifact& operator=(ValidatedArtifact&&) noexcept = default;
+
+  std::size_t node_count() const noexcept {
+    return graph_.nodes().size();
+  }
+
+  std::size_t edge_count() const noexcept {
+    return graph_.edges().size();
+  }
+
+  std::size_t node_count(NodeKind kind) const {
+    return graph_.node_count(kind);
+  }
+
+  std::size_t edge_count(EdgeKind kind) const {
+    return graph_.edge_count(kind);
+  }
+};
+
 struct ValidationError
 {
   std::string message;
@@ -181,7 +216,7 @@ BuildResult build(BlockAST* ast, BuildOptions options = {});
 /// proof so neither phase rebuilds an empty topology graph.
 bool validation_is_noop_for_scalar_program(MainBlockAST* ast);
 
-void validate_or_throw(MainBlockAST* ast, std::string phase);
+ValidatedArtifact validate_or_throw(MainBlockAST* ast, std::string phase);
 void validate_or_throw(BlockAST* ast, std::string phase);
 
 std::string to_string(NodeKind kind);

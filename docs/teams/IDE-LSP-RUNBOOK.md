@@ -46,6 +46,7 @@ Build and test targets:
 19. Treat a macOS compatibility build configured with `STYIO_ENABLE_TREE_SITTER=OFF` as offline compiler/LSP host evidence only; Tree-sitter-enabled syntax behavior still requires the focused IDE test path.
 20. Watched-file refreshes must accept only concrete closed `.styio` paths inside the selected workspace, coalesce duplicates, treat an empty change list as a no-op, and preserve an empty background-index tombstone for deleted files so stale persistent symbols cannot reappear.
 21. Keep edit snapshots immutable and cheap to copy. `TextBuffer` copies share read-only text plus line-index storage until `reset` installs a fresh snapshot; `SyntaxParser` retains that buffer in its incremental cache instead of duplicating the source string. Tolerant tokenization must construct final ranged `SyntaxToken` values directly rather than allocating a second whole-file token representation. Preserve byte ranges, diagnostics, Tree-sitter reuse, and full/incremental token equivalence while keeping `StyioIdePerf.EnforcesFrozenLatencyBudgets` green.
+22. Resource-topology failures remain compiler-owned Sema diagnostics. The IDE semantic bridge must forward the unchanged `sema-resource-topology` message under the existing type phase, without exposing AST pointers, machine paths, or a separate IDE topology analyzer.
 
 ## Change Classes
 

@@ -6,6 +6,13 @@
       "directory": "delivery",
       "plan": "delivery/Plan.json",
       "title": "Restore nightly CI green and migrate docs/plan to v3"
+    },
+    {
+      "checkpoints": "observable-topology-foundation/Checkpoints.json",
+      "code": "PLAN-002",
+      "directory": "observable-topology-foundation",
+      "plan": "observable-topology-foundation/Plan.json",
+      "title": "Reuse one observable topology artifact across compilation"
     }
   ],
   "schema": "better-plan.manifest/v3"

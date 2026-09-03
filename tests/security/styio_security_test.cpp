@@ -4199,13 +4199,18 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
     EXPECT_NE(dynamic_cast<SGCast*>(as_f64->value), nullptr);
   }
 
-  class SeededResourceMethodLowerer : public AstToStyioIRLowerer
+  class CloneEdgeLowerer : public AstToStyioIRLowerer
   {
   public:
-    void seedMethod(const std::string& family, const std::string& method, StyioDataType result_type) {
+    void typeInfer(ResourceMethodDefAST* ast) override {
+      // These synthetic bodies exercise clone and rejection branches that the
+      // production resource-method checker intentionally makes unreachable.
+      // Supply their known result type while MainBlock analysis still performs
+      // the real topology validation lifecycle before any top-level lowering.
       ResourceMethodInfo info;
-      info.result_type = result_type;
-      resource_method_defs_[family][method] = std::move(info);
+      info.result_type = styio_data_type_from_name("i64");
+      resource_method_defs_[ast->getFamilyName()][ast->getMethodName()] =
+        std::move(info);
     }
   };
 
@@ -4227,8 +4232,7 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
   };
 
   {
-    SeededResourceMethodLowerer analyzer;
-    analyzer.seedMethod("file", "control_edges", styio_data_type_from_name("i64"));
+    CloneEdgeLowerer analyzer;
     const auto control_body = []() {
       auto* body = BlockAST::Create({
         ResourceRefAST::Create(NameAST::Create("whole_resource")),
@@ -4252,6 +4256,7 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
       ResourceMethodDefAST::Create(
         "file", "control_edges", false, false, {}, control_body()),
     }));
+    registration->typeInfer(&analyzer);
     std::unique_ptr<StyioIR> registration_ir(registration->toStyioIR(&analyzer));
 
     std::unique_ptr<FuncCallAST> direct_call(FuncCallAST::Create(
@@ -4264,14 +4269,14 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
     EXPECT_NE(dynamic_cast<SGContinue*>(cloned_block->stmts[3]), nullptr);
 
     auto program = seeded_program("control_edges", control_body());
+    program->typeInfer(&analyzer);
     EXPECT_THROW({
       std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));
     }, StyioTypeError);
   }
 
   {
-    SeededResourceMethodLowerer analyzer;
-    analyzer.seedMethod("file", "unsupported_clone_edges", styio_data_type_from_name("i64"));
+    CloneEdgeLowerer analyzer;
     auto* list = ListAST::Create({IntAST::Create("1"), IntAST::Create("2")});
     list->setDataType(styio_make_list_type("i64"));
     auto* body = BlockAST::Create({
@@ -4286,6 +4291,7 @@ TEST(StyioIRContract, ResourceMethodInliningCoversDirectReturnCastsAndStatementC
     });
     body->set_followings({CommentAST::Create("unreachable after unsupported tuple")});
     auto program = seeded_program("unsupported_clone_edges", body);
+    program->typeInfer(&analyzer);
 
     EXPECT_THROW({
       std::unique_ptr<StyioIR> ir(program->toStyioIR(&analyzer));

@@ -1725,7 +1725,7 @@ validation_is_noop_for_scalar_program(MainBlockAST* ast) {
   return true;
 }
 
-void
+ValidatedArtifact
 validate_or_throw(MainBlockAST* ast, std::string phase) {
   BuildOptions options;
   options.phase = std::move(phase);
@@ -1733,6 +1733,7 @@ validate_or_throw(MainBlockAST* ast, std::string phase) {
   if (!result.report.ok()) {
     throw StyioTypeError(result.report.message());
   }
+  return ValidatedArtifact(std::move(result.graph));
 }
 
 void

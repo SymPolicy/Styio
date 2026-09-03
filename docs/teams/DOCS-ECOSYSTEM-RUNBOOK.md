@@ -130,6 +130,7 @@ Key SSOTs:
 91. Describe runtime absence as the implemented tagged value boundary, not as an integer sentinel or implicit algebraic propagation. Keep the language design, research note, intrinsic table, resource-driver contract, performance route, owning runbooks, and test catalog aligned whenever the value ABI changes; distinguish implemented lazy `|` recovery from deferred diagnostic metadata and `??` extraction.
 92. Keep IDE snapshot-storage and incremental-parser performance evidence in the test catalog, IDE/LSP runbook, grammar runbook, performance runbook, and Test Quality runbook as one documentation unit; refresh `DOC-STATS.md` whenever that unit changes.
 93. Keep observable-language semantics in one cross-feature design SSOT. Resource syntax remains owned by the resource-topology design, implementation sequencing remains in `docs/plan/`, runtime samples remain distinct from compiler facts, and imported planning bundles must be reconciled with the current repository before any content becomes authoritative.
+94. When the internal topology artifact lifecycle changes, update the observable-language SSOT, Sema/IR ownership rule, IDE diagnostic boundary, focused test evidence, and test catalog together. Keep persistent IDs, public snapshots, serialization, runtime correlation, scheduler integration, and external consumers explicitly deferred until their own contracts are authorized.
 
 ## Change Classes
 

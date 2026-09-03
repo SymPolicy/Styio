@@ -73,7 +73,7 @@ The graph currently supports validation, kind counts, cycle detection, and a dia
 
 Current node IDs are build-order indexes and node source links are process-local AST pointers. Both are valid internal implementation details. Neither may be exposed as a persistent identity. `debug_string()` is diagnostic text, may contain source-derived labels, and is not an external protocol or telemetry format.
 
-Semantic analysis and lowering currently rebuild topology independently and discard both `BuildResult` values after validation. The first implementation foundation is therefore an immutable Sema-owned topology artifact that lowering can reuse without changing diagnostics, code generation, or scalar fast-path behavior. Publication, persistence, runtime hooks, and consumer APIs remain separate later boundaries.
+Semantic analysis now owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal cutover does not change diagnostics, code generation, or ordinary compiler operation. Persistent semantic IDs, public snapshot publication, serialization, runtime hooks, scheduler correlation, and consumer APIs remain deferred boundaries.
 
 ## 4. Static observable artifact
 
@@ -183,7 +183,7 @@ This contract does not:
 
 ## 12. Evidence obligations
 
-Current compiler behavior remains guarded by `styio_resource_topology_test` and the resource, task, state, stream, Sema, lowering, and IDE suites registered in `tests/CMakeLists.txt` and [the test catalog](../../workflows/TEST-CATALOG.md).
+Current compiler behavior remains guarded by `styio_resource_topology_test` and the resource, task, state, stream, Sema, lowering, and IDE suites registered in `tests/CMakeLists.txt` and [the test catalog](../../workflows/TEST-CATALOG.md). Focused lifecycle evidence proves move-only const observation, successful publication, scalar no-op, failure/reanalysis cleanup, same-artifact lowering reuse, mismatched-root rejection, and compiler-owned IDE diagnostics; a source oracle proves lowering contains no alternate topology builder or validator path.
 
 Each delivered observable capability must add the narrowest applicable evidence:
 
