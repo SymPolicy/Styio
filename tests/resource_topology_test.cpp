@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "StyioAST/AST.hpp"
@@ -136,6 +137,28 @@ StyioDataType named_state_type(const std::string& name, StyioTypeState state) {
 }
 
 } // namespace
+
+TEST(StyioResourceTopology, ValidatedArtifactIsMoveOnlyAndConstObservable) {
+  static_assert(!std::is_copy_constructible_v<rt::ValidatedArtifact>);
+  static_assert(!std::is_copy_assignable_v<rt::ValidatedArtifact>);
+  static_assert(std::is_move_constructible_v<rt::ValidatedArtifact>);
+  static_assert(std::is_same_v<
+    decltype(std::declval<const rt::ValidatedArtifact&>().node_count()),
+    std::size_t>);
+
+  auto root = program({
+    ResourceRedirectAST::Create(
+      StringAST::Create("hello"),
+      StdStreamAST::Create(StdStreamKind::Stdout)),
+  });
+  const rt::ValidatedArtifact artifact =
+    rt::validate_or_throw(root.get(), "test-resource-topology");
+
+  EXPECT_GE(artifact.node_count(), 3u);
+  EXPECT_GE(artifact.edge_count(), 2u);
+  EXPECT_EQ(artifact.node_count(rt::NodeKind::Program), 1u);
+  EXPECT_GE(artifact.edge_count(rt::EdgeKind::Ownership), 1u);
+}
 
 TEST(StyioResourceTopology, EnumNamesCoverAllResourceTopologyKinds) {
   EXPECT_EQ(rt::to_string(rt::NodeKind::Program), "Program");

@@ -1,12 +1,12 @@
 # Styio — Resource Topology & `@` Semantics (Design Spec)
 
-**Purpose:** `@` 资源定义、类型长度后缀、资源读取/复制/迭代、以及资源拓扑安全检查的设计级单一叙述；模块导入语法见 [`Styio-Language-Design.md`](./Styio-Language-Design.md) 与 [`Styio-EBNF.md`](./Styio-EBNF.md)。与当前编译器差异见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
+**Purpose:** Define the design SSOT for `@` resource declarations, shaped resource types, reads, copies, iteration, and compiler-owned resource-topology safety checks. Module-import syntax belongs to [`Styio-Language-Design.md`](./Styio-Language-Design.md) and [`Styio-EBNF.md`](./Styio-EBNF.md); observable artifacts and consumer boundaries belong to [`Styio-Observable-Language.md`](./Styio-Observable-Language.md); current implementation gaps belong to the [`NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-09-04
 
 **Status:** resource topology source syntax plus current compiler-owned RTG validation.
 **Supersedes:** retired state-resource state containers, history probes, and shadow reads. The running compiler rejects those families; exact old spellings are recoverable from Git history and remain covered only by negative migration tests.
-**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: resource topology), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
+**See also:** [`Styio-EBNF.md`](./Styio-EBNF.md) (Appendix: resource topology), [`Styio-Observable-Language.md`](./Styio-Observable-Language.md), [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 

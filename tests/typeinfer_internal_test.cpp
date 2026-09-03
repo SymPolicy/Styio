@@ -47,7 +47,40 @@ class ExposedTypeInferLowerer : public AstToStyioIRLowerer {
   using StyioSemaContext::snapshot_var_names_by_sid_;
   using StyioSemaContext::task_outer_resource_names_stack_;
   using StyioSemaContext::task_outer_resource_names_by_sid_stack_;
+
+  bool topology_not_analyzed() const {
+    return resource_topology_lifecycle()
+      == ResourceTopologyLifecycle::NotAnalyzed;
+  }
+
+  bool topology_is_scalar_noop() const {
+    return resource_topology_lifecycle()
+      == ResourceTopologyLifecycle::ScalarNoop;
+  }
+
+  bool topology_is_validated() const {
+    return resource_topology_lifecycle()
+      == ResourceTopologyLifecycle::Validated;
+  }
+
+  const styio::resource_topology::ValidatedArtifact*
+  topology_artifact(const MainBlockAST* root) const {
+    return resource_topology_artifact_for(root);
+  }
 };
+
+std::unique_ptr<MainBlockAST> scalar_topology_program(const char* value = "1") {
+  return std::unique_ptr<MainBlockAST>(MainBlockAST::Create({
+    FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("value")), IntAST::Create(value)),
+  }));
+}
+
+std::unique_ptr<MainBlockAST> resource_topology_program(StdStreamKind kind) {
+  return std::unique_ptr<MainBlockAST>(MainBlockAST::Create({
+    StdStreamAST::Create(kind),
+  }));
+}
 
 void install_file_handle(
   ExposedTypeInferLowerer& analyzer,
@@ -78,6 +111,75 @@ CondFlowAST* conditional_flow(StyioAST* then_branch, StyioAST* else_branch = nul
   }
   return new CondFlowAST(
     StyioNodeType::CondFlow_Both, condition, then_branch, else_branch);
+}
+
+TEST(StyioSemaTopology, ResourceAnalysisPublishesOneValidatedArtifact) {
+  ExposedTypeInferLowerer analyzer;
+  auto root = resource_topology_program(StdStreamKind::Stdout);
+
+  root->typeInfer(&analyzer);
+
+  ASSERT_TRUE(analyzer.topology_is_validated());
+  const auto* artifact = analyzer.topology_artifact(root.get());
+  ASSERT_NE(artifact, nullptr);
+  EXPECT_EQ(artifact->node_count(styio::resource_topology::NodeKind::Program), 1u);
+  EXPECT_GE(
+    artifact->node_count(styio::resource_topology::NodeKind::DriverSource), 1u);
+}
+
+TEST(StyioSemaTopology, ScalarFastPathRecordsNoopWithoutArtifact) {
+  ExposedTypeInferLowerer analyzer;
+  auto root = scalar_topology_program();
+
+  root->typeInfer(&analyzer);
+
+  EXPECT_TRUE(analyzer.topology_is_scalar_noop());
+  EXPECT_EQ(analyzer.topology_artifact(root.get()), nullptr);
+}
+
+TEST(StyioSemaTopology, InvalidAnalysisKeepsDiagnosticAndPublishesNoArtifact) {
+  ExposedTypeInferLowerer analyzer;
+  auto valid = resource_topology_program(StdStreamKind::Stdout);
+  valid->typeInfer(&analyzer);
+  ASSERT_TRUE(analyzer.topology_is_validated());
+
+  auto invalid = std::unique_ptr<MainBlockAST>(MainBlockAST::Create({
+    SeriesIntrinsicAST::Create(
+      IntAST::Create("1"), SeriesIntrinsicOp::Avg, IntAST::Create("5")),
+  }));
+  try {
+    invalid->typeInfer(&analyzer);
+    FAIL() << "expected topology validation failure";
+  }
+  catch (const StyioTypeError& ex) {
+    EXPECT_EQ(
+      std::string(ex.what()),
+      "\nStyio.TypeError:\n"
+      "sema-resource-topology: series intrinsic must be owned by a state declaration");
+  }
+
+  EXPECT_TRUE(analyzer.topology_not_analyzed());
+  EXPECT_EQ(analyzer.topology_artifact(valid.get()), nullptr);
+  EXPECT_EQ(analyzer.topology_artifact(invalid.get()), nullptr);
+}
+
+TEST(StyioSemaTopology, ReanalysisReplacesPriorArtifact) {
+  ExposedTypeInferLowerer analyzer;
+  auto first = resource_topology_program(StdStreamKind::Stdout);
+  auto second = std::unique_ptr<MainBlockAST>(MainBlockAST::Create({
+    ResourceRedirectAST::Create(
+      StringAST::Create("hello"),
+      StdStreamAST::Create(StdStreamKind::Stdout)),
+  }));
+
+  first->typeInfer(&analyzer);
+  ASSERT_NE(analyzer.topology_artifact(first.get()), nullptr);
+  second->typeInfer(&analyzer);
+
+  EXPECT_EQ(analyzer.topology_artifact(first.get()), nullptr);
+  const auto* replacement = analyzer.topology_artifact(second.get());
+  ASSERT_NE(replacement, nullptr);
+  EXPECT_GE(replacement->node_count(), 3u);
 }
 
 TEST(StyioResourceTypestate, conditional_close_unconditional_use_rejected) {

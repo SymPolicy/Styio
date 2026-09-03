@@ -8,6 +8,7 @@
 // [C++ STL]
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -10015,6 +10016,7 @@ StyioSemaContext::typeInfer(SeriesIntrinsicAST* ast) {
 
 void
 StyioSemaContext::typeInfer(MainBlockAST* ast) {
+  reset_resource_topology_analysis();
   reset_resource_typestate_dataflow_stats();
   snapshot_var_names_.clear();
   snapshot_var_names_by_sid_.clear();
@@ -10144,10 +10146,41 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
       "environment formation",
       false);
   }
-  const bool resource_validation_is_noop =
-    imported_callable_definitions_.empty()
-    && styio::resource_topology::validation_is_noop_for_scalar_program(ast);
-  if (!resource_validation_is_noop) {
-    styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
+  bool resource_validation_is_noop = false;
+  if (resource_topology_profile_enabled()) {
+    const auto probe_started = std::chrono::steady_clock::now();
+    resource_validation_is_noop =
+      imported_callable_definitions_.empty()
+      && styio::resource_topology::validation_is_noop_for_scalar_program(ast);
+    const auto probe_ended = std::chrono::steady_clock::now();
+    record_resource_fast_path_probe_duration(static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        probe_ended - probe_started).count()));
   }
+  else {
+    resource_validation_is_noop =
+      imported_callable_definitions_.empty()
+      && styio::resource_topology::validation_is_noop_for_scalar_program(ast);
+  }
+  if (resource_validation_is_noop) {
+    publish_scalar_resource_topology_noop(ast);
+    if (resource_topology_profile_enabled()) {
+      record_resource_validation_skipped();
+    }
+    return;
+  }
+
+  std::optional<std::chrono::steady_clock::time_point> validation_started;
+  if (resource_topology_profile_enabled()) {
+    validation_started = std::chrono::steady_clock::now();
+  }
+  auto artifact =
+    styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
+  if (validation_started.has_value()) {
+    const auto validation_ended = std::chrono::steady_clock::now();
+    record_resource_validation_duration(static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        validation_ended - *validation_started).count()));
+  }
+  publish_validated_resource_topology(ast, std::move(artifact));
 }
