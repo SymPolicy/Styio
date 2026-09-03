@@ -161,6 +161,18 @@ TEST(StyioExternLibInternal, DictTemplateHelpersCoverNullLinearAndInvalidBackend
 
 TEST(StyioExternLibInternal, RuntimeErrorEdgesForListMatrixDictAndTaskHandlesStayExplicit) {
   styio_runtime_clear_error();
+  styio_runtime_report_integer_division_error(0);
+  EXPECT_EQ(styio_runtime_has_error(), 1);
+  EXPECT_STREQ(
+    styio_runtime_last_error_subcode(),
+    "arithmetic.divide_by_zero");
+  styio_runtime_clear_error();
+  styio_runtime_report_integer_division_error(1);
+  EXPECT_STREQ(
+    styio_runtime_last_error_subcode(),
+    "arithmetic.signed_division_overflow");
+
+  styio_runtime_clear_error();
   EXPECT_EQ(styio_list_len(987654321), 0);
   EXPECT_EQ(styio_runtime_has_error(), 1);
   EXPECT_EQ(styio_runtime_error_matches_effect("closed"), 1);
@@ -517,6 +529,46 @@ TEST(StyioExternLibInternal, MatrixAndDictInvalidApiEdgesStayExplicit) {
   styio_dict_release(list_dict_clone);
   styio_dict_release(list_dict);
   styio_list_release(list_value);
+}
+
+TEST(StyioExternLibInternal, MatrixMixedKindKernelsPreserveRowMajorResults) {
+  const int64_t left_i64 = styio_matrix_new_i64(2, 3);
+  const int64_t right_i64 = styio_matrix_new_i64(3, 2);
+  ASSERT_NE(left_i64, 0);
+  ASSERT_NE(right_i64, 0);
+
+  for (int64_t index = 0; index < 6; ++index) {
+    styio_matrix_set_i64(left_i64, index / 3, index % 3, index + 1);
+    styio_matrix_set_i64(right_i64, index / 2, index % 2, index + 7);
+  }
+  const int64_t left_f64 = styio_matrix_clone_f64(left_i64);
+  const int64_t right_f64 = styio_matrix_clone_f64(right_i64);
+  ASSERT_NE(left_f64, 0);
+  ASSERT_NE(right_f64, 0);
+
+  const int64_t products[] = {
+    styio_matrix_matmul_f64(left_i64, right_i64),
+    styio_matrix_matmul_f64(left_i64, right_f64),
+    styio_matrix_matmul_f64(left_f64, right_i64),
+    styio_matrix_matmul_f64(left_f64, right_f64),
+  };
+  for (const int64_t product : products) {
+    ASSERT_NE(product, 0);
+    EXPECT_DOUBLE_EQ(styio_matrix_get_f64(product, 0, 0), 58.0);
+    EXPECT_DOUBLE_EQ(styio_matrix_get_f64(product, 0, 1), 64.0);
+    EXPECT_DOUBLE_EQ(styio_matrix_get_f64(product, 1, 0), 139.0);
+    EXPECT_DOUBLE_EQ(styio_matrix_get_f64(product, 1, 1), 154.0);
+    styio_matrix_release(product);
+  }
+
+  const int64_t difference = styio_matrix_sub_f64(left_i64, left_f64);
+  ASSERT_NE(difference, 0);
+  EXPECT_DOUBLE_EQ(styio_matrix_sum_f64(difference), 0.0);
+  styio_matrix_release(difference);
+  styio_matrix_release(right_f64);
+  styio_matrix_release(left_f64);
+  styio_matrix_release(right_i64);
+  styio_matrix_release(left_i64);
 }
 
 TEST(StyioExternLibInternal, NullAndWrongKindHandleCastsStayExplicit) {

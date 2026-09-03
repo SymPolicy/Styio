@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -11,7 +13,9 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -25,8 +29,12 @@
 
 namespace {
 
+constexpr std::size_t kStyioLineBufferSize = 65536;
+using StyioFileReadBuffers =
+  std::array<std::array<char, kStyioLineBufferSize>, 2>;
+
 /* Alternating buffers so two consecutive reads (e.g. zip of two files) keep both lines valid. */
-thread_local char g_read_line_bufs[2][65536];
+thread_local std::unique_ptr<StyioFileReadBuffers> g_read_line_bufs;
 thread_local int g_read_line_buf_which = 0;
 thread_local StyioHandleTable g_handle_table;
 thread_local std::unordered_set<const void*> g_owned_cstr_ptrs;
@@ -184,6 +192,92 @@ struct StyioMatrixF64 : public StyioMatrixBase
   }
 
   std::vector<double> elems;
+};
+
+template <typename Function>
+void
+with_matrix_f64_elements(const StyioMatrixBase* matrix, Function&& function) {
+  if (matrix->elem_kind == StyioMatrixElemKind::F64) {
+    function(static_cast<const StyioMatrixF64*>(matrix)->elems);
+  }
+  else {
+    function(static_cast<const StyioMatrixI64*>(matrix)->elems);
+  }
+}
+
+template <typename Function>
+void
+with_matrix_f64_element_pair(
+  const StyioMatrixBase* left,
+  const StyioMatrixBase* right,
+  Function&& function
+) {
+  with_matrix_f64_elements(
+    left,
+    [&](const auto& left_elements)
+    {
+      with_matrix_f64_elements(
+        right,
+        [&](const auto& right_elements)
+        {
+          function(left_elements, right_elements);
+        });
+    });
+}
+
+template <typename Left, typename Right, typename Output>
+void
+matrix_multiply_blocked(
+  const std::vector<Left>& left,
+  const std::vector<Right>& right,
+  std::vector<Output>& output,
+  std::size_t rows,
+  std::size_t inner,
+  std::size_t columns
+) {
+  constexpr std::size_t kRowBlock = 4;
+  constexpr std::size_t kColumnBlock = 64;
+  for (std::size_t row_base = 0; row_base < rows; row_base += kRowBlock) {
+    const std::size_t row_end = std::min(rows, row_base + kRowBlock);
+    for (std::size_t column_base = 0;
+         column_base < columns;
+         column_base += kColumnBlock) {
+      const std::size_t column_end =
+        std::min(columns, column_base + kColumnBlock);
+      for (std::size_t k = 0; k < inner; ++k) {
+        const Right* right_row = right.data() + k * columns;
+        for (std::size_t row = row_base; row < row_end; ++row) {
+          Output* output_row = output.data() + row * columns;
+          const Output left_value =
+            static_cast<Output>(left[row * inner + k]);
+          for (std::size_t column = column_base;
+               column < column_end;
+               ++column) {
+            output_row[column] +=
+              left_value * static_cast<Output>(right_row[column]);
+          }
+        }
+      }
+    }
+  }
+}
+
+struct StyioTransparentStringHash
+{
+  using is_transparent = void;
+
+  std::size_t operator()(std::string_view value) const noexcept {
+    return std::hash<std::string_view>{}(value);
+  }
+};
+
+struct StyioTransparentStringEqual
+{
+  using is_transparent = void;
+
+  bool operator()(std::string_view left, std::string_view right) const noexcept {
+    return left == right;
+  }
 };
 
 enum class StyioTaskValueKind : std::uint8_t
@@ -351,7 +445,7 @@ public:
   }
 
   void enqueue(StyioTask* task) {
-    ensure_started();
+    ensure_worker_for_enqueue();
     if (queue_.push(static_cast<void*>(task))
         == styio::runtime::ReadyQueuePushResult::Accepted) {
       task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
@@ -370,8 +464,7 @@ public:
   }
 
   std::size_t current_worker_count() {
-    std::lock_guard<std::mutex> lock(lifecycle_mu_);
-    return workers_.size();
+    return worker_count_.load(std::memory_order_acquire);
   }
 
   styio::runtime::ReadyQueueKind ready_queue_kind() const {
@@ -404,10 +497,27 @@ private:
     return static_cast<std::size_t>(parsed);
   }
 
+  static std::size_t configured_worker_count() {
+    std::size_t count = std::thread::hardware_concurrency();
+    if (const char* raw = std::getenv("STYIO_TASK_THREADS")) {
+      char* end = nullptr;
+      errno = 0;
+      const unsigned long parsed = std::strtoul(raw, &end, 10);
+      if (errno == 0 && end != raw && parsed > 0) {
+        count = static_cast<std::size_t>(parsed);
+      }
+    }
+    if (count == 0) {
+      count = 1;
+    }
+    return std::min<std::size_t>(count, 64);
+  }
+
   std::mutex lifecycle_mu_;
   styio::runtime::BoundedReadyQueue queue_{configured_queue_capacity()};
   std::vector<std::thread> workers_;
-  std::atomic<bool> started_{false};
+  const std::size_t max_worker_count_{configured_worker_count()};
+  std::atomic<std::size_t> worker_count_{0};
 
   StyioTaskScheduler() = default;
 
@@ -421,34 +531,27 @@ private:
   }
 
   void ensure_started() {
-    if (started_.load(std::memory_order_acquire)) {
+    if (worker_count_.load(std::memory_order_acquire) == max_worker_count_) {
       return;
     }
     std::lock_guard<std::mutex> lock(lifecycle_mu_);
-    if (!workers_.empty()) {
-      started_.store(true, std::memory_order_release);
-      return;
-    }
-    std::size_t count = std::thread::hardware_concurrency();
-    if (const char* raw = std::getenv("STYIO_TASK_THREADS")) {
-      char* end = nullptr;
-      errno = 0;
-      const unsigned long parsed = std::strtoul(raw, &end, 10);
-      if (errno == 0 && end != raw && parsed > 0) {
-        count = static_cast<std::size_t>(parsed);
-      }
-    }
-    if (count == 0) {
-      count = 1;
-    }
-    if (count > 64) {
-      count = 64;
-    }
-    workers_.reserve(count);
-    for (std::size_t i = 0; i < count; ++i) {
+    workers_.reserve(max_worker_count_);
+    while (workers_.size() < max_worker_count_) {
       workers_.emplace_back([this]() { worker_loop(); });
     }
-    started_.store(true, std::memory_order_release);
+    worker_count_.store(workers_.size(), std::memory_order_release);
+  }
+
+  void ensure_worker_for_enqueue() {
+    if (worker_count_.load(std::memory_order_acquire) == max_worker_count_) {
+      return;
+    }
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
+    if (workers_.size() < max_worker_count_) {
+      workers_.reserve(max_worker_count_);
+      workers_.emplace_back([this]() { worker_loop(); });
+      worker_count_.store(workers_.size(), std::memory_order_release);
+    }
   }
 
   void worker_loop() {
@@ -521,7 +624,11 @@ struct StyioDictStorage : public StyioDictBase
   }
 
   std::vector<std::pair<std::string, T>> entries;
-  std::unordered_map<std::string, size_t> index_by_key;
+  std::unordered_map<
+    std::string,
+    size_t,
+    StyioTransparentStringHash,
+    StyioTransparentStringEqual> index_by_key;
 };
 
 using StyioDictBool = StyioDictStorage<int64_t, StyioDictValueKind::Bool>;
@@ -1550,6 +1657,12 @@ parse_i64_list_literal(const std::string& input, std::vector<int64_t>& out) {
     return pos == input.size();
   }
 
+  out.reserve(
+    out.size()
+    + 1
+    + static_cast<size_t>(
+        std::count(input.begin() + static_cast<std::ptrdiff_t>(pos), input.end(), ',')));
+
   while (pos < input.size()) {
     const char* begin = input.c_str() + pos;
     char* end = nullptr;
@@ -1593,6 +1706,12 @@ parse_f64_list_literal(const std::string& input, std::vector<double>& out) {
     skip_ws(input, pos);
     return pos == input.size();
   }
+
+  out.reserve(
+    out.size()
+    + 1
+    + static_cast<size_t>(
+        std::count(input.begin() + static_cast<std::ptrdiff_t>(pos), input.end(), ',')));
 
   while (pos < input.size()) {
     const char* begin = input.c_str() + pos;
@@ -2098,10 +2217,17 @@ styio_file_read_line(int64_t h) {
   if (f == nullptr) {
     return nullptr;
   }
+  if (!g_read_line_bufs) {
+    g_read_line_bufs.reset(new (std::nothrow) StyioFileReadBuffers);
+    if (!g_read_line_bufs) {
+      set_runtime_error_once(kRuntimeSubcodeAllocation, "cannot allocate file line buffers");
+      return nullptr;
+    }
+  }
   int w = g_read_line_buf_which;
   g_read_line_buf_which = 1 - g_read_line_buf_which;
-  char* buf = g_read_line_bufs[w];
-  if (std::fgets(buf, static_cast<int>(sizeof(g_read_line_bufs[0])), f) == nullptr) {
+  char* buf = (*g_read_line_bufs)[static_cast<size_t>(w)].data();
+  if (std::fgets(buf, static_cast<int>(kStyioLineBufferSize), f) == nullptr) {
     return nullptr;
   }
   size_t n = std::strlen(buf);
@@ -2283,6 +2409,19 @@ styio_runtime_clear_error() {
 }
 
 extern "C" DLLEXPORT void
+styio_runtime_report_integer_division_error(int kind) {
+  if (kind == 0) {
+    set_runtime_error_once(
+      "arithmetic.divide_by_zero",
+      "integer division or remainder by zero");
+    return;
+  }
+  set_runtime_error_once(
+    "arithmetic.signed_division_overflow",
+    "signed integer division overflow");
+}
+
+extern "C" DLLEXPORT void
 styio_runtime_set_log_sink(StyioRuntimeLogSink sink) {
   styio::runtime::set_log_sink(sink);
 }
@@ -2312,18 +2451,27 @@ styio_stderr_write_cstr(const char* s) {
 /* Stdio input: read one line from stdin into a thread-local buffer.
    Returns borrowed pointer (valid until next call on this thread).
    Returns nullptr on EOF. Strips trailing newline/CR. */
-thread_local char g_stdin_line_buf[65536];
+thread_local std::unique_ptr<std::array<char, kStyioLineBufferSize>> g_stdin_line_buf;
 
 extern "C" DLLEXPORT const char*
 styio_stdin_read_line() {
-  if (std::fgets(g_stdin_line_buf, static_cast<int>(sizeof(g_stdin_line_buf)), stdin) == nullptr) {
+  if (!g_stdin_line_buf) {
+    g_stdin_line_buf.reset(
+      new (std::nothrow) std::array<char, kStyioLineBufferSize>);
+    if (!g_stdin_line_buf) {
+      set_runtime_error_once(kRuntimeSubcodeAllocation, "cannot allocate stdin line buffer");
+      return nullptr;
+    }
+  }
+  char* buffer = g_stdin_line_buf->data();
+  if (std::fgets(buffer, static_cast<int>(kStyioLineBufferSize), stdin) == nullptr) {
     return nullptr;
   }
-  size_t n = std::strlen(g_stdin_line_buf);
-  while (n > 0 && (g_stdin_line_buf[n - 1] == '\n' || g_stdin_line_buf[n - 1] == '\r')) {
-    g_stdin_line_buf[--n] = '\0';
+  size_t n = std::strlen(buffer);
+  while (n > 0 && (buffer[n - 1] == '\n' || buffer[n - 1] == '\r')) {
+    buffer[--n] = '\0';
   }
-  return g_stdin_line_buf;
+  return buffer;
 }
 
 extern "C" DLLEXPORT int64_t
@@ -3033,6 +3181,9 @@ styio_tuple_clone(int64_t h) {
 
 extern "C" DLLEXPORT void
 styio_tuple_release(int64_t h) {
+  if (h == 0) {
+    return;
+  }
   auto tuple = g_tuple_registry.take(h);
   if (!tuple) {
     set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
@@ -3480,12 +3631,14 @@ styio_matrix_clone_f64(int64_t h) {
     return 0;
   }
   auto* out = new StyioMatrixF64(base->rows, base->cols);
-  for (int64_t i = 0; i < base->rows * base->cols; ++i) {
-    out->elems[static_cast<size_t>(i)] =
-      base->elem_kind == StyioMatrixElemKind::F64
-        ? static_cast<StyioMatrixF64*>(base)->elems[static_cast<size_t>(i)]
-        : static_cast<double>(static_cast<StyioMatrixI64*>(base)->elems[static_cast<size_t>(i)]);
-  }
+  with_matrix_f64_elements(
+    base,
+    [&](const auto& elements)
+    {
+      for (size_t i = 0; i < elements.size(); ++i) {
+        out->elems[i] = static_cast<double>(elements[i]);
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3572,9 +3725,17 @@ styio_matrix_row_f64(int64_t h, int64_t row) {
     return 0;
   }
   auto* out = new StyioListF64();
-  for (int64_t col = 0; col < m->cols; ++col) {
-    out->elems.push_back(styio_matrix_get_f64(h, row, col));
-  }
+  out->elems.reserve(static_cast<size_t>(m->cols));
+  const size_t row_offset = static_cast<size_t>(row * m->cols);
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (int64_t col = 0; col < m->cols; ++col) {
+        out->elems.push_back(
+          static_cast<double>(elements[row_offset + static_cast<size_t>(col)]));
+      }
+    });
   return stash_list(out);
 }
 
@@ -3611,18 +3772,20 @@ styio_matrix_rows_slice_f64(int64_t h, int64_t start, int64_t end_exclusive, int
   }
   auto* out = new StyioListListHandle();
   out->elems.reserve(static_cast<size_t>(finish - begin));
-  for (int64_t row = begin; row < finish; ++row) {
-    auto* row_list = new StyioListF64();
-    row_list->elems.reserve(static_cast<size_t>(m->cols));
-    for (int64_t col = 0; col < m->cols; ++col) {
-      const size_t off = matrix_offset(m, row, col);
-      row_list->elems.push_back(
-        m->elem_kind == StyioMatrixElemKind::F64
-          ? static_cast<StyioMatrixF64*>(m)->elems[off]
-          : static_cast<double>(static_cast<StyioMatrixI64*>(m)->elems[off]));
-    }
-    out->elems.push_back(stash_list(row_list));
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (int64_t row = begin; row < finish; ++row) {
+        auto* row_list = new StyioListF64();
+        row_list->elems.reserve(static_cast<size_t>(m->cols));
+        for (int64_t col = 0; col < m->cols; ++col) {
+          row_list->elems.push_back(
+            static_cast<double>(elements[matrix_offset(m, row, col)]));
+        }
+        out->elems.push_back(stash_list(row_list));
+      }
+    });
   return stash_list(out);
 }
 
@@ -3648,15 +3811,15 @@ styio_matrix_add_f64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixF64(a->rows, a->cols);
-  for (int64_t i = 0; i < a->rows * a->cols; ++i) {
-    double av = a->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(a)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(a)->elems[static_cast<size_t>(i)]);
-    double bv = b->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(b)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(b)->elems[static_cast<size_t>(i)]);
-    out->elems[static_cast<size_t>(i)] = av + bv;
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        out->elems[i] = static_cast<double>(left[i]) + static_cast<double>(right[i]);
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3676,10 +3839,22 @@ styio_matrix_sub_i64(int64_t lhs, int64_t rhs) {
 
 extern "C" DLLEXPORT int64_t
 styio_matrix_sub_f64(int64_t lhs, int64_t rhs) {
-  int64_t neg = styio_matrix_scale_f64(rhs, -1.0);
-  int64_t out = styio_matrix_add_f64(lhs, neg);
-  styio_matrix_release(neg);
-  return out;
+  StyioMatrixBase* a = as_matrix_base(lhs, true);
+  StyioMatrixBase* b = as_matrix_base(rhs, true);
+  if (a == nullptr || b == nullptr || !same_matrix_shape(a, b)) {
+    return 0;
+  }
+  auto* out = new StyioMatrixF64(a->rows, a->cols);
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        out->elems[i] = static_cast<double>(left[i]) - static_cast<double>(right[i]);
+      }
+    });
+  return stash_matrix(out);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -3704,15 +3879,15 @@ styio_matrix_hadamard_f64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixF64(a->rows, a->cols);
-  for (int64_t i = 0; i < a->rows * a->cols; ++i) {
-    double av = a->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(a)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(a)->elems[static_cast<size_t>(i)]);
-    double bv = b->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(b)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(b)->elems[static_cast<size_t>(i)]);
-    out->elems[static_cast<size_t>(i)] = av * bv;
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        out->elems[i] = static_cast<double>(left[i]) * static_cast<double>(right[i]);
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3728,15 +3903,13 @@ styio_matrix_matmul_i64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixI64(a->rows, b->cols);
-  for (int64_t r = 0; r < a->rows; ++r) {
-    for (int64_t c = 0; c < b->cols; ++c) {
-      int64_t sum = 0;
-      for (int64_t k = 0; k < a->cols; ++k) {
-        sum += a->elems[matrix_offset(a, r, k)] * b->elems[matrix_offset(b, k, c)];
-      }
-      out->elems[matrix_offset(out, r, c)] = sum;
-    }
-  }
+  matrix_multiply_blocked(
+    a->elems,
+    b->elems,
+    out->elems,
+    static_cast<size_t>(a->rows),
+    static_cast<size_t>(a->cols),
+    static_cast<size_t>(b->cols));
   return stash_matrix(out);
 }
 
@@ -3752,15 +3925,19 @@ styio_matrix_matmul_f64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixF64(a->rows, b->cols);
-  for (int64_t r = 0; r < a->rows; ++r) {
-    for (int64_t c = 0; c < b->cols; ++c) {
-      double sum = 0.0;
-      for (int64_t k = 0; k < a->cols; ++k) {
-        sum += styio_matrix_get_f64(lhs, r, k) * styio_matrix_get_f64(rhs, k, c);
-      }
-      out->elems[matrix_offset(out, r, c)] = sum;
-    }
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      matrix_multiply_blocked(
+        left,
+        right,
+        out->elems,
+        static_cast<size_t>(a->rows),
+        static_cast<size_t>(a->cols),
+        static_cast<size_t>(b->cols));
+    });
   return stash_matrix(out);
 }
 
@@ -3784,12 +3961,14 @@ styio_matrix_scale_f64(int64_t h, double scalar) {
     return 0;
   }
   auto* out = new StyioMatrixF64(m->rows, m->cols);
-  for (int64_t i = 0; i < m->rows * m->cols; ++i) {
-    double v = m->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(m)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(m)->elems[static_cast<size_t>(i)]);
-    out->elems[static_cast<size_t>(i)] = v * scalar;
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (size_t i = 0; i < elements.size(); ++i) {
+        out->elems[i] = static_cast<double>(elements[i]) * scalar;
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3815,11 +3994,17 @@ styio_matrix_transpose_f64(int64_t h) {
     return 0;
   }
   auto* out = new StyioMatrixF64(m->cols, m->rows);
-  for (int64_t r = 0; r < m->rows; ++r) {
-    for (int64_t c = 0; c < m->cols; ++c) {
-      out->elems[matrix_offset(out, c, r)] = styio_matrix_get_f64(h, r, c);
-    }
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (int64_t r = 0; r < m->rows; ++r) {
+        for (int64_t c = 0; c < m->cols; ++c) {
+          out->elems[matrix_offset(out, c, r)] =
+            static_cast<double>(elements[matrix_offset(m, r, c)]);
+        }
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3845,11 +4030,15 @@ styio_matrix_dot_f64(int64_t lhs, int64_t rhs) {
     return 0.0;
   }
   double sum = 0.0;
-  for (int64_t r = 0; r < a->rows; ++r) {
-    for (int64_t c = 0; c < a->cols; ++c) {
-      sum += styio_matrix_get_f64(lhs, r, c) * styio_matrix_get_f64(rhs, r, c);
-    }
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        sum += static_cast<double>(left[i]) * static_cast<double>(right[i]);
+      }
+    });
   return sum;
 }
 
@@ -3873,11 +4062,14 @@ styio_matrix_sum_f64(int64_t h) {
     return 0.0;
   }
   double sum = 0.0;
-  for (int64_t r = 0; r < m->rows; ++r) {
-    for (int64_t c = 0; c < m->cols; ++c) {
-      sum += styio_matrix_get_f64(h, r, c);
-    }
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (const auto value : elements) {
+        sum += static_cast<double>(value);
+      }
+    });
   return sum;
 }
 
@@ -3888,12 +4080,15 @@ styio_matrix_norm(int64_t h) {
     return 0.0;
   }
   double sum = 0.0;
-  for (int64_t r = 0; r < m->rows; ++r) {
-    for (int64_t c = 0; c < m->cols; ++c) {
-      double v = styio_matrix_get_f64(h, r, c);
-      sum += v * v;
-    }
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (const auto value : elements) {
+        const double converted = static_cast<double>(value);
+        sum += converted * converted;
+      }
+    });
   return std::sqrt(sum);
 }
 

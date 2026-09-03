@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-08-22
+**Last updated:** 2026-09-04
 
 ## Mission
 
@@ -54,6 +54,8 @@ High-value docs:
 22. The OPT-C parser-core probes live in the repository-local `styio_core_bench` binary: `expr_flat_add_4096`, `expr_mixed_4096`, and `expr_right_power_64` must parse under phase `parse_expr` within `expression_token_visits <= 8 * token_count + 8`, zero expression-core scratch allocations, and bounded depth, with `alloc_count` recording `expression_ast_nodes`; the process fails on null parses, zero-fallback/zero-bridge violations, or counter-bound breaches. Median durations remain JSON evidence, not local thresholds. Gate: `ctest --test-dir build -R '^styio_core_benchmark_internal$|^styio_core_benchmark_json_output$' --output-on-failure`.
 23. Keep the required external integration inventory identical in `benchmark/CMakeLists.txt`, the scheduled linkage workflow, and the authority handoff. The contract currently contains eight files: core manifest/runner, probe utility/core/soak/scheduler sources, JSON smoke coverage, and the C++ benchmark evidence test.
 24. The scheduled benchmark job is report-only: inventory every missing path before required-mode configure, retain configure/build logs even on failure, and build `styio_core_benchmark_evidence_test` alongside the core, soak, and scheduler probes when the external checkout is complete.
+25. Compiler-phase scalar sweeps must measure one complete pass and publish all five boundaries from that pass. Preserve linear work by sharing the resource-free topology proof across Sema/lowering and by reusing only the final non-deferred StyioIR verifier result at codegen; never weaken verification for raw IR to improve a phase cell.
+26. IDE latency measurements must preserve the frozen p95 budgets. Optimize incremental parsing by sharing immutable `TextBuffer` storage across VFS, syntax snapshots, and parser cache entries, and by constructing ranged tolerant tokens once. Do not raise the threshold, omit slow samples, or attribute an incremental improvement to Tree-sitter reuse while another full-source token representation or source-string copy remains on the hot path. Run the latency test without competing benchmark processes and repeat it after a cache/storage change.
 
 ## Change Classes
 

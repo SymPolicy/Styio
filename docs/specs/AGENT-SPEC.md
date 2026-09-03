@@ -685,7 +685,7 @@ Agents working on specific areas should consult:
 | Adding syntax | `../design/syntax/features/<feature-id>.md` (feature SSOT), `../design/Styio-EBNF.md` (shared grammar), `../design/Styio-Symbol-Reference.md` (shared tokens) |
 | Active syntax map | `../design/syntax/ACTIVE-SYNTAX.md` (compact authoring surface) |
 | resource topology (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
-| Implementing `@` propagation | `../design/Styio-Language-Design.md` §3.4 (Undefined type) |
+| Implementing tagged runtime absence | `../design/Styio-Language-Design.md` §3.5 (Runtime Absence) |
 | Reserved wave tokens `<~` / `~>` | `../design/Styio-Symbol-Reference.md` §3 (reserved tokens) |
 | Stream sync `&` / `<<` | `../design/Styio-Language-Design.md` §9 (Stream Synchronization) |
 | Intrinsic algorithms | `../design/Styio-StdLib-Intrinsics.md` (all algorithms with pseudocode) |
@@ -765,7 +765,7 @@ Agents must work on the **current active front** and not skip ahead. Start from 
 ### What Requires Human Approval
 
 - **Any new symbol or syntax** — must start in an owning feature SSOT, record the language-owner decision, and reach `accepted` with derived readiness `ready` before delivery advances beyond `not_started`
-- **Changes to `@` propagation semantics** — this is a core language invariant
+- **Changes to tagged `@` absence semantics** — this is a core language invariant
 - **Changes to the compilation pipeline stages** — the 6-stage flow is architectural
 - **New external dependencies**
 - **Removing or renaming existing tokens/AST nodes** — may break downstream agents

@@ -5739,6 +5739,9 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     available_definitions[callable_name_of_def(imported.definition)] =
       imported.definition;
   }
+  if (available_definitions.empty()) {
+    return;
+  }
 
   std::vector<std::string> definition_names;
   definition_names.reserve(definitions.size());
@@ -7209,6 +7212,33 @@ StyioSemaContext::typeInfer(FlexBindAST* ast) {
   }
 
   ast->getValue()->typeInfer(this);
+
+  // A new, unannotated scalar binding cannot participate in any of the
+  // resource, dynamic-slot, tuple-rebind, or callable paths below.  Keep the
+  // common straight-line case direct: generated programs frequently contain
+  // thousands of these bindings, and re-running the generic classification
+  // machinery for every scalar adds measurable front-end cost.
+  if (!binding_exists && var_type.isUndefined()) {
+    const StyioDataType scalar_type =
+      infer_expr_type(this, ast->getValue());
+    const BindingValueKind scalar_kind =
+      binding_value_kind_for_type(scalar_type);
+    const bool is_plain_scalar =
+      scalar_kind == BindingValueKind::Bool
+      || scalar_kind == BindingValueKind::I64
+      || scalar_kind == BindingValueKind::F64;
+    if (is_plain_scalar) {
+      ast->getVar()->setDataType(scalar_type);
+      record_local_binding_type(bound_name, bound_sid, scalar_type);
+      maybe_intern_type(scalar_type);
+
+      BindingInfo info;
+      info.value_kind = scalar_kind;
+      info.declared_type = scalar_type;
+      record_binding_info(bound_name, bound_sid, info);
+      return;
+    }
+  }
 
   if (styio_is_matrix_type(var_type)) {
     if (dynamic_cast<ListAST*>(ast->getValue()) != nullptr) {
@@ -10029,7 +10059,18 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
   inferred_function_return_types_by_sid_.clear();
   active_resource_receiver_family_.clear();
   register_imported_callable_definitions();
-  auto stmts = ast->getStmts();
+  const auto& stmts = ast->getStmts();
+  const std::size_t top_level_count = stmts.size();
+  func_defs.reserve(top_level_count);
+  func_defs_by_sid.reserve(top_level_count);
+  native_func_defs.reserve(top_level_count);
+  native_func_defs_by_sid.reserve(top_level_count);
+  local_binding_types.reserve(top_level_count);
+  local_binding_types_by_sid.reserve(top_level_count);
+  fixed_assignment_names_.reserve(top_level_count);
+  fixed_assignment_names_by_sid_.reserve(top_level_count);
+  binding_info_.reserve(top_level_count);
+  binding_info_by_sid_.reserve(top_level_count);
   std::vector<std::string> exported_symbols;
   for (auto const& s : stmts) {
     if (auto* export_decl = dynamic_cast<ExportDeclAST*>(s)) {
@@ -10103,5 +10144,10 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
       "environment formation",
       false);
   }
-  styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
+  const bool resource_validation_is_noop =
+    imported_callable_definitions_.empty()
+    && styio::resource_topology::validation_is_noop_for_scalar_program(ast);
+  if (!resource_validation_is_noop) {
+    styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
+  }
 }

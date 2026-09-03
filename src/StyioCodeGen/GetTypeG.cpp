@@ -196,7 +196,7 @@ StyioToLLVM::toLLVMType(SGFlexBind* node) {
   if (auto* fb = dynamic_cast<SGFallback*>(node->value)) {
     llvm::Type* pt = fb->primary->toLLVMType(this);
     llvm::Type* at = fb->alternate->toLLVMType(this);
-    if (pt->isIntegerTy(64) && at->isPointerTy()) {
+    if (is_optional_i64_type(pt)) {
       return at;
     }
   }
@@ -328,26 +328,28 @@ StyioToLLVM::toLLVMType(SCMatrixLiteral* node) {
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGStateSnapLoad* node) {
-  (void)node;
-  return theBuilder->getInt64Ty();
+  return node->carries_absence
+    ? static_cast<llvm::Type*>(optional_i64_type())
+    : static_cast<llvm::Type*>(theBuilder->getInt64Ty());
 }
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGStateHistLoad* node) {
-  (void)node;
-  return theBuilder->getInt64Ty();
+  return node->carries_absence
+    ? static_cast<llvm::Type*>(optional_i64_type())
+    : static_cast<llvm::Type*>(theBuilder->getInt64Ty());
 }
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGSeriesAvgStep* node) {
   (void)node;
-  return theBuilder->getInt64Ty();
+  return optional_i64_type();
 }
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGSeriesMaxStep* node) {
   (void)node;
-  return theBuilder->getInt64Ty();
+  return optional_i64_type();
 }
 
 llvm::Type*
@@ -382,17 +384,17 @@ StyioToLLVM::toLLVMType(SGContinue* node) {
 llvm::Type*
 StyioToLLVM::toLLVMType(SGUndef* node) {
   (void)node;
-  return theBuilder->getInt64Ty();
+  return optional_i64_type();
 }
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGFallback* node) {
   llvm::Type* pt = node->primary->toLLVMType(this);
   llvm::Type* at = node->alternate->toLLVMType(this);
-  if (pt->isIntegerTy(64) && at->isPointerTy()) {
+  if (is_optional_i64_type(pt)) {
     return at;
   }
-  return theBuilder->getInt64Ty();
+  return pt;
 }
 
 llvm::Type*
@@ -410,13 +412,13 @@ StyioToLLVM::toLLVMType(SGWaveDispatch* node) {
 llvm::Type*
 StyioToLLVM::toLLVMType(SGGuardSelect* node) {
   (void)node;
-  return theBuilder->getInt64Ty();
+  return optional_i64_type();
 }
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SGEqProbe* node) {
   (void)node;
-  return theBuilder->getInt64Ty();
+  return optional_i64_type();
 }
 
 llvm::Type*

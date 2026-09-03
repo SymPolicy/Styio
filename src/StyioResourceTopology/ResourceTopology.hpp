@@ -176,6 +176,11 @@ struct BuildResult
 BuildResult build(MainBlockAST* ast, BuildOptions options = {});
 BuildResult build(BlockAST* ast, BuildOptions options = {});
 
+/// Returns true only for the narrow top-level scalar subset that cannot
+/// introduce resource-topology nodes or edges.  Sema and lowering share this
+/// proof so neither phase rebuilds an empty topology graph.
+bool validation_is_noop_for_scalar_program(MainBlockAST* ast);
+
 void validate_or_throw(MainBlockAST* ast, std::string phase);
 void validate_or_throw(BlockAST* ast, std::string phase);
 

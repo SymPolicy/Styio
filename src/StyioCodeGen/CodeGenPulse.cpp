@@ -1,20 +1,14 @@
 // State resources: pulse ledger, frame snapshot, intrinsics codegen (StyioToLLVM members).
 
 #include "CodeGenVisitor.hpp"
+#include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 
-#include <limits>
-
 namespace {
-
-int64_t
-k_undef_i64() {
-  return std::numeric_limits<int64_t>::min();
-}
 
 int
 abs_value_off(const SGStateSlotDesc& s) {
@@ -25,11 +19,21 @@ abs_value_off(const SGStateSlotDesc& s) {
 }
 
 int
+abs_value_defined_off(const SGStateSlotDesc& s) {
+  return s.offset + s.win_n * 8 + 32;
+}
+
+int
 abs_hist_ring(const SGStateSlotDesc& s) {
   if (s.kind == SGStateSlotKind::Track) {
     return s.offset + 8;
   }
-  return s.offset + s.win_n * 8 + 32;
+  return s.offset + s.win_n * 8 + 40;
+}
+
+int
+abs_hist_defined_ring(const SGStateSlotDesc& s) {
+  return abs_hist_ring(s) + s.win_n * 8;
 }
 
 int
@@ -37,7 +41,7 @@ abs_hist_hpos(const SGStateSlotDesc& s) {
   if (s.kind == SGStateSlotKind::Track) {
     return s.offset + 8 + 8 * s.win_n;
   }
-  return s.offset + s.win_n * 8 + 32 + s.win_n * 8;
+  return abs_hist_defined_ring(s) + s.win_n * 8;
 }
 
 int
@@ -124,14 +128,32 @@ StyioToLLVM::emit_pulse_commit_all(llvm::Value* ledger_i8, const SGPulsePlan* pl
     if (itv == mutable_variables.end()) {
       continue;
     }
-    llvm::Value* newv = theBuilder->CreateLoad(i64t, itv->second);
+    llvm::Type* binding_type = itv->second->getAllocatedType();
+    llvm::Value* stored = theBuilder->CreateLoad(binding_type, itv->second);
+    llvm::Value* newv = stored;
+    llvm::Value* new_defined = llvm::ConstantInt::getTrue(*theContext);
+    if (is_optional_i64_value(stored)) {
+      newv = optional_i64_value(stored);
+      new_defined = optional_i64_defined(stored);
+    }
+    if (!newv->getType()->isIntegerTy(64)) {
+      throw StyioTypeError("pulse state commit requires an i64 payload");
+    }
 
     switch (s.kind) {
       case SGStateSlotKind::Acc: {
+        if (is_optional_i64_value(stored)) {
+          throw StyioTypeError(
+            "optional i64 requires a tagged window state slot");
+        }
         styio_store_i64_at_byte_ptr(ledger_i8, s.offset, newv);
       } break;
 
       case SGStateSlotKind::Track: {
+        if (is_optional_i64_value(stored)) {
+          throw StyioTypeError(
+            "optional i64 requires a tagged window state slot");
+        }
         llvm::Value* oldv = styio_load_i64_at_byte_ptr(ledger_i8, s.offset);
         int W = s.win_n;
         llvm::Value* hp = styio_load_i64_at_byte_ptr(ledger_i8, abs_hist_hpos(s));
@@ -155,6 +177,9 @@ StyioToLLVM::emit_pulse_commit_all(llvm::Value* ledger_i8, const SGPulsePlan* pl
       case SGStateSlotKind::WinAvg:
       case SGStateSlotKind::WinMax: {
         llvm::Value* old_last = styio_load_i64_at_byte_ptr(ledger_i8, abs_value_off(s));
+        llvm::Value* old_defined = styio_load_i64_at_byte_ptr(
+          ledger_i8,
+          abs_value_defined_off(s));
         int W = s.win_n;
         llvm::Value* hp = styio_load_i64_at_byte_ptr(ledger_i8, abs_hist_hpos(s));
         llvm::Value* wi = theBuilder->CreateURem(
@@ -169,9 +194,24 @@ StyioToLLVM::emit_pulse_commit_all(llvm::Value* ledger_i8, const SGPulsePlan* pl
           bo);
         llvm::Value* pc = theBuilder->CreateBitCast(g, llvm::PointerType::get(i64t, 0));
         theBuilder->CreateStore(old_last, pc);
+        llvm::Value* defined_bo = theBuilder->CreateAdd(
+          llvm::ConstantInt::get(i64t, abs_hist_defined_ring(s)),
+          theBuilder->CreateMul(wi, llvm::ConstantInt::get(i64t, 8)));
+        llvm::Value* defined_gep = theBuilder->CreateInBoundsGEP(
+          theBuilder->getInt8Ty(),
+          ledger_i8,
+          defined_bo);
+        llvm::Value* defined_ptr = theBuilder->CreateBitCast(
+          defined_gep,
+          llvm::PointerType::get(i64t, 0));
+        theBuilder->CreateStore(old_defined, defined_ptr);
         llvm::Value* hp1 = theBuilder->CreateAdd(hp, llvm::ConstantInt::get(i64t, 1));
         styio_store_i64_at_byte_ptr(ledger_i8, abs_hist_hpos(s), hp1);
         styio_store_i64_at_byte_ptr(ledger_i8, abs_value_off(s), newv);
+        styio_store_i64_at_byte_ptr(
+          ledger_i8,
+          abs_value_defined_off(s),
+          theBuilder->CreateZExt(new_defined, i64t));
       } break;
 
       default:
@@ -183,10 +223,23 @@ StyioToLLVM::emit_pulse_commit_all(llvm::Value* ledger_i8, const SGPulsePlan* pl
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGStateSnapLoad* node) {
   if (!pulse_active_plan_ || !pulse_snap_base_) {
-    return theBuilder->getInt64(0);
+    return node->carries_absence
+      ? make_optional_i64(
+          theBuilder->getInt64(0),
+          llvm::ConstantInt::getFalse(*theContext))
+      : static_cast<llvm::Value*>(theBuilder->getInt64(0));
   }
   const SGStateSlotDesc& s = pulse_active_plan_->slots[static_cast<size_t>(node->slot_id)];
-  return styio_load_i64_at_byte_ptr(pulse_snap_base_, abs_value_off(s));
+  llvm::Value* value = styio_load_i64_at_byte_ptr(
+    pulse_snap_base_,
+    abs_value_off(s));
+  if (!node->carries_absence) {
+    return value;
+  }
+  llvm::Value* defined = theBuilder->CreateICmpNE(
+    styio_load_i64_at_byte_ptr(pulse_snap_base_, abs_value_defined_off(s)),
+    theBuilder->getInt64(0));
+  return make_optional_i64(value, defined);
 }
 
 llvm::Value*
@@ -196,14 +249,22 @@ StyioToLLVM::toLLVMIR(SGStateHistLoad* node) {
   if (node->pulse_region_id >= 0) {
     auto it = pulse_region_ledgers_.find(node->pulse_region_id);
     if (it == pulse_region_ledgers_.end()) {
-      return theBuilder->getInt64(0);
+      return node->carries_absence
+        ? make_optional_i64(
+            theBuilder->getInt64(0),
+            llvm::ConstantInt::getFalse(*theContext))
+        : static_cast<llvm::Value*>(theBuilder->getInt64(0));
     }
     base_i8 = it->second.first;
     plan = it->second.second;
   }
   else {
     if (!pulse_active_plan_ || !pulse_snap_base_) {
-      return theBuilder->getInt64(0);
+      return node->carries_absence
+        ? make_optional_i64(
+            theBuilder->getInt64(0),
+            llvm::ConstantInt::getFalse(*theContext))
+        : static_cast<llvm::Value*>(theBuilder->getInt64(0));
     }
     base_i8 = pulse_snap_base_;
     plan = pulse_active_plan_;
@@ -228,27 +289,51 @@ StyioToLLVM::toLLVMIR(SGStateHistLoad* node) {
     base_i8,
     bo);
   llvm::Value* pc = theBuilder->CreateBitCast(g, llvm::PointerType::get(i64t, 0));
-  return theBuilder->CreateLoad(theBuilder->getInt64Ty(), pc);
+  llvm::Value* value = theBuilder->CreateLoad(theBuilder->getInt64Ty(), pc);
+  if (!node->carries_absence) {
+    return value;
+  }
+  llvm::Value* defined_bo = theBuilder->CreateAdd(
+    llvm::ConstantInt::get(i64t, abs_hist_defined_ring(s)),
+    theBuilder->CreateMul(wi, llvm::ConstantInt::get(i64t, 8)));
+  llvm::Value* defined_gep = theBuilder->CreateInBoundsGEP(
+    theBuilder->getInt8Ty(),
+    base_i8,
+    defined_bo);
+  llvm::Value* defined_ptr = theBuilder->CreateBitCast(
+    defined_gep,
+    llvm::PointerType::get(i64t, 0));
+  llvm::Value* defined_word = theBuilder->CreateLoad(i64t, defined_ptr);
+  llvm::Value* defined = theBuilder->CreateICmpNE(
+    defined_word,
+    llvm::ConstantInt::get(i64t, 0));
+  return make_optional_i64(value, defined);
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGSeriesAvgStep* node) {
   if (!pulse_active_plan_ || !pulse_ledger_base_) {
-    return theBuilder->getInt64(0);
+    return make_optional_i64(
+      theBuilder->getInt64(0),
+      llvm::ConstantInt::getFalse(*theContext));
   }
   const SGStateSlotDesc& s = pulse_active_plan_->slots[static_cast<size_t>(node->slot_id)];
   llvm::Type* i64t = theBuilder->getInt64Ty();
-  llvm::Value* u = llvm::ConstantInt::get(i64t, k_undef_i64());
 
-  llvm::Value* xv = node->x->toLLVMIR(this);
+  llvm::Value* input = node->x->toLLVMIR(this);
+  llvm::Value* input_defined = llvm::ConstantInt::getTrue(*theContext);
+  if (is_optional_i64_value(input)) {
+    input_defined = optional_i64_defined(input);
+    input = optional_i64_value(input);
+  }
+  llvm::Value* xv = input;
   xv = coerce_pulse_input_i64(xv);
-  llvm::Value* isu = theBuilder->CreateICmpEQ(xv, u);
 
   llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
   llvm::BasicBlock* ok_bb = llvm::BasicBlock::Create(*theContext, "sgavg_ok", F);
   llvm::BasicBlock* bad_bb = llvm::BasicBlock::Create(*theContext, "sgavg_bad", F);
   llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*theContext, "sgavg_m", F);
-  theBuilder->CreateCondBr(isu, bad_bb, ok_bb);
+  theBuilder->CreateCondBr(input_defined, ok_bb, bad_bb);
 
   theBuilder->SetInsertPoint(bad_bb);
   theBuilder->CreateBr(merge_bb);
@@ -283,32 +368,43 @@ StyioToLLVM::toLLVMIR(SGSeriesAvgStep* node) {
   styio_store_i64_at_byte_ptr(pulse_ledger_base_, abs_cnt(s), cnt2);
   llvm::Value* warm = theBuilder->CreateICmpSGE(cnt2, llvm::ConstantInt::get(i64t, n));
   llvm::Value* avgv = theBuilder->CreateSDiv(sum2, llvm::ConstantInt::get(i64t, n));
-  llvm::Value* out_ok = theBuilder->CreateSelect(warm, avgv, u);
   theBuilder->CreateBr(merge_bb);
 
   theBuilder->SetInsertPoint(merge_bb);
-  llvm::PHINode* phi = theBuilder->CreatePHI(i64t, 2, "sgavg_phi");
-  phi->addIncoming(u, bad_bb);
-  phi->addIncoming(out_ok, ok_bb);
-  return phi;
+  llvm::PHINode* value_phi = theBuilder->CreatePHI(i64t, 2, "sgavg_value");
+  value_phi->addIncoming(theBuilder->getInt64(0), bad_bb);
+  value_phi->addIncoming(avgv, ok_bb);
+  llvm::PHINode* defined_phi = theBuilder->CreatePHI(
+    theBuilder->getInt1Ty(),
+    2,
+    "sgavg_defined");
+  defined_phi->addIncoming(llvm::ConstantInt::getFalse(*theContext), bad_bb);
+  defined_phi->addIncoming(warm, ok_bb);
+  return make_optional_i64(value_phi, defined_phi);
 }
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGSeriesMaxStep* node) {
   if (!pulse_active_plan_ || !pulse_ledger_base_) {
-    return theBuilder->getInt64(0);
+    return make_optional_i64(
+      theBuilder->getInt64(0),
+      llvm::ConstantInt::getFalse(*theContext));
   }
   const SGStateSlotDesc& s = pulse_active_plan_->slots[static_cast<size_t>(node->slot_id)];
   llvm::Type* i64t = theBuilder->getInt64Ty();
-  llvm::Value* u = llvm::ConstantInt::get(i64t, k_undef_i64());
-  llvm::Value* xv = coerce_pulse_input_i64(node->x->toLLVMIR(this));
-  llvm::Value* isu = theBuilder->CreateICmpEQ(xv, u);
+  llvm::Value* input = node->x->toLLVMIR(this);
+  llvm::Value* input_defined = llvm::ConstantInt::getTrue(*theContext);
+  if (is_optional_i64_value(input)) {
+    input_defined = optional_i64_defined(input);
+    input = optional_i64_value(input);
+  }
+  llvm::Value* xv = coerce_pulse_input_i64(input);
 
   llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
   llvm::BasicBlock* bad_bb = llvm::BasicBlock::Create(*theContext, "sgmax_bad", F);
   llvm::BasicBlock* ok_bb = llvm::BasicBlock::Create(*theContext, "sgmax_ok", F);
   llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(*theContext, "sgmax_m", F);
-  theBuilder->CreateCondBr(isu, bad_bb, ok_bb);
+  theBuilder->CreateCondBr(input_defined, ok_bb, bad_bb);
 
   theBuilder->SetInsertPoint(bad_bb);
   theBuilder->CreateBr(merge_bb);
@@ -351,7 +447,9 @@ StyioToLLVM::toLLVMIR(SGSeriesMaxStep* node) {
   theBuilder->CreateCondBr(go, loop_bd, loop_end);
 
   theBuilder->SetInsertPoint(loop_bd);
-  llvm::Value* back = theBuilder->CreateSub(wp2, phi_k);
+  llvm::Value* back = theBuilder->CreateSub(
+    wp2,
+    theBuilder->CreateAdd(phi_k, llvm::ConstantInt::get(i64t, 1)));
   llvm::Value* idx = theBuilder->CreateURem(
     back,
     llvm::ConstantInt::get(i64t, static_cast<uint64_t>(n)));
@@ -372,13 +470,20 @@ StyioToLLVM::toLLVMIR(SGSeriesMaxStep* node) {
   phi_best->addIncoming(best2, loop_bd);
 
   theBuilder->SetInsertPoint(loop_end);
-  llvm::Value* cold = theBuilder->CreateICmpSLT(cnt2, llvm::ConstantInt::get(i64t, n));
-  llvm::Value* out_ok = theBuilder->CreateSelect(cold, u, phi_best);
+  llvm::Value* warm = theBuilder->CreateICmpSGE(
+    cnt2,
+    llvm::ConstantInt::get(i64t, n));
   theBuilder->CreateBr(merge_bb);
 
   theBuilder->SetInsertPoint(merge_bb);
-  llvm::PHINode* pm = theBuilder->CreatePHI(i64t, 2, "sgmax_phi");
-  pm->addIncoming(u, bad_bb);
-  pm->addIncoming(out_ok, loop_end);
-  return pm;
+  llvm::PHINode* value_phi = theBuilder->CreatePHI(i64t, 2, "sgmax_value");
+  value_phi->addIncoming(theBuilder->getInt64(0), bad_bb);
+  value_phi->addIncoming(phi_best, loop_end);
+  llvm::PHINode* defined_phi = theBuilder->CreatePHI(
+    theBuilder->getInt1Ty(),
+    2,
+    "sgmax_defined");
+  defined_phi->addIncoming(llvm::ConstantInt::getFalse(*theContext), bad_bb);
+  defined_phi->addIncoming(warm, loop_end);
+  return make_optional_i64(value_phi, defined_phi);
 }
