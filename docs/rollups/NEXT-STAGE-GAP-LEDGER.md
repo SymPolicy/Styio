@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-21
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -125,13 +125,35 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 |-------|-------|---------------|------------|--------------|
 | W1 | Inventory and retire active sema/lowering placeholders | Sema / IR, Codegen / Runtime, Test Quality | None | targeted unit coverage plus affected milestone cases |
 | W2 | Carry one M7 stream/zip slice end-to-end | Frontend, Sema / IR, Codegen / Runtime, Test Quality | W1 for touched nodes | milestone tests, five-layer checks, and relevant runtime/security coverage |
+| W3 | Close the next IDE/LSP operational gap before expanding the public method surface | IDE / LSP, Test Quality | Stable semantic publication and runtime-drain behavior | focused IDE/LSP tests, protocol-boundary evidence, and owner docs |
 | W4 | Harden the delivered `compile_plan` consumer contract for Pafio handoff | CLI / Nano, Docs / Ecosystem, Pafio coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
 | W5 | Complete nano negative-path coverage and contract hardening | CLI / Nano, Test Quality | W4 not required | nano-focused unit tests plus docs audit |
 | W6 | Re-open Topology v2 only as a dedicated migration track | Frontend, Sema / IR, Docs / Ecosystem, Test Quality | W1 strongly recommended | milestone acceptance, design doc update, ADR when ownership/lifecycle semantics change |
 | W7 | Keep milestone catalog and migration diagnostics aligned with active syntax | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L milestone`, catalog/doc sync, no orphan fixtures |
 | W8 | Continue local divergence migration from preserved branch/stash without restoring deleted governance surfaces | Docs / Ecosystem with affected implementation owners | Current upstream `nightly` governance | [LOCAL-DIVERGENCE-MIGRATION-2026-07-04.md](./LOCAL-DIVERGENCE-MIGRATION-2026-07-04.md), owning runbook updates, targeted tests |
 
-## 8. Rules for Scalable Team Execution
+## 8. Carry-Forward Register
+
+The previous planning generation is removed from the current tree. The items below are registered here as future work only; this registration does not authorize or implement any item.
+
+| Register ID | Carried-forward work | Current boundary / reopen condition | Owning queue |
+|-------------|----------------------|-------------------------------------|--------------|
+| CF-P2-M7 | P2: carry one accepted M7 stream/zip source combination through parser, Sema, lowering, runtime, and tests | Select one independently acceptable source combination and preserve five-layer, milestone, runtime, and security evidence | W2 |
+| CF-P3-TOPOLOGY | P3: advance one Topology v2 compiler slice without restoring retired syntax | Follow the canonical topology SSOT and the P0 inventory; each slice needs resource-topology tests and migration diagnostics | W6, W7 |
+| CF-P4-PERF | P4: route resource/task pressure evidence through `styio-benchmark` while preserving Styio probes | External benchmark assets and an evidence handoff must exist; this repository does not absorb benchmark workload ownership | Performance / Stability, W7 |
+| CF-W1 | W1: inventory and retire one active Sema/lowering placeholder family | Reopen one accepted implementation-debt family at a time with targeted unit and milestone evidence | W1 |
+| CF-W2 | W2: deliver the selected M7 slice end to end | Depends on W1 only for touched nodes | W2 |
+| CF-W3 | W3: close one IDE/LSP operational gap before feature expansion | Preserve runtime drain, semantic identity, cache invalidation, and protocol-boundary tests | W3 |
+| CF-W4 | W4: harden the compiler-side `compile_plan` consumer contract | Keep project/package lifecycle in Pafio; require machine-readable diagnostics and handoff sync | W4 |
+| CF-W5 | W5: complete nano negative-path and contract-edge coverage | Add focused marker, integrity, and mutually-exclusive guard evidence without expanding package-manager scope | W5 |
+| CF-W6 | W6: continue Topology v2 only as a dedicated migration track | W1 is strongly recommended; retired resource spellings remain negative-only | W6 |
+| CF-W7 | W7: align milestones, migration diagnostics, catalogs, and active syntax | Runs with each affected implementation queue and must leave no orphan fixture | W7 |
+| CF-W8 | W8: migrate preserved local divergence in checkpoint-sized slices | Do not restore removed governance or planning surfaces; require owning runbook and focused tests | W8 |
+| CF-CALLABLE-Q3 | Deferred callable decisions Q3.1–Q3.3: nested contract origin, static rank-2 representation, and shallow pure subsumption | Remains `deferred/not_started` until the language owner answers the queued batch; recommendations are not authority | Sema / Type System |
+| CF-CALLABLE-Q6 | Deferred callable decisions Q6.1–Q6.3: concrete instance heads, ownership/coherence, and static interface evidence | Remains `deferred/not_started` until nominal ownership prerequisites converge and the language owner answers the queued batch | Sema / Modules |
+| CF-CORRECTNESS | Select the next compiler-correctness cluster after the completed loop-control closure | Compare remaining explicit feature-debt families, select exactly one smallest independent cluster, freeze semantics, and require final focused acceptance | W1 plus affected owner |
+
+## 9. Rules for Scalable Team Execution
 
 1. Keep checkpoints 1-3 days wide, consistent with [../../workflows/CHECKPOINT-WORKFLOW.md](../../workflows/CHECKPOINT-WORKFLOW.md).
 2. Route every checkpoint through the owning runbook in [../teams/COORDINATION-RUNBOOK.md](../teams/COORDINATION-RUNBOOK.md); do not leave cross-team review implicit.
@@ -140,9 +162,9 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 5. Do not remove parser fallback or compatibility routes without the shadow/five-layer gates that already protect the nightly-first baseline.
 6. When a gap is closed, update this ledger, the owning SSOT, the relevant runbook or handoff doc, and the smallest matching tests in the same merge unit.
 
-## 9. Immediate Stage Conclusion
+## 10. Immediate Stage Conclusion
 
-1. The repository is not 鈥渦nfinished everywhere鈥? it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
+1. The repository is not “unfinished everywhere”; it already has a real nightly-first baseline, a real IDE core, and a real nano bootstrap contract.
 2. The deepest unfinished work is concentrated in compiler completion debt: parser subset gaps, sema/type/lowering placeholders, M7 runtime closure, and Topology v2 migration debt.
 3. Package-manager expectations must stay split cleanly: `styio` now owns the compiler-side compile-plan contract baseline and its compatibility maintenance, but not a full package-manager product surface.
 4. IDE next-stage work should prioritize operational closure over feature count: drain semantics correctly first, then expand methods.

@@ -23,9 +23,11 @@ MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 FAMILY_ORDER = {
     "history": 0,
     "dated_review": 1,
+    "audit": 2,
 }
 ALLOWED_STATUSES = {"active", "summarized_active", "pending_archive", "archived"}
-ACTIVE_FAMILIES = {"history", "dated_review"}
+ACTIVE_FAMILIES = {"history", "dated_review", "audit"}
+AUDIT_DATE_RE = re.compile(r"(?:^|[-_])([0-9]{4}-[0-9]{2}-[0-9]{2})(?:$|[-_])")
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,7 @@ def default_manifest() -> Dict[str, object]:
         "keep_window": {
             "history": 0,
             "dated_review": 0,
+            "audit": 0,
         },
         "entries": [],
     }
@@ -163,6 +166,9 @@ def date_for_source(family: str, source_path: Path) -> str | None:
         if len(source_path.parts) >= 3 and DATE_RE.match(source_path.parts[2]):
             return source_path.parts[2]
         return None
+    if family == "audit":
+        match = AUDIT_DATE_RE.search(source_path.stem)
+        return match.group(1) if match else None
     return None
 
 
@@ -172,6 +178,8 @@ def family_for_source(source_path: Path) -> str | None:
         return "history"
     if len(parts) >= 4 and parts[:2] == ("docs", "review") and DATE_RE.match(parts[2]) and source_path.suffix == ".md":
         return "dated_review"
+    if len(parts) >= 3 and parts[:2] == ("docs", "audit") and source_path.suffix == ".md" and AUDIT_DATE_RE.search(source_path.stem):
+        return "audit"
     return None
 
 
@@ -180,6 +188,8 @@ def archive_path_for(source_path: Path, family: str) -> Path:
         return Path("docs/archive/history") / source_path.name
     if family == "dated_review":
         return Path("docs/archive/review") / Path(*source_path.parts[2:])
+    if family == "audit":
+        return Path("docs/archive/audit") / Path(*source_path.parts[2:])
     raise ValueError(f"unsupported family for archive mapping: {family}")
 
 
@@ -211,6 +221,22 @@ def dated_review_sources() -> List[Path]:
     return results
 
 
+def audit_sources() -> List[Path]:
+    base = DOCS / "audit"
+    return sorted(
+        [
+            path.relative_to(ROOT)
+            for path in base.rglob("*.md")
+            if AUDIT_DATE_RE.search(path.stem) and "defects" not in path.parts
+        ],
+        key=lambda path: (
+            date_for_source("audit", path) or "",
+            path.as_posix(),
+        ),
+        reverse=True,
+    )
+
+
 def keep_window_dirs_for_dated_review() -> List[str]:
     dirs = [path.name for path in sorted((DOCS / "review").iterdir(), key=lambda item: item.name, reverse=True) if path.is_dir() and DATE_RE.match(path.name)]
     manifest = load_manifest() if MANIFEST_PATH.exists() else default_manifest()
@@ -235,6 +261,9 @@ def keep_set_for_family(family: str, manifest: Dict[str, object]) -> set[str]:
             for path in dated_review_sources()
             if len(path.parts) >= 3 and path.parts[2] in keep_dates
         }
+    if family == "audit":
+        keep = int(keep_window.get("audit", 0))
+        return {path.as_posix() for path in audit_sources()[:keep]}
     return set()
 
 
@@ -430,6 +459,14 @@ def discover_candidates(family: str, manifest: Dict[str, object]) -> List[Lifecy
                 family="dated_review",
                 status="active",
                 archive_path=archive_path_for(path, "dated_review").as_posix(),
+            )
+    if family in {"audit", "all"}:
+        for path in audit_sources():
+            discovered[path.as_posix()] = LifecycleEntry(
+                source_path=path.as_posix(),
+                family="audit",
+                status="active",
+                archive_path=archive_path_for(path, "audit").as_posix(),
             )
 
     for source_path, entry in manifest_entries.items():
@@ -739,7 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     candidates = subparsers.add_parser("candidates", help="List lifecycle candidates and their current status.")
-    candidates.add_argument("--family", choices=["history", "dated_review", "all"], required=True)
+    candidates.add_argument("--family", choices=["history", "dated_review", "audit", "all"], required=True)
     candidates.add_argument("--format", choices=["tree", "list", "json"], default="tree")
     candidates.set_defaults(func=run_candidates)
 
@@ -751,7 +788,7 @@ def build_parser() -> argparse.ArgumentParser:
     mark.set_defaults(func=run_mark)
 
     cleanup = subparsers.add_parser("cleanup", help="Remove pending sources once they are safe to drop from the current tree.")
-    cleanup.add_argument("--family", choices=["history", "dated_review", "all"], required=True)
+    cleanup.add_argument("--family", choices=["history", "dated_review", "audit", "all"], required=True)
     cleanup.set_defaults(func=run_cleanup)
 
     validate = subparsers.add_parser("validate", help="Validate archive manifest, ledger, and source/archive layout.")

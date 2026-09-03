@@ -1,6 +1,6 @@
 styio.ast.main {
 |- styio.ast.bind.flex {
-  |- var : styio.ast.var { factor : undefined }
+  |- var : styio.ast.var { factor : i64 }
   |- val = styio.ast.instant.pull { styio.ast.resource.file  {
       |- auto_detect: false
       |- path: styio.ast.string { "tests/pipeline_cases/p05_snapshot_accum/factor.txt" }} }}

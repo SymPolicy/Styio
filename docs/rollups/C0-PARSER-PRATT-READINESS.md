@@ -1,10 +1,10 @@
 # C0 — Parser Core Unification Record
 
-**Purpose:** Record the frozen accepted-expression parser-core contract for Checkpoint C (`OPT-C`): one canonical `parse_expr` core, one constexpr operator-metadata precedence authority, the O(n)/depth/diagnostic/no-fallback invariants, and the required complete-migration boundary. The authoritative design and executable acceptance live in the OPT-C design artifacts, not in this rollup.
+**Purpose:** Record the frozen accepted-expression parser-core contract for Checkpoint C (`OPT-C`): one canonical `parse_expr` core, one constexpr operator-metadata precedence authority, and the O(n), depth, diagnostic, no-fallback, and complete-migration invariants retained by active inventories and tests.
 
 **Last updated:** 2026-08-02
 
-**Status:** Frozen OPT-C parser-owner contract. This rollup supersedes the pre-implementation readiness snapshot; delivery status remains in the structured roadmap.
+**Status:** Frozen completed OPT-C parser-owner contract. Current authority and evidence live in IM-D2, owner runbooks, parser tests, and benchmark probes.
 
 ## 1. Expression Entry Functions
 
@@ -44,7 +44,7 @@ All `->original` accesses in parser code access NAME, INTEGER, DECIMAL, or STRIN
 
 ## 7. Frozen Acceptance Matrix
 
-The executable matrix is owned by `tests/parser_internal_test.cpp` (`StyioParserInternal`) and `benchmark/internal/core_bench.cpp` (`expr_flat_add_4096`, `expr_mixed_4096`, `expr_right_power_64`); the authoritative seam table is [Validation.md](../plan/roadmap/optimization/parser-core-unification/Validation.md). The golden expectations that lock the required behavior:
+The executable matrix is owned by `tests/parser_internal_test.cpp` (`StyioParserInternal`) and `benchmark/internal/core_bench.cpp` (`expr_flat_add_4096`, `expr_mixed_4096`, `expr_right_power_64`); the active authority summary is [IM-D2](./IM-D2-PARSER-AUTHORITY-INVENTORY.md). The golden expectations that lock the required behavior:
 
 | Input | Expected precedence |
 |-------|---------------------|
@@ -62,7 +62,7 @@ Work is O(n) in tokens: `expression_token_visits <= 8 * token_count + 8`, zero e
 
 ## 8. Migration Boundary
 
-`OPT-C` completes the migration in one change; the full obligations are in [Architecture.md](../plan/roadmap/optimization/parser-core-unification/Architecture.md):
+The completed parser-core migration is retained as current obligations in [IM-D2](./IM-D2-PARSER-AUTHORITY-INVENTORY.md) and the Frontend runbook:
 
 - Replace the unordered `TokenPrecedenceMap` with the canonical constexpr metadata and lookup; spelling maps stay spelling maps.
 - Change `parse_binop_rhs` to numeric minimum-precedence/binding-power semantics; remove all `StyioOpType` ordinal comparisons.
@@ -71,4 +71,4 @@ Work is O(n) in tokens: `expression_token_visits <= 8 * token_count + 8`, zero e
 - Remove any nightly call into legacy `parse_expr`, `parse_stmt_or_expr_legacy`, `parse_block_only`, or `parse_hash_tag`; the common expression entry is not a legacy bridge.
 - Leave explicitly legacy-only statement/conditional engine code intact; create no compatibility alias or fallback route for removed expression helpers.
 
-The old-symbol absence check is a one-time migration audit in [Validation.md](../plan/roadmap/optimization/parser-core-unification/Validation.md), not a permanent source-grep test.
+The old-symbol absence check was a one-time migration audit; current regressions rely on executable parser authority tests rather than a permanent source-grep test.

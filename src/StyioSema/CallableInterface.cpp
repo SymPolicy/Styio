@@ -10,6 +10,7 @@
 
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
+#include "../StyioLowering/PortableCallableBodyLowering.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 
 #include "llvm/ADT/StringRef.h"
@@ -21,11 +22,13 @@
 namespace styio::sema {
 namespace {
 
-using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
+using CallableConstraintKind =
+  styio::ir::PortableCallableConstraintKind;
 using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
-using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
+using CallableTypeConstraint =
+  styio::ir::PortableCallableTypeConstraint;
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
-using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
+using CallableTypeTerm = styio::ir::PortableCallableTypeTerm;
 using CallableUsageKind = styio::sema::CallableUsageKind;
 using CallableUsageRequirement =
   StyioSemaContext::CallableUsageRequirement;
@@ -666,7 +669,7 @@ effects_to_json(const CallableEffectRowFacts& effects) {
   llvm::json::Array labels;
   for (const auto label : effects.row.labels()) {
     labels.push_back(
-      std::string(styio::sema::callable_effect_label_name(label)));
+      std::string(styio::ir::callable_effect_label_name(label)));
   }
   llvm::json::Object object{
     {"labels", std::move(labels)},
@@ -708,7 +711,7 @@ effects_from_json(
   require_canonical_string_sequence(labels, context + ".labels");
   for (const auto& name : labels) {
     const auto label =
-      styio::sema::callable_effect_label_from_name(name);
+      styio::ir::callable_effect_label_from_name(name);
     if (!label.has_value()) {
       interface_error(
         context + " has unknown effect label `" + name + "`");
@@ -1352,7 +1355,7 @@ publish_callable_module_interface(
     }
     else {
       entry.effects.row =
-        styio::sema::CallableEffectRow::unknown();
+        styio::ir::CallableEffectRow::unknown();
     }
     interface.entries.push_back(std::move(entry));
     published_names.insert(name);

@@ -27,7 +27,7 @@ jobs:
       - name: Checkout released styio-audit policy
         uses: actions/checkout@v5
         with:
-          repository: eBioRing/styio-audit
+          repository: SymPolicy/styio-audit
           ref: stable
           path: styio-audit
 
@@ -50,20 +50,30 @@ jobs:
           from pathlib import Path
 
           policy = Path("../styio-audit/for-styio/module.json")
-          text = policy.read_text()
-          text = text.replace(
-              "StyioIDE and StyioLSP editor-facing workspace services",
-              "StyioServices/StyioIDE and StyioServices/StyioLSP editor-facing workspace services",
+          text = policy.read_text(encoding="utf-8")
+          replacements = (
+              (
+                  "StyioIDE and StyioLSP editor-facing workspace services",
+                  "StyioServices/StyioIDE and StyioServices/StyioLSP editor-facing workspace services",
+              ),
+              (
+                  '"scope_globs": ["src/StyioIDE/**", "src/StyioLSP/**", "tests/ide/**"]',
+                  '"scope_globs": ["src/StyioServices/StyioIDE/**", "src/StyioServices/StyioLSP/**", "tests/ide/**"]',
+              ),
+              (
+                  '"scope_globs": ["src/StyioAST/**", "src/StyioAnalyzer/**", "src/StyioIR/**", "src/StyioCodeGen/**", "tests/styio_test.cpp"]',
+                  '"scope_globs": ["src/StyioAST/**", "src/StyioSema/**", "src/StyioIR/**", "src/StyioCodeGen/**", "tests/styio_test.cpp"]',
+              ),
           )
-          text = text.replace(
-              '"scope_globs": ["src/StyioIDE/**", "src/StyioLSP/**", "tests/ide/**"]',
-              '"scope_globs": ["src/StyioServices/StyioIDE/**", "src/StyioServices/StyioLSP/**", "tests/ide/**"]',
-          )
-          text = text.replace(
-              '"scope_globs": ["src/StyioAST/**", "src/StyioAnalyzer/**", "src/StyioIR/**", "src/StyioCodeGen/**", "tests/styio_test.cpp"]',
-              '"scope_globs": ["src/StyioAST/**", "src/StyioSema/**", "src/StyioIR/**", "src/StyioCodeGen/**", "tests/styio_test.cpp"]',
-          )
-          policy.write_text(text)
+
+          for old, _ in replacements:
+              if old not in text:
+                  raise SystemExit(
+                      f"unmatched audit policy normalization pattern: {old}"
+                  )
+          for old, new in replacements:
+              text = text.replace(old, new)
+          policy.write_text(text, encoding="utf-8")
           PY
 
       - name: Run released styio-audit gate

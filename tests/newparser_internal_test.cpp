@@ -640,6 +640,12 @@ TEST(StyioNewParserInternal, ForwardIteratorAndContinuationEdgesStayExplicit) {
     EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
   }
   {
+    DirectContext direct(">>next(1)");
+    auto followings = parse_forward_as_list_nightly_draft(direct.get());
+    EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
     DirectContext direct("=> { << 1 } >>");
     std::vector<StyioAST*> followings = parse_forward_as_list_nightly_draft(direct.get());
     ASSERT_EQ(followings.size(), 1u);

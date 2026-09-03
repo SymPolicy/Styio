@@ -977,6 +977,13 @@ TEST(StyioParserInternal, UnifiedOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
   }
   {
+    SCOPED_TRACE("forward list leaves an iterator call for the outer parser");
+    DirectContext direct(">>next(1)");
+    auto followings = parse_forward_as_list(direct.get());
+    EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
     SCOPED_TRACE("forward list keeps trailing iterator for the outer parser");
     DirectContext direct("=> { 1 } >>");
     auto followings = parse_forward_as_list(direct.get());
@@ -2230,8 +2237,10 @@ TEST(StyioParserInternal, UnifiedExpressionPostfixEdgesStayExplicit) {
 TEST(StyioParserInternal, ParserFuzzCorpusExercisesRecoveryRoutes) {
   std::vector<fs::path> corpus_paths;
   for (const auto& entry : fs::directory_iterator("tests/fuzz/corpus/parser")) {
+    const std::string filename = entry.path().filename().string();
     if (entry.is_regular_file()
-        && entry.path().filename().string().rfind("seed-", 0) == 0) {
+        && (filename.rfind("seed-", 0) == 0
+            || entry.path().extension() == ".seed")) {
       corpus_paths.push_back(entry.path());
     }
   }

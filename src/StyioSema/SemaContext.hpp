@@ -18,13 +18,14 @@ using std::unordered_map;
 
 // [Styio]
 #include "../StyioAST/ASTDecl.hpp"
+#include "../StyioIR/CallableEffectRow.hpp"
 #include "../StyioIR/IRDecl.hpp"
+#include "../StyioIR/PortableCallableBody.hpp"
 #include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioSession/TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
 #include "CallableSpecializationGraph.hpp"
 #include "CallableUsage.hpp"
-#include "EffectRow.hpp"
 
 struct SGPulsePlan;
 
@@ -501,40 +502,6 @@ public:
 
 
 public:
-  struct CallableTypeTerm
-  {
-    enum class Kind : std::uint8_t {
-      Variable = 0,
-      Concrete,
-      List,
-      Dict,
-    };
-
-    Kind kind = Kind::Concrete;
-    std::uint32_t variable = 0;
-    StyioDataType concrete{
-      StyioDataTypeOption::Undefined, "undefined", 0
-    };
-    std::vector<CallableTypeTerm> arguments;
-  };
-
-  enum class CallableConstraintKind : std::uint8_t {
-    Numeric = 0,
-    Comparable,
-    Indexable,
-    Iterable,
-    Cloneable,
-  };
-
-  struct CallableTypeConstraint
-  {
-    CallableConstraintKind kind = CallableConstraintKind::Numeric;
-    CallableTypeTerm subject;
-    CallableTypeTerm argument;
-    CallableTypeTerm result;
-    std::string canonical;
-  };
-
   struct CallableConstraintSolverStats
   {
     std::size_t run_count = 0;
@@ -558,9 +525,9 @@ public:
   struct CallableTypeScheme
   {
     std::string name;
-    std::vector<CallableTypeTerm> params;
-    CallableTypeTerm result;
-    std::vector<CallableTypeConstraint> constraints;
+    std::vector<styio::ir::PortableCallableTypeTerm> params;
+    styio::ir::PortableCallableTypeTerm result;
+    std::vector<styio::ir::PortableCallableTypeConstraint> constraints;
     std::vector<CallableUsageRequirement> usage_requirements;
     std::vector<std::uint32_t> quantified_variables;
     bool recursive_group = false;
@@ -569,7 +536,7 @@ public:
 
   struct CallableEffectRowFacts
   {
-    styio::sema::CallableEffectRow row;
+    styio::ir::CallableEffectRow row;
     bool relation_seed = false;
     std::vector<std::string> captures;
     std::vector<std::string> direct_callees;
