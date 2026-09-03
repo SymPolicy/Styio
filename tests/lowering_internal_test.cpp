@@ -47,6 +47,62 @@ public:
   using StyioSemaContext::resource_binding_types_by_sid_;
   using StyioSemaContext::set_post_pulse_hist_context;
   using StyioSemaContext::snapshot_var_names_;
+
+  const styio::resource_topology::ValidatedArtifact*
+  topology_artifact(const MainBlockAST* root) const {
+    return resource_topology_artifact_for(root);
+  }
+
+  const styio::resource_topology::ValidatedArtifact*
+  require_topology(const MainBlockAST* root) const {
+    return require_resource_topology_for_lowering(root);
+  }
+
+  void add_imported_callable(StyioAST* definition) {
+    ImportedCallableDefinition imported;
+    imported.module_id = "test/imported";
+    imported.exported = true;
+    imported.definition = definition;
+    imported.concrete_result = styio_data_type_from_name("i64");
+    imported_callable_definitions_.push_back(std::move(imported));
+  }
+
+  std::size_t resource_validation_recordings() const noexcept {
+    return resource_validation_recordings_;
+  }
+
+  std::size_t resource_validation_skip_recordings() const noexcept {
+    return resource_validation_skip_recordings_;
+  }
+
+  std::size_t resource_fast_path_probe_recordings() const noexcept {
+    return resource_fast_path_probe_recordings_;
+  }
+
+protected:
+  void record_resource_validation_duration(
+    std::uint64_t duration_ns
+  ) noexcept override {
+    ++resource_validation_recordings_;
+    AstToStyioIRLowerer::record_resource_validation_duration(duration_ns);
+  }
+
+  void record_resource_validation_skipped() noexcept override {
+    ++resource_validation_skip_recordings_;
+    AstToStyioIRLowerer::record_resource_validation_skipped();
+  }
+
+  void record_resource_fast_path_probe_duration(
+    std::uint64_t duration_ns
+  ) noexcept override {
+    ++resource_fast_path_probe_recordings_;
+    AstToStyioIRLowerer::record_resource_fast_path_probe_duration(duration_ns);
+  }
+
+private:
+  std::size_t resource_validation_recordings_ = 0;
+  std::size_t resource_validation_skip_recordings_ = 0;
+  std::size_t resource_fast_path_probe_recordings_ = 0;
 };
 
 class UnknownActiveIRForVerifier final : public StyioIR
@@ -885,15 +941,89 @@ TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsNestedResourceShapes)
   }
 }
 
+TEST(StyioLoweringInternal, ReusesSemaValidatedTopologyArtifact) {
+  LowererProbe analyzer;
+  analyzer.enable_pipeline_profile(true);
+  std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
+    ResourceRedirectAST::Create(
+      StringAST::Create("hello"),
+      StdStreamAST::Create(StdStreamKind::Stdout)),
+  }));
+  root->typeInfer(&analyzer);
+  const auto* sema_artifact = analyzer.topology_artifact(root.get());
+  ASSERT_NE(sema_artifact, nullptr);
+  EXPECT_EQ(analyzer.resource_fast_path_probe_recordings(), 1u);
+  EXPECT_EQ(analyzer.resource_validation_recordings(), 1u);
+  EXPECT_EQ(analyzer.resource_validation_skip_recordings(), 0u);
+
+  std::unique_ptr<StyioIR> ir(root->toStyioIR(&analyzer));
+
+  EXPECT_NE(ir, nullptr);
+  EXPECT_EQ(analyzer.require_topology(root.get()), sema_artifact);
+  EXPECT_EQ(analyzer.topology_artifact(root.get()), sema_artifact);
+  EXPECT_EQ(analyzer.resource_fast_path_probe_recordings(), 1u);
+  EXPECT_EQ(analyzer.resource_validation_recordings(), 1u);
+  EXPECT_EQ(analyzer.resource_validation_skip_recordings(), 0u);
+}
+
+TEST(StyioLoweringInternal, RejectsMismatchedSemaTopologyState) {
+  LowererProbe analyzer;
+  std::unique_ptr<MainBlockAST> analyzed(MainBlockAST::Create({
+    StdStreamAST::Create(StdStreamKind::Stdout),
+  }));
+  std::unique_ptr<MainBlockAST> different(MainBlockAST::Create({
+    StdStreamAST::Create(StdStreamKind::Stderr),
+  }));
+  analyzed->typeInfer(&analyzer);
+
+  EXPECT_THROW(different->toStyioIR(&analyzer), std::logic_error);
+  EXPECT_NE(analyzer.topology_artifact(analyzed.get()), nullptr);
+}
+
+TEST(StyioLoweringInternal, ScalarFastPathConsumesSemaNoopState) {
+  LowererProbe analyzer;
+  analyzer.enable_pipeline_profile(true);
+  std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
+    FlexBindAST::Create(
+      VarAST::Create(NameAST::Create("value")), IntAST::Create("1")),
+  }));
+  root->typeInfer(&analyzer);
+  ASSERT_EQ(analyzer.require_topology(root.get()), nullptr);
+  const auto skipped_before_lowering = analyzer.resource_validation_skipped();
+  const auto probe_before_lowering = analyzer.resource_fast_path_probe_duration_ns();
+  EXPECT_EQ(analyzer.resource_fast_path_probe_recordings(), 1u);
+  EXPECT_EQ(analyzer.resource_validation_recordings(), 0u);
+  EXPECT_EQ(analyzer.resource_validation_skip_recordings(), 1u);
+  EXPECT_EQ(skipped_before_lowering, 1u);
+
+  std::unique_ptr<StyioIR> ir(root->toStyioIR(&analyzer));
+
+  EXPECT_NE(ir, nullptr);
+  EXPECT_EQ(analyzer.require_topology(root.get()), nullptr);
+  EXPECT_EQ(analyzer.resource_validation_skipped(), skipped_before_lowering);
+  EXPECT_EQ(
+    analyzer.resource_fast_path_probe_duration_ns(), probe_before_lowering);
+  EXPECT_EQ(analyzer.resource_fast_path_probe_recordings(), 1u);
+  EXPECT_EQ(analyzer.resource_validation_recordings(), 0u);
+  EXPECT_EQ(analyzer.resource_validation_skip_recordings(), 1u);
+}
+
 TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsImportedCallables) {
+  LowererProbe analyzer;
+  std::unique_ptr<SimpleFuncAST> imported(SimpleFuncAST::Create(
+    NameAST::Create("imported_value"), true, {}, IntAST::Create("7")));
+  analyzer.add_imported_callable(imported.get());
   std::unique_ptr<MainBlockAST> scalar_chain(MainBlockAST::Create({
     FlexBindAST::Create(
-      VarAST::Create(NameAST::Create("value")), IntAST::Create("1"))}));
+      VarAST::Create(NameAST::Create("value")), IntAST::Create("1")),
+  }));
   ASSERT_TRUE(
     styio::resource_topology::validation_is_noop_for_scalar_program(
       scalar_chain.get()));
-  EXPECT_TRUE(resource_topology_fast_path_eligible(scalar_chain.get(), true));
-  EXPECT_FALSE(resource_topology_fast_path_eligible(scalar_chain.get(), false));
+
+  scalar_chain->typeInfer(&analyzer);
+
+  EXPECT_NE(analyzer.topology_artifact(scalar_chain.get()), nullptr);
 }
 
 TEST(StyioLoweringInternal, VerifierRejectsUnsupportedActiveIRNodes) {
@@ -2110,6 +2240,7 @@ TEST(StyioLoweringInternal, IteratorAndZipPulsePlansAttachToIterableIrNodes) {
         {ParamAST::Create(NameAST::Create("item"))},
         make_pulse_body("item", "main_list_state")),
     }));
+    main_block->typeInfer(&analyzer);
     std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
   }
@@ -2122,6 +2253,7 @@ TEST(StyioLoweringInternal, IteratorAndZipPulsePlansAttachToIterableIrNodes) {
         {ParamAST::Create(NameAST::Create("line"))},
         make_pulse_body("line", "main_file_state")),
     }));
+    main_block->typeInfer(&analyzer);
     std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
   }
@@ -2136,6 +2268,7 @@ TEST(StyioLoweringInternal, IteratorAndZipPulsePlansAttachToIterableIrNodes) {
         {ParamAST::Create(NameAST::Create("right"))},
         make_pulse_body("left", "main_zip_state")),
     }));
+    main_block->typeInfer(&analyzer);
     std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
     EXPECT_NE(dynamic_cast<SGMainEntry*>(ir.get()), nullptr);
   }
@@ -2205,6 +2338,7 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
         NameAST::Create("empty_body"),
         {})
     }));
+    ASSERT_NO_THROW(main_block->typeInfer(&analyzer));
     EXPECT_THROW((void)main_block->toStyioIR(&analyzer), StyioTypeError);
   }
   {
@@ -2232,6 +2366,7 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
         NameAST::Create("outer_value"),
         {})
     }));
+    main_block->typeInfer(&analyzer);
     std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
     ASSERT_NE(ir, nullptr);
   }
@@ -2262,6 +2397,7 @@ TEST(StyioLoweringInternal, AstAccessorAndFailClosedDispatchStayExplicit) {
         FileResourceAST::Create(StringAST::Create("input.txt"), false),
         NameAST::Create("outer_path"))
     }));
+    main_block->typeInfer(&analyzer);
     std::unique_ptr<StyioIR> ir(main_block->toStyioIR(&analyzer));
     ASSERT_NE(ir, nullptr);
   }

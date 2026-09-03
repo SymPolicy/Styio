@@ -20,7 +20,6 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
-#include "../StyioResourceTopology/ResourceTopology.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/BoundedType.hpp"
 #include "../StyioUtil/BuiltinMethods.hpp"
@@ -82,15 +81,6 @@ lowering_type_convert_source_fallback_type(NumPromoTy promo_type) {
 StyioDataType
 lowering_string_type() {
   return StyioDataType{StyioDataTypeOption::String, "string", 0};
-}
-
-bool
-resource_topology_fast_path_eligible(
-  MainBlockAST* ast,
-  bool imported_callable_definitions_empty
-) {
-  return imported_callable_definitions_empty
-    && styio::resource_topology::validation_is_noop_for_scalar_program(ast);
 }
 
 StyioIR*
@@ -5081,40 +5071,7 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
-  bool resource_free_chain = false;
-  if (pipeline_profile_enabled()) {
-    const auto probe_started = std::chrono::steady_clock::now();
-    resource_free_chain =
-      resource_topology_fast_path_eligible(
-        ast,
-        imported_callable_definitions().empty());
-    const auto probe_ended = std::chrono::steady_clock::now();
-    record_resource_fast_path_probe_duration(static_cast<std::uint64_t>(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-        probe_ended - probe_started).count()));
-  }
-  else {
-    resource_free_chain =
-      resource_topology_fast_path_eligible(
-        ast,
-        imported_callable_definitions().empty());
-  }
-  if (resource_free_chain) {
-    if (pipeline_profile_enabled()) {
-      record_resource_validation_skipped();
-    }
-  }
-  else if (pipeline_profile_enabled()) {
-    const auto validation_started = std::chrono::steady_clock::now();
-    styio::resource_topology::validate_or_throw(ast, "lowering-resource-topology");
-    const auto validation_ended = std::chrono::steady_clock::now();
-    record_resource_validation_duration(static_cast<std::uint64_t>(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-        validation_ended - validation_started).count()));
-  }
-  else {
-    styio::resource_topology::validate_or_throw(ast, "lowering-resource-topology");
-  }
+  (void)require_resource_topology_for_lowering(ast);
 
   std::vector<StyioIR*> ir_stmts;
   // The top-level source statement count is the exact lower-bound for this

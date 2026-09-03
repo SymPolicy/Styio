@@ -11,6 +11,7 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `delivery/` | [Restore nightly CI green and migrate docs/plan to v3](./delivery/Plan.md) | Current Better Plan v3 delivery `PLAN-001`; semantic state lives in `delivery/Plan.json`. |
+| `observable-topology-foundation/` | [Reuse one observable topology artifact across compilation](./observable-topology-foundation/Plan.md) | Current Better Plan v3 delivery `PLAN-002`; semantic state lives in `observable-topology-foundation/Plan.json`. |
 
 ## Files
 
