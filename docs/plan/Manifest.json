@@ -6,12 +6,6 @@
       "directory": "delivery",
       "plan": "delivery/Plan.json",
       "title": "Restore nightly CI green and migrate docs/plan to v3"
-    },
-    {
-      "code": "PLAN-002",
-      "directory": "delivery-review-followup-01",
-      "plan": "delivery-review-followup-01/Plan.json",
-      "title": "Align malformed-source IDE semantic publication contract"
     }
   ],
   "schema": "better-plan.manifest/v3"

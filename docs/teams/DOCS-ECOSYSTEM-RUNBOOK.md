@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-04
 
 ## Mission
 
@@ -121,10 +121,11 @@ Key SSOTs:
 83. Keep project planning on the Better Plan v3 model: `Manifest.json` indexes Plans, each `Plan.json` is semantic state, each `Checkpoints.json` is execution-only state, and `Plan.md` is a render-only projection. Validate the workspace with `python3 scripts/manifest_tool.py validate docs/plan`; do not add compatibility readers for removed planning generations.
 84. Keep durable unfinished product work in `docs/rollups/NEXT-STAGE-GAP-LEDGER.md` and point the plan workspace boundary to that register. Generated delivery Markdown is exempt from authored metadata and runbook triggers, while the tracked Manifest, Plan, Checkpoints, projection, and design provenance remain reviewable.
 85. Treat EBNF as the token-spelling authority for standalone break syntax, and migrate the language design, symbol reference, active plans, evidence, and executable tests in the same checkpoint. Keep the downstream Brainfuck example as the canonical consumer proving the structured-result and stream-input contracts rather than duplicating its source in compiler docs.
-86. When the maintainer freezes a release boundary, record it in the current v3 Plan and its rendered projection, keep future product work in the gap ledger, and do not imply participation by repositories excluded from that boundary.
+86. When the maintainer freezes a Styio-only release boundary, record it in the current v3 Plan and rendered projection, keep future product work in the gap ledger, state Styio-only functional acceptance as the sole gate, and do not imply participation by Pafio, Platform, Vityo, or any other repository excluded from that boundary.
 87. Manage dated audit reports through the lifecycle tool's `audit` family. Verify closure against active decision and inventory documents, mark each source with durable extracted value and targets, run cleanup under the no-retained-copy policy, and regenerate the archive ledger and indexes.
 88. Run `python3 scripts/repo-hygiene-gate.py --mode residue` before delivery to detect ignored build roots, profiling output, test-discovery files, caches, and platform metadata that tracked-only scans cannot see.
 89. Keep the compiler-entry line ceiling in `scripts/monolith-line-ratchet-gate.py`, the tool registry, and scheduler profiles synchronized; raising the ceiling is not a substitute for the separately registered split backlog.
+90. When weekly fuzz cadence or corpus-backflow docs change, refresh the Frontend and Test Quality runbooks, regenerate `docs/teams/INDEX.md`, and update `DOC-STATS.md` in the same delivery so generated inventory and size snapshots stay aligned.
 
 ## Change Classes
 

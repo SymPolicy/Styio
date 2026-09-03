@@ -109,6 +109,12 @@ for target in lexer parser; do
   target_seed_dir="$case_dir/$target/corpus-backflow"
   mkdir -p "$target_raw_dir" "$target_seed_dir"
 
+  for meta_name in replay-options.json replay-command.txt; do
+    if [[ -f "$sample_dir/$meta_name" ]]; then
+      cp "$sample_dir/$meta_name" "$case_dir/$target/$meta_name"
+    fi
+  done
+
   while IFS= read -r -d '' sample; do
     base_name="$(basename "$sample")"
     sha="$(hash_file "$sample")"
@@ -186,17 +192,21 @@ cat > "$case_dir/CASE.md" <<EOF
 - \`<target>.log\`: deep fuzz execution logs (if present)
 - \`<target>/raw/\`: raw libFuzzer artifacts (\`crash-*\`, \`timeout-*\`, ...)
 - \`<target>/corpus-backflow/\`: normalized seeds ready for corpus backflow
+- \`<target>/replay-options.json\`: bounded options and replay command (if present)
 - \`apply-corpus-backflow.sh\`: helper to copy normalized seeds into \`tests/fuzz/corpus/\`
 - \`REGRESSION-TEMPLATE.md\`: fill-in template for converting samples into stable tests
 
 ## Quick Repro
 
 \`\`\`bash
-# Re-run parser deep fuzz locally (example)
-./<build-dir>/bin/styio_fuzz_parser tests/fuzz/corpus/parser -max_total_time=600
+# Re-run parser weekly fuzz locally (example)
+./<build-dir>/bin/styio_fuzz_parser tests/fuzz/corpus/parser \\
+  -max_total_time=600 -timeout=10 -max_len=65536 -seed=2 \\
+  -dict=tests/fuzz/styio.dict -use_value_profile=1
 
 # Replay one artifact directly (replace with an actual file)
-./<build-dir>/bin/styio_fuzz_parser $case_dir/parser/raw/<artifact> -runs=1
+./<build-dir>/bin/styio_fuzz_parser $case_dir/parser/raw/<artifact> \\
+  -runs=1 -timeout=10 -max_len=65536 -seed=2 -dict=tests/fuzz/styio.dict -use_value_profile=1
 \`\`\`
 
 ## Next Actions

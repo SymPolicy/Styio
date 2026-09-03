@@ -4652,10 +4652,9 @@ parse_forward_as_list(
         }
       } break;
 
-      /* >> Iterator */
+      /* An iterator starts the next statement rather than continuing the
+         parsed block. Leave it unconsumed for the outer parser. */
       case StyioTokenType::ITERATOR: {
-        // An iterator starts the next statement; it is not a continuation of
-        // the block that was just parsed. Leave the token for the outer parser.
         return release_followings();
       }
 

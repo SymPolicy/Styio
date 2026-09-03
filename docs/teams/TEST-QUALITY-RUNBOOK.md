@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-08-22
+**Last updated:** 2026-09-04
 
 ## Mission
 
@@ -96,6 +96,7 @@ Primary paths:
 68. Keep direct internal test fixtures aligned with fail-closed collection coercion and iterable-write lowering: use type-valid inputs for positive codegen cases, keep mismatches in negative tests, and inspect the pulse body when a container write lowers through `SGForEach`.
 69. For a red pipeline repair, record one evidence-backed verdict per failing test before changing expectations. Preserve fixed fuzz inputs in the corpus, keep sanitizer targets on the compiled internal boundary, and never delete or relax a test solely to obtain green status.
 70. Register non-Windows GoogleTest targets through `styio_gtest_discover_tests(...)`. On CMake 4.2 and newer the wrapper disables discovery JSON in source-root test working directories and uses CMake's supported stdout fallback, so a normal test build cannot leave `cmake_test_discovery_*.json` residue that the hygiene gate must reject. Because the wrapper is a `function()`, its `${ARGN}` forwarding consumes one escape layer: multi-label `LABELS` values must be written with `\\\\;` separators (for example `LABELS "security\\\\;safety\\\\;unit"`). Verify with `ctest -N -L <label>` after any registration change — a space-separated `LABELS a b c` line in the generated `*_tests.cmake` means the escaping is wrong and only the first label survives.
+71. Weekly lexer/parser campaigns are the only automatic fuzz schedule. Keep `fuzz_smoke` covering harness `tokenizeOwned` contracts, empty/`>>`/lifetime replay, dictionary presence, and regression-pack replay metadata; persist evolved corpora per target rather than restarting from the tracked seed set every run.
 
 ## Change Classes
 
@@ -123,7 +124,7 @@ Fuzz smoke:
 ctest --test-dir build/fuzz -L fuzz_smoke --output-on-failure --no-tests=error
 ```
 
-`fuzz_smoke` 当前走独立 corpus-replay smoke binaries，而不是直接把 PR 门禁绑在 libFuzzer main 的启动行为上；真正的 libFuzzer 目标仍保留给手动/夜间深跑。
+`fuzz_smoke` 当前走独立 corpus-replay smoke binaries，而不是直接把 PR 门禁绑在 libFuzzer main 的启动行为上；真正的 libFuzzer 目标仍保留给手动触发和每周深跑。同一标签还覆盖 harness 合同检查、生命周期回放，以及带 replay 元数据的 regression-pack smoke。
 
 Native macOS platform and coverage evidence:
 

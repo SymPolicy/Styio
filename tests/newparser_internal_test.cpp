@@ -634,9 +634,23 @@ TEST(StyioNewParserInternal, ForwardIteratorAndContinuationEdgesStayExplicit) {
     EXPECT_THROW((void)parse_forward_as_list_nightly_draft(direct.get()), StyioParseError);
   }
   {
+    DirectContext direct(">>");
+    std::vector<StyioAST*> followings = parse_forward_as_list_nightly_draft(direct.get());
+    EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
     DirectContext direct(">>next(1)");
     auto followings = parse_forward_as_list_nightly_draft(direct.get());
     EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
+    DirectContext direct("=> { << 1 } >>");
+    std::vector<StyioAST*> followings = parse_forward_as_list_nightly_draft(direct.get());
+    ASSERT_EQ(followings.size(), 1u);
+    std::unique_ptr<StyioAST> owner(followings[0]);
+    EXPECT_EQ(owner->getNodeType(), StyioNodeType::Block);
     EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
   }
 
