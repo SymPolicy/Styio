@@ -686,7 +686,7 @@
         "interface-contract": "docs/design/syntax/features/core-callable-interface-scheme-publication.md"
       },
       "implementation": {
-        "path": "src/StyioSema/EffectRow.hpp",
+        "path": "src/StyioIR/CallableEffectRow.hpp",
         "symbol": "class CallableEffectRow",
         "owner": "Sema / Modules"
       },
@@ -711,7 +711,7 @@
           "docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"
         ],
         "implementation": [
-          "src/StyioSema/EffectRow.hpp",
+          "src/StyioIR/CallableEffectRow.hpp",
           "src/StyioSema/SemaContext.hpp",
           "src/StyioSema/TypeInfer.cpp",
           "src/StyioSema/CallableInterface.hpp",
@@ -2762,6 +2762,7 @@
           "src/StyioSema/CallableInterface.cpp",
           "src/StyioSema/CallableModuleLoader.cpp",
           "src/StyioIR/PortableCallableBody.cpp",
+          "src/StyioLowering/PortableCallableBody.cpp",
           "src/StyioIR/Verifier.cpp"
         ],
         "evidence": [

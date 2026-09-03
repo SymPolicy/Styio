@@ -3,47 +3,22 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
-import uuid
 from pathlib import Path
 from typing import Any
 
 
-STATUSES = {"pending", "in_progress", "blocked", "deferred", "completed", "skipped"}
-TRANSITIONS = {
-    "pending": {"pending", "in_progress", "blocked", "deferred", "skipped"},
-    "in_progress": {"in_progress", "pending", "completed", "blocked", "deferred", "skipped"},
-    "blocked": {"blocked", "in_progress", "deferred", "skipped"},
-    "deferred": {"deferred", "pending", "blocked", "skipped"},
-    "completed": {"completed"},
-    "skipped": {"skipped"},
-}
-ROLES = {
-    "architecture_scaffold",
-    "evidence",
-    "final_validation",
-    "group_design",
-    "implementation",
-    "milestone_gate",
-    "product_requirements",
-    "validation_matrix",
-}
-PLATFORMS = {"any", "linux", "macos", "windows"}
-DIFFICULTIES = {"routine", "standard", "complex", "critical"}
-VERIFICATION_PROFILES = {"code", "hybrid", "visual"}
-CAPABILITY_KINDS = {
-    "capability",
-    "component",
-    "domain",
-    "feature",
-    "interface",
-    "module",
-    "repository",
-    "service",
-}
-UUID_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+MANIFEST_SCHEMA = "better-plan.manifest/v3"
+PLAN_SCHEMA = "better-plan.plan/v3"
+CHECKPOINTS_SCHEMA = "better-plan.checkpoints/v3"
+PLAN_CODE_PREFIX = "PLAN-"
+TASK_CODE_PREFIX = "TASK-"
+REQUIRED_PLAN_FILES = (
+    "Plan.json",
+    "Plan.md",
+    "Checkpoints.json",
+    "Design.md",
+    "Design.pristine.md",
 )
 
 
@@ -56,13 +31,15 @@ def load_json(path: Path) -> Any:
         raise ValueError(f"invalid JSON in {path}: {exc}") from None
 
 
-def is_uuid(value: object) -> bool:
-    return isinstance(value, str) and UUID_RE.match(value) is not None
-
-
 def require_object(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label} must be an object")
+    return value
+
+
+def require_list(value: Any, label: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be an array")
     return value
 
 
@@ -73,315 +50,131 @@ def require_string(obj: dict[str, Any], key: str, label: str) -> str:
     return value
 
 
-def require_string_list(obj: dict[str, Any], key: str, label: str) -> list[str]:
-    value = obj.get(key)
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError(f"{label}.{key} must be a list of strings")
-    return value
+def require_code(value: str, prefix: str, label: str) -> None:
+    suffix = value.removeprefix(prefix)
+    if not value.startswith(prefix) or not suffix.isdigit() or len(suffix) != 3:
+        raise ValueError(f"{label} must use {prefix}NNN form: {value}")
 
 
-def validate_status(value: Any, label: str) -> str:
-    if value not in STATUSES:
-        raise ValueError(f"{label}.status must be one of {sorted(STATUSES)}")
-    return str(value)
+def safe_relative_path(value: str, label: str) -> Path:
+    path = Path(value)
+    if path.is_absolute() or not path.parts or ".." in path.parts:
+        raise ValueError(f"{label} must be a workspace-relative path")
+    return path
 
 
-def validate_acceptance_criteria(node: dict[str, Any], label: str) -> None:
-    criteria = node.get("acceptance_criteria")
-    if not isinstance(criteria, list) or not criteria:
-        raise ValueError(f"{label}.acceptance_criteria must be a non-empty list")
-    for index, criterion in enumerate(criteria):
-        item_label = f"{label}.acceptance_criteria[{index}]"
-        if not isinstance(criterion, dict):
-            raise ValueError(f"{item_label} must be an object")
-        if not isinstance(criterion.get("checked"), bool):
-            raise ValueError(f"{item_label}.checked must be a boolean")
-        text = criterion.get("text")
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError(f"{item_label}.text must be a non-empty string")
+def task_codes(tasks: Any, label: str) -> list[str]:
+    codes: list[str] = []
+    for index, raw_task in enumerate(require_list(tasks, label)):
+        task = require_object(raw_task, f"{label}[{index}]")
+        code = require_string(task, "code", f"{label}[{index}]")
+        require_code(code, TASK_CODE_PREFIX, f"{label}[{index}].code")
+        if code in codes:
+            raise ValueError(f"duplicate task code in {label}: {code}")
+        codes.append(code)
+    return codes
 
 
-def project_root_for(workspace: Path) -> Path:
-    for candidate in (workspace, *workspace.parents):
-        if (candidate / ".git").exists():
-            return candidate
-    raise ValueError("Better Plan workspace must be inside a Git repository")
+def validate_plan_entry(workspace: Path, raw_entry: Any, index: int) -> tuple[str, str]:
+    label = f"manifest.plans[{index}]"
+    entry = require_object(raw_entry, label)
+    code = require_string(entry, "code", label)
+    require_code(code, PLAN_CODE_PREFIX, f"{label}.code")
+    directory = require_string(entry, "directory", label)
+    require_string(entry, "title", label)
+    plan_path = safe_relative_path(require_string(entry, "plan", label), f"{label}.plan")
+    checkpoints_path = safe_relative_path(
+        require_string(entry, "checkpoints", label), f"{label}.checkpoints"
+    )
 
+    plan_dir = safe_relative_path(directory, f"{label}.directory")
+    if len(plan_dir.parts) != 1:
+        raise ValueError(f"{label}.directory must name one direct workspace child")
+    if plan_path != plan_dir / "Plan.json":
+        raise ValueError(f"{label}.plan must be {directory}/Plan.json")
+    if checkpoints_path != plan_dir / "Checkpoints.json":
+        raise ValueError(f"{label}.checkpoints must be {directory}/Checkpoints.json")
 
-def validate_sources(
-    sources: list[str], label: str, project_root: Path, workspace: Path
-) -> None:
-    for index, source in enumerate(sources):
-        source_path = Path(source)
-        if source_path.is_absolute() or ".." in source_path.parts:
-            raise ValueError(f"{label}.source_files[{index}] must be repository-relative")
-        if not (project_root / source_path).exists() and not (workspace / source_path).exists():
-            raise ValueError(f"{label}.source_files[{index}] does not exist: {source}")
+    absolute_plan_dir = workspace / plan_dir
+    if not absolute_plan_dir.is_dir():
+        raise ValueError(f"missing plan directory: {plan_dir.as_posix()}")
+    for filename in REQUIRED_PLAN_FILES:
+        if not (absolute_plan_dir / filename).is_file():
+            raise ValueError(f"missing v3 plan artifact: {(plan_dir / filename).as_posix()}")
 
+    plan = require_object(load_json(workspace / plan_path), plan_path.as_posix())
+    if plan.get("schema") != PLAN_SCHEMA:
+        raise ValueError(f"{plan_path.as_posix()}.schema must be {PLAN_SCHEMA}")
+    if plan.get("code") != code:
+        raise ValueError(f"{plan_path.as_posix()}.code must match manifest code {code}")
+    if plan.get("directory") != directory:
+        raise ValueError(f"{plan_path.as_posix()}.directory must match manifest directory")
+    require_string(plan, "phase", plan_path.as_posix())
+    plan_spec = require_object(plan.get("spec"), f"{plan_path.as_posix()}.spec")
+    plan_task_codes = task_codes(plan_spec.get("tasks"), f"{plan_path.as_posix()}.spec.tasks")
+    if not plan_task_codes:
+        raise ValueError(f"{plan_path.as_posix()}.spec.tasks must not be empty")
 
-def validate_capabilities(
-    workspace: Path, project_root: Path, check_sources: bool
-) -> None:
-    path = workspace / "Capabilities.json"
-    data = load_json(path)
-    if not isinstance(data, list) or not data:
-        raise ValueError(f"{path} must contain a non-empty top-level array")
-
-    seen: set[str] = set()
-    roots = 0
-    for index, raw_capability in enumerate(data):
-        label = f"capability[{index}]"
-        capability = require_object(raw_capability, label)
-        key = require_string(capability, "key", label)
-        if key in seen:
-            raise ValueError(f"duplicate capability key: {key}")
-        parent = capability.get("parent")
-        if parent is None:
-            roots += 1
-            if capability.get("kind") != "repository":
-                raise ValueError(f"{label}.kind must be repository for the root capability")
-        elif not isinstance(parent, str) or parent not in seen:
-            raise ValueError(f"{label}.parent must reference an earlier capability")
-        kind = require_string(capability, "kind", label)
-        if kind not in CAPABILITY_KINDS:
-            raise ValueError(f"{label}.kind must be one of {sorted(CAPABILITY_KINDS)}")
-        if capability.get("basis") not in {"observed", "designed"}:
-            raise ValueError(f"{label}.basis must be observed or designed")
-        if capability.get("disclosure") not in {"known", "examined"}:
-            raise ValueError(f"{label}.disclosure must be known or examined")
-        if capability.get("touch") not in {"untouched", "in_scope", "modified"}:
-            raise ValueError(f"{label}.touch must be untouched, in_scope, or modified")
-        require_string(capability, "title", label)
-        require_string(capability, "description", label)
-        sources = require_string_list(capability, "source_files", label)
-        if check_sources:
-            validate_sources(sources, label, project_root, workspace)
-        seen.add(key)
-    if roots != 1:
-        raise ValueError("Capabilities.json must contain exactly one root capability")
-
-
-def validate_node(node: Any, index: int, seen_ids: dict[str, str]) -> dict[str, Any]:
-    label = f"node[{index}]"
-    obj = require_object(node, label)
-    node_id = require_string(obj, "id", label)
-    if not is_uuid(node_id):
-        raise ValueError(f"{label}.id is not a canonical UUID: {node_id}")
-    if node_id in seen_ids:
-        raise ValueError(f"duplicate node id: {node_id}")
-    status = validate_status(obj.get("status"), label)
-    role = require_string(obj, "role", label)
-    if role not in ROLES:
-        raise ValueError(f"{label}.role must be one of {sorted(ROLES)}")
-    prerequisites = require_string_list(obj, "prerequisites", label)
-    platform = require_string(obj, "platform", label)
-    if platform not in PLATFORMS:
-        raise ValueError(f"{label}.platform must be one of {sorted(PLATFORMS)}")
-    difficulty = require_string(obj, "difficulty", label)
-    if difficulty not in DIFFICULTIES:
-        raise ValueError(f"{label}.difficulty must be one of {sorted(DIFFICULTIES)}")
-    verification_profile = require_string(obj, "verification_profile", label)
-    if verification_profile not in VERIFICATION_PROFILES:
+    checkpoints = require_object(
+        load_json(workspace / checkpoints_path), checkpoints_path.as_posix()
+    )
+    if checkpoints.get("schema") != CHECKPOINTS_SCHEMA:
         raise ValueError(
-            f"{label}.verification_profile must be one of {sorted(VERIFICATION_PROFILES)}"
+            f"{checkpoints_path.as_posix()}.schema must be {CHECKPOINTS_SCHEMA}"
         )
-    goal = require_string(obj, "goal", label)
-    description = require_string(obj, "description", label)
-    next_nodes = require_string_list(obj, "next", label)
-    commit = require_object(obj.get("commit"), f"{label}.commit")
-    require_string(commit, "repository", f"{label}.commit")
-    require_string(commit, "message", f"{label}.commit")
-    require_string(commit, "target", f"{label}.commit")
-    validate_acceptance_criteria(obj, label)
-
-    seen_ids[node_id] = status
-    return {
-        "id": node_id,
-        "status": status,
-        "role": role,
-        "prerequisites": prerequisites,
-        "platform": platform,
-        "difficulty": difficulty,
-        "verification_profile": verification_profile,
-        "goal": goal,
-        "description": description,
-        "next": next_nodes,
-        "acceptance_criteria": obj["acceptance_criteria"],
-    }
-
-
-def validate_checkpoints(
-    path: Path, seen_ids: dict[str, str] | None = None
-) -> list[dict[str, Any]]:
-    data = load_json(path)
-    if not isinstance(data, list):
-        raise ValueError(f"{path} must contain a top-level array")
-
-    all_seen_ids = seen_ids if seen_ids is not None else {}
-    nodes: list[dict[str, Any]] = []
-    in_progress = 0
-    for index, raw_node in enumerate(data):
-        node = validate_node(raw_node, index, all_seen_ids)
-        nodes.append(node)
-        if node["status"] == "in_progress":
-            in_progress += 1
-        if node["status"] == "completed":
-            unchecked = [
-                item["text"]
-                for item in node["acceptance_criteria"]
-                if not item["checked"]
-            ]
-            if unchecked:
-                raise ValueError(
-                    f"node[{index}] is completed with unchecked acceptance criteria: {unchecked[0]}"
-                )
-    if in_progress > 1 and any(
-        node["status"] == "in_progress" and node["role"] != "implementation"
-        for node in nodes
-    ):
-        raise ValueError(f"{path} has more than one in_progress node")
-    return nodes
-
-
-def validate_plan(
-    plan: Any,
-    index: int,
-    workspace: Path,
-    seen_plan_ids: set[str],
-    seen_node_ids: dict[str, str],
-    project_root: Path,
-    check_sources: bool,
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    label = f"plan[{index}]"
-    obj = require_object(plan, label)
-    plan_id = require_string(obj, "id", label)
-    if not is_uuid(plan_id):
-        raise ValueError(f"{label}.id is not a canonical UUID: {plan_id}")
-    if plan_id in seen_plan_ids:
-        raise ValueError(f"duplicate plan id: {plan_id}")
-    seen_plan_ids.add(plan_id)
-
-    status = validate_status(obj.get("status"), label)
-    directory = require_string(obj, "directory", label)
-    checkpoints = require_string(obj, "checkpoints", label)
-    require_string(obj, "title", label)
-    require_string(obj, "purpose", label)
-    require_string(obj, "goal", label)
-    require_string(obj, "description", label)
-    source_files = require_string_list(obj, "source_files", label)
-    if check_sources:
-        validate_sources(source_files, label, project_root, workspace)
-
-    expected_checkpoints = Path(directory) / "Checkpoints.json"
-    if Path(checkpoints).as_posix() != expected_checkpoints.as_posix():
+    if checkpoints.get("plan") != code:
+        raise ValueError(f"{checkpoints_path.as_posix()}.plan must match {code}")
+    checkpoint_task_codes = task_codes(
+        checkpoints.get("tasks"), f"{checkpoints_path.as_posix()}.tasks"
+    )
+    if checkpoint_task_codes != plan_task_codes:
         raise ValueError(
-            f"{label}.checkpoints must point to <directory>/Checkpoints.json"
+            f"{checkpoints_path.as_posix()}.tasks must match Plan.json task order"
         )
-    plan_dir = workspace / directory
-    if not plan_dir.is_dir():
-        raise ValueError(f"{label}.directory does not exist: {plan_dir}")
-    checkpoint_path = workspace / checkpoints
-    nodes = validate_checkpoints(checkpoint_path, seen_node_ids)
 
-    terminal = {"completed", "skipped"}
-    if status == "completed" and any(node["status"] not in terminal for node in nodes):
-        raise ValueError(f"{label} is completed but has non-terminal nodes")
-    if status == "blocked" and not any(node["status"] == "blocked" for node in nodes):
-        raise ValueError(f"{label} is blocked but no referenced node is blocked")
-    if status == "skipped" and any(node["status"] == "in_progress" for node in nodes):
-        raise ValueError(f"{label} is skipped but a node is in_progress")
+    sealed = require_object(plan.get("lifecycle"), f"{plan_path.as_posix()}.lifecycle").get(
+        "sealed"
+    )
+    if sealed is not None:
+        sealed_obj = require_object(sealed, f"{plan_path.as_posix()}.lifecycle.sealed")
+        if checkpoints.get("revision") != sealed_obj.get("revision"):
+            raise ValueError(f"{checkpoints_path.as_posix()}.revision must match sealed revision")
+        if checkpoints.get("semantic_digest") != sealed_obj.get("semantic_digest"):
+            raise ValueError(
+                f"{checkpoints_path.as_posix()}.semantic_digest must match sealed digest"
+            )
 
-    return obj, nodes
-
-
-def validate_manifest(path: Path, check_sources: bool = False) -> None:
-    workspace = path if path.is_dir() else path.parent
-    manifest_path = workspace / "Manifest.json" if path.is_dir() else path
-    data = load_json(manifest_path)
-    if not isinstance(data, list):
-        raise ValueError(f"{manifest_path} must contain a top-level array")
-    project_root = project_root_for(workspace)
-    validate_capabilities(workspace, project_root, check_sources)
-    seen_plan_ids: set[str] = set()
-    seen_node_ids: dict[str, str] = {}
-    all_nodes: list[dict[str, Any]] = []
-    for index, plan in enumerate(data):
-        _, nodes = validate_plan(
-            plan,
-            index,
-            workspace,
-            seen_plan_ids,
-            seen_node_ids,
-            project_root,
-            check_sources,
-        )
-        all_nodes.extend(nodes)
-
-    for index, node in enumerate(all_nodes):
-        for prereq in node["prerequisites"]:
-            if prereq not in seen_node_ids:
-                raise ValueError(f"node[{index}].prerequisites references missing node: {prereq}")
-            if node["status"] in {"in_progress", "completed"} and seen_node_ids[prereq] != "completed":
-                raise ValueError(
-                    f"node[{index}] is {node['status']} but prerequisite is not completed: {prereq}"
-                )
-        for next_id in node["next"]:
-            if next_id not in seen_node_ids:
-                raise ValueError(f"node[{index}].next references missing node: {next_id}")
-
-    visiting: set[str] = set()
-    visited: set[str] = set()
-    prerequisites_by_id = {node["id"]: node["prerequisites"] for node in all_nodes}
-
-    def visit(node_id: str) -> None:
-        if node_id in visited:
-            return
-        if node_id in visiting:
-            raise ValueError(f"checkpoint dependency cycle includes node: {node_id}")
-        visiting.add(node_id)
-        for prerequisite in prerequisites_by_id[node_id]:
-            visit(prerequisite)
-        visiting.remove(node_id)
-        visited.add(node_id)
-
-    for node_id in prerequisites_by_id:
-        visit(node_id)
+    return code, directory
 
 
-def validate_target(target: Path, check_sources: bool = False) -> None:
-    if target.is_dir() or target.name == "Manifest.json":
-        validate_manifest(target, check_sources)
-        return
-    if target.name == "Checkpoints.json":
-        validate_checkpoints(target)
-        return
-    raise ValueError("validate target must be a Better Plan workspace, Manifest.json, or Checkpoints.json")
+def validate_workspace(target: Path) -> None:
+    workspace = target if target.is_dir() else target.parent
+    manifest_path = workspace / "Manifest.json" if target.is_dir() else target
+    if manifest_path.name != "Manifest.json":
+        raise ValueError("validate target must be a v3 plan workspace or its Manifest.json")
 
+    manifest = require_object(load_json(manifest_path), manifest_path.as_posix())
+    if manifest.get("schema") != MANIFEST_SCHEMA:
+        raise ValueError(f"{manifest_path}.schema must be {MANIFEST_SCHEMA}")
+    plans = require_list(manifest.get("plans"), f"{manifest_path}.plans")
+    if not plans:
+        raise ValueError(f"{manifest_path}.plans must not be empty")
 
-def command_uuid(_args: argparse.Namespace) -> int:
-    print(str(uuid.uuid4()))
-    return 0
-
-
-def command_transition(args: argparse.Namespace) -> int:
-    current = args.current
-    target = args.target
-    if current not in STATUSES:
-        print(f"invalid current status: {current}", file=sys.stderr)
-        return 2
-    if target not in STATUSES:
-        print(f"invalid target status: {target}", file=sys.stderr)
-        return 2
-    if target not in TRANSITIONS[current]:
-        print(f"invalid transition: {current} -> {target}", file=sys.stderr)
-        return 1
-    print(f"ok: {current} -> {target}")
-    return 0
+    seen_codes: set[str] = set()
+    seen_directories: set[str] = set()
+    for index, entry in enumerate(plans):
+        code, directory = validate_plan_entry(workspace, entry, index)
+        if code in seen_codes:
+            raise ValueError(f"duplicate manifest plan code: {code}")
+        if directory in seen_directories:
+            raise ValueError(f"duplicate manifest plan directory: {directory}")
+        seen_codes.add(code)
+        seen_directories.add(directory)
 
 
 def command_validate(args: argparse.Namespace) -> int:
     try:
-        validate_target(Path(args.path), args.check_sources)
+        validate_workspace(Path(args.path))
     except ValueError as exc:
         print(f"manifest validation failed: {exc}", file=sys.stderr)
         return 1
@@ -390,31 +183,16 @@ def command_validate(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Validate Better Plan manifests and checkpoint graphs.")
+    parser = argparse.ArgumentParser(description="Validate a Better Plan v3 workspace.")
     subparsers = parser.add_subparsers(dest="command", required=True)
-
-    uuid_parser = subparsers.add_parser("uuid", help="Generate a canonical UUID.")
-    uuid_parser.set_defaults(func=command_uuid)
-
-    transition_parser = subparsers.add_parser("transition", help="Check a status transition.")
-    transition_parser.add_argument("current")
-    transition_parser.add_argument("target")
-    transition_parser.set_defaults(func=command_transition)
-
-    validate_parser = subparsers.add_parser("validate", help="Validate a workspace or state file.")
+    validate_parser = subparsers.add_parser("validate", help="Validate v3 workspace structure.")
     validate_parser.add_argument("path")
-    validate_parser.add_argument(
-        "--check-sources",
-        action="store_true",
-        help="Require every repository-relative source file to exist.",
-    )
     validate_parser.set_defaults(func=command_validate)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    args = build_parser().parse_args(argv)
     return args.func(args)
 
 

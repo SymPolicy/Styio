@@ -754,50 +754,31 @@ target_include_directories(styio_algorithm_equivalence_test PRIVATE
 styio_configure_windows_gtest_target(styio_algorithm_equivalence_test)
 add_dependencies(styio_algorithm_equivalence_test styio)
 
-set(STYIO_INTERNAL_PARSER_SUPPORT_SOURCES
-  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioIR/PortableCallableBody.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableInterface.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableSpecializationGraph.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioLowering/AstToStyioIR.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
-)
-
 add_executable(styio_newparser_internal_test
   newparser_internal_test.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
-  ${STYIO_INTERNAL_PARSER_SUPPORT_SOURCES}
 )
 target_include_directories(styio_newparser_internal_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_BINARY_DIR}/generated"
 )
-target_link_libraries(styio_newparser_internal_test PRIVATE GTest::gtest_main ${LLVM_LIBS})
+target_link_libraries(styio_newparser_internal_test PRIVATE
+  styio_frontend_core
+  GTest::gtest_main
+)
 styio_apply_llvm_compile_settings(styio_newparser_internal_test)
 styio_configure_windows_gtest_target(styio_newparser_internal_test)
 
 add_executable(styio_parser_internal_test
   parser_internal_test.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
-  ${STYIO_INTERNAL_PARSER_SUPPORT_SOURCES}
 )
 target_include_directories(styio_parser_internal_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_BINARY_DIR}/generated"
 )
-target_link_libraries(styio_parser_internal_test PRIVATE GTest::gtest_main ${LLVM_LIBS})
+target_link_libraries(styio_parser_internal_test PRIVATE
+  styio_frontend_core
+  GTest::gtest_main
+)
 styio_apply_llvm_compile_settings(styio_parser_internal_test)
 styio_configure_windows_gtest_target(styio_parser_internal_test)
 
@@ -809,48 +790,29 @@ target_include_directories(styio_typeinfer_internal_test PRIVATE
   "${CMAKE_BINARY_DIR}/generated"
 )
 target_link_libraries(styio_typeinfer_internal_test PRIVATE
-  styio_core
+  styio_frontend_core
   GTest::gtest_main
-  ${LLVM_LIBS}
 )
 styio_apply_llvm_compile_settings(styio_typeinfer_internal_test)
 styio_configure_windows_gtest_target(styio_typeinfer_internal_test)
-add_dependencies(styio_test styio_typeinfer_internal_test)
+add_dependencies(styio_test
+  styio_platform_internal_test
+  styio_typeinfer_internal_test
+)
 
-# Focused lowering coverage keeps AstToStyioIR.cpp visible to its internal
-# seam tests without linking a second copy from styio_core.
+# Focused lowering coverage keeps the two implementation seams visible to the
+# internal test while every supporting frontend translation unit comes from
+# the declared frontend library boundary.
 add_executable(styio_lowering_internal_test
   lowering_internal_test.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioSession/SymbolInterner.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSession/TypeTable.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioToken/Token.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioUnicode/Unicode.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/Parser.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/ParserLookahead.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/NewParserExpr.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioParser/Tokenizer.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioProfiler/FrontendProfiler.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioPlatform/Platform.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioNative/NativeInterop.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioResourceTopology/ResourceTopology.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioToString/ToString.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioIR/Verifier.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioIR/PortableCallableBody.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableInterface.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSema/CallableSpecializationGraph.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioSema/TypeInfer.cpp"
-  "${CMAKE_SOURCE_DIR}/src/StyioLowering/StyioIROptimizer.cpp"
 )
 target_include_directories(styio_lowering_internal_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_BINARY_DIR}/generated"
 )
 target_link_libraries(styio_lowering_internal_test PRIVATE
-  styio_symbol_core
-  styio_runtime_core
+  styio_frontend_core
   GTest::gtest_main
-  ${LLVM_LIBS}
-  ${CMAKE_DL_LIBS}
 )
 styio_apply_llvm_compile_settings(styio_lowering_internal_test)
 styio_configure_windows_gtest_target(styio_lowering_internal_test)
@@ -933,61 +895,61 @@ if(WIN32)
     LABELS "styio_pipeline;unit;windows_native"
     ENVIRONMENT "PATH=${LLVM_TOOLS_BINARY_DIR};${LLVM_BINARY_DIR};$ENV{PATH}")
 else()
-  gtest_discover_tests(styio_test
+  styio_gtest_discover_tests(styio_test
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    PROPERTIES LABELS "styio_pipeline\\;unit"
+    PROPERTIES LABELS "styio_pipeline\\\\;unit"
   )
 endif()
 
-gtest_discover_tests(styio_algorithm_equivalence_test
+styio_gtest_discover_tests(styio_algorithm_equivalence_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;algorithm_equivalence\\;unit"
+    LABELS "styio_pipeline\\\\;algorithm_equivalence\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_newparser_internal_test
+styio_gtest_discover_tests(styio_newparser_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;parser_internal\\;unit"
+    LABELS "styio_pipeline\\\\;parser_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_parser_internal_test
+styio_gtest_discover_tests(styio_parser_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;parser_internal\\;unit"
+    LABELS "styio_pipeline\\\\;parser_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_typeinfer_internal_test
+styio_gtest_discover_tests(styio_typeinfer_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\;safety\;sema_internal\;unit"
+    LABELS "security\\\\;safety\\\\;sema_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_lowering_internal_test
+styio_gtest_discover_tests(styio_lowering_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\;safety\;lowering_internal\;unit"
+    LABELS "security\\\\;safety\\\\;lowering_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_runtime_scheduler_test
+styio_gtest_discover_tests(styio_runtime_scheduler_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "runtime\;unit\;concurrency"
+  PROPERTIES LABELS "runtime\\\\;unit\\\\;concurrency"
 )
 
-gtest_discover_tests(styio_externlib_internal_test
+styio_gtest_discover_tests(styio_externlib_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "runtime\;unit\;concurrency"
+  PROPERTIES LABELS "runtime\\\\;unit\\\\;concurrency"
 )
 
-gtest_discover_tests(styio_native_interop_internal_test
+styio_gtest_discover_tests(styio_native_interop_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\\;safety\\;native_interop\\;unit"
+    LABELS "security\\\\;safety\\\\;native_interop\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
@@ -1003,32 +965,32 @@ if(WIN32)
     LABELS "security;safety;lexer;ffi"
     ENVIRONMENT "PATH=${LLVM_TOOLS_BINARY_DIR};${LLVM_BINARY_DIR};$ENV{PATH}")
 else()
-  gtest_discover_tests(styio_security_test
+  styio_gtest_discover_tests(styio_security_test
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     PROPERTIES
-      LABELS "security\\;safety\\;lexer\\;ffi"
+      LABELS "security\\\\;safety\\\\;lexer\\\\;ffi"
       ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
   )
 endif()
 
-gtest_discover_tests(styio_codegen_internal_test
+styio_gtest_discover_tests(styio_codegen_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "security\;safety\;codegen_internal\;unit"
+    LABELS "security\\\\;safety\\\\;codegen_internal\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_resource_topology_test
+styio_gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "styio_pipeline\\;resource_topology\\;topology_v2\\;safety\\;unit"
+    LABELS "styio_pipeline\\\\;resource_topology\\\\;topology_v2\\\\;safety\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
-gtest_discover_tests(styio_ide_test
+styio_gtest_discover_tests(styio_ide_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
-    LABELS "ide\\;lsp\\;unit"
+    LABELS "ide\\\\;lsp\\\\;unit"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 

@@ -970,6 +970,12 @@ TEST(StyioParserInternal, UnifiedOperatorForwardAndCodpEdgesStayExplicit) {
     EXPECT_THROW((void)parse_forward_as_list(direct.get()), StyioParseError);
   }
   {
+    DirectContext direct(">>next(1)");
+    auto followings = parse_forward_as_list(direct.get());
+    EXPECT_TRUE(followings.empty());
+    EXPECT_EQ(direct.get().cur_tok_type(), StyioTokenType::ITERATOR);
+  }
+  {
     DirectContext direct(">>(item) => { << item }");
     std::unique_ptr<StyioAST> ast(parse_iterator_with_forward(
       direct.get(),
@@ -2214,8 +2220,10 @@ TEST(StyioParserInternal, UnifiedExpressionPostfixEdgesStayExplicit) {
 TEST(StyioParserInternal, ParserFuzzCorpusExercisesRecoveryRoutes) {
   std::vector<fs::path> corpus_paths;
   for (const auto& entry : fs::directory_iterator("tests/fuzz/corpus/parser")) {
+    const std::string filename = entry.path().filename().string();
     if (entry.is_regular_file()
-        && entry.path().filename().string().rfind("seed-", 0) == 0) {
+        && (filename.rfind("seed-", 0) == 0
+            || entry.path().extension() == ".seed")) {
       corpus_paths.push_back(entry.path());
     }
   }

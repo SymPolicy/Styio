@@ -2,7 +2,7 @@
 
 **Purpose:** Own the long-term split between a stable public callable scheme and a versioned, independently verifiable typed-body payload used for downstream specialization.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-22
 
 ## Feature Contract
 
@@ -28,7 +28,7 @@ semantics = ["docs/design/Styio-Language-Design.md"]
 diagnostics = ["workflows/TEST-CATALOG.md"]
 compatibility = ["docs/design/syntax/ACTIVE-SYNTAX.md"]
 teaching = ["docs/design/syntax/CALLABLE-TYPE-EVOLUTION-QUESTIONS-2026-07-31.md"]
-implementation = ["src/StyioSema/CallableInterface.cpp", "src/StyioSema/CallableModuleLoader.cpp", "src/StyioIR/PortableCallableBody.cpp", "src/StyioIR/Verifier.cpp"]
+implementation = ["src/StyioSema/CallableInterface.cpp", "src/StyioSema/CallableModuleLoader.cpp", "src/StyioIR/PortableCallableBody.cpp", "src/StyioLowering/PortableCallableBody.cpp", "src/StyioIR/Verifier.cpp"]
 evidence = ["tests/features/callable_interfaces/t01_downstream_specialization.styio"]
 
 [prerequisites]

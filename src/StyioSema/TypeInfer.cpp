@@ -350,19 +350,21 @@ StyioDataType const kStringType{
   StyioDataTypeOption::String, "string", 0
 };
 
-using CallableTypeTerm = StyioSemaContext::CallableTypeTerm;
+using CallableTypeTerm = styio::ir::PortableCallableTypeTerm;
 std::optional<StyioDataType>
 closed_callable_term_type(const CallableTypeTerm& term);
 using CallableTypeScheme = StyioSemaContext::CallableTypeScheme;
-using CallableConstraintKind = StyioSemaContext::CallableConstraintKind;
-using CallableTypeConstraint = StyioSemaContext::CallableTypeConstraint;
+using CallableConstraintKind =
+  styio::ir::PortableCallableConstraintKind;
+using CallableTypeConstraint =
+  styio::ir::PortableCallableTypeConstraint;
 using CallableConstraintSolverStats =
   StyioSemaContext::CallableConstraintSolverStats;
 using CallableUsageKind = styio::sema::CallableUsageKind;
 using CallableUsageRequirement =
   StyioSemaContext::CallableUsageRequirement;
 using CallableUsageSet = styio::sema::CallableUsageSet;
-using CallableEffectLabel = styio::sema::CallableEffectLabel;
+using CallableEffectLabel = styio::ir::CallableEffectLabel;
 using CallableEffectRowFacts = StyioSemaContext::CallableEffectRowFacts;
 using CallableCaptureMode = StyioSemaContext::CallableCaptureMode;
 using CallableCaptureFact = StyioSemaContext::CallableCaptureFact;
@@ -5364,7 +5366,7 @@ build_callable_dependency_fingerprints(
       context->find_callable_effect_row(name);
     base << "effects="
          << (effects == nullptr
-               ? styio::sema::CallableEffectRow::unknown().canonical()
+               ? styio::ir::CallableEffectRow::unknown().canonical()
                : effects->row.canonical())
          << "\n"
          << "body=" << body_digest << "\n"
@@ -5773,7 +5775,7 @@ StyioSemaContext::prepare_callable_type_schemes(MainBlockAST* ast) {
     std::string name = std::move(effect_worklist[cursor]);
     queued_effects.erase(name);
     auto& effects = callable_effect_rows_.at(name);
-    const styio::sema::CallableEffectRow previous_row = effects.row;
+    const styio::ir::CallableEffectRow previous_row = effects.row;
     for (const auto& callee : effects.direct_callees) {
       auto dependency = callable_effect_rows_.find(callee);
       if (dependency == callable_effect_rows_.end()) {
@@ -6432,7 +6434,7 @@ StyioSemaContext::instantiate_callable_type_scheme(
       specialization.canonical_key,
       scheme->canonical_relation,
       effects == nullptr
-        ? styio::sema::CallableEffectRow::unknown().canonical()
+        ? styio::ir::CallableEffectRow::unknown().canonical()
         : effects->row.canonical(),
       specialization.portable_body_digest,
       definition_dependencies->second,
@@ -6559,7 +6561,7 @@ StyioSemaContext::prepare_imported_concrete_callable_body(
       concrete.canonical_key,
       relation,
       effects == nullptr
-        ? styio::sema::CallableEffectRow::unknown().canonical()
+        ? styio::ir::CallableEffectRow::unknown().canonical()
         : effects->row.canonical(),
       concrete.portable_body_digest,
       definition_dependencies->second,

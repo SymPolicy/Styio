@@ -497,6 +497,21 @@ ir_yields_task_handle(StyioIR* value) {
 }
 
 bool
+ir_yields_callable_pointer(StyioIR* value) {
+  if (auto* block = dynamic_cast<SGBlock*>(value)) {
+    return !block->stmts.empty()
+      && ir_yields_callable_pointer(block->stmts.back());
+  }
+  if (auto* identifier = dynamic_cast<SGResId*>(value)) {
+    return identifier->function_reference;
+  }
+  if (auto* call = dynamic_cast<SGCall*>(value)) {
+    return styio_is_callable_type(call->result_type);
+  }
+  return false;
+}
+
+bool
 dynamic_slot_declared_type_controls_payload(const StyioDataType& type) {
   if (type.isUndefined()) {
     return false;
@@ -3476,7 +3491,13 @@ StyioToLLVM::toLLVMIR(SGReturn* node) {
       return_value = theBuilder->CreateCall(clone, {v});
     }
   }
-  else if (fn->getReturnType()->isPointerTy() && v->getType()->isPointerTy()) {
+  else if (styio_value_family_for_type(node->result_type)
+             == StyioValueFamily::String
+           && fn->getReturnType()->isPointerTy()
+           && v->getType()->isPointerTy()) {
+    // LLVM opaque pointers also represent callable values. Only strings use
+    // the runtime C-string ownership protocol; cloning a callable pointer
+    // copies its machine code bytes and turns the returned value into data.
     return_value = clone_cstr_for_runtime_owner(v);
   }
   llvm::Value* ret = coerce_for_return(return_value, fn->getReturnType());
@@ -3508,6 +3529,8 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
   }
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
+    std::optional<TempResourceKind> escaped_resource_kind;
+    bool escaped_cstr = false;
     const bool scope_has_dynamic_slots =
       !dynamic_slot_scope_stack_.empty() && !dynamic_slot_scope_stack_.back().empty();
     const bool scope_has_cstr_slots =
@@ -3515,22 +3538,33 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
     if (last != nullptr && last_ir != nullptr && scope_has_dynamic_slots) {
       if (ir_yields_list_handle(last_ir)) {
         last = clone_resource_handle_for_runtime_owner(last, StyioValueFamily::ListHandle);
-        track_owned_resource_temp(last, TempResourceKind::List);
+        escaped_resource_kind = TempResourceKind::List;
       }
       else if (ir_yields_dict_handle(last_ir)) {
         last = clone_resource_handle_for_runtime_owner(last, StyioValueFamily::DictHandle);
-        track_owned_resource_temp(last, TempResourceKind::Dict);
+        escaped_resource_kind = TempResourceKind::Dict;
       }
       else if (ir_yields_matrix_handle(last_ir)) {
         last = clone_resource_handle_for_runtime_owner(last, StyioValueFamily::MatrixHandle);
-        track_owned_resource_temp(last, TempResourceKind::Matrix);
+        escaped_resource_kind = TempResourceKind::Matrix;
       }
     }
-    if (last != nullptr && scope_has_cstr_slots && last->getType()->isPointerTy()) {
+    if (last != nullptr && scope_has_cstr_slots
+        && last->getType()->isPointerTy()
+        && !ir_yields_callable_pointer(last_ir)) {
       last = clone_cstr_for_runtime_owner(last);
-      track_owned_cstr_temp(last);
+      escaped_cstr = true;
     }
     pop_file_handle_scope();
+    // The escaped clone belongs to the enclosing scope. Registering it before
+    // popping this block would immediately release the clone with the locals
+    // it was created to outlive.
+    if (escaped_resource_kind.has_value()) {
+      track_owned_resource_temp(last, *escaped_resource_kind);
+    }
+    if (escaped_cstr) {
+      track_owned_cstr_temp(last);
+    }
   }
   else {
     discard_file_handle_scope_metadata();
@@ -6870,6 +6904,21 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
   llvm::Type* result_ty = node->toLLVMType(this);
   const bool produces_value =
     node->value_required && result_ty != nullptr && !result_ty->isVoidTy();
+  std::optional<TempResourceKind> result_resource_kind;
+  if (produces_value) {
+    if (styio_is_list_type(node->result_type)) {
+      result_resource_kind = TempResourceKind::List;
+    }
+    else if (styio_is_dict_type(node->result_type)) {
+      result_resource_kind = TempResourceKind::Dict;
+    }
+    else if (styio_is_matrix_type(node->result_type)) {
+      result_resource_kind = TempResourceKind::Matrix;
+    }
+    else if (node->result_type.option == StyioDataTypeOption::Tuple) {
+      result_resource_kind = TempResourceKind::Tuple;
+    }
+  }
   auto result_value = [&](llvm::Value* value) -> llvm::Value*
   {
     if (!produces_value) {
@@ -6879,6 +6928,54 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
       return default_runtime_return_value(result_ty);
     }
     return coerce_for_return(value, result_ty);
+  };
+  std::vector<std::pair<llvm::Value*, llvm::BasicBlock*>> incoming_values;
+  auto record_incoming = [&](llvm::Value* value, llvm::BasicBlock* block)
+  {
+    if (result_resource_kind.has_value()) {
+      auto tracked = owned_resource_temps_.find(value);
+      if (tracked != owned_resource_temps_.end()) {
+        if (tracked->second != *result_resource_kind) {
+          throw StyioTypeError(
+            "resource effect result ownership family does not match its type");
+        }
+        // Stop later handler/fallback cleanup generation from referring to a
+        // value defined only in this branch. Ownership is reattached to the
+        // continuation PHI after every incoming edge is known.
+        (void)take_owned_resource_temp(value);
+      }
+      else if (auto* constant = llvm::dyn_cast<llvm::ConstantInt>(value);
+               constant == nullptr || !constant->isZero()) {
+        // A named fallback or handler can yield a borrowed container. Give
+        // the merged result its own reference instead of making two dynamic
+        // slots release the same handle.
+        switch (*result_resource_kind) {
+          case TempResourceKind::List:
+            value = clone_resource_handle_for_runtime_owner(
+              value, StyioValueFamily::ListHandle);
+            break;
+          case TempResourceKind::Dict:
+            value = clone_resource_handle_for_runtime_owner(
+              value, StyioValueFamily::DictHandle);
+            break;
+          case TempResourceKind::Matrix:
+            value = clone_resource_handle_for_runtime_owner(
+              value, StyioValueFamily::MatrixHandle);
+            break;
+          case TempResourceKind::Tuple: {
+            llvm::FunctionCallee clone = theModule->getOrInsertFunction(
+              "styio_tuple_clone",
+              llvm::FunctionType::get(
+                theBuilder->getInt64Ty(),
+                {theBuilder->getInt64Ty()},
+                false));
+            value = theBuilder->CreateCall(clone, {value});
+            break;
+          }
+        }
+      }
+    }
+    incoming_values.emplace_back(value, block);
   };
 
   if (node->discard) {
@@ -6910,11 +7007,9 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
   llvm::BasicBlock* cont_bb = llvm::BasicBlock::Create(*theContext, "resource_effect_continue", fn);
   theBuilder->CreateCondBr(bad, dispatch_bb, success_bb);
 
-  std::vector<std::pair<llvm::Value*, llvm::BasicBlock*>> incoming_values;
-
   theBuilder->SetInsertPoint(success_bb);
   if (produces_value) {
-    incoming_values.emplace_back(result_value(operation_value), success_bb);
+    record_incoming(result_value(operation_value), success_bb);
   }
   theBuilder->CreateBr(cont_bb);
 
@@ -6942,7 +7037,7 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
     llvm::BasicBlock* after_handler = theBuilder->GetInsertBlock();
     if (after_handler != nullptr && after_handler->getTerminator() == nullptr) {
       if (produces_value) {
-        incoming_values.emplace_back(result_value(handler_value), after_handler);
+        record_incoming(result_value(handler_value), after_handler);
       }
       theBuilder->CreateBr(cont_bb);
     }
@@ -6957,7 +7052,7 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
     llvm::BasicBlock* after_fallback = theBuilder->GetInsertBlock();
     if (after_fallback != nullptr && after_fallback->getTerminator() == nullptr) {
       if (produces_value) {
-        incoming_values.emplace_back(result_value(fallback_value), after_fallback);
+        record_incoming(result_value(fallback_value), after_fallback);
       }
       theBuilder->CreateBr(cont_bb);
     }
@@ -6967,7 +7062,7 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
     llvm::BasicBlock* after_unmatched = theBuilder->GetInsertBlock();
     if (after_unmatched != nullptr && after_unmatched->getTerminator() == nullptr) {
       if (produces_value) {
-        incoming_values.emplace_back(default_runtime_return_value(result_ty), after_unmatched);
+        record_incoming(default_runtime_return_value(result_ty), after_unmatched);
       }
       theBuilder->CreateBr(cont_bb);
     }
@@ -6985,6 +7080,12 @@ StyioToLLVM::toLLVMIR(SIOResourceEffect* node) {
     );
     for (auto& incoming : incoming_values) {
       phi->addIncoming(incoming.first, incoming.second);
+    }
+    if (result_resource_kind.has_value()) {
+      // Branch-local resource handles do not dominate the continuation.
+      // Ownership follows the merged value, so cleanup must release the PHI
+      // rather than any one branch's producer.
+      track_owned_resource_temp(phi, *result_resource_kind);
     }
     return phi;
   }

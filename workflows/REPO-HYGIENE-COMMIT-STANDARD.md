@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-08-21
 
 ---
 
@@ -65,6 +65,7 @@
 4. 共享基线至少保留这些精确模式：`.DS_Store`、`.cursor/`、`.idea/`、`.clangd/`、`.cache/`、`__pycache__/`、`.pytest_cache/`、`.mypy_cache/`、`.ruff_cache/`、`.venv/`、`venv/`、`node_modules/`、`build/`、`build-*/`、`tmp/`、`*.tmp`、`*.log`。
 5. 任何需要入库的 temp/build 风格 fixture，必须显式反忽略；当前冻结写法是 `docs/**` 与 `tests/**` 下的 `build/`、`build-*/`、`tmp/`、`*.tmp`、`*.log` negate 规则。
 6. `python3 scripts/repo-hygiene-gate.py --mode tracked` 会显式检查这些 required patterns 和 fixture negate 规则，不能只改文档不改根 `.gitignore`。
+7. `python3 scripts/repo-hygiene-gate.py --mode residue` 检查被 ignore 规则隐藏的本地垃圾。当前正在使用的标准验证目录 `build/default/`、`build/asan-ubsan/` 和 `build/fuzz/` 可保留；直接配置在 `build/` 根、其他陈旧 build 子树、profiling 输出、test-discovery JSON、cache 和平台元数据必须清理。
 
 ---
 
@@ -76,6 +77,7 @@
 git status --short
 git diff --cached --name-only
 python3 scripts/local-info-leak-gate.py --mode staged
+python3 scripts/repo-hygiene-gate.py --mode residue
 ./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit
 ```
 

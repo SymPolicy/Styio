@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-22
 
 ## Mission
 
@@ -52,6 +52,8 @@ High-value docs:
 20. Windows CTest benchmark entries that launch `styio.exe` must prepend the built runtime directory and resolved LLVM runtime directories through `ENVIRONMENT_MODIFICATION`. Do not rely on an interactive Developer PowerShell, WSL Bash path translation, or user-global PATH for `styio_core_benchmark_smoke`.
 21. Measure persistent callable specialization reuse only with an explicit isolated `--callable-cache-dir`. Record both a cold run and a warm run with `--callable-cache-stats`; a valid warm comparison requires specialization `hits`, zero `writes` for already populated keys, and the path-free hashing/lookup/verification/materialization timing fields. Also retain a cache-disabled clean run because opt-in lookup and partition costs must never be presented as a default compiler regression. Corruption, retention, or concurrent-writer tests establish correctness, not speedup.
 22. The OPT-C parser-core probes live in the repository-local `styio_core_bench` binary: `expr_flat_add_4096`, `expr_mixed_4096`, and `expr_right_power_64` must parse under phase `parse_expr` within `expression_token_visits <= 8 * token_count + 8`, zero expression-core scratch allocations, and bounded depth, with `alloc_count` recording `expression_ast_nodes`; the process fails on null parses, zero-fallback/zero-bridge violations, or counter-bound breaches. Median durations remain JSON evidence, not local thresholds. Gate: `ctest --test-dir build -R '^styio_core_benchmark_internal$|^styio_core_benchmark_json_output$' --output-on-failure`.
+23. Keep the required external integration inventory identical in `benchmark/CMakeLists.txt`, the scheduled linkage workflow, and the authority handoff. The contract currently contains eight files: core manifest/runner, probe utility/core/soak/scheduler sources, JSON smoke coverage, and the C++ benchmark evidence test.
+24. The scheduled benchmark job is report-only: inventory every missing path before required-mode configure, retain configure/build logs even on failure, and build `styio_core_benchmark_evidence_test` alongside the core, soak, and scheduler probes when the external checkout is complete.
 
 ## Change Classes
 
@@ -69,6 +71,14 @@ ctest --test-dir build/default -L soak_smoke
 ```
 
 Core and soak benchmark tests are registered only when CMake receives an explicit `STYIO_BENCHMARK_ROOT`; standalone compiler builds discover nothing implicitly.
+
+The report-only linkage workflow must remain parseable and keep its explicit
+external-root and required-mode contract:
+
+```bash
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/nightly-benchmark.yml', encoding='utf-8'))"
+rg -n 'STYIO_REQUIRE_EXTERNAL_BENCHMARK|styio_core_benchmark_evidence_test' .github/workflows/nightly-benchmark.yml benchmark/CMakeLists.txt
+```
 
 Focused benchmark route:
 

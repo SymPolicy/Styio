@@ -25,7 +25,7 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/specs/audit", "Audit Specs Index", "Provide the generated inventory for `docs/specs/audit/`; audit checklist ownership lives in [README.md](./README.md)."),
     CollectionSpec("docs/teams", "Teams Index", "Provide the generated inventory for `docs/teams/`; team daily-work boundaries and runbook rules live in [README.md](./README.md)."),
     CollectionSpec("docs/review", "Review Index", "Provide the generated inventory for `docs/review/`; document boundaries and naming rules live in [README.md](./README.md)."),
-    CollectionSpec("docs/plan", "Plan Index", "Provide the generated inventory for `docs/plan/`; document boundaries and naming rules live in [README.md](./README.md)."),
+    CollectionSpec("docs/plan", "Plan Index", "Index the tracked Better Plan v3 delivery workspace and its explicit carry-forward backlog; workspace boundaries live in [README.md](./README.md)."),
     CollectionSpec("docs/external", "External Docs Index", "Provide the generated inventory for `docs/external/`; external handoff boundaries live in [README.md](./README.md)."),
     CollectionSpec("docs/external/for-ide", "For IDE Index", "Provide the generated inventory for `docs/external/for-ide/`; IDE embedding, LSP usage, and edit-time parser guidance live in [README.md](./README.md)."),
     CollectionSpec("docs/external/for-pafio", "For Pafio Index", "Provide the generated inventory for `docs/external/for-pafio/`; handoff boundaries for the system Styio compiler and Pafio project workflows live in [README.md](./README.md)."),

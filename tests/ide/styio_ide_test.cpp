@@ -2,14 +2,18 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "../EnvTestUtil.hpp"
 #include "StyioAST/AST.hpp"
 #include "StyioServices/StyioIDE/CompilerBridge.hpp"
 #include "StyioServices/StyioIDE/HIR.hpp"
@@ -156,6 +160,80 @@ has_location(
       return location.path == path && location.range.start == start;
     });
 }
+
+struct DecodedSemanticToken
+{
+  std::size_t line = 0;
+  std::size_t character = 0;
+  std::size_t length = 0;
+};
+
+std::vector<DecodedSemanticToken>
+decode_semantic_tokens(const std::vector<std::uint32_t>& data) {
+  std::vector<DecodedSemanticToken> decoded;
+  std::size_t line = 0;
+  std::size_t character = 0;
+
+  for (std::size_t i = 0; i + 4 < data.size(); i += 5) {
+    line += data[i];
+    character = data[i] == 0 ? character + data[i + 1] : data[i + 1];
+    decoded.push_back(DecodedSemanticToken{line, character, data[i + 2]});
+  }
+  return decoded;
+}
+
+bool
+has_semantic_token_at(
+  const std::vector<DecodedSemanticToken>& tokens,
+  std::size_t line,
+  std::size_t character,
+  std::size_t length
+) {
+  return std::any_of(
+    tokens.begin(),
+    tokens.end(),
+    [&](const DecodedSemanticToken& token)
+    {
+      return token.line == line
+        && token.character == character
+        && token.length == length;
+    });
+}
+
+class EnvVarGuard
+{
+public:
+  explicit EnvVarGuard(std::string name) :
+      name_(std::move(name)) {
+    const char* value = std::getenv(name_.c_str());
+    if (value != nullptr) {
+      had_value_ = true;
+      old_value_ = value;
+    }
+  }
+
+  ~EnvVarGuard() {
+    if (had_value_) {
+      styio_test_setenv(name_.c_str(), old_value_.c_str(), 1);
+    }
+    else {
+      styio_test_unsetenv(name_.c_str());
+    }
+  }
+
+  void set(const std::string& value) {
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
+  }
+
+  void unset() {
+    styio_test_unsetenv(name_.c_str());
+  }
+
+private:
+  std::string name_;
+  bool had_value_ = false;
+  std::string old_value_;
+};
 
 std::vector<std::size_t>
 syntax_statement_starts(const styio::ide::SyntaxSnapshot& syntax) {
@@ -470,6 +548,118 @@ TEST(StyioVfs, AppliesSequentialTextEdits) {
   ASSERT_NE(invalid_result.snapshot, nullptr);
   EXPECT_TRUE(invalid_result.needs_full_resync);
   EXPECT_EQ(invalid_result.snapshot->buffer.text(), "ONE TWO THREE");
+}
+
+TEST(StyioIdeProject, EnvironmentFallbacksAndWorkspaceSkipsStayExplicit) {
+  EnvVarGuard xdg_cache_home("XDG_CACHE_HOME");
+  EnvVarGuard home("HOME");
+
+  const std::filesystem::path root = make_temp_project_dir("ide-project-env");
+  write_text_file((root / "main.styio").string(), "value: i32 := 1\n");
+  std::filesystem::create_directories(root / ".git");
+  std::filesystem::create_directories(root / "build");
+  std::filesystem::create_directories(root / "build-codex");
+  write_text_file((root / ".git" / "hidden.styio").string(), "hidden: i32 := 1\n");
+  write_text_file((root / "build" / "hidden.styio").string(), "hidden: i32 := 1\n");
+  write_text_file((root / "build-codex" / "hidden.styio").string(), "hidden: i32 := 1\n");
+
+  const std::filesystem::path cache = root / "cache-home";
+  xdg_cache_home.set(cache.string());
+  home.set((root / "home").string());
+  styio::ide::Project project;
+  project.set_root(root.string());
+  EXPECT_EQ(project.project_id(), 1u);
+  EXPECT_NE(
+    project.cache_root().find((cache / "styio" / "ide").string()),
+    std::string::npos);
+  const std::string cache_leaf =
+    std::filesystem::path(project.cache_root()).filename().string();
+  EXPECT_EQ(cache_leaf.rfind("root-", 0), 0u);
+  EXPECT_EQ(
+    cache_leaf.find_first_not_of("root-0123456789abcdef"),
+    std::string::npos);
+  EXPECT_EQ(project.workspace_scan_error_count(), 0u);
+  ASSERT_EQ(project.workspace_files().size(), 1u);
+  EXPECT_EQ(
+    std::filesystem::path(project.workspace_files()[0]).filename(),
+    "main.styio");
+
+  styio::ide::Project same_root;
+  same_root.set_root(root.string());
+  EXPECT_EQ(same_root.cache_root(), project.cache_root());
+
+  styio::ide::Project missing_root;
+  EXPECT_NO_THROW(missing_root.set_root((root / "missing").string()));
+  EXPECT_TRUE(missing_root.workspace_files().empty());
+  EXPECT_GT(missing_root.workspace_scan_error_count(), 0u);
+
+  xdg_cache_home.unset();
+  home.unset();
+  styio::ide::Project fallback;
+  fallback.set_root("");
+  EXPECT_TRUE(fallback.workspace_files().empty());
+  EXPECT_NE(fallback.cache_root().find("styio-ide-cache"), std::string::npos);
+}
+
+TEST(StyioIdeService, WatchFileRefreshFiltersAndCoalescesChangedPaths) {
+  const std::filesystem::path root =
+    make_temp_project_dir("ide-service-watch-filter");
+  const std::filesystem::path watched_path = root / "watched.styio";
+  const std::filesystem::path deleted_path = root / "deleted.styio";
+  const std::filesystem::path open_path = root / "open.styio";
+  const std::filesystem::path ignored_text_path = root / "ignored.txt";
+  const std::filesystem::path outside_path =
+    std::filesystem::path(make_temp_dir()) / "outside_watch.styio";
+  write_text_file(watched_path.string(), "# watched := (x: i32) => x\n");
+  write_text_file(
+    deleted_path.string(),
+    "# stale_deleted := (x: i32) => x\n");
+  write_text_file(open_path.string(), "# open_file := (x: i32) => x\n");
+  write_text_file(ignored_text_path.string(), "ignored\n");
+  write_text_file(
+    outside_path.string(),
+    "# outside_watch := (x: i32) => x\n");
+
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root.string()));
+  ASSERT_TRUE(has_indexed_symbol(
+    service.workspace_symbols("stale_deleted"),
+    "stale_deleted",
+    deleted_path.string()));
+
+  const std::string open_uri = styio::ide::uri_from_path(open_path.string());
+  service.did_open(
+    open_uri,
+    "# open_file := (x: i32) => x\n"
+    "open_result: i32 := open_file(1)\n",
+    1);
+  service.drain_semantic_diagnostics();
+  std::filesystem::remove(deleted_path);
+  service.reset_runtime_counters();
+
+  const std::vector<std::string> changed_paths{
+    watched_path.string(),
+    watched_path.string(),
+    deleted_path.string(),
+    ignored_text_path.string(),
+    outside_path.string(),
+    open_path.string()};
+  EXPECT_EQ(
+    service.schedule_background_index_refresh_for_paths(changed_paths),
+    2u);
+  EXPECT_EQ(service.pending_background_task_count(), 2u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 2u);
+  EXPECT_EQ(
+    service.schedule_background_index_refresh_for_paths(changed_paths),
+    0u);
+  EXPECT_EQ(service.pending_background_task_count(), 2u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 2u);
+
+  EXPECT_EQ(service.run_background_tasks(10), 2u);
+  EXPECT_FALSE(has_indexed_symbol(
+    service.workspace_symbols("stale_deleted"),
+    "stale_deleted",
+    deleted_path.string()));
 }
 
 TEST(StyioIdeService, DocumentSymbolsHoverDefinitionAndCompletion) {
@@ -1587,6 +1777,49 @@ TEST(StyioSemanticDb, DropsOpenFileQueryStateOnClose) {
   EXPECT_EQ(after_reopen_query.document_symbols.misses, after_close_query.document_symbols.misses + 1);
 }
 
+TEST(StyioSemanticDb, SemanticTokensUseUtf16PositionsAndLengths) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_utf16_tokens.styio";
+  const std::string emoji = "\xF0\x9F\x98\x80";
+  const std::string source = "emoji = \"" + emoji + "\" value = 1\n";
+  vfs.open(path, source, 1);
+
+  const std::vector<DecodedSemanticToken> tokens =
+    decode_semantic_tokens(semdb.semantic_tokens_for(path));
+  ASSERT_FALSE(tokens.empty());
+
+  const styio::ide::TextBuffer buffer(source);
+  const std::size_t value_offset = source.find("value");
+  ASSERT_NE(value_offset, std::string::npos);
+  const styio::ide::Position value_byte_pos = buffer.position_at(value_offset);
+  const styio::ide::Position value_utf16_pos =
+    buffer.utf16_position_at(value_offset);
+  EXPECT_EQ(value_utf16_pos.line, 0U);
+  EXPECT_GT(value_byte_pos.character, value_utf16_pos.character);
+  EXPECT_TRUE(has_semantic_token_at(
+    tokens,
+    value_utf16_pos.line,
+    value_utf16_pos.character,
+    5U));
+  EXPECT_FALSE(has_semantic_token_at(
+    tokens,
+    value_byte_pos.line,
+    value_byte_pos.character,
+    5U));
+
+  const std::size_t string_offset = source.find('"');
+  ASSERT_NE(string_offset, std::string::npos);
+  const styio::ide::Position string_pos =
+    buffer.utf16_position_at(string_offset);
+  EXPECT_TRUE(has_semantic_token_at(
+    tokens,
+    string_pos.line,
+    string_pos.character,
+    4U));
+}
+
 TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
   const std::string source =
     "# broken := (a: i32, b: i32) => {\n"
@@ -1751,6 +1984,106 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
   const auto* first_symbol = (*symbols)[0].getAsObject();
   ASSERT_NE(first_symbol, nullptr);
   EXPECT_EQ(first_symbol->getString("name").value_or(""), "add");
+}
+
+TEST(StyioLspServer, WatchFileChangesFilterAndCoalesceBackgroundRefresh) {
+  styio::lsp::Server server;
+  const std::string root = make_temp_project_dir("server_watch_filter");
+  const std::string watched_path =
+    (std::filesystem::path(root) / "watched.styio").string();
+  const std::string open_path =
+    (std::filesystem::path(root) / "open.styio").string();
+  const std::string ignored_text_path =
+    (std::filesystem::path(root) / "ignored.txt").string();
+  const std::string outside_path =
+    (std::filesystem::path(make_temp_dir()) / "outside_lsp_watch.styio")
+      .string();
+  write_text_file(watched_path, "# watched := (x: i32) => x\n");
+  write_text_file(open_path, "# open_file := (x: i32) => x\n");
+  write_text_file(ignored_text_path, "ignored\n");
+  write_text_file(
+    outside_path,
+    "# outside_lsp_watch := (x: i32) => x\n");
+
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{
+        {"rootUri", styio::ide::uri_from_path(root)}}}}).size(),
+    1u);
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didOpen"},
+      {"params", llvm::json::Object{
+        {"textDocument", llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(open_path)},
+          {"version", 1},
+          {"text",
+           "# open_file := (x: i32) => x\n"
+           "open_result: i32 := open_file(1)\n"}}}}}}).size(),
+    1u);
+  (void)server.drain_runtime();
+
+  auto watched_changes = [&]() -> llvm::json::Array
+  {
+    return llvm::json::Array{
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(watched_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(watched_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(open_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(ignored_text_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(outside_path)},
+        {"type", 2}}};
+  };
+  auto background_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", watched_changes()}}}});
+  EXPECT_TRUE(background_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  auto duplicate_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", watched_changes()}}}});
+  EXPECT_TRUE(duplicate_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  auto empty_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}});
+  EXPECT_TRUE(empty_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  styio::lsp::Server empty_change_server;
+  ASSERT_EQ(
+    empty_change_server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 2},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{
+        {"rootUri", styio::ide::uri_from_path(root)}}}}).size(),
+    1u);
+  EXPECT_TRUE(empty_change_server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}})
+    .empty());
+  EXPECT_EQ(
+    empty_change_server.runtime_counters().background_tasks_enqueued,
+    0u);
 }
 
 TEST(StyioLspRuntime, DropsStaleCompletionResponses) {
@@ -1959,8 +2292,12 @@ TEST(StyioLspServer, RunDrainsRuntimeDiagnostics) {
 TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
   styio::lsp::Server server;
   const std::string root = make_temp_project_dir("ide_request_driven_background");
-  write_text_file((std::filesystem::path(root) / "lib_bg.styio").string(), "# lib_bg := (x: i32) => x\n");
-  write_text_file((std::filesystem::path(root) / "other_bg.styio").string(), "# other_bg := (x: i32) => x\n");
+  const std::string lib_path =
+    (std::filesystem::path(root) / "lib_bg.styio").string();
+  const std::string other_path =
+    (std::filesystem::path(root) / "other_bg.styio").string();
+  write_text_file(lib_path, "# lib_bg := (x: i32) => x\n");
+  write_text_file(other_path, "# other_bg := (x: i32) => x\n");
 
   const std::string uri = temp_uri("runtime_request_driven_fallback.styio");
   const std::vector<llvm::json::Object> requests = {
@@ -1980,7 +2317,14 @@ TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
     llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"method", "workspace/didChangeWatchedFiles"},
-      {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}},
+      {"params", llvm::json::Object{{"changes", llvm::json::Array{
+        llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(lib_path)},
+          {"type", 2}},
+        llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(other_path)},
+          {"type", 2}},
+      }}}}},
     llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"id", 2},
