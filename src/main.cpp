@@ -5962,7 +5962,7 @@ styio_callable_interface_compiler_abi_latest() {
       << "|channel=" << STYIO_RELEASE_CHANNEL
       << "|edition=" << STYIO_EDITION_MAX
       << "|target=" << llvm::sys::getDefaultTargetTriple()
-      << "|pointer_bits=" << (sizeof(void*) * 8);
+      << "|pointer_bits=" << (sizeof(void*) * 8) << "|value_abi=styio.optional-i64.v1";
   return abi.str();
 }
 
@@ -6852,7 +6852,7 @@ main(
     callable_interface_compiler_abi
     + "|dict_impl=" + dict_impl_selection.impl_name
     + "|llvm=" LLVM_VERSION_STRING
-    + "|native_codegen=styio.callable-object.v1";
+    + "|native_codegen=styio.callable-object.v2";
   if (callable_cache_config.has_value()) {
     callable_cache_config->namespace_abi =
       callable_specialization_backend_abi;

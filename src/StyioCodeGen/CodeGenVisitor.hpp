@@ -21,21 +21,12 @@
 #include "llvm/Analysis/CGSCCPassManager.h" /* CGSCCAnalysisManager */
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h" /* FunctionPassManager */
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PassInstrumentation.h" /* PassInstrumentationCallbacks */
 #include "llvm/IR/PassManager.h"         /* LoopAnalysisManager, FunctionAnalysisManager, ModuleAnalysisManager */
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Passes/PassBuilder.h"                 /* PassBuilder */
-#include "llvm/Passes/StandardInstrumentations.h"    /* StandardInstrumentations.h */
-#include "llvm/Support/TargetSelect.h"               /* InitializeNativeTarget, InitializeNativeTargetAsmPrinter, InitializeNativeTargetAsmParser */
-#include "llvm/Transforms/InstCombine/InstCombine.h" /* InstCombinePass */
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Scalar/GVN.h"         /* GVNPass */
-#include "llvm/Transforms/Scalar/Reassociate.h" /* ReassociatePass */
-#include "llvm/Transforms/Scalar/SimplifyCFG.h" /* SimplifyCFGPass */
-#include "llvm/Transforms/Utils.h"
+#include "llvm/Passes/PassBuilder.h"   /* PassBuilder */
+#include "llvm/Support/TargetSelect.h" /* InitializeNativeTarget, InitializeNativeTargetAsmPrinter, InitializeNativeTargetAsmParser */
 
 #ifndef STYIO_CODEGEN_INTERNAL_ACCESS
 #define STYIO_CODEGEN_INTERNAL_ACCESS private
@@ -60,13 +51,10 @@ class StyioToLLVM : public StyioCodeGenVisitor
 
   std::unique_ptr<StyioJIT_ORC> theORCJIT;
 
-  unique_ptr<llvm::FunctionPassManager> theFPM;
   unique_ptr<llvm::LoopAnalysisManager> theLAM;
   unique_ptr<llvm::FunctionAnalysisManager> theFAM;
   unique_ptr<llvm::CGSCCAnalysisManager> theCGAM;
   unique_ptr<llvm::ModuleAnalysisManager> theMAM;
-  unique_ptr<llvm::PassInstrumentationCallbacks> thePIC;
-  unique_ptr<llvm::StandardInstrumentations> theSI;
   llvm::PassBuilder thePB;
 
   unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
@@ -97,29 +85,19 @@ public:
       theModule(std::make_unique<llvm::Module>("styio", *theContext)),
       theBuilder(std::make_unique<llvm::IRBuilder<>>(*theContext)),
       theORCJIT(std::move(styio_jit)),
-      theFPM(std::make_unique<llvm::FunctionPassManager>()),
       theLAM(std::make_unique<llvm::LoopAnalysisManager>()),
       theFAM(std::make_unique<llvm::FunctionAnalysisManager>()),
       theCGAM(std::make_unique<llvm::CGSCCAnalysisManager>()),
       theMAM(std::make_unique<llvm::ModuleAnalysisManager>()),
-      thePIC(std::make_unique<llvm::PassInstrumentationCallbacks>()),
-      theSI(std::make_unique<llvm::StandardInstrumentations>(*theContext, /*DebugLogging*/ true)) {
+      thePB(&theORCJIT->getOptimizationTargetMachine()) {
     theModule->setDataLayout(theORCJIT->getDataLayout());
+    theModule->setTargetTriple(
+      theORCJIT->getOptimizationTargetMachine().getTargetTriple().str());
 
-    theSI->registerCallbacks(*thePIC, theMAM.get());
-
-    // Add transform passes.
-    // Do simple "peephole" optimizations and bit-twiddling optimizations.
-    theFPM->addPass(llvm::InstCombinePass());
-    // Reassociate expressions.
-    theFPM->addPass(llvm::ReassociatePass());
-    // Eliminate common sub-expressions.
-    theFPM->addPass(llvm::GVNPass());
-    // Simplify the control flow graph (deleting unreachable blocks, etc).
-    theFPM->addPass(llvm::SimplifyCFGPass());
-
+    thePB.registerLoopAnalyses(*theLAM);
     thePB.registerModuleAnalyses(*theMAM);
     thePB.registerFunctionAnalyses(*theFAM);
+    thePB.registerCGSCCAnalyses(*theCGAM);
     thePB.crossRegisterProxies(*theLAM, *theFAM, *theCGAM, *theMAM);
   }
 
@@ -373,10 +351,22 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   llvm::Value* cstr_to_i64_checked(llvm::Value* v);
   llvm::Value* cstr_to_f64_checked(llvm::Value* v);
 
+  llvm::StructType* optional_i64_type();
+  bool is_optional_i64_type(llvm::Type* type) const;
+  bool is_optional_i64_value(llvm::Value* value) const;
+  llvm::Value* make_optional_i64(llvm::Value* value, llvm::Value* defined);
+  llvm::Value* optional_i64_value(llvm::Value* optional);
+  llvm::Value* optional_i64_defined(llvm::Value* optional);
+
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
   enum class TempResourceKind : std::uint8_t { List, Dict, Matrix, Tuple };
+  struct OwnedResourceTemp {
+    llvm::Value* value = nullptr;
+    TempResourceKind kind = TempResourceKind::List;
+    llvm::AllocaInst* slot = nullptr;
+  };
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
@@ -385,11 +375,12 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   std::unordered_map<std::string, llvm::AllocaInst*> file_handle_var_slots_;
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
-  std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
-  std::vector<std::vector<llvm::Value*>> owned_resource_scope_stack_;
+  std::unordered_map<llvm::Value*, OwnedResourceTemp> owned_resource_temps_;
+  std::vector<std::vector<OwnedResourceTemp>> owned_resource_scope_stack_;
   std::optional<TempResourceKind> current_function_return_resource_kind_;
   std::uint64_t task_function_counter_ = 0;
   std::uint64_t file_handle_temp_counter_ = 0;
+  std::uint64_t owned_resource_temp_counter_ = 0;
   int resource_effect_operation_depth_ = 0;
 
   void emit_snapshot_shadow_reload();
@@ -405,6 +396,7 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
 
   llvm::StructType* dynamic_cell_type();
   llvm::AllocaInst* create_entry_alloca(llvm::Type* type, const std::string& name);
+  void optimize_module_for_jit(llvm::Module& module);
   void init_dynamic_slot_undef(llvm::AllocaInst* slot);
   void release_dynamic_slot_contents(llvm::AllocaInst* slot);
   void store_dynamic_slot(

@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -290,6 +289,37 @@ StyioToLLVM::emit_std_stream_write_parts(
     llvm::Value* v = part->toLLVMIR(this);
     llvm::Value* cstr = nullptr;
 
+    if (is_optional_i64_value(v)) {
+      llvm::Value* defined = optional_i64_defined(v);
+      llvm::Value* value = optional_i64_value(v);
+      llvm::Function* fn = theBuilder->GetInsertBlock()->getParent();
+      llvm::BasicBlock* number_bb = llvm::BasicBlock::Create(
+        *theContext,
+        prefix + "_optional_i64",
+        fn);
+      llvm::BasicBlock* absent_bb = llvm::BasicBlock::Create(
+        *theContext,
+        prefix + "_absent",
+        fn);
+      llvm::BasicBlock* done_bb = llvm::BasicBlock::Create(
+        *theContext,
+        done_label,
+        fn);
+      theBuilder->CreateCondBr(defined, number_bb, absent_bb);
+
+      theBuilder->SetInsertPoint(number_bb);
+      llvm::Value* number = theBuilder->CreateCall(i64_cstr_fn, {value});
+      theBuilder->CreateCall(write_fn, {number});
+      theBuilder->CreateBr(done_bb);
+
+      theBuilder->SetInsertPoint(absent_bb);
+      llvm::Value* absent = theBuilder->CreateGlobalStringPtr("@", at_global);
+      theBuilder->CreateCall(write_fn, {absent});
+      theBuilder->CreateBr(done_bb);
+
+      theBuilder->SetInsertPoint(done_bb);
+      continue;
+    }
     if (v->getType()->isIntegerTy(1)) {
       llvm::Value* tstr = theBuilder->CreateGlobalStringPtr("true", true_global);
       llvm::Value* fstr = theBuilder->CreateGlobalStringPtr("false", false_global);
@@ -304,29 +334,7 @@ StyioToLLVM::emit_std_stream_write_parts(
       cstr = theBuilder->CreateCall(i64_cstr_fn, {ext});
     }
     else if (v->getType()->isIntegerTy(64)) {
-      llvm::Value* sent = llvm::ConstantInt::get(
-        theBuilder->getInt64Ty(),
-        static_cast<uint64_t>(std::numeric_limits<int64_t>::min()),
-        true);
-      llvm::Value* is_undef = theBuilder->CreateICmpEQ(v, sent);
-      llvm::Function* fn = theBuilder->GetInsertBlock()->getParent();
-      llvm::BasicBlock* undef_bb = llvm::BasicBlock::Create(*theContext, prefix + "_at", fn);
-      llvm::BasicBlock* number_bb = llvm::BasicBlock::Create(*theContext, prefix + "_i64", fn);
-      llvm::BasicBlock* done_bb = llvm::BasicBlock::Create(*theContext, done_label, fn);
-      theBuilder->CreateCondBr(is_undef, undef_bb, number_bb);
-
-      theBuilder->SetInsertPoint(undef_bb);
-      llvm::Value* at_str = theBuilder->CreateGlobalStringPtr("@", at_global);
-      theBuilder->CreateCall(write_fn, {at_str});
-      theBuilder->CreateBr(done_bb);
-
-      theBuilder->SetInsertPoint(number_bb);
-      llvm::Value* num_cstr = theBuilder->CreateCall(i64_cstr_fn, {v});
-      theBuilder->CreateCall(write_fn, {num_cstr});
-      theBuilder->CreateBr(done_bb);
-
-      theBuilder->SetInsertPoint(done_bb);
-      continue;
+      cstr = theBuilder->CreateCall(i64_cstr_fn, {v});
     }
     else if (v->getType()->isDoubleTy()) {
       cstr = theBuilder->CreateCall(f64_cstr_fn, {v});
@@ -397,8 +405,8 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
     pulse_sz = node->pulse_plan->total_bytes;
     llvm::ArrayType* paty =
       llvm::ArrayType::get(theBuilder->getInt8Ty(), static_cast<unsigned>(pulse_sz));
-    ledger_alloc = theBuilder->CreateAlloca(paty, nullptr, "pulse_ledger_stdin");
-    snap_alloc = theBuilder->CreateAlloca(paty, nullptr, "pulse_snap_stdin");
+    ledger_alloc = create_entry_alloca(paty, "pulse_ledger_stdin");
+    snap_alloc = create_entry_alloca(paty, "pulse_snap_stdin");
     llvm::Type* i8p = llvm::PointerType::get(*theContext, 0);
     llvm::Value* li8 = theBuilder->CreateBitCast(ledger_alloc, i8p);
     llvm::Value* si8 = theBuilder->CreateBitCast(snap_alloc, i8p);
@@ -425,7 +433,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
   theBuilder->CreateCondBr(done, exit_bb, body_bb);
 
   theBuilder->SetInsertPoint(body_bb);
-  llvm::AllocaInst* line_slot = theBuilder->CreateAlloca(char_ptr, nullptr, node->line_var);
+  llvm::AllocaInst* line_slot = create_entry_alloca(char_ptr, node->line_var);
   theBuilder->CreateStore(lineptr, line_slot);
   mutable_variables[node->line_var] = line_slot;
 

@@ -32,8 +32,8 @@ contains_newline(const std::string& text, TextRange range) {
   if (range.start > range.end) {
     return false;
   }
-  return text.find('\n', range.start) != std::string::npos
-    && text.find('\n', range.start) < range.end;
+  const std::size_t newline = text.find('\n', range.start);
+  return newline != std::string::npos && newline < range.end;
 }
 
 SyntaxNodeKind

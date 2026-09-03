@@ -43,6 +43,8 @@ extern "C" DLLEXPORT const char* styio_runtime_last_error();
 extern "C" DLLEXPORT const char* styio_runtime_last_error_subcode();
 extern "C" DLLEXPORT int styio_runtime_error_matches_effect(const char* effect_name);
 extern "C" DLLEXPORT void styio_runtime_clear_error();
+/* kind 0: division by zero; kind 1: signed MIN / -1 overflow. */
+extern "C" DLLEXPORT void styio_runtime_report_integer_division_error(int kind);
 extern "C" DLLEXPORT void styio_runtime_set_log_sink(StyioRuntimeLogSink sink);
 
 /* Standard streams: write to stdout / stderr */

@@ -24,7 +24,7 @@ Alternative:
 
 Stream processing language design involves tradeoffs among expressiveness, runtime cost, state layout, synchronization, and error propagation. This draft records Styio research hypotheses and the evidence needed to evaluate them.
 
-Styio explores five design areas: (1) **intent-aware compilation** that carries field-access analysis to resource drivers; (2) **pulse frame locking** for deterministic committed snapshots; (3) **algebraic absence propagation** at the value level; (4) **virtual state mounting** with anonymous ledgers; and (5) **dual-track stream synchronization** that distinguishes push-aligned and pull-snapshot joins at the AST level.
+Styio explores five design areas: (1) **intent-aware compilation** that carries field-access analysis to resource drivers; (2) **pulse frame locking** for deterministic committed snapshots; (3) **explicit tagged absence** at compiler-owned value boundaries; (4) **virtual state mounting** with anonymous ledgers; and (5) **dual-track stream synchronization** that distinguishes push-aligned and pull-snapshot joins at the AST level.
 
 Any latency, code-size, safety, or related-work statement must be backed by repository tests, `styio-benchmark` reports, or cited primary sources before publication.
 
@@ -94,37 +94,35 @@ Construct a scenario where two state references are read in the same expression.
 
 ---
 
-## Innovation Point 3: Algebraic Absence Without Monads
+## Innovation Point 3: Tagged Runtime Absence Without Sentinel Collisions
 
 ### The Problem
 
 Missing data is pervasive in real-world streams (network drops, sensor failures, data gaps). Common representations include:
 
-1. **Nullable sentinels:** require explicit checks at use sites
+1. **Reserved scalar sentinels:** lose one legitimate value and leak checks into every hot scalar operation
 2. **Option/Maybe-style wrappers:** make absence explicit in the type
 3. **NaN** (IEEE 754): Propagates silently but only works for floats, and `NaN != NaN` breaks equality
 
 ### Styio's Contribution
 
-Styio introduces runtime `@` as an **algebraic absence value** that:
+Styio represents runtime `@` as a compiler-owned **tagged absence value** that:
 
-- Propagates through supported value families as runtime absence, not as a user-authored bare source literal
-- Keeps the common value representation outside user-authored wrapper types where the compiler path supports it
-- Carries **diagnostic metadata** in debug mode (reason code, source location)
-- Can be intercepted at any value point via `|` (value fallback) or `??` (diagnostic extract). Resource-effect fallback is separate: `?| resource_operation` settles in place and raises immediately on failure, while `?| resource_operation | fallback` recovers through type inference.
+- uses an explicit `(is_defined, value)` representation only on compiler paths that can carry absence
+- leaves ordinary `i64` as an untagged machine integer with the complete signed 64-bit value domain
+- is not authored as a bare source literal and must be intercepted before ordinary arithmetic, comparison, logic, or callable/runtime arguments
+- can be intercepted lazily through `|` (value fallback). Resource-effect fallback is separate: `?| resource_operation` settles in place and raises immediately on failure, while `?| resource_operation | fallback` recovers through type inference.
+- records reason/source metadata and the `??` diagnostic-extract surface as deferred work; neither is part of the implemented runtime contract
 
-**Formal algebra:**
+**Current value rule:**
 
-For any supported binary operation \(\oplus\), values \(a, b\), and runtime absence \(@\):
-
-\[a \oplus @ = @\]
-\[@ \oplus b = @\]
-\[@ \oplus @ = @\]
-
-The `|` operator provides recovery:
+For present value \(a\), fallback \(d\), and runtime absence \(@\):
 
 \[@ \mid d = d\]
-\[a \mid d = a \quad (\text{when } a \neq @)\]
+\[a \mid d = a\]
+
+Ordinary \(\oplus\) is defined only on present scalar operands; there is no
+implicit `@` propagation through the raw integer fast path.
 
 **Evidence required before external comparison:**
 

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -232,6 +233,47 @@ TEST(StyioCodeGenInternal, PassiveIrNodesAndScalarCastGuardsStayExplicit) {
       SGType::Create(bool_type()),
       SGType::Create(string_type())),
   }, "unsupported scalar cast lowering");
+}
+
+TEST(StyioCodeGenInternal, LoopTemporariesAreAllocatedInFunctionEntry) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGRangeFor::Create(
+      SGConstInt::Create(0),
+      SGConstInt::Create(2),
+      SGConstInt::Create(1),
+      "index",
+      SGBlock::Create({SGNoOp::Create()})),
+  }));
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+
+  const std::string ir = generator->dump_llvm_ir();
+  const std::size_t loop_header = ir.find("rangefor_hdr:");
+  const std::size_t loop_slot = ir.find("alloca i64");
+  ASSERT_NE(loop_header, std::string::npos) << ir;
+  ASSERT_NE(loop_slot, std::string::npos) << ir;
+  EXPECT_LT(loop_slot, loop_header) << ir;
+  EXPECT_EQ(ir.find("alloca", loop_header), std::string::npos)
+    << "loop-local allocation escaped the entry block\n" << ir;
+}
+
+TEST(StyioCodeGenInternal, GenericChildCollectionIncludesReturnAndMatchDefault) {
+  auto* returned_value = SGConstInt::Create(1);
+  std::unique_ptr<SGReturn> returned(SGReturn::Create(returned_value));
+  std::vector<StyioIR*> children;
+  returned->collect_children(children);
+  ASSERT_EQ(children.size(), 1u);
+  EXPECT_EQ(children.front(), returned_value);
+
+  auto* default_arm = SGBlock::Create({SGNoOp::Create()});
+  std::unique_ptr<SGMatch> match(SGMatch::Create(
+    SGConstInt::Create(7),
+    {},
+    default_arm,
+    SGMatchReprKind::Stmt));
+  children.clear();
+  match->collect_children(children);
+  EXPECT_NE(std::find(children.begin(), children.end(), default_arm), children.end());
 }
 
 TEST(StyioCodeGenInternal, BuiltinListAndMatrixCoercionsStayExplicit) {
@@ -696,9 +738,9 @@ TEST(StyioCodeGenInternal, PulseHelpersCoverMissingPlanCommitAndRegionEdges) {
     pulse_loop,
     SGFlexBind::Create(var("missing_region_hist", i64_type()), SGStateHistLoad::Create(0, 1, 404)),
   }, {
-    "avg_without_pulse",
-    "max_without_pulse",
-    "missing_region_hist",
+    "pulse_ledger",
+    "pulse_snap",
+    "store i64 7, ptr %invalid_slot",
   });
 }
 
@@ -811,7 +853,11 @@ TEST(StyioCodeGenInternal, IntegerDivAndModuloGuardUnsafeDivisorsBeforeInstructi
   EXPECT_GE(count_needles("sdiv i64"), 2u) << ir;
   EXPECT_GE(count_needles("srem i64"), 2u) << ir;
   EXPECT_NE(ir.find("select i1"), std::string::npos) << ir;
-  EXPECT_NE(ir.find("i64 1,"), std::string::npos) << ir;
+  EXPECT_NE(
+    ir.find("@styio_runtime_report_integer_division_error"),
+    std::string::npos) << ir;
+  EXPECT_NE(ir.find("integer_div_error"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("integer_rem_error"), std::string::npos) << ir;
 
   std::istringstream lines(ir);
   for (std::string line; std::getline(lines, line);) {
@@ -822,6 +868,113 @@ TEST(StyioCodeGenInternal, IntegerDivAndModuloGuardUnsafeDivisorsBeforeInstructi
     EXPECT_EQ(line.find(", 0"), std::string::npos) << line << "\n" << ir;
     EXPECT_EQ(line.find(", -9223372036854775808"), std::string::npos) << line << "\n" << ir;
   }
+}
+
+TEST(StyioCodeGenInternal, CompileTimeSafeIntegerDivisorsSkipRuntimeGuards) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFlexBind::Create(var("safe_numerator", i64_type()), SGConstInt::Create(81)),
+    SGBinOp::Create(
+      SGResId::Create("safe_numerator"),
+      SGConstInt::Create(9),
+      StyioOpType::Binary_Div,
+      SGType::Create(i64_type())),
+    SGBinOp::Create(
+      SGResId::Create("safe_numerator"),
+      SGConstInt::Create(7),
+      StyioOpType::Binary_Mod,
+      SGType::Create(i64_type())),
+  }));
+
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_NE(ir.find("sdiv i64"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("srem i64"), std::string::npos) << ir;
+  EXPECT_EQ(
+    ir.find("@styio_runtime_report_integer_division_error"),
+    std::string::npos) << ir;
+  EXPECT_NO_THROW(generator->execute());
+}
+
+TEST(StyioCodeGenInternal, OptionalI64UsesExplicitTagsWithoutPollutingRawArithmetic) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFlexBind::Create(
+      var("minimum", i64_type()),
+      SGConstInt::Create(std::numeric_limits<std::int64_t>::min())),
+    SGFlexBind::Create(
+      var("incremented", i64_type()),
+      SGBinOp::Create(
+        SGResId::Create("minimum"),
+        SGConstInt::Create(1),
+        StyioOpType::Binary_Add,
+        SGType::Create(i64_type()))),
+    SGFlexBind::Create(
+      var("optional", i64_type()),
+      SGGuardSelect::Create(
+        SGResId::Create("minimum"),
+        SGConstBool::Create(false))),
+    SGFlexBind::Create(
+      var("recovered", i64_type()),
+      SGFallback::Create(
+        SGResId::Create("optional"),
+        SGConstInt::Create(7))),
+    SGFinalBind::Create(
+      var("nested_recovered", i64_type()),
+      SGFallback::Create(
+        SGUndef::Create(),
+        SGFallback::Create(
+          SGUndef::Create(),
+          SGConstInt::Create(9)))),
+  }));
+
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_NE(ir.find("%styio.optional.i64 = type { i1, i64 }"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("extractvalue %styio.optional.i64"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("add i64"), std::string::npos) << ir;
+  EXPECT_EQ(ir.find("icmp eq i64"), std::string::npos) << ir;
+  EXPECT_NO_THROW(generator->execute());
+
+  expect_codegen_throws({
+    SGCall::Create(
+      SGResId::Create("__styio_list_range_i64"),
+      {SGUndef::Create(), SGConstInt::Create(1), SGConstInt::Create(1)}),
+  }, "optional i64 must be intercepted by fallback before a callable argument");
+}
+
+TEST(StyioCodeGenInternal, SeriesMaxScansEveryValueInTheActiveWindow) {
+  auto generator = make_generator();
+  auto plan = std::make_unique<SGPulsePlan>();
+  plan->slots.push_back(
+    SGStateSlotDesc{SGStateSlotKind::WinMax, 0, 0, 120, 3, "", "window_max"});
+  plan->commits = {{0, "window_max"}};
+  plan->ref_to_slot = {{"window_max", 0}};
+  plan->total_bytes = 120;
+
+  auto* pulse_loop = SGForEach::Create(
+    SCListLiteral::Create(
+      {SGConstInt::Create(9),
+       SGConstInt::Create(1),
+       SGConstInt::Create(0),
+       SGConstInt::Create(-1)},
+      "i64"),
+    "sample",
+    "i64",
+    SGBlock::Create({
+      SGFlexBind::Create(
+        var("window_max", i64_type()),
+        SGSeriesMaxStep::Create(0, SGResId::Create("sample"))),
+      SIOPrint::Create({SGResId::Create("window_max")}),
+    }));
+  pulse_loop->pulse_region_id = 19;
+  pulse_loop->set_pulse_plan(std::move(plan));
+
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({pulse_loop}));
+  ASSERT_NO_THROW(entry->toLLVMIR(generator.get()));
+  testing::internal::CaptureStdout();
+  ASSERT_NO_THROW(generator->execute());
+  EXPECT_EQ(testing::internal::GetCapturedStdout(), "@\n@\n9\n1\n");
 }
 
 TEST(StyioCodeGenInternal, CollectionHandleLiteralsAndAccessorsStayExplicit) {
@@ -1409,13 +1562,6 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
       SGConstInt::Create(7),
       StyioOpType::Binary_Add,
       SGType::Create(string_type()))),
-    SGGuardSelect::Create(
-      SGBinOp::Create(
-        SGConstString::Create("guard"),
-        SGConstInt::Create(1),
-        StyioOpType::Binary_Add,
-        SGType::Create(string_type())),
-      SGConstInt::Create(1)),
     SGWaveMerge::Create(
       SGConstInt::Create(1),
       SGBinOp::Create(
@@ -1514,6 +1660,16 @@ TEST(StyioCodeGenInternal, TaskFlowIoAndScopedStringEdgesStayExplicit) {
     "styio_matrix_matmul_i64",
     "styio_free_cstr",
   });
+
+  expect_codegen_throws({
+    SGGuardSelect::Create(
+      SGBinOp::Create(
+        SGConstString::Create("guard"),
+        SGConstInt::Create(1),
+        StyioOpType::Binary_Add,
+        SGType::Create(string_type())),
+      SGConstInt::Create(1)),
+  }, "guard selector currently requires an i64 base value");
 }
 
 TEST(StyioCodeGenInternal, CallableBlockTailSkipsCStringEscapeOwnership) {
@@ -1565,7 +1721,9 @@ TEST(StyioCodeGenInternal, TaskCaptureScannerCoversNestedReturnExpressions) {
       }),
       i64_type()),
   }, {
-    "outer_task_value.capture",
+    "%styio_task_ctx.0 = type { i64 }",
+    "store i64 2, ptr",
+    "outer_task_value = load i64",
     "styio_task_i64_spawn",
   });
 }
@@ -2003,6 +2161,10 @@ TEST(StyioStructuredFunctionResults, TupleRegistryOwnsAndProjectsNestedListExact
   styio_runtime_clear_error();
   const int64_t tuple_baseline = styio_tuple_active_count();
   const int64_t list_baseline = styio_list_active_count();
+
+  styio_tuple_release(0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  EXPECT_EQ(styio_tuple_active_count(), tuple_baseline);
 
   int64_t nested = styio_list_new_i64();
   styio_list_push_i64(nested, 7);

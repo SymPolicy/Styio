@@ -812,14 +812,18 @@ TEST(StyioLoweringInternal, ResourceTopologyFastPathIsNarrowAndResourceFree) {
         IntAST::Create("1"))),
     PrintAST::Create({NameAST::Create("v1")}),
   }));
-  EXPECT_TRUE(main_block_is_resource_free_scalar_chain(scalar_chain.get()));
+  EXPECT_TRUE(
+    styio::resource_topology::validation_is_noop_for_scalar_program(
+      scalar_chain.get()));
 
   std::unique_ptr<MainBlockAST> resource_use(MainBlockAST::Create({
     InstantPullAST::Create(
       StdStreamAST::Create(StdStreamKind::Stdin),
       styio_data_type_from_name("string")),
   }));
-  EXPECT_FALSE(main_block_is_resource_free_scalar_chain(resource_use.get()));
+  EXPECT_FALSE(
+    styio::resource_topology::validation_is_noop_for_scalar_program(
+      resource_use.get()));
 }
 
 TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsNestedResourceShapes) {
@@ -875,7 +879,9 @@ TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsNestedResourceShapes)
           StyioOpType::Binary_Add,
           IntAST::Create("1"),
           make_negative()))}));
-    EXPECT_FALSE(main_block_is_resource_free_scalar_chain(block.get())) << label;
+    EXPECT_FALSE(
+      styio::resource_topology::validation_is_noop_for_scalar_program(
+        block.get())) << label;
   }
 }
 
@@ -883,7 +889,9 @@ TEST(StyioLoweringInternal, ResourceTopologyFastPathRejectsImportedCallables) {
   std::unique_ptr<MainBlockAST> scalar_chain(MainBlockAST::Create({
     FlexBindAST::Create(
       VarAST::Create(NameAST::Create("value")), IntAST::Create("1"))}));
-  ASSERT_TRUE(main_block_is_resource_free_scalar_chain(scalar_chain.get()));
+  ASSERT_TRUE(
+    styio::resource_topology::validation_is_noop_for_scalar_program(
+      scalar_chain.get()));
   EXPECT_TRUE(resource_topology_fast_path_eligible(scalar_chain.get(), true));
   EXPECT_FALSE(resource_topology_fast_path_eligible(scalar_chain.get(), false));
 }
@@ -898,6 +906,28 @@ TEST(StyioLoweringInternal, VerifierRejectsUnsupportedActiveIRNodes) {
   EXPECT_EQ(result.diagnostics.front().code, "STYIO_IR_VERIFY_CONTRACT");
   EXPECT_NE(result.diagnostics.front().message.find("unsupported StyioIR node"), std::string::npos);
   EXPECT_THROW(styio::ir::require_verified_styio_ir(&unknown), StyioTypeError);
+}
+
+TEST(StyioLoweringInternal, CompletePipelineCertifiesOnlyMainRootsForCodegen) {
+  std::unique_ptr<SGMainEntry> inspected(SGMainEntry::Create({SGNoOp::Create()}));
+  EXPECT_TRUE(
+    styio::lowering::run_default_styio_ir_pass_pipeline(inspected.get()).ok());
+  EXPECT_FALSE(inspected->verified_for_codegen);
+
+  std::unique_ptr<SGMainEntry> main(SGMainEntry::Create({
+    SGFlexBind::Create(sg_i64_var("value"), SGConstInt::Create(1))}));
+  EXPECT_FALSE(main->verified_for_codegen);
+  EXPECT_EQ(
+    styio::lowering::require_default_styio_ir_pass_pipeline(main.get()),
+    main.get());
+  EXPECT_TRUE(main->verified_for_codegen);
+
+  std::unique_ptr<SGBlock> deferred(SGBlock::Create({SGBreak::Create()}));
+  auto options = intermediate_sg_block_pipeline_options();
+  EXPECT_EQ(
+    styio::lowering::require_default_styio_ir_pass_pipeline(
+      deferred.get(), options),
+    deferred.get());
 }
 
 TEST(StyioLoweringInternal, OptimizerPrivateReadWriteAndEquivalenceEdgesStayExplicit) {
