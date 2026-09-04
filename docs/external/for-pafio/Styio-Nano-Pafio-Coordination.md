@@ -59,8 +59,11 @@ Styio consumes the plan for all four intents:
 - `test`
 
 Optional `emit.observable_static_snapshot` remains compiler-owned, incubating,
-static-only, and unapproved. Nano does not advertise or publish it. Pafio must
-not treat snapshot emission as a package-manager feature.
+static-only, and unapproved. Nano does not advertise or publish it (its
+`--machine-info=json` reports empty `observable_static_snapshot` arrays and an
+empty `observable_delta.schema_versions`). Pafio must not treat snapshot or
+delta emission as a package-manager feature; it only forwards the optional
+`parent_snapshot_path` string it was given.
 
 Invalid plans and CLI conflicts remain machine-readable. When the plan exposes
 an absolute `outputs.diag_dir`, Styio also writes the corresponding diagnostic
