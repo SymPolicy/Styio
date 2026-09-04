@@ -32,6 +32,13 @@ void append_fields(std::string& out, const std::vector<std::string>& values) {
   }
 }
 
+bool package_name_is_path_shaped(std::string_view name) noexcept {
+  return name.find('/') != std::string_view::npos
+    || name.find('\\') != std::string_view::npos
+    || name.find('@') != std::string_view::npos
+    || name.find(' ') != std::string_view::npos;
+}
+
 } // namespace
 
 CanonicalModuleError canonical_module_error(std::string_view module) noexcept {
@@ -56,26 +63,70 @@ CanonicalModuleError canonical_module_error(std::string_view module) noexcept {
   return CanonicalModuleError::None;
 }
 
-Scope::Scope(bool qualified, std::string project_package, std::string module) :
-    qualified_(qualified),
-    project_package_identity_(std::move(project_package)),
-    logical_module_identity_(std::move(module)) {}
+CanonicalRelativePathError canonical_relative_path_error(std::string_view path) noexcept {
+  if (path.empty()) {
+    return CanonicalRelativePathError::Empty;
+  }
+  if (path.front() == '/' || path.back() == '/'
+      || path.find('\\') != std::string_view::npos) {
+    return CanonicalRelativePathError::NotCanonicalSlashForm;
+  }
+  std::size_t begin = 0;
+  while (begin <= path.size()) {
+    const std::size_t end = path.find('/', begin);
+    const std::size_t stop = end == std::string_view::npos ? path.size() : end;
+    const std::string_view segment = path.substr(begin, stop - begin);
+    if (segment.empty() || segment == "." || segment == "..") {
+      return CanonicalRelativePathError::InvalidSegment;
+    }
+    if (end == std::string_view::npos) {
+      break;
+    }
+    begin = end + 1;
+  }
+  return CanonicalRelativePathError::None;
+}
 
-Scope Scope::qualified(std::string project_package, std::string module) {
-  if (project_package.empty() || project_package == "." || project_package == ".."
-      || project_package.find('/') != std::string::npos
-      || project_package.find('\\') != std::string::npos) {
+Scope::Scope(
+  bool qualified,
+  std::string package_name,
+  std::string manifest_relative_path,
+  std::string entry_relative_path
+) :
+    qualified_(qualified),
+    package_name_(std::move(package_name)),
+    manifest_relative_path_(std::move(manifest_relative_path)),
+    entry_relative_path_(std::move(entry_relative_path)) {}
+
+Scope Scope::qualified(
+  std::string package_name,
+  std::string manifest_relative_path,
+  std::string entry_relative_path
+) {
+  if (package_name.empty() || package_name == "." || package_name == ".."
+      || package_name_is_path_shaped(package_name)) {
     throw std::invalid_argument(
-      "project/package identity must be non-empty and must not be path-shaped");
+      "package name must be a non-empty namespaced identity and must not be path-shaped");
   }
-  if (canonical_module_error(module) != CanonicalModuleError::None) {
-    throw std::invalid_argument("logical module identity must use canonical slash form");
+  if (canonical_relative_path_error(manifest_relative_path)
+      != CanonicalRelativePathError::None) {
+    throw std::invalid_argument(
+      "manifest-relative path must use canonical slash form without dot segments");
   }
-  return Scope(true, std::move(project_package), std::move(module));
+  if (canonical_relative_path_error(entry_relative_path)
+      != CanonicalRelativePathError::None) {
+    throw std::invalid_argument(
+      "entry-relative path must use canonical slash form without dot segments");
+  }
+  return Scope(
+    true,
+    std::move(package_name),
+    std::move(manifest_relative_path),
+    std::move(entry_relative_path));
 }
 
 Scope Scope::anonymous() {
-  return Scope(false, {}, {});
+  return Scope(false, {}, {}, {});
 }
 
 std::size_t SemanticIdentityHash::operator()(const SemanticIdentity& identity) const noexcept {
@@ -95,11 +146,12 @@ std::string canonical_preimage(
   const std::vector<std::string>& discriminators
 ) {
   std::string preimage;
-  append_field(preimage, "styio.semantic-resource-node.v1");
+  append_field(preimage, "styio.semantic-resource-node.v2");
   preimage.push_back(scope.is_globally_comparable() ? '\x01' : '\x00');
   if (scope.is_globally_comparable()) {
-    append_field(preimage, scope.project_package_identity());
-    append_field(preimage, scope.logical_module_identity());
+    append_field(preimage, scope.package_name());
+    append_field(preimage, scope.manifest_relative_path());
+    append_field(preimage, scope.entry_relative_path());
   }
   append_fields(preimage, owners);
   append_field(preimage, role);
@@ -126,6 +178,17 @@ SemanticIdentity derive(
   const std::vector<std::string>& discriminators
 ) {
   return identity_from_preimage(canonical_preimage(scope, owners, role, discriminators));
+}
+
+std::string encode_hex(const SemanticIdentity& identity) {
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string out;
+  out.resize(identity.bytes.size() * 2);
+  for (std::size_t i = 0; i < identity.bytes.size(); ++i) {
+    out[i * 2] = kHex[identity.bytes[i] >> 4];
+    out[i * 2 + 1] = kHex[identity.bytes[i] & 0x0fu];
+  }
+  return out;
 }
 
 SemanticIdentity CollisionGuard::derive_and_record(

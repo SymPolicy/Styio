@@ -2,6 +2,8 @@ set(STYIO_CONTRACT_SOURCES
   StyioServices/StyioCLI/SyntaxCheck.cpp
   StyioServices/StyioConfig/CompilePlanContract.cpp
   StyioServices/StyioConfig/SourceBuildInfo.cpp
+  StyioServices/StyioObservable/StaticSnapshotContract.cpp
+  StyioServices/StyioObservable/StaticSnapshotPublication.cpp
 )
 
 set(STYIO_IDE_SOURCES

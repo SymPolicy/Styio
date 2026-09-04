@@ -185,7 +185,7 @@ TEST(StyioSemaTopology, ReanalysisReplacesPriorArtifact) {
 
 TEST(StyioSemaTopology, ValidatedArtifactOwnsQualifiedSemanticDescriptors) {
   const auto scope = styio::semantic_identity::Scope::qualified(
-    "compiler-tests", "qualified/root");
+    "compiler-tests", "Styio.toml", "qualified/root.styio");
   ExposedTypeInferLowerer analyzer(scope);
   auto root = resource_topology_program(StdStreamKind::Stdout);
 

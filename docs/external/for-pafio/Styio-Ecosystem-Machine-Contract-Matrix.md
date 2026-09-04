@@ -2,7 +2,7 @@
 
 **Purpose:** Define the current owner and consumer boundary among Styio, Pafio, Styio Platform, and Vityo without duplicating another product's schemas.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-09-05
 
 **Status:** Active contract projection. Release sequencing belongs to the project roadmap, not this document.
 
@@ -37,6 +37,12 @@ Styio remains the authority for concrete diagnostics, `receipt.json`,
 Invalid plans and CLI conflicts return stable machine-readable compiler
 failures. Styio does not resolve dependencies, modify `pafio.lock`, or repair a
 Pafio project.
+
+Optional `emit.observable_static_snapshot` is an incubating, compiler-owned,
+static-only artifact request. It is not a Pafio feature, not a package-manager
+capability, and not an approved external schema. Pafio may pass the object
+through a compile plan only when a later authorized change says so; Styio
+still owns admission, publication, privacy, receipts, and failure codes.
 
 ### 2.3 Language-service contracts
 

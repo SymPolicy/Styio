@@ -263,7 +263,8 @@ classify_service_code(std::string_view subcode, std::string_view message) {
   if (subcode == "compile_plan_cli_conflict") {
     return std::string(kServiceCompilePlanCliConflict);
   }
-  if (subcode == "compile_plan_invalid") {
+  if (subcode == "compile_plan_invalid"
+      || subcode.rfind("observable_static_snapshot_", 0) == 0) {
     return std::string(kServiceCompilePlanInvalid);
   }
   if (contains(message, "cannot open file") || contains(message, "file not found")

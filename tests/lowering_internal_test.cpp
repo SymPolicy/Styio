@@ -969,7 +969,7 @@ TEST(StyioLoweringInternal, ReusesSemaValidatedTopologyArtifact) {
 
 TEST(StyioLoweringInternal, OptimizationDoesNotMutateTopologySemanticIds) {
   LowererProbe analyzer(styio::semantic_identity::Scope::qualified(
-    "compiler-tests", "optimizer/root"));
+    "compiler-tests", "Styio.toml", "optimizer/root.styio"));
   std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
     ResourceRedirectAST::Create(
       StringAST::Create("hello"),

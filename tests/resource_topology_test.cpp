@@ -60,23 +60,43 @@ public:
 };
 
 TEST(StyioSemanticIdentity, CanonicalModuleRulesAndQualificationAreExplicit) {
-  using styio::semantic_identity::CanonicalModuleError;
+  using styio::semantic_identity::CanonicalRelativePathError;
   using styio::semantic_identity::Scope;
-  EXPECT_EQ(styio::semantic_identity::canonical_module_error("pkg/module"), CanonicalModuleError::None);
-  EXPECT_EQ(styio::semantic_identity::canonical_module_error("pkg.module"), CanonicalModuleError::NotCanonicalSlashForm);
-  EXPECT_EQ(styio::semantic_identity::canonical_module_error("pkg//module"), CanonicalModuleError::InvalidSegment);
-  EXPECT_THROW(Scope::qualified("", "pkg/module"), std::invalid_argument);
-  EXPECT_THROW(Scope::qualified("project/package", "pkg/module"), std::invalid_argument);
-  EXPECT_THROW(Scope::qualified("project.package", "pkg.module"), std::invalid_argument);
-  const Scope qualified = Scope::qualified("project.package", "pkg/module");
+  EXPECT_EQ(
+    styio::semantic_identity::canonical_relative_path_error("src/main.styio"),
+    CanonicalRelativePathError::None);
+  EXPECT_EQ(
+    styio::semantic_identity::canonical_relative_path_error("Styio.toml"),
+    CanonicalRelativePathError::None);
+  EXPECT_EQ(
+    styio::semantic_identity::canonical_relative_path_error("pkg.module"),
+    CanonicalRelativePathError::None);
+  EXPECT_EQ(
+    styio::semantic_identity::canonical_relative_path_error("pkg//module"),
+    CanonicalRelativePathError::InvalidSegment);
+  EXPECT_EQ(
+    styio::semantic_identity::canonical_relative_path_error("../main.styio"),
+    CanonicalRelativePathError::InvalidSegment);
+  EXPECT_THROW(Scope::qualified("", "Styio.toml", "src/main.styio"), std::invalid_argument);
+  EXPECT_THROW(
+    Scope::qualified("project/package", "Styio.toml", "src/main.styio"),
+    std::invalid_argument);
+  EXPECT_THROW(
+    Scope::qualified("example.app", "foo\\bar.toml", "src/main.styio"),
+    std::invalid_argument);
+  EXPECT_THROW(
+    Scope::qualified("example.app", "Styio.toml", "../main.styio"),
+    std::invalid_argument);
+  const Scope qualified = Scope::qualified("example.app", "Styio.toml", "src/main.styio");
   EXPECT_TRUE(qualified.is_globally_comparable());
-  EXPECT_EQ(qualified.project_package_identity(), "project.package");
-  EXPECT_EQ(qualified.logical_module_identity(), "pkg/module");
+  EXPECT_EQ(qualified.package_name(), "example.app");
+  EXPECT_EQ(qualified.manifest_relative_path(), "Styio.toml");
+  EXPECT_EQ(qualified.entry_relative_path(), "src/main.styio");
   EXPECT_FALSE(Scope::anonymous().is_globally_comparable());
 }
 
 TEST(StyioSemanticIdentity, LengthPrefixedDigestIsDeterministic) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "pkg/module");
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "pkg/module.styio");
   const auto first = styio::semantic_identity::derive(scope, {"ab", "c"}, "Value", {"site"});
   const auto repeat = styio::semantic_identity::derive(scope, {"ab", "c"}, "Value", {"site"});
   const auto ambiguous_without_lengths = styio::semantic_identity::derive(scope, {"a", "bc"}, "Value", {"site"});
@@ -98,7 +118,7 @@ TEST(StyioSemanticIdentity, CollisionGuardFailsClosed) {
 }
 
 TEST(StyioResourceTopology, SemanticIdsSurviveFreshRebuildAndTrivia) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
   const auto baseline = parsed_descriptors("\"hello\" -> @stdout\n", "first.styio", scope);
   const auto trivia = parsed_descriptors(
     "// formatting-only comment\n  \"hello\"    ->    @stdout\n",
@@ -108,7 +128,7 @@ TEST(StyioResourceTopology, SemanticIdsSurviveFreshRebuildAndTrivia) {
 }
 
 TEST(StyioResourceTopology, SemanticIdsIgnoreSourceLocationsFileNamesAndLabels) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
   const auto first = parsed_descriptors(
     "f <- @file(\"alpha/input.txt\")\nf -> @()\n",
     "one/location.styio",
@@ -121,7 +141,7 @@ TEST(StyioResourceTopology, SemanticIdsIgnoreSourceLocationsFileNamesAndLabels) 
 }
 
 TEST(StyioResourceTopology, UnrelatedEditsPreserveUnaffectedSemanticIds) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
   const auto before = parsed_descriptors(
     "stable = 1\n\"a\" -> @stdout\n",
     "baseline.styio",
@@ -205,7 +225,7 @@ TEST(StyioResourceTopology, ScopeRenameAndRewriteBoundariesAreExplicit) {
   const std::string baseline_source =
     "owned_site = 1\n"
     "\"stable\" -> @stdout\n";
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
   const auto baseline = parsed_descriptors(baseline_source, "baseline.styio", scope);
   const auto renamed = parsed_descriptors(
     "renamed_site = 1\n\"stable\" -> @stdout\n",
@@ -241,13 +261,18 @@ TEST(StyioResourceTopology, ScopeRenameAndRewriteBoundariesAreExplicit) {
   const auto project_changed = parsed_descriptors(
     baseline_source,
     "project-change.styio",
-    styio::semantic_identity::Scope::qualified("other-project", "app/main"));
+    styio::semantic_identity::Scope::qualified("other-project", "Styio.toml", "app/main.styio"));
   const auto module_changed = parsed_descriptors(
     baseline_source,
     "module-change.styio",
-    styio::semantic_identity::Scope::qualified("project", "app/renamed"));
+    styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/renamed.styio"));
+  const auto manifest_changed = parsed_descriptors(
+    baseline_source,
+    "manifest-change.styio",
+    styio::semantic_identity::Scope::qualified("project", "Alt.toml", "app/main.styio"));
   EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(project_changed)));
   EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(module_changed)));
+  EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(manifest_changed)));
 }
 
 TEST(StyioResourceTopology, RepeatedAnonymousSitesRemainDistinct) {
@@ -720,8 +745,8 @@ TEST(StyioResourceTopology, SparseAstFallbacksCoverTraversalEdges) {
   EXPECT_NE(graph.find("resource-method:@file::drop_via_close"), std::string::npos) << graph;
   EXPECT_NE(graph.find("resource-method:@file::drop_via_arg"), std::string::npos) << graph;
   EXPECT_NE(graph.find("binding:typed_stdout"), std::string::npos) << graph;
-  EXPECT_NE(graph.find("resource-method:write"), std::string::npos) << graph;
-  EXPECT_NE(graph.find("resource-method:peek"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("Mutation resource-method"), std::string::npos) << graph;
+  EXPECT_NE(graph.find("Borrow resource-method"), std::string::npos) << graph;
   EXPECT_NE(graph.find("task_ref"), std::string::npos) << graph;
   EXPECT_NE(graph.find("var:standalone"), std::string::npos) << graph;
   EXPECT_GE(result.graph.edge_count(rt::EdgeKind::HappensBefore), 1u);
@@ -1328,9 +1353,13 @@ TEST(StyioResourceTopology, ResourceMethodConsumeScannerWalksBinopsAndConditions
   EXPECT_NE(graph.find("resource-method:@file::drop_raw_cond"), std::string::npos) << graph;
   EXPECT_NE(graph.find("value:binop"), std::string::npos) << graph;
   EXPECT_NE(graph.find("value:condition"), std::string::npos) << graph;
-  EXPECT_NE(graph.find("Mutation resource-method:drop_bin"), std::string::npos) << graph;
-  EXPECT_NE(graph.find("Mutation resource-method:drop_cond"), std::string::npos) << graph;
-  EXPECT_NE(graph.find("Mutation resource-method:drop_raw_cond"), std::string::npos) << graph;
+  const std::string closed_key = "Mutation resource-method";
+  std::size_t closed_key_count = 0;
+  for (std::size_t at = graph.find(closed_key); at != std::string::npos;
+       at = graph.find(closed_key, at + closed_key.size())) {
+    ++closed_key_count;
+  }
+  EXPECT_EQ(closed_key_count, 3u) << graph;
 }
 
 TEST(StyioToStringContract, CoversSparseAstAndIrReprBranches) {

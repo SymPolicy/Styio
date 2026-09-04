@@ -56,6 +56,7 @@
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioServices/StyioConfig/SourceBuildInfo.hpp"
+#include "StyioServices/StyioObservable/StaticSnapshotPublication.hpp"
 #include "StyioSema/CallableInterface.hpp"
 #include "StyioSema/CallableModuleLoader.hpp"
 #include "StyioSema/SemanticAnalysis.hpp"
@@ -3763,6 +3764,7 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
 #endif
   std::cout
     << ",\"edition_max\":\"" << styio_json_escape(STYIO_EDITION_MAX) << "\""
+    << ",\"observable_static_snapshot\":" << styio::observable::static_snapshot_machine_info_json()
     << "}\n";
 }
 
@@ -4176,23 +4178,6 @@ styio_read_text_file_latest(
   std::string& out_text,
   std::string& error_message
 );
-
-static std::string
-styio_compile_plan_artifact_stem_latest(const StyioCompilePlanRequestLatest& request) {
-  std::string stem = request.entry_target_name.empty()
-                       ? request.entry_file.stem().string()
-                       : request.entry_target_name;
-  if (stem.empty()) {
-    stem = "entry";
-  }
-  for (char& ch : stem) {
-    const unsigned char uch = static_cast<unsigned char>(ch);
-    if (!(std::isalnum(uch) || ch == '-' || ch == '_' || ch == '.')) {
-      ch = '_';
-    }
-  }
-  return stem;
-}
 
 static bool
 styio_write_compile_plan_artifact_latest(
@@ -6354,11 +6339,16 @@ main(
     }
     StyioCompilePlanRequestLatest parsed_request;
     std::string compile_plan_error;
+    std::string compile_plan_subcode;
     if (!styio::config::parse_compile_plan(
           compile_plan_path,
           parsed_request,
-          compile_plan_error)) {
-      return styio_emit_compile_plan_cli_error_latest(compile_plan_path, compile_plan_error);
+          compile_plan_error,
+          compile_plan_subcode)) {
+      return styio_emit_compile_plan_cli_error_latest(
+        compile_plan_path,
+        compile_plan_error,
+        compile_plan_subcode.empty() ? "compile_plan_invalid" : compile_plan_subcode);
     }
     compile_plan_request = std::move(parsed_request);
   }
@@ -6861,9 +6851,7 @@ main(
   const auto compile_started_at = std::chrono::steady_clock::now();
   std::vector<std::filesystem::path> compile_plan_artifacts;
   const std::string compile_plan_artifact_stem =
-    compile_plan_request.has_value()
-      ? styio_compile_plan_artifact_stem_latest(*compile_plan_request)
-      : std::string();
+    compile_plan_request.has_value() ? styio::config::compile_plan_artifact_stem(*compile_plan_request) : std::string();
   const auto emit_compile_plan_session_transition =
     [&](CompilationPhase previous_phase, const char* operation) {
       compile_plan_final_phase = session.phase();
@@ -7136,7 +7124,7 @@ main(
     compile_plan_artifacts.push_back(ast_path);
   }
 
-  AstToStyioIRLowerer analyzer = AstToStyioIRLowerer();
+  AstToStyioIRLowerer analyzer(styio::observable::static_snapshot_identity_scope(compile_plan_request));
   analyzer.enable_pipeline_profile(frontend_profiler.enabled());
   analyzer.attach_type_table(session.types(), session.symbols());
   try {
@@ -7252,6 +7240,17 @@ main(
     }
     compile_plan_artifacts.push_back(ast_path);
   }
+
+#if !STYIO_NANO_BUILD
+  if (compile_plan_request.has_value() && compile_plan_request->emit_observable_static_snapshot) {
+    const auto snapshot_stage = styio::observable::publish_compile_plan_static_snapshot(
+      *compile_plan_request, compile_plan_artifact_stem, analyzer, session.ast(), STYIO_PROJECT_VERSION, styio_write_compile_plan_artifact_latest, compile_plan_artifacts, frontend_profiler);
+    if (!snapshot_stage.ok) {
+      styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, snapshot_stage.error, std::string(styio::observable::kStaticSnapshotDiagnosticSubcode));
+      return styio_exit_code(StyioErrorCategory::RuntimeError);
+    }
+  }
+#endif
 
   // Keep lowering allocation evidence enabled without changing the active
   // allocator.  The existing IR arena is intentionally not selected here:
