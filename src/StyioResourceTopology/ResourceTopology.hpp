@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "../StyioUtil/SemanticIdentity.hpp"
+
 class BlockAST;
 class MainBlockAST;
 class StyioAST;
@@ -61,6 +63,26 @@ enum class NodeKind : std::uint8_t
   Value,
 };
 
+enum class SemanticRole : std::uint8_t
+{
+  Program,
+  StandaloneBlock,
+  DriverSource,
+  ResourceSlot,
+  ResourceHandle,
+  ResourceMethod,
+  StreamOperation,
+  StateSlot,
+  Snapshot,
+  Value,
+  Sink,
+  Task,
+  StateWindowLedger,
+  SeriesLedger,
+  TaskFailureDomain,
+  ScopeExitDestroySink,
+};
+
 enum class EdgeKind : std::uint8_t
 {
   Flow,
@@ -90,6 +112,8 @@ struct Node
 {
   std::size_t id = 0;
   NodeKind kind = NodeKind::Value;
+  SemanticRole semantic_role = SemanticRole::Value;
+  styio::semantic_identity::SemanticIdentity semantic_id;
   std::string label;
   Capability capabilities = Capability::None;
   TypeState state = TypeState::Unknown;
@@ -118,6 +142,8 @@ class Graph
 public:
   std::size_t add_node(
     NodeKind kind,
+    SemanticRole semantic_role,
+    styio::semantic_identity::SemanticIdentity semantic_id,
     std::string label,
     Capability capabilities,
     TypeState state,
@@ -145,15 +171,34 @@ public:
 };
 
 /// The immutable proof produced by successful top-level topology validation.
-/// It intentionally exposes only aggregate graph facts: AST source pointers and
-/// mutable graph storage remain confined to the topology implementation.
+/// It exposes aggregate graph facts and opaque semantic descriptors; AST source
+/// pointers and mutable graph storage remain confined to the implementation.
 class ValidatedArtifact
 {
   Graph graph_;
+  styio::semantic_identity::Scope scope_;
 
-  explicit ValidatedArtifact(Graph graph) : graph_(std::move(graph)) {}
+public:
+  struct SemanticDescriptor
+  {
+    NodeKind kind;
+    SemanticRole role;
+    styio::semantic_identity::SemanticIdentity identity;
+    bool globally_comparable = false;
+  };
+
+private:
+  std::vector<SemanticDescriptor> descriptors_;
+
+  explicit ValidatedArtifact(
+    Graph graph,
+    styio::semantic_identity::Scope scope);
 
   friend ValidatedArtifact validate_or_throw(MainBlockAST*, std::string);
+  friend ValidatedArtifact validate_or_throw(
+    MainBlockAST*,
+    std::string,
+    styio::semantic_identity::Scope);
 
 public:
   ValidatedArtifact(const ValidatedArtifact&) = delete;
@@ -175,6 +220,14 @@ public:
 
   std::size_t edge_count(EdgeKind kind) const {
     return graph_.edge_count(kind);
+  }
+
+  const styio::semantic_identity::Scope& identity_scope() const noexcept {
+    return scope_;
+  }
+
+  const std::vector<SemanticDescriptor>& semantic_descriptors() const noexcept {
+    return descriptors_;
   }
 };
 
@@ -200,6 +253,8 @@ struct BuildOptions
   std::string phase = "resource-topology";
   bool require_close_owner = true;
   bool validate_series_scope = true;
+  styio::semantic_identity::Scope identity_scope =
+    styio::semantic_identity::Scope::anonymous();
 };
 
 struct BuildResult
@@ -217,9 +272,14 @@ BuildResult build(BlockAST* ast, BuildOptions options = {});
 bool validation_is_noop_for_scalar_program(MainBlockAST* ast);
 
 ValidatedArtifact validate_or_throw(MainBlockAST* ast, std::string phase);
+ValidatedArtifact validate_or_throw(
+  MainBlockAST* ast,
+  std::string phase,
+  styio::semantic_identity::Scope scope);
 void validate_or_throw(BlockAST* ast, std::string phase);
 
 std::string to_string(NodeKind kind);
+std::string to_string(SemanticRole role);
 std::string to_string(EdgeKind kind);
 std::string to_string(TypeState state);
 std::string to_string(Capability capabilities);

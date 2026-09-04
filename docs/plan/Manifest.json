@@ -13,6 +13,13 @@
       "directory": "observable-topology-foundation",
       "plan": "observable-topology-foundation/Plan.json",
       "title": "Reuse one observable topology artifact across compilation"
+    },
+    {
+      "checkpoints": "persistent-semantic-ids/Checkpoints.json",
+      "code": "PLAN-003",
+      "directory": "persistent-semantic-ids",
+      "plan": "persistent-semantic-ids/Plan.json",
+      "title": "Persistent semantic identities for resource topology"
     }
   ],
   "schema": "better-plan.manifest/v3"

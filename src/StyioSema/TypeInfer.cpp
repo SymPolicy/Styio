@@ -10175,7 +10175,10 @@ StyioSemaContext::typeInfer(MainBlockAST* ast) {
     validation_started = std::chrono::steady_clock::now();
   }
   auto artifact =
-    styio::resource_topology::validate_or_throw(ast, "sema-resource-topology");
+    styio::resource_topology::validate_or_throw(
+      ast,
+      "sema-resource-topology",
+      semantic_identity_scope_);
   if (validation_started.has_value()) {
     const auto validation_ended = std::chrono::steady_clock::now();
     record_resource_validation_duration(static_cast<std::uint64_t>(

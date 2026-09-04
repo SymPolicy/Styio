@@ -12,6 +12,7 @@
 #include "../StyioException/Exception.hpp"
 #include "../StyioLowering/PortableCallableBodyLowering.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
+#include "../StyioUtil/SemanticIdentity.hpp"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
@@ -40,33 +41,16 @@ interface_error(const std::string& detail) {
 
 void
 require_canonical_module_id(std::string_view module_id) {
-  if (module_id.empty()
-      || module_id.front() == '/'
-      || module_id.back() == '/'
-      || module_id.find('\\') != std::string_view::npos
-      || module_id.find('.') != std::string_view::npos) {
+  const auto error = styio::semantic_identity::canonical_module_error(module_id);
+  if (error == styio::semantic_identity::CanonicalModuleError::NotCanonicalSlashForm) {
     throw StyioTypeError(
       "callable module id must be a canonical non-empty slash-form path"
     );
   }
-  std::size_t begin = 0;
-  while (begin <= module_id.size()) {
-    const std::size_t end = module_id.find('/', begin);
-    const std::string_view segment =
-      module_id.substr(
-        begin,
-        (end == std::string_view::npos
-           ? module_id.size()
-           : end) - begin);
-    if (segment.empty() || segment == "." || segment == "..") {
-      throw StyioTypeError(
-        "callable module id may not contain empty, `.` or `..` segments"
-      );
-    }
-    if (end == std::string_view::npos) {
-      break;
-    }
-    begin = end + 1;
+  if (error == styio::semantic_identity::CanonicalModuleError::InvalidSegment) {
+    throw StyioTypeError(
+      "callable module id may not contain empty, `.` or `..` segments"
+    );
   }
 }
 
