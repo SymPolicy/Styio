@@ -1,10 +1,13 @@
 #include "CompilePlanContract.hpp"
 
 #include <array>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <string_view>
+#include <unordered_set>
 
+#include "StyioUtil/SemanticIdentity.hpp"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/JSON.h"
 
@@ -181,6 +184,250 @@ compile_plan_require_absolute_path(
   return true;
 }
 
+constexpr std::array<std::string_view, 5> kStaticSnapshotCapabilities{
+  "file-source-anchors",
+  "producer-evidence",
+  "static-topology-edges",
+  "static-topology-facts",
+  "static-topology-nodes",
+};
+
+bool
+snapshot_capability_is_supported(std::string_view name) {
+  for (const std::string_view candidate : kStaticSnapshotCapabilities) {
+    if (candidate == name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool
+package_name_is_valid(std::string_view name) {
+  if (name.empty() || name == "." || name == "..") {
+    return false;
+  }
+  return name.find('/') == std::string_view::npos
+    && name.find('\\') == std::string_view::npos
+    && name.find('@') == std::string_view::npos
+    && name.find(' ') == std::string_view::npos;
+}
+
+bool
+slash_relative_from_root(
+  const std::filesystem::path& root,
+  const std::filesystem::path& file,
+  std::string& out_relative,
+  std::string& error_message,
+  const char* field_name
+) {
+  if (!root.is_absolute() || !file.is_absolute()) {
+    error_message = std::string("compile-plan path must be absolute: ") + field_name;
+    return false;
+  }
+  const std::filesystem::path normal_root = root.lexically_normal();
+  const std::filesystem::path normal_file = file.lexically_normal();
+  const std::filesystem::path relative = normal_file.lexically_relative(normal_root);
+  if (relative.empty() || relative.is_absolute()) {
+    error_message =
+      std::string("compile-plan ") + field_name + " must be contained by the matched package root";
+    return false;
+  }
+  const std::string generic = relative.generic_string();
+  if (generic == ".." || generic.rfind("../", 0) == 0 || generic.find("/../") != std::string::npos) {
+    error_message =
+      std::string("compile-plan ") + field_name + " must be contained by the matched package root";
+    return false;
+  }
+  if (styio::semantic_identity::canonical_relative_path_error(generic)
+      != styio::semantic_identity::CanonicalRelativePathError::None) {
+    error_message =
+      std::string("compile-plan ") + field_name
+      + " must normalize to a canonical package-relative slash path";
+    return false;
+  }
+  out_relative = generic;
+  return true;
+}
+
+bool
+parse_observable_static_snapshot_request(
+  const llvm::json::Object& emit,
+  CompilePlanRequest& out_request,
+  std::string& error_message,
+  std::string& error_subcode
+) {
+  const llvm::json::Value* snapshot_value = emit.get("observable_static_snapshot");
+  if (snapshot_value == nullptr) {
+    out_request.emit_observable_static_snapshot = false;
+    return true;
+  }
+
+  const llvm::json::Object* snapshot = snapshot_value->getAsObject();
+  if (snapshot == nullptr) {
+    error_subcode = "observable_static_snapshot_malformed";
+    error_message =
+      "compile-plan emit.observable_static_snapshot must be an object with schema_version and required_capabilities";
+    return false;
+  }
+
+  for (const auto& field : *snapshot) {
+    const std::string field_name = field.first.str();
+    if (field_name != "schema_version" && field_name != "required_capabilities") {
+      error_subcode = "observable_static_snapshot_malformed";
+      error_message =
+        "compile-plan emit.observable_static_snapshot contains an unsupported field: "
+        + field_name;
+      return false;
+    }
+  }
+
+  std::int64_t schema_version = 0;
+  if (!json_require_integer(*snapshot, "schema_version", schema_version, error_message)) {
+    error_subcode = "observable_static_snapshot_malformed";
+    error_message =
+      "compile-plan emit.observable_static_snapshot.schema_version must be an integer";
+    return false;
+  }
+  if (schema_version != 1) {
+    error_subcode = "observable_static_snapshot_unsupported_version";
+    error_message =
+      "unsupported observable static snapshot schema_version: " + std::to_string(schema_version);
+    return false;
+  }
+
+  const llvm::json::Array* required = snapshot->getArray("required_capabilities");
+  if (required == nullptr) {
+    error_subcode = "observable_static_snapshot_malformed";
+    error_message =
+      "compile-plan emit.observable_static_snapshot.required_capabilities must be an array of strings";
+    return false;
+  }
+
+  std::vector<std::string> required_capabilities;
+  required_capabilities.reserve(required->size());
+  std::unordered_set<std::string> seen;
+  for (size_t i = 0; i < required->size(); ++i) {
+    const auto raw = (*required)[i].getAsString();
+    if (!raw.has_value() || raw->empty()) {
+      error_subcode = "observable_static_snapshot_malformed";
+      error_message =
+        "compile-plan emit.observable_static_snapshot.required_capabilities["
+        + std::to_string(i) + "] must be a non-empty string";
+      return false;
+    }
+    const std::string capability = std::string(*raw);
+    if (!snapshot_capability_is_supported(capability)) {
+      error_subcode = "observable_static_snapshot_unsupported_capability";
+      error_message = "unsupported required observable static snapshot capability: " + capability;
+      return false;
+    }
+    if (!seen.insert(capability).second) {
+      error_subcode = "observable_static_snapshot_malformed";
+      error_message =
+        "compile-plan emit.observable_static_snapshot.required_capabilities contains a duplicate: "
+        + capability;
+      return false;
+    }
+    required_capabilities.push_back(capability);
+  }
+
+  out_request.emit_observable_static_snapshot = true;
+  out_request.observable_static_snapshot_schema_version = static_cast<int>(schema_version);
+  out_request.observable_static_snapshot_required_capabilities = std::move(required_capabilities);
+  return true;
+}
+
+bool
+admit_qualified_compilation_unit(
+  const llvm::json::Array& packages,
+  const std::string& generated_by_tool,
+  const std::string& entry_package_id,
+  const std::filesystem::path& entry_file,
+  CompilePlanRequest& out_request,
+  std::string& error_message,
+  std::string& error_subcode
+) {
+  if (generated_by_tool == "styio") {
+    error_subcode = "observable_static_snapshot_direct_file";
+    error_message =
+      "direct-file and Styio-produced compile plans cannot publish observable static snapshots";
+    return false;
+  }
+  if (generated_by_tool != "pafio") {
+    error_subcode = "observable_static_snapshot_styio_produced";
+    error_message =
+      "observable static snapshots require a Pafio-produced compile plan";
+    return false;
+  }
+
+  std::size_t match_count = 0;
+  const llvm::json::Object* matched = nullptr;
+  for (size_t i = 0; i < packages.size(); ++i) {
+    const llvm::json::Object* package = packages[i].getAsObject();
+    if (package == nullptr) {
+      continue;
+    }
+    const auto package_id = package->getString("id");
+    if (package_id.has_value() && *package_id == entry_package_id) {
+      ++match_count;
+      matched = package;
+    }
+  }
+  if (match_count == 0) {
+    error_subcode = "observable_static_snapshot_unmatched";
+    error_message =
+      "compile-plan entry.package_id is not present in packages: " + entry_package_id;
+    return false;
+  }
+  if (match_count > 1) {
+    error_subcode = match_count == 2
+      ? "observable_static_snapshot_duplicate"
+      : "observable_static_snapshot_ambiguous";
+    error_message =
+      "compile-plan entry.package_id matches more than one package record: " + entry_package_id;
+    return false;
+  }
+
+  std::string package_name;
+  std::filesystem::path package_root;
+  std::filesystem::path manifest_path;
+  if (!json_require_string(*matched, "name", package_name, error_message, "packages[].name")
+      || !compile_plan_require_absolute_path(
+        *matched, "root", package_root, error_message, "packages[].root")
+      || !compile_plan_require_absolute_path(
+        *matched, "manifest", manifest_path, error_message, "packages[].manifest")) {
+    error_subcode = "observable_static_snapshot_anonymous";
+    if (error_message.find("packages[]") == std::string::npos) {
+      error_message =
+        "observable static snapshots require one qualified package name, root, and manifest";
+    }
+    return false;
+  }
+  if (!package_name_is_valid(package_name)) {
+    error_subcode = "observable_static_snapshot_anonymous";
+    error_message =
+      "compile-plan package name must be a namespaced identity and must not be path-shaped";
+    return false;
+  }
+
+  std::string manifest_relative;
+  std::string entry_relative;
+  if (!slash_relative_from_root(
+        package_root, manifest_path, manifest_relative, error_message, "packages[].manifest")
+      || !slash_relative_from_root(
+        package_root, entry_file, entry_relative, error_message, "entry.file")) {
+    error_subcode = "observable_static_snapshot_escaping_path";
+    return false;
+  }
+
+  out_request.compilation_unit = CompilationUnit{
+    std::move(package_name),
+    std::move(manifest_relative),
+    std::move(entry_relative)};
+  return true;
+}
+
 bool
 compile_plan_profile_has_only_v1_fields(
   const llvm::json::Object& profile,
@@ -257,6 +504,18 @@ parse_compile_plan(
   CompilePlanRequest& out_request,
   std::string& error_message
 ) {
+  std::string error_subcode;
+  return parse_compile_plan(plan_path, out_request, error_message, error_subcode);
+}
+
+bool
+parse_compile_plan(
+  const std::filesystem::path& plan_path,
+  CompilePlanRequest& out_request,
+  std::string& error_message,
+  std::string& error_subcode
+) {
+  error_subcode = "compile_plan_invalid";
   std::string plan_text;
   if (!read_text_file(plan_path, plan_text, error_message)) {
     return false;
@@ -300,10 +559,9 @@ parse_compile_plan(
   out_request.plan_version = static_cast<int>(plan_version);
   out_request.plan_path = plan_path;
 
-  std::string generated_by_tool;
   std::string generated_by_version;
   std::string profile_name;
-  if (!json_require_string(*generated_by, "tool", generated_by_tool, error_message, "generated_by.tool")
+  if (!json_require_string(*generated_by, "tool", out_request.generated_by_tool, error_message, "generated_by.tool")
       || !json_require_string(*generated_by, "version", generated_by_version, error_message, "generated_by.version")
       || !json_require_string(*profile, "name", profile_name, error_message, "profile.name")) {
     return false;
@@ -313,8 +571,14 @@ parse_compile_plan(
   // Pafio is the only ecosystem project-plan producer. The "styio" value is
   // reserved for the compiler's direct single-file `styio build` path, which
   // reuses this parser internally and does not represent a project workflow.
-  if (!(generated_by_tool == "pafio" || generated_by_tool == "styio")) {
-    error_message = "compile-plan generated_by.tool must equal \"pafio\" or \"styio\"";
+  if (!(out_request.generated_by_tool == "pafio" || out_request.generated_by_tool == "styio")) {
+    if (emit->get("observable_static_snapshot") != nullptr) {
+      error_subcode = "observable_static_snapshot_styio_produced";
+      error_message =
+        "observable static snapshots require a Pafio-produced compile plan";
+    } else {
+      error_message = "compile-plan generated_by.tool must equal \"pafio\" or \"styio\"";
+    }
     return false;
   }
   if (!compile_plan_profile_has_only_v1_fields(*profile, error_message)) {
@@ -350,6 +614,9 @@ parse_compile_plan(
     return false;
   }
   if (!compile_plan_validate_packages(*packages, out_request.entry_package_id, error_message)) {
+    if (emit->get("observable_static_snapshot") != nullptr) {
+      error_subcode = "observable_static_snapshot_unmatched";
+    }
     return false;
   }
 
@@ -381,6 +648,22 @@ parse_compile_plan(
   }
   if (!(out_request.error_format == "text" || out_request.error_format == "jsonl")) {
     error_message = "unsupported compile-plan emit.error_format: " + out_request.error_format;
+    return false;
+  }
+
+  if (!parse_observable_static_snapshot_request(
+        *emit, out_request, error_message, error_subcode)) {
+    return false;
+  }
+  if (out_request.emit_observable_static_snapshot
+      && !admit_qualified_compilation_unit(
+        *packages,
+        out_request.generated_by_tool,
+        out_request.entry_package_id,
+        out_request.entry_file,
+        out_request,
+        error_message,
+        error_subcode)) {
     return false;
   }
 

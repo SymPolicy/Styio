@@ -2,9 +2,9 @@
 
 **Purpose:** Define the durable language and compiler boundary for observable semantic facts, their ownership, identity, evidence, runtime correlation, and consumer isolation. This document does not own source syntax, implementation sequencing, UI design, or telemetry storage.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
-**Status:** Active design contract; external snapshot and event schemas remain incubating until executable fixtures and compatibility tests exist.
+**Status:** Active design contract. The implemented incubating static-only snapshot schema lives in `src/StyioServices/StyioObservable/README.md` and `tests/fixtures/observable_static_snapshot/v1/`; this document remains the long-term vocabulary and must not be treated as the wire-schema authority.
 
 **See also:** [Styio Language Design](./Styio-Language-Design.md), [Resource Topology](./Styio-Resource-Topology.md), [current repository state](../rollups/CURRENT-STATE.md), and [next-stage gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
@@ -69,11 +69,13 @@ Its active edge vocabulary is:
 
 `Placement` is currently declared but is not produced by the normal topology builder. The `Eof` type state is likewise declared but is not currently emitted by normal builder state mapping. A declared enum value is not an implemented observable fact until a producer, consumer, and acceptance test exist.
 
-The graph currently supports validation, kind counts, cycle detection, a diagnostic `debug_string()`, and compiler-internal opaque semantic identity on every node. It does not yet provide an immutable published snapshot, evidence model, delta, query index, wire schema, lineage protocol, or runtime correlation contract.
+The graph currently supports validation, kind counts, cycle detection, a diagnostic `debug_string()`, and compiler-internal opaque semantic identity on every node. Dense node IDs remain build-order indexes and node source links remain process-local AST pointers. `debug_string()` is diagnostic text, contains no semantic IDs, may contain source-derived labels, and is not an external protocol or telemetry format.
 
-Current dense node IDs are build-order indexes and node source links are process-local AST pointers. Both remain internal implementation details and neither is the semantic identity. `debug_string()` is diagnostic text, contains no semantic IDs, may contain source-derived labels, and is not an external protocol or telemetry format.
+An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Delta, query index, lineage protocol, and runtime correlation remain unimplemented.
 
-Semantic analysis owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Its order-unspecified descriptor seam exposes only node kind, typed semantic role, opaque identity, and explicit qualification status; the owning artifact retains the qualified-or-anonymous scope once. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal capability does not change diagnostics, code generation, or ordinary compiler operation. Public snapshot publication, identity text or serialization, lineage, runtime hooks, scheduler correlation, IDE/Vityo integration, caches, and consumer APIs remain deferred boundaries.
+Semantic analysis owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Its order-unspecified descriptor seam exposes only node kind, typed semantic role, opaque identity, and explicit qualification status; the owning artifact retains the qualified-or-anonymous scope once. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal capability does not change diagnostics, code generation, or ordinary compiler operation.
+
+The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented schema, capability names, completeness values, ID grammar, request shape, output filename, and receipt behavior are owned by `src/StyioServices/StyioObservable/README.md` and the producer/consumer fixtures. Delta, query, lineage, runtime correlation, scheduler hooks, and Vityo UI remain deferred. The schema is incubating, static-only, and unapproved.
 
 ## 4. Static observable artifact
 
@@ -109,7 +111,7 @@ A persistent semantic ID must not be derived from:
 
 Its logical inputs may include project identity, logical module identity, declaration identity, semantic role, and a compiler-maintained local structural identity. Module identity must use repository or package semantics rather than an absolute machine path. Consumers treat the encoded ID as opaque.
 
-The implemented compiler-internal identity uses a caller-provided project/package plus canonical slash-form logical module scope, or an explicit anonymous scope that is not globally comparable. A versioned, fixed-width length-prefixed preimage combines that scope with typed owner, role, and local structural discriminator components; the first 128 bits of SHA-256 are retained as the opaque value. Source locations, parser filenames, file-resource label text, literal payloads, addresses, session-local IDs, graph order, and raw source/body digests are forbidden inputs. A per-build exact-key guard fails closed on collision without salting or probing.
+The implemented compiler-internal identity uses a qualified compilation-unit scope — namespaced package name plus canonical slash-form manifest-relative and matched entry-relative paths — or an explicit anonymous scope that is not globally comparable. A versioned, fixed-width length-prefixed preimage (`styio.semantic-resource-node.v2`) combines that scope with typed owner, role, and local structural discriminator components; the first 128 bits of SHA-256 are retained as the opaque value. Source locations, parser filenames, file-resource label text, literal payloads, addresses, session-local IDs, graph order, and raw source/body digests are forbidden inputs. A per-build exact-key guard fails closed on collision without salting or probing.
 
 Whitespace, comments, formatting, optimization level, and unrelated named or structurally distinct declarations do not cause identity churn. Named owner changes and typed structural rewrites may change the affected region. Indistinguishable same-owner siblings are unique and stable across an equivalent rebuild, but insertion, deletion, or reordering within that ambiguity class has no stability promise. Public lineage remains deferred; consumers must not infer it from text similarity.
 
@@ -185,7 +187,7 @@ This contract does not:
 
 ## 12. Evidence obligations
 
-Current compiler behavior remains guarded by `styio_resource_topology_test` and the resource, task, state, stream, Sema, lowering, and IDE suites registered in `tests/CMakeLists.txt` and [the test catalog](../../workflows/TEST-CATALOG.md). Focused lifecycle evidence proves move-only const observation, successful publication, scalar no-op, failure/reanalysis cleanup, same-artifact lowering reuse, mismatched-root rejection, and compiler-owned IDE diagnostics; a source oracle proves lowering contains no alternate topology builder or validator path.
+Current compiler behavior remains guarded by `styio_resource_topology_test`, `styio_observable_static_snapshot_test`, `styio_observable_static_snapshot_consumer_test`, and the resource, task, state, stream, Sema, lowering, and IDE suites registered in `tests/CMakeLists.txt` and [the test catalog](../../workflows/TEST-CATALOG.md). Focused lifecycle evidence proves move-only const observation, successful publication, scalar no-op, failure/reanalysis cleanup, same-artifact lowering reuse, mismatched-root rejection, and compiler-owned IDE diagnostics; a source oracle proves lowering contains no alternate topology builder or validator path. The incubating snapshot stage adds canonical producer goldens, independent JSON-only consumer fixtures, admission/privacy/disabled-path proofs, and opt-in profiler counts without declaring the schema stable.
 
 Each delivered observable capability must add the narrowest applicable evidence:
 

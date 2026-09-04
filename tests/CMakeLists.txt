@@ -996,6 +996,55 @@ styio_gtest_discover_tests(styio_resource_topology_test
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
+add_executable(styio_observable_static_snapshot_test
+  observable_static_snapshot_test.cpp
+)
+target_link_libraries(styio_observable_static_snapshot_test PRIVATE
+  styio_core
+  styio_cli_contract_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_static_snapshot_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
+)
+styio_apply_llvm_compile_settings(styio_observable_static_snapshot_test)
+styio_configure_windows_gtest_target(styio_observable_static_snapshot_test)
+add_dependencies(styio_observable_static_snapshot_test styio)
+if(TARGET styio_nano)
+  target_compile_definitions(styio_observable_static_snapshot_test PRIVATE
+    "STYIO_NANO_COMPILER_EXE=\"$<TARGET_FILE:styio_nano>\""
+  )
+  add_dependencies(styio_observable_static_snapshot_test styio_nano)
+endif()
+
+styio_gtest_discover_tests(styio_observable_static_snapshot_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_static_snapshot\\\\;unit\\\\;safety"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_static_snapshot_consumer_test
+  observable_static_snapshot_consumer_test.cpp
+)
+target_link_libraries(styio_observable_static_snapshot_consumer_test PRIVATE
+  GTest::gtest_main
+  ${LLVM_LIBS}
+)
+target_compile_definitions(styio_observable_static_snapshot_consumer_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_apply_llvm_compile_settings(styio_observable_static_snapshot_consumer_test)
+styio_configure_windows_gtest_target(styio_observable_static_snapshot_consumer_test)
+
+styio_gtest_discover_tests(styio_observable_static_snapshot_consumer_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_static_snapshot\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
 styio_gtest_discover_tests(styio_ide_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES

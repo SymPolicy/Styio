@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the source-level entrypoint for externally consumable Styio language services.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-09-05
 
 ## Scope
 
@@ -12,14 +12,15 @@
 
 1. [StyioCLI](./StyioCLI/README.md) exposes command-line service helpers such as authoritative syntax-only JSON checking and source context.
 2. [StyioConfig](./StyioConfig/README.md) owns machine-readable compiler handoff contracts and source-build metadata.
-3. [StyioIDE](./StyioIDE/README.md) owns in-process editor services: VFS, syntax snapshots, HIR, SemDB, indexing, completion, hover, definition, references, symbols, semantic tokens, and runtime scheduling counters.
-4. [StyioLSP](./StyioLSP/README.md) owns the stdio Language Server Protocol surface built on `StyioIDE`.
+3. [StyioObservable](./StyioObservable/README.md) owns the incubating, opt-in schema-v1 static snapshot adapter, serializer, and the CLI publication stage that `src/main.cpp` calls. The default compiler path does not publish snapshots.
+4. [StyioIDE](./StyioIDE/README.md) owns in-process editor services: VFS, syntax snapshots, HIR, SemDB, indexing, completion, hover, definition, references, symbols, semantic tokens, and runtime scheduling counters.
+5. [StyioLSP](./StyioLSP/README.md) owns the stdio Language Server Protocol surface built on `StyioIDE`.
 
 The complete service inventory is [MANIFEST.md](./MANIFEST.md).
 
 ## Build Targets
 
-1. `styio_cli_contract_core` builds `StyioCLI` and `StyioConfig` service code used by the full `styio` binary.
+1. `styio_cli_contract_core` builds `StyioCLI`, `StyioConfig`, and `StyioObservable` service code used by the full `styio` binary. Nano does not link snapshot publication.
 2. `styio_ide_core` builds the embeddable IDE service library.
 3. `styio_lspd` builds the standalone LSP daemon.
 

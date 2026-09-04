@@ -1,0 +1,161 @@
+{
+  "delivery_status": "completed",
+  "full_regression": {
+    "commands": [
+      {
+        "command_sha256": "a897861b7d0180a49cde6f5f6366c3b35f668335a85f32bca5675acceff2abac",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:08:36Z"
+      },
+      {
+        "command_sha256": "8a036a651836cb1b1ecd82c8a1e8128a5109fee4c764ffe8dd021250da9424a4",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:08:41Z"
+      },
+      {
+        "command_sha256": "8e8918d03c592f1eefd6179673e54950057363ae58fbc2ea55603263b3688399",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:17:59Z"
+      },
+      {
+        "command_sha256": "24a9eed8aa6e0895b7ce2bb197093097db9700e021b71d3602a0ddc9e1f8f08b",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:17:59Z"
+      },
+      {
+        "command_sha256": "d19ff7420458ba33ba018513039475a2e5e8198003d7a52f02b75b62e2b4eea7",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:18:00Z"
+      },
+      {
+        "command_sha256": "1ccf92da8eba8d22751aaa694a7c2a91f4c7d050deca7ed3f8dbf6017ef23f5f",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:18:00Z"
+      },
+      {
+        "command_sha256": "87fc988070ae4d6c29a6e0b86b2baf73dbd7c5c410258071bf96ab44f8c4197c",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:18:01Z"
+      },
+      {
+        "command_sha256": "bed4958e904c307ba743b4e3ca13c0339c8903fbe25ea8bab8edb52079453da4",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:18:01Z"
+      },
+      {
+        "command_sha256": "27c74f41cf5bd6b425572fbc686a2efc13a73b6efe874907b0da5609eb8d7b18",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-04T19:18:02Z"
+      }
+    ],
+    "content_fingerprint": "ab38214d1fb28fe0a5785d1ef228e34bc4c0c3a9f10bf790e6dbeb1dd73d7474",
+    "passed": true,
+    "recorded_at": "2026-09-04T19:18:02Z"
+  },
+  "plan": "PLAN-004",
+  "revision": 2,
+  "schema": "better-plan.checkpoints/v3",
+  "semantic_digest": "bcbea56e82d498e8e1a06f47b3289a588ba1c7eb09b4cb11e1fc139df43515b5",
+  "tasks": [
+    {
+      "code": "TASK-001",
+      "dispatch": null,
+      "evidence": [
+        {
+          "commands": [
+            {
+              "command_sha256": "a897861b7d0180a49cde6f5f6366c3b35f668335a85f32bca5675acceff2abac",
+              "exit_code": 127,
+              "outcome": "failed",
+              "recorded_at": "2026-09-04T18:27:51Z"
+            }
+          ],
+          "content_fingerprint": "d4657589ff4d8460ac29f42ab2e2658088dff7ae20ab490d6d713f5bed6c2784",
+          "kind": "focused_regression",
+          "passed": false,
+          "recorded_at": "2026-09-04T18:27:51Z"
+        },
+        {
+          "commands": [
+            {
+              "command_sha256": "a897861b7d0180a49cde6f5f6366c3b35f668335a85f32bca5675acceff2abac",
+              "exit_code": 127,
+              "outcome": "failed",
+              "recorded_at": "2026-09-04T18:29:34Z"
+            }
+          ],
+          "content_fingerprint": "d4657589ff4d8460ac29f42ab2e2658088dff7ae20ab490d6d713f5bed6c2784",
+          "kind": "focused_regression",
+          "passed": false,
+          "recorded_at": "2026-09-04T18:29:34Z"
+        },
+        {
+          "commands": [
+            {
+              "command_sha256": "a897861b7d0180a49cde6f5f6366c3b35f668335a85f32bca5675acceff2abac",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:37:48Z"
+            },
+            {
+              "command_sha256": "3c31b82063a25a5a67a917163c47899010d17fb7ebd516c92163197d05c7328f",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:37Z"
+            },
+            {
+              "command_sha256": "eef9007b85d2d732d15c552a3a7df2a6f0cda4a2f70492f4a6a25aaaa51867db",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:41Z"
+            },
+            {
+              "command_sha256": "24a9eed8aa6e0895b7ce2bb197093097db9700e021b71d3602a0ddc9e1f8f08b",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:41Z"
+            },
+            {
+              "command_sha256": "d19ff7420458ba33ba018513039475a2e5e8198003d7a52f02b75b62e2b4eea7",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:42Z"
+            },
+            {
+              "command_sha256": "1ccf92da8eba8d22751aaa694a7c2a91f4c7d050deca7ed3f8dbf6017ef23f5f",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:42Z"
+            },
+            {
+              "command_sha256": "87fc988070ae4d6c29a6e0b86b2baf73dbd7c5c410258071bf96ab44f8c4197c",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:43Z"
+            },
+            {
+              "command_sha256": "911c4baece69b27d035b29c782ba737cb374b8d74b027ab8583ec5056fd8951b",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T18:38:43Z"
+            }
+          ],
+          "content_fingerprint": "791f15a7c24175b6e4d12d7d7665cc55bb8dcb1a5547edab493f4286fbe94198",
+          "kind": "focused_regression",
+          "passed": true,
+          "recorded_at": "2026-09-04T18:38:43Z"
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

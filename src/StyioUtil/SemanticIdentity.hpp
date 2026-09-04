@@ -20,26 +20,43 @@ enum class CanonicalModuleError : std::uint8_t
 
 CanonicalModuleError canonical_module_error(std::string_view module) noexcept;
 
+enum class CanonicalRelativePathError : std::uint8_t
+{
+  None,
+  Empty,
+  NotCanonicalSlashForm,
+  InvalidSegment,
+};
+
+CanonicalRelativePathError canonical_relative_path_error(std::string_view path) noexcept;
+
 class Scope
 {
   bool qualified_ = false;
-  std::string project_package_identity_;
-  std::string logical_module_identity_;
+  std::string package_name_;
+  std::string manifest_relative_path_;
+  std::string entry_relative_path_;
 
-  Scope(bool qualified, std::string project_package, std::string module);
+  Scope(
+    bool qualified,
+    std::string package_name,
+    std::string manifest_relative_path,
+    std::string entry_relative_path);
 
 public:
   static Scope qualified(
-    std::string project_package_identity,
-    std::string logical_module_identity);
+    std::string package_name,
+    std::string manifest_relative_path,
+    std::string entry_relative_path);
   static Scope anonymous();
 
   bool is_globally_comparable() const noexcept { return qualified_; }
-  const std::string& project_package_identity() const noexcept {
-    return project_package_identity_;
+  const std::string& package_name() const noexcept { return package_name_; }
+  const std::string& manifest_relative_path() const noexcept {
+    return manifest_relative_path_;
   }
-  const std::string& logical_module_identity() const noexcept {
-    return logical_module_identity_;
+  const std::string& entry_relative_path() const noexcept {
+    return entry_relative_path_;
   }
 
   friend bool operator==(const Scope&, const Scope&) = default;
@@ -62,6 +79,8 @@ SemanticIdentity derive(
   const std::vector<std::string>& owner_components,
   std::string_view semantic_role,
   const std::vector<std::string>& discriminator_components);
+
+std::string encode_hex(const SemanticIdentity& identity);
 
 class CollisionGuard
 {

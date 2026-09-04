@@ -1,6 +1,6 @@
 # PLAN-004 Publish immutable observable topology snapshots
 
-Phase: ready · Revision: unsealed
+Phase: completed · Revision: 2
 
 This document is a render-only projection of `Plan.json`. Edit `Plan.json`; never edit this file.
 
@@ -28,7 +28,9 @@ No non-discoverable user decision was required.
 
 ### Observed repository facts
 
-- none
+- No CMakePresets.json exists; the configured local build tree is build/default (Debug, Unix Makefiles, Homebrew LLVM 18), so regression commands target that tree instead of a preset. (source: CMakeLists.txt and docs/BUILD-AND-DEV-ENV.md)
+- Tests are registered through styio_gtest_discover_tests with ctest labels; existing topology coverage is selected with label resource_topology and new snapshot suites must carry label observable_static_snapshot. (source: tests/CMakeLists.txt)
+- Repository gates are architecture-layer-gate.py, local-info-leak-gate.py, repo-hygiene-gate.py, docs-audit.py, and syntax-feature-state-gate.py; docs-local-info-scan.py, hygiene-scan.py, and diff-quality-gate.py do not exist. (source: scripts/ and .github/workflows/styio-ci-gate.yml)
 
 ## Requirements
 
@@ -193,26 +195,27 @@ Acceptance
   - Evidence: command from focused closure commands and benchmark handoff dry run
 
 Focused regression
-- ``cmake --preset dev``
-- ``cmake --build --preset dev -j2 --target styio resource_topology_test main_contract_test observable_static_snapshot_test observable_static_snapshot_consumer_test``
-- ``ctest --preset dev --output-on-failure -R 'resource_topology_test|main_contract_test|observable_static_snapshot_test|observable_static_snapshot_consumer_test'``
+- ``cmake -S . -B build/default``
+- ``cmake --build build/default --parallel --target styio styio_resource_topology_test styio_observable_static_snapshot_test styio_observable_static_snapshot_consumer_test``
+- ``ctest --test-dir build/default --output-on-failure --no-tests=error -L 'resource_topology|observable_static_snapshot'``
 - ``python3 scripts/architecture-layer-gate.py``
-- ``python3 scripts/docs-local-info-scan.py``
-- ``python3 scripts/hygiene-scan.py``
-- ``python3 scripts/diff-quality-gate.py``
-- ``test -z "$(rg -n '/(Users|home|private|tmp)/|0x[0-9A-Fa-f]{6,}|sha(1|256)|content[_-]?hash|raw[_-]?source' build tests/fixtures/observable_static_snapshot/v1 || true)"``
+- ``python3 scripts/local-info-leak-gate.py --mode worktree``
+- ``python3 scripts/repo-hygiene-gate.py --mode worktree``
+- ``python3 scripts/docs-audit.py``
+- ``test -z "$(rg -n '/(Users|home|private|tmp)/|0x[0-9A-Fa-f]{6,}|content[_-]?hash|raw[_-]?source' tests/fixtures/observable_static_snapshot/v1 || true)"``
 - paths: `src/StyioUtil`, `src/StyioResourceTopology`, `src/StyioSema`, `src/StyioLowering`, `src/StyioServices/StyioConfig`, `src/StyioServices/StyioObservable`, `src/StyioServices/StyioProfiler`, `src/main.cpp`, `src/cmake/StyioServicesSources.cmake`, `tests`, `tests/fixtures/observable_static_snapshot/v1`, `src/StyioServices`, `docs`, `benchmark`
 
 ## Full regression
 
 Run inside the sole Reviewer session after every repair is integrated.
 
-- ``cmake --preset dev``
-- ``cmake --build --preset dev -j2``
-- ``ctest --preset dev --output-on-failure``
+- ``cmake -S . -B build/default``
+- ``cmake --build build/default --parallel``
+- ``ctest --test-dir build/default --output-on-failure --no-tests=error``
 - ``python3 scripts/architecture-layer-gate.py``
-- ``python3 scripts/docs-local-info-scan.py``
-- ``python3 scripts/hygiene-scan.py``
-- ``python3 scripts/diff-quality-gate.py``
+- ``python3 scripts/local-info-leak-gate.py --mode worktree``
+- ``python3 scripts/repo-hygiene-gate.py --mode worktree``
+- ``python3 scripts/docs-audit.py``
+- ``python3 scripts/syntax-feature-state-gate.py``
 - ``git diff --check``
 - paths: `src`, `tests`, `scripts`, `docs`, `benchmark`, `CMakeLists.txt`

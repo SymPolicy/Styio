@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 ## Mission
 
@@ -103,6 +103,7 @@ Primary paths:
 75. IDE snapshot regressions need direct evidence: copied `TextBuffer` snapshots must remain immutable after reset, incremental syntax tokens must stay equivalent to a full parse, and the frozen IDE latency budget must pass repeatedly without changing its threshold.
 76. The Sema-owned topology cutover requires focused lifecycle tests for move-only const observation, validated publication, scalar-noop, exact failure diagnostics, replacement, same-object lowering reuse, mismatched-root rejection, and IDE forwarding. Pair those tests with a one-time source oracle that rejects any topology build, validation, or scalar predicate in top-level lowering; do not add a production build counter solely for test interception.
 77. PLAN-003 semantic-identity coverage requires fresh-build metamorphic tests for trivia, parser labels, unrelated edits, scope boundaries, repeated and anonymous sites, multi-slot declarations, synthetic roles, and unchanged dense/debug behavior; keep the direct `architecture_layer_gate` CTest registration and focused command discoverable.
+78. Observable static snapshot coverage is two registered GoogleTest targets, `styio_observable_static_snapshot_test` and `styio_observable_static_snapshot_consumer_test`, both labelled `observable_static_snapshot`. The producer suite owns canonical golden lock, admission, privacy, disabled-path, profiler, and write-failure evidence; the consumer suite must parse fixtures with LLVM JSON only and must not include Styio headers. Keep goldens under `tests/fixtures/observable_static_snapshot/v1/` free of host paths, pointer hex, content hashes, and raw source. Do not revive the unbuilt `tests/main_contract_test.cpp` binary for machine-info assertions.
 
 ## Change Classes
 
@@ -119,6 +120,7 @@ ctest --test-dir build/default -L golden_standard --output-on-failure --no-tests
 ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
 ctest --test-dir build/default -L security --output-on-failure --no-tests=error
 ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
+ctest --test-dir build/default -L observable_static_snapshot --output-on-failure --no-tests=error
 ctest --test-dir build/default -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
 ctest --test-dir build/default -L algorithm_equivalence --output-on-failure --no-tests=error
 python3 scripts/repo-hygiene-gate.py --mode residue
