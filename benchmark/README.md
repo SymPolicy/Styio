@@ -41,3 +41,24 @@ The external `styio-benchmark` owner decides whether to collect these fields,
 which workloads to run, and whether any threshold belongs in that repository.
 This tree must not create `build/benchmark` or edit the external benchmark
 checkout for this incubating stage.
+
+## Observable delta, lineage, and bounded query handoff
+
+`styio-benchmark` owns timing, allocation, RSS, reports, baselines, and any
+later threshold. This repository owns correctness fixtures and path-free
+counters only.
+
+Fixture families live under `tests/fixtures/observable-topology/` and are
+indexed by `manifest.json` (`parent`, `child`, `delta`, `lineage`, `query`).
+
+Service counters to collect, without treating them as pass/fail here:
+
+- `input_records`, `changed_records`, `delta_bytes`
+- `visited_records`, `reused_shards`, `rebuilt_shards`
+- `retained_snapshot_bytes`, `retained_index_bytes`, `reference_fallbacks`
+
+Comparable modes: cold full snapshot scan, cold index build, warm retained
+bounded query, small-delta invalidation with shard reuse, full fallback after
+`drop_derived_indexes`, and retention-byte pressure. Privacy rules match the
+public snapshot contract: no source text, raw values, credentials, host paths,
+or backend runtime records.

@@ -104,6 +104,7 @@ Primary paths:
 76. The Sema-owned topology cutover requires focused lifecycle tests for move-only const observation, validated publication, scalar-noop, exact failure diagnostics, replacement, same-object lowering reuse, mismatched-root rejection, and IDE forwarding. Pair those tests with a one-time source oracle that rejects any topology build, validation, or scalar predicate in top-level lowering; do not add a production build counter solely for test interception.
 77. PLAN-003 semantic-identity coverage requires fresh-build metamorphic tests for trivia, parser labels, unrelated edits, scope boundaries, repeated and anonymous sites, multi-slot declarations, synthetic roles, and unchanged dense/debug behavior; keep the direct `architecture_layer_gate` CTest registration and focused command discoverable.
 78. Observable static snapshot coverage is two registered GoogleTest targets, `styio_observable_static_snapshot_test` and `styio_observable_static_snapshot_consumer_test`, both labelled `observable_static_snapshot`. The producer suite owns canonical golden lock, admission, privacy, disabled-path, profiler, and write-failure evidence; the consumer suite must parse fixtures with LLVM JSON only and must not include Styio headers. Keep goldens under `tests/fixtures/observable_static_snapshot/v1/` free of host paths, pointer hex, content hashes, and raw source. Do not revive the unbuilt `tests/main_contract_test.cpp` binary for machine-info assertions.
+79. Observable S2 coverage is four targets labelled `observable_delta`, `observable_query`, `observable_service`, and `observable_consumer`: `styio_observable_delta_test` (suites `StyioObservableDelta` and `StyioObservableLineage`), `styio_observable_query_test`, `styio_observable_service_test`, and `styio_observable_consumer_test`. Keep reconstruction, producer-evidence, reference-versus-index (including merged-index serving with shard-reuse proof via `QueryIndexProbe`), retention/invalidation, and public isolation as property oracles over `tests/fixtures/observable-topology/`; every manifest delta family must reconstruct its checked-in child byte-for-byte. The consumer target must link only `styio_observable_core` and must not include compiler-internal headers. Multi-label `LABELS` values stay `\\\\;` escaped.
 
 ## Change Classes
 
@@ -121,6 +122,7 @@ ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=
 ctest --test-dir build/default -L security --output-on-failure --no-tests=error
 ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
 ctest --test-dir build/default -L observable_static_snapshot --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error
 ctest --test-dir build/default -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
 ctest --test-dir build/default -L algorithm_equivalence --output-on-failure --no-tests=error
 python3 scripts/repo-hygiene-gate.py --mode residue

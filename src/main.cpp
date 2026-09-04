@@ -56,7 +56,7 @@
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioServices/StyioConfig/SourceBuildInfo.hpp"
-#include "StyioServices/StyioObservable/StaticSnapshotPublication.hpp"
+#include "StyioServices/StyioObservableProducer/StaticSnapshotPublication.hpp"
 #include "StyioSema/CallableInterface.hpp"
 #include "StyioSema/CallableModuleLoader.hpp"
 #include "StyioSema/SemanticAnalysis.hpp"

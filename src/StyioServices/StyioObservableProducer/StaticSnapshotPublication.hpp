@@ -10,7 +10,7 @@
 
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
-#include "StyioServices/StyioObservable/StaticSnapshotContract.hpp"
+#include "StyioServices/StyioObservableProducer/StaticSnapshotContract.hpp"
 #include "StyioUtil/SemanticIdentity.hpp"
 
 class MainBlockAST;

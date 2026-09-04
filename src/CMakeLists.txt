@@ -18,6 +18,17 @@ add_library(styio_core STATIC ${STYIO_CORE_SOURCES})
 styio_configure_library_target(styio_core)
 target_link_libraries(styio_core PUBLIC styio_frontend_core styio_runtime_core ${LLVM_LIBS})
 
+add_library(styio_observable_core STATIC ${STYIO_OBSERVABLE_PUBLIC_SOURCES})
+target_include_directories(styio_observable_core PUBLIC
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+if(MSVC)
+  target_compile_options(styio_observable_core PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:/utf-8>"
+  )
+endif()
+
 add_library(styio_cli_contract_core STATIC ${STYIO_CONTRACT_SOURCES})
 styio_configure_library_target(styio_cli_contract_core)
 target_compile_definitions(styio_cli_contract_core PRIVATE
@@ -25,7 +36,7 @@ target_compile_definitions(styio_cli_contract_core PRIVATE
   "STYIO_RELEASE_CHANNEL=\"nightly\""
   "STYIO_EDITION_MAX=\"2026\""
 )
-target_link_libraries(styio_cli_contract_core PUBLIC styio_frontend_core styio_symbol_core ${LLVM_LIBS})
+target_link_libraries(styio_cli_contract_core PUBLIC styio_observable_core styio_frontend_core styio_symbol_core ${LLVM_LIBS})
 
 add_library(styio_ide_core STATIC ${STYIO_IDE_SOURCES})
 styio_configure_library_target(styio_ide_core)

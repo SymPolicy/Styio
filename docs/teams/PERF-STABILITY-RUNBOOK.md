@@ -65,6 +65,7 @@ ctest --test-dir build/default --output-on-failure --no-tests=error -L 'resource
 ```
 
 Profiler coherence is `snapshot_*_count` plus `snapshot_serialized_bytes` matching the published JSON size. Median durations remain JSON evidence, not local thresholds. The external benchmark owner decides collection and any later threshold.
+28. Observable S2 handoff uses `tests/fixtures/observable-topology/` and `ObservableTopologyService` counters (`input_records`, `changed_records`, `delta_bytes`, `visited_records`, `reused_shards`, `rebuilt_shards`, `retained_snapshot_bytes`, `retained_index_bytes`, `reference_fallbacks`). `styio-benchmark` owns wall time, allocation, RSS, reports, baselines, and thresholds. Suggested modes: cold full scan, cold index, warm retained bounded query, small-delta invalidation, full fallback, and retention pressure. Do not add a compiler-local threshold.
 
 ## Change Classes
 
