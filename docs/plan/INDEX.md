@@ -11,6 +11,9 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `delivery/` | [Restore nightly CI green and migrate docs/plan to v3](./delivery/Plan.md) | Current Better Plan v3 delivery `PLAN-001`; semantic state lives in `delivery/Plan.json`. |
+| `observable-delta-query-lineage/` | [Deliver observable topology delta, lineage, and queries](./observable-delta-query-lineage/Plan.md) | Current Better Plan v3 delivery `PLAN-005`; semantic state lives in `observable-delta-query-lineage/Plan.json`. |
+| `observable-runtime-correlation/` | [Correlate runtime and scheduler events with semantic sites](./observable-runtime-correlation/Plan.md) | Current Better Plan v3 delivery `PLAN-006`; semantic state lives in `observable-runtime-correlation/Plan.json`. |
+| `observable-static-snapshot/` | [Publish immutable observable topology snapshots](./observable-static-snapshot/Plan.md) | Current Better Plan v3 delivery `PLAN-004`; semantic state lives in `observable-static-snapshot/Plan.json`. |
 | `observable-topology-foundation/` | [Reuse one observable topology artifact across compilation](./observable-topology-foundation/Plan.md) | Current Better Plan v3 delivery `PLAN-002`; semantic state lives in `observable-topology-foundation/Plan.json`. |
 | `persistent-semantic-ids/` | [Persistent semantic identities for resource topology](./persistent-semantic-ids/Plan.md) | Current Better Plan v3 delivery `PLAN-003`; semantic state lives in `persistent-semantic-ids/Plan.json`. |
 

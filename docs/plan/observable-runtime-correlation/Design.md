@@ -1,0 +1,336 @@
+# Observable runtime correlation solution
+
+## Requirements
+
+- entry-gated-after-static-producers: S3 remains a future, unapproved stage and no S3 source, test, contract, or benchmark work begins until the S1 public-snapshot and S2 delta/query/lineage producer fixtures have completed acceptance. — source: user-request, sequencing-context
+- styio-owned-versioned-wire: Styio owns one versioned runtime-event schema, event vocabulary, identity semantics, compatibility rules, and producer fixtures; consumers may adapt those records but may not redefine their meaning or infer replacement semantic relationships. — source: user-request, observable-language-contract
+- one-time-v2-contract-migration: Delivery replaces runtime-events v1 atomically with v2 across implementation, advertisement, fixtures, tests, and current documentation; no v1 serializer, compatibility branch, stale schema claim, or permanent migration script remains. — source: repository-rules, repository-machine-contract
+- public-static-runtime-identities: Every correlatable observation carries the exact immutable public `snapshot_id`, persistent static `site_id`, and execution-scoped `instance_id`; runtime handles, addresses, source positions, timestamps, and consumer-generated values are never identities. — source: user-request, observable-language-contract
+- descriptor-flow-reuses-sema-snapshot: An explicitly requested correlated run derives compact instrumentation descriptors from the accepted Sema-owned snapshot, preserves them through lowering and StyioIR into codegen, and never rebuilds topology or invents a site in the runtime. — source: user-request, PLAN-002, PLAN-003
+- task-and-scheduler-lifecycle: The contract represents task creation, enqueue, dequeue, start, completion, failure, result wait, result consumption, release, scheduler queue transitions, and only genuinely implemented suspension, resume, or cancellation transitions. — source: user-request, repository-runtime-contract
+- explicit-causality: Spawn, enqueue, start, completion, wake, failure, cancellation, and backpressure relief use typed event references and parent or subject instance identifiers; drain order and timestamp proximity are never causal evidence. — source: user-request, observable-language-contract
+- typed-wait-relationships: Wait episodes have stable wait identities, explicit begin/end pairing, waiter and subject identities when known, a typed reason covering runnable, cooperative, I/O, resource, task, backpressure, timer, cancellation, and unknown, and an explicit resolution or causal event when known. — source: user-request, observable-language-contract
+- aggregate-first-modes: Runtime observation supports disabled, aggregate, sampled, and detailed modes; aggregate is the default for an explicit S3 request, while lifecycle, failure, cancellation, and accounting records retain higher priority than per-transition detail. — source: user-request, observable-language-contract
+- bounded-nonblocking-buffers: Enabled observation uses preallocated bounded per-worker producer buffers plus a bounded controller lane and fixed-cardinality aggregates; the application and scheduler hot paths never wait for telemetry storage or an exporter. — source: user-request, repository-rules
+- deterministic-sampling-loss: Sampling decisions are deterministic from declared stable inputs, and every observed record is conserved as emitted, aggregated, sampled out, buffer-dropped, or exporter-dropped with explicit per-family accounting and a final summary. — source: user-request, observable-language-contract
+- capability-negotiation: Machine info and compile-plan negotiation advertise independent event-contract versions, modes, wait and lifecycle producer capabilities, privacy profile, and bounds; unsupported versions or required critical capabilities fail before execution with a machine-readable reason. — source: user-request, repository-machine-contract
+- disabled-static-path-budget: With no S3 request, and with a static-snapshot-only request, task codegen uses the existing runtime ABI and contains no observation hook, instance allocation, buffer, drain thread, exporter call, or scheduler hot-path atomic attributable to S3. — source: user-request, risk-boundary
+- enabled-mode-budget-handoff: Enabled-mode wall time, CPU, allocations, peak memory, artifact size, event volume, buffer occupancy, and loss are measured by a controlled Release benchmark handoff; numeric overhead ceilings are approved only from compatible baselines and must pass before any enabled mode can become a default. — source: user-request, risk-boundary, performance-runbook
+- deterministic-fixture-compatibility: Deterministic producer and consumer fixtures prove static-site round-trip, instance uniqueness, causal and wait links, aggregation, sampling, loss, capability rejection, unknown additive-field handling, and current-version compatibility without depending on compiler object layout. — source: user-request, observable-language-contract
+- strict-runtime-privacy: Correlated runtime records contain no raw runtime value, source text, source-derived label, credential, environment content, absolute filesystem root, machine identity, address, raw diagnostic message, or backend record; only opaque IDs, stable codes, types, shapes, counts, sizes, durations, queue facts, and declared privacy-safe summaries are eligible. — source: user-request, observable-language-contract
+- compiler-runtime-behavior-preserved: Instrumentation never changes accepted programs, diagnostics, task results, queue ordering, wake-up, failure propagation, resource cleanup, scheduling correctness, or exporter-independent completion, and exporter failure is observation loss rather than a program failure. — source: user-request, risk-boundary
+- scope-boundary: The stage excludes Vityo implementation, telemetry backend or retention storage, raw value capture, distributed tracing, clock synchronization, deterministic replay, policy, heuristic lineage, and unrelated scheduler redesign. — source: user-request
+- owning-contracts-current: The observable-language SSOT, public service and machine handoff docs, Codegen/Runtime and Sema/IR ownership rules, performance handoff, test catalog, and generated plan index describe the delivered boundary and keep S3 incubating until its fixtures and budgets pass. — source: user-request, repository-docs-contract
+
+## Architecture
+
+Summary: One complex Task is the complete parallel frontier because public identifiers, the lowering descriptor, generated runtime ABI, scheduler transitions, bounded collector, version negotiation, deterministic fixtures, privacy proof, and benchmark evidence form one causal protocol cutover. The Task has a hard S1/S2 acceptance gate; after it, contract and baseline discovery run independently, descriptor propagation, runtime collection, and negotiation branch over disjoint files, and all proof branches join before owning documentation and focused closure.
+Notes:
+- The stage is deliberately unapproved. Its first Node verifies completed acceptance for the S1 snapshot producer and S2 delta/query/lineage producer and consumes their published fixtures as immutable inputs. A missing, changed, or merely drafted producer fixture stops S3 before any implementation write.
+- Extend the single S1 public artifact rather than publishing a second graph. `snapshot_id` names the exact immutable snapshot, `site_id` is the S1 encoding of the PLAN-003 persistent semantic identity, and `instance_id` is an opaque execution-scoped value composed from the allocating producer lane and its local instance sequence, never a task handle or address. S2 lineage may help a consumer move between snapshots, but an S3 event always names its exact snapshot and never infers lineage.
+- Build an immutable instrumentation table once from the accepted qualified snapshot. Entries contain a compact internal descriptor index, public snapshot and site IDs, semantic role, and allowed event capabilities. An internal typed-AST lookup may connect the Sema artifact to lowering inside one compiler process, but AST pointers and descriptor indexes do not enter the wire format. Missing site correlation rejects only an explicitly requested correlated artifact before execution; ordinary compilation remains unchanged.
+- Add a small optional site reference to task creation and await-related StyioIR. The verifier ensures an instrumented reference is complete and belongs to the selected snapshot. Codegen emits a descriptor table once and uses observed runtime entrypoints only for an explicit enabled request; disabled and static-only codegen continue to call the current `styio_task_*` ABI byte-for-byte.
+- Keep the typed runtime-correlation values and deterministic serializer in the independent public observable target established by S1/S2 under `src/StyioServices/StyioObservable`; they include neither compiler-private nor runtime headers. `styio_runtime_core` may link to that public contract in one direction, while buffer state, scheduler hooks, and sink lifecycle remain runtime-owned, so fixture consumers still link without runtime or LLVM.
+- Replace the ad hoc runtime-events v1 sink in `src/main.cpp` atomically with one typed Styio-owned v2 event session and one deterministic serializer. Existing runtime-event artifact requests migrate to v2; correlation producers remain disabled unless the request explicitly enables S3. Machine advertisement, fixtures, tests, and current docs move in the same Node, and a one-time plan command proves no v1 implementation or compatibility path remains.
+- A v2 envelope identifies contract version, execution, producer lane, producer-local sequence, event kind, priority, monotonic duration or timestamp fields when applicable, correlation status, snapshot/site/instance IDs when applicable, typed causal references, typed wait data, and privacy-safe attributes. A serializer-assigned stream ordinal is framing only. Event references use execution plus producer lane and producer-local sequence so workers do not contend on a global per-event counter.
+- A retained causal or wait reference remains explicit even if its target record is later lost. A no-loss session must resolve every target; a session with declared loss may expose an unresolved target placeholder and is marked partial, while the consumer may never replace the missing fact from stream order or time. Fixtures cover both the fully resolved and loss-partial cases.
+- Task and queue producers emit only facts they own. Current task creation, ready-queue enqueue/dequeue, worker start, completion/failure, blocking pull, result consumption, release, queue pressure, and queue close have concrete producers. The schema defines cooperative suspension/resume and cancellation request/completion, but machine capabilities advertise them only when a real accepted runtime transition exists; this stage does not manufacture cancellation from release, infer suspension from delay, or redesign the scheduler to create missing semantics.
+- A wait is an explicit episode, not a duration guess. A wait-start record allocates a wait identity and names waiter, reason, and optional subject; wait-end repeats that identity and declares ready, completed, failed, cancelled, timed-out, closed, or unknown resolution plus a causal event reference when available. Enqueue-to-start is runnable wait, a blocking task pull is task wait, and a full ready queue is backpressure wait. Worker idleness is runtime-only and cannot be projected onto a static site.
+- Observation modes are `disabled`, `aggregate`, `sampled`, and `detailed`. Absence of the v2 request is disabled for S3. An explicit request defaults to aggregate. Aggregate retains priority lifecycle/failure/cancellation/accounting envelopes and fixed counters and duration totals by accepted site and event/wait family; sampled adds deterministic detail selected from `(snapshot_id, site_id, instance_id, event_family, seed)`; detailed attempts all detail without promising losslessness. Sampling never removes priority lifecycle, failure, cancellation, capability, or loss-summary records.
+- Preallocate one single-producer/single-consumer ring per scheduler worker plus one controller lane at session initialization. The provisional default is 256 fixed-size slots per lane, with 32 slots reserved from low-priority detail; accepted capacity is a power of two from 64 through 4096 and is published in the session header. Each producer writes a slot before release-publishing its tail; the drain acquire-reads the tail, consumes, and release-publishes the head, with masked indexes, no shared producer cursor, and no compare-and-swap loop. A single drain owner visits lanes fairly in batches of at most 64 records. Full buffers shed low priority first and then account any priority loss; they never block an application thread.
+- Precompute compact aggregate slots only for descriptor-allowed `(site, event-or-wait-family)` pairs. Each lane owns one fixed shard, and the drain merges shards with one explicit runtime-only bucket, avoiding contention, unbounded maps, repeated lookup, and per-event allocation.
+- Conservation accounting assigns each observed fact exactly one terminal disposition: `observed = emitted + aggregated + sampled_out + buffer_dropped + exporter_dropped`. Fixed summary counters are a sidecar projection reported separately as `summary_updates`, not a second disposition; only low-priority facts retained solely in aggregate mode use `aggregated`. `emitted` means accepted by the sink, and session header/summary framing is excluded from the fact ledger to avoid recursive accounting. A final summary and receipt status report configured bounds, high-water marks, every disposition, sidecar summary updates, and exporter health. If the sink fails, the drain owner stops calling it, counts queued/subsequent export loss, and lets program execution complete normally.
+- Capability negotiation is fail-closed only for an explicit observation request. `--machine-info=json` advertises runtime-events version 2 separately from language edition, compiler version, and snapshot schema. The compile-plan contract gains an optional runtime-observation request containing exact event version, mode, required capabilities, bounded buffer setting, and sampled-mode ratio/seed. The sampled-mode default is 1/16 with seed zero when omitted; tests inject fixed execution IDs and clocks. Version 1 and unknown versions reject with a stable migration diagnostic, unknown additive v2 fields are tolerated, and unknown requested critical capabilities reject before JIT or native execution.
+- Disabled/static budgets are structural: no observed runtime callsites in generated task paths, no collector allocation or thread, no runtime instance counter increment, and unchanged current task/scheduler behavior. Existing controller-event delivery migrates to the strict v2 envelope without enabling S3 hooks. Enabled numeric ceilings are not invented in this draft: the benchmark handoff records paired compatible Release baselines and approved thresholds for every declared metric, and acceptance requires the comparison to pass. Until then all correlated modes remain opt-in and aggregate cannot become an implicit default.
+- V2 fixtures use injected deterministic execution ID, monotonic clock, drain schedule, buffer size, and sampling seed. They join events to the accepted S1 fixture by public IDs, validate optional S2 lineage without requiring it for same-snapshot lookup, and use a tiny buffer to force accounted shedding. Canary source, value, path, environment, address-like, and diagnostic-message strings must be absent from every v2 fixture.
+- Styio's contract may later be mapped to OpenTelemetry or Perfetto by consumers, but those exporters are out of scope and cannot redefine Styio identities, causality, waits, or loss. No backend, retention policy, cross-process propagation, clock synchronization, replay, or Vityo code is added.
+- The buffering choice follows the proven bounded producer/consumer and per-writer staging principles documented by the Linux kernel and Perfetto, while the batch/drop accounting follows the OpenTelemetry SDK contract. Styio uses a smaller in-process fixed-record SPSC design because each scheduler lane has one producer; it does not import those frameworks or their distributed-tracing semantics.
+- The complete regression runs once only after the focused Task evidence is accepted.
+
+## Task: correlated-runtime-observation-contract
+
+Outcome: Styio's atomically migrated runtime-events v2 stream correlates explicitly enabled task and scheduler observations to accepted public static sites with explicit causality and waits, bounded nonblocking collection, deterministic sampling and loss accounting, strict privacy, preserved disabled runtime behavior, and an executable controlled-budget handoff.
+Scope in:
+- Enforce the completed S1/S2 producer-fixture entry gate and consume their public IDs and compatibility fixtures without redefining them.
+- Define the Styio-owned v2 event envelope, lifecycle, queue, causal, wait, aggregate, sampling, loss, privacy, and capability semantics and migrate every current runtime-event owner from v1 in one cutover.
+- Build one immutable observation descriptor table from the accepted Sema snapshot and carry compact site references through lowering, StyioIR verification, codegen, JIT symbol registration, and observed runtime entrypoints.
+- Instrument existing task creation, scheduler queue, execution, completion/failure, blocking task wait, result consumption/release, queue pressure, and shutdown boundaries without changing their scheduling semantics.
+- Add bounded per-worker/controller SPSC buffers, fixed per-site aggregates, priority reservation, deterministic sampling, fair batch draining, sink-failure isolation, and conservation summaries.
+- Extend compile-plan and machine-info negotiation, receipt status, deterministic producer/consumer fixtures, focused concurrency/privacy/compatibility tests, and the external Release benchmark integration contract.
+- Update all owning Styio contracts, runbooks, public service inventory, machine handoff documentation, test catalog, and generated plan index.
+Scope out:
+- Vityo code, UI projections, consumer-specific graph models, or changes in any consumer repository.
+- Telemetry databases, network exporters, retention services, backend runtime data, cloud ingestion, audit storage, or a new log service.
+- Raw runtime values, source text or labels, raw log or diagnostic messages in v2, environment capture, credentials, filesystem roots, machine identity, or addresses.
+- Distributed tracing, cross-process context propagation, wall-clock synchronization, OpenTelemetry or Perfetto implementation, deterministic replay, debugger stepping, policy evaluation, or heuristic lineage.
+- New task cancellation, cooperative suspension, timer, I/O scheduler, or resource-wait semantics solely to make an event producer exist; unrelated scheduler queue or worker redesign.
+- A second topology build, runtime reconstruction of static semantics, consumer-defined identity, unbounded buffers/maps/history, lossy accounting without disclosure, or default enablement before approved baselines.
+Outputs:
+- runtime-correlation-wire-contract: Typed Styio runtime-event v2 envelope, identifiers, event and wait vocabularies, capabilities, accounting, and migration rejection codes — artifact: src/StyioServices/StyioObservable/RuntimeCorrelation.hpp — guarantee: Styio is the sole semantic owner and consumers can map a complete typed contract without compiler-layout or timestamp inference.
+- runtime-event-v2-serializer: One deterministic strict-v2 serializer over the typed producer model — artifact: src/StyioServices/StyioObservable/RuntimeCorrelation.cpp — guarantee: Every runtime-event artifact is canonical and privacy constrained, and no v1 serializer or compatibility branch survives the cutover.
+- lowering-correlation-descriptors: Snapshot-bound task and await site references preserved through verified StyioIR and codegen — artifact: src/StyioIR/GenIR/SIOIR.hpp — guarantee: Enabled runtime callsites reference accepted public sites through compact descriptors while disabled/static codegen retains the existing ABI.
+- bounded-observation-buffer: Preallocated per-lane SPSC records, fixed aggregates, priority shedding, deterministic sampling, and conservation counters — artifact: src/StyioRuntime/ObservationBuffer.hpp — guarantee: Telemetry cannot block scheduler/application progress or grow memory beyond negotiated bounds, and every non-retained record has an accounting class.
+- scheduler-observation-producer: Existing task and ready-queue transitions emit owned lifecycle, causal, wait, failure, and queue facts — artifact: src/StyioExtern/ExternLib.cpp — guarantee: Observations reflect real transitions without changing task settlement, queue ordering, wake-up, failure propagation, or cleanup.
+- negotiated-runtime-event-stream: Compile-plan request, v2-only machine-info advertisement, receipt summary, migration rejection, and exporter-isolated session wiring — artifact: src/main.cpp — guarantee: Unsupported or v1 requests fail before execution, correlation remains disabled unless requested, and exporter failure never changes program success.
+- deterministic-correlation-fixtures: Canonical strict-v2 producer and consumer fixtures joined to accepted S1/S2 fixture identities — artifact: tests/fixtures/observable-runtime-correlation/v2 — guarantee: Independent consumers can verify IDs, causality, waits, aggregates, sampling, loss, additive fields, and privacy without linking compiler internals.
+- focused-correlation-evidence: Unit and concurrency evidence for event semantics, buffers, accounting, and actual scheduler hooks — artifact: tests/observable_runtime_test.cpp — guarantee: Saturation, deterministic sampling, causal/wait pairing, failure isolation, and conservation are executable under controlled scheduling.
+- compile-run-correlation-evidence: End-to-end compile-plan, lowering, LLVM, task runtime, atomic v2 migration, negotiation, static join, and privacy coverage — artifact: tests/styio_test.cpp — guarantee: Language, scheduler, and disabled/static behavior remain stable while the public event contract migrates once and an explicit correlated run round-trips every correlatable task instance.
+- controlled-budget-handoff: Optional external benchmark integration and approved-baseline metric contract — artifact: benchmark/CMakeLists.txt — guarantee: Disabled, aggregate, sampled, and detailed Release results expose comparable wall, CPU, allocation, memory, size, volume, occupancy, and loss metrics, and enabled defaults cannot advance without an approved passing budget.
+- observable-runtime-owning-contract: Current runtime-overlay authority, semantics, privacy, additive v2 evolution, performance, and exclusion boundary — artifact: docs/design/Styio-Observable-Language.md — guarantee: The design SSOT distinguishes implemented S3 producers from optional or unavailable transitions and keeps consumers subordinate to Styio semantics.
+- observable-runtime-service-inventory: Public target, version, capability, ownership, and consumer-isolation inventory — artifact: src/StyioServices/StyioObservable/README.md — guarantee: The S1/S2 service boundary grows additively without introducing a runtime dependency into fixture consumers or a second observable authority.
+- runtime-observation-performance-route: Controlled benchmark ownership, comparable inputs, required metrics, approval state, and no-claim rule — artifact: docs/design/performance-testing.md — guarantee: This repository owns measurement seams and budget enforcement while the external benchmark authority owns workloads, reports, baselines, and approved numeric ceilings.
+- runtime-correlation-test-runbook: Durable focused commands and fixture/benchmark responsibilities — artifact: workflows/TEST-CATALOG.md — guarantee: Maintainers can rerun the entry gate, protocol, compiler, runtime, privacy, additive-v2, and budget evidence directly without retaining a migration-only test.
+- current-plan-index: Regenerated tracked Better Plan index — artifact: docs/plan/INDEX.md — guarantee: Repository documentation gates index the still-unapproved S3 workspace without hand-edited generated content.
+Owns:
+- src/StyioServices/StyioObservable/RuntimeCorrelation.hpp
+- src/StyioServices/StyioObservable/RuntimeCorrelation.cpp
+- src/StyioServices/StyioObservable/README.md
+- src/StyioResourceTopology/ResourceTopology.hpp
+- src/StyioResourceTopology/ResourceTopology.cpp
+- src/StyioSema/SemaContext.hpp
+- src/StyioSema/TypeInfer.cpp
+- src/StyioLowering/AstToStyioIRLowerer.hpp
+- src/StyioLowering/AstToStyioIR.cpp
+- src/StyioIR/GenIR/SIOIR.hpp
+- src/StyioIR/Verifier.cpp
+- src/StyioCodeGen/CodeGenVisitor.hpp
+- src/StyioCodeGen/CodeGenIO.cpp
+- src/StyioJIT/StyioJIT_ORC.hpp
+- src/StyioRuntime/ObservationBuffer.hpp
+- src/StyioRuntime/ObservationBuffer.cpp
+- src/StyioRuntime/ReadyQueue.hpp
+- src/StyioRuntime/RuntimeState.hpp
+- src/StyioRuntime/RuntimeState.cpp
+- src/StyioExtern/ExternLib.hpp
+- src/StyioExtern/ExternLib.cpp
+- src/StyioServices/StyioConfig/CompilePlanContract.hpp
+- src/StyioServices/StyioConfig/CompilePlanContract.cpp
+- src/StyioServices/README.md
+- src/StyioServices/MANIFEST.md
+- src/main.cpp
+- src/cmake/StyioServicesSources.cmake
+- src/cmake/StyioBackendSources.cmake
+- src/CMakeLists.txt
+- tests/observable_runtime_test.cpp
+- tests/fixtures/observable-runtime-correlation/v2
+- tests/resource_topology_test.cpp
+- tests/typeinfer_internal_test.cpp
+- tests/lowering_internal_test.cpp
+- tests/runtime_scheduler_test.cpp
+- tests/externlib_internal_test.cpp
+- tests/codegen_internal_test.cpp
+- tests/security/styio_security_test.cpp
+- tests/styio_test.cpp
+- tests/CMakeLists.txt
+- benchmark/CMakeLists.txt
+- benchmark/README.md
+- docs/design/Styio-Observable-Language.md
+- docs/design/performance-testing.md
+- docs/EXTERNAL-SERVICES.md
+- docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md
+- docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md
+- docs/teams/SEMA-IR-RUNBOOK.md
+- docs/teams/CODEGEN-RUNTIME-RUNBOOK.md
+- docs/teams/CLI-NANO-RUNBOOK.md
+- docs/teams/PERF-STABILITY-RUNBOOK.md
+- docs/teams/TEST-QUALITY-RUNBOOK.md
+- docs/teams/DOCS-ECOSYSTEM-RUNBOOK.md
+- docs/teams/DOC-STATS.md
+- workflows/TEST-CATALOG.md
+- docs/plan/INDEX.md
+Exclusive:
+- configured CMake and CTest tree build/default
+- configured external benchmark tree build/observable-runtime-benchmark
+- generated documentation indexes
+Worker: general
+Difficulty: complex
+Workload: heavy
+Verification: code
+Risks:
+- quality
+- performance
+- privacy
+- concurrency
+- shared_resource
+Nodes:
+- verify-s1-s2-producer-fixture-gate: Confirm the S1 public-snapshot and S2 delta/query/lineage plans have completed acceptance, rerun their declared producer-fixture oracles, and bind S3 to their published IDs, capabilities, and fixture locations without modifying them.
+- capture-event-and-hot-path-baselines: Record the behavior represented by current controller-event fixtures, disabled/static StyioIR and LLVM task callsites, task scheduler correctness counters, and compatible Release benchmark inputs before the one-time event-contract migration. — after: verify-s1-s2-producer-fixture-gate
+- define-styio-runtime-correlation-contract: Freeze the v2 envelope, public identity and event-reference semantics, real-producer capability matrix, wait taxonomy, modes, bounds, sampling, conservation equation, privacy profile, additive-field compatibility, migration rejection, and critical-capability behavior in the shared typed contract. — after: verify-s1-s2-producer-fixture-gate
+- propagate-static-site-descriptors: Build the immutable snapshot-bound instrumentation table, carry compact task and await references through Sema, lowering, StyioIR verification, codegen, and generated descriptor registration, and preserve uninstrumented runtime calls when S3 is disabled. — after: define-styio-runtime-correlation-contract
+- implement-bounded-runtime-observation: Add preallocated per-worker/controller SPSC lanes, fixed aggregates, priority reservation, deterministic sampling, fair bounded draining, sink-failure isolation, and exact loss counters around existing task and ready-queue transition points. — after: define-styio-runtime-correlation-contract
+- add-version-capability-negotiation: Extend compile-plan parsing, advertise version 2 only, add session setup and receipt summaries, replace the old sink with the single strict-v2 serialization owner, and reject v1, unknown versions, or unsupported critical requests before execution. — after: define-styio-runtime-correlation-contract
+- integrate-correlated-runtime-events: Join descriptor registration, observed runtime entrypoints, JIT symbols, scheduler-owned causal/wait references, and selected stream serialization so one explicit v2 run produces a self-consistent static/runtime overlay and no unrequested run reaches an S3 hook. — after: propagate-static-site-descriptors, implement-bounded-runtime-observation, add-version-capability-negotiation
+- prove-lowering-disabled-and-v2-migration: Add focused Sema/lowering/codegen and public CLI assertions that descriptors round-trip when requested, disabled/static outputs retain captured runtime behavior, controller events use v2 with correlation disabled, v1 requests reject, and no old sink, fixture, advertisement, or compatibility branch remains. — after: capture-event-and-hot-path-baselines, integrate-correlated-runtime-events
+- prove-causality-waits-bounds-and-loss: Add controlled scheduler and buffer tests for real lifecycle transitions, parent and causal references, every wait enum's serializer contract, runnable/task/backpressure producers, buffer saturation, deterministic sampling, exporter failure, nonblocking progress, and the exact conservation equation. — after: integrate-correlated-runtime-events
+- publish-deterministic-private-fixtures: Produce canonical v2 fixtures with fixed IDs, clock, scheduling, sampling, and tiny-buffer loss; validate static-site joins, additive-field behavior, unavailable transition capabilities, and absence of every privacy canary. — after: integrate-correlated-runtime-events
+- establish-controlled-performance-budgets: Extend the explicit external benchmark seam to compare disabled, static-only, aggregate, sampled, and detailed Release runs, record all required cost and loss dimensions, and require an approved compatible-baseline result before enabled default promotion. — after: capture-event-and-hot-path-baselines, integrate-correlated-runtime-events
+- update-owning-contracts-and-runbooks: Update the observable SSOT, public service inventory, machine handoffs, compiler/runtime ownership rules, performance and test runbooks, and generated plan index from the passing implementation and fixture evidence; remove current v1 documentation and keep unsupported producers and S3 authorization state explicit. — after: prove-lowering-disabled-and-v2-migration, prove-causality-waits-bounds-and-loss, publish-deterministic-private-fixtures, establish-controlled-performance-budgets
+- verify-focused-runtime-correlation-closure: Build every affected target, run the complete focused protocol/compiler/runtime/concurrency/privacy/additive-v2 matrix, run the controlled budget comparison and one-time v1-removal scan once, enforce architecture and no-hook/no-private-data structural oracles, and pass repository documentation and hygiene gates. — after: update-owning-contracts-and-runbooks
+Requirements:
+- entry-gated-after-static-producers
+- styio-owned-versioned-wire
+- one-time-v2-contract-migration
+- public-static-runtime-identities
+- descriptor-flow-reuses-sema-snapshot
+- task-and-scheduler-lifecycle
+- explicit-causality
+- typed-wait-relationships
+- aggregate-first-modes
+- bounded-nonblocking-buffers
+- deterministic-sampling-loss
+- capability-negotiation
+- disabled-static-path-budget
+- enabled-mode-budget-handoff
+- deterministic-fixture-compatibility
+- strict-runtime-privacy
+- compiler-runtime-behavior-preserved
+- scope-boundary
+- owning-contracts-current
+Design:
+approach:
+- Use the S1 snapshot producer's public ID value types and fixture parser directly. S3 may add an internal pointer-keyed lookup owned by the immutable Sema artifact solely to transfer already-published site identity into lowering; public records contain only encoded snapshot/site IDs and the lookup is destroyed with the compilation session.
+- Store a compact optional `ObservationSiteRef` on task creation and await StyioIR nodes. The value identifies the immutable generated descriptor table and semantic event role, not a source location. Verifier, walker, optimizer, textual representation, and codegen either preserve it exactly or reject the explicitly requested artifact; no pass may synthesize or silently discard it.
+- Keep disabled/static compilation on the current runtime entrypoints. Instrumented code registers the immutable descriptor table once and calls observed task create/pull entrypoints carrying only compact descriptor indexes. Runtime expands indexes through the registered table and rejects mismatched snapshot/table generations before execution begins.
+- Assign `instance_id` once per task or wait-bearing execution object from the allocating lane ID plus that lane's local instance sequence. Assign event and wait references from the fixed producer-lane ID plus independent producer-local sequences. Store the completion/failure reference on the task before release-notify so a waking task wait can name the actual cause without a global hot-path counter or timestamp inference.
+- Instrument queue waits at the existing condition-wait boundaries through a narrow optional observation callback that receives only queue state and the owning task observation context. The callback is absent in disabled/static mode and cannot alter predicates, locks, notifications, accepted-item draining, close behavior, or the late-enqueue settlement path.
+- Keep the emitter record fixed-size and numeric/enum-based. Strings, JSON serialization, file append, and exporter calls occur only on the drain owner. Aggregate shards use descriptor-precomputed compact indexes for allowed site/family pairs; out-of-range or runtime-only facts go to explicit bounded buckets rather than growing a map or recomputing a hash lookup.
+wire-contract:
+- Runtime-events v2 begins with a capability/session record containing exact contract version, snapshot schema and ID, selected mode, supported and active producer capabilities, privacy profile, producer lanes, buffer and batch bounds, sampling ratio and seed, and monotonic-clock unit. It ends with an accounting/session summary when the sink remains writable.
+- A correlatable event carries `snapshot_id`, `site_id`, `instance_id`, `event_id`, `event_kind`, and typed role. Runtime-only scheduler facts declare `correlation_status: runtime_only`; unavailable correlation is never represented by zero or a guessed site.
+- Causal references are typed edges such as spawn, enqueue, dispatch, completion, wake, failure, cancellation, and backpressure relief and name an earlier or concurrently owned event reference plus subject instance. Consumers may render those edges but may not derive a new causal edge from order or time.
+- Wait records use one wait ID across begin/end, identify waiting and optional subject instances, enumerate runnable, cooperative, io, resource, task, backpressure, timer, cancellation, or unknown, and close with ready, completed, failed, cancelled, timed_out, closed, or unknown. Duration is valid only when both records use the session monotonic clock and is never the reason itself.
+- Unknown additive fields in a supported v2 fixture are ignored or preserved by consumers. Unknown enum values, versions, or capabilities marked critical are rejected with a stable machine code. The event schema version does not inherit stability from the language edition, compiler version, snapshot schema, or consumer protocol.
+- Session and receipt completeness is `complete` only when required producers ran, every retained reference resolves, no buffer/export loss occurred, and the final summary was written; otherwise a stable partial reason distinguishes sampling/aggregation from actual loss, unresolved targets, disabled capabilities, and exporter failure.
+modes-and-accounting:
+- `disabled` creates no S3 runtime state. `aggregate` is the explicit-request default and emits priority envelopes plus fixed aggregates. `sampled` adds deterministic 1/16 detail by default. `detailed` attempts every supported detail event but remains bounded and loss-accounted.
+- Reserve 32 of the default 256 slots in each lane from low-priority detail and accept only power-of-two lane capacities from 64 through 4096. These are protocol-visible resource settings, not claims that loss cannot occur. Any future numeric change requires fixture, memory, and benchmark evidence in the same versioned contract.
+- Sampling uses a versioned fixed-width integer mix over the canonical encoded snapshot/site/instance/family bytes and seed, compared with an exact integer numerator/denominator threshold; it does not use floating point, process-randomized hashing, clock, stream position, or worker timing. Sampling decisions occur before buffer reservation. Priority records bypass sampling; sidecar summary counters update exactly once before detail policy so sampled-out detail remains represented without being assigned a second terminal disposition.
+- Count observed, emitted, aggregate-only, sampled-out, buffer-dropped, and exporter-dropped dispositions by family, plus separate summary-update counters. The final summary, in-process test snapshot, and receipt agree on totals and high-water marks. A missing final stream summary is itself represented by receipt exporter status when the receipt remains available.
+performance-and-benchmark:
+- Disabled and static-only structural acceptance is zero S3 runtime callsites, allocations, buffers, worker/drain threads, instance/event atomics, and exporter work. Exact pre-change task/scheduler behavior and controller-event meaning remain the oracle, while their wire representation migrates deliberately to v2.
+- The external benchmark handoff runs paired Release workloads with identical compiler revision, configuration, input, worker count, warmup, repetitions, and machine isolation. It reports medians and retained samples for wall and CPU time, allocations, peak RSS, binary/artifact size, produced/aggregated/emitted bytes and records, lane occupancy, sampling, and every loss class.
+- Do not encode guessed percentage thresholds in source or tests. The benchmark authority records compatible baseline identity and approved per-mode ceilings in its result contract; the integration test rejects missing, stale, incomparable, pending, or failed budgets. V2 remains opt-in until disabled/static and each candidate default mode have approved green results.
+privacy-and-failure:
+- V2 omits `log.emitted` payload text, source paths, raw diagnostic messages, values, labels, environment, thread/process/machine identifiers, and addresses. It may carry stable diagnostic code, semantic type/shape, count/size, duration, queue depth/capacity, and opaque public IDs. Source navigation happens by resolving `site_id` in the separately authorized snapshot.
+- A sink is a callback owned outside the runtime hot path. Sink absence disables draining output; sink failure marks exporter loss and disables further calls. Neither case changes task state, wakes, return values, diagnostics, process exit, or resource cleanup.
+- Fixtures include canaries resembling secrets, absolute paths, host names, addresses, raw values, labels, and diagnostic messages and scan both canonical files and test-captured records. Repository local-information and hygiene gates remain mandatory.
+migration-and-ownership:
+- Replace runtime-events v1 in one cutover: remove its serializer, sink, fixture goldens, advertised support, compatibility branches, tests, and current documentation while preserving controller-event meaning in strict v2 records. Use a direct one-time plan `rg` scan to prove removal; do not commit a migration utility or retain a permanent migration-only test.
+- `supported_contracts.runtime_events` advertises version 2 only. Required capabilities are selected in compile-plan `emit.runtime_observation`; version 1, unknown versions, and unsupported requirements produce stable service diagnostics before program execution. A runtime-event artifact request without the observation object emits v2 controller records with correlation mode disabled.
+- Styio's v2 fixtures and observable-language SSOT are semantic authority. Pafio may request and route the artifact path; Vityo, agents, OpenTelemetry, and Perfetto adapters may map fields; none may redefine site identity, event meaning, causality, wait classification, completeness, or loss.
+- Cancellation and cooperative suspension/resume event kinds are schema-owned but producer capabilities remain false until an accepted runtime transition exists. S3 tests serialize and negotiate those kinds without pretending current release or elapsed time is cancellation/suspension.
+reference-comparison:
+- Linux kernel circular-buffer guidance supports one producer/one consumer with release/acquire publication and an explicit full-buffer policy; Styio chooses bounded drop-new detail rather than application blocking or overwrite because loss must be counted and priority lifecycle must not be displaced silently.
+- Perfetto's producer staging model supports small bounded writer-local buffers and a separate drain owner; Styio applies that shape per scheduler lane but keeps its own fixed event semantics and does not adopt Perfetto's storage, ABI, or trace identity.
+- OpenTelemetry's batch processor and SDK metrics distinguish bounded queue drops and exporter processing; Styio applies explicit queue-full/export loss classes but does not create spans, trace context, propagation, or a distributed tracing API.
+patterns:
+- pattern_catalog: refactoring-guru-catalog-22-v1
+- candidate: Adapter
+- decision: reject
+- pressure: A consumer might ask for the former v1 shape while the strict correlated v2 schema changes fields and privacy semantics.
+- expected_benefit: none under the repository's required one-time migration; retaining an adapter would preserve obsolete raw-message/path semantics and create a permanent compatibility surface.
+- simpler_alternative: Publish one v2 typed model and serializer, reject v1 requests explicitly, migrate all current producers and fixtures, and let external consumers upgrade against Styio-owned v2 fixtures.
+- application: Keep one event session, producer vocabulary, accounting model, sink lifecycle, and stateless v2 serializer; tolerate only documented additive v2 fields.
+- costs_and_rejections: Consumers must migrate at the version boundary, which is made explicit by capability negotiation and stable rejection. Adapter, class hierarchy, Abstract Factory, Decorator chain, and consumer-owned conversion are rejected as stale compatibility or unnecessary indirection.
+- candidate: Observer
+- decision: reject
+- pressure: Multiple future exporters may consume runtime facts, but dynamic subscriber fanout on every scheduler transition would add contention and ambiguous failure semantics.
+- expected_benefit: none for the current one-sink handoff; exporter multiplicity is outside this stage.
+- simpler_alternative: Configure one optional sink and one drain owner per observation session; external adapters consume the resulting Styio stream.
+- application: Use direct numeric record production into bounded per-lane buffers and a single drain callback.
+- costs_and_rejections: Observer subscription lifecycle, fanout ordering, and per-event dispatch would increase hot-path work and could let exporter availability affect execution; Strategy is also rejected because four modes are a closed enum over one collector, not independently replaceable algorithms.
+Acceptance:
+- Given: S1 public-snapshot and S2 delta/query/lineage plans and their producer fixtures — When: the S3 entry gate runs before any implementation Node — Then: both upstream plans report completed delivery, their exact fixture oracles pass, and S3 reads their public IDs/capabilities without changing any S1/S2 file — Oracle: `python3 -c "import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)"`, `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error`, and `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error` all exit zero before the first S3 write — Evidence: command: prerequisite plan and producer-fixture gate — Covers: entry-gated-after-static-producers, deterministic-fixture-compatibility
+- Given: A qualified accepted snapshot containing task and await sites and an explicitly requested v2 run — When: Sema builds the instrumentation table, lowering and verification complete, codegen registers descriptors, and tasks execute — Then: every correlatable task and wait event contains the exact fixture `snapshot_id` and `site_id`, each concrete occurrence has a unique non-handle `instance_id`, and the consumer resolves the source anchor only through the separate S1 fixture — Oracle: `StyioObservableRuntime.AcceptedSnapshotSitesRoundTripThroughLoweringAndRuntime`, `StyioLoweringInternal.ObservationDescriptorsPreserveSnapshotAndSiteIds`, and `StyioCodegenInternal.ObservedTaskAbiUsesCompactDescriptors` pass — Evidence: command: static-site runtime round-trip tests — Covers: public-static-runtime-identities, descriptor-flow-reuses-sema-snapshot, runtime-correlation-wire-contract, lowering-correlation-descriptors, compile-run-correlation-evidence
+- Given: Deterministically scheduled task creation, bounded enqueue, worker dispatch, successful completion, failure, blocking await, result consumption, release, and queue close — When: the observed runtime executes — Then: lifecycle and queue transitions are exact, spawn/enqueue/dispatch/completion/wake/failure references name their real causes, wait begin/end pairs classify runnable, task, and backpressure waits explicitly, and unsupported cancellation or cooperative suspension is advertised unavailable rather than inferred — Oracle: `StyioObservableRuntime.TaskSchedulerEmitsOwnedLifecycleAndCausalEdges`, `StyioObservableRuntime.WaitEpisodesPairReasonsSubjectsAndResolutions`, and `StyioObservableRuntime.UnavailableTransitionsAreCapabilitiesNotSyntheticEvents` pass — Evidence: command: deterministic scheduler causality and wait tests — Covers: task-and-scheduler-lifecycle, explicit-causality, typed-wait-relationships, compiler-runtime-behavior-preserved, scheduler-observation-producer, focused-correlation-evidence
+- Given: Aggregate, sampled, and detailed sessions with fixed IDs/seed and deliberately saturated tiny per-lane buffers plus a failing sink — When: multiple workers produce observations while the drain owner progresses independently — Then: emitters never wait for telemetry, memory stays within negotiated bounds, aggregate results and sample choices are deterministic, priority reservation is honored, exporter failure does not affect task results, and each family satisfies the conservation equation — Oracle: `StyioObservableRuntime.AggregateModeUsesFixedSiteStorage`, `StyioObservableRuntime.SampledModeIsDeterministic`, `StyioObservableRuntime.SaturationIsBoundedNonBlockingAndLossAccounted`, and `StyioObservableRuntime.ExporterFailureIsIsolated` pass together with existing `StyioBoundedTaskScheduling.*` exact-once tests — Evidence: command: buffer, sampling, loss, and scheduler concurrency tests — Covers: aggregate-first-modes, bounded-nonblocking-buffers, deterministic-sampling-loss, compiler-runtime-behavior-preserved, bounded-observation-buffer, focused-correlation-evidence
+- Given: Machine info, an existing runtime-event artifact request without an S3 observation object, supported v2 requests, and requests for v1, unknown versions, or critical capabilities — When: negotiation and execution run after the atomic migration — Then: version 2 alone is advertised, the existing artifact request emits v2 controller records with correlation disabled, an enabled stream starts with its capability record, and v1, unknown, or unsupported critical requests fail before execution with stable service codes — Oracle: `StyioDiagnostics.RuntimeEventCapabilitiesAdvertiseV2Only`, `StyioDiagnostics.CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode`, `StyioDiagnostics.CompilePlanNegotiatesRuntimeEventsV2`, and `StyioDiagnostics.UnsupportedRuntimeEventVersionsAndCapabilitiesFailBeforeExecution` pass, and the one-time direct `rg` migration scan finds no v1 implementation, fixture, advertisement, current documentation, or compatibility branch — Evidence: command: public machine contract, compile-plan migration, and one-time v1-removal proof — Covers: styio-owned-versioned-wire, one-time-v2-contract-migration, capability-negotiation, runtime-correlation-wire-contract, runtime-event-v2-serializer, negotiated-runtime-event-stream, compile-run-correlation-evidence
+- Given: Ordinary compilation, static-snapshot-only publication, and current task/resource/scheduler fixtures, with and without the existing runtime-event artifact request — When: disabled/static StyioIR, LLVM, runtime symbols, allocations, scheduler counters, diagnostics, outputs, and migrated v2 controller events are compared with the captured behavioral baseline — Then: there are no S3 observed callsites, buffers, drain threads, instance/event increments, or correlated exporter operations beyond the existing controller-artifact work, every program and scheduler result is unchanged, and controller-event meaning is retained in the intentional v2 wire shape — Oracle: `StyioCodegenInternal.DisabledAndStaticObservationUseExistingTaskAbi`, `StyioObservableRuntime.DisabledModeAllocatesNoRuntimeState`, `StyioDiagnostics.CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode`, the existing task-resource/runtime/security suites, and the no-observed-runtime-symbol `rg` oracle over disabled LLVM fixtures all pass — Evidence: command: disabled/static zero-path and migrated-event behavior matrix — Covers: disabled-static-path-budget, compiler-runtime-behavior-preserved, lowering-correlation-descriptors, negotiated-runtime-event-stream, compile-run-correlation-evidence
+- Given: The fixed v2 producer fixture, an independent consumer parser, unknown additive fields, forced loss, and privacy canaries in source, values, labels, paths, environment, diagnostics, and address-shaped data — When: fixtures serialize, parse, join to S1/S2 inputs, and are scanned — Then: IDs, causality, waits, aggregates, sampling, and loss round-trip canonically, additive noncritical fields do not change known meaning, and no forbidden canary appears in any v2 payload — Oracle: `StyioObservableRuntime.DeterministicFixtureIsConsumerIndependent`, `StyioObservableRuntime.UnknownAdditiveFieldsPreserveKnownSemantics`, and `StyioObservableRuntime.StrictPrivacyFixtureExcludesCanaries` pass and the fixture privacy scanner exits zero — Evidence: command: deterministic compatibility and privacy fixtures — Covers: deterministic-fixture-compatibility, strict-runtime-privacy, scope-boundary, deterministic-correlation-fixtures, focused-correlation-evidence
+- Given: Compatible controlled Release baselines and disabled, static-only, aggregate, sampled, and detailed candidates — When: the external benchmark contract runs with identical workload/configuration and approved per-mode budgets — Then: all required wall, CPU, allocation, memory, size, volume, occupancy, and loss fields are present, disabled/static structural zeros hold, each enabled candidate passes its approved ceilings, and missing/stale/pending/incomparable budgets fail the benchmark gate without changing runtime behavior — Oracle: `styio_observable_runtime_budget_contract` and `styio_observable_runtime_perf_test` exit zero against the approved baseline result — Evidence: command: controlled external benchmark comparison — Covers: enabled-mode-budget-handoff, disabled-static-path-budget, controlled-budget-handoff
+- Given: The implementation, fixtures, v2 migration proof, and benchmark result are green — When: architecture, runtime-surface, documentation, local-information, repository-hygiene, generated-index, and diff gates run — Then: runtime/backend code has no frontend implementation dependency, consumers are documented as mappings only, unsupported transitions and all exclusions remain explicit, S3 is still unapproved, every durable focused command is cataloged, the migration proof remains a direct plan command rather than a committed script/test, and no private local information or stale event sink remains — Oracle: `architecture_layer_gate`, `scripts/runtime-surface-gate.py`, `scripts/docs-gate.sh --mode worktree`, `scripts/local-info-leak-gate.py --mode worktree`, `scripts/repo-hygiene-gate.py --mode worktree`, the one-time v1-removal and runtime-no-frontend `rg` assertions, and `git diff --check` all exit zero — Evidence: command: focused architecture and owning-contract gates — Covers: styio-owned-versioned-wire, one-time-v2-contract-migration, strict-runtime-privacy, scope-boundary, owning-contracts-current, observable-runtime-owning-contract, observable-runtime-service-inventory, runtime-observation-performance-route, runtime-correlation-test-runbook, current-plan-index
+Regression:
+Commands:
+- python3 -c "import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)"
+- ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error
+- ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error
+- cmake --build build/default --target styio styio_resource_topology_test styio_typeinfer_internal_test styio_lowering_internal_test styio_runtime_scheduler_test styio_externlib_internal_test styio_codegen_internal_test styio_observable_runtime_test styio_test styio_security_test -j2
+- ctest --test-dir build/default -R '^(StyioObservableRuntime\.|StyioLoweringInternal\.ObservationDescriptorsPreserveSnapshotAndSiteIds|StyioCodegenInternal\.(ObservedTaskAbiUsesCompactDescriptors|DisabledAndStaticObservationUseExistingTaskAbi)|StyioDiagnostics\.(RuntimeEventCapabilitiesAdvertiseV2Only|CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode|CompilePlanNegotiatesRuntimeEventsV2|UnsupportedRuntimeEventVersionsAndCapabilitiesFailBeforeExecution))' --output-on-failure --no-tests=error
+- ctest --test-dir build/default -R '^StyioBoundedTaskScheduling\.' --output-on-failure --no-tests=error
+- ctest --test-dir build/default -L '^(resource_topology|sema_internal|lowering_internal|task_resources|runtime|concurrency|security)$' --output-on-failure --no-tests=error
+- python3 scripts/runtime-surface-gate.py
+- ctest --test-dir build/default -R '^architecture_layer_gate$' --output-on-failure --no-tests=error
+- cmake -S . -B build/observable-runtime-benchmark -DCMAKE_BUILD_TYPE=Release -DSTYIO_BENCHMARK_ROOT="$STYIO_BENCHMARK_ROOT" -DSTYIO_REQUIRE_EXTERNAL_BENCHMARK=ON
+- cmake --build build/observable-runtime-benchmark --target styio_observable_runtime_perf_test styio_observable_runtime_budget_contract_test -j2
+- ctest --test-dir build/observable-runtime-benchmark -R '^styio_observable_runtime_(perf|budget_contract)$' --output-on-failure --no-tests=error
+- test -z "$(rg -n 'styio_observation|runtime_observation' build/default/tests/fixtures/observable-runtime-correlation/v2/disabled.llvm.ir build/default/tests/fixtures/observable-runtime-correlation/v2/static-only.llvm.ir || true)"
+- test -z "$(rg -n '#include .*Styio(AST|Parser|Sema|Lowering)/' src/StyioRuntime src/StyioExtern src/StyioServices/StyioObservable || true)"
+- test -z "$(rg -n 'StyioRuntimeEventSinkLatest|g_styio_runtime_event_sink_latest|RuntimeEvents?V1|runtime_events_v1|serialize_runtime_events_v1' src tests docs/design docs/EXTERNAL-SERVICES.md docs/external/for-pafio docs/teams workflows/TEST-CATALOG.md || true)"
+- bash scripts/docs-gate.sh --mode worktree
+- python3 scripts/local-info-leak-gate.py --mode worktree
+- python3 scripts/repo-hygiene-gate.py --mode worktree
+- git diff --check
+Paths:
+- src/StyioServices/StyioObservable
+- src/StyioResourceTopology
+- src/StyioSema
+- src/StyioLowering
+- src/StyioIR
+- src/StyioCodeGen
+- src/StyioJIT
+- src/StyioRuntime
+- src/StyioExtern
+- src/StyioServices/StyioConfig
+- src/StyioServices/MANIFEST.md
+- src/main.cpp
+- src/cmake
+- src/CMakeLists.txt
+- tests/observable_runtime_test.cpp
+- tests/fixtures/observable-runtime-correlation/v2
+- tests/resource_topology_test.cpp
+- tests/typeinfer_internal_test.cpp
+- tests/lowering_internal_test.cpp
+- tests/runtime_scheduler_test.cpp
+- tests/externlib_internal_test.cpp
+- tests/codegen_internal_test.cpp
+- tests/security/styio_security_test.cpp
+- tests/styio_test.cpp
+- tests/CMakeLists.txt
+- benchmark
+- docs/design/Styio-Observable-Language.md
+- docs/design/performance-testing.md
+- docs/EXTERNAL-SERVICES.md
+- docs/external/for-pafio
+- docs/teams/SEMA-IR-RUNBOOK.md
+- docs/teams/CODEGEN-RUNTIME-RUNBOOK.md
+- docs/teams/CLI-NANO-RUNBOOK.md
+- docs/teams/PERF-STABILITY-RUNBOOK.md
+- docs/teams/TEST-QUALITY-RUNBOOK.md
+- docs/teams/DOCS-ECOSYSTEM-RUNBOOK.md
+- docs/teams/DOC-STATS.md
+- workflows/TEST-CATALOG.md
+- docs/plan/INDEX.md
+
+## Full regression
+Commands:
+- cmake --build build/default -j2
+- ctest --test-dir build/default --output-on-failure --no-tests=error
+- cmake --build build/observable-runtime-benchmark --target styio_observable_runtime_perf_test styio_observable_runtime_budget_contract_test -j2
+- ctest --test-dir build/observable-runtime-benchmark -R '^styio_observable_runtime_(perf|budget_contract)$' --output-on-failure --no-tests=error
+- python3 scripts/runtime-surface-gate.py
+- ctest --test-dir build/default -R '^architecture_layer_gate$' --output-on-failure --no-tests=error
+- bash scripts/docs-gate.sh --mode worktree
+- python3 scripts/local-info-leak-gate.py --mode worktree
+- python3 scripts/repo-hygiene-gate.py --mode worktree
+- git diff --check
+Paths:
+- src
+- tests
+- benchmark
+- docs/design/Styio-Observable-Language.md
+- docs/design/performance-testing.md
+- docs/EXTERNAL-SERVICES.md
+- docs/external
+- docs/teams
+- workflows/TEST-CATALOG.md
+- docs/plan
