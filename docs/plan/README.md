@@ -2,13 +2,13 @@
 
 **Purpose:** Define the tracked Better Plan v3 workspace under `docs/plan/`, with current delivery state indexed by [Manifest.json](./Manifest.json) and unfinished product work owned by the [next-stage gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-04
 
 ## Workspace Boundary
 
 1. `Manifest.json` is the workspace registry and uses schema `better-plan.manifest/v3`.
 2. Each registered directory contains one semantic `Plan.json`, one execution-only `Checkpoints.json`, and one render-only `Plan.md` projection.
-3. `Design.md` and `Design.pristine.md` are compiler inputs and provenance for the current authorized revision; they are not alternate semantic state.
+3. `Design.md` and `Design.pristine.md` are compiler inputs and provenance; they are not alternate semantic state.
 4. The repository-local validator checks only v3 structure and cross-file identity:
 
    ```bash
@@ -29,5 +29,14 @@
 
 1. Generated collection inventory: [INDEX.md](./INDEX.md)
 2. Plan registry: [Manifest.json](./Manifest.json)
-3. Current authorized delivery: [delivery/Plan.md](./delivery/Plan.md)
-4. Explicit future-work register: [NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md#8-carry-forward-register)
+3. Completed delivery records:
+   - [PLAN-001 — restore nightly CI and migrate the plan workspace](./delivery/Plan.md)
+   - [PLAN-002 — observable topology foundation](./observable-topology-foundation/Plan.md)
+   - [PLAN-003 — persistent semantic IDs](./persistent-semantic-ids/Plan.md)
+4. Unapproved future delivery plans:
+   - [PLAN-004 — immutable observable topology snapshots](./observable-static-snapshot/Plan.md)
+   - [PLAN-005 — topology delta, lineage, and queries](./observable-delta-query-lineage/Plan.md)
+   - [PLAN-006 — runtime and scheduler correlation](./observable-runtime-correlation/Plan.md)
+5. Explicit future-work register: [NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md#8-carry-forward-register)
+
+PLAN-004 through PLAN-006 are planning artifacts only. They have no authorization receipt or execution checkpoints, and no Worker may start from them until each plan is separately approved.
