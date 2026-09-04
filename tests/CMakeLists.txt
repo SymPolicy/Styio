@@ -9,6 +9,15 @@ add_test(
 set_tests_properties(docs_audit PROPERTIES LABELS "docs")
 
 add_test(
+  NAME architecture_layer_gate
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/architecture-layer-gate.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(architecture_layer_gate PROPERTIES
+  LABELS "styio_pipeline;architecture"
+)
+
+add_test(
   NAME bootstrap_dev_env_dependency_scope
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/run_styio_case.py"
           bootstrap-scope

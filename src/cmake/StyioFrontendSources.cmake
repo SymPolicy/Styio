@@ -11,6 +11,7 @@ set(STYIO_FRONTEND_FOUNDATION_SOURCES
   StyioParser/NewParserExpr.cpp
   StyioParser/Tokenizer.cpp
   StyioProfiler/FrontendProfiler.cpp
+  StyioUtil/SemanticIdentity.cpp
   StyioUtil/SourceMap.cpp
   StyioSession/SymbolInterner.cpp
   StyioSession/TypeTable.cpp

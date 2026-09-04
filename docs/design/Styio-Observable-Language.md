@@ -69,11 +69,11 @@ Its active edge vocabulary is:
 
 `Placement` is currently declared but is not produced by the normal topology builder. The `Eof` type state is likewise declared but is not currently emitted by normal builder state mapping. A declared enum value is not an implemented observable fact until a producer, consumer, and acceptance test exist.
 
-The graph currently supports validation, kind counts, cycle detection, and a diagnostic `debug_string()`. It does not yet provide a persistent semantic ID, immutable published snapshot, evidence model, delta, query index, wire schema, or runtime correlation contract.
+The graph currently supports validation, kind counts, cycle detection, a diagnostic `debug_string()`, and compiler-internal opaque semantic identity on every node. It does not yet provide an immutable published snapshot, evidence model, delta, query index, wire schema, lineage protocol, or runtime correlation contract.
 
-Current node IDs are build-order indexes and node source links are process-local AST pointers. Both are valid internal implementation details. Neither may be exposed as a persistent identity. `debug_string()` is diagnostic text, may contain source-derived labels, and is not an external protocol or telemetry format.
+Current dense node IDs are build-order indexes and node source links are process-local AST pointers. Both remain internal implementation details and neither is the semantic identity. `debug_string()` is diagnostic text, contains no semantic IDs, may contain source-derived labels, and is not an external protocol or telemetry format.
 
-Semantic analysis now owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal cutover does not change diagnostics, code generation, or ordinary compiler operation. Persistent semantic IDs, public snapshot publication, serialization, runtime hooks, scheduler correlation, and consumer APIs remain deferred boundaries.
+Semantic analysis owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Its order-unspecified descriptor seam exposes only node kind, typed semantic role, opaque identity, and explicit qualification status; the owning artifact retains the qualified-or-anonymous scope once. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal capability does not change diagnostics, code generation, or ordinary compiler operation. Public snapshot publication, identity text or serialization, lineage, runtime hooks, scheduler correlation, IDE/Vityo integration, caches, and consumer APIs remain deferred boundaries.
 
 ## 4. Static observable artifact
 
@@ -109,7 +109,9 @@ A persistent semantic ID must not be derived from:
 
 Its logical inputs may include project identity, logical module identity, declaration identity, semantic role, and a compiler-maintained local structural identity. Module identity must use repository or package semantics rather than an absolute machine path. Consumers treat the encoded ID as opaque.
 
-Whitespace, comments, formatting, optimization level, and unrelated local edits must not cause semantic identity churn. Rename, move, rewrite, split, and merge may change identity, but a compiler-known transformation must emit explicit lineage rather than asking consumers to guess from text similarity.
+The implemented compiler-internal identity uses a caller-provided project/package plus canonical slash-form logical module scope, or an explicit anonymous scope that is not globally comparable. A versioned, fixed-width length-prefixed preimage combines that scope with typed owner, role, and local structural discriminator components; the first 128 bits of SHA-256 are retained as the opaque value. Source locations, parser filenames, file-resource label text, literal payloads, addresses, session-local IDs, graph order, and raw source/body digests are forbidden inputs. A per-build exact-key guard fails closed on collision without salting or probing.
+
+Whitespace, comments, formatting, optimization level, and unrelated named or structurally distinct declarations do not cause identity churn. Named owner changes and typed structural rewrites may change the affected region. Indistinguishable same-owner siblings are unique and stable across an equivalent rebuild, but insertion, deletion, or reordering within that ambiguity class has no stability promise. Public lineage remains deferred; consumers must not infer it from text similarity.
 
 Runtime correlation uses an immutable `snapshot_id` plus a persistent static `site_id`. Runtime instance IDs never replace static site identity.
 

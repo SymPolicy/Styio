@@ -10,7 +10,9 @@
 class AstToStyioIRLowerer : public StyioSemaContext
 {
 public:
-  AstToStyioIRLowerer() {}
+  AstToStyioIRLowerer() : StyioSemaContext() {}
+  explicit AstToStyioIRLowerer(styio::semantic_identity::Scope scope) :
+      StyioSemaContext(std::move(scope)) {}
   ~AstToStyioIRLowerer() override {}
 
   StyioIR* toStyioIR(CommentAST* ast) override;
