@@ -8,6 +8,7 @@
 #include "../StyioAST/AST.hpp"
 #include "../StyioException/Exception.hpp"
 #include "../StyioLowering/PortableCallableBodyLowering.hpp"
+#include "../StyioUtil/SemanticIdentity.hpp"
 
 namespace styio::sema {
 namespace {
@@ -81,27 +82,14 @@ normalized_import_path(std::string path) {
 
 void
 validate_import_path(const std::string& path) {
-  if (path.empty()
-      || path.front() == '/'
-      || path.back() == '/'
-      || path.find('\\') != std::string::npos) {
+  const auto error = styio::semantic_identity::canonical_module_error(path);
+  if (error == styio::semantic_identity::CanonicalModuleError::NotCanonicalSlashForm) {
     throw StyioTypeError("invalid callable module import path `" + path + "`");
   }
-  std::size_t begin = 0;
-  while (begin <= path.size()) {
-    const std::size_t end = path.find('/', begin);
-    const std::string_view segment(
-      path.data() + begin,
-      (end == std::string::npos ? path.size() : end) - begin);
-    if (segment.empty() || segment == "." || segment == "..") {
-      throw StyioTypeError(
-        "callable module import path may not contain empty, `.` or `..` segments"
-      );
-    }
-    if (end == std::string::npos) {
-      break;
-    }
-    begin = end + 1;
+  if (error == styio::semantic_identity::CanonicalModuleError::InvalidSegment) {
+    throw StyioTypeError(
+      "callable module import path may not contain empty, `.` or `..` segments"
+    );
   }
 }
 

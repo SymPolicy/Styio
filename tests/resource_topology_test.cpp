@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -29,6 +32,294 @@ namespace {
 std::unique_ptr<MainBlockAST>
 program(std::vector<StyioAST*> stmts) {
   return std::unique_ptr<MainBlockAST>(MainBlockAST::Create(std::move(stmts)));
+}
+
+using DescriptorKey = std::tuple<
+  int,
+  int,
+  std::array<std::uint8_t, 16>,
+  bool>;
+
+std::vector<std::pair<size_t, size_t>> line_seps(const std::string& src);
+void free_tokens(std::vector<StyioToken*>& tokens);
+std::set<DescriptorKey> descriptor_set(
+  const std::vector<rt::ValidatedArtifact::SemanticDescriptor>& descriptors);
+std::vector<rt::ValidatedArtifact::SemanticDescriptor> parsed_descriptors(
+  const std::string& src,
+  const std::string& parser_label,
+  styio::semantic_identity::Scope scope);
+
+class TopologyArtifactProbe : public AstToStyioIRLowerer
+{
+public:
+  using AstToStyioIRLowerer::AstToStyioIRLowerer;
+
+  const rt::ValidatedArtifact* artifact_for(const MainBlockAST* root) const {
+    return resource_topology_artifact_for(root);
+  }
+};
+
+TEST(StyioSemanticIdentity, CanonicalModuleRulesAndQualificationAreExplicit) {
+  using styio::semantic_identity::CanonicalModuleError;
+  using styio::semantic_identity::Scope;
+  EXPECT_EQ(styio::semantic_identity::canonical_module_error("pkg/module"), CanonicalModuleError::None);
+  EXPECT_EQ(styio::semantic_identity::canonical_module_error("pkg.module"), CanonicalModuleError::NotCanonicalSlashForm);
+  EXPECT_EQ(styio::semantic_identity::canonical_module_error("pkg//module"), CanonicalModuleError::InvalidSegment);
+  EXPECT_THROW(Scope::qualified("", "pkg/module"), std::invalid_argument);
+  EXPECT_THROW(Scope::qualified("project/package", "pkg/module"), std::invalid_argument);
+  EXPECT_THROW(Scope::qualified("project.package", "pkg.module"), std::invalid_argument);
+  const Scope qualified = Scope::qualified("project.package", "pkg/module");
+  EXPECT_TRUE(qualified.is_globally_comparable());
+  EXPECT_EQ(qualified.project_package_identity(), "project.package");
+  EXPECT_EQ(qualified.logical_module_identity(), "pkg/module");
+  EXPECT_FALSE(Scope::anonymous().is_globally_comparable());
+}
+
+TEST(StyioSemanticIdentity, LengthPrefixedDigestIsDeterministic) {
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "pkg/module");
+  const auto first = styio::semantic_identity::derive(scope, {"ab", "c"}, "Value", {"site"});
+  const auto repeat = styio::semantic_identity::derive(scope, {"ab", "c"}, "Value", {"site"});
+  const auto ambiguous_without_lengths = styio::semantic_identity::derive(scope, {"a", "bc"}, "Value", {"site"});
+  EXPECT_EQ(first, repeat);
+  EXPECT_NE(first, ambiguous_without_lengths);
+}
+
+TEST(StyioSemanticIdentity, CollisionGuardFailsClosed) {
+  styio::semantic_identity::CollisionGuard guard;
+  const auto first = styio::semantic_identity::derive(
+    styio::semantic_identity::Scope::anonymous(), {"owner"}, "Value", {"first"});
+  guard.record_for_test(first, "first-exact-key");
+  EXPECT_THROW(
+    guard.record_for_test(first, "first-exact-key"),
+    std::logic_error);
+  EXPECT_THROW(
+    guard.record_for_test(first, "different-exact-key"),
+    std::logic_error);
+}
+
+TEST(StyioResourceTopology, SemanticIdsSurviveFreshRebuildAndTrivia) {
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto baseline = parsed_descriptors("\"hello\" -> @stdout\n", "first.styio", scope);
+  const auto trivia = parsed_descriptors(
+    "// formatting-only comment\n  \"hello\"    ->    @stdout\n",
+    "second.styio",
+    scope);
+  EXPECT_EQ(descriptor_set(baseline), descriptor_set(trivia));
+}
+
+TEST(StyioResourceTopology, SemanticIdsIgnoreSourceLocationsFileNamesAndLabels) {
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto first = parsed_descriptors(
+    "f <- @file(\"alpha/input.txt\")\nf -> @()\n",
+    "one/location.styio",
+    scope);
+  const auto second = parsed_descriptors(
+    "\n\n f <- @file(\"other/output.txt\")\n f -> @()\n",
+    "different/location.styio",
+    scope);
+  EXPECT_EQ(descriptor_set(first), descriptor_set(second));
+}
+
+TEST(StyioResourceTopology, UnrelatedEditsPreserveUnaffectedSemanticIds) {
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto before = parsed_descriptors(
+    "stable = 1\n\"a\" -> @stdout\n",
+    "baseline.styio",
+    scope);
+  const auto differently_shaped = parsed_descriptors(
+    "stable = 1\n\"a\" -> @stdout\nunrelated = true\n",
+    "different-shape.styio",
+    scope);
+  const auto same_shaped = parsed_descriptors(
+    "unrelated = 2\nstable = 1\n\"a\" -> @stdout\n",
+    "same-shape.styio",
+    scope);
+  const auto renamed = parsed_descriptors(
+    "renamed = 1\n\"a\" -> @stdout\n",
+    "renamed-owner.styio",
+    scope);
+  const auto expect_preserved = [&](const auto& edited) {
+    std::set<std::array<std::uint8_t, 16>> edited_ids;
+    for (const auto& descriptor : edited) {
+      edited_ids.insert(descriptor.identity.bytes);
+    }
+    for (const auto& descriptor : before) {
+      EXPECT_TRUE(edited_ids.count(descriptor.identity.bytes));
+    }
+  };
+  expect_preserved(differently_shaped);
+  expect_preserved(same_shaped);
+
+  const auto value_ids = [](const auto& descriptors) {
+    std::set<std::array<std::uint8_t, 16>> identities;
+    for (const auto& descriptor : descriptors) {
+      if (descriptor.role == rt::SemanticRole::Value) {
+        identities.insert(descriptor.identity.bytes);
+      }
+    }
+    return identities;
+  };
+  std::vector<std::array<std::uint8_t, 16>> shared_value_ids;
+  const auto baseline_values = value_ids(before);
+  const auto renamed_values = value_ids(renamed);
+  std::set_intersection(
+    baseline_values.begin(), baseline_values.end(),
+    renamed_values.begin(), renamed_values.end(),
+    std::back_inserter(shared_value_ids));
+  // Only the unchanged redirect payload remains shared; the renamed binding
+  // and its same-shaped initializer must belong to a different owner path.
+  EXPECT_EQ(shared_value_ids.size(), 1u);
+}
+
+TEST(StyioResourceTopology, ScopeRenameAndRewriteBoundariesAreExplicit) {
+  using IdentityBytes = std::array<std::uint8_t, 16>;
+  const auto identities_for_roles = [](
+    const std::vector<rt::ValidatedArtifact::SemanticDescriptor>& descriptors,
+    std::initializer_list<rt::SemanticRole> selected_roles
+  ) {
+    const std::set<rt::SemanticRole> roles(selected_roles);
+    std::set<IdentityBytes> identities;
+    for (const auto& descriptor : descriptors) {
+      if (roles.count(descriptor.role) != 0) {
+        identities.insert(descriptor.identity.bytes);
+      }
+    }
+    return identities;
+  };
+  const auto all_identities = [&](const auto& descriptors) {
+    return identities_for_roles(descriptors, {
+      rt::SemanticRole::Program,
+      rt::SemanticRole::DriverSource,
+      rt::SemanticRole::Value,
+      rt::SemanticRole::Sink,
+    });
+  };
+  const auto has_intersection = [](const auto& lhs, const auto& rhs) {
+    std::vector<IdentityBytes> intersection;
+    std::set_intersection(
+      lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+      std::back_inserter(intersection));
+    return !intersection.empty();
+  };
+
+  const std::string baseline_source =
+    "owned_site = 1\n"
+    "\"stable\" -> @stdout\n";
+  const auto scope = styio::semantic_identity::Scope::qualified("project", "app/main");
+  const auto baseline = parsed_descriptors(baseline_source, "baseline.styio", scope);
+  const auto renamed = parsed_descriptors(
+    "renamed_site = 1\n\"stable\" -> @stdout\n",
+    "renamed.styio",
+    scope);
+  const auto rewritten = parsed_descriptors(
+    "owned_site = \"typed rewrite\"\n\"stable\" -> @stdout\n",
+    "rewritten.styio",
+    scope);
+
+  const auto unaffected_roles = {
+    rt::SemanticRole::Program,
+    rt::SemanticRole::DriverSource,
+    rt::SemanticRole::Sink,
+  };
+  EXPECT_EQ(
+    identities_for_roles(baseline, unaffected_roles),
+    identities_for_roles(renamed, unaffected_roles));
+  EXPECT_EQ(
+    identities_for_roles(baseline, unaffected_roles),
+    identities_for_roles(rewritten, unaffected_roles));
+  EXPECT_NE(descriptor_set(baseline), descriptor_set(renamed));
+  EXPECT_NE(descriptor_set(baseline), descriptor_set(rewritten));
+  EXPECT_NE(
+    identities_for_roles(baseline, {rt::SemanticRole::Value}),
+    identities_for_roles(renamed, {rt::SemanticRole::Value}));
+  EXPECT_NE(
+    identities_for_roles(baseline, {rt::SemanticRole::Value}),
+    identities_for_roles(rewritten, {rt::SemanticRole::Value}));
+  EXPECT_TRUE(has_intersection(all_identities(baseline), all_identities(renamed)));
+  EXPECT_TRUE(has_intersection(all_identities(baseline), all_identities(rewritten)));
+
+  const auto project_changed = parsed_descriptors(
+    baseline_source,
+    "project-change.styio",
+    styio::semantic_identity::Scope::qualified("other-project", "app/main"));
+  const auto module_changed = parsed_descriptors(
+    baseline_source,
+    "module-change.styio",
+    styio::semantic_identity::Scope::qualified("project", "app/renamed"));
+  EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(project_changed)));
+  EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(module_changed)));
+}
+
+TEST(StyioResourceTopology, RepeatedAnonymousSitesRemainDistinct) {
+  const auto make_repeated = [] {
+    return program({
+      ResourceRedirectAST::Create(StringAST::Create("a"), StdStreamAST::Create(StdStreamKind::Stdout)),
+      ResourceRedirectAST::Create(StringAST::Create("b"), StdStreamAST::Create(StdStreamKind::Stdout)),
+    });
+  };
+  auto first_root = make_repeated();
+  auto second_root = make_repeated();
+  const auto first = rt::build(first_root.get());
+  const auto second = rt::build(second_root.get());
+  const auto collect = [](const rt::Graph& graph) {
+    std::set<std::array<std::uint8_t, 16>> identities;
+    for (const auto& node : graph.nodes()) identities.insert(node.semantic_id.bytes);
+    return identities;
+  };
+  const auto first_identities = collect(first.graph);
+  EXPECT_EQ(first_identities.size(), first.graph.nodes().size());
+  EXPECT_EQ(first_identities, collect(second.graph));
+}
+
+TEST(StyioResourceTopology, MultiSlotResourceDeclarationHasDistinctSemanticSites) {
+  const auto type = styio_make_topology_resource_type(
+    StyioDataType{StyioDataTypeOption::Integer, "i64", 64},
+    StyioResourceShapeKind::Recent,
+    3);
+  auto root = program({ResourceDeclAST::Create({
+    {NameAST::Create("left"), TypeAST::Create(type)},
+    {NameAST::Create("right"), TypeAST::Create(type)},
+  })});
+  const auto result = rt::build(root.get());
+  std::set<std::array<std::uint8_t, 16>> slots;
+  for (const auto& node : result.graph.nodes()) {
+    if (node.semantic_role == rt::SemanticRole::ResourceSlot) slots.insert(node.semantic_id.bytes);
+  }
+  EXPECT_EQ(slots.size(), 2u);
+  EXPECT_EQ(result.graph.node_count(rt::NodeKind::StateSlot), 2u);
+  std::size_t owned_slots = 0;
+  for (const auto& edge : result.graph.edges()) {
+    if (edge.kind == rt::EdgeKind::Ownership
+        && result.graph.node(edge.to).semantic_role == rt::SemanticRole::ResourceSlot) {
+      ++owned_slots;
+    }
+  }
+  EXPECT_EQ(owned_slots, 2u);
+}
+
+TEST(StyioResourceTopology, SyntheticNodesHaveExplicitSemanticRoles) {
+  auto root = program({
+    StateDeclAST::Create(IntAST::Create("3"), NameAST::Create("sum"), IntAST::Create("0"), nullptr, IntAST::Create("1")),
+    TaskBlockAST::Create(BlockAST::Create({PrintAST::Create({IntAST::Create("1")})})),
+    FileResourceAST::Create(StringAST::Create("ignored-path"), false),
+  });
+  rt::BuildOptions options;
+  options.require_close_owner = false;
+  const auto result = rt::build(root.get(), options);
+  std::set<rt::SemanticRole> roles;
+  for (const auto& node : result.graph.nodes()) roles.insert(node.semantic_role);
+  EXPECT_TRUE(roles.count(rt::SemanticRole::Program));
+  EXPECT_TRUE(roles.count(rt::SemanticRole::StateWindowLedger));
+  EXPECT_TRUE(roles.count(rt::SemanticRole::TaskFailureDomain));
+  EXPECT_TRUE(roles.count(rt::SemanticRole::ScopeExitDestroySink));
+}
+
+TEST(StyioResourceTopology, DenseIdsDebugAndAlgorithmsRemainCompatible) {
+  auto root = program({ResourceRedirectAST::Create(StringAST::Create("a"), StdStreamAST::Create(StdStreamKind::Stdout))});
+  const auto result = rt::build(root.get());
+  for (std::size_t i = 0; i < result.graph.nodes().size(); ++i) EXPECT_EQ(result.graph.nodes()[i].id, i);
+  EXPECT_TRUE(result.graph.detect_cycles().empty());
+  EXPECT_EQ(result.graph.debug_string().find("semantic"), std::string::npos);
 }
 
 std::vector<std::pair<size_t, size_t>>
@@ -136,6 +427,60 @@ StyioDataType named_state_type(const std::string& name, StyioTypeState state) {
   return type;
 }
 
+styio::semantic_identity::SemanticIdentity test_identity(std::string discriminator) {
+  return styio::semantic_identity::derive(
+    styio::semantic_identity::Scope::anonymous(),
+    {"graph-test"},
+    "test-node",
+    {std::move(discriminator)});
+}
+
+std::set<DescriptorKey> descriptor_set(
+  const std::vector<rt::ValidatedArtifact::SemanticDescriptor>& descriptors
+) {
+  std::set<DescriptorKey> result;
+  for (const auto& descriptor : descriptors) {
+    result.emplace(
+      static_cast<int>(descriptor.kind),
+      static_cast<int>(descriptor.role),
+      descriptor.identity.bytes,
+      descriptor.globally_comparable);
+  }
+  return result;
+}
+
+std::vector<rt::ValidatedArtifact::SemanticDescriptor> parsed_descriptors(
+  const std::string& src,
+  const std::string& parser_label,
+  styio::semantic_identity::Scope scope
+) {
+  auto tokens = StyioTokenizer::tokenize(src);
+  StyioContext* ctx = StyioContext::Create(
+    parser_label, src, line_seps(src), tokens, false);
+  MainBlockAST* ast = nullptr;
+  try {
+    ast = parse_main_block_with_engine_latest(*ctx, StyioParserEngine::Nightly);
+    TopologyArtifactProbe analyzer(std::move(scope));
+    ast->typeInfer(&analyzer);
+    const auto* artifact = analyzer.artifact_for(ast);
+    if (artifact == nullptr) {
+      throw std::logic_error("parsed identity test requires a matching Sema artifact");
+    }
+    auto descriptors = artifact->semantic_descriptors();
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+    return descriptors;
+  } catch (...) {
+    delete ast;
+    delete ctx;
+    free_tokens(tokens);
+    StyioAST::destroy_all_tracked_nodes();
+    throw;
+  }
+}
+
 } // namespace
 
 TEST(StyioResourceTopology, ValidatedArtifactIsMoveOnlyAndConstObservable) {
@@ -224,11 +569,15 @@ TEST(StyioResourceTopology, GraphApiCoversSparseEdgesAndInvalidLookups) {
 
   const std::size_t first = graph.add_node(
     rt::NodeKind::Value,
+    rt::SemanticRole::Value,
+    test_identity("first"),
     "first",
     rt::Capability::Pull | rt::Capability::Clone | rt::Capability::Task,
     rt::TypeState::Ready);
   const std::size_t second = graph.add_node(
     rt::NodeKind::Sink,
+    rt::SemanticRole::Sink,
+    test_identity("second"),
     "second",
     rt::Capability::None,
     rt::TypeState::Closed);
@@ -247,21 +596,29 @@ TEST(StyioResourceTopology, CycleDetectionReportsClosedPathAndEdges) {
   rt::Graph graph;
   const std::size_t a = graph.add_node(
     rt::NodeKind::Task,
+    rt::SemanticRole::Task,
+    test_identity("a"),
     "task:A",
     rt::Capability::Task,
     rt::TypeState::Ready);
   const std::size_t b = graph.add_node(
     rt::NodeKind::Task,
+    rt::SemanticRole::Task,
+    test_identity("b"),
     "task:B",
     rt::Capability::Task,
     rt::TypeState::Ready);
   const std::size_t c = graph.add_node(
     rt::NodeKind::Task,
+    rt::SemanticRole::Task,
+    test_identity("c"),
     "task:C",
     rt::Capability::Task,
     rt::TypeState::Ready);
   const std::size_t tail = graph.add_node(
     rt::NodeKind::Sink,
+    rt::SemanticRole::Sink,
+    test_identity("tail"),
     "tail",
     rt::Capability::None,
     rt::TypeState::Closed);

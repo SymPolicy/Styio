@@ -2206,8 +2206,7 @@ styio_profile_cmake_includes_pipeline_check_latest(
     text.find("set(STYIO_NANO_INCLUDE_PIPELINE_CHECK ON)") != std::string::npos;
   return true;
 }
-static std::vector<std::string>
-styio_nano_source_roots_latest(bool include_pipeline_check) {
+static std::vector<std::string> styio_nano_source_roots_latest(bool include_pipeline_check) {
   std::vector<std::string> sources = {
     "src/main.cpp",
     "src/StyioToken/Token.cpp",
@@ -2244,6 +2243,7 @@ styio_nano_source_roots_latest(bool include_pipeline_check) {
     "src/StyioRuntime/RuntimeState.cpp",
     "src/StyioSession/SymbolInterner.cpp",
     "src/StyioSession/TypeTable.cpp",
+    "src/StyioUtil/SemanticIdentity.cpp",
     "src/StyioUtil/SourceMap.cpp",
     "share/styio/prelude/resources.styio",
   };
