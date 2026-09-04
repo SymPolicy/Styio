@@ -20,6 +20,24 @@
       "directory": "persistent-semantic-ids",
       "plan": "persistent-semantic-ids/Plan.json",
       "title": "Persistent semantic identities for resource topology"
+    },
+    {
+      "code": "PLAN-004",
+      "directory": "observable-static-snapshot",
+      "plan": "observable-static-snapshot/Plan.json",
+      "title": "Publish immutable observable topology snapshots"
+    },
+    {
+      "code": "PLAN-005",
+      "directory": "observable-delta-query-lineage",
+      "plan": "observable-delta-query-lineage/Plan.json",
+      "title": "Deliver observable topology delta, lineage, and queries"
+    },
+    {
+      "code": "PLAN-006",
+      "directory": "observable-runtime-correlation",
+      "plan": "observable-runtime-correlation/Plan.json",
+      "title": "Correlate runtime and scheduler events with semantic sites"
     }
   ],
   "schema": "better-plan.manifest/v3"

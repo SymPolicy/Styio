@@ -190,3 +190,10 @@ Record unfinished docs/ecosystem work with:
 4. Team runbook gate failures, required runbook paths, and template/format violations.
 5. External repository or handoff owner affected.
 6. Archive/rollup lifecycle action still pending.
+
+2026-09-04: Registered PLAN-004, PLAN-005, and PLAN-006 as ready but unapproved
+future observable-language deliveries, refreshed the plan inventory and gap
+ledger, and linked the fixture-gated Vityo, conditional Pafio, and benchmark
+handoffs. No execution checkpoints, Workers, product implementation, backend
+scope, or authority were created; the imported evolution archive remains
+reference material only.
