@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-04
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -135,6 +135,20 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 ## 8. Carry-Forward Register
 
 The previous planning generation is removed from the current tree. The items below are registered here as future work only; this registration does not authorize or implement any item.
+
+### 8.1 Observable Language Delivery Sequence
+
+The observable-language roadmap now has explicit repository-owned plans. All rows remain unapproved and not started; a document, reference archive, or downstream readiness note is not implementation authority.
+
+| Stage | Owning plan | Start gate | Cross-repository handoff |
+|---|---|---|---|
+| S1 — immutable static snapshot | [PLAN-004](../plan/observable-static-snapshot/Plan.md) | Separate approval of the ready semantic plan | `pafio-nightly:docs/external/for-styio/Styio-Observable-Identity-Handoff-Plan.md` stays dormant unless accepted identity fixtures prove an ambiguity; `styio-benchmark:docs/OBSERVABLE-LANGUAGE-PERFORMANCE-GATE-PLAN.md` owns B1 evidence |
+| S2 — delta, lineage, and bounded queries | [PLAN-005](../plan/observable-delta-query-lineage/Plan.md) | S1 public contract and producer fixtures accepted, then separate S2 approval | `vityo-nightly:docs/external/for-styio/Styio-Observable-Integration-Plan.md` may begin V2 only after S2 fixtures; the benchmark plan owns B2 evidence |
+| S3 — runtime and scheduler correlation | [PLAN-006](../plan/observable-runtime-correlation/Plan.md) | S1/S2 identifiers and fixtures accepted, then separate S3 approval | Vityo may begin V3 only after S3 fixtures; the benchmark plan owns B3 evidence |
+
+Stage boundaries remain strict: S1 publishes static compiler-owned facts; S2 adds incremental transport and bounded lookup over those facts; S3 adds loss-accounted runtime correlation. Vityo integration, backend telemetry, cloud storage, policy, replay, and raw runtime-value capture are not folded into these producer stages.
+
+### 8.2 Existing Carry-Forward Register
 
 | Register ID | Carried-forward work | Current boundary / reopen condition | Owning queue |
 |-------------|----------------------|-------------------------------------|--------------|
