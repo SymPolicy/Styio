@@ -3765,6 +3765,7 @@ styio_emit_machine_info_json(const StyioDictImplSelectionLatest& dict_impl_selec
   std::cout
     << ",\"edition_max\":\"" << styio_json_escape(STYIO_EDITION_MAX) << "\""
     << ",\"observable_static_snapshot\":" << styio::observable::static_snapshot_machine_info_json()
+    << ",\"observable_delta\":" << styio::observable::delta_machine_info_json()
     << "}\n";
 }
 
@@ -4198,6 +4199,7 @@ static bool
 styio_write_compile_plan_receipt_latest(
   const StyioCompilePlanRequestLatest& request,
   const std::vector<std::filesystem::path>& artifacts,
+  const std::string& observable_static_snapshot_json,
   const std::string& dict_impl_name,
   const std::string& session_id,
   bool executed,
@@ -4234,7 +4236,7 @@ styio_write_compile_plan_receipt_latest(
     }
     receipt << "\"" << styio_json_escape(artifacts[i].string()) << "\"";
   }
-  receipt << "]}\n";
+  receipt << "]" << (observable_static_snapshot_json.empty() ? std::string() : ",\"observable_static_snapshot\":" + observable_static_snapshot_json) << "}\n";
 
   return styio_write_compile_plan_artifact_latest(
     request.build_root / "receipt.json",
@@ -6850,6 +6852,7 @@ main(
   compile_plan_final_phase = session.phase();
   const auto compile_started_at = std::chrono::steady_clock::now();
   std::vector<std::filesystem::path> compile_plan_artifacts;
+  std::string compile_plan_observable_receipt_json;
   const std::string compile_plan_artifact_stem =
     compile_plan_request.has_value() ? styio::config::compile_plan_artifact_stem(*compile_plan_request) : std::string();
   const auto emit_compile_plan_session_transition =
@@ -7249,6 +7252,7 @@ main(
       styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, snapshot_stage.error, std::string(styio::observable::kStaticSnapshotDiagnosticSubcode));
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
+    compile_plan_observable_receipt_json = snapshot_stage.receipt_json;
   }
 #endif
 
@@ -7565,13 +7569,9 @@ main(
         std::chrono::steady_clock::now() - compile_started_at)
         .count();
     if (!styio_write_compile_plan_receipt_latest(
-          *compile_plan_request,
-          compile_plan_artifacts,
-          dict_impl_selection.impl_name,
-          g_styio_runtime_event_sink_latest.session_id,
-          session.phase() == CompilationPhase::Executed,
-          wall_time_ms,
-          artifact_error)) {
+          *compile_plan_request, compile_plan_artifacts, compile_plan_observable_receipt_json,
+          dict_impl_selection.impl_name, g_styio_runtime_event_sink_latest.session_id,
+          session.phase() == CompilationPhase::Executed, wall_time_ms, artifact_error)) {
       styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, artifact_error);
       return styio_exit_code(StyioErrorCategory::RuntimeError);
     }
