@@ -11,6 +11,7 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `delivery/` | [Restore nightly CI green and migrate docs/plan to v3](./delivery/Plan.md) | Current Better Plan v3 delivery `PLAN-001`; semantic state lives in `delivery/Plan.json`. |
+| `observable-delta-query-lineage-review-followup-01/` | [styio_lspd terminates on uncaught filesystem_error when the IDE cache directory cannot be created](./observable-delta-query-lineage-review-followup-01/Plan.md) | Current Better Plan v3 delivery `PLAN-007`; semantic state lives in `observable-delta-query-lineage-review-followup-01/Plan.json`. |
 | `observable-delta-query-lineage/` | [Deliver observable topology delta, lineage, and queries](./observable-delta-query-lineage/Plan.md) | Current Better Plan v3 delivery `PLAN-005`; semantic state lives in `observable-delta-query-lineage/Plan.json`. |
 | `observable-runtime-correlation/` | [Correlate runtime and scheduler events with semantic sites](./observable-runtime-correlation/Plan.md) | Current Better Plan v3 delivery `PLAN-006`; semantic state lives in `observable-runtime-correlation/Plan.json`. |
 | `observable-static-snapshot/` | [Publish immutable observable topology snapshots](./observable-static-snapshot/Plan.md) | Current Better Plan v3 delivery `PLAN-004`; semantic state lives in `observable-static-snapshot/Plan.json`. |

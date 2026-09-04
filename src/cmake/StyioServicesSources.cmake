@@ -1,9 +1,16 @@
+set(STYIO_OBSERVABLE_PUBLIC_SOURCES
+  StyioServices/StyioObservable/Snapshot.cpp
+  StyioServices/StyioObservable/Delta.cpp
+  StyioServices/StyioObservable/Query.cpp
+  StyioServices/StyioObservable/Service.cpp
+)
+
 set(STYIO_CONTRACT_SOURCES
   StyioServices/StyioCLI/SyntaxCheck.cpp
   StyioServices/StyioConfig/CompilePlanContract.cpp
   StyioServices/StyioConfig/SourceBuildInfo.cpp
-  StyioServices/StyioObservable/StaticSnapshotContract.cpp
-  StyioServices/StyioObservable/StaticSnapshotPublication.cpp
+  StyioServices/StyioObservableProducer/StaticSnapshotContract.cpp
+  StyioServices/StyioObservableProducer/StaticSnapshotPublication.cpp
 )
 
 set(STYIO_IDE_SOURCES

@@ -3,7 +3,7 @@
 **Purpose:** Point the compiler checkout at the external parity-v2 authority;
 workloads, runner, reports, and thresholds remain in `styio-benchmark`.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 The standards-derived contract is
 `styio-benchmark/workloads/parity-v2/contract.json`. It freezes independent
@@ -66,3 +66,12 @@ verified LLVM O2 pipeline to promote eligible stack slots to SSA instead of
 adding a second whole-IR write-analysis pass. Use the `semantic-analysis` and
 `llvm-emission` reference cells to measure these paths; do not infer a win from
 total compile-and-run time alone.
+
+Observable S2 measurements stay with `styio-benchmark`. This checkout supplies
+`tests/fixtures/observable-topology/` plus path-free service counters
+(`input_records`, `changed_records`, `delta_bytes`, `visited_records`,
+`reused_shards`, `rebuilt_shards`, `retained_snapshot_bytes`,
+`retained_index_bytes`, `reference_fallbacks`). Suggested modes are cold full
+scan, cold index build, warm retained query, small-delta invalidation, full
+fallback after cache drop, and retention pressure. Do not add a local
+threshold or a second workload catalog here.

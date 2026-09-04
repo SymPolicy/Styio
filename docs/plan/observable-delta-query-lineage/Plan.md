@@ -1,6 +1,6 @@
 # PLAN-005 Deliver observable topology delta, lineage, and queries
 
-Phase: ready · Revision: unsealed
+Phase: completed · Revision: 1
 
 This document is a render-only projection of `Plan.json`. Edit `Plan.json`; never edit this file.
 
@@ -28,7 +28,7 @@ No non-discoverable user decision was required.
 
 ### Observed repository facts
 
-- none
+- PLAN-004 registers its producer and consumer suites under the ctest label observable_static_snapshot; no observable_snapshot_producer label exists, so the S1 acceptance gate selects that label. (source: tests/CMakeLists.txt and docs/plan/observable-static-snapshot/Plan.json)
 
 ## Requirements
 
@@ -182,7 +182,7 @@ Acceptance
   - Given PLAN-004 and its qualified producer fixtures
   - When the S2 stage gate is checked before any source Node runs
   - Then every PLAN-004 Task is completed, its full regression is green, and the producer-fixture label is non-empty and passing; otherwise S2 performs no implementation
-  - Oracle: `python3 -c "import json; p=json.load(open('docs/plan/observable-static-snapshot/Checkpoints.json', encoding='utf-8')); assert p['tasks'] and all(t['status']=='completed' for t in p['tasks']); assert p['full_regression']['passed'] is True"` and `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error` both exit zero
+  - Oracle: `python3 -c "import json; p=json.load(open('docs/plan/observable-static-snapshot/Checkpoints.json', encoding='utf-8')); assert p['tasks'] and all(t['status']=='completed' for t in p['tasks']); assert p['full_regression']['passed'] is True"` and `ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error` both exit zero
   - Evidence: command from S1 accepted-producer gate
 - AC-002 covers REQ-002, REQ-003, REQ-004, OUT-001, OUT-002, OUT-008, OUT-009
   - Given Every valid canonical parent-child fixture and repeated generation runs
@@ -230,7 +230,7 @@ Acceptance
 Focused regression
 - `cmake --build build/default --target styio styio_resource_topology_test styio_typeinfer_internal_test styio_lowering_internal_test styio_observable_delta_test styio_observable_query_test styio_observable_service_test styio_observable_consumer_test styio_ide_test -j2`
 - `python3 -c "import json; p=json.load(open('docs/plan/observable-static-snapshot/Checkpoints.json', encoding='utf-8')); assert p['tasks'] and all(t['status']=='completed' for t in p['tasks']); assert p['full_regression']['passed'] is True"`
-- `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error`
+- `ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error`
 - `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error`
 - `ctest --test-dir build/default -L '^(resource_topology|sema_internal|lowering_internal)$' --output-on-failure --no-tests=error`
 - `ctest --test-dir build/default -L '^(scalar_expressions|file_resources|state_resources|stream_processing|task_resources)$' --output-on-failure --no-tests=error`
