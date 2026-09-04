@@ -102,6 +102,7 @@ Primary paths:
 74. Resource-transfer regressions need direct evidence: an inconsistent pulse slot map must fail with a typed error instead of indexing outside the descriptor vector; zero represents an empty tuple-ownership slot while stale nonzero tuple handles remain errors; and structured tuple returns must survive function cleanup.
 75. IDE snapshot regressions need direct evidence: copied `TextBuffer` snapshots must remain immutable after reset, incremental syntax tokens must stay equivalent to a full parse, and the frozen IDE latency budget must pass repeatedly without changing its threshold.
 76. The Sema-owned topology cutover requires focused lifecycle tests for move-only const observation, validated publication, scalar-noop, exact failure diagnostics, replacement, same-object lowering reuse, mismatched-root rejection, and IDE forwarding. Pair those tests with a one-time source oracle that rejects any topology build, validation, or scalar predicate in top-level lowering; do not add a production build counter solely for test interception.
+77. PLAN-003 semantic-identity coverage requires fresh-build metamorphic tests for trivia, parser labels, unrelated edits, scope boundaries, repeated and anonymous sites, multi-slot declarations, synthetic roles, and unchanged dense/debug behavior; keep the direct `architecture_layer_gate` CTest registration and focused command discoverable.
 
 ## Change Classes
 

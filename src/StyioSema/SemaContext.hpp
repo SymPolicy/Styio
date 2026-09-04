@@ -361,9 +361,17 @@ public:
     return snapshot_var_names_.find(s) != snapshot_var_names_.end();
   }
 
-  StyioSemaContext() {}
+  StyioSemaContext() :
+      semantic_identity_scope_(styio::semantic_identity::Scope::anonymous()) {}
+
+  explicit StyioSemaContext(styio::semantic_identity::Scope scope) :
+      semantic_identity_scope_(std::move(scope)) {}
 
   virtual ~StyioSemaContext() {}
+
+  const styio::semantic_identity::Scope& semantic_identity_scope() const noexcept {
+    return semantic_identity_scope_;
+  }
 
   void attach_type_table(
     styio::session::TypeTable& table,
@@ -1203,6 +1211,7 @@ protected:
   styio::session::SymbolInterner* type_table_symbols_ = nullptr;
   std::optional<styio::resource_topology::ValidatedArtifact>
     resource_topology_artifact_;
+  styio::semantic_identity::Scope semantic_identity_scope_;
   const MainBlockAST* resource_topology_root_ = nullptr;
   ResourceTopologyLifecycle resource_topology_lifecycle_ =
     ResourceTopologyLifecycle::NotAnalyzed;

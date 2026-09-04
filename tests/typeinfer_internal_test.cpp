@@ -26,6 +26,7 @@ void expect_matrix_type(
 
 class ExposedTypeInferLowerer : public AstToStyioIRLowerer {
  public:
+  using AstToStyioIRLowerer::AstToStyioIRLowerer;
   using StyioSemaContext::binding_info_;
   using StyioSemaContext::binding_info_by_sid_;
   using StyioSemaContext::callable_constraint_solver_stats_;
@@ -180,6 +181,46 @@ TEST(StyioSemaTopology, ReanalysisReplacesPriorArtifact) {
   const auto* replacement = analyzer.topology_artifact(second.get());
   ASSERT_NE(replacement, nullptr);
   EXPECT_GE(replacement->node_count(), 3u);
+}
+
+TEST(StyioSemaTopology, ValidatedArtifactOwnsQualifiedSemanticDescriptors) {
+  const auto scope = styio::semantic_identity::Scope::qualified(
+    "compiler-tests", "qualified/root");
+  ExposedTypeInferLowerer analyzer(scope);
+  auto root = resource_topology_program(StdStreamKind::Stdout);
+
+  root->typeInfer(&analyzer);
+
+  const auto* artifact = analyzer.topology_artifact(root.get());
+  ASSERT_NE(artifact, nullptr);
+  EXPECT_EQ(artifact->identity_scope(), scope);
+  ASSERT_FALSE(artifact->semantic_descriptors().empty());
+  for (const auto& descriptor : artifact->semantic_descriptors()) {
+    EXPECT_TRUE(descriptor.globally_comparable);
+  }
+}
+
+TEST(StyioSemaTopology, AnonymousFallbackAndReanalysisStayExplicit) {
+  ExposedTypeInferLowerer analyzer;
+  auto first = resource_topology_program(StdStreamKind::Stdout);
+  auto scalar = scalar_topology_program();
+  auto replacement = resource_topology_program(StdStreamKind::Stderr);
+
+  first->typeInfer(&analyzer);
+  const auto* initial = analyzer.topology_artifact(first.get());
+  ASSERT_NE(initial, nullptr);
+  EXPECT_FALSE(initial->identity_scope().is_globally_comparable());
+
+  scalar->typeInfer(&analyzer);
+  EXPECT_TRUE(analyzer.topology_is_scalar_noop());
+  EXPECT_EQ(analyzer.topology_artifact(first.get()), nullptr);
+  EXPECT_EQ(analyzer.topology_artifact(scalar.get()), nullptr);
+
+  replacement->typeInfer(&analyzer);
+  const auto* current = analyzer.topology_artifact(replacement.get());
+  ASSERT_NE(current, nullptr);
+  EXPECT_FALSE(current->identity_scope().is_globally_comparable());
+  EXPECT_EQ(analyzer.topology_artifact(first.get()), nullptr);
 }
 
 TEST(StyioResourceTypestate, conditional_close_unconditional_use_rejected) {

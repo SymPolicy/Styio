@@ -41,6 +41,7 @@ void seed_builtin_resource_methods(AstToStyioIRLowerer& analyzer) {
 class LowererProbe : public AstToStyioIRLowerer
 {
 public:
+  using AstToStyioIRLowerer::AstToStyioIRLowerer;
   using StyioSemaContext::binding_info_;
   using StyioSemaContext::binding_info_by_sid_;
   using StyioSemaContext::resource_binding_types_;
@@ -964,6 +965,34 @@ TEST(StyioLoweringInternal, ReusesSemaValidatedTopologyArtifact) {
   EXPECT_EQ(analyzer.resource_fast_path_probe_recordings(), 1u);
   EXPECT_EQ(analyzer.resource_validation_recordings(), 1u);
   EXPECT_EQ(analyzer.resource_validation_skip_recordings(), 0u);
+}
+
+TEST(StyioLoweringInternal, OptimizationDoesNotMutateTopologySemanticIds) {
+  LowererProbe analyzer(styio::semantic_identity::Scope::qualified(
+    "compiler-tests", "optimizer/root"));
+  std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
+    ResourceRedirectAST::Create(
+      StringAST::Create("hello"),
+      StdStreamAST::Create(StdStreamKind::Stdout)),
+  }));
+  root->typeInfer(&analyzer);
+  const auto* artifact = analyzer.topology_artifact(root.get());
+  ASSERT_NE(artifact, nullptr);
+  const auto before = artifact->semantic_descriptors();
+
+  std::unique_ptr<StyioIR> ir(root->toStyioIR(&analyzer));
+  ASSERT_NE(ir, nullptr);
+  EXPECT_TRUE(styio::lowering::run_default_styio_ir_pass_pipeline(ir.get()).ok());
+
+  ASSERT_EQ(artifact, analyzer.topology_artifact(root.get()));
+  const auto& after = artifact->semantic_descriptors();
+  ASSERT_EQ(before.size(), after.size());
+  for (std::size_t i = 0; i < before.size(); ++i) {
+    EXPECT_EQ(before[i].kind, after[i].kind);
+    EXPECT_EQ(before[i].role, after[i].role);
+    EXPECT_EQ(before[i].identity, after[i].identity);
+    EXPECT_EQ(before[i].globally_comparable, after[i].globally_comparable);
+  }
 }
 
 TEST(StyioLoweringInternal, RejectsMismatchedSemaTopologyState) {
