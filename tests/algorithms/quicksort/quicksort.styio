@@ -1,0 +1,46 @@
+l <- @stdin: list[i32]
+
+n = l.length
+
+?(n > 1) => {
+    stack_lo << l
+    stack_hi << l
+    [0..n-1] >> #(z) => {
+        stack_lo[z] = 0
+        stack_hi[z] = 0
+    }
+    stack_lo[0] = 0
+    stack_hi[0] = n - 1
+    top = 0
+    [0..n*n+n] >> #(step) => {
+        ?(top >= 0) => {
+            lo = stack_lo[top]
+            hi = stack_hi[top]
+            top = top - 1
+            ?(lo < hi) => {
+                pivot = l[hi]
+                i = lo
+                [lo..hi-1] >> #(j) => {
+                    ?(l[j] <= pivot) => {
+                        l[i], l[j] = l[j], l[i]
+                        i = i + 1
+                    }
+                }
+                l[i], l[hi] = l[hi], l[i]
+                p = i
+                ?(p + 1 <= hi) => {
+                    top = top + 1
+                    stack_lo[top] = p + 1
+                    stack_hi[top] = hi
+                }
+                ?(lo <= p - 1) => {
+                    top = top + 1
+                    stack_lo[top] = lo
+                    stack_hi[top] = p - 1
+                }
+            }
+        }
+    }
+}
+
+>_(l)
