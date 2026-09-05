@@ -24,6 +24,9 @@
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioResourceTopology/ResourceTopology.hpp"
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
+#include "StyioServices/StyioObservable/Delta.hpp"
+#include "StyioServices/StyioObservable/Snapshot.hpp"
+#include "StyioServices/StyioObservableProducer/DeltaPublication.hpp"
 #include "StyioServices/StyioObservableProducer/StaticSnapshotContract.hpp"
 
 #include "llvm/Support/JSON.h"
@@ -507,6 +510,35 @@ TEST(StyioObservableStaticSnapshotAdmission, ValidPafioPackageIsAdmitted) {
   EXPECT_EQ(request.compilation_unit->package_name, "example.app");
   EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
   EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
+  EXPECT_TRUE(request.observable_static_snapshot_parent_snapshot_path.empty());
+}
+
+TEST(StyioObservableStaticSnapshotAdmission, ParentSnapshotPathIsTransportOnly) {
+  const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-admit-parent";
+  fs::create_directories(tmp / "pkg/src");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
+  const fs::path parent = tmp / "previous/demo.observable-static-snapshot.json";
+  const fs::path plan = tmp / "plan.json";
+  write_text(
+    plan,
+    compile_plan_json(
+      "pafio", tmp, "example.app@1", "example.app", tmp / "pkg",
+      tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
+      tmp / "build", tmp / "artifacts", tmp / "diag",
+      "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":\""
+        + json_escape(parent.string()) + "\"}"));
+  cfg::CompilePlanRequest request;
+  std::string error;
+  std::string subcode;
+  ASSERT_TRUE(cfg::parse_compile_plan(plan, request, error, subcode)) << error;
+  EXPECT_TRUE(request.emit_observable_static_snapshot);
+  EXPECT_EQ(request.observable_static_snapshot_parent_snapshot_path, parent);
+  ASSERT_TRUE(request.compilation_unit.has_value());
+  EXPECT_EQ(request.compilation_unit->package_name, "example.app");
+  EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
+  EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
+  EXPECT_TRUE(request.observable_static_snapshot_required_capabilities.empty());
 }
 
 TEST(StyioObservableStaticSnapshotAdmission, RequestMatrixFailsBeforeSema) {
@@ -561,6 +593,26 @@ TEST(StyioObservableStaticSnapshotAdmission, RequestMatrixFailsBeforeSema) {
     "malformed", "pafio", "example.app@1", "example.app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "true", "", "observable_static_snapshot_malformed");
+  expect_fail(
+    "unknown-field", "pafio", "example.app@1", "example.app",
+    tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
+    "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_id\":\"s1_00\"}",
+    "", "observable_static_snapshot_malformed");
+  expect_fail(
+    "empty-parent-path", "pafio", "example.app@1", "example.app",
+    tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
+    "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":\"\"}",
+    "", "observable_static_snapshot_malformed");
+  expect_fail(
+    "non-string-parent-path", "pafio", "example.app@1", "example.app",
+    tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
+    "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":7}",
+    "", "observable_static_snapshot_malformed");
+  expect_fail(
+    "optional-capability-as-required", "pafio", "example.app@1", "example.app",
+    tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
+    "{\"schema_version\":1,\"required_capabilities\":[\"snapshot-delta\"]}",
+    "", "observable_static_snapshot_unsupported_capability");
   expect_fail(
     "anonymous", "pafio", "example.app@1", "",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
@@ -692,6 +744,17 @@ TEST(StyioObservableStaticSnapshotCli, MachineInfoAdvertisesSchemaV1) {
   EXPECT_NE(result.output.find("\"supported_contracts\":{\"machine_info\":[1]"), std::string::npos);
   EXPECT_NE(result.output.find("\"observable_static_snapshot\":{\"schema_versions\":[1]"), std::string::npos);
   EXPECT_NE(result.output.find("static-topology-nodes"), std::string::npos);
+  EXPECT_NE(
+    result.output.find(
+      "\"capabilities\":[\"file-source-anchors\",\"producer-evidence\",\"static-topology-edges\","
+      "\"static-topology-facts\",\"static-topology-nodes\"]"
+      ",\"optional_capabilities\":[\"producer-lineage\",\"snapshot-delta\"]}"),
+    std::string::npos)
+    << result.output;
+  EXPECT_NE(
+    result.output.find("\"observable_delta\":{\"schema_versions\":[{\"major\":0,\"minor\":1}]}"),
+    std::string::npos)
+    << result.output;
 }
 
 TEST(StyioObservableStaticSnapshotCli, NanoMachineInfoAdvertisesNone) {
@@ -705,7 +768,12 @@ TEST(StyioObservableStaticSnapshotCli, NanoMachineInfoAdvertisesNone) {
   const CommandResult result = run_command(std::string("\"") + nano + "\" --machine-info=json");
   ASSERT_EQ(result.exit_code, 0) << result.output;
   EXPECT_NE(
-    result.output.find("\"observable_static_snapshot\":{\"schema_versions\":[],\"capabilities\":[]}"),
+    result.output.find(
+      "\"observable_static_snapshot\":{\"schema_versions\":[],\"capabilities\":[],\"optional_capabilities\":[]}"),
+    std::string::npos)
+    << result.output;
+  EXPECT_NE(
+    result.output.find("\"observable_delta\":{\"schema_versions\":[]}"),
     std::string::npos)
     << result.output;
 }
@@ -824,4 +892,334 @@ TEST(StyioObservableStaticSnapshotCli, ScalarNoopCompleteness) {
   const std::string snapshot = read_text(tmp / "artifacts/demo.observable-static-snapshot.json");
   EXPECT_NE(snapshot.find("complete/proven-scalar-noop"), std::string::npos);
   EXPECT_NE(snapshot.find("\"root\":null"), std::string::npos);
+}
+
+namespace {
+
+struct CliCompileOutcome {
+  CommandResult command;
+  fs::path snapshot_path;
+  fs::path delta_path;
+  fs::path receipt_path;
+  fs::path profile_path;
+};
+
+// Drives one `styio --compile-plan` run for a fresh single-package workspace
+// under `root`, optionally naming `parent_snapshot` and enabling the profiler.
+CliCompileOutcome compile_package_cli(
+  const fs::path& root,
+  const std::string& package_name,
+  const std::string& source,
+  const fs::path& parent_snapshot,
+  bool profile = false
+) {
+  const char* runner = compiler_exe();
+  fs::remove_all(root);
+  fs::create_directories(root / "pkg/src");
+  fs::create_directories(root / "pkg/data");
+  write_text(root / "pkg/Styio.toml", "name = \"" + package_name + "\"\n");
+  write_text(root / "pkg/src/main.styio", source);
+  write_text(root / "pkg/data/lines.txt", read_text(fixture_root() / "package/data/lines.txt"));
+  std::string snapshot_object = "{\"schema_version\":1,\"required_capabilities\":[]";
+  if (!parent_snapshot.empty()) {
+    snapshot_object +=
+      ",\"parent_snapshot_path\":\"" + json_escape(parent_snapshot.string()) + "\"";
+  }
+  snapshot_object += "}";
+  const fs::path plan = root / "plan.json";
+  write_text(
+    plan,
+    compile_plan_json(
+      "pafio", root, package_name + "@1", package_name, root / "pkg",
+      root / "pkg/Styio.toml", root / "pkg/src/main.styio",
+      root / "build", root / "artifacts", root / "diag", snapshot_object));
+  CliCompileOutcome outcome;
+  outcome.snapshot_path = root / "artifacts/demo.observable-static-snapshot.json";
+  outcome.delta_path = root / "artifacts/demo.observable-delta.json";
+  outcome.receipt_path = root / "build/receipt.json";
+  outcome.profile_path = root / "profile.json";
+  std::string command = std::string("\"") + runner + "\"";
+  if (profile) {
+    command += " --profile-frontend --profile-out \"" + outcome.profile_path.string() + "\"";
+  }
+  command += " --compile-plan \"" + plan.string() + "\" 2>&1";
+  outcome.command = run_command(command);
+  return outcome;
+}
+
+std::string fixture_source_without_file_handle() {
+  std::string source = read_text(fixture_root() / "package/src/main.styio");
+  const std::string block =
+    "handle <- @file(\"data/lines.txt\")\n"
+    "handle >> #(line) => {\n"
+    "  >_(line)\n"
+    "}\n";
+  const auto at = source.find(block);
+  if (at != std::string::npos) {
+    source.erase(at, block.size());
+  }
+  return source;
+}
+
+struct ReceiptView {
+  bool parsed = false;
+  bool has_snapshot_record = false;
+  std::string delta;
+  std::string reason;
+  std::string parent_snapshot_id;
+  std::string target_snapshot_id;
+  std::vector<std::string> artifacts;
+};
+
+ReceiptView read_receipt(const fs::path& path) {
+  ReceiptView view;
+  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(read_text(path));
+  if (!parsed) {
+    llvm::consumeError(parsed.takeError());
+    return view;
+  }
+  const auto* root = parsed->getAsObject();
+  if (root == nullptr) {
+    return view;
+  }
+  view.parsed = true;
+  if (const auto* artifacts = root->getArray("artifacts")) {
+    for (const auto& value : *artifacts) {
+      if (const auto text = value.getAsString()) {
+        view.artifacts.emplace_back(*text);
+      }
+    }
+  }
+  if (const auto* record = root->getObject("observable_static_snapshot")) {
+    view.has_snapshot_record = true;
+    view.delta = std::string(record->getString("delta").value_or(""));
+    view.reason = std::string(record->getString("reason").value_or(""));
+    view.parent_snapshot_id = std::string(record->getString("parent_snapshot_id").value_or(""));
+    view.target_snapshot_id = std::string(record->getString("target_snapshot_id").value_or(""));
+  }
+  return view;
+}
+
+bool artifact_listed(const ReceiptView& receipt, const fs::path& path) {
+  return std::find(receipt.artifacts.begin(), receipt.artifacts.end(), path.string())
+    != receipt.artifacts.end();
+}
+
+bool artifact_suffix_listed(const ReceiptView& receipt, std::string_view suffix) {
+  for (const auto& artifact : receipt.artifacts) {
+    if (artifact.size() >= suffix.size()
+        && artifact.compare(artifact.size() - suffix.size(), suffix.size(), suffix) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+} // namespace
+
+TEST(StyioObservableDeltaPublicationCli, ParentSnapshotProducesCanonicalReconstructingDelta) {
+  const char* runner = compiler_exe();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const fs::path root_a = fs::temp_directory_path() / "styio-delta-first-save";
+  const fs::path root_b = fs::temp_directory_path() / "styio-delta-second-save";
+  const std::string original = read_text(fixture_root() / "package/src/main.styio");
+  const std::string edited = fixture_source_without_file_handle();
+  ASSERT_NE(original, edited);
+
+  const auto first = compile_package_cli(root_a, "example.app", original, {});
+  ASSERT_EQ(first.command.exit_code, 0) << first.command.output;
+  ASSERT_TRUE(fs::is_regular_file(first.snapshot_path));
+  EXPECT_FALSE(fs::exists(first.delta_path));
+  const ReceiptView first_receipt = read_receipt(first.receipt_path);
+  ASSERT_TRUE(first_receipt.parsed);
+  EXPECT_FALSE(first_receipt.has_snapshot_record);
+  EXPECT_TRUE(artifact_listed(first_receipt, first.snapshot_path));
+  EXPECT_FALSE(artifact_suffix_listed(first_receipt, obs::kDeltaArtifactSuffix));
+
+  const auto second = compile_package_cli(root_b, "example.app", edited, first.snapshot_path, true);
+  ASSERT_EQ(second.command.exit_code, 0) << second.command.output;
+  const std::string snapshot_a = read_text(first.snapshot_path);
+  const std::string snapshot_b = read_text(second.snapshot_path);
+  ASSERT_FALSE(snapshot_a.empty());
+  ASSERT_FALSE(snapshot_b.empty());
+  EXPECT_NE(snapshot_a, snapshot_b);
+  ASSERT_TRUE(fs::is_regular_file(second.delta_path));
+
+  const std::string delta_text = read_text(second.delta_path);
+  const auto parsed_delta = obs::parse_delta(delta_text);
+  ASSERT_TRUE(parsed_delta.ok) << parsed_delta.error;
+  EXPECT_EQ(obs::serialize_delta(parsed_delta.delta), delta_text);
+  EXPECT_EQ(parsed_delta.delta.parent_snapshot_id, obs::snapshot_identity(snapshot_a));
+  EXPECT_EQ(parsed_delta.delta.target_snapshot_id, obs::snapshot_identity(snapshot_b));
+  EXPECT_FALSE(parsed_delta.delta.operations.empty());
+  EXPECT_EQ(parsed_delta.delta.optional_capabilities, std::vector<std::string>{"snapshot-delta"});
+
+  const auto parent = obs::parse_snapshot(snapshot_a);
+  ASSERT_TRUE(parent.ok) << parent.error;
+  const auto applied = obs::apply_delta(parent.snapshot, parsed_delta.delta);
+  ASSERT_TRUE(applied.ok) << applied.error;
+  EXPECT_EQ(obs::serialize_snapshot(applied.snapshot), snapshot_b);
+  EXPECT_EQ(applied.snapshot_id, parsed_delta.delta.target_snapshot_id);
+
+  const ReceiptView receipt = read_receipt(second.receipt_path);
+  ASSERT_TRUE(receipt.parsed);
+  ASSERT_TRUE(receipt.has_snapshot_record);
+  EXPECT_EQ(receipt.delta, obs::kDeltaReceiptPublished);
+  EXPECT_TRUE(receipt.reason.empty());
+  EXPECT_EQ(receipt.parent_snapshot_id, parsed_delta.delta.parent_snapshot_id);
+  EXPECT_EQ(receipt.target_snapshot_id, parsed_delta.delta.target_snapshot_id);
+  EXPECT_TRUE(artifact_listed(receipt, second.snapshot_path));
+  EXPECT_TRUE(artifact_listed(receipt, second.delta_path));
+
+  // Privacy: the parent path is a transport input and never reaches any
+  // published bytes; only the current run's own artifacts are listed.
+  const std::string parent_path = first.snapshot_path.string();
+  const std::string receipt_text = read_text(second.receipt_path);
+  EXPECT_EQ(snapshot_b.find(parent_path), std::string::npos);
+  EXPECT_EQ(delta_text.find(parent_path), std::string::npos);
+  EXPECT_EQ(receipt_text.find(parent_path), std::string::npos);
+  EXPECT_EQ(delta_text.find(root_a.filename().string()), std::string::npos);
+  EXPECT_EQ(delta_text.find(root_b.filename().string()), std::string::npos);
+  EXPECT_EQ(delta_text.find("/Users/"), std::string::npos);
+  EXPECT_EQ(delta_text.find("/tmp/"), std::string::npos);
+  EXPECT_EQ(delta_text.find("/private/"), std::string::npos);
+
+  const std::string profile_json = read_text(second.profile_path);
+  EXPECT_NE(profile_json.find("observable_static_snapshot"), std::string::npos);
+  EXPECT_NE(profile_json.find("delta_operation_count"), std::string::npos);
+  EXPECT_NE(profile_json.find("delta_serialized_bytes"), std::string::npos);
+  EXPECT_NE(profile_json.find(std::to_string(delta_text.size())), std::string::npos);
+}
+
+TEST(StyioObservableDeltaPublicationCli, MissingParentDegradesToFullSnapshotRequired) {
+  const char* runner = compiler_exe();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const fs::path root = fs::temp_directory_path() / "styio-delta-missing-parent";
+  const fs::path parent = root / "nowhere/demo.observable-static-snapshot.json";
+  const auto outcome = compile_package_cli(
+    root, "example.app", read_text(fixture_root() / "package/src/main.styio"), parent);
+  ASSERT_EQ(outcome.command.exit_code, 0) << outcome.command.output;
+  EXPECT_TRUE(fs::is_regular_file(outcome.snapshot_path));
+  EXPECT_FALSE(fs::exists(outcome.delta_path));
+  const ReceiptView receipt = read_receipt(outcome.receipt_path);
+  ASSERT_TRUE(receipt.parsed);
+  ASSERT_TRUE(receipt.has_snapshot_record);
+  EXPECT_EQ(receipt.delta, obs::kDeltaReceiptFullSnapshotRequired);
+  EXPECT_EQ(receipt.reason, obs::kDeltaReasonParentUnreadable);
+  EXPECT_TRUE(receipt.parent_snapshot_id.empty());
+  EXPECT_TRUE(artifact_listed(receipt, outcome.snapshot_path));
+  EXPECT_FALSE(artifact_suffix_listed(receipt, obs::kDeltaArtifactSuffix));
+  EXPECT_EQ(read_text(outcome.receipt_path).find(parent.string()), std::string::npos);
+}
+
+TEST(StyioObservableDeltaPublicationCli, ForeignPackageParentIsMismatch) {
+  const char* runner = compiler_exe();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const std::string source = read_text(fixture_root() / "package/src/main.styio");
+  const fs::path root_other = fs::temp_directory_path() / "styio-delta-other-package";
+  const fs::path root = fs::temp_directory_path() / "styio-delta-mismatch";
+  const auto other = compile_package_cli(root_other, "other.app", source, {});
+  ASSERT_EQ(other.command.exit_code, 0) << other.command.output;
+  ASSERT_TRUE(fs::is_regular_file(other.snapshot_path));
+
+  const auto outcome = compile_package_cli(root, "example.app", source, other.snapshot_path);
+  ASSERT_EQ(outcome.command.exit_code, 0) << outcome.command.output;
+  EXPECT_TRUE(fs::is_regular_file(outcome.snapshot_path));
+  EXPECT_FALSE(fs::exists(outcome.delta_path));
+  const ReceiptView receipt = read_receipt(outcome.receipt_path);
+  ASSERT_TRUE(receipt.has_snapshot_record);
+  EXPECT_EQ(receipt.delta, obs::kDeltaReceiptFullSnapshotRequired);
+  EXPECT_EQ(receipt.reason, obs::kDeltaReasonParentMismatch);
+  EXPECT_FALSE(artifact_suffix_listed(receipt, obs::kDeltaArtifactSuffix));
+}
+
+TEST(StyioObservableDeltaPublicationCli, UndecodableOrNonCanonicalParentIsInvalid) {
+  const char* runner = compiler_exe();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const std::string source = read_text(fixture_root() / "package/src/main.styio");
+  const fs::path root_seed = fs::temp_directory_path() / "styio-delta-invalid-seed";
+  const auto seed = compile_package_cli(root_seed, "example.app", source, {});
+  ASSERT_EQ(seed.command.exit_code, 0) << seed.command.output;
+  const std::string canonical = read_text(seed.snapshot_path);
+  ASSERT_FALSE(canonical.empty());
+
+  const fs::path parents = fs::temp_directory_path() / "styio-delta-invalid-parents";
+  fs::remove_all(parents);
+  const fs::path root_malformed = fs::temp_directory_path() / "styio-delta-invalid-malformed";
+  const fs::path malformed_parent = parents / "malformed.json";
+  write_text(malformed_parent, "{\"contract\":\"styio.observable.static-snapshot\",");
+  const auto malformed = compile_package_cli(root_malformed, "example.app", source, malformed_parent);
+  ASSERT_EQ(malformed.command.exit_code, 0) << malformed.command.output;
+  EXPECT_TRUE(fs::is_regular_file(malformed.snapshot_path));
+  EXPECT_FALSE(fs::exists(malformed.delta_path));
+  const ReceiptView malformed_receipt = read_receipt(malformed.receipt_path);
+  ASSERT_TRUE(malformed_receipt.has_snapshot_record);
+  EXPECT_EQ(malformed_receipt.delta, obs::kDeltaReceiptFullSnapshotRequired);
+  EXPECT_EQ(malformed_receipt.reason, obs::kDeltaReasonParentInvalid);
+
+  // Valid JSON that is not the canonical serialization names a different
+  // identity than the bytes on disk and is rejected the same way.
+  const fs::path root_pretty = fs::temp_directory_path() / "styio-delta-invalid-noncanonical";
+  const fs::path pretty_parent = parents / "non-canonical.json";
+  write_text(pretty_parent, "{\n " + canonical.substr(1));
+  const auto pretty = compile_package_cli(root_pretty, "example.app", source, pretty_parent);
+  ASSERT_EQ(pretty.command.exit_code, 0) << pretty.command.output;
+  EXPECT_FALSE(fs::exists(pretty.delta_path));
+  const ReceiptView pretty_receipt = read_receipt(pretty.receipt_path);
+  ASSERT_TRUE(pretty_receipt.has_snapshot_record);
+  EXPECT_EQ(pretty_receipt.reason, obs::kDeltaReasonParentInvalid);
+}
+
+TEST(StyioObservableDeltaPublicationCli, DeltaWriteFailureKeepsSnapshotPublished) {
+  const char* runner = compiler_exe();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const std::string source = read_text(fixture_root() / "package/src/main.styio");
+  const fs::path root_seed = fs::temp_directory_path() / "styio-delta-write-seed";
+  const auto seed = compile_package_cli(root_seed, "example.app", source, {});
+  ASSERT_EQ(seed.command.exit_code, 0) << seed.command.output;
+
+  const fs::path root = fs::temp_directory_path() / "styio-delta-write-fail";
+  fs::remove_all(root);
+  // Occupy the delta artifact path with a directory so the writer fails.
+  fs::create_directories(root / "artifacts/demo.observable-delta.json");
+  fs::create_directories(root / "pkg/src");
+  fs::create_directories(root / "pkg/data");
+  write_text(root / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(root / "pkg/src/main.styio", fixture_source_without_file_handle());
+  write_text(root / "pkg/data/lines.txt", read_text(fixture_root() / "package/data/lines.txt"));
+  const fs::path plan = root / "plan.json";
+  write_text(
+    plan,
+    compile_plan_json(
+      "pafio", root, "example.app@1", "example.app", root / "pkg",
+      root / "pkg/Styio.toml", root / "pkg/src/main.styio",
+      root / "build", root / "artifacts", root / "diag",
+      "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":\""
+        + json_escape(seed.snapshot_path.string()) + "\"}"));
+  const CommandResult result = run_command(
+    std::string("\"") + runner + "\" --compile-plan \"" + plan.string() + "\" 2>&1");
+  ASSERT_EQ(result.exit_code, 0) << result.output;
+  EXPECT_TRUE(fs::is_regular_file(root / "artifacts/demo.observable-static-snapshot.json"));
+  EXPECT_FALSE(fs::is_regular_file(root / "artifacts/demo.observable-delta.json"));
+  const ReceiptView receipt = read_receipt(root / "build/receipt.json");
+  ASSERT_TRUE(receipt.has_snapshot_record);
+  EXPECT_EQ(receipt.delta, obs::kDeltaReceiptFullSnapshotRequired);
+  EXPECT_EQ(receipt.reason, obs::kDeltaReasonWriteFailed);
+  EXPECT_FALSE(artifact_suffix_listed(receipt, obs::kDeltaArtifactSuffix));
+}
+
+TEST(StyioObservableDeltaPublicationCli, AbsentParentPathKeepsGoldenBytesAndReceipt) {
+  const char* runner = compiler_exe();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const fs::path root = fs::temp_directory_path() / "styio-delta-absent";
+  const auto outcome = compile_package_cli(
+    root, "example.app", read_text(fixture_root() / "package/src/main.styio"), {});
+  ASSERT_EQ(outcome.command.exit_code, 0) << outcome.command.output;
+  EXPECT_EQ(read_text(outcome.snapshot_path), read_text(fixture_root() / "canonical.json"));
+  EXPECT_FALSE(fs::exists(outcome.delta_path));
+  const ReceiptView receipt = read_receipt(outcome.receipt_path);
+  ASSERT_TRUE(receipt.parsed);
+  EXPECT_FALSE(receipt.has_snapshot_record);
+  EXPECT_FALSE(artifact_suffix_listed(receipt, obs::kDeltaArtifactSuffix));
+  EXPECT_EQ(read_text(outcome.receipt_path).find("observable_static_snapshot"), std::string::npos);
 }
