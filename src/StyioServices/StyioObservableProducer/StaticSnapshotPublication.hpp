@@ -35,15 +35,31 @@ inline constexpr const char* kStaticSnapshotProfilePhase =
   "observable_static_snapshot";
 
 // `--machine-info=json` value for the `observable_static_snapshot` key:
-// `{"schema_versions":[...],"capabilities":[...]}`.
+// `{"schema_versions":[...],"capabilities":[...],"optional_capabilities":[...]}`.
+// `capabilities` is the closed set admissible as `required_capabilities`;
+// `optional_capabilities` (`producer-lineage`, `snapshot-delta`) are
+// independently negotiated and never admissible as required.
 std::string advertised_static_snapshot_machine_info_json();
+
+// `--machine-info=json` value for the `observable_delta` key:
+// `{"schema_versions":[{"major":0,"minor":1}]}`.
+std::string advertised_delta_machine_info_json();
 
 inline std::string
 static_snapshot_machine_info_json() {
 #if STYIO_NANO_BUILD
-  return "{\"schema_versions\":[],\"capabilities\":[]}";
+  return "{\"schema_versions\":[],\"capabilities\":[],\"optional_capabilities\":[]}";
 #else
   return advertised_static_snapshot_machine_info_json();
+#endif
+}
+
+inline std::string
+delta_machine_info_json() {
+#if STYIO_NANO_BUILD
+  return "{\"schema_versions\":[]}";
+#else
+  return advertised_delta_machine_info_json();
 #endif
 }
 
@@ -82,6 +98,10 @@ struct StaticSnapshotStageResult
   // Non-empty when `ok` is false; attribute with kStaticSnapshotDiagnosticSubcode.
   std::string error;
   std::filesystem::path artifact_path;
+  // Compact JSON object for the `observable_static_snapshot` receipt key.
+  // Empty when the request names no `parent_snapshot_path`; otherwise the
+  // delta publication record (see DeltaPublication.hpp).
+  std::string receipt_json;
 };
 
 // Runs the admitted publication stage after Sema and before lowering:
@@ -89,6 +109,8 @@ struct StaticSnapshotStageResult
 // lifecycle, writes `<artifact_dir>/<artifact_stem>.observable-static-snapshot.json`
 // (removing any partial file on write failure), appends the path to the
 // receipt artifact list, and records the snapshot profiler phase and counters.
+// When the request names a `parent_snapshot_path`, the delta stage runs after
+// the snapshot is written; its outcome never fails the snapshot publication.
 StaticSnapshotStageResult
 publish_compile_plan_static_snapshot(
   const styio::config::CompilePlanRequest& request,

@@ -9,6 +9,7 @@ set(STYIO_CONTRACT_SOURCES
   StyioServices/StyioCLI/SyntaxCheck.cpp
   StyioServices/StyioConfig/CompilePlanContract.cpp
   StyioServices/StyioConfig/SourceBuildInfo.cpp
+  StyioServices/StyioObservableProducer/DeltaPublication.cpp
   StyioServices/StyioObservableProducer/StaticSnapshotContract.cpp
   StyioServices/StyioObservableProducer/StaticSnapshotPublication.cpp
 )

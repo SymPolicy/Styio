@@ -273,7 +273,9 @@ parse_observable_static_snapshot_request(
 
   for (const auto& field : *snapshot) {
     const std::string field_name = field.first.str();
-    if (field_name != "schema_version" && field_name != "required_capabilities") {
+    if (field_name != "schema_version"
+        && field_name != "required_capabilities"
+        && field_name != "parent_snapshot_path") {
       error_subcode = "observable_static_snapshot_malformed";
       error_message =
         "compile-plan emit.observable_static_snapshot contains an unsupported field: "
@@ -332,9 +334,23 @@ parse_observable_static_snapshot_request(
     required_capabilities.push_back(capability);
   }
 
+  std::filesystem::path parent_snapshot_path;
+  if (const llvm::json::Value* parent_value = snapshot->get("parent_snapshot_path");
+      parent_value != nullptr) {
+    const auto raw = parent_value->getAsString();
+    if (!raw.has_value() || raw->empty()) {
+      error_subcode = "observable_static_snapshot_malformed";
+      error_message =
+        "compile-plan emit.observable_static_snapshot.parent_snapshot_path must be a non-empty string";
+      return false;
+    }
+    parent_snapshot_path = std::filesystem::path(std::string(*raw));
+  }
+
   out_request.emit_observable_static_snapshot = true;
   out_request.observable_static_snapshot_schema_version = static_cast<int>(schema_version);
   out_request.observable_static_snapshot_required_capabilities = std::move(required_capabilities);
+  out_request.observable_static_snapshot_parent_snapshot_path = std::move(parent_snapshot_path);
   return true;
 }
 
