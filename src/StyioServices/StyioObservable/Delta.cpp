@@ -347,8 +347,11 @@ std::string field_as_json(const JsonValue& value) {
     case JsonValue::Kind::Object:
       json.begin_object();
       for (const auto& entry : value.object_value) {
+        if (entry.second == nullptr) {
+          continue;
+        }
         json.key(entry.first);
-        json.raw_value(field_as_json(entry.second));
+        json.raw_value(field_as_json(*entry.second));
       }
       json.end_object();
       break;
