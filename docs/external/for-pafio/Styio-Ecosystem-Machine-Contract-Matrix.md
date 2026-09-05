@@ -42,7 +42,11 @@ Optional `emit.observable_static_snapshot` is an incubating, compiler-owned,
 static-only artifact request. It is not a Pafio feature, not a package-manager
 capability, and not an approved external schema. Pafio may pass the object
 through a compile plan only when a later authorized change says so; Styio
-still owns admission, publication, privacy, receipts, and failure codes.
+still owns admission, publication, privacy, receipts, and failure codes. The
+object's optional `parent_snapshot_path` is a pass-through transport input
+(the previous snapshot artifact path) that lets Styio also publish
+`<stem>.observable-delta.json` and a receipt `observable_static_snapshot`
+record; Pafio never reads, validates, or interprets snapshots or deltas.
 
 ### 2.3 Language-service contracts
 

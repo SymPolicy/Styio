@@ -37,6 +37,11 @@ struct CompilePlanRequest
   bool emit_observable_static_snapshot = false;
   int observable_static_snapshot_schema_version = 0;
   std::vector<std::string> observable_static_snapshot_required_capabilities;
+  // Optional `emit.observable_static_snapshot.parent_snapshot_path`: the
+  // previous snapshot artifact the producer should diff against.  Transport
+  // input only; it never participates in admission, identity, or snapshot
+  // bytes.  Empty when the request names no parent.
+  std::filesystem::path observable_static_snapshot_parent_snapshot_path;
   std::optional<CompilationUnit> compilation_unit;
 };
 
