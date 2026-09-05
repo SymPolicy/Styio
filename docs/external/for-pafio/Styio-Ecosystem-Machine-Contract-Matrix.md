@@ -48,6 +48,13 @@ object's optional `parent_snapshot_path` is a pass-through transport input
 `<stem>.observable-delta.json` and a receipt `observable_static_snapshot`
 record; Pafio never reads, validates, or interprets snapshots or deltas.
 
+Optional `emit.runtime_observation` requests incubating runtime-events schema
+v2. A compile-plan without that object still writes v2 controller records with
+correlation disabled. Pafio may route `runtime-events.jsonl`; it must not
+request version 1 or redefine event meaning, site identity, causality, waits,
+or loss. S3 remains unapproved. Cancellation and cooperative producers are
+unavailable.
+
 ### 2.3 Language-service contracts
 
 Vityo consumes syntax, semantic, diagnostic, and language-service contracts

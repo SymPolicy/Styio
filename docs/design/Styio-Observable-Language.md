@@ -71,11 +71,11 @@ Its active edge vocabulary is:
 
 The graph currently supports validation, kind counts, cycle detection, a diagnostic `debug_string()`, and compiler-internal opaque semantic identity on every node. Dense node IDs remain build-order indexes and node source links remain process-local AST pointers. `debug_string()` is diagnostic text, contains no semantic IDs, may contain source-derived labels, and is not an external protocol or telemetry format.
 
-An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Snapshot delta, producer lineage, and bounded query are implemented as public S2 contracts over that snapshot. Runtime correlation remains unimplemented.
+An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Snapshot delta, producer lineage, and bounded query are implemented as public S2 contracts over that snapshot. Runtime-events schema v2 is implemented as an explicit compile-plan overlay and remains unapproved for default enablement. Cancellation and cooperative suspension producers are schema-owned and advertised unavailable.
 
 Semantic analysis owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Its order-unspecified descriptor seam exposes only node kind, typed semantic role, opaque identity, and explicit qualification status; the owning artifact retains the qualified-or-anonymous scope once. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal capability does not change diagnostics, code generation, or ordinary compiler operation.
 
-The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented snapshot, delta, lineage, bounded query, negotiation, retention, and degradation contracts are owned by `src/StyioServices/StyioObservable/README.md` together with `tests/fixtures/observable_static_snapshot/v1/` and `tests/fixtures/observable-topology/`. Mutable service caches are not semantic facts. Runtime correlation, scheduler hooks, and Vityo UI remain deferred. The schema is incubating, static-only, and unapproved.
+The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented snapshot, delta, lineage, bounded query, negotiation, retention, degradation, and runtime-events v2 contracts are owned by `src/StyioServices/StyioObservable/README.md` together with `tests/fixtures/observable_static_snapshot/v1/`, `tests/fixtures/observable-topology/`, and `tests/fixtures/observable-runtime-correlation/v2/`. Mutable service caches are not semantic facts. Vityo UI remains deferred. Snapshot and runtime-event schemas are incubating and unapproved.
 
 ## 4. Static observable artifact
 
@@ -143,11 +143,13 @@ The query service may share workspace, file watching, source mapping, and proces
 
 Static topology answers what may or must exist. A runtime overlay answers what occurred in one execution. Neither substitutes for the other.
 
-Runtime events that correlate to topology must carry explicit causal identifiers when available. Timestamp proximity is not evidence that one task woke, blocked, cancelled, or backpressured another. Wait observations must distinguish at least runnable scheduling latency, cooperative suspension, I/O, resource, task, backpressure, timer, cancellation, and unknown waits before a consumer presents a precise cause.
+Runtime events that correlate to topology must carry explicit causal identifiers when available. Timestamp proximity is not evidence that one task woke, blocked, cancelled, or backpressured another. Wait observations must distinguish at least runnable scheduling latency, cooperative suspension, I/O, resource, task, backpressure, timer, cancellation, and unknown waits before a consumer presents a precise cause. The current producer implements runnable, task, and backpressure waits; the remaining reasons are schema-owned and advertised unavailable.
 
 High-frequency observations default to aggregation or sampling. Lifecycle, failure, cancellation, and loss-accounting events have higher retention value than per-item stream samples. Telemetry buffers must not block the application merely to preserve low-priority observations.
 
-OpenTelemetry and Perfetto are exporter targets. They do not define Styio's static ownership, mutation, effect, type, failure, or resource semantics.
+The implemented overlay is runtime-events v2: one session, one sink, one drain owner, and a closed four-mode enum (`disabled`, `aggregate`, `sampled`, `detailed`). Disabled and static-only compilation keep the existing task ABI. Enabled compilation registers compact snapshot/site descriptors and observed spawn/pull entrypoints. Instance IDs are lane-local sequences, not handles. Completeness is `complete` only when required producers ran, retained references resolve, no buffer/export loss occurred, and the final summary was written.
+
+OpenTelemetry and Perfetto are exporter targets. They do not define Styio's static ownership, mutation, effect, type, failure, or resource semantics. S3 is still unapproved.
 
 ## 9. Privacy and cost
 
@@ -182,7 +184,7 @@ This contract does not:
 - make arbitrary compiler internals public or stable;
 - make runtime samples the canonical project model;
 - allow Vityo to infer canonical semantic edges from text, call stacks, or addresses;
-- connect compiler topology directly to the runtime scheduler before a versioned correlation contract exists; or
+- connect compiler topology directly to the runtime scheduler without the versioned v2 correlation contract; or
 - allow an agent to weaken user-owned hard policy to make a change pass.
 
 ## 12. Evidence obligations

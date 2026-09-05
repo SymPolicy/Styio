@@ -115,6 +115,13 @@ public:
     add_symbol("styio_task_f64_pull", &styio_task_f64_pull);
     add_symbol("styio_task_cstr_pull", &styio_task_cstr_pull);
     add_symbol("styio_task_release", &styio_task_release);
+    add_symbol("styio_task_i64_spawn_observed", &styio_task_i64_spawn_observed);
+    add_symbol("styio_task_f64_spawn_observed", &styio_task_f64_spawn_observed);
+    add_symbol("styio_task_cstr_spawn_observed", &styio_task_cstr_spawn_observed);
+    add_symbol("styio_task_i64_pull_observed", &styio_task_i64_pull_observed);
+    add_symbol("styio_task_f64_pull_observed", &styio_task_f64_pull_observed);
+    add_symbol("styio_task_cstr_pull_observed", &styio_task_cstr_pull_observed);
+    add_symbol("styio_observation_register_table", &styio_observation_register_table);
     add_symbol("styio_task_active_count", &styio_task_active_count);
     add_symbol("styio_task_worker_count", &styio_task_worker_count);
     add_symbol("styio_task_scheduler_profile_reset", &styio_task_scheduler_profile_reset);

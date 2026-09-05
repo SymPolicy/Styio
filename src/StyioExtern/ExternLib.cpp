@@ -25,7 +25,9 @@
 #include "ExternLib.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioRuntime/HandleTable.hpp"
+#include "StyioRuntime/ObservationBuffer.hpp"
 #include "StyioRuntime/ReadyQueue.hpp"
+#include "StyioRuntime/TaskWorkerCount.hpp"
 
 namespace {
 
@@ -336,6 +338,16 @@ task_profile_inc(std::atomic<int64_t>& counter) {
   }
 }
 
+struct StyioTask;
+thread_local StyioTask* t_running_task = nullptr;
+// One outstanding wait episode per thread; a blocking thread cannot nest a
+// second wait, so a thread-local id pairs begin/end without writing shared
+// task state from arbitrary pulling threads.
+thread_local styio::observable::PackedInstance t_wait_id{};
+void observe_started(StyioTask* task);
+void observe_completion(StyioTask* task, bool failed);
+void observe_enqueued(StyioTask* task);
+
 struct StyioTask
 {
   using I64Fn = int64_t (*)(void*);
@@ -359,8 +371,18 @@ struct StyioTask
   bool failed = false;
   std::string error_message;
   std::string error_subcode;
+  bool observation_live = false;
+  std::uint32_t descriptor_index = styio::observable::kInvalidDescriptorIndex;
+  styio::observable::PackedInstance instance{};
+  styio::observable::EventReference created_event{};
+  styio::observable::EventReference enqueue_event{};
+  styio::observable::EventReference completion_event{};
+  styio::observable::PackedInstance runnable_wait_id{};
+  std::uint64_t wait_begin_ns = 0;
 
   void run() noexcept {
+    t_running_task = this;
+    observe_started(this);
     task_profile_inc(g_task_scheduler_profile_counters.started_tasks);
     int64_t local_i64 = 0;
     double local_f64 = 0.0;
@@ -423,9 +445,11 @@ struct StyioTask
     failed = local_failed;
     error_message = std::move(local_error);
     error_subcode = std::move(local_subcode);
+    observe_completion(this, local_failed);
     ready.store(true, std::memory_order_release);
     task_profile_inc(g_task_scheduler_profile_counters.completed_tasks);
     ready.notify_all();
+    t_running_task = nullptr;
   }
 };
 
@@ -434,6 +458,220 @@ wait_until_task_ready(StyioTask* task) {
   while (!(*task).ready.load(std::memory_order_acquire)) {
     (*task).ready.wait(false, std::memory_order_acquire);
   }
+}
+
+bool observation_live() {
+  return styio::runtime::observation::session_active();
+}
+
+void emit_obs(styio::runtime::observation::EmitBuilder builder) {
+  if (!observation_live()) {
+    return;
+  }
+  (void)styio::runtime::observation::emit_event(builder);
+}
+
+void prepare_task_observation(StyioTask* task, std::uint32_t descriptor_index) {
+  if (!observation_live() || task == nullptr) {
+    return;
+  }
+  task->observation_live = true;
+  task->descriptor_index = descriptor_index;
+  task->instance = styio::runtime::observation::allocate_instance();
+  task->created_event = styio::runtime::observation::next_event_ref();
+  styio::runtime::observation::EmitBuilder created;
+  created.kind = styio::observable::EventKind::TaskCreated;
+  created.descriptor_index = descriptor_index;
+  created.instance = task->instance;
+  created.event_ref = task->created_event;
+  emit_obs(created);
+}
+
+void observe_enqueued(StyioTask* task) {
+  if (!observation_live() || task == nullptr || !task->observation_live) {
+    return;
+  }
+  task->enqueue_event = styio::runtime::observation::next_event_ref();
+  styio::runtime::observation::EmitBuilder enqueued;
+  enqueued.kind = styio::observable::EventKind::TaskEnqueued;
+  enqueued.descriptor_index = task->descriptor_index;
+  enqueued.instance = task->instance;
+  enqueued.event_ref = task->enqueue_event;
+  enqueued.has_cause = true;
+  enqueued.cause = task->created_event;
+  enqueued.cause_subject = task->instance;
+  enqueued.cause_kind = styio::observable::CausalKind::Spawn;
+  emit_obs(enqueued);
+  task->runnable_wait_id = styio::runtime::observation::next_wait_id();
+  styio::runtime::observation::EmitBuilder wait_begin;
+  wait_begin.kind = styio::observable::EventKind::WaitBegin;
+  wait_begin.descriptor_index = task->descriptor_index;
+  wait_begin.instance = task->instance;
+  wait_begin.wait_id = task->runnable_wait_id;
+  wait_begin.waiter = task->instance;
+  wait_begin.wait_reason = styio::observable::WaitReason::Runnable;
+  emit_obs(wait_begin);
+}
+
+void observe_started(StyioTask* task) {
+  if (!observation_live() || task == nullptr || !task->observation_live) {
+    return;
+  }
+  styio::runtime::observation::EmitBuilder started;
+  started.kind = styio::observable::EventKind::TaskDequeued;
+  started.descriptor_index = task->descriptor_index;
+  started.instance = task->instance;
+  started.has_cause = true;
+  started.cause = task->enqueue_event.seq == 0 ? task->created_event : task->enqueue_event;
+  started.cause_subject = task->instance;
+  started.cause_kind = styio::observable::CausalKind::Dispatch;
+  emit_obs(started);
+  styio::runtime::observation::EmitBuilder running;
+  running.kind = styio::observable::EventKind::TaskStarted;
+  running.descriptor_index = task->descriptor_index;
+  running.instance = task->instance;
+  running.has_cause = true;
+  running.cause = started.cause;
+  running.cause_subject = task->instance;
+  running.cause_kind = styio::observable::CausalKind::Dispatch;
+  emit_obs(running);
+  styio::runtime::observation::EmitBuilder wait_end;
+  wait_end.kind = styio::observable::EventKind::WaitEnd;
+  wait_end.descriptor_index = task->descriptor_index;
+  wait_end.instance = task->instance;
+  wait_end.wait_id = task->runnable_wait_id;
+  wait_end.waiter = task->instance;
+  wait_end.wait_reason = styio::observable::WaitReason::Runnable;
+  wait_end.wait_resolution = styio::observable::WaitResolution::Ready;
+  wait_end.has_cause = true;
+  wait_end.cause = started.cause;
+  wait_end.cause_subject = task->instance;
+  wait_end.cause_kind = styio::observable::CausalKind::Dispatch;
+  emit_obs(wait_end);
+}
+
+void observe_completion(StyioTask* task, bool failed) {
+  if (!observation_live() || task == nullptr || !task->observation_live) {
+    return;
+  }
+  task->completion_event = styio::runtime::observation::next_event_ref();
+  styio::runtime::observation::EmitBuilder done;
+  done.kind = failed ? styio::observable::EventKind::TaskFailed
+                     : styio::observable::EventKind::TaskCompleted;
+  done.descriptor_index = task->descriptor_index;
+  done.instance = task->instance;
+  done.event_ref = task->completion_event;
+  done.has_cause = true;
+  done.cause = task->created_event;
+  done.cause_subject = task->instance;
+  done.cause_kind = failed ? styio::observable::CausalKind::Failure
+                           : styio::observable::CausalKind::Completion;
+  emit_obs(done);
+}
+
+styio::runtime::ReadyQueueObservationHooks make_queue_hooks() {
+  styio::runtime::ReadyQueueObservationHooks hooks;
+  hooks.on_pressure = [](void*, std::size_t depth, std::size_t capacity) {
+    if (!observation_live()) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder pressure;
+    pressure.kind = styio::observable::EventKind::QueuePressure;
+    pressure.queue_depth = static_cast<std::uint32_t>(depth);
+    pressure.queue_capacity = static_cast<std::uint32_t>(capacity);
+    emit_obs(pressure);
+  };
+  hooks.on_producer_wait_begin = [](void*, std::size_t depth, std::size_t capacity) {
+    if (!observation_live()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    const auto wait_id = styio::runtime::observation::next_wait_id();
+    t_wait_id = wait_id;
+    styio::runtime::observation::EmitBuilder begin;
+    begin.kind = styio::observable::EventKind::WaitBegin;
+    begin.wait_id = wait_id;
+    begin.waiter = waiter != nullptr ? waiter->instance : styio::observable::PackedInstance{};
+    begin.wait_reason = styio::observable::WaitReason::Backpressure;
+    begin.queue_depth = static_cast<std::uint32_t>(depth);
+    begin.queue_capacity = static_cast<std::uint32_t>(capacity);
+    if (waiter != nullptr) {
+      begin.descriptor_index = waiter->descriptor_index;
+      begin.instance = waiter->instance;
+    }
+    emit_obs(begin);
+  };
+  hooks.on_producer_wait_end = [](void*, bool closed) {
+    if (!observation_live()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    const auto wait_id = t_wait_id;
+    if (wait_id.seq == 0) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder end;
+    end.kind = styio::observable::EventKind::WaitEnd;
+    end.wait_id = wait_id;
+    end.wait_reason = styio::observable::WaitReason::Backpressure;
+    end.wait_resolution = closed ? styio::observable::WaitResolution::Closed
+                                 : styio::observable::WaitResolution::Ready;
+    if (waiter != nullptr) {
+      end.waiter = waiter->instance;
+      end.descriptor_index = waiter->descriptor_index;
+      end.instance = waiter->instance;
+    }
+    emit_obs(end);
+  };
+  hooks.on_consumer_wait_begin = [](void*) {
+    if (!observation_live()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    const auto wait_id = styio::runtime::observation::next_wait_id();
+    t_wait_id = wait_id;
+    styio::runtime::observation::EmitBuilder begin;
+    begin.kind = styio::observable::EventKind::WaitBegin;
+    begin.wait_id = wait_id;
+    begin.waiter = waiter != nullptr ? waiter->instance : styio::observable::PackedInstance{};
+    begin.wait_reason = styio::observable::WaitReason::Runnable;
+    if (waiter != nullptr) {
+      begin.descriptor_index = waiter->descriptor_index;
+      begin.instance = waiter->instance;
+    }
+    emit_obs(begin);
+  };
+  hooks.on_consumer_wait_end = [](void*, bool got_item) {
+    if (!observation_live()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    const auto wait_id = t_wait_id;
+    if (wait_id.seq == 0) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder end;
+    end.kind = styio::observable::EventKind::WaitEnd;
+    end.wait_id = wait_id;
+    end.wait_reason = styio::observable::WaitReason::Runnable;
+    end.wait_resolution = got_item ? styio::observable::WaitResolution::Ready
+                                   : styio::observable::WaitResolution::Closed;
+    if (waiter != nullptr) {
+      end.waiter = waiter->instance;
+      end.descriptor_index = waiter->descriptor_index;
+      end.instance = waiter->instance;
+    }
+    emit_obs(end);
+  };
+  hooks.on_close = [](void*) {
+    if (!observation_live()) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder closed;
+    closed.kind = styio::observable::EventKind::QueueClosed;
+    emit_obs(closed);
+  };
+  return hooks;
 }
 
 class StyioTaskScheduler
@@ -446,6 +684,7 @@ public:
 
   void enqueue(StyioTask* task) {
     ensure_worker_for_enqueue();
+    observe_enqueued(task);
     if (queue_.push(static_cast<void*>(task))
         == styio::runtime::ReadyQueuePushResult::Accepted) {
       task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
@@ -497,29 +736,18 @@ private:
     return static_cast<std::size_t>(parsed);
   }
 
-  static std::size_t configured_worker_count() {
-    std::size_t count = std::thread::hardware_concurrency();
-    if (const char* raw = std::getenv("STYIO_TASK_THREADS")) {
-      char* end = nullptr;
-      errno = 0;
-      const unsigned long parsed = std::strtoul(raw, &end, 10);
-      if (errno == 0 && end != raw && parsed > 0) {
-        count = static_cast<std::size_t>(parsed);
-      }
-    }
-    if (count == 0) {
-      count = 1;
-    }
-    return std::min<std::size_t>(count, 64);
-  }
-
   std::mutex lifecycle_mu_;
   styio::runtime::BoundedReadyQueue queue_{configured_queue_capacity()};
   std::vector<std::thread> workers_;
-  const std::size_t max_worker_count_{configured_worker_count()};
+  const std::size_t max_worker_count_{styio::runtime::configured_task_worker_count()};
   std::atomic<std::size_t> worker_count_{0};
 
-  StyioTaskScheduler() = default;
+  StyioTaskScheduler() {
+    // The hooks are stateless and inert unless an observation session is live;
+    // install them once here so enqueue never mutates queue state outside the
+    // queue mutex.
+    queue_.set_observation_hooks(make_queue_hooks());
+  }
 
   ~StyioTaskScheduler() {
     queue_.close();
@@ -537,7 +765,8 @@ private:
     std::lock_guard<std::mutex> lock(lifecycle_mu_);
     workers_.reserve(max_worker_count_);
     while (workers_.size() < max_worker_count_) {
-      workers_.emplace_back([this]() { worker_loop(); });
+      const std::uint32_t lane = static_cast<std::uint32_t>(workers_.size() + 1);
+      workers_.emplace_back([this, lane]() { worker_loop(lane); });
     }
     worker_count_.store(workers_.size(), std::memory_order_release);
   }
@@ -549,12 +778,14 @@ private:
     std::lock_guard<std::mutex> lock(lifecycle_mu_);
     if (workers_.size() < max_worker_count_) {
       workers_.reserve(max_worker_count_);
-      workers_.emplace_back([this]() { worker_loop(); });
+      const std::uint32_t lane = static_cast<std::uint32_t>(workers_.size() + 1);
+      workers_.emplace_back([this, lane]() { worker_loop(lane); });
       worker_count_.store(workers_.size(), std::memory_order_release);
     }
   }
 
-  void worker_loop() {
+  void worker_loop(std::uint32_t lane) {
+    styio::runtime::observation::set_thread_lane(lane);
     for (;;) {
       auto* task = static_cast<StyioTask*>(queue_.wait_pop());
       if (task == nullptr) {
@@ -844,6 +1075,13 @@ close_task(void* raw) {
     if (!(*task).ready.load(std::memory_order_acquire)) {
       wait_until_task_ready(task);
     }
+    if (observation_live() && (*task).observation_live) {
+      styio::runtime::observation::EmitBuilder released;
+      released.kind = styio::observable::EventKind::TaskReleased;
+      released.descriptor_index = (*task).descriptor_index;
+      released.instance = (*task).instance;
+      emit_obs(released);
+    }
     delete task;
     task_profile_inc(g_task_scheduler_profile_counters.released_tasks);
     if (g_active_task_handles > 0) {
@@ -890,7 +1128,43 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
   }
   else {
     task_profile_inc(g_task_scheduler_profile_counters.blocking_pulls);
+    if (observation_live() && (*task).observation_live) {
+      StyioTask* waiter = t_running_task;
+      t_wait_id = styio::runtime::observation::next_wait_id();
+      styio::runtime::observation::EmitBuilder begin;
+      begin.kind = styio::observable::EventKind::WaitBegin;
+      begin.descriptor_index = waiter != nullptr ? waiter->descriptor_index : (*task).descriptor_index;
+      begin.instance = waiter != nullptr ? waiter->instance : (*task).instance;
+      begin.wait_id = t_wait_id;
+      begin.waiter = waiter != nullptr ? waiter->instance : (*task).instance;
+      begin.subject = (*task).instance;
+      begin.subject_present = true;
+      begin.wait_reason = styio::observable::WaitReason::Task;
+      emit_obs(begin);
+    }
     wait_until_task_ready(task);
+    if (observation_live() && (*task).observation_live) {
+      StyioTask* waiter = t_running_task;
+      styio::runtime::observation::EmitBuilder end;
+      end.kind = styio::observable::EventKind::WaitEnd;
+      end.descriptor_index = waiter != nullptr ? waiter->descriptor_index : (*task).descriptor_index;
+      end.instance = waiter != nullptr ? waiter->instance : (*task).instance;
+      end.waiter = waiter != nullptr ? waiter->instance : (*task).instance;
+      end.subject = (*task).instance;
+      end.subject_present = true;
+      end.wait_reason = styio::observable::WaitReason::Task;
+      end.wait_resolution = (*task).failed
+        ? styio::observable::WaitResolution::Failed
+        : styio::observable::WaitResolution::Completed;
+      end.wait_id = t_wait_id;
+      end.has_cause = true;
+      end.cause = (*task).completion_event;
+      end.cause_subject = (*task).instance;
+      end.cause_kind = (*task).failed
+        ? styio::observable::CausalKind::Failure
+        : styio::observable::CausalKind::Wake;
+      emit_obs(end);
+    }
   }
   if ((*task).failed) {
     task_profile_inc(g_task_scheduler_profile_counters.failed_pulls);
@@ -902,6 +1176,17 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
   if ((*task).consumed.exchange(true, std::memory_order_acq_rel)) {
     set_runtime_error_once(kRuntimeSubcodeTaskConsumed, "task result has already been pulled");
     return nullptr;
+  }
+  if (observation_live() && (*task).observation_live) {
+    styio::runtime::observation::EmitBuilder consumed;
+    consumed.kind = styio::observable::EventKind::TaskResultConsumed;
+    consumed.descriptor_index = (*task).descriptor_index;
+    consumed.instance = (*task).instance;
+    consumed.has_cause = true;
+    consumed.cause = (*task).completion_event;
+    consumed.cause_subject = (*task).instance;
+    consumed.cause_kind = styio::observable::CausalKind::Completion;
+    emit_obs(consumed);
   }
   task_profile_inc(g_task_scheduler_profile_counters.pulled_tasks);
   return task;
@@ -2508,6 +2793,7 @@ styio_task_i64_spawn(int64_t (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::I64);
   (*task).i64_fn = fn;
   (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
   const int64_t handle = stash_task(task);
   if (handle != 0) {
     task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
@@ -2521,6 +2807,7 @@ styio_task_f64_spawn(double (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::F64);
   (*task).f64_fn = fn;
   (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
   const int64_t handle = stash_task(task);
   if (handle != 0) {
     task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
@@ -2534,6 +2821,7 @@ styio_task_cstr_spawn(const char* (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::String);
   (*task).cstr_fn = fn;
   (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
   const int64_t handle = stash_task(task);
   if (handle != 0) {
     task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
@@ -2572,6 +2860,87 @@ styio_task_cstr_pull(int64_t h) {
 extern "C" DLLEXPORT void
 styio_task_release(int64_t h) {
   (void)g_handle_table.release(h, StyioHandleTable::HandleKind::Task, close_task);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_spawn_observed(int64_t (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  (*task).i64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  const int64_t handle = stash_task(task);
+  if (handle != 0) {
+    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
+    StyioTaskScheduler::instance().enqueue(task);
+  }
+  return handle;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_f64_spawn_observed(double (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::F64);
+  (*task).f64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  const int64_t handle = stash_task(task);
+  if (handle != 0) {
+    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
+    StyioTaskScheduler::instance().enqueue(task);
+  }
+  return handle;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_cstr_spawn_observed(const char* (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::String);
+  (*task).cstr_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  const int64_t handle = stash_task(task);
+  if (handle != 0) {
+    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
+    StyioTaskScheduler::instance().enqueue(task);
+  }
+  return handle;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_pull_observed(int64_t h, uint32_t) {
+  return styio_task_i64_pull(h);
+}
+
+extern "C" DLLEXPORT double
+styio_task_f64_pull_observed(int64_t h, uint32_t) {
+  return styio_task_f64_pull(h);
+}
+
+extern "C" DLLEXPORT const char*
+styio_task_cstr_pull_observed(int64_t h, uint32_t) {
+  return styio_task_cstr_pull(h);
+}
+
+extern "C" DLLEXPORT void
+styio_observation_register_table(
+  uint32_t generation,
+  const StyioObservationDescriptor* table,
+  uint32_t count
+) {
+  std::vector<styio::runtime::observation::Descriptor> descriptors;
+  descriptors.reserve(count);
+  for (uint32_t i = 0; i < count; ++i) {
+    styio::runtime::observation::Descriptor desc;
+    if (table != nullptr) {
+      if (table[i].snapshot_id != nullptr) {
+        desc.snapshot_id = table[i].snapshot_id;
+      }
+      if (table[i].site_id != nullptr) {
+        desc.site_id = table[i].site_id;
+      }
+      desc.role = static_cast<styio::observable::SiteRole>(table[i].role);
+    }
+    descriptors.push_back(std::move(desc));
+  }
+  styio::runtime::observation::register_table(generation, std::move(descriptors));
 }
 
 extern "C" DLLEXPORT int64_t

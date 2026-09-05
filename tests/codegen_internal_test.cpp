@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -2293,4 +2295,53 @@ TEST(StyioStructuredFunctionResults, VerifierTreatsExpressionMatchReturnsAsRegio
     })));
 
   EXPECT_TRUE(styio::ir::verify_styio_ir(function.get()).ok());
+}
+
+TEST(StyioCodegenInternal, ObservedTaskAbiUsesCompactDescriptors) {
+  auto generator = make_generator();
+  generator->set_runtime_observation_table(1, {{"s1_fixture", "n1_task", 0}});
+  auto* task = SIOTaskCreate::Create(
+    SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))}), i64_type());
+  task->observation.present = true;
+  task->observation.table_generation = 1;
+  task->observation.descriptor_index = 0;
+  task->observation.role = 0;
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({task}));
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_NE(ir.find("styio_task_i64_spawn_observed"), std::string::npos) << ir;
+  EXPECT_NE(ir.find("styio_observation_register_table"), std::string::npos) << ir;
+  EXPECT_EQ(ir.find("@styio_task_i64_spawn("), std::string::npos) << ir;
+}
+
+TEST(StyioCodegenInternal, DisabledAndStaticObservationUseExistingTaskAbi) {
+  auto write_fixture = [](const std::string& name, const std::string& ir) {
+#ifndef STYIO_BUILD_DIR
+    const char* build_dir = ".";
+#else
+    const char* build_dir = STYIO_BUILD_DIR;
+#endif
+    const std::filesystem::path path =
+      std::filesystem::path(build_dir) / "tests/fixtures/observable-runtime-correlation/v2"
+      / name;
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    EXPECT_TRUE(out.is_open()) << path.string();
+    if (out.is_open()) {
+      out << ir;
+    }
+  };
+
+  auto generator = make_generator();
+  auto* task = SIOTaskCreate::Create(
+    SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))}), i64_type());
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({task}));
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  EXPECT_NE(ir.find("styio_task_i64_spawn"), std::string::npos) << ir;
+  EXPECT_EQ(ir.find("styio_task_i64_spawn_observed"), std::string::npos) << ir;
+  EXPECT_EQ(ir.find("styio_observation"), std::string::npos) << ir;
+  EXPECT_EQ(ir.find("runtime_observation"), std::string::npos) << ir;
+  write_fixture("disabled.llvm.ir", ir);
+  write_fixture("static-only.llvm.ir", ir);
 }
