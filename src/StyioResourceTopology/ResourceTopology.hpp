@@ -187,8 +187,29 @@ public:
     bool globally_comparable = false;
   };
 
+  struct NodePublication
+  {
+    NodeKind kind = NodeKind::Value;
+    SemanticRole role = SemanticRole::Value;
+    styio::semantic_identity::SemanticIdentity identity;
+    Capability capabilities = Capability::None;
+    TypeState type_state = TypeState::Unknown;
+    bool source_owned = false;
+  };
+
+  struct RelationPublication
+  {
+    EdgeKind kind = EdgeKind::Flow;
+    std::size_t from = 0;
+    std::size_t to = 0;
+    std::string relation_key;
+  };
+
 private:
   std::vector<SemanticDescriptor> descriptors_;
+  std::vector<NodePublication> node_publications_;
+  std::vector<RelationPublication> relation_publications_;
+  bool publication_complete_ = false;
 
   explicit ValidatedArtifact(
     Graph graph,
@@ -228,6 +249,18 @@ public:
 
   const std::vector<SemanticDescriptor>& semantic_descriptors() const noexcept {
     return descriptors_;
+  }
+
+  bool publication_complete() const noexcept {
+    return publication_complete_;
+  }
+
+  const std::vector<NodePublication>& node_publications() const noexcept {
+    return node_publications_;
+  }
+
+  const std::vector<RelationPublication>& relation_publications() const noexcept {
+    return relation_publications_;
   }
 };
 
@@ -283,6 +316,7 @@ std::string to_string(SemanticRole role);
 std::string to_string(EdgeKind kind);
 std::string to_string(TypeState state);
 std::string to_string(Capability capabilities);
+std::vector<std::string> capability_names(Capability capabilities);
 
 } // namespace styio::resource_topology
 

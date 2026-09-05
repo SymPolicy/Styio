@@ -550,9 +550,18 @@ private:
       ast_nodes_.emplace(AstSiteKey{ast, memo_subsite}, id);
     }
     if (ctx.owner != kNoNode && id != ctx.owner) {
-      result_.graph.add_edge(EdgeKind::Ownership, ctx.owner, id);
+      add_relation(EdgeKind::Ownership, ctx.owner, id);
     }
     return id;
+  }
+
+  void add_relation(
+    EdgeKind kind,
+    std::size_t from,
+    std::size_t to,
+    std::string relation_key = {}
+  ) {
+    result_.graph.add_edge(kind, from, to, std::move(relation_key));
   }
 
   StyioDataType type_hint(StyioAST* ast) const {
@@ -681,7 +690,7 @@ private:
       return;
     }
     if (has_capability(result_.graph.node(resource).capabilities, Capability::Close)) {
-      result_.graph.add_edge(EdgeKind::Ownership, owner, resource, "close-owner");
+      add_relation(EdgeKind::Ownership, owner, resource, "close-owner");
     }
   }
 
@@ -868,21 +877,21 @@ private:
       child_context(ctx, sink, "data"));
     require_cap(resource, Capability::Push, cap_msg, resource_expr);
     if (data != kNoNode) {
-      result_.graph.add_edge(EdgeKind::Flow, data, sink, data_edge_label);
+      add_relation(EdgeKind::Flow, data, sink, data_edge_label);
     }
     if (resource != kNoNode) {
       const bool logical = dynamic_cast<ResourceRefAST*>(resource_expr) != nullptr;
-      result_.graph.add_edge(
+      add_relation(
         EdgeKind::Commit,
         sink,
         resource,
         logical ? "pending-write-commit" : commit_label);
-      result_.graph.add_edge(
+      add_relation(
         EdgeKind::Mutation,
         sink,
         resource,
         logical ? "pending-write" : mutation_label);
-      result_.graph.add_edge(EdgeKind::Backpressure, sink, resource, "write-pressure");
+      add_relation(EdgeKind::Backpressure, sink, resource, "write-pressure");
       record_access(resource, ctx.owner, true, ast, access_label);
       own_if_close(sink, resource);
     }
@@ -972,7 +981,7 @@ private:
       if (after == kNoNode) {
         after = visit(order->getAfter(), related_context(ctx, "after"));
       }
-      result_.graph.add_edge(EdgeKind::HappensBefore, before, after, "sequence");
+      add_relation(EdgeKind::HappensBefore, before, after, "sequence");
       return after;
     }
 
@@ -1014,7 +1023,7 @@ private:
       }
       const std::size_t resource = hit->second;
       if (ref->isWholeResource()) {
-        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, resource, "resource-ref");
+        add_relation(EdgeKind::Borrow, ctx.owner, resource, "resource-ref");
         record_access(resource, ctx.owner, false, ast, "resource-ref");
         return resource;
       }
@@ -1087,8 +1096,8 @@ private:
         capabilities_from_type(selector_type),
         state_from_type(selector_type),
         ctx);
-      result_.graph.add_edge(EdgeKind::Flow, resource, value, "committed-snapshot-read");
-      result_.graph.add_edge(EdgeKind::Borrow, value, resource, "selector-borrow");
+      add_relation(EdgeKind::Flow, resource, value, "committed-snapshot-read");
+      add_relation(EdgeKind::Borrow, value, resource, "selector-borrow");
       record_access(resource, ctx.owner, false, ast, "selector-read");
       return value;
     }
@@ -1096,23 +1105,23 @@ private:
     if (auto* name = dynamic_cast<NameAST*>(ast)) {
       auto hit = handle_bindings_.find(name->getAsStr());
       if (hit != handle_bindings_.end()) {
-        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "name-ref");
+        add_relation(EdgeKind::Borrow, ctx.owner, hit->second, "name-ref");
         record_access(hit->second, ctx.owner, false, ast, "name-ref");
         return hit->second;
       }
       hit = state_slots_.find(name->getAsStr());
       if (hit != state_slots_.end()) {
-        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "state-ref");
+        add_relation(EdgeKind::Borrow, ctx.owner, hit->second, "state-ref");
         return hit->second;
       }
       hit = task_bindings_.find(name->getAsStr());
       if (hit != task_bindings_.end()) {
-        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "task_ref");
+        add_relation(EdgeKind::Borrow, ctx.owner, hit->second, "task_ref");
         return hit->second;
       }
       hit = binding_nodes_.find(name->getAsStr());
       if (hit != binding_nodes_.end()) {
-        result_.graph.add_edge(EdgeKind::Borrow, ctx.owner, hit->second, "binding-ref");
+        add_relation(EdgeKind::Borrow, ctx.owner, hit->second, "binding-ref");
         return hit->second;
       }
       return add_value(ast, std::string("value:") + name->getAsStr(), ctx);
@@ -1146,8 +1155,8 @@ private:
         state_from_type(binding_type),
         ctx);
       if (source != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Ownership, handle, source, "acquire");
-        result_.graph.add_edge(EdgeKind::Mutation, handle, source, "open");
+        add_relation(EdgeKind::Ownership, handle, source, "acquire");
+        add_relation(EdgeKind::Mutation, handle, source, "open");
       }
       handle_bindings_[binding_name] = handle;
       record_binding(binding_name, handle, binding_type);
@@ -1168,15 +1177,15 @@ private:
         effect->getOperation(),
         child_context(ctx, node, "operation"));
       if (op != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, op, node, "resource-effect-operation");
-        result_.graph.add_edge(EdgeKind::Failure, op, node, "resource-effect-settlement");
+        add_relation(EdgeKind::Flow, op, node, "resource-effect-operation");
+        add_relation(EdgeKind::Failure, op, node, "resource-effect-settlement");
       }
       for (const auto& handler : effect->getHandlers()) {
         const std::size_t body = visit(
           handler.body,
           child_context(ctx, node, "handler:" + handler.effect_name));
         if (body != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Flow, node, body, "resource-effect-handler");
+          add_relation(EdgeKind::Flow, node, body, "resource-effect-handler");
         }
       }
       if (effect->hasFallback()) {
@@ -1184,7 +1193,7 @@ private:
           effect->getFallback(),
           child_context(ctx, node, "fallback"));
         if (fallback != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Flow, node, fallback, "resource-effect-fallback");
+          add_relation(EdgeKind::Flow, node, fallback, "resource-effect-fallback");
         }
       }
       return node;
@@ -1213,9 +1222,9 @@ private:
               ctx,
               "binding:" + binding_name);
             if (resource != kNoNode) {
-              result_.graph.add_edge(EdgeKind::Flow, resource, binding, "stdin-collect");
-              result_.graph.add_edge(EdgeKind::Mutation, binding, resource, "collect-read");
-              result_.graph.add_edge(EdgeKind::Backpressure, binding, resource, "collect-pressure");
+              add_relation(EdgeKind::Flow, resource, binding, "stdin-collect");
+              add_relation(EdgeKind::Mutation, binding, resource, "collect-read");
+              add_relation(EdgeKind::Backpressure, binding, resource, "collect-pressure");
             }
             record_binding(binding_name, binding, collected_type);
             return binding;
@@ -1248,8 +1257,8 @@ private:
           redir->getData(),
           child_context(ctx, sink, "data"));
         if (data != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Mutation, sink, data, "destroy");
-          result_.graph.add_edge(EdgeKind::Commit, sink, data, "destroy-commit");
+          add_relation(EdgeKind::Mutation, sink, data, "destroy");
+          add_relation(EdgeKind::Commit, sink, data, "destroy-commit");
           record_access(data, ctx.owner, true, ast, "destroy");
           destroyed_resources_.insert(data);
         }
@@ -1281,8 +1290,8 @@ private:
         ctx);
       require_cap(collection, Capability::Iter, "iterator source must have iter capability", iter->collection);
       if (collection != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, collection, op, "iterate");
-        result_.graph.add_edge(EdgeKind::Backpressure, op, collection, "iterator-pressure");
+        add_relation(EdgeKind::Flow, collection, op, "iterate");
+        add_relation(EdgeKind::Backpressure, op, collection, "iterator-pressure");
         record_access(collection, ctx.owner, false, ast, "iterate");
         own_if_close(op, collection);
       }
@@ -1291,7 +1300,7 @@ private:
           next,
           child_context(ctx, op, "body"));
         if (child != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Flow, op, child, "iterator-body");
+          add_relation(EdgeKind::Flow, op, child, "iterator-body");
         }
       }
       return op;
@@ -1314,14 +1323,14 @@ private:
       require_cap(a, Capability::Iter, "zip lhs must have iter capability", zip->getCollectionA());
       require_cap(b, Capability::Iter, "zip rhs must have iter capability", zip->getCollectionB());
       if (a != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, a, op, "zip-a");
-        result_.graph.add_edge(EdgeKind::Backpressure, op, a, "zip-a-pressure");
+        add_relation(EdgeKind::Flow, a, op, "zip-a");
+        add_relation(EdgeKind::Backpressure, op, a, "zip-a-pressure");
         record_access(a, ctx.owner, false, ast, "zip-a");
         own_if_close(op, a);
       }
       if (b != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, b, op, "zip-b");
-        result_.graph.add_edge(EdgeKind::Backpressure, op, b, "zip-b-pressure");
+        add_relation(EdgeKind::Flow, b, op, "zip-b");
+        add_relation(EdgeKind::Backpressure, op, b, "zip-b-pressure");
         record_access(b, ctx.owner, false, ast, "zip-b");
         own_if_close(op, b);
       }
@@ -1330,7 +1339,7 @@ private:
           next,
           child_context(ctx, op, "body"));
         if (child != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Flow, op, child, "zip-body");
+          add_relation(EdgeKind::Flow, op, child, "zip-body");
         }
       }
       return op;
@@ -1355,8 +1364,8 @@ private:
       state_slots_[snapshot_name] = state;
       require_cap(resource, Capability::Pull, "snapshot source must have pull capability", snap->getResource());
       if (resource != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, resource, state, "snapshot");
-        result_.graph.add_edge(EdgeKind::Mutation, state, resource, "snapshot-read");
+        add_relation(EdgeKind::Flow, resource, state, "snapshot");
+        add_relation(EdgeKind::Mutation, state, resource, "snapshot-read");
         record_access(resource, ctx.owner, false, ast, "snapshot");
         own_if_close(state, resource);
       }
@@ -1370,8 +1379,8 @@ private:
       const std::size_t value = add_ast_node(ast, NodeKind::Value, "value:instant_pull", Capability::None, TypeState::Ready, ctx);
       require_cap(resource, Capability::Pull, "instant pull source must have pull capability", pull->getResource());
       if (resource != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, resource, value, "instant-pull");
-        result_.graph.add_edge(EdgeKind::Mutation, value, resource, "pull");
+        add_relation(EdgeKind::Flow, resource, value, "instant-pull");
+        add_relation(EdgeKind::Mutation, value, resource, "pull");
         record_access(resource, ctx.owner, false, ast, "pull");
         own_if_close(value, resource);
       }
@@ -1405,7 +1414,7 @@ private:
           sd->getWindowHeader(),
           node_owner_path(state),
           "state-window-ledger");
-        result_.graph.add_edge(EdgeKind::Ownership, state, ledger, "state-window");
+        add_relation(EdgeKind::Ownership, state, ledger, "state-window");
       }
       Context state_ctx{state, true};
       if (sd->getAccInit() != nullptr) {
@@ -1413,14 +1422,14 @@ private:
           sd->getAccInit(),
           related_context(state_ctx, "initializer"));
         if (init != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Flow, init, state, "state-init");
+          add_relation(EdgeKind::Flow, init, state, "state-init");
         }
       }
       const std::size_t update = visit(
         sd->getUpdateExpr(),
         related_context(state_ctx, "update"));
       if (update != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Mutation, state, update, "state-update");
+        add_relation(EdgeKind::Mutation, state, update, "state-update");
       }
       return state;
     }
@@ -1448,10 +1457,10 @@ private:
         }
       }
       if (base != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, base, ledger, "series-base");
+        add_relation(EdgeKind::Flow, base, ledger, "series-base");
       }
       if (window != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Intent, window, ledger, "series-window");
+        add_relation(EdgeKind::Intent, window, ledger, "series-window");
       }
       return ledger;
     }
@@ -1473,7 +1482,7 @@ private:
         task,
         node_owner_path(node),
         "task-failure-domain");
-      result_.graph.add_edge(EdgeKind::Failure, node, failure, "task_failure");
+      add_relation(EdgeKind::Failure, node, failure, "task_failure");
       visit((*task).getBody(), child_context(ctx, node, "body"));
       return node;
     }
@@ -1509,7 +1518,7 @@ private:
         TypeState::Ready,
         ctx);
       if (source != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, source, sink, "flow-bind");
+        add_relation(EdgeKind::Flow, source, sink, "flow-bind");
       }
       return sink;
     }
@@ -1532,7 +1541,7 @@ private:
           expr,
           child_context(ctx, sink, "argument"));
         if (value != kNoNode) {
-          result_.graph.add_edge(EdgeKind::Flow, value, sink, "print");
+          add_relation(EdgeKind::Flow, value, sink, "print");
         }
       }
       return sink;
@@ -1570,7 +1579,7 @@ private:
         state_from_type(binding_type),
         ctx);
       if (value != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, value, binding, "flex-bind");
+        add_relation(EdgeKind::Flow, value, binding, "flex-bind");
       }
       record_binding(binding_name, binding, binding_type);
       if (value != kNoNode && result_.graph.node(value).kind == NodeKind::Task) {
@@ -1608,7 +1617,7 @@ private:
         state_from_type(binding_type),
         ctx);
       if (value != kNoNode) {
-        result_.graph.add_edge(EdgeKind::Flow, value, binding, "final-bind");
+        add_relation(EdgeKind::Flow, value, binding, "final-bind");
       }
       record_binding(binding_name, binding, binding_type);
       if (value != kNoNode && result_.graph.node(value).kind == NodeKind::Task) {
@@ -1688,11 +1697,11 @@ private:
               : styio_is_resource_destroy_method_kind(builtin_method);
             const bool exclusive = consuming
               || (method != nullptr && styio_is_resource_write_method_kind(builtin_method));
-            result_.graph.add_edge(
+            add_relation(
               exclusive ? EdgeKind::Mutation : EdgeKind::Borrow,
               node,
               receiver,
-              std::string("resource-method:") + call->getNameAsStr());
+              "resource-method");
             record_access(receiver, ctx.owner, exclusive, ast, call->getNameAsStr());
             if (consuming) {
               destroyed_resources_.insert(receiver);
@@ -1859,8 +1868,8 @@ private:
         node_owner_path(0),
         "scope-exit-destroy-sink");
       for (std::size_t node_id : scope_drop_nodes) {
-        result_.graph.add_edge(EdgeKind::Mutation, node_id, destroy_sink, "scope-exit-drop");
-        result_.graph.add_edge(EdgeKind::Commit, node_id, destroy_sink, "scope-exit-drop-commit");
+        add_relation(EdgeKind::Mutation, node_id, destroy_sink, "scope-exit-drop");
+        add_relation(EdgeKind::Commit, node_id, destroy_sink, "scope-exit-drop-commit");
       }
     }
 
@@ -2103,14 +2112,42 @@ ValidatedArtifact::ValidatedArtifact(
   Graph graph,
   styio::semantic_identity::Scope scope
 ) : graph_(std::move(graph)), scope_(std::move(scope)) {
-  descriptors_.reserve(graph_.nodes().size());
-  for (const auto& node : graph_.nodes()) {
+  const auto& nodes = graph_.nodes();
+  const auto& edges = graph_.edges();
+  descriptors_.reserve(nodes.size());
+  for (const auto& node : nodes) {
     descriptors_.push_back(SemanticDescriptor{
       node.kind,
       node.semantic_role,
       node.semantic_id,
       scope_.is_globally_comparable()});
   }
+  // Publication material exists only for a qualified (globally comparable)
+  // compilation unit; anonymous ordinary compilation must not allocate it.
+  if (!scope_.is_globally_comparable()) {
+    return;
+  }
+  node_publications_.reserve(nodes.size());
+  relation_publications_.reserve(edges.size());
+  for (const auto& node : nodes) {
+    node_publications_.push_back(NodePublication{
+      node.kind,
+      node.semantic_role,
+      node.semantic_id,
+      node.capabilities,
+      node.state,
+      node.source != nullptr});
+  }
+  for (const auto& edge : edges) {
+    relation_publications_.push_back(RelationPublication{
+      edge.kind,
+      edge.from,
+      edge.to,
+      edge.label});
+  }
+  publication_complete_ =
+    node_publications_.size() == nodes.size()
+    && relation_publications_.size() == edges.size();
 }
 
 BuildResult
@@ -2253,11 +2290,8 @@ to_string(TypeState state) {
   return "UnknownState";
 }
 
-std::string
-to_string(Capability capabilities) {
-  if (capabilities == Capability::None) {
-    return "none";
-  }
+std::vector<std::string>
+capability_names(Capability capabilities) {
   std::vector<std::string> parts;
   auto push_if = [&](Capability cap, const char* name) {
     if (has_capability(capabilities, cap)) {
@@ -2273,6 +2307,15 @@ to_string(Capability capabilities) {
   push_if(Capability::Task, "task");
   push_if(Capability::StateRead, "state-read");
   push_if(Capability::StateWrite, "state-write");
+  return parts;
+}
+
+std::string
+to_string(Capability capabilities) {
+  if (capabilities == Capability::None) {
+    return "none";
+  }
+  const std::vector<std::string> parts = capability_names(capabilities);
   std::ostringstream out;
   for (std::size_t i = 0; i < parts.size(); ++i) {
     if (i != 0) {

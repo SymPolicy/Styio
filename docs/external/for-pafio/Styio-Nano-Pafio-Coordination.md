@@ -2,9 +2,7 @@
 
 **Purpose:** Freeze the narrow compiler boundary between the system-provided Styio compiler and Pafio project workflows.
 
-**Last updated:** 2026-07-30
-
-**Last updated:** 2026-07-30
+**Last updated:** 2026-09-05
 
 ## Ownership
 
@@ -59,6 +57,10 @@ Styio consumes the plan for all four intents:
 - `build`
 - `run`
 - `test`
+
+Optional `emit.observable_static_snapshot` remains compiler-owned, incubating,
+static-only, and unapproved. Nano does not advertise or publish it. Pafio must
+not treat snapshot emission as a package-manager feature.
 
 Invalid plans and CLI conflicts remain machine-readable. When the plan exposes
 an absolute `outputs.diag_dir`, Styio also writes the corresponding diagnostic
