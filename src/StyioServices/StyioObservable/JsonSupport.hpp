@@ -4,6 +4,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -125,7 +126,16 @@ struct JsonValue
   long long int_value = 0;
   std::string string_value;
   std::vector<JsonValue> array_value;
-  std::vector<std::pair<std::string, JsonValue>> object_value;
+  // unique_ptr keeps the pair complete while JsonValue is still being defined.
+  // GCC 14 libstdc++ rejects vector<pair<string, JsonValue>> as incomplete.
+  std::vector<std::pair<std::string, std::unique_ptr<JsonValue>>> object_value;
+
+  JsonValue() = default;
+  JsonValue(const JsonValue& other);
+  JsonValue(JsonValue&&) noexcept = default;
+  JsonValue& operator=(const JsonValue& other);
+  JsonValue& operator=(JsonValue&&) noexcept = default;
+  ~JsonValue();
 
   bool is_null() const { return kind == Kind::Null; }
   bool is_object() const { return kind == Kind::Object; }
@@ -137,8 +147,8 @@ struct JsonValue
       return nullptr;
     }
     for (const auto& entry : object_value) {
-      if (entry.first == name) {
-        return &entry.second;
+      if (entry.second && entry.first == name) {
+        return entry.second.get();
       }
     }
     return nullptr;
@@ -152,6 +162,32 @@ struct JsonValue
     return kind == Kind::Array ? &array_value : nullptr;
   }
 };
+
+inline JsonValue::~JsonValue() = default;
+
+inline JsonValue::JsonValue(const JsonValue& other)
+  : kind(other.kind),
+    bool_value(other.bool_value),
+    int_value(other.int_value),
+    string_value(other.string_value),
+    array_value(other.array_value)
+{
+  object_value.reserve(other.object_value.size());
+  for (const auto& entry : other.object_value) {
+    object_value.emplace_back(
+      entry.first,
+      entry.second ? std::make_unique<JsonValue>(*entry.second) : std::unique_ptr<JsonValue>{}
+    );
+  }
+}
+
+inline JsonValue& JsonValue::operator=(const JsonValue& other) {
+  if (this != &other) {
+    JsonValue copy(other);
+    *this = std::move(copy);
+  }
+  return *this;
+}
 
 class JsonParser
 {
@@ -267,7 +303,10 @@ private:
       if (next() != ':') {
         fail("expected ':' after object key");
       }
-      value.object_value.emplace_back(std::move(key), parse_value_raw());
+      value.object_value.emplace_back(
+        std::move(key),
+        std::make_unique<JsonValue>(parse_value_raw())
+      );
       skip_ws();
       if (consume('}')) {
         break;
