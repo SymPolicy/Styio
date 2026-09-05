@@ -738,6 +738,14 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/prefix_sum/test.cpp
   algorithms/selection_sort/reference.cpp
   algorithms/selection_sort/test.cpp
+  algorithms/insertion_sort/reference.cpp
+  algorithms/insertion_sort/test.cpp
+  algorithms/merge_sort/reference.cpp
+  algorithms/merge_sort/test.cpp
+  algorithms/quicksort/reference.cpp
+  algorithms/quicksort/test.cpp
+  algorithms/heap_sort/reference.cpp
+  algorithms/heap_sort/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp

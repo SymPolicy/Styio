@@ -1,0 +1,63 @@
+l <- @stdin: list[i32]
+
+n = l.length
+
+?(n > 1) => {
+    /* sift-down helper inlined for build-heap and extract */
+    start = n / 2 - 1
+    ?(start >= 0) => {
+        [0..n/2] >> #(build) => {
+            i = start - build
+            ?(i >= 0) => {
+                root = i
+                [0..n] >> #(s) => {
+                    child = root * 2 + 1
+                    ?(child < n) => {
+                        ?(child + 1 < n && l[child + 1] > l[child]) => {
+                            child = child + 1
+                        }
+                        ?(l[root] < l[child]) => {
+                            l[root], l[child] = l[child], l[root]
+                            root = child
+                        }
+                        ?(child >= n || l[root] >= l[child]) => {
+                            /* stop by parking root out of range via large child */
+                            child = n
+                            root = n
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    end = n - 1
+    ?(end > 0) => {
+        [0..n-2] >> #(extract) => {
+            e = n - 1 - extract
+            ?(e > 0) => {
+                l[0], l[e] = l[e], l[0]
+                root = 0
+                heap_n = e
+                [0..heap_n] >> #(s) => {
+                    child = root * 2 + 1
+                    ?(child < heap_n) => {
+                        ?(child + 1 < heap_n && l[child + 1] > l[child]) => {
+                            child = child + 1
+                        }
+                        ?(l[root] < l[child]) => {
+                            l[root], l[child] = l[child], l[root]
+                            root = child
+                        }
+                        ?(child >= heap_n || l[root] >= l[child]) => {
+                            child = heap_n
+                            root = heap_n
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+>_(l)
