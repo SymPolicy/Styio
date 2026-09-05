@@ -2,7 +2,7 @@
 
 **Purpose:** List every public service capability currently available under `src/StyioServices/`.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-09-05
 
 ## Capability Inventory
 
@@ -17,6 +17,7 @@
 | Compiler JSONL diagnostic codes | `src/main.cpp` + `DiagnosticContract.hpp` | `styio --error-format=jsonl --file <path>` and compile-plan `diag_dir/diagnostics.jsonl` | CLI JSONL diagnostic fields | Expose stable compiler/runtime diagnostic families beyond syntax-check, including feature-owned sema/type/native codes such as `STYIO_SEMA_IMMUTABLE_BINDING`, `STYIO_SEMA_UNDECLARED_SYMBOL`, `STYIO_SEMA_CALL_ARITY_MISMATCH`, `STYIO_SEMA_RESOURCE_CAPABILITY_MISMATCH`, `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`, `STYIO_SEMA_RESOURCE_METHOD_UNSUPPORTED_BODY`, `STYIO_TYPE_RESOURCE_EFFECT_FALLBACK_MISMATCH`, `STYIO_TYPE_CALL_ARGUMENT_MISMATCH`, `STYIO_TYPE_MATRIX_LITERAL_INVALID`, `STYIO_TYPE_TUPLE_CONTRACT`, `STYIO_TYPE_STREAM_HASH_TAG_ROUTE_UNSUPPORTED`, `STYIO_TYPE_STREAM_ZIP_UNSUPPORTED_SOURCE`, `STYIO_TYPE_STREAM_DUPLICATE_DRIVER_UNSUPPORTED`, `STYIO_TYPE_ITERATION_UNSUPPORTED_SOURCE`, `STYIO_TYPE_STDIN_UNSUPPORTED_TARGET`, `STYIO_NATIVE_SOURCE_READ_FAILED`, `STYIO_NATIVE_SIGNATURE_NOT_FOUND`, `STYIO_NATIVE_UNSUPPORTED_SIGNATURE`, `STYIO_NATIVE_HOST_COMPILE_FAILED`, `STYIO_NATIVE_LOAD_FAILED`, `STYIO_NATIVE_SYMBOL_MISSING`, and `STYIO_NATIVE_TOOLCHAIN_UNAVAILABLE`. |
 | Machine info contract | `StyioConfig` via `src/main.cpp` | `styio --machine-info=json` | CLI JSON contract | Discover compiler version, release channel, supported contracts, feature flags, adapter modes, and capabilities. |
 | Compile-plan contract parsing | `StyioConfig` | `styio::config::parse_compile_plan` / `styio --compile-plan <path>` | C++ helper plus CLI contract | Parse and validate resolved compiler request envelopes for build, check, run, and test handoff. |
+| Observable static snapshot publication | `StyioObservable` | `styio::observable::publish_validated_topology` / `styio::observable::publish_compile_plan_static_snapshot` / compile-plan `emit.observable_static_snapshot` | Incubating JSON artifact | Optionally publish one canonical schema-v1 static topology snapshot from the Sema-owned validated artifact for a qualified Pafio package entry. `StaticSnapshotPublication` owns the CLI stage wiring (machine-info advertisement, qualified identity scope, artifact write, receipt entry, profiler counters). Absent requests do not allocate snapshot state. The stage is static-only and unapproved; it is not a Pafio feature. |
 | Compile-plan diagnostics directory probing | `StyioConfig` | `styio::config::probe_compile_plan_diag_dir` | C++ helper | Find the requested diagnostics directory early enough for machine-readable service errors such as `STYIO_SERVICE_COMPILE_PLAN_INVALID`. |
 | Source-build info contract | `StyioConfig` | `styio::config::source_build_info_json` / `styio --source-build-info=json` | C++ helper plus CLI JSON contract | Publish official source origin, source channel mapping, public build entrypoints, and controlled source components. |
 | Nano profile feature macros | `StyioConfig` | `NanoProfile.hpp` | Compile-time configuration | Publish full/nano feature flags and pruning controls to shared compiler/runtime code. |

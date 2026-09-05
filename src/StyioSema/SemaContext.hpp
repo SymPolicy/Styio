@@ -1076,7 +1076,6 @@ public:
     return &*active_callable_specialization_;
   }
 
-protected:
   enum class ResourceTopologyLifecycle : std::uint8_t
   {
     NotAnalyzed,
@@ -1084,6 +1083,20 @@ protected:
     Validated,
   };
 
+  ResourceTopologyLifecycle resource_topology_lifecycle() const noexcept {
+    return resource_topology_lifecycle_;
+  }
+
+  const styio::resource_topology::ValidatedArtifact*
+  resource_topology_artifact_for(const MainBlockAST* root) const noexcept {
+    if (resource_topology_lifecycle_ != ResourceTopologyLifecycle::Validated
+        || resource_topology_root_ != root) {
+      return nullptr;
+    }
+    return &*resource_topology_artifact_;
+  }
+
+protected:
   void reset_resource_topology_analysis() noexcept {
     resource_topology_artifact_.reset();
     resource_topology_root_ = nullptr;
@@ -1103,19 +1116,6 @@ protected:
     resource_topology_artifact_.emplace(std::move(artifact));
     resource_topology_root_ = root;
     resource_topology_lifecycle_ = ResourceTopologyLifecycle::Validated;
-  }
-
-  ResourceTopologyLifecycle resource_topology_lifecycle() const noexcept {
-    return resource_topology_lifecycle_;
-  }
-
-  const styio::resource_topology::ValidatedArtifact*
-  resource_topology_artifact_for(const MainBlockAST* root) const noexcept {
-    if (resource_topology_lifecycle_ != ResourceTopologyLifecycle::Validated
-        || resource_topology_root_ != root) {
-      return nullptr;
-    }
-    return &*resource_topology_artifact_;
   }
 
   const styio::resource_topology::ValidatedArtifact*

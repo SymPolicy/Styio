@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 ## Mission
 
@@ -132,6 +132,7 @@ Key SSOTs:
 93. Keep observable-language semantics in one cross-feature design SSOT. Resource syntax remains owned by the resource-topology design, implementation sequencing remains in `docs/plan/`, runtime samples remain distinct from compiler facts, and imported planning bundles must be reconciled with the current repository before any content becomes authoritative.
 94. When the internal topology artifact lifecycle changes, update the observable-language SSOT, Sema/IR ownership rule, IDE diagnostic boundary, focused test evidence, and test catalog together. Keep persistent IDs, public snapshots, serialization, runtime correlation, scheduler integration, and external consumers explicitly deferred until their own contracts are authorized.
 95. For PLAN-003, keep the tracked semantic-identity contract, `architecture_layer_gate` registration, and generated documentation indexes and statistics aligned; regenerate `docs/plan/INDEX.md` with `python3 scripts/docs-index.py --write` and refresh `DOC-STATS.md` from the repository docs-audit export, while keeping public snapshots, serialization, lineage, runtime, scheduler, cache, and external-consumer surfaces deferred.
+96. PLAN-004 schema-v1 static snapshot publication is incubating. Treat `src/StyioServices/StyioObservable/README.md` as the decoder SSOT for key order, kinds, roles, predicates, capabilities, completeness, ID grammar, compile-plan request shape, output filename, and receipt artifact entry; keep `docs/design/Styio-Observable-Language.md` as long-term vocabulary; update the Pafio machine-contract matrix and nano coordination docs rather than creating a duplicate `docs/EXTERNAL-SERVICES.md`; and keep delta, query, lineage, runtime, and Vityo UI out of this stage.
 
 ## Change Classes
 

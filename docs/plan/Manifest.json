@@ -22,6 +22,7 @@
       "title": "Persistent semantic identities for resource topology"
     },
     {
+      "checkpoints": "observable-static-snapshot/Checkpoints.json",
       "code": "PLAN-004",
       "directory": "observable-static-snapshot",
       "plan": "observable-static-snapshot/Plan.json",
