@@ -1,0 +1,79 @@
+{
+  "code": "PLAN-007",
+  "directory": "observable-delta-query-lineage-review-followup-01",
+  "dossier": {
+    "questions": [],
+    "status": "not_required"
+  },
+  "intent": {
+    "autonomy": {
+      "allow_in_scope_revision": true,
+      "allow_reviewer_repairs": true,
+      "blocked_branch_policy": "continue_independent_work",
+      "forbid_mid_execution_questions": true
+    },
+    "goal": "On initialize, the IDE index cache unconditionally calls std::filesystem::create_directories for the per-root cache directory under the user cache root without catching std::filesystem::filesystem_error. When that cache root is not writable (read-only or sandboxed home), the daemon aborts via libc++abi before answering the initialize request, which surfaces as the styio_lspd_stdio_framing smoke test timing out with zero bytes.",
+    "risk_boundary": [
+      "Do not change LSP protocol behavior, stdio framing bytes, or the per-root cache identity scheme",
+      "Do not weaken the explicit environment-fallback and workspace-skip accounting rules for IDE project roots"
+    ],
+    "scope": {
+      "in": [
+        "On initialize, the IDE index cache unconditionally calls std::filesystem::create_directories for the per-root cache directory under the user cache root without catching std::filesystem::filesystem_error. When that cache root is not writable (read-only or sandboxed home), the daemon aborts via libc++abi before answering the initialize request, which surfaces as the styio_lspd_stdio_framing smoke test timing out with zero bytes.",
+        "src/StyioServices/StyioIDE/Index.cpp"
+      ],
+      "out": [
+        "Changes unrelated to PLAN-007's confirmed repair outcome."
+      ]
+    },
+    "success": [
+      "styio_lspd answers initialize, or exits with a deliberate attributed diagnostic, when the IDE cache directory cannot be created",
+      "styio_lspd_stdio_framing passes in an environment with a read-only home directory"
+    ]
+  },
+  "ledger": {
+    "defaulted": [],
+    "observed": [
+      {
+        "fact": "On initialize, the IDE index cache unconditionally calls std::filesystem::create_directories for the per-root cache directory under the user cache root without catching std::filesystem::filesystem_error. When that cache root is not writable (read-only or sandboxed home), the daemon aborts via libc++abi before answering the initialize request, which surfaces as the styio_lspd_stdio_framing smoke test timing out with zero bytes.",
+        "source": "src/StyioServices/StyioIDE/Index.cpp"
+      },
+      {
+        "fact": "The LSP daemon crashes at startup instead of degrading (for example disabling the on-disk index cache) or failing with a clean diagnostic; the transport smoke test fails for purely environmental reasons, which can mask real regressions in sandboxed CI.",
+        "source": "src/StyioServices/StyioIDE/Index.cpp"
+      },
+      {
+        "fact": "A manual initialize handshake against the built styio_lspd with a fresh workspace root under a read-only home prints libc++abi terminating due to uncaught exception filesystem_error in create_directories (Operation not permitted); the same test passes unchanged once the home directory is writable.",
+        "source": "src/StyioServices/StyioIDE/Index.cpp"
+      },
+      {
+        "fact": "PLAN-005 excludes IDE SemanticDB caches and any IDE or LSP behavior change (REQ-014 requires IDE and LSP behavior to remain unchanged), this delivery makes no IDE or LSP source modification, and the defect predates the Plan.",
+        "source": "observable-delta-query-lineage/Plan.json"
+      }
+    ],
+    "unresolved": [],
+    "user_decided": []
+  },
+  "lifecycle": {
+    "authorization": null,
+    "continuation_receipts": [],
+    "designer_session": null,
+    "reviewer_session": null,
+    "sealed": null
+  },
+  "phase": "draft",
+  "schema": "better-plan.plan/v3",
+  "spec": {
+    "architecture": {
+      "notes": [],
+      "summary": ""
+    },
+    "full_regression": {
+      "commands": [],
+      "paths": []
+    },
+    "requirements": [],
+    "tasks": []
+  },
+  "title": "styio_lspd terminates on uncaught filesystem_error when the IDE cache directory cannot be created"
+}

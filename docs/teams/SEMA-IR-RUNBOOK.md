@@ -119,6 +119,7 @@ High-value docs:
 80. Mark pulse/state IR reads that can carry runtime absence explicitly rather than inferring it from an `i64` payload. Windowed average/max current values and history reads retain that fact through lowering, while ordinary integer bindings keep the full signed 64-bit domain. Absence must reach value fallback, persistence, or formatting as a tagged value; do not restore sentinel comparison or implicit arithmetic propagation in Sema, lowering, or IR.
 81. Sema owns the resource-topology validation lifecycle for each top-level root. Reset before reanalysis, publish scalar-noop only for the import-free narrow scalar proof, publish the move-only validated artifact only after the unchanged `sema-resource-topology` report succeeds, and leave failures unconsumable. Lowering must require the matching root and reuse this const artifact without rebuilding, revalidating, or rerunning the scalar predicate.
 82. Qualified semantic identity for public snapshots uses package name plus normalized manifest-relative and entry-relative paths. Keep the opaque publication descriptors on `ValidatedArtifact` so the StyioObservable adapter never walks the private `Graph`. Public observers may read the lifecycle and const artifact for the requested root; lowering still requires the matching root and must not rebuild topology.
+83. S2 delta, lineage, bounded query, and retention live in `StyioObservable` / `ObservableTopologyService`. Sema remains the producer of snapshot facts and evidence only; do not move query evaluation, index caches, or delta application into Sema. Compiler-side publication adapters stay in `StyioObservableProducer/`.
 
 ## Change Classes
 
@@ -136,6 +137,7 @@ ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ctest --test-dir build/default -L resource_topology
 ctest --test-dir build/default -L observable_static_snapshot
+ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)'
 ```
 
 When AST or IR text changes:

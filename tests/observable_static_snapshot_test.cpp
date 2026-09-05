@@ -24,7 +24,7 @@
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioResourceTopology/ResourceTopology.hpp"
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
-#include "StyioServices/StyioObservable/StaticSnapshotContract.hpp"
+#include "StyioServices/StyioObservableProducer/StaticSnapshotContract.hpp"
 
 #include "llvm/Support/JSON.h"
 
@@ -712,7 +712,7 @@ TEST(StyioObservableStaticSnapshotCli, NanoMachineInfoAdvertisesNone) {
 
 TEST(StyioObservableStaticSnapshot, AdapterDoesNotRebuildTopology) {
   const std::string adapter = read_text(
-    fs::path(STYIO_SOURCE_DIR) / "src/StyioServices/StyioObservable/StaticSnapshotContract.cpp");
+    fs::path(STYIO_SOURCE_DIR) / "src/StyioServices/StyioObservableProducer/StaticSnapshotContract.cpp");
   EXPECT_EQ(adapter.find("validate_or_throw"), std::string::npos);
   EXPECT_EQ(adapter.find("resource_topology::build"), std::string::npos);
   EXPECT_EQ(adapter.find("Graph graph"), std::string::npos);
