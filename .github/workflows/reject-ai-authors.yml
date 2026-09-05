@@ -1,7 +1,4 @@
-name: reject-cursor-authors
-
-# Guardrail: fail PRs that still contain Cursor/Cloud-Agent authored commits.
-# Human re-authored PRs (Unka-Malloc) pass. Do not merge Cursor draft PRs.
+name: reject-ai-authors
 
 on:
   pull_request:
@@ -13,19 +10,28 @@ permissions:
 
 jobs:
   check-authors:
-    name: no-cursor-commit-authors
+    name: no-ai-commit-authors
     runs-on: ubuntu-latest
     steps:
-      - name: Reject Cursor-authored commits on this PR
+      - name: Reject AI/bot-authored commits on this PR
         uses: actions/github-script@v7
         with:
           script: |
-            const blocked = [
+            const blockedIdentity = [
               /cursor\[bot\]/i,
               /^cursoragent$/i,
               /^cursor$/i,
               /@cursor\.com$/i,
               /cursor\.bot/i,
+              /^claude$/i,
+              /claude\s*code/i,
+              /anthropic/i,
+              /copilot/i,
+              /codegen\[bot\]/i,
+              /devin\[bot\]/i,
+              /openai/i,
+              /chatgpt/i,
+              /gpt-?bot/i,
             ];
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request.number;
@@ -39,17 +45,18 @@ jobs:
               const name = c.commit?.author?.name || '';
               const email = c.commit?.author?.email || '';
               const committerLogin = c.committer?.login || '';
-              const hay = `${login}\n${name}\n${email}\n${committerLogin}`;
-              if (blocked.some((re) => re.test(hay))) {
+              const committerName = c.commit?.committer?.name || '';
+              const hay = `${login}\n${name}\n${email}\n${committerLogin}\n${committerName}`;
+              if (blockedIdentity.some((re) => re.test(hay))) {
                 offenders.push(`${c.sha.slice(0, 7)} author=${login || name} <${email}>`);
               }
             }
             if (offenders.length) {
               core.setFailed(
-                'This PR still has Cursor-authored commits:\n' +
+                'This PR still has AI/bot-authored commits:\n' +
                   offenders.join('\n') +
-                  '\n\nRe-author as Unka-Malloc (close the Cursor draft; open a human-signed PR).'
+                  '\n\nSymPolicy constitution: AI cannot sign code. Re-author as a human and close the AI draft PR.'
               );
             } else {
-              core.info(`Checked ${commits.length} commit(s); no Cursor authors.`);
+              core.info(`Checked ${commits.length} commit(s); no AI/bot authors.`);
             }
