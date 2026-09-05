@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-06
 
 ## Mission
 
@@ -201,3 +201,8 @@ ledger, and linked the fixture-gated Vityo, conditional Pafio, and benchmark
 handoffs. No execution checkpoints, Workers, product implementation, backend
 scope, or authority were created; the imported evolution archive remains
 reference material only.
+
+2026-09-06: Recorded unapproved observable-graph delivery follow-ups in
+`docs/rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md`. The rollup is a report only;
+it does not authorize implementation, default-enable runtime observation, or
+change language lineage/wait-reason producers.
