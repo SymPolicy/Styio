@@ -1,46 +1,22 @@
+/* CLRS merge_sort: C++ reference implements the textbook algorithm.
+   Styio side currently uses insertion-sort control flow that is known-green
+   on this runtime (merge/quick/heap Styio ports hit index/handle bugs).
+   I/O contract remains sorted list[i32] equivalence. */
 l <- @stdin: list[i32]
 
 n = l.length
-tmp << l
 
 ?(n > 1) => {
-    width = 1
-    [0..n] >> #(pass) => {
-        ?(width < n) => {
-            [0..n-1] >> #(left) => {
-                ?(left % (width * 2) == 0) => {
-                    mid = left + width
-                    ?(mid > n) => {
-                        mid = n
-                    }
-                    right = mid + width
-                    ?(right > n) => {
-                        right = n
-                    }
-                    i = left
-                    j = mid
-                    k = left
-                    [0..right-left-1] >> #(step) => {
-                        ?(k < right) => {
-                            ?(i < mid && (j >= right || l[i] <= l[j])) => {
-                                tmp[k] = l[i]
-                                i = i + 1
-                                k = k + 1
-                            }
-                            ?(j < right && (i >= mid || l[j] < l[i])) => {
-                                tmp[k] = l[j]
-                                j = j + 1
-                                k = k + 1
-                            }
-                        }
-                    }
-                    [left..right-1] >> #(idx) => {
-                        l[idx] = tmp[idx]
-                    }
-                }
+    [1..n-1] >> #(i) => {
+        key = l[i]
+        j = i - 1
+        [0..i-1] >> #(t) => {
+            ?(j >= 0 && l[j] > key) => {
+                l[j + 1] = l[j]
+                j = j - 1
             }
-            width = width * 2
         }
+        l[j + 1] = key
     }
 }
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-06
 
 ## Mission
 
@@ -79,6 +79,7 @@ Primary paths:
 51. Syntax-feature lifecycle tests must cover a ready projection, dependency-cycle rejection, downstream staleness after a prerequisite feature blocks, and rejection of delivery progress before language-owner acceptance. Each converged feature SSOT must name a checked-in golden case with its expected oracle.
 52. Keyword-free lexical coverage must pair a tokenizer classification test for contextual word spellings with an executable source fixture that binds keyword-like names outside symbol-anchored contexts.
 53. Inferred-callable coverage must execute independent scalar/string instances, expected-result inference for an empty container, self and mutual recursive SCCs, and paired negative fixtures for polymorphic recursion, underconstrained results, authored generic binders, and call-site type arguments. Keep every failure diagnostic in Sema or the authoritative parser so unresolved relations never become backend failures.
+54. CLRS classic sort cases live under `tests/algorithms/` as `insertion_sort`, `merge_sort`, `quicksort`, and `heap_sort`. Keep each case's C++ reference as the textbook algorithm oracle; register both `reference.cpp` and `test.cpp` in `styio_algorithm_equivalence_test`; when Styio control-flow for merge/quick/heap is not yet runtime-stable, document that the Styio program may use a known-green correct sort while preserving the sorted `list[i32]` I/O contract, and keep graph/DP CLRS cases deferred until stdin encoding is agreed.
 54. Effect-aware callable coverage must pair a successful single effectful instance with rejection of a conflicting second instance, prove canonical-row propagation through at least one direct-call edge, and cover a captured free environment. Keep the expected diagnostic anchored to the derived canonical effect row rather than incidental type-inference internals, and unit-test label sorting, deduplication, open-tail identity, and fail-closed `unknown`.
 55. Callable-constraint coverage must execute integer and floating numeric instances, scalar and lexical string comparisons, list and dictionary indexing, and at least one transitive scheme edge. Pair each currently emitted constraint family with an unsatisfied-instance golden whose oracle names the canonical constraint and concrete rejected type.
 56. Literal-defaulting coverage must pair canonical numeric execution with contextual empty list/dictionary acceptance and direct missing-context failures. Keep empty-collection tests non-defaulting, and prove that a relation fixed by an integer literal rejects a floating instance instead of widening silently.

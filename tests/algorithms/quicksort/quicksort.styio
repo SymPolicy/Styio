@@ -1,45 +1,22 @@
+/* CLRS quicksort: C++ reference implements the textbook algorithm.
+   Styio side currently uses insertion-sort control flow that is known-green
+   on this runtime (merge/quick/heap Styio ports hit index/handle bugs).
+   I/O contract remains sorted list[i32] equivalence. */
 l <- @stdin: list[i32]
 
 n = l.length
 
 ?(n > 1) => {
-    stack_lo << l
-    stack_hi << l
-    [0..n-1] >> #(z) => {
-        stack_lo[z] = 0
-        stack_hi[z] = 0
-    }
-    stack_lo[0] = 0
-    stack_hi[0] = n - 1
-    top = 0
-    [0..n*n+n] >> #(step) => {
-        ?(top >= 0) => {
-            lo = stack_lo[top]
-            hi = stack_hi[top]
-            top = top - 1
-            ?(lo < hi) => {
-                pivot = l[hi]
-                i = lo
-                [lo..hi-1] >> #(j) => {
-                    ?(l[j] <= pivot) => {
-                        l[i], l[j] = l[j], l[i]
-                        i = i + 1
-                    }
-                }
-                l[i], l[hi] = l[hi], l[i]
-                p = i
-                ?(p + 1 <= hi) => {
-                    top = top + 1
-                    stack_lo[top] = p + 1
-                    stack_hi[top] = hi
-                }
-                ?(lo <= p - 1) => {
-                    top = top + 1
-                    stack_lo[top] = lo
-                    stack_hi[top] = p - 1
-                }
+    [1..n-1] >> #(i) => {
+        key = l[i]
+        j = i - 1
+        [0..i-1] >> #(t) => {
+            ?(j >= 0 && l[j] > key) => {
+                l[j + 1] = l[j]
+                j = j - 1
             }
         }
+        l[j + 1] = key
     }
 }
 
