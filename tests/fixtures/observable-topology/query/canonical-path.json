@@ -1,0 +1,1 @@
+{"contract":"styio.observable.query","kind":"canonical_path","subject":"n1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0","target":"n1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","limits":{"max_results":256,"max_depth":16,"max_visited":4096,"max_evidence":1024},"required_capabilities":["bounded-query"],"optional_capabilities":[]}

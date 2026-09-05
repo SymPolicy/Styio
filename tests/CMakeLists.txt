@@ -1045,6 +1045,87 @@ styio_gtest_discover_tests(styio_observable_static_snapshot_consumer_test
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
+add_executable(styio_observable_delta_test
+  observable_topology_delta_test.cpp
+)
+target_include_directories(styio_observable_delta_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_delta_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_delta_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_configure_windows_gtest_target(styio_observable_delta_test)
+styio_gtest_discover_tests(styio_observable_delta_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_delta\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_query_test
+  observable_topology_query_test.cpp
+)
+target_include_directories(styio_observable_query_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_query_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_query_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_configure_windows_gtest_target(styio_observable_query_test)
+styio_gtest_discover_tests(styio_observable_query_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_query\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_service_test
+  observable_topology_service_test.cpp
+)
+target_include_directories(styio_observable_service_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_service_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_service_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_configure_windows_gtest_target(styio_observable_service_test)
+styio_gtest_discover_tests(styio_observable_service_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_service\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_consumer_test
+  observable_topology_consumer_test.cpp
+)
+target_include_directories(styio_observable_consumer_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_consumer_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_consumer_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_OBSERVABLE_CONSUMER_LINK_MAP=\"${CMAKE_CURRENT_BINARY_DIR}/observable_consumer_link_map.txt\""
+)
+styio_configure_windows_gtest_target(styio_observable_consumer_test)
+file(GENERATE
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/observable_consumer_link_map.txt"
+  CONTENT "consumer_link=$<TARGET_PROPERTY:styio_observable_consumer_test,LINK_LIBRARIES>\ncore_link=$<TARGET_PROPERTY:styio_observable_core,LINK_LIBRARIES>\ncore_interface=$<TARGET_PROPERTY:styio_observable_core,INTERFACE_LINK_LIBRARIES>\n"
+)
+styio_gtest_discover_tests(styio_observable_consumer_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_consumer\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
 styio_gtest_discover_tests(styio_ide_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
