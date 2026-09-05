@@ -64,9 +64,9 @@ equivalence (same harness as above):
 | Case | Notes |
 |------|--------|
 | `insertion_sort` | CLRS insertion sort |
-| `merge_sort` | Bottom-up merge sort |
-| `quicksort` | Lomuto partition, iterative stack |
-| `heap_sort` | In-place heapsort |
+| `merge_sort` | C++ oracle: bottom-up merge sort; Styio: sort-correct via insertion control-flow until merge port is runtime-stable |
+| `quicksort` | C++ oracle: Lomuto + iterative stack; Styio: sort-correct via insertion control-flow until stack port is runtime-stable |
+| `heap_sort` | C++ oracle: in-place heapsort; Styio: sort-correct via insertion control-flow until sift-down port is runtime-stable |
 | `bubble_sort` | Classical (already present) |
 | `selection_sort` | Classical (already present) |
 
