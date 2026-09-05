@@ -1,28 +1,53 @@
 #include "StaticSnapshotPublication.hpp"
 
+#include <array>
 #include <cstdint>
+#include <string>
 #include <system_error>
 
 #include "StyioProfiler/FrontendProfiler.hpp"
 #include "StyioSema/SemaContext.hpp"
+#include "StyioServices/StyioObservable/Delta.hpp"
+#include "StyioServices/StyioObservableProducer/DeltaPublication.hpp"
 
 namespace styio::observable {
 
-std::string
-advertised_static_snapshot_machine_info_json() {
-  std::string json = "{\"schema_versions\":[1],\"capabilities\":[";
-  bool first_capability = true;
-  for (const std::string_view capability : kStaticSnapshotCapabilities) {
-    if (!first_capability) {
+namespace {
+
+template <typename Range>
+void
+append_string_array(std::string& json, const Range& values) {
+  json += "[";
+  bool first = true;
+  for (const std::string_view value : values) {
+    if (!first) {
       json += ",";
     }
-    first_capability = false;
+    first = false;
     json += "\"";
-    json.append(capability.data(), capability.size());
+    json.append(value.data(), value.size());
     json += "\"";
   }
-  json += "]}";
+  json += "]";
+}
+
+} // namespace
+
+std::string
+advertised_static_snapshot_machine_info_json() {
+  std::string json = "{\"schema_versions\":[1],\"capabilities\":";
+  append_string_array(json, kStaticSnapshotCapabilities);
+  json += ",\"optional_capabilities\":";
+  constexpr std::array<std::string_view, 2> optional{kLineageCapability, kDeltaCapability};
+  append_string_array(json, optional);
+  json += "}";
   return json;
+}
+
+std::string
+advertised_delta_machine_info_json() {
+  return "{\"schema_versions\":[{\"major\":" + std::to_string(kDeltaSchemaMajor)
+    + ",\"minor\":" + std::to_string(kDeltaSchemaMinor) + "}]}";
 }
 
 StaticSnapshotStageResult
@@ -91,6 +116,24 @@ publish_compile_plan_static_snapshot(
     "snapshot_serialized_bytes",
     static_cast<std::int64_t>(published.counts.serialized_bytes));
   result.ok = true;
+
+  if (!request.observable_static_snapshot_parent_snapshot_path.empty()) {
+    const DeltaStageResult delta = publish_compile_plan_delta(
+      request.observable_static_snapshot_parent_snapshot_path,
+      published.json,
+      *request.compilation_unit,
+      request.artifact_dir,
+      artifact_stem,
+      write_artifact,
+      receipt_artifacts);
+    result.receipt_json = delta_receipt_json(delta);
+    profiler.add_counter(
+      "delta_operation_count",
+      static_cast<std::int64_t>(delta.operation_count));
+    profiler.add_counter(
+      "delta_serialized_bytes",
+      static_cast<std::int64_t>(delta.serialized_bytes));
+  }
   return result;
 }
 

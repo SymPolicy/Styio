@@ -12,9 +12,12 @@
         "static-topology-edges",
         "static-topology-facts",
         "static-topology-nodes"
-      ]
+      ],
+      "parent_snapshot_path": "<optional absolute path of the previous <output-stem>.observable-static-snapshot.json; transport input only>"
     }
   },
   "output_filename": "<output-stem>.observable-static-snapshot.json",
-  "receipt_artifact": "path listed in receipt.json artifacts array"
+  "delta_output_filename": "<output-stem>.observable-delta.json (only when parent_snapshot_path is present and the delta stage succeeds)",
+  "receipt_artifact": "snapshot and delta paths listed in receipt.json artifacts array",
+  "receipt_delta_record": "receipt.json observable_static_snapshot object, present only when parent_snapshot_path is present"
 }

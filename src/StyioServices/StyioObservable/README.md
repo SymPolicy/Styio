@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-09-05
 
-**Status:** Incubating, static-only, unapproved. Snapshot schema v1 and S2 delta, lineage, and bounded query contracts at `0.1` are implemented. Runtime correlation, scheduler overlays, private editor transports, and Vityo UI remain out of scope.
+**Status:** Incubating, static-only, unapproved. Snapshot schema v1 and S2 delta, lineage, and bounded query contracts at `0.1` are implemented, and the full compiler publishes a producer-owned delta artifact when a compile plan names a parent snapshot. Runtime correlation, scheduler overlays, private editor transports, and Vityo UI remain out of scope.
 
 The long-term vocabulary in `docs/design/Styio-Observable-Language.md` does not override this wire schema.
 
@@ -20,7 +20,7 @@ Public contract library `styio_observable_core` (no compiler-internal or third-p
 | `Query.hpp/.cpp` | Bounded query request/response, negotiation, reference evaluator, immutable index shards. |
 | `Service.hpp/.cpp` | Per-qualified-scope `ObservableTopologyService` façade: publish, retain, invalidate, degrade. |
 
-Compiler-side producer adapters that translate a validated topology artifact into the public snapshot live in the sibling `StyioObservableProducer/` directory and are linked only into the full compiler. They are not part of `styio_observable_core`.
+Compiler-side producer adapters that translate a validated topology artifact into the public snapshot (`StaticSnapshotContract`, `StaticSnapshotPublication`) and the delta emission stage (`DeltaPublication`) live in the sibling `StyioObservableProducer/` directory and are linked only into the full compiler. They are not part of `styio_observable_core`.
 
 ## Snapshot request (compiler)
 
@@ -37,7 +37,8 @@ Full Styio consumes an optional compile-plan emission object. Nano does not pars
         "static-topology-edges",
         "static-topology-facts",
         "static-topology-nodes"
-      ]
+      ],
+      "parent_snapshot_path": "/abs/path/previous/<output-stem>.observable-static-snapshot.json"
     }
   }
 }
@@ -46,11 +47,12 @@ Full Styio consumes an optional compile-plan emission object. Nano does not pars
 Rules:
 
 1. The object is optional. If absent, the compiler allocates no snapshot model, JSON buffer, or profiler phase.
-2. Only `schema_version` and `required_capabilities` are allowed. Any other field is `observable_static_snapshot_malformed`.
+2. Only `schema_version`, `required_capabilities`, and the optional `parent_snapshot_path` are allowed. Any other field is `observable_static_snapshot_malformed`.
 3. `schema_version` must be the integer `1`.
-4. `required_capabilities` is an array of unique non-empty strings drawn from the closed set below. An empty array is admitted and still publishes the full closed set.
+4. `required_capabilities` is an array of unique non-empty strings drawn from the closed set below. An empty array is admitted and still publishes the full closed set. The S2 optional capabilities (`snapshot-delta`, `producer-lineage`, `bounded-query`) are negotiated independently and are `observable_static_snapshot_unsupported_capability` when listed here.
 5. Admission requires `generated_by.tool = "pafio"`, exactly one package record matching `entry.package_id`, a namespaced package `name`, absolute package `root` and `manifest`, and canonical package-relative slash paths for the manifest and entry file.
 6. Direct-file `generated_by.tool = "styio"` is `observable_static_snapshot_direct_file`. Any other producer is `observable_static_snapshot_styio_produced`.
+7. `parent_snapshot_path`, when present, must be a non-empty string naming the previous snapshot artifact of the same compilation unit (Pafio writes the absolute, lexically normalized path it received from `pafio check --emit-observable-static-snapshot --observable-parent-snapshot <path>`). It is a transport input only: it never participates in admission, snapshot identity, or snapshot bytes, and it is read only after the snapshot has been published. An empty string or a non-string value is `observable_static_snapshot_malformed`. When the field is absent, no delta stage runs, no parent file is read, and no delta material is allocated.
 
 ## Snapshot output
 
@@ -59,6 +61,53 @@ Successful publication writes compact JSON with one trailing newline to:
 `<artifact-dir>/<output-stem>.observable-static-snapshot.json`
 
 The path is appended to `receipt.json` `artifacts`. A publication or write failure emits no partial snapshot file and uses diagnostic subcode `observable_static_snapshot` or a more specific `observable_static_snapshot_*` admission subcode.
+
+## Delta publication (compiler)
+
+When the admitted request carries `parent_snapshot_path`, the full compiler runs the delta stage immediately after the snapshot artifact has been written, inside the same `observable_static_snapshot` profiler phase. The stage is producer-owned and uses only the public S2 library semantics (`parse_snapshot`, `generate_delta`, `apply_delta`); it adds no heuristics.
+
+Stage order, each step failing closed to the listed `reason`:
+
+| Step | Failure `reason` |
+|------|------------------|
+| Read the parent file as bytes (must be a regular, readable file) | `parent_unreadable` |
+| Decode it with `parse_snapshot`; the bytes must already be the canonical serialization of the decoded snapshot (otherwise the identity of the bytes on disk would differ from the identity the delta names) | `parent_invalid` |
+| Require the same `contract`, `schema_version`, and `compilation_unit` (`package_name`, `manifest_path`, `entry_path`) as the snapshot just published | `parent_mismatch` |
+| `generate_delta(parent, current)`; the result must name the parent and current identities and `apply_delta(parent, delta)` must reconstruct the published bytes exactly | `delta_failed` |
+| Write the canonical delta JSON through the compile-plan artifact writer | `write_failed` |
+
+The `reason` set is closed: `parent_unreadable`, `parent_invalid`, `parent_mismatch`, `delta_failed`, `write_failed`.
+
+Successful publication writes compact JSON plus one trailing newline (the canonical `serialize_delta` output of the envelope below) to:
+
+`<artifact-dir>/<output-stem>.observable-delta.json`
+
+and appends that path to `receipt.json` `artifacts` after the snapshot path. `parent_snapshot_id` is the identity of the parent bytes; `target_snapshot_id` is the identity of the snapshot artifact written in the same run. `required_capabilities` is the published snapshot capability list; `optional_capabilities` is `["snapshot-delta"]`, plus `producer-lineage` only when the current snapshot carries producer `lineage` records (the compiler publishes none today, so no `lineage` category operations are emitted). A write failure removes any partial delta file.
+
+The delta stage never fails compilation and never fails the snapshot publication: the snapshot artifact, its `artifacts` entry, and the compiler exit code are identical whether the delta stage succeeds or degrades. No diagnostic is emitted for a degraded delta; the receipt is the only signal.
+
+### Receipt record
+
+`receipt.json` gains the key `observable_static_snapshot` (placed after `artifacts`) only when `parent_snapshot_path` was present in the request. Without the field the receipt is byte-identical to the S1 shape. Exactly one of two shapes appears:
+
+```json
+"observable_static_snapshot": {
+  "delta": "published",
+  "parent_snapshot_id": "s1_<32 hex>",
+  "target_snapshot_id": "s1_<32 hex>"
+}
+```
+
+```json
+"observable_static_snapshot": {
+  "delta": "full_snapshot_required",
+  "reason": "parent_unreadable"
+}
+```
+
+A consumer that holds the parent snapshot applies the delta with `apply_delta(parent, delta)` and must obtain `target_snapshot_id`; on `full_snapshot_required` it reads the freshly written snapshot artifact instead. The parent path itself never appears in the snapshot, the delta, or the receipt; the receipt lists only the current run's artifact paths under `artifacts`, exactly as before.
+
+Profiler counters added to the `observable_static_snapshot` phase when the stage runs: `delta_operation_count` and `delta_serialized_bytes` (both `0` on degradation).
 
 ## Snapshot top-level key order
 
@@ -110,7 +159,18 @@ S2 optional capabilities, independently negotiated, are:
 - `producer-lineage`
 - `bounded-query`
 
-Full `--machine-info=json` reports `observable_static_snapshot.schema_versions = [1]` and the snapshot capability list. Nano reports empty arrays.
+Full `--machine-info=json` reports:
+
+```json
+"observable_static_snapshot": {
+  "schema_versions": [1],
+  "capabilities": ["file-source-anchors", "producer-evidence", "static-topology-edges", "static-topology-facts", "static-topology-nodes"],
+  "optional_capabilities": ["producer-lineage", "snapshot-delta"]
+},
+"observable_delta": { "schema_versions": [{ "major": 0, "minor": 1 }] }
+```
+
+`capabilities` is the closed set admissible as `required_capabilities`. `optional_capabilities` advertises the independently negotiated S2 capabilities the producer can emit through the compile plan (`snapshot-delta` via `parent_snapshot_path`; `producer-lineage` names the lineage contract carried inside that delta) and is never admissible as required. `observable_delta.schema_versions` lists the delta envelope versions the producer writes. Nano reports `{"schema_versions":[],"capabilities":[],"optional_capabilities":[]}` and `{"schema_versions":[]}`.
 
 ## Completeness
 
@@ -318,7 +378,7 @@ The service answers from immutable per-subject index shards. A shard stores the 
 
 ## Negotiation
 
-Snapshot schema, delta schema, lineage capability, and query protocol are independently versioned. Negotiation requires equal major, selects the highest common minor, intersects optional capabilities, and rejects unknown required capabilities.
+Snapshot schema, delta schema, lineage capability, and query protocol are independently versioned. Negotiation requires equal major, selects the highest common minor, intersects optional capabilities, and rejects unknown required capabilities. A compile-plan consumer negotiates from `--machine-info=json`: `observable_static_snapshot.schema_versions` for the snapshot request, `observable_delta.schema_versions` for the delta envelope, and `observable_static_snapshot.optional_capabilities` for `snapshot-delta` / `producer-lineage`.
 
 Stable reasons: `major_incompatible`, `unknown_required_capability`, `unsupported`.
 
@@ -350,6 +410,6 @@ An independent decoder can be written from this README and those fixtures alone.
 
 ## Privacy
 
-Snapshots, deltas, lineage, queries, fixtures, errors, and counters must not contain workspace or package roots, absolute paths, raw source or literal values, content hashes, graph labels, pointer/address text, compiler object IDs, dense graph IDs, `source_text`, `raw_value`, credentials, or backend runtime records.
+Snapshots, deltas, lineage, queries, fixtures, errors, and counters must not contain workspace or package roots, absolute paths, raw source or literal values, content hashes, graph labels, pointer/address text, compiler object IDs, dense graph IDs, `source_text`, `raw_value`, credentials, or backend runtime records. The compile-plan `parent_snapshot_path` is consumed by the producer and never copied into any published artifact or receipt field.
 
 See the service inventory in [../MANIFEST.md](../MANIFEST.md).
