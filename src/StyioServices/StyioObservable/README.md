@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-09-05
 
-**Status:** Incubating, static-only, unapproved. Snapshot schema v1 and S2 delta, lineage, and bounded query contracts at `0.1` are implemented, and the full compiler publishes a producer-owned delta artifact when a compile plan names a parent snapshot. Runtime correlation, scheduler overlays, private editor transports, and Vityo UI remain out of scope.
+**Status:** Incubating. Snapshot schema v1 and S2 delta, lineage, and bounded query contracts at `0.1` are implemented. Runtime-events schema v2 is implemented behind an explicit compile-plan request and remains unapproved for default enablement. Private editor transports and Vityo UI remain out of scope.
 
 The long-term vocabulary in `docs/design/Styio-Observable-Language.md` does not override this wire schema.
 
@@ -18,7 +18,7 @@ Public contract library `styio_observable_core` (no compiler-internal or third-p
 | `JsonSupport.hpp` | Self-contained compact JSON writer, parser, and SHA-256 helper used only by the public serializer. |
 | `Delta.hpp/.cpp` | Incubating delta envelope, linear-merge generation, transactional apply, lineage construction. |
 | `Query.hpp/.cpp` | Bounded query request/response, negotiation, reference evaluator, immutable index shards. |
-| `Service.hpp/.cpp` | Per-qualified-scope `ObservableTopologyService` façade: publish, retain, invalidate, degrade. |
+| `RuntimeCorrelation.hpp/.cpp` | Incubating runtime-events schema v2: identifiers, event/wait vocabularies, sampling, conservation, privacy canaries, and the strict serializer/parser. No compiler, runtime, or LLVM includes. |
 
 Compiler-side producer adapters that translate a validated topology artifact into the public snapshot (`StaticSnapshotContract`, `StaticSnapshotPublication`) and the delta emission stage (`DeltaPublication`) live in the sibling `StyioObservableProducer/` directory and are linked only into the full compiler. They are not part of `styio_observable_core`.
 
@@ -402,14 +402,101 @@ Path-free counters: `input_records`, `changed_records`, `delta_bytes`, `visited_
 
 ## Fixtures and consumer isolation
 
-Checked-in corpus: `tests/fixtures/observable-topology/` (`manifest.json` plus parent/child/delta/lineage/query families covering unchanged, add, remove, field-change, rename, move, split, merge, partial, malformed, and unsupported). Schema-v1 snapshot goldens remain at `tests/fixtures/observable_static_snapshot/v1/`.
+Checked-in corpus: `tests/fixtures/observable-topology/` (`manifest.json` plus parent/child/delta/lineage/query families covering unchanged, add, remove, field-change, rename, move, split, merge, partial, malformed, and unsupported). Schema-v1 snapshot goldens remain at `tests/fixtures/observable_static_snapshot/v1/`. Runtime-events v2 producer/consumer fixtures live at `tests/fixtures/observable-runtime-correlation/v2/`.
 
-`tests/observable_topology_consumer_test.cpp` links only `styio_observable_core`. It negotiates, deserializes, applies deltas, and queries without compiler, editor, runtime, or LLVM implementation libraries.
+`tests/observable_topology_consumer_test.cpp` links only `styio_observable_core`. It negotiates, deserializes, applies deltas, and queries without compiler, editor, runtime, or LLVM implementation libraries. Runtime-event consumers parse the public v2 serializer output the same way: map fields, do not redefine site identity, causality, waits, or loss.
 
 An independent decoder can be written from this README and those fixtures alone.
 
+## Runtime-events v2
+
+Contract `styio.observable.runtime-events`, schema version `2`, stability `incubating`, privacy profile `strict`. Styio is the sole semantic owner. Pafio may request and route `build_root/runtime-events.jsonl`; Vityo, agents, OpenTelemetry, and Perfetto adapters may map fields. None may invent site identity, causal edges, wait classification, completeness, or loss.
+
+`--machine-info=json` advertises version `2` only. Nano advertises none. Version 1, unknown versions, and unsupported required capabilities fail before execution with stable subcodes (`runtime_events_unsupported_version`, `runtime_events_unknown_version`, `runtime_observation_unsupported_capability`). There is no Adapter and no compatibility serializer.
+
+### Compile-plan request
+
+```json
+{
+  "emit": {
+    "runtime_observation": {
+      "version": 2,
+      "mode": "aggregate",
+      "required_capabilities": ["task-lifecycle", "loss-accounting"]
+    }
+  }
+}
+```
+
+Rules:
+
+1. The object is optional. If absent, compile-plan runs still write v2 controller JSONL with mode `disabled` and allocate no S3 runtime buffers, drain owner, or observed ABI.
+2. Observation requires an admitted qualified compilation unit (package name, root, manifest), matching static-snapshot admission.
+3. `mode` is the closed set `disabled`, `aggregate` (explicit-request default), `sampled` (default 1/16, seed 0), `detailed`.
+4. Lane capacity must be a power of two in `[64, 4096]`. Default capacity 256 with 32 priority-reserved slots. These are protocol-visible resource settings; they do not mean loss cannot occur.
+5. Cancellation and cooperative suspend/resume kinds exist in the schema and fixtures. Producer capabilities stay false until an accepted runtime transition exists. Tests serialize those kinds without treating elapsed time as cancellation.
+
+### Wire shape
+
+A stream begins with exactly one `session.capability` record and, when the sink remains writable, ends with exactly one `session.summary` record. Every line is one self-contained JSON object (JSONL). `record_kind` is `session.capability`, `event`, or `session.summary`; the two framing records repeat their name as `event_kind`. The compile-plan receipt names the artifact as `outputs.runtime_events_path` in `<build_root>/receipt.json`; the artifact itself is `<build_root>/runtime-events.jsonl`.
+
+Identifiers are opaque strings: a two-character prefix plus sixteen lowercase hex digits packing a 16-bit producer lane over a 48-bit lane-local sequence. `i2_` is an instance, `r2_` an event reference, `w2_` a wait episode, `x2_` the execution. Lane `0` is the controller; lanes `1..producer_lanes` are scheduler workers. The session always covers the scheduler worker count, so every worker owns exactly one single-producer lane.
+
+Correlatable events carry `snapshot_id`, `site_id`, `instance_id`, `event_id`, `event_kind`, and typed `role`. Runtime-only scheduler facts use `correlation_status: "runtime_only"`. Unavailable correlation is never a zero site. Causal `causes` are typed edges; consumers must not derive edges from order or time. Wait records share one `wait_id` across begin/end and name runnable, task, or backpressure producers today. Duration is valid only when both records use the session monotonic clock.
+
+### Vocabulary
+
+`mode`: `disabled`, `aggregate`, `sampled`, `detailed`.
+
+`event_kind` spellings, with the family and priority each maps to:
+
+| `event_kind` | `family` | `priority` |
+| --- | --- | --- |
+| `session.capability`, `session.summary` | `session` | `lifecycle` |
+| `compile.started`, `compile.finished`, `compile.failed`, `unit.entered`, `unit.exited`, `unit.test.started`, `unit.test.finished`, `transition.fired`, `state.changed`, `diagnostic.emitted`, `run.started`, `run.finished`, `thread.spawned`, `thread.exited`, `log.emitted` | `controller` | `lifecycle` |
+| `task.created`, `task.enqueued`, `task.started`, `task.completed`, `task.failed`, `task.result_consumed`, `task.released`, `cancellation.requested`, `cancellation.completed`, `cooperative.suspend`, `cooperative.resume` | `task_lifecycle` | `lifecycle` |
+| `task.dequeued` | `task_lifecycle` | `detail` |
+| `queue.closed` | `queue` | `lifecycle` |
+| `queue.pressure` | `queue` | `detail` |
+| `wait.begin`, `wait.end` | `wait` | `lifecycle` |
+| `aggregate.shard` | `aggregate` | `detail` |
+
+`family` spellings are `session`, `controller`, `task_lifecycle`, `queue`, `wait`, `causal`, `aggregate`, `detail`. The summary always reports all eight rows; `causal` and `detail` currently have no producing event kinds and stay zero.
+
+`priority` is `lifecycle` or `detail`. Only detail records are aggregated in `aggregate` mode or sampled in `sampled` mode; lifecycle records are always retained.
+
+`correlation_status`: `correlated` (descriptor-resolved site), `runtime_only`, `unavailable`.
+
+`role`: `task`, `await`, `runtime_only`.
+
+Causal edge `kind`: `spawn`, `enqueue`, `dispatch`, `completion`, `wake`, `failure`, `cancellation`, `backpressure_relief`. Producers today emit `spawn`, `dispatch`, `completion`, `wake`, and `failure`.
+
+Wait `reason`: `runnable`, `cooperative`, `io`, `resource`, `task`, `backpressure`, `timer`, `cancellation`, `unknown`. Producers today emit `runnable`, `task`, and `backpressure`; the rest are schema-owned and advertised unavailable.
+
+Wait `resolution` (only on `wait.end`; `null` on `wait.begin`): `ready`, `completed`, `failed`, `cancelled`, `timed_out`, `closed`, `unknown`. Producers today emit `ready`, `completed`, `failed`, and `closed`.
+
+### Record fields
+
+`session.capability`: `contract`, `schema_version` (`2`), `stability` (`incubating`), `record_kind`, `event_kind`, `mode`, `snapshot_schema`, `snapshot_id` (`null` when none), `execution_id`, `privacy_profile` (`strict`), `producer_lanes`, `lane_capacity`, `priority_reserved`, `drain_batch`, `sampling` (`numerator`, `denominator`, `seed`), `clock_unit` (`ns`), `supported_capabilities`, `active_capabilities`, `unavailable_capabilities`. Supported/active spellings: `task-lifecycle`, `scheduler-queue`, `wait-runnable`, `wait-task`, `wait-backpressure`, `controller-events`, `loss-accounting`, `strict-privacy`. Unavailable: `cancellation`, `cooperative-suspend`, `wait-cooperative`, `wait-io`, `wait-resource`, `wait-timer`. In `disabled` mode `active_capabilities` is empty.
+
+`event`: `contract`, `schema_version`, `record_kind` (`event`), `event_kind`, `family`, `priority`, `correlation_status`, `role`, `snapshot_id` and `site_id` (strings only when `correlated`, else `null`), `instance_id` (`null` only for zero-instance non-task, non-wait records), `event_id`, `monotonic_ns`, `causes` (array of `kind` / `event_id` / `subject_instance`, possibly empty), `wait` (`null` unless `wait.begin`/`wait.end`; then `wait_id`, `waiter_instance`, `subject_instance` (`null` when absent), `reason`, `resolution`, `duration_ns` (`null` when invalid)). `queue_depth` and `queue_capacity` appear on `queue.pressure`, `queue.closed`, `wait.begin`, and `wait.end`. `count` and `duration_ns` appear on `aggregate.shard`. Controller annotations `unit_id`, `test_name`, `intent`, `phase`, `operation`, `diagnostic_code`, `stream`, `from_phase`, `to_phase`, `final_phase` appear only when non-empty; `success` and `executed` appear only when meaningful.
+
+`session.summary`: `contract`, `schema_version`, `record_kind`, `event_kind`, `mode`, `execution_id`, `completeness`, `exporter_failed`, `lane_capacity`, `priority_reserved`, `producer_lanes`, `high_water_occupancy`, and `families`: an object keyed by every family spelling, each with `observed`, `emitted`, `aggregated`, `sampled_out`, `buffer_dropped`, `exporter_dropped`, and `summary_updates`.
+
+Every family row satisfies the conservation equation `observed = emitted + aggregated + sampled_out + buffer_dropped + exporter_dropped`. `emitted` counts records written to the sink; a record the exporter fails to write moves from `emitted` to `exporter_dropped`. `summary_updates` is a sidecar projection, not a disposition. Session framing records are excluded from the ledger.
+
+`completeness` spellings and meanings, in precedence order (the first matching condition wins): `partial/exporter_failure` (sink failed), `partial/buffer_loss` (`buffer_dropped` nonzero), `partial/export_loss` (`exporter_dropped` nonzero), `partial/unresolved` (a `wait.begin` never gained its `wait.end`, e.g. a worker still parked at session end), `partial/sampling` (sampled mode shed records), `partial/aggregation` (aggregate mode folded records), `complete` (all producers ran, all retained references resolve, no loss, summary written). `partial/disabled` marks a disabled-mode controller-only session.
+
+V2 omits log payload text, source paths, raw diagnostic messages, values, labels, environment, and addresses. Diagnostics may carry a stable `diagnostic_code`. Source navigation resolves `site_id` in the separately authorized S1 snapshot.
+
+Unknown additive v2 fields are ignored by `parse_runtime_record`. Unknown enum values, versions, or capabilities marked critical are rejected. Rejection subcodes: `runtime_events_unsupported_version` (version 1), `runtime_events_unknown_version`, `runtime_observation_malformed`, `runtime_observation_unsupported_capability`, `runtime_observation_unsupported_mode`, `runtime_observation_invalid_bounds`.
+
+S3 remains unapproved for default enablement. Disabled and static-only paths keep the existing task ABI (`styio_task_*_spawn` without `_observed`). Enabled codegen registers a compact descriptor table and calls `styio_task_*_spawn_observed`.
+
+See `tests/fixtures/observable-runtime-correlation/v2/` and `tests/observable_runtime_test.cpp`. Numeric budgets are not encoded here; `benchmark/` owns the measurement seam and rejects missing or unapproved result contracts.
+
 ## Privacy
 
-Snapshots, deltas, lineage, queries, fixtures, errors, and counters must not contain workspace or package roots, absolute paths, raw source or literal values, content hashes, graph labels, pointer/address text, compiler object IDs, dense graph IDs, `source_text`, `raw_value`, credentials, or backend runtime records. The compile-plan `parent_snapshot_path` is consumed by the producer and never copied into any published artifact or receipt field.
+Snapshots, deltas, lineage, queries, runtime-events v2, fixtures, errors, and counters must not contain workspace or package roots, absolute paths, raw source or literal values, content hashes, graph labels, pointer/address text, compiler object IDs, dense graph IDs, `source_text`, `raw_value`, credentials, or backend runtime records. The compile-plan `parent_snapshot_path` is consumed by the producer and never copied into any published artifact or receipt field. Runtime-events v2 also omits `log.emitted` payload text and raw diagnostic messages.
 
 See the service inventory in [../MANIFEST.md](../MANIFEST.md).

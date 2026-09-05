@@ -62,3 +62,27 @@ bounded query, small-delta invalidation with shard reuse, full fallback after
 `drop_derived_indexes`, and retention-byte pressure. Privacy rules match the
 public snapshot contract: no source text, raw values, credentials, host paths,
 or backend runtime records.
+
+## Observable runtime-events v2 budget seam
+
+This repository owns measurement and budget enforcement for correlated runtime
+events. `styio-benchmark` owns approved numeric ceilings.
+
+```bash
+cmake -S . -B build/observable-runtime-benchmark \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  -DSTYIO_REQUIRE_EXTERNAL_BENCHMARK=ON
+cmake --build build/observable-runtime-benchmark --target \
+  styio_observable_runtime_perf_test styio_observable_runtime_budget_contract_test
+ctest --test-dir build/observable-runtime-benchmark \
+  -R '^styio_observable_runtime_(perf|budget_contract)$' --output-on-failure
+```
+
+`styio_observable_runtime_perf` writes a candidate result with the required
+wall, CPU, allocation, memory, size, volume, occupancy, and loss fields.
+`styio_observable_runtime_budget_contract` reads
+`STYIO_OBSERVABLE_RUNTIME_BUDGET_RESULT` or
+`build/.../benchmark/observable-runtime/approved-result.json` and fails closed
+on missing, stale, pending, incomparable, or unapproved budgets. Do not edit
+the external `styio-benchmark` checkout from this delivery.

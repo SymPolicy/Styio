@@ -1150,11 +1150,11 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}"),
+    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[2]}"),
     std::string::npos
   );
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[1]}"),
+    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"receipt\":[1],\"runtime_events\":[2]}"),
     std::string::npos
   );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
@@ -1942,17 +1942,17 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
   EXPECT_NE(receipt.find("\"runtime_events_path\":\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"transition.fired\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"state.changed\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.finished\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.entered\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.exited\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"transition.fired\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"state.changed\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.finished\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"unit_id\":\"demo/app@0.1.0::bin:demo\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"final_phase\":\"codegen_ready\""), std::string::npos);
-  EXPECT_EQ(runtime_events.find("\"eventKind\":\"run.started\""), std::string::npos);
-  EXPECT_EQ(runtime_events.find("\"eventKind\":\"thread.spawned\""), std::string::npos);
-  EXPECT_EQ(runtime_events.find("\"eventKind\":\"log.emitted\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"event_kind\":\"run.started\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"event_kind\":\"thread.spawned\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"event_kind\":\"log.emitted\""), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2022,17 +2022,17 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   EXPECT_NE(receipt.find("\"intent\":\"check\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"transition.fired\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"state.changed\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.finished\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.entered\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.exited\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"transition.fired\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"state.changed\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.finished\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"unit_id\":\"demo/app@0.1.0::bin:demo-check\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"final_phase\":\"codegen_ready\""), std::string::npos);
-  EXPECT_EQ(runtime_events.find("\"eventKind\":\"run.started\""), std::string::npos);
-  EXPECT_EQ(runtime_events.find("\"eventKind\":\"thread.spawned\""), std::string::npos);
-  EXPECT_EQ(runtime_events.find("\"eventKind\":\"log.emitted\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"event_kind\":\"run.started\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"event_kind\":\"thread.spawned\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"event_kind\":\"log.emitted\""), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2104,21 +2104,21 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
   EXPECT_NE(receipt.find("\"session_id\":\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.started\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"transition.fired\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"state.changed\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.finished\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.entered\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.exited\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"transition.fired\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"state.changed\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.finished\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"unit_id\":\"demo/app@0.1.0::bin:demo-run\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"final_phase\":\"executed\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"run.started\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"thread.spawned\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"thread.exited\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"log.emitted\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"run.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"thread.spawned\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"thread.exited\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"log.emitted\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"stream\":\"stdout\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"message\":\"compile-plan-run\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"run.finished\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"message\":"), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"run.finished\""), std::string::npos);
 
   fs::remove_all(root);
 }
@@ -2187,11 +2187,11 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
   EXPECT_NE(receipt.find("\"intent\":\"test\""), std::string::npos);
   EXPECT_NE(receipt.find("\"executed\":true"), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.started\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.test.finished\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"run.started\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"run.finished\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.entered\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.test.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.test.finished\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"run.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"run.finished\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"unit_id\":\"demo/app@0.1.0::test:smoke\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"test_name\":\"smoke\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"success\":true"), std::string::npos);
@@ -2261,15 +2261,243 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   EXPECT_NE(diagnostics.find("\"notes\":[]"), std::string::npos);
   EXPECT_NE(diagnostics.find("\"file\":\"" + source.string() + "\""), std::string::npos);
   EXPECT_NE(diagnostics.find("file not found"), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.entered\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"unit.exited\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"unit_id\":\"demo/app@0.1.0::bin:demo-missing\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"diagnostic.emitted\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"state.changed\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"to\":\"failed\""), std::string::npos);
-  EXPECT_NE(runtime_events.find("\"eventKind\":\"compile.failed\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"diagnostic.emitted\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"state.changed\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"phase\":\"failed\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.failed\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"final_phase\":\"failed\""), std::string::npos);
 
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, RuntimeEventCapabilitiesAdvertiseV2Only) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const CommandResult result = run_stdout_command(std::string("\"") + runner + "\" --machine-info=json");
+  ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"runtime_events\":[2]"), std::string::npos);
+  EXPECT_EQ(result.stdout_text.find("\"runtime_events\":[1]"), std::string::npos);
+  EXPECT_NE(
+    result.stdout_text.find(
+      "\"runtime_events\":{\"schema_versions\":[2],\"default_mode\":\"aggregate\""),
+    std::string::npos)
+    << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"unavailable_capabilities\":[\"cancellation\""), std::string::npos)
+    << result.stdout_text;
+}
+
+TEST(StyioDiagnostics, CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-runtime-events-v2-disabled-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"v2-disabled\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"build\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo\",\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\n"
+      << "    \"build_root\": \"" << build_root.string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "  },\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
+      << "}\n";
+  }
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const CommandResult result =
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
+  EXPECT_NE(runtime_events.find("\"schema_version\":2"), std::string::npos) << runtime_events;
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"session.capability\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"mode\":\"disabled\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"compile.started\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"correlation_status\":\"runtime_only\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"eventKind\""), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"file\":"), std::string::npos);
+  EXPECT_EQ(runtime_events.find("\"message\":"), std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, CompilePlanNegotiatesRuntimeEventsV2) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-runtime-events-v2-negotiate-" + std::to_string(uniq));
+  const fs::path pkg = root / "pkg";
+  const fs::path source = pkg / "src" / "main.styio";
+  const fs::path manifest = pkg / "Styio.toml";
+  const fs::path build_root = root / "build";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  const fs::path plan_path = build_root / "plan.json";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+  {
+    std::ofstream out(manifest);
+    ASSERT_TRUE(out.is_open());
+    out << "name = \"example.app\"\n";
+  }
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"v2-negotiated\")\n";
+  }
+  {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0\"},\n"
+      << "  \"intent\": \"run\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"example.app@1\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo\",\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"example.app@1\",\"name\":\"example.app\",\"root\":\""
+      << pkg.generic_string() << "\",\"manifest\":\"" << manifest.generic_string() << "\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"example.app@1\"]},\n"
+      << "  \"outputs\": {\n"
+      << "    \"build_root\": \"" << build_root.string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "  },\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false,"
+      << "\"runtime_observation\":{\"version\":2,\"mode\":\"aggregate\"}}\n"
+      << "}\n";
+  }
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+  const CommandResult result =
+    run_stdout_command(compile_plan_command_latest(runner, plan_path));
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  const std::string runtime_events = read_text_file_latest(build_root / "runtime-events.jsonl");
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"session.capability\""), std::string::npos) << runtime_events;
+  EXPECT_NE(runtime_events.find("\"mode\":\"aggregate\""), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"schema_version\":2"), std::string::npos);
+  EXPECT_NE(runtime_events.find("\"event_kind\":\"session.summary\""), std::string::npos);
+  fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, UnsupportedRuntimeEventVersionsAndCapabilitiesFailBeforeExecution) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-runtime-events-reject-" + std::to_string(uniq));
+  const fs::path source = root / "src" / "main.styio";
+  const fs::path build_root = root / ".pafio" / "build" / "case";
+  const fs::path artifact_dir = build_root / "artifacts";
+  const fs::path diag_dir = build_root / "diag";
+  ASSERT_TRUE(fs::create_directories(source.parent_path()));
+  ASSERT_TRUE(fs::create_directories(build_root));
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << ">_(\"should-not-run\")\n";
+  }
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto write_plan = [&](const fs::path& plan_path, const std::string& observation) {
+    std::ofstream out(plan_path);
+    ASSERT_TRUE(out.is_open());
+    out
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
+      << "  \"intent\": \"run\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
+      << "  \"entry\": {\n"
+      << "    \"package_id\": \"demo/app@0.1.0\",\n"
+      << "    \"target_kind\": \"bin\",\n"
+      << "    \"target_name\": \"demo\",\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
+      << "  },\n"
+      << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
+      << "  \"outputs\": {\n"
+      << "    \"build_root\": \"" << build_root.string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "  },\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false,"
+      << observation << "}\n"
+      << "}\n";
+  };
+
+  const struct {
+    const char* name;
+    const char* observation;
+    const char* subcode;
+  } cases[] = {
+    {"v1", "\"runtime_observation\":{\"version\":1}", "runtime_events_unsupported_version"},
+    {"unknown", "\"runtime_observation\":{\"version\":99}", "runtime_events_unknown_version"},
+    {"capability",
+     "\"runtime_observation\":{\"version\":2,\"required_capabilities\":[\"cancellation\"]}",
+     "runtime_observation_unsupported_capability"},
+  };
+  for (const auto& test_case : cases) {
+    const fs::path plan_path = build_root / (std::string(test_case.name) + "-plan.json");
+    write_plan(plan_path, test_case.observation);
+    const CommandResult result =
+      run_stdout_command(compile_plan_command_latest(runner, plan_path));
+    EXPECT_EQ(result.exit_code, 6) << test_case.name << "\n" << result.stdout_text;
+    EXPECT_NE(result.stdout_text.find(test_case.subcode), std::string::npos)
+      << test_case.name << "\n" << result.stdout_text;
+    EXPECT_EQ(result.stdout_text.find("should-not-run"), std::string::npos)
+      << test_case.name;
+  }
   fs::remove_all(root);
 }
 
