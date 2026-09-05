@@ -120,7 +120,29 @@ public:
   }
 
   /** Module IR without ANSI or extra banners (for golden tests). */
-  std::string dump_llvm_ir() const;
+  std::string dump_llvm_ir();
+
+  struct ObservationDescriptorEmit
+  {
+    std::string snapshot_id;
+    std::string site_id;
+    std::uint8_t role = 0;
+  };
+
+  void set_runtime_observation_table(
+    std::uint32_t generation,
+    std::vector<ObservationDescriptorEmit> descriptors
+  ) {
+    observation_table_generation_ = generation == 0 ? 1 : generation;
+    observation_descriptors_ = std::move(descriptors);
+    observation_ctor_emitted_ = false;
+  }
+
+  bool runtime_observation_enabled() const {
+    return !observation_descriptors_.empty();
+  }
+
+  void ensure_runtime_observation_registration();
 
   /* CodeGen Get LLVM Type */
   llvm::Type* toLLVMType(const StyioDataType& data_type);
@@ -379,6 +401,9 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   std::vector<std::vector<OwnedResourceTemp>> owned_resource_scope_stack_;
   std::optional<TempResourceKind> current_function_return_resource_kind_;
   std::uint64_t task_function_counter_ = 0;
+  std::uint32_t observation_table_generation_ = 1;
+  std::vector<ObservationDescriptorEmit> observation_descriptors_;
+  bool observation_ctor_emitted_ = false;
   std::uint64_t file_handle_temp_counter_ = 0;
   std::uint64_t owned_resource_temp_counter_ = 0;
   int resource_effect_operation_depth_ = 0;

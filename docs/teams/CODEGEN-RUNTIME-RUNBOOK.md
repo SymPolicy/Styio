@@ -34,7 +34,7 @@ Related docs:
 4. Update security, five-layer, and soak coverage before accepting a runtime contract change.
 5. Use benchmark routes for hot paths, not terminal timing impressions.
 6. Preserve the current legacy bounded final-bind compatibility contract until an explicit final-binding/Topology checkpoint changes it: final-bind lowers to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete.
-7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
+7. Treat `runtime-events.jsonl` as a published artifact: v2 `event_kind` records (`compile.*` / `run.*` / `thread.*` / `unit.*` / `unit.test.*` / `state.changed` / `transition.fired` / `log.emitted` / `diagnostic.emitted` plus opt-in task/scheduler overlay) require same-checkpoint tests and consumer doc updates. Do not emit v1 `eventKind` or raw `message`/`file` payloads.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
 10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
@@ -104,7 +104,7 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
 2. Test Quality must review five-layer or security golden updates.
 3. Perf / Stability must review benchmark matrix, RSS thresholds, or long-loop behavior.
 4. CLI / Nano must review runtime capability output exposed through machine-info.
-5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes.
+5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes. Styio owns v2 semantics; consumers map fields only.
 
 ## Handoff / Recovery
 

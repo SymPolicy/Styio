@@ -56,6 +56,7 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 namespace {
 
@@ -750,6 +751,31 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   theBuilder->SetInsertPoint(caller_bb);
 
   llvm::FunctionCallee spawn_fn = nullptr;
+  const bool observed = node->observation.present && runtime_observation_enabled();
+  llvm::Type* char_ptr_ty = llvm::PointerType::get(*theContext, 0);
+  if (observed) {
+    ensure_runtime_observation_registration();
+    llvm::Type* desc_ty = theBuilder->getInt32Ty();
+    if (styio_task_result_is_f64(node->result_type)) {
+      spawn_fn = theModule->getOrInsertFunction(
+        "styio_task_f64_spawn_observed",
+        llvm::FunctionType::get(
+          theBuilder->getInt64Ty(), {char_ptr_ty, char_ptr_ty, desc_ty}, false));
+    } else if (styio_task_result_is_cstr(node->result_type)) {
+      spawn_fn = theModule->getOrInsertFunction(
+        "styio_task_cstr_spawn_observed",
+        llvm::FunctionType::get(
+          theBuilder->getInt64Ty(), {char_ptr_ty, char_ptr_ty, desc_ty}, false));
+    } else {
+      spawn_fn = theModule->getOrInsertFunction(
+        "styio_task_i64_spawn_observed",
+        llvm::FunctionType::get(
+          theBuilder->getInt64Ty(), {char_ptr_ty, char_ptr_ty, desc_ty}, false));
+    }
+    return theBuilder->CreateCall(
+      spawn_fn,
+      {task_fn, ctx_ptr, theBuilder->getInt32(node->observation.descriptor_index)});
+  }
   if (styio_task_result_is_f64(node->result_type)) {
     spawn_fn = theModule->getOrInsertFunction(
       "styio_task_f64_spawn",
@@ -806,24 +832,56 @@ StyioToLLVM::toLLVMIR(SIOFlowBind* node) {
     : theBuilder->getInt64(0);
 
   if (node->source_is_task) {
+    const bool observed = node->observation.present && runtime_observation_enabled();
+    if (observed) {
+      ensure_runtime_observation_registration();
+    }
     if (styio_task_result_is_f64(node->result_type)) {
-      llvm::FunctionCallee pull_fn = theModule->getOrInsertFunction(
-        "styio_task_f64_pull",
-        llvm::FunctionType::get(theBuilder->getDoubleTy(), {theBuilder->getInt64Ty()}, false));
-      value = theBuilder->CreateCall(pull_fn, {value});
+      llvm::FunctionCallee pull_fn = observed
+        ? theModule->getOrInsertFunction(
+            "styio_task_f64_pull_observed",
+            llvm::FunctionType::get(
+              theBuilder->getDoubleTy(),
+              {theBuilder->getInt64Ty(), theBuilder->getInt32Ty()},
+              false))
+        : theModule->getOrInsertFunction(
+            "styio_task_f64_pull",
+            llvm::FunctionType::get(theBuilder->getDoubleTy(), {theBuilder->getInt64Ty()}, false));
+      value = observed
+        ? theBuilder->CreateCall(
+            pull_fn, {value, theBuilder->getInt32(node->observation.descriptor_index)})
+        : theBuilder->CreateCall(pull_fn, {value});
     }
     else if (styio_task_result_is_cstr(node->result_type)) {
       llvm::Type* char_ptr = llvm::PointerType::get(*theContext, 0);
-      llvm::FunctionCallee pull_fn = theModule->getOrInsertFunction(
-        "styio_task_cstr_pull",
-        llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
-      value = theBuilder->CreateCall(pull_fn, {value});
+      llvm::FunctionCallee pull_fn = observed
+        ? theModule->getOrInsertFunction(
+            "styio_task_cstr_pull_observed",
+            llvm::FunctionType::get(
+              char_ptr, {theBuilder->getInt64Ty(), theBuilder->getInt32Ty()}, false))
+        : theModule->getOrInsertFunction(
+            "styio_task_cstr_pull",
+            llvm::FunctionType::get(char_ptr, {theBuilder->getInt64Ty()}, false));
+      value = observed
+        ? theBuilder->CreateCall(
+            pull_fn, {value, theBuilder->getInt32(node->observation.descriptor_index)})
+        : theBuilder->CreateCall(pull_fn, {value});
     }
     else {
-      llvm::FunctionCallee pull_fn = theModule->getOrInsertFunction(
-        "styio_task_i64_pull",
-        llvm::FunctionType::get(theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
-      value = theBuilder->CreateCall(pull_fn, {value});
+      llvm::FunctionCallee pull_fn = observed
+        ? theModule->getOrInsertFunction(
+            "styio_task_i64_pull_observed",
+            llvm::FunctionType::get(
+              theBuilder->getInt64Ty(),
+              {theBuilder->getInt64Ty(), theBuilder->getInt32Ty()},
+              false))
+        : theModule->getOrInsertFunction(
+            "styio_task_i64_pull",
+            llvm::FunctionType::get(theBuilder->getInt64Ty(), {theBuilder->getInt64Ty()}, false));
+      value = observed
+        ? theBuilder->CreateCall(
+            pull_fn, {value, theBuilder->getInt32(node->observation.descriptor_index)})
+        : theBuilder->CreateCall(pull_fn, {value});
       if (node->result_type.option == StyioDataTypeOption::Bool) {
         value = theBuilder->CreateICmpNE(value, theBuilder->getInt64(0));
       }
@@ -910,4 +968,60 @@ StyioToLLVM::toLLVMIR(SIOFlowBind* node) {
     forget_owned_cstr_temp(value);
   }
   return value;
+}
+
+void
+StyioToLLVM::ensure_runtime_observation_registration() {
+  if (observation_ctor_emitted_ || observation_descriptors_.empty() || theModule == nullptr) {
+    return;
+  }
+  llvm::LLVMContext& ctx = *theContext;
+  llvm::Type* ptr_ty = llvm::PointerType::get(ctx, 0);
+  llvm::Type* i8_ty = llvm::Type::getInt8Ty(ctx);
+  llvm::Type* i32_ty = llvm::Type::getInt32Ty(ctx);
+  llvm::StructType* desc_ty = llvm::StructType::create(
+    ctx, {ptr_ty, ptr_ty, i8_ty}, "styio.obs.desc");
+  llvm::IRBuilder<> global_builder(ctx);
+  std::vector<llvm::Constant*> rows;
+  rows.reserve(observation_descriptors_.size());
+  for (std::size_t i = 0; i < observation_descriptors_.size(); ++i) {
+    const auto& desc = observation_descriptors_[i];
+    llvm::Constant* snapshot = global_builder.CreateGlobalStringPtr(
+      desc.snapshot_id, "styio.obs.snapshot." + std::to_string(i), 0, theModule.get());
+    llvm::Constant* site = global_builder.CreateGlobalStringPtr(
+      desc.site_id, "styio.obs.site." + std::to_string(i), 0, theModule.get());
+    rows.push_back(llvm::ConstantStruct::get(
+      desc_ty,
+      {
+        snapshot,
+        site,
+        llvm::ConstantInt::get(i8_ty, desc.role),
+      }));
+  }
+  llvm::ArrayType* array_ty = llvm::ArrayType::get(desc_ty, rows.size());
+  auto* table = new llvm::GlobalVariable(
+    *theModule,
+    array_ty,
+    true,
+    llvm::GlobalValue::PrivateLinkage,
+    llvm::ConstantArray::get(array_ty, rows),
+    "styio.obs.table");
+  llvm::FunctionType* ctor_ty = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
+  llvm::Function* ctor = llvm::Function::Create(
+    ctor_ty, llvm::Function::InternalLinkage, "styio.obs.register", *theModule);
+  llvm::IRBuilder<> ctor_builder(llvm::BasicBlock::Create(ctx, "entry", ctor));
+  llvm::FunctionCallee register_fn = theModule->getOrInsertFunction(
+    "styio_observation_register_table",
+    llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), {i32_ty, ptr_ty, i32_ty}, false));
+  llvm::Value* table_ptr = ctor_builder.CreateConstInBoundsGEP2_32(array_ty, table, 0, 0);
+  ctor_builder.CreateCall(
+    register_fn,
+    {
+      llvm::ConstantInt::get(i32_ty, observation_table_generation_),
+      table_ptr,
+      llvm::ConstantInt::get(i32_ty, static_cast<unsigned>(rows.size())),
+    });
+  ctor_builder.CreateRetVoid();
+  llvm::appendToGlobalCtors(*theModule, ctor, 65535);
+  observation_ctor_emitted_ = true;
 }

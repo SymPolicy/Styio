@@ -36,6 +36,7 @@
       "title": "Deliver observable topology delta, lineage, and queries"
     },
     {
+      "checkpoints": "observable-runtime-correlation/Checkpoints.json",
       "code": "PLAN-006",
       "directory": "observable-runtime-correlation",
       "plan": "observable-runtime-correlation/Plan.json",

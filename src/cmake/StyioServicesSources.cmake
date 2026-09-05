@@ -3,13 +3,16 @@ set(STYIO_OBSERVABLE_PUBLIC_SOURCES
   StyioServices/StyioObservable/Delta.cpp
   StyioServices/StyioObservable/Query.cpp
   StyioServices/StyioObservable/Service.cpp
+  StyioServices/StyioObservable/RuntimeCorrelation.cpp
 )
 
 set(STYIO_CONTRACT_SOURCES
   StyioServices/StyioCLI/SyntaxCheck.cpp
+  StyioServices/StyioCLI/RuntimeEventSession.cpp
   StyioServices/StyioConfig/CompilePlanContract.cpp
   StyioServices/StyioConfig/SourceBuildInfo.cpp
   StyioServices/StyioObservableProducer/DeltaPublication.cpp
+  StyioServices/StyioObservableProducer/InstrumentationTable.cpp
   StyioServices/StyioObservableProducer/StaticSnapshotContract.cpp
   StyioServices/StyioObservableProducer/StaticSnapshotPublication.cpp
 )

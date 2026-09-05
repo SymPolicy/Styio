@@ -1916,6 +1916,9 @@ StyioRepr::toString(SIOTaskCreate* node, int indent) {
   return std::string("styio.ir.task_create { result=") + node->result_type.name
          + ", body="
          + (node->body ? node->body->toString(this, indent) : std::string("null"))
+         + (node->observation.present
+              ? (", observation=" + std::to_string(node->observation.descriptor_index))
+              : std::string())
          + " }";
 }
 

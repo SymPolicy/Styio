@@ -121,13 +121,15 @@ class StyioIRVerifier : public StyioIRWalker
   std::unordered_map<std::string, HandleState> handle_states_;
   const bool defer_unresolved_loop_control_;
   const bool require_unique_ownership_;
+  const bool require_observation_site_refs_;
   std::size_t loop_depth_ = 0;
   std::optional<StyioDataType> function_return_type_;
 
 public:
   explicit StyioIRVerifier(const StyioIRVerifierOptions& options) :
       defer_unresolved_loop_control_(options.defer_unresolved_loop_control),
-      require_unique_ownership_(options.require_unique_ownership) {
+      require_unique_ownership_(options.require_unique_ownership),
+      require_observation_site_refs_(options.require_observation_site_refs) {
   }
 
 private:
@@ -806,12 +808,27 @@ private:
   void
   visitSIOTaskCreate(SIOTaskCreate* node) override {
     walk_required(node->body, "SIOTaskCreate.body");
+    if (require_observation_site_refs_ && !node->observation.present) {
+      result_.diagnostics.push_back(StyioIRVerifierDiagnostic{
+        std::string(diag::kPhaseIrVerify),
+        std::string(diag::kIrVerifyContract),
+        "SIOTaskCreate is missing the required observation site reference",
+      });
+    }
   }
 
   void
   visitSIOFlowBind(SIOFlowBind* node) override {
     walk_required(node->source_expr, "SIOFlowBind.source_expr");
     walk_optional(node->fallback_expr);
+    if (require_observation_site_refs_ && node->source_is_task
+        && !node->observation.present) {
+      result_.diagnostics.push_back(StyioIRVerifierDiagnostic{
+        std::string(diag::kPhaseIrVerify),
+        std::string(diag::kIrVerifyContract),
+        "SIOFlowBind task await is missing the required observation site reference",
+      });
+    }
   }
 
   void
