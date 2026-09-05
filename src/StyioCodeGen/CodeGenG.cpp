@@ -1,5 +1,6 @@
 // [C++ STL]
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -13,6 +14,7 @@
 
 // [Styio]
 #include "../StyioException/Exception.hpp"
+#include "../StyioExtern/ExternLib.hpp"
 #include "../StyioIR/GenIR/GenIR.hpp"
 #include "../StyioIR/Verifier.hpp"
 #include "../StyioToken/Token.hpp"
@@ -7558,6 +7560,22 @@ StyioToLLVM::print_llvm_ir() {
 
 void
 StyioToLLVM::execute() {
+  ensure_runtime_observation_registration();
+  if (!observation_descriptors_.empty()) {
+    std::vector<StyioObservationDescriptor> table;
+    table.reserve(observation_descriptors_.size());
+    for (const auto& desc : observation_descriptors_) {
+      StyioObservationDescriptor row{};
+      row.snapshot_id = desc.snapshot_id.c_str();
+      row.site_id = desc.site_id.c_str();
+      row.role = desc.role;
+      table.push_back(row);
+    }
+    styio_observation_register_table(
+      observation_table_generation_,
+      table.data(),
+      static_cast<uint32_t>(table.size()));
+  }
   std::string verifier_error;
   llvm::raw_string_ostream verifier_stream(verifier_error);
   if (llvm::verifyModule(*theModule, &verifier_stream)) {
@@ -7629,7 +7647,8 @@ StyioToLLVM::optimize_module_for_jit(llvm::Module& module) {
 }
 
 std::string
-StyioToLLVM::dump_llvm_ir() const {
+StyioToLLVM::dump_llvm_ir() {
+  ensure_runtime_observation_registration();
   std::string out;
   llvm::raw_string_ostream os(out);
   theModule->print(os, nullptr);

@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "StyioServices/StyioObservable/RuntimeCorrelation.hpp"
+
 namespace styio::config {
 
 struct CompilationUnit
@@ -42,6 +44,17 @@ struct CompilePlanRequest
   // input only; it never participates in admission, identity, or snapshot
   // bytes.  Empty when the request names no parent.
   std::filesystem::path observable_static_snapshot_parent_snapshot_path;
+  bool emit_runtime_observation = false;
+  int runtime_observation_schema_version = 0;
+  std::vector<std::string> runtime_observation_required_capabilities;
+  styio::observable::ObservationMode runtime_observation_mode =
+    styio::observable::ObservationMode::Aggregate;
+  std::uint32_t runtime_observation_lane_capacity =
+    styio::observable::kDefaultLaneCapacity;
+  std::uint32_t runtime_observation_priority_reserved =
+    styio::observable::kDefaultPriorityReserved;
+  std::uint32_t runtime_observation_producer_lanes = 0;
+  styio::observable::SamplingSpec runtime_observation_sampling;
   std::optional<CompilationUnit> compilation_unit;
 };
 

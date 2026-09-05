@@ -821,6 +821,7 @@ target_include_directories(styio_lowering_internal_test PRIVATE
 )
 target_link_libraries(styio_lowering_internal_test PRIVATE
   styio_frontend_core
+  styio_observable_core
   GTest::gtest_main
 )
 styio_apply_llvm_compile_settings(styio_lowering_internal_test)
@@ -839,12 +840,16 @@ styio_configure_windows_gtest_target(styio_runtime_scheduler_test)
 add_executable(styio_externlib_internal_test
   externlib_internal_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioRuntime/RuntimeState.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioRuntime/ObservationBuffer.cpp"
 )
 target_include_directories(styio_externlib_internal_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_BINARY_DIR}/generated"
 )
-target_link_libraries(styio_externlib_internal_test PRIVATE GTest::gtest_main)
+target_link_libraries(styio_externlib_internal_test PRIVATE
+  GTest::gtest_main
+  styio_observable_core
+)
 styio_apply_llvm_compile_settings(styio_externlib_internal_test)
 styio_configure_windows_gtest_target(styio_externlib_internal_test)
 
@@ -869,6 +874,9 @@ add_executable(styio_codegen_internal_test
 target_link_libraries(styio_codegen_internal_test PRIVATE
   styio_core
   GTest::gtest_main
+)
+target_compile_definitions(styio_codegen_internal_test PRIVATE
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
 )
 styio_apply_llvm_compile_settings(styio_codegen_internal_test)
 styio_configure_windows_gtest_target(styio_codegen_internal_test)
@@ -986,6 +994,34 @@ styio_gtest_discover_tests(styio_codegen_internal_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
     LABELS "security\\\\;safety\\\\;codegen_internal\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_runtime_test
+  observable_runtime_test.cpp
+)
+target_include_directories(styio_observable_runtime_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_observable_runtime_test PRIVATE
+  styio_core
+  styio_cli_contract_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_runtime_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
+)
+styio_apply_llvm_compile_settings(styio_observable_runtime_test)
+styio_configure_windows_gtest_target(styio_observable_runtime_test)
+add_dependencies(styio_observable_runtime_test styio)
+styio_gtest_discover_tests(styio_observable_runtime_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_runtime\\\\;runtime\\\\;concurrency\\\\;unit"
+    ENVIRONMENT "STYIO_TASK_QUEUE_CAPACITY=2\\\\;STYIO_TASK_THREADS=1"
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 

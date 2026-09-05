@@ -30,6 +30,10 @@ struct StyioIRVerifierOptions
   // existing DAG-compatible behavior unless this boundary opts into the
   // stronger ownership check.
   bool require_unique_ownership = false;
+
+  // Explicit S3 observation requests reject StyioIR that dropped compact site
+  // refs from task create / task await nodes.
+  bool require_observation_site_refs = false;
 };
 
 struct StyioIRVerifierResult

@@ -46,6 +46,44 @@ endif()
 set(STYIO_BENCHMARK_ROOT "${STYIO_BENCHMARK_ROOT_RESOLVED}" CACHE STRING
     "Explicit path to the external styio-benchmark checkout" FORCE)
 
+# Styio owns the observable-runtime measurement seam and budget reader.
+# External styio-benchmark remains the authority for approved numeric ceilings.
+# These targets register only when STYIO_BENCHMARK_ROOT is explicitly passed
+# and complete; a plain configure never registers benchmark tests.
+add_executable(styio_observable_runtime_perf_test
+  "${CMAKE_CURRENT_SOURCE_DIR}/observable_runtime_perf_test.cpp")
+target_link_libraries(styio_observable_runtime_perf_test PRIVATE styio_core)
+target_include_directories(styio_observable_runtime_perf_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated")
+styio_apply_llvm_compile_settings(styio_observable_runtime_perf_test)
+target_compile_definitions(styio_observable_runtime_perf_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${STYIO_DEFINE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\"")
+add_dependencies(styio_observable_runtime_perf_test styio)
+add_test(
+  NAME styio_observable_runtime_perf
+  COMMAND $<TARGET_FILE:styio_observable_runtime_perf_test>
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(styio_observable_runtime_perf PROPERTIES
+  LABELS "benchmark;performance;observable_runtime")
+
+add_executable(styio_observable_runtime_budget_contract_test
+  "${CMAKE_CURRENT_SOURCE_DIR}/observable_runtime_budget_contract_test.cpp")
+target_include_directories(styio_observable_runtime_budget_contract_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated")
+target_compile_definitions(styio_observable_runtime_budget_contract_test PRIVATE
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\"")
+add_test(
+  NAME styio_observable_runtime_budget_contract
+  COMMAND $<TARGET_FILE:styio_observable_runtime_budget_contract_test>
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+set_tests_properties(styio_observable_runtime_budget_contract PROPERTIES
+  LABELS "benchmark;performance;observable_runtime"
+  DEPENDS styio_observable_runtime_perf)
+
 include(GoogleTest)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 

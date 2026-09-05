@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-06
 
 ## Mission
 
@@ -135,6 +135,7 @@ Key SSOTs:
 96. PLAN-004 schema-v1 static snapshot publication is incubating. Treat `src/StyioServices/StyioObservable/README.md` as the decoder SSOT for key order, kinds, roles, predicates, capabilities, completeness, ID grammar, compile-plan request shape, output filename, and receipt artifact entry; keep `docs/design/Styio-Observable-Language.md` as long-term vocabulary; update the Pafio machine-contract matrix and nano coordination docs rather than creating a duplicate `docs/EXTERNAL-SERVICES.md`.
 97. PLAN-005 adds incubating delta, lineage, bounded query, negotiation, retention, and `full_snapshot_required` degradation to the same decoder README plus `tests/fixtures/observable-topology/`. Keep runtime correlation, private LSP extensions, policy evaluation, and Vityo UI out of this stage. Timing and RSS stay with `styio-benchmark`. Regenerate `docs/plan/INDEX.md` with `python3 scripts/docs-index.py --write` and refresh `DOC-STATS.md` from the docs-audit export when runbooks change.
 98. Producer-owned delta emission (`parent_snapshot_path`, `<stem>.observable-delta.json`, the receipt `observable_static_snapshot` record, and the `optional_capabilities` / `observable_delta` machine-info keys) is documented once in the decoder README `src/StyioServices/StyioObservable/README.md` ("Snapshot request" rule 7, "Delta publication (compiler)", "Snapshot capabilities", "Negotiation"). The Pafio matrix and nano coordination docs only state that Pafio forwards the path and never interprets snapshots or deltas; the test catalog row names the CLI-level suite. Do not duplicate receipt shapes or reason codes outside that README.
+99. PLAN-006 runtime-events v2 is documented in the same decoder README plus `docs/design/Styio-Observable-Language.md` §8, `docs/design/performance-testing.md`, Pafio matrix/coordination, and the test catalog. Keep S3 unapproved, consumers as mappings only, and cancellation/cooperative producers unavailable. Regenerate `docs/plan/INDEX.md` with `python3 scripts/docs-index.py --write` when the plan tree changes; do not create `docs/EXTERNAL-SERVICES.md`.
 
 ## Change Classes
 
@@ -200,3 +201,8 @@ ledger, and linked the fixture-gated Vityo, conditional Pafio, and benchmark
 handoffs. No execution checkpoints, Workers, product implementation, backend
 scope, or authority were created; the imported evolution archive remains
 reference material only.
+
+2026-09-06: Recorded unapproved observable-graph delivery follow-ups in
+`docs/rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md`. The rollup is a report only;
+it does not authorize implementation, default-enable runtime observation, or
+change language lineage/wait-reason producers.

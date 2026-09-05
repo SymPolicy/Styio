@@ -79,8 +79,10 @@ Styio owns the concrete shape and evolution of:
 - compiler artifacts under the requested artifact directory
 
 Pafio may surface paths and workflow status, but must not redefine compiler
-diagnostics, receipt contents, or runtime-event semantics. Vityo consumes
-language-service and compiler contracts directly from Styio.
+diagnostics, receipt contents, or runtime-event semantics. Runtime-events
+schema version 2 is Styio-owned; Pafio routes `runtime-events.jsonl` and must
+not request version 1. Vityo consumes language-service and compiler contracts
+directly from Styio.
 
 ## Non-goals
 
