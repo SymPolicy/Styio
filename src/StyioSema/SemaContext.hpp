@@ -1087,6 +1087,43 @@ public:
     return resource_topology_lifecycle_;
   }
 
+  struct RuntimeObservationSiteBinding
+  {
+    std::uint32_t generation = 1;
+    std::uint32_t descriptor_index = 0xffffffffu;
+    std::uint8_t role = 0;
+  };
+
+  void bind_runtime_observation_site(
+    const StyioAST* ast,
+    RuntimeObservationSiteBinding binding
+  ) {
+    if (ast != nullptr) {
+      runtime_observation_sites_[ast] = binding;
+    }
+  }
+
+  const RuntimeObservationSiteBinding* runtime_observation_site(const StyioAST* ast) const {
+    auto it = runtime_observation_sites_.find(ast);
+    return it == runtime_observation_sites_.end() ? nullptr : &it->second;
+  }
+
+  std::uint32_t runtime_observation_generation() const noexcept {
+    return runtime_observation_generation_;
+  }
+
+  void set_runtime_observation_generation(std::uint32_t generation) noexcept {
+    runtime_observation_generation_ = generation == 0 ? 1 : generation;
+  }
+
+  bool runtime_observation_requested() const noexcept {
+    return runtime_observation_requested_;
+  }
+
+  void set_runtime_observation_requested(bool value) noexcept {
+    runtime_observation_requested_ = value;
+  }
+
   const styio::resource_topology::ValidatedArtifact*
   resource_topology_artifact_for(const MainBlockAST* root) const noexcept {
     if (resource_topology_lifecycle_ != ResourceTopologyLifecycle::Validated
@@ -1215,6 +1252,10 @@ protected:
   const MainBlockAST* resource_topology_root_ = nullptr;
   ResourceTopologyLifecycle resource_topology_lifecycle_ =
     ResourceTopologyLifecycle::NotAnalyzed;
+  std::unordered_map<const StyioAST*, RuntimeObservationSiteBinding>
+    runtime_observation_sites_;
+  std::uint32_t runtime_observation_generation_ = 1;
+  bool runtime_observation_requested_ = false;
 };
 
 #endif

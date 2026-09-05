@@ -72,8 +72,8 @@ static_snapshot_identity_scope(
 ) {
 #if !STYIO_NANO_BUILD
   if (request.has_value()
-      && request->emit_observable_static_snapshot
-      && request->compilation_unit.has_value()) {
+      && request->compilation_unit.has_value()
+      && (request->emit_observable_static_snapshot || request->emit_runtime_observation)) {
     return styio::semantic_identity::Scope::qualified(
       request->compilation_unit->package_name,
       request->compilation_unit->manifest_relative_path,

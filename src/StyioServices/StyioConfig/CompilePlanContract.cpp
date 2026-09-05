@@ -355,6 +355,189 @@ parse_observable_static_snapshot_request(
 }
 
 bool
+parse_runtime_observation_request(
+  const llvm::json::Object& emit,
+  CompilePlanRequest& out_request,
+  std::string& error_message,
+  std::string& error_subcode
+) {
+  const llvm::json::Value* observation_value = emit.get("runtime_observation");
+  if (observation_value == nullptr) {
+    out_request.emit_runtime_observation = false;
+    return true;
+  }
+
+  const llvm::json::Object* observation = observation_value->getAsObject();
+  if (observation == nullptr) {
+    error_subcode = "runtime_observation_malformed";
+    error_message =
+      "compile-plan emit.runtime_observation must be an object with version";
+    return false;
+  }
+
+  for (const auto& field : *observation) {
+    const std::string field_name = field.first.str();
+    if (field_name != "version"
+        && field_name != "mode"
+        && field_name != "required_capabilities"
+        && field_name != "lane_capacity"
+        && field_name != "priority_reserved"
+        && field_name != "producer_lanes"
+        && field_name != "sampling") {
+      error_subcode = "runtime_observation_malformed";
+      error_message =
+        "compile-plan emit.runtime_observation contains an unsupported field: "
+        + field_name;
+      return false;
+    }
+  }
+
+  std::int64_t version = 0;
+  if (!json_require_integer(*observation, "version", version, error_message)) {
+    error_subcode = "runtime_observation_malformed";
+    error_message = "compile-plan emit.runtime_observation.version must be an integer";
+    return false;
+  }
+  if (version == 1) {
+    error_subcode = "runtime_events_unsupported_version";
+    error_message = "unsupported runtime-events schema_version: 1";
+    return false;
+  }
+  if (version != styio::observable::kRuntimeEventsSchemaVersion) {
+    error_subcode = "runtime_events_unknown_version";
+    error_message =
+      "unknown runtime-events schema_version: " + std::to_string(version);
+    return false;
+  }
+
+  styio::observable::ObservationMode mode =
+    styio::observable::ObservationMode::Aggregate;
+  if (const llvm::json::Value* mode_value = observation->get("mode"); mode_value != nullptr) {
+    const auto raw = mode_value->getAsString();
+    if (!raw.has_value()
+        || !styio::observable::observation_mode_from_text(std::string(*raw), mode)
+        || mode == styio::observable::ObservationMode::Disabled) {
+      error_subcode = "runtime_observation_unsupported_mode";
+      error_message = "unsupported runtime observation mode";
+      return false;
+    }
+  }
+
+  std::vector<std::string> required_capabilities;
+  if (const llvm::json::Array* required = observation->getArray("required_capabilities");
+      required != nullptr) {
+    std::unordered_set<std::string> seen;
+    for (size_t i = 0; i < required->size(); ++i) {
+      const auto raw = (*required)[i].getAsString();
+      if (!raw.has_value() || raw->empty()) {
+        error_subcode = "runtime_observation_malformed";
+        error_message =
+          "compile-plan emit.runtime_observation.required_capabilities["
+          + std::to_string(i) + "] must be a non-empty string";
+        return false;
+      }
+      const std::string capability = std::string(*raw);
+      if (styio::observable::capability_is_unavailable(capability)
+          || !styio::observable::capability_is_supported(capability)) {
+        error_subcode = "runtime_observation_unsupported_capability";
+        error_message = "unsupported required runtime observation capability: " + capability;
+        return false;
+      }
+      if (!seen.insert(capability).second) {
+        error_subcode = "runtime_observation_malformed";
+        error_message =
+          "compile-plan emit.runtime_observation.required_capabilities contains a duplicate: "
+          + capability;
+        return false;
+      }
+      required_capabilities.push_back(capability);
+    }
+  }
+
+  std::uint32_t lane_capacity = styio::observable::kDefaultLaneCapacity;
+  if (const auto raw = observation->getInteger("lane_capacity"); raw.has_value()) {
+    if (*raw < 0 || *raw > 0xffffffffll
+        || !styio::observable::lane_capacity_is_valid(static_cast<std::uint32_t>(*raw))) {
+      error_subcode = "runtime_observation_invalid_bounds";
+      error_message = "invalid runtime observation lane_capacity";
+      return false;
+    }
+    lane_capacity = static_cast<std::uint32_t>(*raw);
+  }
+
+  std::uint32_t priority_reserved = styio::observable::kDefaultPriorityReserved;
+  if (const auto raw = observation->getInteger("priority_reserved"); raw.has_value()) {
+    if (*raw < 0 || static_cast<std::uint32_t>(*raw) >= lane_capacity) {
+      error_subcode = "runtime_observation_invalid_bounds";
+      error_message = "invalid runtime observation priority_reserved";
+      return false;
+    }
+    priority_reserved = static_cast<std::uint32_t>(*raw);
+  }
+
+  std::uint32_t producer_lanes = 0;
+  if (const auto raw = observation->getInteger("producer_lanes"); raw.has_value()) {
+    if (*raw < 0 || *raw > 64) {
+      error_subcode = "runtime_observation_invalid_bounds";
+      error_message = "invalid runtime observation producer_lanes";
+      return false;
+    }
+    producer_lanes = static_cast<std::uint32_t>(*raw);
+  }
+
+  styio::observable::SamplingSpec sampling;
+  if (const llvm::json::Value* sampling_value = observation->get("sampling");
+      sampling_value != nullptr) {
+    const llvm::json::Object* sampling_object = sampling_value->getAsObject();
+    if (sampling_object == nullptr) {
+      error_subcode = "runtime_observation_malformed";
+      error_message = "compile-plan emit.runtime_observation.sampling must be an object";
+      return false;
+    }
+    if (const auto numerator = sampling_object->getInteger("numerator"); numerator.has_value()) {
+      if (*numerator <= 0) {
+        error_subcode = "runtime_observation_invalid_bounds";
+        error_message = "invalid runtime observation sampling.numerator";
+        return false;
+      }
+      sampling.numerator = static_cast<std::uint32_t>(*numerator);
+    }
+    if (const auto denominator = sampling_object->getInteger("denominator");
+        denominator.has_value()) {
+      if (*denominator <= 0) {
+        error_subcode = "runtime_observation_invalid_bounds";
+        error_message = "invalid runtime observation sampling.denominator";
+        return false;
+      }
+      sampling.denominator = static_cast<std::uint32_t>(*denominator);
+    }
+    if (const auto seed = sampling_object->getInteger("seed"); seed.has_value()) {
+      if (*seed < 0) {
+        error_subcode = "runtime_observation_invalid_bounds";
+        error_message = "invalid runtime observation sampling.seed";
+        return false;
+      }
+      sampling.seed = static_cast<std::uint64_t>(*seed);
+    }
+    if (sampling.numerator > sampling.denominator) {
+      error_subcode = "runtime_observation_invalid_bounds";
+      error_message = "invalid runtime observation sampling ratio";
+      return false;
+    }
+  }
+
+  out_request.emit_runtime_observation = true;
+  out_request.runtime_observation_schema_version = static_cast<int>(version);
+  out_request.runtime_observation_required_capabilities = std::move(required_capabilities);
+  out_request.runtime_observation_mode = mode;
+  out_request.runtime_observation_lane_capacity = lane_capacity;
+  out_request.runtime_observation_priority_reserved = priority_reserved;
+  out_request.runtime_observation_producer_lanes = producer_lanes;
+  out_request.runtime_observation_sampling = sampling;
+  return true;
+}
+
+bool
 admit_qualified_compilation_unit(
   const llvm::json::Array& packages,
   const std::string& generated_by_tool,
@@ -365,7 +548,9 @@ admit_qualified_compilation_unit(
   std::string& error_subcode
 ) {
   if (generated_by_tool == "styio") {
-    error_subcode = "observable_static_snapshot_direct_file";
+    error_subcode = out_request.emit_runtime_observation && !out_request.emit_observable_static_snapshot
+      ? "runtime_observation_malformed"
+      : "observable_static_snapshot_direct_file";
     error_message =
       "direct-file and Styio-produced compile plans cannot publish observable static snapshots";
     return false;
@@ -671,7 +856,11 @@ parse_compile_plan(
         *emit, out_request, error_message, error_subcode)) {
     return false;
   }
-  if (out_request.emit_observable_static_snapshot
+  if (!parse_runtime_observation_request(
+        *emit, out_request, error_message, error_subcode)) {
+    return false;
+  }
+  if ((out_request.emit_observable_static_snapshot || out_request.emit_runtime_observation)
       && !admit_qualified_compilation_unit(
         *packages,
         out_request.generated_by_tool,

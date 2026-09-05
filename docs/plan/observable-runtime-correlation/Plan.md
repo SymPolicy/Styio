@@ -1,6 +1,6 @@
 # PLAN-006 Correlate runtime and scheduler events with semantic sites
 
-Phase: ready · Revision: unsealed
+Phase: blocked · Revision: 1
 
 This document is a render-only projection of `Plan.json`. Edit `Plan.json`; never edit this file.
 
@@ -28,7 +28,8 @@ No non-discoverable user decision was required.
 
 ### Observed repository facts
 
-- none
+- PLAN-004 registers its producer and consumer suites under the ctest label observable_static_snapshot; no observable_snapshot_producer label exists, so the S1 entry gate selects that label. (source: tests/CMakeLists.txt and docs/plan/observable-static-snapshot/Plan.json)
+- docs/EXTERNAL-SERVICES.md does not exist; external machine-contract handoff documents live under docs/external/for-pafio/ and the service inventory under src/StyioServices/README.md. (source: docs/external/for-pafio and src/StyioServices/README.md)
 
 ## Requirements
 
@@ -202,7 +203,7 @@ Acceptance
   - Given S1 public-snapshot and S2 delta/query/lineage plans and their producer fixtures
   - When the S3 entry gate runs before any implementation Node
   - Then both upstream plans report completed delivery, their exact fixture oracles pass, and S3 reads their public IDs/capabilities without changing any S1/S2 file
-  - Oracle: `python3 -c "import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)"`, `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error`, and `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error` all exit zero before the first S3 write
+  - Oracle: `python3 -c "import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)"`, `ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error`, and `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error` all exit zero before the first S3 write
   - Evidence: command from prerequisite plan and producer-fixture gate
 - AC-002 covers REQ-004, REQ-005, OUT-001, OUT-003, OUT-009
   - Given A qualified accepted snapshot containing task and await sites and an explicitly requested v2 run
@@ -255,7 +256,7 @@ Acceptance
 
 Focused regression
 - `python3 -c "import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)"`
-- `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error`
+- `ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error`
 - `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error`
 - `cmake --build build/default --target styio styio_resource_topology_test styio_typeinfer_internal_test styio_lowering_internal_test styio_runtime_scheduler_test styio_externlib_internal_test styio_codegen_internal_test styio_observable_runtime_test styio_test styio_security_test -j2`
 - `ctest --test-dir build/default -R '^(StyioObservableRuntime\.|StyioLoweringInternal\.ObservationDescriptorsPreserveSnapshotAndSiteIds|StyioCodegenInternal\.(ObservedTaskAbiUsesCompactDescriptors|DisabledAndStaticObservationUseExistingTaskAbi)|StyioDiagnostics\.(RuntimeEventCapabilitiesAdvertiseV2Only|CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode|CompilePlanNegotiatesRuntimeEventsV2|UnsupportedRuntimeEventVersionsAndCapabilitiesFailBeforeExecution))' --output-on-failure --no-tests=error`

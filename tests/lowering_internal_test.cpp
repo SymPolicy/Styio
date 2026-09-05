@@ -1,12 +1,19 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "StyioLowering/AstToStyioIRLowerer.hpp"
 #include "StyioLowering/StyioIROptimizer.hpp"
+#include "StyioIR/StyioIRWalker.hpp"
+#include "StyioResourceTopology/ResourceTopology.hpp"
+#include "StyioServices/StyioObservable/RuntimeCorrelation.hpp"
+#include "StyioServices/StyioObservable/Snapshot.hpp"
+#include "StyioUtil/SemanticIdentity.hpp"
 
 #include "../src/StyioLowering/AstToStyioIR.cpp"
 #define STYIO_IR_OPTIMIZER_INTERNAL_TEST_INCLUDE
@@ -3279,6 +3286,78 @@ TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
   styio::session_alloc::set_current_ir_arena(prev_arena);
   EXPECT_FALSE(styio::session_alloc::ir_arena_active());
   styio::session_alloc::set_current_ir_stats(prev_stats);
+}
+
+TEST(StyioLoweringInternal, ObservationDescriptorsPreserveSnapshotAndSiteIds) {
+  LowererProbe analyzer(styio::semantic_identity::Scope::qualified(
+    "example.app", "Styio.toml", "src/main.styio"));
+  std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
+    FinalBindAST::Create(
+      VarAST::Create(NameAST::Create("job")),
+      TaskBlockAST::Create(BlockAST::Create({
+        ReturnAST::Create(IntAST::Create("42")),
+      }))),
+    FlowBindAST::CreateAwait(
+      NameAST::Create("job"),
+      VarAST::Create(NameAST::Create("answer"), TypeAST::Create("i64"))),
+    PrintAST::Create({NameAST::Create("answer")}),
+  }));
+  root->typeInfer(&analyzer);
+  const auto* artifact = analyzer.topology_artifact(root.get());
+  ASSERT_NE(artifact, nullptr);
+  const auto bindings = artifact->source_site_bindings();
+  ASSERT_FALSE(bindings.empty());
+  std::vector<std::string> site_ids;
+  for (std::size_t i = 0; i < bindings.size(); ++i) {
+    StyioSemaContext::RuntimeObservationSiteBinding binding;
+    binding.generation = 7;
+    binding.descriptor_index = static_cast<std::uint32_t>(i);
+    if (bindings[i].kind == styio::resource_topology::NodeKind::Task
+        || bindings[i].role == styio::resource_topology::SemanticRole::Task) {
+      binding.role = static_cast<std::uint8_t>(styio::observable::SiteRole::Task);
+    } else {
+      binding.role = static_cast<std::uint8_t>(styio::observable::SiteRole::Await);
+    }
+    analyzer.bind_runtime_observation_site(bindings[i].source, binding);
+    site_ids.push_back(
+      std::string(styio::observable::kNodeIdPrefix)
+      + styio::semantic_identity::encode_hex(bindings[i].identity));
+  }
+  analyzer.set_runtime_observation_generation(7);
+  analyzer.set_runtime_observation_requested(true);
+
+  std::unique_ptr<StyioIR> ir(root->toStyioIR(&analyzer));
+  ASSERT_NE(ir, nullptr);
+
+  class ObservationWalker final : public styio::ir::StyioIRWalker
+  {
+  public:
+    std::vector<ObservationSiteRef> tasks;
+    std::vector<ObservationSiteRef> awaits;
+    void visitSIOTaskCreate(SIOTaskCreate* node) override {
+      tasks.push_back(node->observation);
+      StyioIRWalker::visitSIOTaskCreate(node);
+    }
+    void visitSIOFlowBind(SIOFlowBind* node) override {
+      if (node->source_is_task) {
+        awaits.push_back(node->observation);
+      }
+      StyioIRWalker::visitSIOFlowBind(node);
+    }
+  } walker;
+  walker.walk(ir.get());
+  ASSERT_FALSE(walker.tasks.empty());
+  for (const auto& obs : walker.tasks) {
+    EXPECT_TRUE(obs.present);
+    EXPECT_EQ(obs.table_generation, 7u);
+    ASSERT_LT(obs.descriptor_index, site_ids.size());
+    EXPECT_FALSE(site_ids[obs.descriptor_index].empty());
+  }
+  for (const auto& obs : walker.awaits) {
+    EXPECT_TRUE(obs.present);
+    EXPECT_EQ(obs.table_generation, 7u);
+    ASSERT_LT(obs.descriptor_index, site_ids.size());
+  }
 }
 
 }  // namespace

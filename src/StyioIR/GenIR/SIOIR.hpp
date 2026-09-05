@@ -448,11 +448,20 @@ public:
   }
 };
 
+struct ObservationSiteRef
+{
+  bool present = false;
+  std::uint32_t table_generation = 0;
+  std::uint32_t descriptor_index = 0xffffffffu;
+  std::uint8_t role = 0;
+};
+
 class SIOTaskCreate : public StyioIRTraits<SIOTaskCreate>
 {
 public:
   SGBlock* body = nullptr;
   StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
+  ObservationSiteRef observation;
 
   static SIOTaskCreate* Create(SGBlock* b, StyioDataType result) {
     auto* x = new SIOTaskCreate();
@@ -479,6 +488,7 @@ public:
   StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
   bool source_is_task = false;
   bool await_bind = false;
+  ObservationSiteRef observation;
 
   static SIOFlowBind* Create(
     StyioIR* source,
