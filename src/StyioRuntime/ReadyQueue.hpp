@@ -31,6 +31,16 @@ struct ReadyQueueSnapshot {
   bool closed = false;
 };
 
+struct ReadyQueueObservationHooks {
+  void (*on_pressure)(void* ctx, std::size_t depth, std::size_t capacity) = nullptr;
+  void (*on_producer_wait_begin)(void* ctx, std::size_t depth, std::size_t capacity) = nullptr;
+  void (*on_producer_wait_end)(void* ctx, bool closed) = nullptr;
+  void (*on_consumer_wait_begin)(void* ctx) = nullptr;
+  void (*on_consumer_wait_end)(void* ctx, bool got_item) = nullptr;
+  void (*on_close)(void* ctx) = nullptr;
+  void* ctx = nullptr;
+};
+
 /// The task scheduler's single ready-queue owner.
 ///
 /// Storage, lifecycle, and counters are protected by one mutex. A closed queue
@@ -53,6 +63,10 @@ public:
 
   ReadyQueueKind kind() const { return ReadyQueueKind::BoundedWait; }
 
+  void set_observation_hooks(ReadyQueueObservationHooks hooks) {
+    hooks_ = hooks;
+  }
+
   ReadyQueuePushResult push(void* task) {
     std::unique_lock<std::mutex> lock(mu_);
     if (closed_) {
@@ -61,11 +75,20 @@ public:
     if (size_ == capacity_) {
       ++pressure_events_;
       ++producer_waits_;
+      if (hooks_.on_pressure != nullptr) {
+        hooks_.on_pressure(hooks_.ctx, size_, capacity_);
+      }
+      if (hooks_.on_producer_wait_begin != nullptr) {
+        hooks_.on_producer_wait_begin(hooks_.ctx, size_, capacity_);
+      }
       ++waiting_producers_;
       not_full_.wait(lock, [this]() {
         return closed_ || size_ < capacity_;
       });
       --waiting_producers_;
+      if (hooks_.on_producer_wait_end != nullptr) {
+        hooks_.on_producer_wait_end(hooks_.ctx, closed_);
+      }
       if (closed_) {
         return ReadyQueuePushResult::Closed;
       }
@@ -89,9 +112,15 @@ public:
     std::unique_lock<std::mutex> lock(mu_);
     if (size_ == 0 && !closed_) {
       ++consumer_waits_;
+      if (hooks_.on_consumer_wait_begin != nullptr) {
+        hooks_.on_consumer_wait_begin(hooks_.ctx);
+      }
       ++waiting_consumers_;
       not_empty_.wait(lock, [this]() { return closed_ || size_ != 0; });
       --waiting_consumers_;
+      if (hooks_.on_consumer_wait_end != nullptr) {
+        hooks_.on_consumer_wait_end(hooks_.ctx, size_ != 0);
+      }
     }
     if (size_ == 0) {
       return nullptr;
@@ -116,6 +145,9 @@ public:
     closed_ = true;
     close_wake_ups_ += waiting_producers_ + waiting_consumers_;
     lock.unlock();
+    if (hooks_.on_close != nullptr) {
+      hooks_.on_close(hooks_.ctx);
+    }
     not_empty_.notify_all();
     not_full_.notify_all();
   }
@@ -166,6 +198,7 @@ private:
   std::size_t close_wake_ups_ = 0;
   std::size_t waiting_producers_ = 0;
   std::size_t waiting_consumers_ = 0;
+  ReadyQueueObservationHooks hooks_{};
 };
 
 } // namespace styio::runtime

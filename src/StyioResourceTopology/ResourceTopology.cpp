@@ -2150,6 +2150,27 @@ ValidatedArtifact::ValidatedArtifact(
     && relation_publications_.size() == edges.size();
 }
 
+std::vector<ValidatedArtifact::SourceSiteBinding>
+ValidatedArtifact::source_site_bindings() const {
+  std::vector<SourceSiteBinding> out;
+  out.reserve(graph_.nodes().size());
+  for (const auto& node : graph_.nodes()) {
+    if (node.source == nullptr) {
+      continue;
+    }
+    if (node.kind != NodeKind::Task && node.semantic_role != SemanticRole::Sink
+        && node.kind != NodeKind::Sink) {
+      continue;
+    }
+    out.push_back(SourceSiteBinding{
+      node.source,
+      node.kind,
+      node.semantic_role,
+      node.semantic_id});
+  }
+  return out;
+}
+
 BuildResult
 build(MainBlockAST* ast, BuildOptions options) {
   return Builder(std::move(options)).build(ast);

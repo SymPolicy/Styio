@@ -28,6 +28,7 @@ if(MSVC)
     "$<$<COMPILE_LANGUAGE:CXX>:/utf-8>"
   )
 endif()
+target_link_libraries(styio_runtime_core PUBLIC styio_observable_core)
 
 add_library(styio_cli_contract_core STATIC ${STYIO_CONTRACT_SOURCES})
 styio_configure_library_target(styio_cli_contract_core)
@@ -89,7 +90,7 @@ if(STYIO_BUILD_NANO)
   target_compile_definitions(styio_nano_core PRIVATE
     ${STYIO_NANO_COMPILE_DEFINITIONS}
   )
-  target_link_libraries(styio_nano_core PUBLIC styio_symbol_core ${LLVM_LIBS})
+  target_link_libraries(styio_nano_core PUBLIC styio_symbol_core styio_observable_core ${LLVM_LIBS})
 
   add_executable(styio_nano main.cpp)
   set_target_properties(styio_nano PROPERTIES OUTPUT_NAME "styio-nano")
