@@ -1,0 +1,51 @@
+/* Unbounded coin-change minimum coins (DP companion to CLRS Ch.15).
+   Input: [n, amount, c1..cn, then (amount+1) DP workspace zeros]
+   Output: min coins, or -1 if impossible; amount==0 -> 0. */
+values <- @stdin: list[i32]
+answer = -1
+INF = 1000000000
+
+?(values.length >= 2) => {
+    n = values[0]
+    amount = values[1]
+    need = 2 + n + amount + 1
+
+    ?(amount < 0) => {
+        answer = -1
+    } | {
+        ?(amount == 0) => {
+            answer = 0
+        } | {
+            ?(n >= 0 && values.length >= need) => {
+                base = 2 + n
+                values[base] = 0
+                ?(amount > 0) => {
+                    [1..amount] >> #(a) => {
+                        values[base + a] = INF
+                    }
+                }
+                [1..amount] >> #(a) => {
+                    [0..n-1] >> #(i) => {
+                        c = values[2 + i]
+                        ?(c > 0 && c <= a) => {
+                            prev = values[base + a - c]
+                            ?(prev < INF) => {
+                                cand = prev + 1
+                                ?(cand < values[base + a]) => {
+                                    values[base + a] = cand
+                                }
+                            }
+                        }
+                    }
+                }
+                ?(values[base + amount] >= INF) => {
+                    answer = -1
+                } | {
+                    answer = values[base + amount]
+                }
+            }
+        }
+    }
+}
+
+>_(answer)
