@@ -1,0 +1,43 @@
+/* Multi-pattern match count (C++ Aho-Corasick; Styio: naive scan).
+   Input: [n, k, t1..tn, m1,p.., m2,p.., ...]
+   Empty patterns skipped; overlaps counted. Malformed -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    k = values[1]
+    ?(n >= 0 && k >= 0 && values.length >= 2 + n) => {
+        pos = 2 + n
+        hits = 0
+        [0..k-1] >> #(pi) => {
+            ?(pos < values.length) => {
+                m = values[pos]
+                pos = pos + 1
+                ?(m >= 0 && pos + m <= values.length) => {
+                    ?(m == 0) => {
+                        // skip empty
+                    } | {
+                        ?(n >= m) => {
+                            [0..n-m] >> #(i) => {
+                                ok = 1
+                                [0..m-1] >> #(j) => {
+                                    ?(values[2 + i + j] != values[pos + j]) => {
+                                        ok = 0
+                                    }
+                                }
+                                ?(ok == 1) => {
+                                    hits = hits + 1
+                                }
+                            }
+                        }
+                    }
+                    pos = pos + m
+                }
+            }
+        }
+        answer = hits
+    }
+}
+
+>_(answer)

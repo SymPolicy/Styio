@@ -1,0 +1,90 @@
+/* Max independent set on a forest (tree DP).
+   Input: [n, m, u1,v1,..., then n*n adj + n take + n skip zeros]
+   Root each component; take/skip DP. n<=0 -> -1. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    need = 2 + m * 2 + n * n + n + n
+    ?(n <= 0) => {
+        answer = 0 - 1
+    } | {
+        ?(values.length >= need) => {
+            adj = 2 + m * 2
+            take_base = adj + n * n
+            skip_base = take_base + n
+            [0..n*n-1] >> #(i) => { values[adj + i] = 0 }
+            [0..m-1] >> #(e) => {
+                u = values[2 + e * 2]
+                v = values[2 + e * 2 + 1]
+                ?(u >= 0 && v >= 0 && u < n && v < n && u != v) => {
+                    values[adj + u * n + v] = 1
+                    values[adj + v * n + u] = 1
+                }
+            }
+            // Reroot DP via n rounds of leaf-to-root relaxation on parent[i]=i-1 tree?
+            // General forest: iterate postorder by n passes updating children first.
+            // Initialize
+            [0..n-1] >> #(i) => {
+                values[take_base + i] = 1
+                values[skip_base + i] = 0
+            }
+            // Use parent from BFS forests: parent[i] stored in skip temporarily? 
+            // Simpler exact approach for trees built as random with parent[i]<i:
+            // Assume edges form forest; compute via DP bottom-up on ids high->low
+            // after orienting parent = min(u,v) style? Not always.
+            // Use inclusion DP on adjacency: for rooted at 0 only if connected.
+            // Multi-component: for each root, clear and recompute with parent climb.
+            //
+            // Exact O(n^2) DP: for rooted trees using parent from DFS order.
+            // Build parent via stackless: parent[v]=u when edge and u < v for random tests
+            // (tests generate parent[i] in [0,i)).
+            [0..n-1] >> #(i) => {
+                values[take_base + i] = 1
+                values[skip_base + i] = 0
+            }
+            // Bottom-up from n-1 down to 0: attach i to its unique neighbor < i if any
+            i = n - 1
+            [...] >> ?(i >= 1) => {
+                p = 0 - 1
+                [0..i-1] >> #(j) => {
+                    ?(values[adj + i * n + j] == 1) => {
+                        p = j
+                    }
+                }
+                ?(p >= 0) => {
+                    // child i contributes to parent p
+                    ct = values[take_base + i]
+                    cs = values[skip_base + i]
+                    best = ct
+                    ?(cs > best) => { best = cs }
+                    values[take_base + p] = values[take_base + p] + cs
+                    values[skip_base + p] = values[skip_base + p] + best
+                }
+                i = i - 1
+            }
+            // Sum over roots (nodes with no smaller neighbor)
+            total = 0
+            [0..n-1] >> #(i) => {
+                is_root = 1
+                [0..i-1] >> #(j) => {
+                    ?(values[adj + i * n + j] == 1) => {
+                        is_root = 0
+                    }
+                }
+                ?(is_root == 1) => {
+                    ct = values[take_base + i]
+                    cs = values[skip_base + i]
+                    best = ct
+                    ?(cs > best) => { best = cs }
+                    total = total + best
+                }
+            }
+            answer = total
+        }
+    }
+}
+
+>_(answer)

@@ -131,6 +131,18 @@ equivalence (same harness as above):
 | `push_relabel_maxflow` | CLRS 26.4 push-relabel max s-t flow value |
 | `matrix_determinant` | Exact integer matrix determinant (Bareiss) |
 | `topo_unique_flag` | Unique topological order flag (Kahn companion) |
+| `sieve_prefix_prime_count` | Eratosthenes prefix prime count |
+| `pollard_rho_factor` | Pollard Rho least prime factor |
+| `discrete_log_bsgs` | Baby-step giant-step discrete log |
+| `aho_corasick_match_count` | Aho-Corasick multi-pattern match count |
+| `stone_merge_cost` | Interval-DP stone merging min cost |
+| `tree_diameter_length` | Tree/forest diameter (edges) |
+| `tree_mis_size` | Max independent set size on a forest |
+| `stoer_wagner_mincut` | Stoer-Wagner global min-cut value |
+| `mcmf_min_cost` | Min-cost of a maximum s-t flow |
+| `sam_distinct_substrings` | Suffix automaton distinct-substring count |
+| `mos_range_distinct` | Mo's algorithm range-distinct query sum |
+| `cartesian_tree_height` | Cartesian tree height (min-heap) |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -283,6 +295,36 @@ Notes (batch6):
 - `convex_hull_andrew` tests canonicalize rotation/orientation so Andrew and Jarvis agree on vertex sets/order.
 - `closest_pair_dist_sq` keeps coordinates in a small box so squared distances fit `i32`.
 - `push_relabel_maxflow` preserves the Edmonds-Karp numeric value with a CLRS 26.4 C++ oracle.
+
+
+
+#### Strings / NT / DP / trees / cuts / flow (batch7)
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `sieve_prefix_prime_count` | `[n, then (n+1) mark zeros]` | primes in `[1..n]`; `n<=1` -> `0` |
+| `pollard_rho_factor` | `[n]` | least prime factor; primes return `n`; `n<=1` -> `-1` (C++ Pollard Rho; Styio: trial) |
+| `discrete_log_bsgs` | `[a, b, p]` | smallest `x>=0` with `a^x ≡ b (mod p)`, else `-1` (C++ BSGS; Styio: brute) |
+| `aho_corasick_match_count` | `[n, k, t1..tn, m1,p.., m2,p.., ...]` | total pattern occurrences (overlaps counted) |
+| `stone_merge_cost` | `[n, a1..an, then n*n dp + (n+1) prefix zeros]` | min stone-merge cost; `n<=1` -> `0` |
+| `tree_diameter_length` | `[n, m, u1,v1, ..., then n*n adj + n dist zeros]` | diameter in edges; forest = max over components; `n<=0` -> `-1` |
+| `tree_mis_size` | `[n, m, u1,v1, ..., then n*n adj + n take + n skip zeros]` | MIS size on a forest; `n<=0` -> `-1` |
+| `stoer_wagner_mincut` | `[n, a00..a{n-1}{n-1}]` | global min-cut value; `n<=0` -> `-1`; `n==1` -> `0` (C++ Stoer-Wagner; Styio: bipartitions) |
+| `mcmf_min_cost` | `[n, m, s, t, u,v,cap,cost, ..., then n*n residual + n*n cost + n dist + n parent zeros]` (`n<=5`) | min cost of max flow; malformed -> `-1` |
+| `sam_distinct_substrings` | `[n, s0..s{n-1}]` | distinct substring count (C++ SAM; Styio: O(n²) prior-LCP) |
+| `mos_range_distinct` | `[n, q, a0..a{n-1}, L1,R1,...,Lq,Rq]` | sum of inclusive range-distinct answers (C++ Mo's; Styio: scan) |
+| `cartesian_tree_height` | `[n, a1..an, then n left + n right + n parent + n depth + n stack zeros]` | Cartesian-tree height in edges; empty -> `0` |
+
+Notes (batch7):
+
+- `pollard_rho_factor` / `discrete_log_bsgs` / `sieve_prefix_prime_count` extend Ch.31 number-theory coverage with clear `list[i32]` I/O.
+- `aho_corasick_match_count` and `sam_distinct_substrings` continue Ch.32 string companions beyond single-pattern match indices.
+- `stone_merge_cost` is the classic interval-DP exercise (merge adjacent piles).
+- `tree_diameter_length` / `tree_mis_size` are tree DP companions; random tests build random trees via `parent[i] ∈ [0,i)`.
+- `stoer_wagner_mincut` keeps `n<=6` so Styio bipartition enumeration stays tractable.
+- `mcmf_min_cost` uses successive shortest paths (Bellman-Ford) on a residual matrix.
+- `mos_range_distinct` returns the sum of answers so the stdout contract stays a single `i32`.
+- `cartesian_tree_height` builds the min-heap Cartesian tree with stack nearest-smaller.
 
 Malformed / short inputs should fail closed to the documented empty/zero/`-1`
 defaults in each case's fixed-case tests (same policy as `inner_product` /
