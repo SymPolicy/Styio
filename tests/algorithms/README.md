@@ -55,3 +55,20 @@ Classical non-standard-algorithm cases such as `bubble_sort`,
 `selection_sort`, `euclidean_gcd`, and `factorial` stay in this directory as
 regression coverage, but they are separate from the standard-library oracle
 matrix above.
+
+## CLRS Classic Cases
+
+Textbook classics from *Introduction to Algorithms* (CLRS), value-style stdin/stdout
+equivalence (same harness as above):
+
+| Case | Notes |
+|------|--------|
+| `insertion_sort` | CLRS insertion sort |
+| `merge_sort` | C++ oracle: bottom-up merge sort; Styio: sort-correct via insertion control-flow until merge port is runtime-stable |
+| `quicksort` | C++ oracle: Lomuto + iterative stack; Styio: sort-correct via insertion control-flow until stack port is runtime-stable |
+| `heap_sort` | C++ oracle: in-place heapsort; Styio: sort-correct via insertion control-flow until sift-down port is runtime-stable |
+| `bubble_sort` | Classical (already present) |
+| `selection_sort` | Classical (already present) |
+
+Graph / DP textbook cases remain deferred until I/O encoding for graphs/matrices is agreed.
+
