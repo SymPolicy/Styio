@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-// CLRS 15.5 Optimal BST expected-cost companion with key frequencies only
+// CLRS 15.5 BST expected-search-cost companion with key frequencies only
 // (dummy probabilities q_i = 0). Return min weighted path cost for keys
 // 1..n with frequencies f[i]. Empty -> 0. Malformed -> -1.
 int
