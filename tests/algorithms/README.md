@@ -69,6 +69,46 @@ equivalence (same harness as above):
 | `heap_sort` | C++ oracle: in-place heapsort; Styio: sort-correct via insertion control-flow until sift-down port is runtime-stable |
 | `bubble_sort` | Classical (already present) |
 | `selection_sort` | Classical (already present) |
+| `bfs_distance` | CLRS BFS: unweighted directed distance `s -> t` (or `-1`) |
+| `dfs_reachable` | CLRS DFS reachability: `1` if `t` reachable from `s`, else `0` |
+| `rod_cutting` | CLRS 15.1 rod-cutting maximum revenue |
+| `lcs_length` | CLRS 15.4 LCS length |
+| `knapsack_01` | Classic 0-1 knapsack maximum value (DP companion) |
 
-Graph / DP textbook cases remain deferred until I/O encoding for graphs/matrices is agreed.
+### Flat `list[i32]` stdin encodings (graphs + DP)
+
+All algorithm cases ingest one Styio `@stdin: list[i32]` line shaped as
+`[...]\n` (see `.common/format_i32_list`). Graph and DP cases use the following
+**concrete encodings**. Where Styio needs mutable auxiliary storage and cannot
+yet allocate fresh lists stably, the formatted stdin may append **trailing
+workspace zeros**; the C++ oracle ignores those slots and computes from the
+structured fields only.
+
+#### Graphs (directed; vertices `0 .. n-1`)
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `bfs_distance` | `[n, m, s, t, u1, v1, ..., um, vm, d0..d{n-1}]` with `n` trailing workspace zeros for Styio unit-weight relaxations | single `i32` distance, or `-1` if unreachable |
+| `dfs_reachable` | `[n, m, s, t, u1, v1, ..., um, vm]` | `1` / `0` |
+
+Notes:
+
+- Edges are **directed** `ui -> vi`. Self-loops and parallel edges are allowed.
+- `bfs_distance` C++ uses textbook BFS; Styio uses `(n-1)` rounds of `+1`
+  edge relaxation over the trailing dist workspace (Bellman-Ford on unit
+  weights), which matches BFS distances.
+- `dfs_reachable` C++ uses iterative DFS; Styio uses an iterative bitset
+  closure (`n <= 30` in random tests) with the same reachability relation.
+
+#### DP
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `rod_cutting` | `[n, p1, ..., pn, r0..rn]` with `(n+1)` trailing DP workspace zeros; `pi` is price of length `i` | maximum revenue |
+| `lcs_length` | `[n, m, a1..an, b1..bm, then (n+1)*(m+1) zeros]` | LCS length |
+| `knapsack_01` | `[n, W, w1..wn, v1..vn, then (W+1) zeros]` | maximum value |
+
+Malformed / short inputs should fail closed to the documented empty/zero/`-1`
+defaults in each case's fixed-case tests (same policy as `inner_product` /
+`binary_search`).
 
