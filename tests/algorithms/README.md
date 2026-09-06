@@ -74,6 +74,16 @@ equivalence (same harness as above):
 | `rod_cutting` | CLRS 15.1 rod-cutting maximum revenue |
 | `lcs_length` | CLRS 15.4 LCS length |
 | `knapsack_01` | Classic 0-1 knapsack maximum value (DP companion) |
+| `counting_sort` | CLRS 8.2 counting sort (non-negative `list[i32]`) |
+| `select_ith` | CLRS Ch.9 order statistic (0-based) |
+| `bellman_ford` | CLRS 24.1 Bellman-Ford `s -> t` |
+| `dijkstra` | CLRS 24.3 Dijkstra `s -> t` (non-negative weights) |
+| `floyd_warshall` | CLRS 25.2 Floyd-Warshall `dist[s][t]` |
+| `matrix_chain_cost` | CLRS 15.2 matrix-chain minimum cost |
+| `edit_distance` | Levenshtein edit distance (DP companion) |
+| `lis_length` | Longest increasing subsequence length |
+| `activity_selection` | CLRS 16.1 activity-selection maximum count |
+| `kruskal_mst_weight` | CLRS 23.2 Kruskal MST / forest total weight |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -107,6 +117,27 @@ Notes:
 | `rod_cutting` | `[n, p1, ..., pn, r0..rn]` with `(n+1)` trailing DP workspace zeros; `pi` is price of length `i` | maximum revenue |
 | `lcs_length` | `[n, m, a1..an, b1..bm, then (n+1)*(m+1) zeros]` | LCS length |
 | `knapsack_01` | `[n, W, w1..wn, v1..vn, then (W+1) zeros]` | maximum value |
+| `matrix_chain_cost` | `[p, d0..dp, then (p+1)*(p+1) zeros]` (`p` matrices) | min scalar multiplications |
+| `edit_distance` | `[n, m, a1..an, b1..bm, then (n+1)*(m+1) zeros]` | Levenshtein distance |
+| `lis_length` | `[n, a1..an, then n zeros]` | LIS length |
+
+#### Weighted graphs / greedy / order stats
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `counting_sort` | `[a1..an]` non-negative integers | sorted `list[i32]` (C++: counting sort with `k=max`; Styio: insertion known-green) |
+| `select_ith` | `[i, a1..an]` (`i` 0-based rank) | `a_{(i)}` or `-1` if invalid (C++: `nth_element`; Styio: sort-then-index) |
+| `bellman_ford` | `[n, m, s, t, u1,v1,w1, ..., then n dist zeros]` | distance; unreachable `1000000000`; malformed/neg-cycle `-1` |
+| `dijkstra` | same shape as `bellman_ford` (weights `w >= 0`) | distance; unreachable `1000000000`; malformed `-1` (Styio: BF relaxations) |
+| `floyd_warshall` | `[n, m, s, t, u1,v1,w1, ..., then n*n matrix zeros]` | `dist[s][t]`; unreachable `1000000000`; malformed `-1` |
+| `activity_selection` | `[n, s1..sn, f1..fn, then n used-flag zeros]` | max compatible count (Styio: repeated earliest-finish) |
+| `kruskal_mst_weight` | `[n, m, u1,v1,w1, ..., then n parent + m taken zeros]` | MST/forest weight (undirected; Styio: min-edge + union-find) |
+
+Notes:
+
+- Weighted shortest-path cases use `1000000000` for unreachable so negative distances stay unambiguous (unlike unweighted `bfs_distance`, which keeps `-1`).
+- `bellman_ford` / `floyd_warshall` random tests generate DAGs (forward edges on vertex ids) so negative cycles do not appear.
+- `dijkstra` Styio matches Dijkstra distances via Bellman-Ford on non-negative weights; C++ uses a binary-heap Dijkstra.
 
 Malformed / short inputs should fail closed to the documented empty/zero/`-1`
 defaults in each case's fixed-case tests (same policy as `inner_product` /

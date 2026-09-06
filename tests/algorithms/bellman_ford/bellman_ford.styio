@@ -1,0 +1,48 @@
+/* CLRS 24.1 Bellman-Ford s->t.
+   Input: [n, m, s, t, u1,v1,w1, ..., um,vm,wm, dist0..dist{n-1}]
+   Trailing n slots = Styio dist workspace (C++ ignores).
+   Output: distance; unreachable = 1000000000; malformed = -1. */
+values <- @stdin: list[i32]
+answer = -1
+INF = 1000000000
+
+?(values.length >= 4) => {
+    n = values[0]
+    m = values[1]
+    s = values[2]
+    t = values[3]
+    edge_end = 4 + m * 3
+    need = edge_end + n
+
+    ?(n > 0 && s >= 0 && s < n && t >= 0 && t < n) => {
+        ?(values.length >= need) => {
+            [0..n-1] >> #(i) => {
+                values[edge_end + i] = INF
+            }
+            values[edge_end + s] = 0
+
+            ?(n > 1) => {
+                [1..n-1] >> #(round) => {
+                    [0..m-1] >> #(e) => {
+                        u = values[4 + e * 3]
+                        v = values[5 + e * 3]
+                        w = values[6 + e * 3]
+                        ?(u >= 0 && u < n && v >= 0 && v < n) => {
+                            du = values[edge_end + u]
+                            ?(du < INF) => {
+                                cand = du + w
+                                ?(cand < values[edge_end + v]) => {
+                                    values[edge_end + v] = cand
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            answer = values[edge_end + t]
+        }
+    }
+}
+
+>_(answer)
