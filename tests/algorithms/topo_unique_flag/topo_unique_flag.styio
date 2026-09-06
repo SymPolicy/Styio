@@ -1,0 +1,64 @@
+/* Unique topological order flag (Kahn: every step exactly one indegree-0).
+   Input: [n, m, u1,v1,..., then n indeg + n alive zeros]
+   Cycle / non-unique / malformed -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 2
+    need = edge_end + n + n
+    ?(n > 0 && values.length >= need) => {
+        indeg_base = edge_end
+        alive_base = edge_end + n
+        [0..n-1] >> #(i) => {
+            values[indeg_base + i] = 0
+            values[alive_base + i] = 1
+        }
+        bad = 0
+        [0..m-1] >> #(e) => {
+            u = values[2 + e * 2]
+            v = values[2 + e * 2 + 1]
+            ?(u < 0 || u >= n || v < 0 || v >= n) => {
+                bad = 1
+            } | {
+                values[indeg_base + v] = values[indeg_base + v] + 1
+            }
+        }
+        ?(bad == 0) => {
+            unique = 1
+            count = 0
+            [0..n-1] >> #(step) => {
+                ?(unique == 1) => {
+                    cand = 0
+                    best = 0 - 1
+                    [0..n-1] >> #(i) => {
+                        ?(values[alive_base + i] == 1 && values[indeg_base + i] == 0) => {
+                            cand = cand + 1
+                            best = i
+                        }
+                    }
+                    ?(cand != 1) => {
+                        unique = 0
+                    } | {
+                        values[alive_base + best] = 0
+                        count = count + 1
+                        [0..m-1] >> #(e) => {
+                            u = values[2 + e * 2]
+                            v = values[2 + e * 2 + 1]
+                            ?(u == best && v >= 0 && v < n) => {
+                                values[indeg_base + v] = values[indeg_base + v] - 1
+                            }
+                        }
+                    }
+                }
+            }
+            ?(unique == 1 && count == n) => {
+                answer = 1
+            }
+        }
+    }
+}
+
+>_(answer)

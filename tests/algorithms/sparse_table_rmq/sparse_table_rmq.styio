@@ -1,0 +1,23 @@
+/* Sparse-table RMQ range minimum (C++ sparse table; Styio: linear scan).
+   Input: [n, L, R, a0..a{n-1}]
+   Malformed -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 3) => {
+    n = values[0]
+    L = values[1]
+    R = values[2]
+    ?(n > 0 && L >= 0 && R >= L && R < n && values.length >= 3 + n) => {
+        answer = values[3 + L]
+        ?(L < R) => {
+            [L+1..R] >> #(i) => {
+                ?(values[3 + i] < answer) => {
+                    answer = values[3 + i]
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

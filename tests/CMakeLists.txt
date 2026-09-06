@@ -846,6 +846,30 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/two_sat_flag/test.cpp
   algorithms/gale_shapley_matching/reference.cpp
   algorithms/gale_shapley_matching/test.cpp
+  algorithms/segment_tree_range_sum/reference.cpp
+  algorithms/segment_tree_range_sum/test.cpp
+  algorithms/sparse_table_rmq/reference.cpp
+  algorithms/sparse_table_rmq/test.cpp
+  algorithms/lca_binary_lifting/reference.cpp
+  algorithms/lca_binary_lifting/test.cpp
+  algorithms/suffix_array_lcp/reference.cpp
+  algorithms/suffix_array_lcp/test.cpp
+  algorithms/convex_hull_andrew/reference.cpp
+  algorithms/convex_hull_andrew/test.cpp
+  algorithms/closest_pair_dist_sq/reference.cpp
+  algorithms/closest_pair_dist_sq/test.cpp
+  algorithms/hungarian_assignment_cost/reference.cpp
+  algorithms/hungarian_assignment_cost/test.cpp
+  algorithms/binomial_coefficient/reference.cpp
+  algorithms/binomial_coefficient/test.cpp
+  algorithms/euler_totient/reference.cpp
+  algorithms/euler_totient/test.cpp
+  algorithms/push_relabel_maxflow/reference.cpp
+  algorithms/push_relabel_maxflow/test.cpp
+  algorithms/matrix_determinant/reference.cpp
+  algorithms/matrix_determinant/test.cpp
+  algorithms/topo_unique_flag/reference.cpp
+  algorithms/topo_unique_flag/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp
