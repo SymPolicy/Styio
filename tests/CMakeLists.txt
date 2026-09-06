@@ -800,6 +800,28 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/mod_pow/test.cpp
   algorithms/bridges_count/reference.cpp
   algorithms/bridges_count/test.cpp
+  algorithms/articulation_points_count/reference.cpp
+  algorithms/articulation_points_count/test.cpp
+  algorithms/edmonds_karp_maxflow/reference.cpp
+  algorithms/edmonds_karp_maxflow/test.cpp
+  algorithms/kmp_match_index/reference.cpp
+  algorithms/kmp_match_index/test.cpp
+  algorithms/rabin_karp_match_index/reference.cpp
+  algorithms/rabin_karp_match_index/test.cpp
+  algorithms/integer_partition_count/reference.cpp
+  algorithms/integer_partition_count/test.cpp
+  algorithms/modular_inverse/reference.cpp
+  algorithms/modular_inverse/test.cpp
+  algorithms/chinese_remainder/reference.cpp
+  algorithms/chinese_remainder/test.cpp
+  algorithms/bipartite_matching/reference.cpp
+  algorithms/bipartite_matching/test.cpp
+  algorithms/interval_chromatic/reference.cpp
+  algorithms/interval_chromatic/test.cpp
+  algorithms/binsearch_ship_capacity/reference.cpp
+  algorithms/binsearch_ship_capacity/test.cpp
+  algorithms/optimal_bst_cost/reference.cpp
+  algorithms/optimal_bst_cost/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp

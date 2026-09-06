@@ -1,0 +1,38 @@
+/* Interval-graph chromatic number = max overlap of half-open [s,f).
+   Input: [n, s1..sn, f1..fn]
+   Styio: for each interval start as probe, count covering intervals. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + 2 * n
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            best = 0
+            [0..n-1] >> #(i) => {
+                s = values[1 + i]
+                f = values[1 + n + i]
+                ?(s < f) => {
+                    // Count intervals covering point s (half-open: s' <= s < f')
+                    cur = 0
+                    [0..n-1] >> #(j) => {
+                        sj = values[1 + j]
+                        fj = values[1 + n + j]
+                        ?(sj < fj && sj <= s && s < fj) => {
+                            cur = cur + 1
+                        }
+                    }
+                    ?(cur > best) => {
+                        best = cur
+                    }
+                }
+            }
+            answer = best
+        }
+    }
+}
+
+>_(answer)
