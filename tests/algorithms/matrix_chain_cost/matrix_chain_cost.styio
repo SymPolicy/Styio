@@ -1,0 +1,46 @@
+/* CLRS 15.2 matrix-chain min cost.
+   Input: [p, d0..dp, then (p+1)*(p+1) DP workspace zeros]
+   p = number of matrices; dims length p+1.
+   Output: minimum scalar multiplications. */
+values <- @stdin: list[i32]
+answer = 0
+INF = 1000000000
+
+?(values.length >= 1) => {
+    p = values[0]
+    need = 1 + (p + 1) + (p + 1) * (p + 1)
+
+    ?(p < 1) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            base = 1 + p + 1
+            width = p + 1
+
+            ?(p >= 2) => {
+                [2..p] >> #(len) => {
+                    last_i = p - len + 1
+                    [1..last_i] >> #(i) => {
+                        j = i + len - 1
+                        values[base + i * width + j] = INF
+                        [i..j-1] >> #(k) => {
+                            left = values[base + i * width + k]
+                            right = values[base + (k + 1) * width + j]
+                            di = values[1 + (i - 1)]
+                            dk = values[1 + k]
+                            dj = values[1 + j]
+                            cand = left + right + di * dk * dj
+                            ?(cand < values[base + i * width + j]) => {
+                                values[base + i * width + j] = cand
+                            }
+                        }
+                    }
+                }
+            }
+
+            answer = values[base + 1 * width + p]
+        }
+    }
+}
+
+>_(answer)

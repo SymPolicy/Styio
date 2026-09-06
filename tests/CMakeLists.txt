@@ -756,6 +756,26 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/lcs_length/test.cpp
   algorithms/knapsack_01/reference.cpp
   algorithms/knapsack_01/test.cpp
+  algorithms/counting_sort/reference.cpp
+  algorithms/counting_sort/test.cpp
+  algorithms/select_ith/reference.cpp
+  algorithms/select_ith/test.cpp
+  algorithms/bellman_ford/reference.cpp
+  algorithms/bellman_ford/test.cpp
+  algorithms/dijkstra/reference.cpp
+  algorithms/dijkstra/test.cpp
+  algorithms/floyd_warshall/reference.cpp
+  algorithms/floyd_warshall/test.cpp
+  algorithms/matrix_chain_cost/reference.cpp
+  algorithms/matrix_chain_cost/test.cpp
+  algorithms/edit_distance/reference.cpp
+  algorithms/edit_distance/test.cpp
+  algorithms/lis_length/reference.cpp
+  algorithms/lis_length/test.cpp
+  algorithms/activity_selection/reference.cpp
+  algorithms/activity_selection/test.cpp
+  algorithms/kruskal_mst_weight/reference.cpp
+  algorithms/kruskal_mst_weight/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp

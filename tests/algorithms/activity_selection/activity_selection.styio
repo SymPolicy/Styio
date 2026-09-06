@@ -1,0 +1,46 @@
+/* CLRS 16.1 activity selection: max count of compatible [s,f) intervals.
+   Input: [n, s1..sn, f1..fn, used0..used{n-1}] with n trailing used-flags workspace.
+   Styio: repeated earliest-finish greedy (no sort); C++ sorts by finish. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n + n
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            used_base = 1 + n + n
+            [0..n-1] >> #(i) => {
+                values[used_base + i] = 0
+            }
+
+            count = 0
+            last_f = -1000000000
+            [0..n-1] >> #(round) => {
+                best = -1
+                best_f = 1000000000
+                [0..n-1] >> #(i) => {
+                    ?(values[used_base + i] == 0) => {
+                        s = values[1 + i]
+                        f = values[1 + n + i]
+                        ?(s < f && s >= last_f && f < best_f) => {
+                            best = i
+                            best_f = f
+                        }
+                    }
+                }
+                ?(best >= 0) => {
+                    values[used_base + best] = 1
+                    last_f = best_f
+                    count = count + 1
+                }
+            }
+            answer = count
+        }
+    }
+}
+
+>_(answer)
