@@ -1,0 +1,112 @@
+/* Deterministic Miller-Rabin for small n (bases 2,3,5,7,11,13,23).
+   Input: [n] with 0<=n<=46340 in tests. Output 1/0; n<2->0; n<0->-1. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n < 0) => {
+        answer = -1
+    } | {
+        ?(n < 2) => {
+            answer = 0
+        } | {
+            ?(n == 2 || n == 3 || n == 5 || n == 7 || n == 11 || n == 13 || n == 23) => {
+                answer = 1
+            } | {
+                ?(n % 2 == 0) => {
+                    answer = 0
+                } | {
+                    // factor n-1 = d * 2^s
+                    d = n - 1
+                    s = 0
+                    [...] >> ?(d % 2 == 0) => {
+                        d = d / 2
+                        s = s + 1
+                    }
+                    // bases stored inline
+                    composite = 0
+                    // a=2
+                    [0..0] >> #(t) => {
+                        a = 2
+                        ?(a % n != 0 && composite == 0) => {
+                            // mod_pow a^d % n
+                            result = 1 % n
+                            b = a % n
+                            e = d
+                            [...] >> ?(e > 0) => {
+                                ?(e % 2 == 1) => {
+                                    result = (result * b) % n
+                                }
+                                b = (b * b) % n
+                                e = e / 2
+                            }
+                            x = result
+                            ?(x != 1 && x != n - 1) => {
+                                bad = 1
+                                [1..s-1] >> #(i) => {
+                                    ?(bad == 1) => {
+                                        x = (x * x) % n
+                                        ?(x == n - 1) => {
+                                            bad = 0
+                                        }
+                                    }
+                                }
+                                ?(bad == 1) => {
+                                    composite = 1
+                                }
+                            }
+                        }
+                    }
+                    // a=3,5,7,11,13,23 via list in workspace if present else unroll
+                    bases_done = 0
+                    // Unroll remaining bases
+                    [0..5] >> #(bi) => {
+                        ?(composite == 0) => {
+                            a = 3
+                            ?(bi == 1) => { a = 5 }
+                            ?(bi == 2) => { a = 7 }
+                            ?(bi == 3) => { a = 11 }
+                            ?(bi == 4) => { a = 13 }
+                            ?(bi == 5) => { a = 23 }
+                            ?(a % n != 0) => {
+                                result = 1 % n
+                                b = a % n
+                                e = d
+                                [...] >> ?(e > 0) => {
+                                    ?(e % 2 == 1) => {
+                                        result = (result * b) % n
+                                    }
+                                    b = (b * b) % n
+                                    e = e / 2
+                                }
+                                x = result
+                                ?(x != 1 && x != n - 1) => {
+                                    bad = 1
+                                    [1..s-1] >> #(i) => {
+                                        ?(bad == 1) => {
+                                            x = (x * x) % n
+                                            ?(x == n - 1) => {
+                                                bad = 0
+                                            }
+                                        }
+                                    }
+                                    ?(bad == 1) => {
+                                        composite = 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ?(composite == 1) => {
+                        answer = 0
+                    } | {
+                        answer = 1
+                    }
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

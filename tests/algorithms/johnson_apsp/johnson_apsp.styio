@@ -1,0 +1,57 @@
+/* CLRS 25.3 Johnson APSP dist[s][t] (C++ Johnson; Styio: Floyd-Warshall).
+   Input: [n, m, s, t, u1,v1,w1, ..., then n*n matrix zeros]
+   Unreachable 1000000000; malformed -1. n<=12. */
+values <- @stdin: list[i32]
+answer = -1
+INF = 1000000000
+
+?(values.length >= 4) => {
+    n = values[0]
+    m = values[1]
+    s = values[2]
+    t = values[3]
+    edge_end = 4 + m * 3
+    need = edge_end + n * n
+
+    ?(n > 0 && n <= 12 && s >= 0 && s < n && t >= 0 && t < n) => {
+        ?(values.length >= need) => {
+            base = edge_end
+            [0..n-1] >> #(i) => {
+                [0..n-1] >> #(j) => {
+                    ?(i == j) => {
+                        values[base + i * n + j] = 0
+                    } | {
+                        values[base + i * n + j] = INF
+                    }
+                }
+            }
+            [0..m-1] >> #(e) => {
+                u = values[4 + e * 3]
+                v = values[5 + e * 3]
+                w = values[6 + e * 3]
+                ?(u >= 0 && u < n && v >= 0 && v < n) => {
+                    ?(w < values[base + u * n + v]) => {
+                        values[base + u * n + v] = w
+                    }
+                }
+            }
+            [0..n-1] >> #(k) => {
+                [0..n-1] >> #(i) => {
+                    [0..n-1] >> #(j) => {
+                        dik = values[base + i * n + k]
+                        dkj = values[base + k * n + j]
+                        ?(dik < INF && dkj < INF) => {
+                            cand = dik + dkj
+                            ?(cand < values[base + i * n + j]) => {
+                                values[base + i * n + j] = cand
+                            }
+                        }
+                    }
+                }
+            }
+            answer = values[base + s * n + t]
+        }
+    }
+}
+
+>_(answer)

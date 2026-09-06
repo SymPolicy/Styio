@@ -822,6 +822,30 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/binsearch_ship_capacity/test.cpp
   algorithms/optimal_bst_cost/reference.cpp
   algorithms/optimal_bst_cost/test.cpp
+  algorithms/dinic_maxflow/reference.cpp
+  algorithms/dinic_maxflow/test.cpp
+  algorithms/hopcroft_karp_matching/reference.cpp
+  algorithms/hopcroft_karp_matching/test.cpp
+  algorithms/johnson_apsp/reference.cpp
+  algorithms/johnson_apsp/test.cpp
+  algorithms/z_algorithm_match_index/reference.cpp
+  algorithms/z_algorithm_match_index/test.cpp
+  algorithms/manacher_palindrome_length/reference.cpp
+  algorithms/manacher_palindrome_length/test.cpp
+  algorithms/fft_poly_multiply/reference.cpp
+  algorithms/fft_poly_multiply/test.cpp
+  algorithms/miller_rabin_prime_flag/reference.cpp
+  algorithms/miller_rabin_prime_flag/test.cpp
+  algorithms/fenwick_range_sum/reference.cpp
+  algorithms/fenwick_range_sum/test.cpp
+  algorithms/uf_component_size/reference.cpp
+  algorithms/uf_component_size/test.cpp
+  algorithms/boyer_moore_match_index/reference.cpp
+  algorithms/boyer_moore_match_index/test.cpp
+  algorithms/two_sat_flag/reference.cpp
+  algorithms/two_sat_flag/test.cpp
+  algorithms/gale_shapley_matching/reference.cpp
+  algorithms/gale_shapley_matching/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp
