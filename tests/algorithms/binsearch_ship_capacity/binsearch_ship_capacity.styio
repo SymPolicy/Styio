@@ -1,0 +1,57 @@
+/* Binary search on answer: min capacity to ship packages in order in `days`.
+   Input: [n, days, w1..wn]
+   Output: min capacity, or -1 if days<1 / empty / malformed. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 2) => {
+    n = values[0]
+    days = values[1]
+    need = 2 + n
+    ?(days < 1 || n <= 0) => {
+        answer = -1
+    } | {
+        ?(values.length >= need) => {
+            lo = values[2]
+            hi = 0
+            [0..n-1] >> #(i) => {
+                w = values[2 + i]
+                hi = hi + w
+                ?(w > lo) => {
+                    lo = w
+                }
+            }
+            ans = -1
+            [...] >> ?(lo <= hi) => {
+                mid = lo + (hi - lo) / 2
+                // feasible?
+                used = 1
+                load = 0
+                ok = 1
+                [0..n-1] >> #(i) => {
+                    ?(ok == 1) => {
+                        w = values[2 + i]
+                        ?(w > mid) => {
+                            ok = 0
+                        } | {
+                            ?(load + w > mid) => {
+                                used = used + 1
+                                load = 0
+                            }
+                            load = load + w
+                        }
+                    }
+                }
+                ?(ok == 1 && used <= days) => {
+                    ans = mid
+                    hi = mid - 1
+                } | {
+                    lo = mid + 1
+                }
+            }
+            answer = ans
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,63 @@
+/* CLRS 32.4 KMP: first match index of pattern in text (i32 alphabet).
+   Input: [n, m, t1..tn, p1..pm, then m pi workspace zeros]
+   Empty pattern -> 0; no match / short -> -1. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    need = 2 + n + m + m
+    ?(m == 0) => {
+        answer = 0
+    } | {
+        ?(n < 0 || m < 0) => {
+            answer = -1
+        } | {
+            ?(values.length >= need) => {
+                text_base = 2
+                pat_base = 2 + n
+                pi_base = 2 + n + m
+
+                ?(m > 0) => {
+                    values[pi_base] = 0
+                }
+                ?(m > 1) => {
+                    k = 0
+                    [1..m-1] >> #(q) => {
+                        [...] >> ?(k > 0 && values[pat_base + k] != values[pat_base + q]) => {
+                            k = values[pi_base + k - 1]
+                        }
+                        ?(values[pat_base + k] == values[pat_base + q]) => {
+                            k = k + 1
+                        }
+                        values[pi_base + q] = k
+                    }
+                }
+
+                ?(m > n) => {
+                    answer = -1
+                } | {
+                    q = 0
+                    found = -1
+                    [0..n-1] >> #(i) => {
+                        ?(found < 0) => {
+                            [...] >> ?(q > 0 && values[pat_base + q] != values[text_base + i]) => {
+                                q = values[pi_base + q - 1]
+                            }
+                            ?(values[pat_base + q] == values[text_base + i]) => {
+                                q = q + 1
+                            }
+                            ?(q == m) => {
+                                found = i - m + 1
+                            }
+                        }
+                    }
+                    answer = found
+                }
+            }
+        }
+    }
+}
+
+>_(answer)
