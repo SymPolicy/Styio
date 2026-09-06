@@ -106,7 +106,7 @@ equivalence (same harness as above):
 | `bipartite_matching` | Max cardinality bipartite matching (Kuhn / flow) |
 | `interval_chromatic` | Interval-graph chromatic number (= max overlap) |
 | `binsearch_ship_capacity` | Binary search on answer: min ship capacity in D days |
-| `optimal_bst_cost` | CLRS 15.5 optimal BST cost (key frequencies; q_i=0) |
+| `optimal_bst_cost` | CLRS 15.5 BST expected-search-cost DP (key frequencies; q_i=0) |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -187,7 +187,7 @@ Notes:
 | `bipartite_matching` | `[nl, nr, m, u1,v1, ..., then N*N residual + N parent + N queue]` (`N=nl+nr+2`) | matching size (Styio: EK flow; C++: Kuhn) |
 | `interval_chromatic` | `[n, s1..sn, f1..fn]` half-open `[s,f)` | chromatic number (= max overlap) |
 | `binsearch_ship_capacity` | `[n, days, w1..wn]` | min capacity, or `-1` if impossible/malformed |
-| `optimal_bst_cost` | `[n, f1..fn, then n*n dp + n*n sum zeros]` | optimal BST cost (`q_i=0` companion) |
+| `optimal_bst_cost` | `[n, f1..fn, then n*n dp + n*n sum zeros]` | min weighted BST search cost (`q_i=0` companion) |
 
 Notes:
 

@@ -1,4 +1,4 @@
-/* CLRS 15.5 Optimal BST cost (key frequencies only; q_i=0).
+/* CLRS 15.5 BST expected-search-cost DP (key frequencies only; q_i=0).
    Input: [n, f1..fn, then n*n dp zeros, then n*n sum zeros]
    dp[i][i]=f[i]; dp[i][j]=min_r(dp[i][r-1]+dp[r+1][j])+sum(i..j). */
 values <- @stdin: list[i32]
