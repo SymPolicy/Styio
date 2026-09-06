@@ -746,6 +746,16 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/quicksort/test.cpp
   algorithms/heap_sort/reference.cpp
   algorithms/heap_sort/test.cpp
+  algorithms/bfs_distance/reference.cpp
+  algorithms/bfs_distance/test.cpp
+  algorithms/dfs_reachable/reference.cpp
+  algorithms/dfs_reachable/test.cpp
+  algorithms/rod_cutting/reference.cpp
+  algorithms/rod_cutting/test.cpp
+  algorithms/lcs_length/reference.cpp
+  algorithms/lcs_length/test.cpp
+  algorithms/knapsack_01/reference.cpp
+  algorithms/knapsack_01/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp

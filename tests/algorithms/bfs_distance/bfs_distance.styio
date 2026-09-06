@@ -1,0 +1,51 @@
+/* CLRS BFS distance (s -> t) on a directed unweighted graph.
+   Input: [n, m, s, t, u1, v1, ..., um, vm, dist0..dist{n-1}]
+   Trailing n slots are Styio workspace for Bellman-Ford-style +1 relaxations
+   (same distances as BFS on unit weights). C++ oracle uses real BFS.
+   Output: distance, or -1 if unreachable. */
+values <- @stdin: list[i32]
+answer = -1
+INF = 1000000000
+
+?(values.length >= 4) => {
+    n = values[0]
+    m = values[1]
+    s = values[2]
+    t = values[3]
+    edge_end = 4 + m + m
+    need = edge_end + n
+
+    ?(n > 0 && s >= 0 && s < n && t >= 0 && t < n) => {
+        ?(values.length >= need) => {
+            [0..n-1] >> #(i) => {
+                values[edge_end + i] = INF
+            }
+            values[edge_end + s] = 0
+
+            ?(n > 1) => {
+                [1..n-1] >> #(round) => {
+                    [0..m-1] >> #(e) => {
+                        u = values[4 + e + e]
+                        v = values[5 + e + e]
+                        ?(u >= 0 && u < n && v >= 0 && v < n) => {
+                            du = values[edge_end + u]
+                            ?(du < INF) => {
+                                cand = du + 1
+                                ?(cand < values[edge_end + v]) => {
+                                    values[edge_end + v] = cand
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            dt = values[edge_end + t]
+            ?(dt < INF) => {
+                answer = dt
+            }
+        }
+    }
+}
+
+>_(answer)
