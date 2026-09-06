@@ -84,6 +84,18 @@ equivalence (same harness as above):
 | `lis_length` | Longest increasing subsequence length |
 | `activity_selection` | CLRS 16.1 activity-selection maximum count |
 | `kruskal_mst_weight` | CLRS 23.2 Kruskal MST / forest total weight |
+| `topo_order` | CLRS 22.4 Kahn topological sort (lex-smallest; multi-line ids) |
+| `scc_count` | CLRS 22.5 Kosaraju SCC count (Styio: reachability + union-find) |
+| `prim_mst_weight` | CLRS 23.2 Prim MST / forest total weight |
+| `dag_shortest_path` | CLRS 24.2 DAG shortest paths `s -> t` |
+| `bridges_count` | Undirected bridge count (Ch.22 exercises companion) |
+| `coin_change_min` | Unbounded coin-change minimum coins (DP companion) |
+| `subset_sum_flag` | Subset-sum decision flag (DP companion) |
+| `fractional_knapsack` | CLRS 16.2 fractional knapsack (integer floor of optimum) |
+| `huffman_cost` | CLRS 16.3 Huffman weighted external path length |
+| `catalan_number` | nth Catalan number (Ch.15 parenthesization companion) |
+| `extended_gcd` | CLRS 31.2 Extended-Euclid `(g,x,y)` |
+| `mod_pow` | CLRS 31.6 modular exponentiation |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -132,12 +144,34 @@ Notes:
 | `floyd_warshall` | `[n, m, s, t, u1,v1,w1, ..., then n*n matrix zeros]` | `dist[s][t]`; unreachable `1000000000`; malformed `-1` |
 | `activity_selection` | `[n, s1..sn, f1..fn, then n used-flag zeros]` | max compatible count (Styio: repeated earliest-finish) |
 | `kruskal_mst_weight` | `[n, m, u1,v1,w1, ..., then n parent + m taken zeros]` | MST/forest weight (undirected; Styio: min-edge + union-find) |
+| `prim_mst_weight` | `[n, m, u1,v1,w1, ..., then n in_mst + n key zeros]` | MST/forest weight (undirected; Styio: dense Prim) |
+| `dag_shortest_path` | same shape as `bellman_ford` | distance; unreachable `1000000000`; non-DAG/malformed `-1` (Styio: BF; C++: topo+relax) |
+| `topo_order` | `[n, m, u1,v1, ..., then n indeg + n alive + n order zeros]` | one vertex id per line; cycle/malformed -> empty stdout |
+| `scc_count` | `[n, m, u1,v1, ..., then n*n reach + n parent zeros]` (`n<=12`) | SCC count (Styio: Floyd reachability + UF) |
+| `bridges_count` | `[n, m, u1,v1, ..., then n parent zeros]` (undirected) | bridge count via remove-one UF |
+
+#### DP / greedy / number theory (batch3)
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `coin_change_min` | `[n, amount, c1..cn, then (amount+1) zeros]` | min coins, or `-1` if impossible |
+| `subset_sum_flag` | `[n, target, a1..an, then (target+1) zeros]` | `1` / `0` |
+| `fractional_knapsack` | `[n, W, w1..wn, v1..vn, then n taken zeros]` | floor of fractional optimum (cross-multiply density) |
+| `huffman_cost` | `[n, f1..fn, then n alive + n work zeros]` | Huffman merge cost (`n<=1` -> `0`) |
+| `catalan_number` | `[n, then (n+1) zeros]` | `C_n` (`n<=15` in tests) |
+| `extended_gcd` | `[a, b]` | three lines `g`, `x`, `y` with `a*x+b*y=g` |
+| `mod_pow` | `[base, exp, mod]` | `(base^exp) mod mod`; malformed -> `-1` |
 
 Notes:
 
 - Weighted shortest-path cases use `1000000000` for unreachable so negative distances stay unambiguous (unlike unweighted `bfs_distance`, which keeps `-1`).
 - `bellman_ford` / `floyd_warshall` random tests generate DAGs (forward edges on vertex ids) so negative cycles do not appear.
 - `dijkstra` Styio matches Dijkstra distances via Bellman-Ford on non-negative weights; C++ uses a binary-heap Dijkstra.
+- `dag_shortest_path` random tests generate DAGs (forward edges on vertex ids); Styio uses Bellman-Ford relaxations matching the topo oracle on DAGs.
+- `topo_order` uses multi-line integer output (like `minmax_pair`), not a `[...]` list, because dynamic list construction is not yet a stable Styio port pattern.
+- `scc_count` C++ is Kosaraju; Styio unions mutually reachable pairs after a boolean Floyd closure (`n<=12`).
+- `fractional_knapsack` returns the integer floor of the classic real-valued greedy optimum when weights/values are integers.
+- `extended_gcd` / `mod_pow` cover CLRS Ch.31 number-theoretic classics with clear `list[i32]` I/O.
 
 Malformed / short inputs should fail closed to the documented empty/zero/`-1`
 defaults in each case's fixed-case tests (same policy as `inner_product` /

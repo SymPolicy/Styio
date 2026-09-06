@@ -1,0 +1,85 @@
+/* CLRS 22.5 SCC count (Kosaraju oracle in C++; Styio: reachability + UF).
+   Input: [n, m, u1,v1,..., then n*n reach workspace + n parent zeros]
+   n<=12 in tests. Mutual reachability => same component. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 2
+    need = edge_end + n * n + n
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(n <= 12 && values.length >= need) => {
+            reach_base = edge_end
+            parent_base = edge_end + n * n
+
+            [0..n-1] >> #(i) => {
+                [0..n-1] >> #(j) => {
+                    ?(i == j) => {
+                        values[reach_base + i * n + j] = 1
+                    } | {
+                        values[reach_base + i * n + j] = 0
+                    }
+                }
+                values[parent_base + i] = i
+            }
+            [0..m-1] >> #(e) => {
+                u = values[2 + e * 2]
+                v = values[2 + e * 2 + 1]
+                ?(u >= 0 && u < n && v >= 0 && v < n) => {
+                    values[reach_base + u * n + v] = 1
+                }
+            }
+            // Floyd reachability closure
+            [0..n-1] >> #(k) => {
+                [0..n-1] >> #(i) => {
+                    [0..n-1] >> #(j) => {
+                        ?(values[reach_base + i * n + k] == 1 && values[reach_base + k * n + j] == 1) => {
+                            values[reach_base + i * n + j] = 1
+                        }
+                    }
+                }
+            }
+
+            // Union mutually reachable pairs
+            [0..n-1] >> #(i) => {
+                [0..n-1] >> #(j) => {
+                    ?(i < j && values[reach_base + i * n + j] == 1 && values[reach_base + j * n + i] == 1) => {
+                        // find i
+                        x = i
+                        [0..n-1] >> #(t) => {
+                            p = values[parent_base + x]
+                            ?(p != x) => {
+                                x = p
+                            }
+                        }
+                        y = j
+                        [0..n-1] >> #(t) => {
+                            p = values[parent_base + y]
+                            ?(p != y) => {
+                                y = p
+                            }
+                        }
+                        ?(x != y) => {
+                            values[parent_base + x] = y
+                        }
+                    }
+                }
+            }
+
+            comps = 0
+            [0..n-1] >> #(i) => {
+                ?(values[parent_base + i] == i) => {
+                    comps = comps + 1
+                }
+            }
+            answer = comps
+        }
+    }
+}
+
+>_(answer)
