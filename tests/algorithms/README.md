@@ -96,6 +96,17 @@ equivalence (same harness as above):
 | `catalan_number` | nth Catalan number (Ch.15 parenthesization companion) |
 | `extended_gcd` | CLRS 31.2 Extended-Euclid `(g,x,y)` |
 | `mod_pow` | CLRS 31.6 modular exponentiation |
+| `articulation_points_count` | Undirected articulation-point count (Ch.22 companion) |
+| `edmonds_karp_maxflow` | CLRS 26.2 Edmonds-Karp max s-t flow value |
+| `kmp_match_index` | CLRS 32.4 KMP first match index |
+| `rabin_karp_match_index` | CLRS 32.2 Rabin-Karp first match index |
+| `integer_partition_count` | Unrestricted partition count p(n) (DP companion) |
+| `modular_inverse` | Modular multiplicative inverse via Extended-Euclid |
+| `chinese_remainder` | CLRS 31.5 CRT for two congruences (generalized) |
+| `bipartite_matching` | Max cardinality bipartite matching (Kuhn / flow) |
+| `interval_chromatic` | Interval-graph chromatic number (= max overlap) |
+| `binsearch_ship_capacity` | Binary search on answer: min ship capacity in D days |
+| `optimal_bst_cost` | CLRS 15.5 BST expected-search-cost DP (key frequencies; q_i=0) |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -162,6 +173,22 @@ Notes:
 | `extended_gcd` | `[a, b]` | three lines `g`, `x`, `y` with `a*x+b*y=g` |
 | `mod_pow` | `[base, exp, mod]` | `(base^exp) mod mod`; malformed -> `-1` |
 
+#### Graphs / strings / DP / number theory (batch4)
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `articulation_points_count` | `[n, m, u1,v1, ..., then n parent zeros]` (undirected) | articulation-point count via remove-vertex UF |
+| `edmonds_karp_maxflow` | `[n, m, s, t, u1,v1,c1, ..., then n*n residual + n parent + n queue zeros]` (`n<=6`) | max flow value; malformed -> `-1` |
+| `kmp_match_index` | `[n, m, t1..tn, p1..pm, then m pi zeros]` | first match index, or `-1`; empty pattern -> `0` |
+| `rabin_karp_match_index` | `[n, m, t1..tn, p1..pm]` (base 256, mod 101, verify hits) | first match index, or `-1`; empty pattern -> `0` |
+| `integer_partition_count` | `[n, then (n+1) DP zeros]` | `p(n)`; `p(0)=1`; `n<0` -> `-1` |
+| `modular_inverse` | `[a, m]` | `a^{-1} mod m` in `[0,m)`, or `-1` |
+| `chinese_remainder` | `[a, m, b, n]` | unique `x` in `[0,lcm)`, or `-1` |
+| `bipartite_matching` | `[nl, nr, m, u1,v1, ..., then N*N residual + N parent + N queue]` (`N=nl+nr+2`) | matching size (Styio: EK flow; C++: Kuhn) |
+| `interval_chromatic` | `[n, s1..sn, f1..fn]` half-open `[s,f)` | chromatic number (= max overlap) |
+| `binsearch_ship_capacity` | `[n, days, w1..wn]` | min capacity, or `-1` if impossible/malformed |
+| `optimal_bst_cost` | `[n, f1..fn, then n*n dp + n*n sum zeros]` | min weighted BST search cost (`q_i=0` companion) |
+
 Notes:
 
 - Weighted shortest-path cases use `1000000000` for unreachable so negative distances stay unambiguous (unlike unweighted `bfs_distance`, which keeps `-1`).
@@ -172,6 +199,14 @@ Notes:
 - `scc_count` C++ is Kosaraju; Styio unions mutually reachable pairs after a boolean Floyd closure (`n<=12`).
 - `fractional_knapsack` returns the integer floor of the classic real-valued greedy optimum when weights/values are integers.
 - `extended_gcd` / `mod_pow` cover CLRS Ch.31 number-theoretic classics with clear `list[i32]` I/O.
+- `articulation_points_count` mirrors `bridges_count`: C++/Styio both use remove-one UF vs baseline components.
+- `edmonds_karp_maxflow` C++ and Styio both run BFS augmenting paths on a residual matrix (`n<=6`).
+- `kmp_match_index` / `rabin_karp_match_index` treat sequences as an `i32` alphabet; empty pattern matches at index `0`.
+- `bipartite_matching` Styio reduces to unit-capacity Edmonds-Karp on a source-left-right-sink network; C++ uses Kuhn DFS.
+- `interval_chromatic` Styio probes each interval start and counts covering half-open intervals (equals event-sweep max depth).
+- `binsearch_ship_capacity` is the classic parametric-search "ship packages within D days" exercise.
+- `optimal_bst_cost` uses the frequency-only DP (`dp[i][i]=f[i]`); full CLRS `q_i` dummies are deferred.
+- `chinese_remainder` implements the generalized two-modulus CRT (moduli need not be coprime).
 
 Malformed / short inputs should fail closed to the documented empty/zero/`-1`
 defaults in each case's fixed-case tests (same policy as `inner_product` /

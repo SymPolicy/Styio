@@ -1,0 +1,58 @@
+/* CLRS 15.5 BST expected-search-cost DP (key frequencies only; q_i=0).
+   Input: [n, f1..fn, then n*n dp zeros, then n*n sum zeros]
+   dp[i][i]=f[i]; dp[i][j]=min_r(dp[i][r-1]+dp[r+1][j])+sum(i..j). */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n * n + n * n
+    ?(n == 0) => {
+        answer = 0
+    } | {
+        ?(n > 0 && values.length >= need) => {
+            f_base = 1
+            dp_base = 1 + n
+            sum_base = 1 + n + n * n
+
+            [0..n-1] >> #(i) => {
+                values[sum_base + i * n + i] = values[f_base + i]
+                values[dp_base + i * n + i] = values[f_base + i]
+            }
+            [0..n-1] >> #(i) => {
+                ?(i + 1 <= n - 1) => {
+                    [i+1..n-1] >> #(j) => {
+                        values[sum_base + i * n + j] = values[sum_base + i * n + j - 1] + values[f_base + j]
+                    }
+                }
+            }
+
+            ?(n >= 2) => {
+                [2..n] >> #(len) => {
+                    [0..n-len] >> #(i) => {
+                        j = i + len - 1
+                        best = 2000000000
+                        [i..j] >> #(r) => {
+                            left = 0
+                            right = 0
+                            ?(r > i) => {
+                                left = values[dp_base + i * n + r - 1]
+                            }
+                            ?(r < j) => {
+                                right = values[dp_base + (r + 1) * n + j]
+                            }
+                            cand = left + right
+                            ?(cand < best) => {
+                                best = cand
+                            }
+                        }
+                        values[dp_base + i * n + j] = best + values[sum_base + i * n + j]
+                    }
+                }
+            }
+            answer = values[dp_base + 0 * n + n - 1]
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,112 @@
+/* Undirected articulation-point count (CLRS Ch.22 companion to bridges).
+   Input: [n, m, u1,v1,..., then n parent workspace zeros]
+   Styio: for each vertex v, UF components on G-v vs baseline comps(G). */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 2
+    need = edge_end + n
+
+    ?(n <= 1) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            parent_base = edge_end
+
+            // baseline comps(G)
+            [0..n-1] >> #(i) => {
+                values[parent_base + i] = i
+            }
+            [0..m-1] >> #(e) => {
+                u = values[2 + e * 2]
+                v = values[2 + e * 2 + 1]
+                ?(u >= 0 && u < n && v >= 0 && v < n && u != v) => {
+                    x = u
+                    [0..n-1] >> #(t) => {
+                        p = values[parent_base + x]
+                        ?(p != x) => {
+                            x = p
+                        }
+                    }
+                    y = v
+                    [0..n-1] >> #(t) => {
+                        p = values[parent_base + y]
+                        ?(p != y) => {
+                            y = p
+                        }
+                    }
+                    ?(x != y) => {
+                        values[parent_base + x] = y
+                    }
+                }
+            }
+            base = 0
+            [0..n-1] >> #(i) => {
+                x = i
+                [0..n-1] >> #(t) => {
+                    p = values[parent_base + x]
+                    ?(p != x) => {
+                        x = p
+                    }
+                }
+                ?(x == i) => {
+                    base = base + 1
+                }
+            }
+
+            arts = 0
+            [0..n-1] >> #(skip) => {
+                [0..n-1] >> #(i) => {
+                    values[parent_base + i] = i
+                }
+                [0..m-1] >> #(e) => {
+                    u = values[2 + e * 2]
+                    v = values[2 + e * 2 + 1]
+                    ?(u >= 0 && u < n && v >= 0 && v < n && u != v && u != skip && v != skip) => {
+                        x = u
+                        [0..n-1] >> #(t) => {
+                            p = values[parent_base + x]
+                            ?(p != x) => {
+                                x = p
+                            }
+                        }
+                        y = v
+                        [0..n-1] >> #(t) => {
+                            p = values[parent_base + y]
+                            ?(p != y) => {
+                                y = p
+                            }
+                        }
+                        ?(x != y) => {
+                            values[parent_base + x] = y
+                        }
+                    }
+                }
+                comps = 0
+                [0..n-1] >> #(i) => {
+                    ?(i != skip) => {
+                        x = i
+                        [0..n-1] >> #(t) => {
+                            p = values[parent_base + x]
+                            ?(p != x) => {
+                                x = p
+                            }
+                        }
+                        ?(x == i) => {
+                            comps = comps + 1
+                        }
+                    }
+                }
+                ?(comps > base) => {
+                    arts = arts + 1
+                }
+            }
+            answer = arts
+        }
+    }
+}
+
+>_(answer)

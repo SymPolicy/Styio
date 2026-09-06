@@ -1,0 +1,84 @@
+/* CLRS 31.5 Chinese Remainder for two congruences x≡a (mod m), x≡b (mod n).
+   Input: [a, m, b, n]
+   Output: unique x in [0, lcm), or -1 if impossible / bad moduli.
+   Generalized CRT (moduli need not be coprime). */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 4) => {
+    a = values[0]
+    m = values[1]
+    b = values[2]
+    n = values[3]
+    ?(m <= 0 || n <= 0) => {
+        answer = -1
+    } | {
+        a = a % m
+        ?(a < 0) => {
+            a = a + m
+        }
+        b = b % n
+        ?(b < 0) => {
+            b = b + n
+        }
+
+        // Extended Euclid on (m, n) -> g, x (m*x + n*y = g)
+        aa = m
+        bb = n
+        old_r = aa
+        r = bb
+        old_s = 1
+        s = 0
+        [...] >> ?(r != 0) => {
+            q = old_r / r
+            next_r = old_r - q * r
+            old_r = r
+            r = next_r
+            next_s = old_s - q * s
+            old_s = s
+            s = next_s
+        }
+        g = old_r
+        // old_s * m ≡ g (mod n)  =>  (m/g)^{-1} related below
+        diff = b - a
+        ?(diff % g != 0) => {
+            answer = -1
+        } | {
+            m1 = m / g
+            n1 = n / g
+            // inv of m1 mod n1
+            aa2 = m1
+            bb2 = n1
+            old_r2 = aa2
+            r2 = bb2
+            old_s2 = 1
+            s2 = 0
+            [...] >> ?(r2 != 0) => {
+                q2 = old_r2 / r2
+                next_r2 = old_r2 - q2 * r2
+                old_r2 = r2
+                r2 = next_r2
+                next_s2 = old_s2 - q2 * s2
+                old_s2 = s2
+                s2 = next_s2
+            }
+            inv = old_s2 % n1
+            ?(inv < 0) => {
+                inv = inv + n1
+            }
+            k = ((diff / g) % n1) * inv % n1
+            ?(k < 0) => {
+                k = k + n1
+            }
+            ans = a + m * k
+            lcm = m1 * n
+            ans = ans % lcm
+            ?(ans < 0) => {
+                ans = ans + lcm
+            }
+            answer = ans
+        }
+    }
+}
+
+>_(answer)
