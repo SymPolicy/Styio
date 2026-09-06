@@ -1,0 +1,72 @@
+/* Tree diameter in edges (two-BFS / DP). Forest: max component diameter.
+   Input: [n, m, u1,v1,..., then n*n adj + n dist zeros]
+   Uses undirected adj matrix. n<=0 -> -1. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    need = 2 + m * 2 + n * n + n
+    ?(n <= 0) => {
+        answer = 0 - 1
+    } | {
+        ?(values.length >= need) => {
+            adj = 2 + m * 2
+            dist_base = adj + n * n
+            [0..n*n-1] >> #(i) => {
+                values[adj + i] = 0
+            }
+            [0..m-1] >> #(e) => {
+                u = values[2 + e * 2]
+                v = values[2 + e * 2 + 1]
+                ?(u >= 0 && v >= 0 && u < n && v < n && u != v) => {
+                    values[adj + u * n + v] = 1
+                    values[adj + v * n + u] = 1
+                }
+            }
+            // For each start, BFS diameter candidate via all-pairs longest path on tree:
+            // max over s of eccentricity, then diameter = max ecc... actually diameter =
+            // max over all pairs dist. n small: Floyd on unweighted.
+            [0..n-1] >> #(i) => {
+                [0..n-1] >> #(j) => {
+                    ?(i == j) => {
+                        values[dist_base + 0] = 0 // placeholder unused per-cell below
+                    }
+                }
+            }
+            // store dist matrix in dist_base? only n slots — use adj temporarily for dist
+            // Reuse: after building adj, compute diameter by for each src BFS into dist_base
+            best = 0
+            [0..n-1] >> #(src) => {
+                [0..n-1] >> #(i) => {
+                    values[dist_base + i] = 0 - 1
+                }
+                values[dist_base + src] = 0
+                // Bellman-Ford style n-1 rounds
+                [1..n-1] >> #(round) => {
+                    [0..n-1] >> #(u) => {
+                        ?(values[dist_base + u] >= 0) => {
+                            [0..n-1] >> #(v) => {
+                                ?(values[adj + u * n + v] == 1) => {
+                                    cand = values[dist_base + u] + 1
+                                    ?(values[dist_base + v] < 0 || cand < values[dist_base + v]) => {
+                                        values[dist_base + v] = cand
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                [0..n-1] >> #(i) => {
+                    ?(values[dist_base + i] > best) => {
+                        best = values[dist_base + i]
+                    }
+                }
+            }
+            answer = best
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,45 @@
+/* Interval-DP stone merging min cost.
+   Input: [n, a1..an, then n*n dp + (n+1) prefix zeros]
+   n<=1 -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+INF = 1000000000
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n * n + (n + 1)
+    ?(n <= 1) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            dp_base = 1 + n
+            pref_base = 1 + n + n * n
+            values[pref_base] = 0
+            [0..n-1] >> #(i) => {
+                values[pref_base + i + 1] = values[pref_base + i] + values[1 + i]
+            }
+            [0..n-1] >> #(i) => {
+                values[dp_base + i * n + i] = 0
+            }
+            [2..n] >> #(len) => {
+                last_i = n - len
+                [0..last_i] >> #(i) => {
+                    j = i + len - 1
+                    values[dp_base + i * n + j] = INF
+                    [i..j-1] >> #(k) => {
+                        left = values[dp_base + i * n + k]
+                        right = values[dp_base + (k + 1) * n + j]
+                        s = values[pref_base + j + 1] - values[pref_base + i]
+                        cand = left + right + s
+                        ?(cand < values[dp_base + i * n + j]) => {
+                            values[dp_base + i * n + j] = cand
+                        }
+                    }
+                }
+            }
+            answer = values[dp_base + 0 * n + (n - 1)]
+        }
+    }
+}
+
+>_(answer)

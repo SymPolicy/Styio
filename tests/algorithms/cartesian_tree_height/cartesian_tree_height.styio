@@ -1,0 +1,76 @@
+/* Cartesian tree height (min-heap; edges on longest root path).
+   Input: [n, a1..an, then n left + n right + n parent + n depth + n stack zeros]
+   Empty -> 0. Ties: later index becomes parent (strict > pops). */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n + n + n + n + n
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            Lbase = 1 + n
+            Rbase = Lbase + n
+            Pbase = Rbase + n
+            Dbase = Pbase + n
+            Sbase = Dbase + n
+            [0..n-1] >> #(i) => {
+                values[Lbase + i] = 0 - 1
+                values[Rbase + i] = 0 - 1
+                values[Pbase + i] = 0 - 1
+            }
+            // stack of indices in Sbase[0..top)
+            top = 0
+            [0..n-1] >> #(i) => {
+                last = 0 - 1
+                [...] >> ?(top > 0 && values[1 + values[Sbase + top - 1]] > values[1 + i]) => {
+                    last = values[Sbase + top - 1]
+                    top = top - 1
+                }
+                ?(top > 0) => {
+                    p = values[Sbase + top - 1]
+                    values[Rbase + p] = i
+                    values[Pbase + i] = p
+                }
+                ?(last >= 0) => {
+                    values[Lbase + i] = last
+                    values[Pbase + last] = i
+                }
+                values[Sbase + top] = i
+                top = top + 1
+            }
+            root = 0
+            [...] >> ?(values[Pbase + root] >= 0) => {
+                root = values[Pbase + root]
+            }
+            [0..n-1] >> #(i) => { values[Dbase + i] = 0 }
+            // iterative DFS using stack
+            top = 0
+            values[Sbase + top] = root
+            top = top + 1
+            best = 0
+            [...] >> ?(top > 0) => {
+                top = top - 1
+                u = values[Sbase + top]
+                ?(values[Dbase + u] > best) => { best = values[Dbase + u] }
+                L = values[Lbase + u]
+                R = values[Rbase + u]
+                ?(L >= 0) => {
+                    values[Dbase + L] = values[Dbase + u] + 1
+                    values[Sbase + top] = L
+                    top = top + 1
+                }
+                ?(R >= 0) => {
+                    values[Dbase + R] = values[Dbase + u] + 1
+                    values[Sbase + top] = R
+                    top = top + 1
+                }
+            }
+            answer = best
+        }
+    }
+}
+
+>_(answer)
