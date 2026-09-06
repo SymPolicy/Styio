@@ -1,0 +1,95 @@
+/* Hopcroft-Karp matching size (C++ HK; Styio: unit-capacity EK on bipartite network).
+   Input: [nl, nr, m, u1,v1,..., then N*N residual + N parent + N queue]
+   N = nl+nr+2, source=0, left=1..nl, right=nl+1..nl+nr, sink=N-1. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 3) => {
+    nl = values[0]
+    nr = values[1]
+    m = values[2]
+    N = nl + nr + 2
+    edge_end = 3 + m * 2
+    need = edge_end + N * N + N + N
+
+    ?(nl <= 0 || nr <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            res_base = edge_end
+            parent_base = edge_end + N * N
+            queue_base = edge_end + N * N + N
+            source = 0
+            sink = N - 1
+
+            [0..N-1] >> #(i) => {
+                [0..N-1] >> #(j) => {
+                    values[res_base + i * N + j] = 0
+                }
+            }
+            [0..nl-1] >> #(i) => {
+                values[res_base + source * N + (1 + i)] = 1
+            }
+            [0..nr-1] >> #(j) => {
+                values[res_base + (1 + nl + j) * N + sink] = 1
+            }
+            [0..m-1] >> #(e) => {
+                u = values[3 + e * 2]
+                v = values[3 + e * 2 + 1]
+                ?(u >= 0 && u < nl && v >= 0 && v < nr) => {
+                    lu = 1 + u
+                    rv = 1 + nl + v
+                    values[res_base + lu * N + rv] = 1
+                }
+            }
+
+            flow = 0
+            running = 1
+            [...] >> ?(running == 1) => {
+                [0..N-1] >> #(i) => {
+                    values[parent_base + i] = 0 - 1
+                }
+                values[parent_base + source] = source
+                values[queue_base] = source
+                qh = 0
+                qt = 1
+                [...] >> ?(qh < qt && values[parent_base + sink] == 0 - 1) => {
+                    u = values[queue_base + qh]
+                    qh = qh + 1
+                    [0..N-1] >> #(v) => {
+                        ?(values[parent_base + v] == 0 - 1 && values[res_base + u * N + v] > 0) => {
+                            values[parent_base + v] = u
+                            values[queue_base + qt] = v
+                            qt = qt + 1
+                        }
+                    }
+                }
+                ?(values[parent_base + sink] == 0 - 1) => {
+                    running = 0
+                } | {
+                    bottleneck = 2000000000
+                    v = sink
+                    [...] >> ?(v != source) => {
+                        u = values[parent_base + v]
+                        c = values[res_base + u * N + v]
+                        ?(c < bottleneck) => {
+                            bottleneck = c
+                        }
+                        v = u
+                    }
+                    v = sink
+                    [...] >> ?(v != source) => {
+                        u = values[parent_base + v]
+                        values[res_base + u * N + v] = values[res_base + u * N + v] - bottleneck
+                        values[res_base + v * N + u] = values[res_base + v * N + u] + bottleneck
+                        v = u
+                    }
+                    flow = flow + bottleneck
+                }
+            }
+            answer = flow
+        }
+    }
+}
+
+>_(answer)

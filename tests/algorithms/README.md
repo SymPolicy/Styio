@@ -107,6 +107,18 @@ equivalence (same harness as above):
 | `interval_chromatic` | Interval-graph chromatic number (= max overlap) |
 | `binsearch_ship_capacity` | Binary search on answer: min ship capacity in D days |
 | `optimal_bst_cost` | CLRS 15.5 BST expected-search-cost DP (key frequencies; q_i=0) |
+| `dinic_maxflow` | Dinic blocking-flow max s-t flow value (Ch.26 companion) |
+| `hopcroft_karp_matching` | Hopcroft-Karp bipartite matching size (Ch.26 companion) |
+| `johnson_apsp` | CLRS 25.3 Johnson APSP `dist[s][t]` |
+| `z_algorithm_match_index` | Z-algorithm first match index (Ch.32 companion) |
+| `manacher_palindrome_length` | Manacher longest palindromic subarray length |
+| `fft_poly_multiply` | FFT polynomial multiply (integer coeffs; multi-line) |
+| `miller_rabin_prime_flag` | Deterministic Miller-Rabin primality for small n |
+| `fenwick_range_sum` | Fenwick / BIT inclusive range sum (DS exercise) |
+| `uf_component_size` | Union-Find component size after unions |
+| `boyer_moore_match_index` | Boyer-Moore-Horspool first match index |
+| `two_sat_flag` | 2-SAT satisfiability via implication SCCs |
+| `gale_shapley_matching` | Gale-Shapley stable marriage (proposing-side partners) |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -207,6 +219,31 @@ Notes:
 - `binsearch_ship_capacity` is the classic parametric-search "ship packages within D days" exercise.
 - `optimal_bst_cost` uses the frequency-only DP (`dp[i][i]=f[i]`); full CLRS `q_i` dummies are deferred.
 - `chinese_remainder` implements the generalized two-modulus CRT (moduli need not be coprime).
+
+#### Flow / matching / APSP / strings / number theory / DS (batch5)
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `dinic_maxflow` | same as `edmonds_karp_maxflow` (`n<=6`) | max flow value; malformed -> `-1` (C++ Dinic; Styio: EK residual BFS) |
+| `hopcroft_karp_matching` | same as `bipartite_matching` | matching size (C++ Hopcroft-Karp; Styio: unit-capacity EK) |
+| `johnson_apsp` | same as `floyd_warshall` (`n<=12`) | `dist[s][t]`; unreachable `1000000000`; malformed/neg-cycle `-1` (C++ Johnson; Styio: FW) |
+| `z_algorithm_match_index` | `[n, m, t1..tn, p1..pm, then (m+1+n) zeros]` | first match index, or `-1`; empty pattern -> `0` (C++ Z; Styio: naive scan) |
+| `manacher_palindrome_length` | `[n, a1..an]` | longest palindromic subarray length (C++ Manacher; Styio: expand-around-center) |
+| `fft_poly_multiply` | `[n, m, a0..a{n-1}, b0..b{m-1}, then (n+m) zeros]` | one coefficient per line (`n+m-1` lines); empty factor -> empty stdout (C++ FFT; Styio: schoolbook) |
+| `miller_rabin_prime_flag` | `[n]` (`0<=n<=20000` in tests) | `1` prime / `0` composite; `n<2` -> `0`; `n<0` -> `-1` |
+| `fenwick_range_sum` | `[n, L, R, a0..a{n-1}, then (n+1) zeros]` (0-based inclusive) | range sum; malformed -> `0` (C++ Fenwick; Styio: prefix sums) |
+| `uf_component_size` | `[n, m, x, u1,v1, ..., then n parent + n size zeros]` | size of component containing `x`; malformed -> `-1` |
+| `boyer_moore_match_index` | `[n, m, t1..tn, p1..pm]` | first match index, or `-1`; empty pattern -> `0` (C++ BMH; Styio: naive scan) |
+| `two_sat_flag` | `[nv, m, lit1a,lit1b, ..., then (2nv)^2 reach zeros]` (`nv<=8`) | `1` / `0` satisfiable (C++ Kosaraju; Styio: Floyd mutual reachability) |
+| `gale_shapley_matching` | `[n, men_pref n*n, women_pref n*n, then n next + n wife + n husband + n*n rank zeros]` (`n<=8`) | one partner woman id per man (proposing side); `n<=0` -> empty stdout |
+
+Notes (batch5):
+
+- `dinic_maxflow` / `hopcroft_karp_matching` preserve the same numeric value as Edmonds-Karp / Kuhn while the C++ oracle uses the named textbook algorithm.
+- `johnson_apsp` random tests use forward DAG edges so negative cycles do not appear; Styio matches via Floyd-Warshall.
+- `fft_poly_multiply` keeps coefficients small (`[-3,3]`) so complex FFT rounding is exact; output is multi-line like `topo_order`.
+- `miller_rabin_prime_flag` uses deterministic bases `{2,3,5,7,11,13,23}` with `n` small enough for `i32` modular squares.
+- `gale_shapley_matching` returns the proposing-side stable matching as multi-line woman ids.
 
 Malformed / short inputs should fail closed to the documented empty/zero/`-1`
 defaults in each case's fixed-case tests (same policy as `inner_product` /
