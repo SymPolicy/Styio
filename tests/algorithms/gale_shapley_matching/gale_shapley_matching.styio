@@ -1,0 +1,79 @@
+/* Gale-Shapley stable marriage (proposing-side): partner of each man.
+   Input: [n, men_pref row-major n*n, women_pref row-major n*n,
+           then n next + n wife + n husband + n women_rank flattened? ]
+   Simpler workspace: n next_prop + n wife + n husband + n*n women_rank
+   Output: one woman id per man line. n<=8. */
+values <- @stdin: list[i32]
+ok = 0
+n = 0
+wife_base = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n * n + n * n + n + n + n + n * n
+    ?(n > 0 && n <= 8 && values.length >= need) => {
+        men_base = 1
+        women_base = 1 + n * n
+        next_base = 1 + n * n + n * n
+        wife_base = next_base + n
+        husb_base = wife_base + n
+        rank_base = husb_base + n
+
+        [0..n-1] >> #(i) => {
+            values[next_base + i] = 0
+            values[wife_base + i] = 0 - 1
+            values[husb_base + i] = 0 - 1
+        }
+        // women_rank[w][m]
+        [0..n-1] >> #(w) => {
+            [0..n-1] >> #(r) => {
+                m = values[women_base + w * n + r]
+                ?(m >= 0 && m < n) => {
+                    values[rank_base + w * n + m] = r
+                }
+            }
+        }
+
+        // Process free men repeatedly
+        running = 1
+        [...] >> ?(running == 1) => {
+            // find a free man with remaining proposals
+            free_m = 0 - 1
+            [0..n-1] >> #(m) => {
+                ?(free_m < 0 && values[wife_base + m] == 0 - 1 && values[next_base + m] < n) => {
+                    free_m = m
+                }
+            }
+            ?(free_m < 0) => {
+                running = 0
+            } | {
+                m = free_m
+                k = values[next_base + m]
+                w = values[men_base + m * n + k]
+                values[next_base + m] = k + 1
+                ?(w >= 0 && w < n) => {
+                    h = values[husb_base + w]
+                    ?(h < 0) => {
+                        values[husb_base + w] = m
+                        values[wife_base + m] = w
+                    } | {
+                        rm = values[rank_base + w * n + m]
+                        rh = values[rank_base + w * n + h]
+                        ?(rm < rh) => {
+                            values[husb_base + w] = m
+                            values[wife_base + m] = w
+                            values[wife_base + h] = 0 - 1
+                        }
+                    }
+                }
+            }
+        }
+        ok = 1
+    }
+}
+
+?(ok == 1) => {
+    [0..n-1] >> #(i) => {
+        >_(values[wife_base + i])
+    }
+}
