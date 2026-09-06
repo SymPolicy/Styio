@@ -1,0 +1,110 @@
+#include "reference.hpp"
+
+#include "tests/algorithms/.common/CxxReferenceEquivalence.hpp"
+
+#include <gtest/gtest.h>
+
+#include <filesystem>
+#include <random>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace {
+
+struct BfsDistanceInput
+{
+  int n = 0;
+  int s = 0;
+  int t = 0;
+  std::vector<std::pair<int, int>> edges;
+};
+
+BfsDistanceInput
+test_bfs_distance_random_input(std::mt19937& rng) {
+  std::uniform_int_distribution<int> n_dist(1, 12);
+  const int n = n_dist(rng);
+  std::uniform_int_distribution<int> v_dist(0, n - 1);
+  std::uniform_int_distribution<int> m_dist(0, n * 2);
+
+  BfsDistanceInput input;
+  input.n = n;
+  input.s = v_dist(rng);
+  input.t = v_dist(rng);
+  const int m = m_dist(rng);
+  input.edges.reserve(static_cast<std::size_t>(m));
+  for (int i = 0; i < m; ++i) {
+    input.edges.push_back({v_dist(rng), v_dist(rng)});
+  }
+  return input;
+}
+
+std::filesystem::path
+test_bfs_distance_styio() {
+  return styio::testing::algorithms::styio_program("bfs_distance", "bfs_distance.styio");
+}
+
+std::string
+format_bfs_distance_input(const BfsDistanceInput& input) {
+  // Encoding: [n, m, s, t, u1, v1, ..., um, vm, then n workspace slots for Styio BF]
+  std::vector<int> encoded;
+  encoded.reserve(4 + input.edges.size() * 2 + static_cast<std::size_t>(input.n));
+  encoded.push_back(input.n);
+  encoded.push_back(static_cast<int>(input.edges.size()));
+  encoded.push_back(input.s);
+  encoded.push_back(input.t);
+  for (const auto& [u, v] : input.edges) {
+    encoded.push_back(u);
+    encoded.push_back(v);
+  }
+  for (int i = 0; i < input.n; ++i) {
+    encoded.push_back(0); // Styio BF workspace (dist[]); C++ oracle ignores these
+  }
+  return styio::testing::algorithms::format_i32_list(encoded) + "\n";
+}
+
+} // namespace
+
+TEST(StyioCppReferenceEquivalence, test_bfs_distance) {
+  std::mt19937 rng(0xBF5D15);
+
+  for (int iteration = 0; iteration < 160; ++iteration) {
+    const BfsDistanceInput input = test_bfs_distance_random_input(rng);
+    const std::string expected =
+      test_bfs_distance_cpp_output(input.n, input.edges, input.s, input.t);
+
+    const styio::testing::algorithms::CommandResult actual =
+      styio::testing::algorithms::run_styio_program(
+        test_bfs_distance_styio(), format_bfs_distance_input(input));
+
+    ASSERT_EQ(actual.exit_code, 0) << actual.stderr_text;
+    EXPECT_EQ(actual.stdout_text, expected)
+      << "input=" << format_bfs_distance_input(input)
+      << "stderr=" << actual.stderr_text;
+  }
+}
+
+TEST(StyioCppReferenceEquivalence, test_bfs_distance_fixed_cases) {
+  const std::vector<std::pair<std::string, std::string>> cases = {
+    // n=1,s=0,t=0
+    { "[1,0,0,0,0]\n", "0\n" },
+    // 0->1->2, s=0,t=2; workspace 3 zeros
+    { "[3,2,0,2,0,1,1,2,0,0,0]\n", "2\n" },
+    // unreachable
+    { "[3,1,0,2,0,1,0,0,0]\n", "-1\n" },
+    // empty / malformed
+    { "[]\n", "-1\n" },
+    { "[0]\n", "-1\n" },
+  };
+
+  for (const auto& [stdin_text, expected] : cases) {
+    const styio::testing::algorithms::CommandResult actual =
+      styio::testing::algorithms::run_styio_program(
+        test_bfs_distance_styio(), stdin_text);
+
+    ASSERT_EQ(actual.exit_code, 0)
+      << "input=" << stdin_text << "stderr=" << actual.stderr_text;
+    EXPECT_EQ(actual.stdout_text, expected)
+      << "input=" << stdin_text << "stderr=" << actual.stderr_text;
+  }
+}
