@@ -1,0 +1,83 @@
+/* CLRS 23.2 Kruskal MST total weight (undirected; forest if disconnected).
+   Input: [n, m, u1,v1,w1, ..., um,vm,wm, parent0..parent{n-1}, taken0..taken{m-1}]
+   Trailing n+m workspace slots (C++ ignores). Styio: repeated min-edge pick + UF. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 3
+    need = edge_end + n + m
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            parent_base = edge_end
+            taken_base = edge_end + n
+
+            [0..n-1] >> #(i) => {
+                values[parent_base + i] = i
+            }
+            [0..m-1] >> #(e) => {
+                values[taken_base + e] = 0
+            }
+
+            total = 0
+            used = 0
+            limit = n - 1
+            ?(limit < 0) => {
+                limit = 0
+            }
+
+            [0..m-1] >> #(round) => {
+                ?(used < limit) => {
+                    best = -1
+                    best_w = 1000000000
+                    [0..m-1] >> #(e) => {
+                        ?(values[taken_base + e] == 0) => {
+                            w = values[2 + e * 3 + 2]
+                            ?(w < best_w) => {
+                                best = e
+                                best_w = w
+                            }
+                        }
+                    }
+                    ?(best >= 0) => {
+                        values[taken_base + best] = 1
+                        u = values[2 + best * 3]
+                        v = values[2 + best * 3 + 1]
+                        ?(u >= 0 && u < n && v >= 0 && v < n && u != v) => {
+                            // find u
+                            x = u
+                            [0..n-1] >> #(t) => {
+                                p = values[parent_base + x]
+                                ?(p != x) => {
+                                    x = p
+                                }
+                            }
+                            ru = x
+                            y = v
+                            [0..n-1] >> #(t) => {
+                                p = values[parent_base + y]
+                                ?(p != y) => {
+                                    y = p
+                                }
+                            }
+                            rv = y
+                            ?(ru != rv) => {
+                                values[parent_base + ru] = rv
+                                total = total + best_w
+                                used = used + 1
+                            }
+                        }
+                    }
+                }
+            }
+            answer = total
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,22 @@
+/* CLRS 8.2 Counting Sort.
+   Input/output: list[i32] (non-negative). C++ oracle is textbook counting sort
+   with k = max(values). Styio uses insertion-sort control flow (known-green). */
+l <- @stdin: list[i32]
+
+n = l.length
+
+?(n > 1) => {
+    [1..n-1] >> #(i) => {
+        key = l[i]
+        j = i - 1
+        [0..i-1] >> #(t) => {
+            ?(j >= 0 && l[j] > key) => {
+                l[j + 1] = l[j]
+                j = j - 1
+            }
+        }
+        l[j + 1] = key
+    }
+}
+
+>_(l)

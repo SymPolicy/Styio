@@ -1,0 +1,56 @@
+/* Levenshtein edit distance (CLRS-style DP companion).
+   Input: [n, m, a1..an, b1..bm, then (n+1)*(m+1) DP workspace zeros]
+   Output: min insert/delete/substitute cost (unit costs). */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    seq_end = 2 + n + m
+    need = seq_end + (n + 1) * (m + 1)
+
+    ?(n < 0 || m < 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            base = seq_end
+            width = m + 1
+
+            [0..n] >> #(i) => {
+                values[base + i * width + 0] = i
+            }
+            [0..m] >> #(j) => {
+                values[base + 0 * width + j] = j
+            }
+
+            ?(n > 0 && m > 0) => {
+                [1..n] >> #(i) => {
+                    [1..m] >> #(j) => {
+                        ai = values[1 + i]
+                        bj = values[1 + n + j]
+                        cost = 1
+                        ?(ai == bj) => {
+                            cost = 0
+                        }
+                        del = values[base + (i - 1) * width + j] + 1
+                        ins = values[base + i * width + (j - 1)] + 1
+                        sub = values[base + (i - 1) * width + (j - 1)] + cost
+                        best = del
+                        ?(ins < best) => {
+                            best = ins
+                        }
+                        ?(sub < best) => {
+                            best = sub
+                        }
+                        values[base + i * width + j] = best
+                    }
+                }
+            }
+
+            answer = values[base + n * width + m]
+        }
+    }
+}
+
+>_(answer)
