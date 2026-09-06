@@ -1,0 +1,23 @@
+/* Segment tree inclusive range sum (C++ segment tree; Styio: prefix sums).
+   Input: [n, L, R, a0..a{n-1}, then (n+1) workspace zeros]
+   Malformed -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 3) => {
+    n = values[0]
+    L = values[1]
+    R = values[2]
+    need = 3 + n + (n + 1)
+    ?(n > 0 && L >= 0 && R >= L && R < n && values.length >= need) => {
+        a_base = 3
+        pref_base = 3 + n
+        values[pref_base] = 0
+        [0..n-1] >> #(i) => {
+            values[pref_base + i + 1] = values[pref_base + i] + values[a_base + i]
+        }
+        answer = values[pref_base + R + 1] - values[pref_base + L]
+    }
+}
+
+>_(answer)

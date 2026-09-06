@@ -119,6 +119,18 @@ equivalence (same harness as above):
 | `boyer_moore_match_index` | Boyer-Moore-Horspool first match index |
 | `two_sat_flag` | 2-SAT satisfiability via implication SCCs |
 | `gale_shapley_matching` | Gale-Shapley stable marriage (proposing-side partners) |
+| `segment_tree_range_sum` | Segment tree inclusive range sum (DS companion) |
+| `sparse_table_rmq` | Sparse-table RMQ range minimum |
+| `lca_binary_lifting` | Offline LCA via binary lifting (tree parents) |
+| `suffix_array_lcp` | Suffix array + Kasai LCP of two suffix starts |
+| `convex_hull_andrew` | Andrew monotone-chain hull points (multi-line x,y) |
+| `closest_pair_dist_sq` | Closest pair squared Euclidean distance (Ch.33) |
+| `hungarian_assignment_cost` | Hungarian min assignment cost |
+| `binomial_coefficient` | Binomial C(n,k) (n<=30) |
+| `euler_totient` | Euler totient φ(n) |
+| `push_relabel_maxflow` | CLRS 26.4 push-relabel max s-t flow value |
+| `matrix_determinant` | Exact integer matrix determinant (Bareiss) |
+| `topo_unique_flag` | Unique topological order flag (Kahn companion) |
 
 ### Flat `list[i32]` stdin encodings (graphs + DP)
 
@@ -244,6 +256,33 @@ Notes (batch5):
 - `fft_poly_multiply` keeps coefficients small (`[-3,3]`) so complex FFT rounding is exact; output is multi-line like `topo_order`.
 - `miller_rabin_prime_flag` uses deterministic bases `{2,3,5,7,11,13,23}` with `n` small enough for `i32` modular squares.
 - `gale_shapley_matching` returns the proposing-side stable matching as multi-line woman ids.
+
+
+#### DS / geometry / strings / NT / flow (batch6)
+
+| Case | Encoding | Output |
+|------|----------|--------|
+| `segment_tree_range_sum` | same as `fenwick_range_sum` | range sum; malformed -> `0` (C++ segment tree; Styio: prefix) |
+| `sparse_table_rmq` | `[n, L, R, a0..a{n-1}]` (0-based inclusive) | range minimum; malformed -> `0` (C++ sparse table; Styio: scan) |
+| `lca_binary_lifting` | `[n, u, v, parent0..parent{n-1}, then n depth zeros]` with `parent[0]=-1` | LCA id; malformed -> `-1` (C++ binary lifting; Styio: parent climb) |
+| `suffix_array_lcp` | `[n, i, j, s0..s{n-1}]` | LCP of suffixes `i`,`j`; `i==j` -> `n-i`; malformed -> `-1` (C++ SA+Kasai; Styio: naive) |
+| `convex_hull_andrew` | `[n, x1,y1,...,xn,yn, then n used + n out-x + n out-y zeros]` | multi-line `x`/`y` hull vertices CCW; empty -> empty (C++ Andrew; Styio: Jarvis) |
+| `closest_pair_dist_sq` | `[n, x1,y1,...,xn,yn]` | min squared distance; `n<2` -> `-1` (C++ divide-conquer; Styio: O(n²)) |
+| `hungarian_assignment_cost` | `[n, c00..c{n-1}{n-1}, then (1<<n) DP zeros]` (`n<=6`) | min assignment cost; `n<=0` -> `0` (C++ Hungarian; Styio: bit-DP) |
+| `binomial_coefficient` | `[n, k, then (k+1) row zeros]` (`n<=30`) | `C(n,k)`; invalid -> `-1` |
+| `euler_totient` | `[n]` | `φ(n)`; `n<=0` -> `-1` |
+| `push_relabel_maxflow` | same as `edmonds_karp_maxflow` (`n<=6`) | max flow value; malformed -> `-1` (C++ push-relabel; Styio: EK) |
+| `matrix_determinant` | `[n, a00..a{n-1}{n-1}, then n perm + n used zeros]` (`n<=5`) | det; empty/`n<=0` -> `0` (C++ Bareiss; Styio: Leibniz) |
+| `topo_unique_flag` | `[n, m, u1,v1, ..., then n indeg + n alive zeros]` | `1` if unique topo order, else `0` |
+
+Notes (batch6):
+
+- `segment_tree_range_sum` / `sparse_table_rmq` mirror the Fenwick range contract with textbook DS oracles.
+- `lca_binary_lifting` random tests build random trees via `parent[i] ∈ [0,i)`.
+- `suffix_array_lcp` answers arbitrary suffix pairs by RMQ over Kasai adjacent heights.
+- `convex_hull_andrew` tests canonicalize rotation/orientation so Andrew and Jarvis agree on vertex sets/order.
+- `closest_pair_dist_sq` keeps coordinates in a small box so squared distances fit `i32`.
+- `push_relabel_maxflow` preserves the Edmonds-Karp numeric value with a CLRS 26.4 C++ oracle.
 
 Malformed / short inputs should fail closed to the documented empty/zero/`-1`
 defaults in each case's fixed-case tests (same policy as `inner_product` /
