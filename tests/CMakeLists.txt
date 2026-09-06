@@ -776,6 +776,30 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/activity_selection/test.cpp
   algorithms/kruskal_mst_weight/reference.cpp
   algorithms/kruskal_mst_weight/test.cpp
+  algorithms/topo_order/reference.cpp
+  algorithms/topo_order/test.cpp
+  algorithms/scc_count/reference.cpp
+  algorithms/scc_count/test.cpp
+  algorithms/prim_mst_weight/reference.cpp
+  algorithms/prim_mst_weight/test.cpp
+  algorithms/dag_shortest_path/reference.cpp
+  algorithms/dag_shortest_path/test.cpp
+  algorithms/coin_change_min/reference.cpp
+  algorithms/coin_change_min/test.cpp
+  algorithms/subset_sum_flag/reference.cpp
+  algorithms/subset_sum_flag/test.cpp
+  algorithms/fractional_knapsack/reference.cpp
+  algorithms/fractional_knapsack/test.cpp
+  algorithms/huffman_cost/reference.cpp
+  algorithms/huffman_cost/test.cpp
+  algorithms/catalan_number/reference.cpp
+  algorithms/catalan_number/test.cpp
+  algorithms/extended_gcd/reference.cpp
+  algorithms/extended_gcd/test.cpp
+  algorithms/mod_pow/reference.cpp
+  algorithms/mod_pow/test.cpp
+  algorithms/bridges_count/reference.cpp
+  algorithms/bridges_count/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp
