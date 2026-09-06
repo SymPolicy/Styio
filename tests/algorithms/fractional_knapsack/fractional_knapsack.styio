@@ -1,0 +1,64 @@
+/* CLRS 16.2 Fractional knapsack (integer floor of classic optimum).
+   Input: [n, W, w1..wn, v1..vn, then n taken-flag zeros]
+   Styio: repeated highest-density pick via cross-multiply (no floats). */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    W = values[1]
+    need = 2 + n + n + n
+
+    ?(W <= 0 || n < 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            taken_base = 2 + n + n
+            [0..n-1] >> #(i) => {
+                values[taken_base + i] = 0
+            }
+            remain = W
+            total = 0
+            [0..n-1] >> #(round) => {
+                ?(remain > 0) => {
+                    best = -1
+                    best_v = -1
+                    best_w = 1
+                    [0..n-1] >> #(i) => {
+                        ?(values[taken_base + i] == 0) => {
+                            w = values[2 + i]
+                            v = values[2 + n + i]
+                            ?(w > 0 && v >= 0) => {
+                                ?(best < 0) => {
+                                    best = i
+                                    best_v = v
+                                    best_w = w
+                                } | {
+                                    // v/w > best_v/best_w <=> v*best_w > best_v*w
+                                    ?(v * best_w > best_v * w) => {
+                                        best = i
+                                        best_v = v
+                                        best_w = w
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ?(best >= 0) => {
+                        values[taken_base + best] = 1
+                        ?(best_w <= remain) => {
+                            total = total + best_v
+                            remain = remain - best_w
+                        } | {
+                            total = total + (best_v * remain) / best_w
+                            remain = 0
+                        }
+                    }
+                }
+            }
+            answer = total
+        }
+    }
+}
+
+>_(answer)
