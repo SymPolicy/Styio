@@ -1,0 +1,39 @@
+/* Binomial C(n,k) (DP). Input: [n, k, then (k+1) row zeros]. Invalid -> -1. n<=30. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 2) => {
+    n = values[0]
+    k = values[1]
+    ?(n < 0 || k < 0 || k > n || n > 30) => {
+        answer = 0 - 1
+    } | {
+        need = 2 + k + 1
+        ?(values.length >= need) => {
+            base = 2
+            values[base] = 1
+            ?(k >= 1) => {
+                [1..k] >> #(j) => {
+                    values[base + j] = 0
+                }
+            }
+            [1..n] >> #(i) => {
+                lim = i
+                ?(k < lim) => {
+                    lim = k
+                }
+                ?(lim >= 1) => {
+                    // downward
+                    j = lim
+                    [...] >> ?(j >= 1) => {
+                        values[base + j] = values[base + j] + values[base + j - 1]
+                        j = j - 1
+                    }
+                }
+            }
+            answer = values[base + k]
+        }
+    }
+}
+
+>_(answer)
