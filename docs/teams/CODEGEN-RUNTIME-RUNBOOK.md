@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-07
 
 ## Mission
 
@@ -49,6 +49,7 @@ Related docs:
 19. Typed stdin pulls lower from `InstantPull` to `SIOStdStreamPull::result_type` for scalar i64/f64/string and typed list pulls. Untyped collect-bind stdin may still use `SIOListReadStdin`. String pulls must clone the borrowed stdin buffer before binding, and `list[f64]` stdin pulls must use the f64 list reader rather than falling through to i64 parsing. String concatenation should route non-string operands through `promote_to_cstr` so f64 formatting uses the same runtime decimal helper as other output paths.
 20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
+21a. `SGCond` `Logic_AND` / `Logic_OR` must short-circuit like C/C++ boolean `&&` / `||`: evaluate the RHS only when the LHS does not already determine the result. Emit branch+phi (not eager `and`/`or` of both sides) so guards such as `i < n && xs[i]` never evaluate an out-of-bounds index when the bound check fails. Keep `Logic_XOR` eager; preserve the legacy mixed i1/i64 AND select shape with the same short-circuit control flow. Golden evidence: `tests/features/scalar_expressions/t22_logic_and_short_circuit.styio`, `t23_logic_or_short_circuit.styio`, `t24_logic_and_evaluates_rhs.styio`.
 22. Native interop platform compatibility belongs with runtime ownership: keep dynamic-library load/unload/symbol lookup paths portable across `dlopen` and Windows `LoadLibrary`, and pair loader changes with the smallest native interop or LSP build smoke that exercises the affected binary.
 23. Standalone continue codegen targets the innermost active loop. Do not reintroduce multi-depth continue dispatch in LLVM emission unless Sema and IR grow a new explicit continuation-domain contract first.
 24. Inferred callable schemes have no runtime representation. Lower only fully resolved, demand-driven specializations under deterministic compiler symbols, deduplicate equal concrete relations, and keep function parameter/result LLVM types synchronized with the active specialization. Do not add boxing, runtime type dictionaries, heap allocation, or GC to implement rank-1 callable instances.
