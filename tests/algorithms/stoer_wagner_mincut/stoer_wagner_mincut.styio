@@ -1,0 +1,58 @@
+/* Global min-cut (C++ Stoer-Wagner; Styio: enumerate bipartitions).
+   Input: [n, a00..a{n-1}{n-1}] undirected weights (symmetrized by max).
+   n<=0 -> -1; n==1 -> 0. n<=8 in tests. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+INF = 2000000000
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n <= 0) => {
+        answer = 0 - 1
+    } | {
+        ?(n == 1) => {
+            answer = 0
+        } | {
+            ?(values.length >= 1 + n * n) => {
+                best = INF
+                lim = 1
+                [1..n-1] >> #(i) => { lim = lim * 2 }
+                [0..lim-2] >> #(mask) => {
+                    cut = 0
+                    [0..n-1] >> #(i) => {
+                        in_a_i = 0
+                        ?(i == 0) => { in_a_i = 1 } | {
+                            bit = 1
+                            [1..i-1] >> #(t) => { bit = bit * 2 }
+                            ?(mask / bit - (mask / bit / 2) * 2 == 1) => {
+                                in_a_i = 1
+                            }
+                        }
+                        [i+1..n-1] >> #(j) => {
+                            in_a_j = 0
+                            ?(j == 0) => { in_a_j = 1 } | {
+                                bit = 1
+                                [1..j-1] >> #(t) => { bit = bit * 2 }
+                                ?(mask / bit - (mask / bit / 2) * 2 == 1) => {
+                                    in_a_j = 1
+                                }
+                            }
+                            ?(in_a_i != in_a_j) => {
+                                w1 = values[1 + i * n + j]
+                                w2 = values[1 + j * n + i]
+                                w = w1
+                                ?(w2 > w) => { w = w2 }
+                                ?(w < 0) => { w = 0 }
+                                cut = cut + w
+                            }
+                        }
+                    }
+                    ?(cut < best) => { best = cut }
+                }
+                answer = best
+            }
+        }
+    }
+}
+
+>_(answer)
