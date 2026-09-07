@@ -13,7 +13,9 @@
 2. An upstream check proves the feature receives the expected input shape.
 3. A downstream check proves at least one real caller consumes the new behavior.
 4. The owner-team gate proves the affected subsystem stays aligned.
-5. The delivery or checkpoint gate proves repository-wide process health for the chosen scope.
+5. The chosen final delivery or checkpoint gate proves repository-wide health after all source review, repairs, and focused checks finish.
+
+Choose only checks required by the changed surface. A single command may cover several levels; reuse its passing evidence while the inputs remain unchanged. The committer self-check is an evidence assessment, not a new user approval. Follow [the readiness workflow](../../../FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) for attestation and the developer decision required after a failed complete regression.
 
 ## Unable-To-Verify Record
 
@@ -29,3 +31,5 @@ Follow-up gate: <command or CI check that must pass later>
 ```
 
 Use this only for external or environment constraints. Local uncertainty, missing targeted tests, or incomplete caller adaptation is not an unable-to-verify blocker; continue implementation instead.
+
+Report a necessary new decision promptly after preparing the evidence and proposal, and continue independent authorized work. A blocker record does not turn an unverified acceptance condition into a completed one.

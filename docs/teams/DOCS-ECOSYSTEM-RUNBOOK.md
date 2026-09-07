@@ -2,11 +2,13 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-09-06
+**Last updated:** 2026-09-08
 
 ## Mission
 
 Own documentation structure and cross-repository clarity. This team protects SSOT discipline, generated indexes, archive provenance, external repository boundaries, handoff notes, and reusable templates. It does not redefine language semantics, accepted tests, or package-manager ownership.
+
+Keep workflow skills, commit-readiness tool messages, and reusable decision templates aligned with [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md): reuse existing approvals and evidence, distinguish committer self-checks from user approval, preserve explicit decision gates, and report unfinished acceptance truthfully. Final complete regression follows source review and focused repairs; failures require the developer's repair and verification decision.
 
 The active benchmark boundary is external: current instructions point directly to `styio-benchmark`, while `benchmark/` documents only the explicit optional CMake seam. Redirect wrappers and duplicate benchmark ownership are not maintained.
 
