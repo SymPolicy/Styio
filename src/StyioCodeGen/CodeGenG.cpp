@@ -2248,20 +2248,6 @@ StyioToLLVM::toLLVMIR(SGBinOp* node) {
 
 llvm::Value*
 StyioToLLVM::toLLVMIR(SGCond* node) {
-  llvm::Value* L = node->lhs_expr->toLLVMIR(this);
-  llvm::Value* R = node->rhs_expr->toLLVMIR(this);
-  if (is_optional_i64_value(L) || is_optional_i64_value(R)) {
-    throw StyioTypeError(
-      "optional i64 must be intercepted by fallback before logical evaluation");
-  }
-  if (node->operand == StyioOpType::Logic_AND) {
-    if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(64)) {
-      return theBuilder->CreateSelect(L, R, theBuilder->getInt64(0));
-    }
-    if (R->getType()->isIntegerTy(1) && L->getType()->isIntegerTy(64)) {
-      return theBuilder->CreateSelect(R, L, theBuilder->getInt64(0));
-    }
-  }
   auto to_bool = [&](llvm::Value* v) -> llvm::Value* {
     if (v->getType()->isIntegerTy(1)) {
       return v;
@@ -2271,21 +2257,105 @@ StyioToLLVM::toLLVMIR(SGCond* node) {
       llvm::ConstantInt::get(
         llvm::cast<llvm::IntegerType>(v->getType()), 0));
   };
-  L = to_bool(L);
-  R = to_bool(R);
+
   if (node->operand == StyioOpType::Logic_NOT) {
-    return theBuilder->CreateNot(L);
+    llvm::Value* L = node->lhs_expr->toLLVMIR(this);
+    if (is_optional_i64_value(L)) {
+      throw StyioTypeError(
+        "optional i64 must be intercepted by fallback before logical evaluation");
+    }
+    return theBuilder->CreateNot(to_bool(L));
   }
-  if (node->operand == StyioOpType::Logic_AND) {
-    return theBuilder->CreateAnd(L, R);
-  }
+
   if (node->operand == StyioOpType::Logic_XOR) {
-    return theBuilder->CreateXor(L, R);
+    llvm::Value* L = node->lhs_expr->toLLVMIR(this);
+    llvm::Value* R = node->rhs_expr->toLLVMIR(this);
+    if (is_optional_i64_value(L) || is_optional_i64_value(R)) {
+      throw StyioTypeError(
+        "optional i64 must be intercepted by fallback before logical evaluation");
+    }
+    return theBuilder->CreateXor(to_bool(L), to_bool(R));
   }
-  if (node->operand == StyioOpType::Logic_OR) {
-    return theBuilder->CreateOr(L, R);
+
+  if (node->operand != StyioOpType::Logic_AND
+      && node->operand != StyioOpType::Logic_OR) {
+    throw StyioTypeError("unsupported logical condition operator in codegen");
   }
-  throw StyioTypeError("unsupported logical condition operator in codegen");
+
+  // C/C++-style short-circuit: evaluate RHS only when the LHS does not already
+  // determine the result (skip RHS when AND sees false, or OR sees true).
+  const bool is_and = node->operand == StyioOpType::Logic_AND;
+  llvm::Value* L = node->lhs_expr->toLLVMIR(this);
+  if (is_optional_i64_value(L)) {
+    throw StyioTypeError(
+      "optional i64 must be intercepted by fallback before logical evaluation");
+  }
+
+  llvm::Function* F = theBuilder->GetInsertBlock()->getParent();
+  llvm::BasicBlock* lhs_bb = theBuilder->GetInsertBlock();
+  llvm::BasicBlock* rhs_bb = llvm::BasicBlock::Create(
+    *theContext, is_and ? "land_rhs" : "lor_rhs", F);
+  llvm::BasicBlock* merge_bb = llvm::BasicBlock::Create(
+    *theContext, is_and ? "land_merge" : "lor_merge", F);
+
+  llvm::Value* L_bool = to_bool(L);
+  if (is_and) {
+    theBuilder->CreateCondBr(L_bool, rhs_bb, merge_bb);
+  }
+  else {
+    theBuilder->CreateCondBr(L_bool, merge_bb, rhs_bb);
+  }
+
+  theBuilder->SetInsertPoint(rhs_bb);
+  llvm::Value* R = node->rhs_expr->toLLVMIR(this);
+  if (is_optional_i64_value(R)) {
+    throw StyioTypeError(
+      "optional i64 must be intercepted by fallback before logical evaluation");
+  }
+
+  // Preserve legacy AND mixed i1/i64 select shape, but only evaluate the RHS
+  // when the LHS is true (short-circuit).
+  if (is_and) {
+    if (L->getType()->isIntegerTy(1) && R->getType()->isIntegerTy(64)) {
+      llvm::BasicBlock* rhs_end = theBuilder->GetInsertBlock();
+      theBuilder->CreateBr(merge_bb);
+      theBuilder->SetInsertPoint(merge_bb);
+      llvm::PHINode* phi =
+        theBuilder->CreatePHI(theBuilder->getInt64Ty(), 2, "land.i64");
+      phi->addIncoming(theBuilder->getInt64(0), lhs_bb);
+      phi->addIncoming(R, rhs_end);
+      return phi;
+    }
+    if (R->getType()->isIntegerTy(1) && L->getType()->isIntegerTy(64)) {
+      llvm::Value* selected = theBuilder->CreateSelect(
+        to_bool(R), L, theBuilder->getInt64(0));
+      llvm::BasicBlock* rhs_end = theBuilder->GetInsertBlock();
+      theBuilder->CreateBr(merge_bb);
+      theBuilder->SetInsertPoint(merge_bb);
+      llvm::PHINode* phi =
+        theBuilder->CreatePHI(theBuilder->getInt64Ty(), 2, "land.i64");
+      phi->addIncoming(theBuilder->getInt64(0), lhs_bb);
+      phi->addIncoming(selected, rhs_end);
+      return phi;
+    }
+  }
+
+  llvm::Value* R_bool = to_bool(R);
+  llvm::BasicBlock* rhs_end = theBuilder->GetInsertBlock();
+  theBuilder->CreateBr(merge_bb);
+
+  theBuilder->SetInsertPoint(merge_bb);
+  llvm::PHINode* phi =
+    theBuilder->CreatePHI(theBuilder->getInt1Ty(), 2, is_and ? "land" : "lor");
+  if (is_and) {
+    phi->addIncoming(llvm::ConstantInt::getFalse(*theContext), lhs_bb);
+    phi->addIncoming(R_bool, rhs_end);
+  }
+  else {
+    phi->addIncoming(llvm::ConstantInt::getTrue(*theContext), lhs_bb);
+    phi->addIncoming(R_bool, rhs_end);
+  }
+  return phi;
 }
 
 llvm::Value*
