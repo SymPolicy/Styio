@@ -47,8 +47,10 @@ test_dijkstra_styio() {
 
 std::string
 format_dijkstra_input(const DijkstraInput& input) {
+  // Encoding: [n, m, s, t, u1,v1,w1, ...]
+  // Styio uses local heap/dist arrays; trailing padding is optional and ignored.
   std::vector<int> encoded;
-  encoded.reserve(4 + input.edges.size() * 3 + static_cast<std::size_t>(input.n));
+  encoded.reserve(4 + input.edges.size() * 3);
   encoded.push_back(input.n);
   encoded.push_back(static_cast<int>(input.edges.size()));
   encoded.push_back(input.s);
@@ -57,9 +59,6 @@ format_dijkstra_input(const DijkstraInput& input) {
     encoded.push_back(u);
     encoded.push_back(v);
     encoded.push_back(w);
-  }
-  for (int i = 0; i < input.n; ++i) {
-    encoded.push_back(0);
   }
   return styio::testing::algorithms::format_i32_list(encoded) + "\n";
 }
@@ -87,9 +86,11 @@ TEST(StyioCppReferenceEquivalence, test_dijkstra) {
 
 TEST(StyioCppReferenceEquivalence, test_dijkstra_fixed_cases) {
   const std::vector<std::pair<std::string, std::string>> cases = {
-    { "[1,0,0,0,0]\n", "0\n" },
+    { "[1,0,0,0]\n", "0\n" },
+    { "[3,2,0,2,0,1,2,1,2,3]\n", "5\n" },
+    { "[3,1,0,2,0,1,4]\n", "1000000000\n" },
+    // legacy trailing padding still accepted
     { "[3,2,0,2,0,1,2,1,2,3,0,0,0]\n", "5\n" },
-    { "[3,1,0,2,0,1,4,0,0,0]\n", "1000000000\n" },
     { "[]\n", "-1\n" },
   };
 

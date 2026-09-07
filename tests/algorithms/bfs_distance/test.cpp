@@ -46,9 +46,10 @@ test_bfs_distance_styio() {
 
 std::string
 format_bfs_distance_input(const BfsDistanceInput& input) {
-  // Encoding: [n, m, s, t, u1, v1, ..., um, vm, then n workspace slots for Styio BF]
+  // Encoding: [n, m, s, t, u1, v1, ..., um, vm]
+  // Styio allocates local dist/queue; trailing padding is optional and ignored.
   std::vector<int> encoded;
-  encoded.reserve(4 + input.edges.size() * 2 + static_cast<std::size_t>(input.n));
+  encoded.reserve(4 + input.edges.size() * 2);
   encoded.push_back(input.n);
   encoded.push_back(static_cast<int>(input.edges.size()));
   encoded.push_back(input.s);
@@ -56,9 +57,6 @@ format_bfs_distance_input(const BfsDistanceInput& input) {
   for (const auto& [u, v] : input.edges) {
     encoded.push_back(u);
     encoded.push_back(v);
-  }
-  for (int i = 0; i < input.n; ++i) {
-    encoded.push_back(0); // Styio BF workspace (dist[]); C++ oracle ignores these
   }
   return styio::testing::algorithms::format_i32_list(encoded) + "\n";
 }
@@ -87,11 +85,13 @@ TEST(StyioCppReferenceEquivalence, test_bfs_distance) {
 TEST(StyioCppReferenceEquivalence, test_bfs_distance_fixed_cases) {
   const std::vector<std::pair<std::string, std::string>> cases = {
     // n=1,s=0,t=0
-    { "[1,0,0,0,0]\n", "0\n" },
-    // 0->1->2, s=0,t=2; workspace 3 zeros
-    { "[3,2,0,2,0,1,1,2,0,0,0]\n", "2\n" },
+    { "[1,0,0,0]\n", "0\n" },
+    // 0->1->2, s=0,t=2
+    { "[3,2,0,2,0,1,1,2]\n", "2\n" },
     // unreachable
-    { "[3,1,0,2,0,1,0,0,0]\n", "-1\n" },
+    { "[3,1,0,2,0,1]\n", "-1\n" },
+    // legacy trailing padding still accepted
+    { "[3,2,0,2,0,1,1,2,0,0,0]\n", "2\n" },
     // empty / malformed
     { "[]\n", "-1\n" },
     { "[0]\n", "-1\n" },

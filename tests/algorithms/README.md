@@ -64,9 +64,9 @@ equivalence (same harness as above):
 | Case | Notes |
 |------|--------|
 | `insertion_sort` | CLRS insertion sort |
-| `merge_sort` | C++ oracle: bottom-up merge sort; Styio: sort-correct via insertion control-flow until merge port is runtime-stable |
-| `quicksort` | C++ oracle: Lomuto + iterative stack; Styio: sort-correct via insertion control-flow until stack port is runtime-stable |
-| `heap_sort` | C++ oracle: in-place heapsort; Styio: sort-correct via insertion control-flow until sift-down port is runtime-stable |
+| `merge_sort` | C++ and Styio: bottom-up merge sort (Styio clones a tmp buffer via `tmp << l`) |
+| `quicksort` | C++ and Styio: iterative Lomuto quicksort (Styio uses local stack arrays) |
+| `heap_sort` | C++ and Styio: in-place heapsort (Styio nests bounds checks; logical `&&` is eager) |
 | `bubble_sort` | Classical (already present) |
 | `selection_sort` | Classical (already present) |
 | `bfs_distance` | CLRS BFS: unweighted directed distance `s -> t` (or `-1`) |
@@ -157,15 +157,14 @@ structured fields only.
 
 | Case | Encoding | Output |
 |------|----------|--------|
-| `bfs_distance` | `[n, m, s, t, u1, v1, ..., um, vm, d0..d{n-1}]` with `n` trailing workspace zeros for Styio unit-weight relaxations | single `i32` distance, or `-1` if unreachable |
+| `bfs_distance` | `[n, m, s, t, u1, v1, ..., um, vm]` (optional trailing padding ignored) | single `i32` distance, or `-1` if unreachable |
 | `dfs_reachable` | `[n, m, s, t, u1, v1, ..., um, vm]` | `1` / `0` |
 
 Notes:
 
 - Edges are **directed** `ui -> vi`. Self-loops and parallel edges are allowed.
-- `bfs_distance` C++ uses textbook BFS; Styio uses `(n-1)` rounds of `+1`
-  edge relaxation over the trailing dist workspace (Bellman-Ford on unit
-  weights), which matches BFS distances.
+- `bfs_distance` C++ and Styio both use textbook BFS; Styio keeps `dist[]` and
+  an array queue in locally materialized lists rather than stdin workspace.
 - `dfs_reachable` C++ uses iterative DFS; Styio uses an iterative bitset
   closure (`n <= 30` in random tests) with the same reachability relation.
 
@@ -187,7 +186,7 @@ Notes:
 | `counting_sort` | `[a1..an]` non-negative integers | sorted `list[i32]` (C++: counting sort with `k=max`; Styio: insertion known-green) |
 | `select_ith` | `[i, a1..an]` (`i` 0-based rank) | `a_{(i)}` or `-1` if invalid (C++: `nth_element`; Styio: sort-then-index) |
 | `bellman_ford` | `[n, m, s, t, u1,v1,w1, ..., then n dist zeros]` | distance; unreachable `1000000000`; malformed/neg-cycle `-1` |
-| `dijkstra` | same shape as `bellman_ford` (weights `w >= 0`) | distance; unreachable `1000000000`; malformed `-1` (Styio: BF relaxations) |
+| `dijkstra` | `[n, m, s, t, u1,v1,w1, ...]` (weights `w >= 0`; optional trailing padding ignored) | distance; unreachable `1000000000`; malformed `-1` (C++ and Styio: binary-heap Dijkstra) |
 | `floyd_warshall` | `[n, m, s, t, u1,v1,w1, ..., then n*n matrix zeros]` | `dist[s][t]`; unreachable `1000000000`; malformed `-1` |
 | `activity_selection` | `[n, s1..sn, f1..fn, then n used-flag zeros]` | max compatible count (Styio: repeated earliest-finish) |
 | `kruskal_mst_weight` | `[n, m, u1,v1,w1, ..., then n parent + m taken zeros]` | MST/forest weight (undirected; Styio: min-edge + union-find) |
@@ -229,7 +228,7 @@ Notes:
 
 - Weighted shortest-path cases use `1000000000` for unreachable so negative distances stay unambiguous (unlike unweighted `bfs_distance`, which keeps `-1`).
 - `bellman_ford` / `floyd_warshall` random tests generate DAGs (forward edges on vertex ids) so negative cycles do not appear.
-- `dijkstra` Styio matches Dijkstra distances via Bellman-Ford on non-negative weights; C++ uses a binary-heap Dijkstra.
+- `dijkstra` C++ and Styio both use binary-heap Dijkstra (Styio: local heap key/vertex arrays with lazy decrease-key).
 - `dag_shortest_path` random tests generate DAGs (forward edges on vertex ids); Styio uses Bellman-Ford relaxations matching the topo oracle on DAGs.
 - `topo_order` uses multi-line integer output (like `minmax_pair`), not a `[...]` list, because dynamic list construction is not yet a stable Styio port pattern.
 - `scc_count` C++ is Kosaraju; Styio unions mutually reachable pairs after a boolean Floyd closure (`n<=12`).
