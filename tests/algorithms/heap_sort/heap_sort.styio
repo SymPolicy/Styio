@@ -1,6 +1,5 @@
 /* CLRS heapsort: in-place max-heap sift-down.
-   Nest bounds checks before indexing: logical `&&` is currently eager
-   (both sides evaluate), so `i < n && l[i]` would OOB at the boundary. */
+   Bounds checks use short-circuit `&&` so `right < n && l[right]` is safe. */
 l <- @stdin: list[i32]
 n = l.length
 
@@ -11,10 +10,8 @@ n = l.length
         [...] >> ?(root + root + 1 < n) => {
             child = root + root + 1
             right = child + 1
-            ?(right < n) => {
-                ?(l[right] > l[child]) => {
-                    child = right
-                }
+            ?(right < n && l[right] > l[child]) => {
+                child = right
             }
             ?(l[child] > l[root]) => {
                 t = l[root]
@@ -37,10 +34,8 @@ n = l.length
         [...] >> ?(root + root + 1 < end) => {
             child = root + root + 1
             right = child + 1
-            ?(right < end) => {
-                ?(l[right] > l[child]) => {
-                    child = right
-                }
+            ?(right < end && l[right] > l[child]) => {
+                child = right
             }
             ?(l[child] > l[root]) => {
                 t2 = l[root]

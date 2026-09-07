@@ -1,0 +1,8 @@
+/* false && <OOB index> must not evaluate the RHS (short-circuit). */
+xs = [10, 20, 30]
+i = 99
+?(i < xs.length && xs[i] > 0) => {
+    >_("live")
+} | {
+    >_("safe")
+}
