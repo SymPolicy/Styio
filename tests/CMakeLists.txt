@@ -870,6 +870,30 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/matrix_determinant/test.cpp
   algorithms/topo_unique_flag/reference.cpp
   algorithms/topo_unique_flag/test.cpp
+  algorithms/aho_corasick_match_count/reference.cpp
+  algorithms/aho_corasick_match_count/test.cpp
+  algorithms/cartesian_tree_height/reference.cpp
+  algorithms/cartesian_tree_height/test.cpp
+  algorithms/discrete_log_bsgs/reference.cpp
+  algorithms/discrete_log_bsgs/test.cpp
+  algorithms/mcmf_min_cost/reference.cpp
+  algorithms/mcmf_min_cost/test.cpp
+  algorithms/mos_range_distinct/reference.cpp
+  algorithms/mos_range_distinct/test.cpp
+  algorithms/pollard_rho_factor/reference.cpp
+  algorithms/pollard_rho_factor/test.cpp
+  algorithms/sam_distinct_substrings/reference.cpp
+  algorithms/sam_distinct_substrings/test.cpp
+  algorithms/sieve_prefix_prime_count/reference.cpp
+  algorithms/sieve_prefix_prime_count/test.cpp
+  algorithms/stoer_wagner_mincut/reference.cpp
+  algorithms/stoer_wagner_mincut/test.cpp
+  algorithms/stone_merge_cost/reference.cpp
+  algorithms/stone_merge_cost/test.cpp
+  algorithms/tree_diameter_length/reference.cpp
+  algorithms/tree_diameter_length/test.cpp
+  algorithms/tree_mis_size/reference.cpp
+  algorithms/tree_mis_size/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp
