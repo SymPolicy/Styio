@@ -1,7 +1,7 @@
 /* CLRS 24.3 Dijkstra s->t (non-negative weights).
-   Input: [n, m, s, t, u1,v1,w1, ..., um,vm,wm, dist0..dist{n-1}]
-   Styio: Bellman-Ford relaxation (same distances on non-neg weights).
-   C++ oracle uses binary-heap Dijkstra. Unreachable = 1000000000. */
+   Input: [n, m, s, t, u1,v1,w1, ..., um,vm,wm] (optional trailing padding ignored).
+   Styio: binary-heap Dijkstra in local arrays (lazy decrease-key).
+   Unreachable = 1000000000; malformed = -1. */
 values <- @stdin: list[i32]
 answer = -1
 INF = 1000000000
@@ -12,27 +12,88 @@ INF = 1000000000
     s = values[2]
     t = values[3]
     edge_end = 4 + m * 3
-    need = edge_end + n
 
     ?(n > 0 && s >= 0 && s < n && t >= 0 && t < n) => {
-        ?(values.length >= need) => {
+        ?(values.length >= edge_end) => {
+            dist := [0..n-1]
             [0..n-1] >> #(i) => {
-                values[edge_end + i] = INF
+                dist[i] = INF
             }
-            values[edge_end + s] = 0
+            dist[s] = 0
 
-            ?(n > 1) => {
-                [1..n-1] >> #(round) => {
+            hcap = n + m
+            ?(hcap < 1) => {
+                hcap = 1
+            }
+            hkey := [0..hcap-1]
+            hvad := [0..hcap-1]
+            [0..hcap-1] >> #(i) => {
+                hkey[i] = 0
+                hvad[i] = 0
+            }
+            hkey[0] = 0
+            hvad[0] = s
+            hsz = 1
+
+            [...] >> ?(hsz > 0) => {
+                du = hkey[0]
+                u = hvad[0]
+                hsz = hsz - 1
+                ?(hsz > 0) => {
+                    hkey[0] = hkey[hsz]
+                    hvad[0] = hvad[hsz]
+                    i = 0
+                    [...] >> ?(i + i + 1 < hsz) => {
+                        left = i + i + 1
+                        right = left + 1
+                        best = left
+                        ?(right < hsz) => {
+                            ?(hkey[right] < hkey[left]) => {
+                                best = right
+                            }
+                        }
+                        ?(hkey[best] < hkey[i]) => {
+                            tk = hkey[i]
+                            tv = hvad[i]
+                            hkey[i] = hkey[best]
+                            hvad[i] = hvad[best]
+                            hkey[best] = tk
+                            hvad[best] = tv
+                            i = best
+                        } | {
+                            i = hsz
+                        }
+                    }
+                }
+
+                ?(du == dist[u]) => {
                     [0..m-1] >> #(e) => {
-                        u = values[4 + e * 3]
-                        v = values[5 + e * 3]
-                        w = values[6 + e * 3]
-                        ?(u >= 0 && u < n && v >= 0 && v < n && w >= 0) => {
-                            du = values[edge_end + u]
-                            ?(du < INF) => {
-                                cand = du + w
-                                ?(cand < values[edge_end + v]) => {
-                                    values[edge_end + v] = cand
+                        eu = values[4 + e * 3]
+                        ev = values[5 + e * 3]
+                        ew = values[6 + e * 3]
+                        ?(eu == u) => {
+                            ?(ev >= 0 && ev < n && ew >= 0) => {
+                                cand = du + ew
+                                ?(cand < dist[ev]) => {
+                                    dist[ev] = cand
+                                    i = hsz
+                                    hkey[i] = cand
+                                    hvad[i] = ev
+                                    hsz = hsz + 1
+                                    [...] >> ?(i > 0) => {
+                                        p = (i - 1) / 2
+                                        ?(hkey[i] < hkey[p]) => {
+                                            tk = hkey[i]
+                                            tv = hvad[i]
+                                            hkey[i] = hkey[p]
+                                            hvad[i] = hvad[p]
+                                            hkey[p] = tk
+                                            hvad[p] = tv
+                                            i = p
+                                        } | {
+                                            i = 0
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -40,7 +101,7 @@ INF = 1000000000
                 }
             }
 
-            answer = values[edge_end + t]
+            answer = dist[t]
         }
     }
 }
