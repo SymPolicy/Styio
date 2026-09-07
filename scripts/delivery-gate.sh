@@ -40,9 +40,10 @@ run_cmd() {
 
 commit_readiness_prompt() {
   log "commit readiness: read workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md before committing functional changes."
-  log "commit readiness prompt: Have upstream and downstream surfaces been verified against this changed feature, and does the expected behavior pass?"
-  log "commit readiness prompt: Are changed feature/module/workflow/skill/doc names free of version-style placeholders and named by the feature or transformation result?"
-  log "commit readiness prompt: If not, keep fixing. If verification is objectively unavailable, record blocker, owner, substitute evidence, and follow-up gate before commit."
+  log "commit readiness self-check: verify targeted feature behavior, upstream/downstream adaptation, and version-style naming against existing evidence."
+  log "commit readiness self-check: repair ordinary in-scope defects before final regression; a final regression failure requires the developer's repair and verification decision."
+  log "commit readiness self-check: record objective blockers and unverified acceptance; a blocker record does not make verification complete."
+  log "commit readiness self-check: this is the committer's evidence attestation, not a request for new user approval or permission to commit."
 }
 
 confirm_commit_readiness_if_needed() {
@@ -69,12 +70,12 @@ confirm_commit_readiness_if_needed() {
     if [[ "$answer" == "yes" ]]; then
       return 0
     fi
-    echo "[delivery-gate] commit readiness not confirmed; stop before commit." >&2
+    echo "[delivery-gate] commit readiness evidence not attested; complete the self-check before this commit." >&2
     exit 2
   fi
 
-  echo "[delivery-gate] commit readiness confirmation required but stdin is non-interactive." >&2
-  echo "[delivery-gate] Confirm this is not a functional change, or verify upstream/downstream behavior, check version-style naming, or record objective blockers, then rerun with STYIO_COMMIT_READINESS_CONFIRMED=1 only if true." >&2
+  echo "[delivery-gate] non-interactive commit requires the committer's evidence attestation." >&2
+  echo "[delivery-gate] After checking existing evidence or recording objective blockers, an agent may set STYIO_COMMIT_READINESS_CONFIRMED=1 for the already-authorized commit; do not request user approval merely to supply this attestation." >&2
   exit 2
 }
 

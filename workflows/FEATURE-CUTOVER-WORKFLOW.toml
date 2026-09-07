@@ -1,18 +1,19 @@
 id = "feature-cutover"
 title = "Feature Cutover Workflow"
 purpose = "Require functional changes to fully migrate to the new canonical behavior and remove old implementation paths before final testing."
-last_updated = "2026-06-28"
+last_updated = "2026-09-08"
 doc = "FEATURE-CUTOVER-WORKFLOW.md"
 skill = "skills/styio-feature-cutover/skill.toml"
 
 steps = [
-  "name the new canonical behavior and the old behavior it replaces",
+  "name the new canonical behavior and the old behavior explicitly superseded by the authorized change; exclude permanently retained independent assets",
   "inventory old implementation paths, callers, fixtures, docs, flags, adapters, and fallback routes",
   "migrate every in-scope caller and owner document to the new behavior",
-  "remove old implementation paths or record an explicit compatibility decision",
+  "remove superseded implementation paths and record only already-approved external compatibility outside that replacement",
   "rename replacement surfaces by the feature or transformation result instead of version-style names",
   "replace old acceptance tests with new canonical positives and adjacent negatives",
-  "run narrow feature tests before final delivery or checkpoint tests",
+  "prove removed paths with a one-time targeted search or script, not a permanent migration gate",
+  "run narrow feature tests and reuse their evidence before one final regression after source review and repairs finish",
   "run functional commit readiness before commit or handoff",
 ]
 

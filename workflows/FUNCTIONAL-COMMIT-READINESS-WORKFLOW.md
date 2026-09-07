@@ -2,7 +2,7 @@
 
 **Purpose:** Require every functional change to become a self-contained, verified commit unit with its upstream and downstream surfaces adapted before commit or handoff.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-09-08
 
 **TOML:** [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.toml](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.toml) is the machine-readable workflow definition.
 
@@ -28,11 +28,11 @@ Before committing or handing off a functional change, answer these questions:
 6. Does the expected user-visible or contract-visible effect pass on the current machine?
 7. Are feature, module, workflow, skill, and doc names free of version-style names and named by the feature or transformation result?
 
-If any answer is unknown, continue implementation or debugging before committing.
+Answer these from repository facts and existing evidence, not by asking the user to repeat verification. Resolve ordinary in-scope uncertainty before committing. When a genuine new decision is needed, complete the investigation and prepare the concrete proposal first, then pause only its dependent work. Existing explicit approval requirements remain effective.
 
 ## Verification Ladder
 
-Run the smallest useful checks first, then widen only as the touched surface requires:
+Run the smallest useful checks first, then widen only as the touched surface requires. One command may cover several steps; reuse unchanged passing evidence rather than rerunning it for each workflow:
 
 1. Targeted unit, fixture, script, CTest filter, or CLI smoke for the changed feature.
 2. Upstream producer or input-shape check that proves the new feature receives the expected data.
@@ -40,7 +40,9 @@ Run the smallest useful checks first, then widen only as the touched surface req
 4. Owner-team gate for the affected module.
 5. [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md) when behavior replaces, migrates, broadens, or retires an old route.
 6. `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit` before commit when changes are staged.
-7. `./scripts/delivery-gate.sh` or `./scripts/checkpoint-health.sh --no-asan --no-fuzz` for checkpoint-grade or cross-surface work.
+7. Select `./scripts/delivery-gate.sh` or `./scripts/checkpoint-health.sh --no-asan --no-fuzz` as the final complete regression when the delivery requires it, after source review, repairs, and focused checks finish. Do not run both for the same health evidence.
+
+Follow [../docs/specs/POST-COMMIT-CI-CHECKS.md](../docs/specs/POST-COMMIT-CI-CHECKS.md) for final-regression failures and post-push verification. A failed complete regression requires the developer's repair and verification decision, not an automatic repair or rerun loop.
 
 ## Objective Blockers
 
@@ -52,15 +54,17 @@ Unable-to-verify is acceptable only when it is objective and recorded. Examples:
 
 The record must include the skipped command or surface, the exact blocker, who or what can unblock it, the substitute evidence that was run, and the follow-up gate that must pass later.
 
-## Commit Prompt
+A record supports an honest partial handoff; it does not satisfy the missing acceptance condition or authorize release. Seek a necessary decision when the blocker is known, while continuing independent authorized work.
 
-Before a commit, the agent must stop and confirm:
+## Committer Self-Check
+
+Before an already-authorized commit, the committer checks the evidence:
 
 ```text
-Have upstream and downstream surfaces been verified against this changed feature, and does the expected behavior pass? If not, keep fixing. If it cannot be verified, record the objective blocker and owner before committing.
+Verify targeted feature behavior and upstream/downstream adaptation. Resolve ordinary in-scope defects before final regression. Record any objective blocker and the acceptance that remains unverified; a final-regression failure needs the developer's decision.
 ```
 
-The local pre-commit hook installed by [install-repo-hygiene-hooks.sh](../scripts/install-repo-hygiene-hooks.sh) asks for this confirmation in interactive terminals. Non-interactive gates print the same prompt and require the final report to state the evidence or blocker.
+The local pre-commit hook installed by [install-repo-hygiene-hooks.sh](../scripts/install-repo-hygiene-hooks.sh) requires a committer attestation. In an interactive terminal the committer answers the prompt. For an authorized non-interactive commit, an agent may set `STYIO_COMMIT_READINESS_CONFIRMED=1` on that invocation after completing the self-check from existing evidence. Prepare the attestation before invoking the hook; no preliminary failed attempt or extra user confirmation is required. Never set it without evidence or use it to bypass a separate approval requirement. All executable gates still run.
 
 ## Required Evidence
 

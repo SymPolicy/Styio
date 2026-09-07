@@ -6,7 +6,7 @@
 
 **Maintainers:** one table row per question; move resolved rows to section F.
 
-Automation that depends on a **BLOCKING** row in A–E should pause and surface the question ID.
+Inspect repository facts and prior decisions before adding a question. Empty rows are placeholders, not questions or blockers. Use **BLOCKING** only for a necessary, unresolved user decision or explicit approval that existing authority does not cover; identify the dependent action and the concrete proposal. Pause that action and surface the question ID while continuing independent authorized work. A recommendation or unanswered row never grants approval.
 
 ## A. Product and scope
 
