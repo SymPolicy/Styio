@@ -1,5 +1,5 @@
 /* CLRS merge sort: bottom-up merge using a cloned tmp buffer (`tmp << l`).
-   Eager `&&` does not short-circuit; loop guards keep indices in range.
+   Loop guards use short-circuit `&&`; indices stay in range before indexing.
    I/O: sorted list[i32] (same contract as the C++ bottom-up oracle). */
 l <- @stdin: list[i32]
 n = l.length
