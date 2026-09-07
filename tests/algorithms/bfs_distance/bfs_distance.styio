@@ -1,11 +1,9 @@
 /* CLRS BFS distance (s -> t) on a directed unweighted graph.
-   Input: [n, m, s, t, u1, v1, ..., um, vm, dist0..dist{n-1}]
-   Trailing n slots are Styio workspace for Bellman-Ford-style +1 relaxations
-   (same distances as BFS on unit weights). C++ oracle uses real BFS.
+   Input: [n, m, s, t, u1, v1, ..., um, vm] (optional trailing padding ignored).
+   Styio: textbook BFS with local dist[] + queue[] arrays (range-materialized).
    Output: distance, or -1 if unreachable. */
 values <- @stdin: list[i32]
 answer = -1
-INF = 1000000000
 
 ?(values.length >= 4) => {
     n = values[0]
@@ -13,36 +11,43 @@ INF = 1000000000
     s = values[2]
     t = values[3]
     edge_end = 4 + m + m
-    need = edge_end + n
 
     ?(n > 0 && s >= 0 && s < n && t >= 0 && t < n) => {
-        ?(values.length >= need) => {
+        ?(values.length >= edge_end) => {
+            dist := [0..n-1]
+            queue := [0..n-1]
             [0..n-1] >> #(i) => {
-                values[edge_end + i] = INF
+                dist[i] = 0 - 1
             }
-            values[edge_end + s] = 0
-
-            ?(n > 1) => {
-                [1..n-1] >> #(round) => {
+            dist[s] = 0
+            queue[0] = s
+            qh = 0
+            qt = 1
+            found = 0
+            [...] >> ?(qh < qt && found == 0) => {
+                u = queue[qh]
+                qh = qh + 1
+                ?(u == t) => {
+                    answer = dist[u]
+                    found = 1
+                } | {
                     [0..m-1] >> #(e) => {
-                        u = values[4 + e + e]
-                        v = values[5 + e + e]
-                        ?(u >= 0 && u < n && v >= 0 && v < n) => {
-                            du = values[edge_end + u]
-                            ?(du < INF) => {
-                                cand = du + 1
-                                ?(cand < values[edge_end + v]) => {
-                                    values[edge_end + v] = cand
+                        eu = values[4 + e + e]
+                        ev = values[5 + e + e]
+                        ?(eu == u) => {
+                            ?(ev >= 0 && ev < n) => {
+                                ?(dist[ev] < 0) => {
+                                    dist[ev] = dist[u] + 1
+                                    queue[qt] = ev
+                                    qt = qt + 1
                                 }
                             }
                         }
                     }
                 }
             }
-
-            dt = values[edge_end + t]
-            ?(dt < INF) => {
-                answer = dt
+            ?(found == 0) => {
+                answer = dist[t]
             }
         }
     }
