@@ -1,7 +1,7 @@
 id = "functional-commit-readiness"
 title = "Functional Commit Readiness Workflow"
 purpose = "Require functional changes to be self-contained, upstream/downstream verified, and ready as a revertible commit unit before commit or handoff."
-last_updated = "2026-06-28"
+last_updated = "2026-09-08"
 doc = "FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md"
 skill = "skills/styio-functional-commit-readiness/skill.toml"
 
@@ -12,7 +12,8 @@ steps = [
   "verify downstream callers, consumers, CLIs, services, tests, examples, and generated artifacts that depend on the feature",
   "run feature cutover when the work replaces, migrates, broadens, or retires old behavior",
   "confirm changed feature/module/workflow/skill/doc names use the feature or transformation result instead of version-style names",
-  "run staged delivery or checkpoint-grade gates according to scope",
+  "reuse unchanged focused evidence and run staged process gates according to scope",
+  "run one required complete regression only after source review, in-scope repairs, and focused verification finish",
   "record every objective unable-to-verify blocker with owner, skipped command, substitute evidence, and follow-up gate",
 ]
 
@@ -31,7 +32,9 @@ required_evidence = [
 commit_prompt = [
   "Have upstream and downstream surfaces been verified against this changed feature?",
   "Does the expected behavior pass?",
-  "If not, keep fixing before commit.",
+  "The committer answers from evidence; this self-check does not require a new user approval.",
+  "For an authorized non-interactive commit, set STYIO_COMMIT_READINESS_CONFIRMED=1 only after the self-check is true.",
+  "Repair ordinary in-scope defects before final regression; complete-regression failures require the developer's repair and verification decision.",
   "If verification is objectively unavailable, record blocker, owner, substitute evidence, and follow-up gate before commit.",
 ]
 
@@ -41,7 +44,7 @@ gates = [
   "run the targeted feature command",
   "run the upstream/downstream integration or owner-team command",
   "run ./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit before commit when changes are staged",
-  "run ./scripts/delivery-gate.sh or ./scripts/checkpoint-health.sh --no-asan --no-fuzz for checkpoint-grade or cross-surface work",
+  "select ./scripts/delivery-gate.sh or ./scripts/checkpoint-health.sh --no-asan --no-fuzz for the required final regression, not both for the same evidence",
 ]
 
 [failure_policy]

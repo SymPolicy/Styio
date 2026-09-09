@@ -2,7 +2,7 @@
 
 **Purpose:** 约束 Styio 仓库的本地清理、`.gitignore`、提交前检查、push 前检查、历史重写与 `force-push` 边界；不定义语言语义与功能重构步骤（见 `CHECKPOINT-WORKFLOW.md` / `../docs/assets/templates/REFACTOR-WORKFLOW-TEMPLATE.md`）。
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-08
 
 ---
 
@@ -275,7 +275,7 @@ fix: <行为修复>
 
 安装后：
 
-1. `pre-commit` 会带 `STYIO_COMMIT_READINESS_REQUIRE=1` 调用 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`，检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任，并在交互终端要求确认本次不是功能改动，或功能验证、upstream/downstream 调试与 version-style naming check 已经完成；非交互提交只有在确认属实后才能显式使用 `STYIO_COMMIT_READINESS_CONFIRMED=1` 重跑。
+1. `pre-commit` 会带 `STYIO_COMMIT_READINESS_REQUIRE=1` 调用 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`，检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。提交者依据已有证据自检本次不是功能改动，或功能验证、upstream/downstream 调试与 version-style naming check 已完成，或客观阻塞已记录。已获提交授权的智能体可以在首次非交互调用前完成自检，并仅对该次调用设置 `STYIO_COMMIT_READINESS_CONFIRMED=1`；无需先失败重跑，也无需为自检另请用户确认。该声明不替代明确批准、可执行门禁或仍未完成的验收。
 2. `pre-push` 会通过 `./scripts/delivery-gate.sh --mode push --skip-health` 检查待推送历史里的禁止路径、大 blob、docs/runbook 分支责任和 external audit。
 3. GitHub Actions `repo-hygiene` 会在所有 `push` 与 `pull_request` 上快速检查 tracked tree 与 incoming history range。
 4. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上通过 workflow scheduler 重复执行完整交付门禁。

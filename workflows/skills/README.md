@@ -2,7 +2,7 @@
 
 **Purpose:** Store repo-local skills used by root-level workflows.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-09-08
 
 ## Scope
 
@@ -10,7 +10,7 @@
 2. UI-facing agent metadata uses TOML, for example `agents/openai.toml`.
 3. Skills stay concise and point to workflow docs or references for details.
 4. Root workflows define sequencing; skills define reusable execution discipline.
-5. Functional-change skills must preserve cutover and commit-readiness prompts before final tests, handoff, or commit.
+5. Functional-change skills use the cutover and commit-readiness self-checks before final tests, handoff, or commit. These are evidence checks performed by the agent; separate approval requirements remain effective. Reuse evidence across skills and run the required complete regression only after all source review, repairs, and focused checks finish.
 6. Skills must never contain developer-machine paths, server-machine paths, private endpoints, account names, or deployment roots; use placeholders such as `<workspace-root>`, `<user-home>`, `<server-host>`, or environment variables.
 
 ## Inventory
