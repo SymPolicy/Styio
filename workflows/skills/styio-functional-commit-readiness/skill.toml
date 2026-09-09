@@ -2,7 +2,7 @@
 name = "styio-functional-commit-readiness"
 display_name = "Styio Functional Commit Readiness"
 description = "Use after implementing, refactoring, optimizing, or migrating a Styio feature and before commit, branch handoff, final validation, or delivery-gate evidence so the feature is a self-contained commit unit with targeted validation, upstream/downstream adaptation, cutover status, and objective unable-to-verify records."
-last_updated = "2026-06-28"
+last_updated = "2026-09-08"
 
 workflow = [
   "state the single feature unit this commit delivers",
@@ -12,7 +12,9 @@ workflow = [
   "debug downstream callers and consumers against the changed behavior",
   "run feature cutover if the work replaces, migrates, broadens, or retires old behavior",
   "confirm changed feature, module, workflow, skill, and doc names use the feature or transformation result instead of version-style names",
-  "run staged delivery or checkpoint-grade gates according to scope",
+  "reuse unchanged focused evidence and run staged process gates according to scope",
+  "run the required complete regression once after source review, in-scope repairs, and focused verification finish",
+  "complete the committer self-check from evidence and prepare STYIO_COMMIT_READINESS_CONFIRMED=1 for an already-authorized non-interactive commit only when true",
   "record objective unable-to-verify blockers before handoff or commit",
 ]
 
@@ -23,6 +25,9 @@ constraints = [
   "do not commit version-style names such as v2, version, new, old, legacy, or latest for the changed feature unit",
   "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
   "do not mix a committable feature unit with unrelated half-finished work",
+  "do not ask the user to repeat an approval or verify discoverable facts for the committer self-check; preserve separate explicit approval requirements",
+  "do not automatically repair or rerun after a complete-regression failure; submit a concrete repair and verification proposal for the developer's decision",
+  "do not call a delivery complete while required acceptance remains unverified; continue independent authorized work while a necessary decision is pending",
 ]
 
 completion_report = [
