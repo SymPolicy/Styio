@@ -1,0 +1,36 @@
+id = "performance-research"
+title = "Performance Research Workflow"
+purpose = "Sequence separate Benchmark and Modification tasks through reported research findings, bounded implementation, and independent performance evaluation."
+last_updated = "2026-09-08"
+doc = "PERFORMANCE-RESEARCH-WORKFLOW.md"
+skill = "skills/styio-performance-research/skill.toml"
+
+steps = [
+  "assign separate Benchmark and Modification task owners; select single or continuous mode independently of the role",
+  "Benchmark recovers evidence, establishes correctness and baseline, profiles, and publishes a bounded handoff",
+  "Modification implements one authorized candidate and returns source identity, review, and focused correctness results",
+  "Benchmark independently evaluates stable baseline and candidate inputs, saves samples, and reports the verdict before another round",
+  "Modification acts on the verdict and completes one required final complete regression at the delivery boundary",
+  "link both role handoffs and report the outcome; continuous mode resumes the next actionable item within existing authorization",
+]
+
+required_evidence = [
+  "scenario, authority, accepted semantic boundary, run mode, and separate Benchmark/Modification task owners",
+  "baseline and candidate identities, workload parameters, route, and cache state",
+  "reported baseline finding and bounded implementation or instrumentation handoff",
+  "correctness, saved raw samples, absolute costs, uncertainty, mechanism, and minimized reproducer",
+  "source attribution and relevant maintained open-source comparison",
+  "Benchmark performance verdict and tradeoffs, including negative or inconclusive results",
+  "focused verification, required final regression status, and pending decisions",
+  "next evidence-backed question and smallest discriminating experiment, or checkpoint dependency and resume condition",
+]
+
+maintenance_gates = [
+  "python3 scripts/workflow-scheduler.py check",
+  "python3 tests/workflow_scheduler_test.py",
+  "python3 scripts/tool-skill-registry-gate.py",
+  "python3 scripts/docs-index.py --check",
+  "python3 scripts/docs-audit.py",
+  "python3 scripts/local-info-leak-gate.py --mode worktree",
+  "git diff --check",
+]

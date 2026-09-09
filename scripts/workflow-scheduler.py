@@ -231,6 +231,12 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "Documentation metadata, generated indexes, and archive lifecycle.",
     ),
     WorkflowDoc(
+        "performance-research",
+        "workflows/PERFORMANCE-RESEARCH-WORKFLOW.md",
+        25,
+        "Separate Benchmark research, Modification implementation, and independent performance evaluation.",
+    ),
+    WorkflowDoc(
         "docs-gate",
         "workflows/DOCS-GATE.md",
         35,

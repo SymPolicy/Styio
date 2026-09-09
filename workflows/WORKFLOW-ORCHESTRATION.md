@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-08
 
 ## Separation Rules
 
@@ -37,6 +37,7 @@ Current registered table:
 | Workflow | `add-resource-identifier` | 25 | docs | Resource identifier syntax, capability, lifecycle, and fail-closed rollout. | `workflows/ADD-RESOURCE-IDENTIFIER.md` |
 | Workflow | `add-syntax-with-skills` | 25 | docs | Ordered syntax-change chain from language SSOT through runtime registration. | `workflows/ADD-SYNTAX-WITH-SKILLS.md` |
 | Workflow | `correct-syntax-contract` | 25 | docs | Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates. | `workflows/CORRECT-SYNTAX-CONTRACT.md` |
+| Workflow | `performance-research` | 25 | docs | Separate Benchmark research, Modification implementation, and independent performance evaluation. | `workflows/PERFORMANCE-RESEARCH-WORKFLOW.md` |
 | Workflow | `promote-nightly-parser-subset` | 25 | docs | Authoritative nightly parser coverage with no accepted-grammar fallback. | `workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md` |
 | Workflow | `docs-maintenance` | 30 | docs | Documentation metadata, generated indexes, and archive lifecycle. | `workflows/DOCS-MAINTENANCE-WORKFLOW.md` |
 | Workflow | `team-runbook-maintenance` | 30 | docs | Team runbook ownership and update requirements for touched surfaces. | `workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` |
