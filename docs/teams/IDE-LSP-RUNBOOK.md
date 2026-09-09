@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-10
 
 ## Mission
 
@@ -47,6 +47,8 @@ Build and test targets:
 20. Watched-file refreshes must accept only concrete closed `.styio` paths inside the selected workspace, coalesce duplicates, treat an empty change list as a no-op, and preserve an empty background-index tombstone for deleted files so stale persistent symbols cannot reappear.
 21. Keep edit snapshots immutable and cheap to copy. `TextBuffer` copies share read-only text plus line-index storage until `reset` installs a fresh snapshot; `SyntaxParser` retains that buffer in its incremental cache instead of duplicating the source string. Tolerant tokenization must construct final ranged `SyntaxToken` values directly rather than allocating a second whole-file token representation. Preserve byte ranges, diagnostics, Tree-sitter reuse, and full/incremental token equivalence while keeping `StyioIdePerf.EnforcesFrozenLatencyBudgets` green.
 22. Resource-topology failures remain compiler-owned Sema diagnostics. The IDE semantic bridge must forward the unchanged `sema-resource-topology` message under the existing type phase, without exposing AST pointers, machine paths, or a separate IDE topology analyzer.
+
+23. Persistent IDE index writes are best-effort. Cache directory creation and `symbols.json` opening must use non-throwing filesystem/error checks so a missing, read-only, or invalid cache path cannot terminate `styio_lspd`; an unavailable cache only disables persistence while in-memory IDE queries continue. Keep `styio_lspd_stdio_framing` running with an invalid `XDG_CACHE_HOME` parent so the initialize response proves this boundary.
 
 ## Change Classes
 
