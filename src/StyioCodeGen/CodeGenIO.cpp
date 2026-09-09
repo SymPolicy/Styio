@@ -454,6 +454,8 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
     exit_bb,
     hdr,
     file_handle_scope_stack_.size(),
+    nullptr,
+    list_mutation_epoch_,
   });
   node->body->toLLVMIR(this);
 
@@ -638,6 +640,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
+  auto saved_i64_list_views = i64_list_view_cache_;
+  auto saved_list_mutation_epoch = list_mutation_epoch_;
   auto saved_file_scopes = file_handle_scope_stack_;
   auto saved_cstr_scopes = cstr_slot_scope_stack_;
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
@@ -656,6 +660,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   bounded_ring_cstr_scope_stack_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
+  i64_list_view_cache_.clear();
+  list_mutation_epoch_ = saved_list_mutation_epoch;
   file_handle_scope_stack_.clear();
   cstr_slot_scope_stack_.clear();
   dynamic_slot_scope_stack_.clear();
@@ -741,6 +747,8 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
+  i64_list_view_cache_ = std::move(saved_i64_list_views);
+  list_mutation_epoch_ = saved_list_mutation_epoch;
   file_handle_scope_stack_ = std::move(saved_file_scopes);
   cstr_slot_scope_stack_ = std::move(saved_cstr_scopes);
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
