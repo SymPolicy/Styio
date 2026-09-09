@@ -37,6 +37,7 @@
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/Orc/Shared/ExecutorSymbolDef.h"
 #include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -2558,6 +2559,9 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
       release_dynamic_slot_contents(variable);
     }
     store_dynamic_slot(variable, payload.tag, payload.i64v, payload.f64v, payload.ptrv);
+    if (payload.tag == styio_dynamic_tag_value(StyioDynamicTag::List)) {
+      note_i64_list_mutation();
+    }
     forget_dynamic_slot_payload_ownership(next_value, payload.tag);
     return variable;
   }
@@ -2605,6 +2609,9 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
              != StyioDataTypeOption::Func);
 
   theBuilder->CreateStore(next_value, variable);
+  if (styio_is_list_type(node->var->var_type->data_type)) {
+    note_i64_list_mutation();
+  }
   if (is_string_slot) {
     if (!is_existing_slot) {
       register_cstr_slot_for_raii(variable);
@@ -2968,6 +2975,210 @@ StyioToLLVM::emit_runtime_error_guard_return_after_cleanup() {
   theBuilder->SetInsertPoint(cont_bb);
 }
 
+llvm::FunctionCallee
+StyioToLLVM::readonly_runtime_fn(const char* name, llvm::FunctionType* type) {
+  llvm::FunctionCallee callee = theModule->getOrInsertFunction(name, type);
+  if (auto* fn = llvm::dyn_cast<llvm::Function>(callee.getCallee())) {
+    fn->setDoesNotThrow();
+    fn->setWillReturn();
+    fn->setOnlyReadsMemory();
+    fn->addFnAttr(llvm::Attribute::NoCallback);
+  }
+  return callee;
+}
+
+void
+StyioToLLVM::emit_fill_i64_list_view(llvm::IRBuilder<>& builder, I64ListViewSlots& slots) {
+  llvm::Type* i64t = builder.getInt64Ty();
+  llvm::Type* ptr_ty = llvm::PointerType::get(*theContext, 0);
+  llvm::Value* handle = slots.ssa_handle;
+  if (slots.handle_slot != nullptr) {
+    if (slots.dyncell_i64_field >= 0) {
+      llvm::Value* zero32 = builder.getInt32(0);
+      llvm::Value* field = builder.getInt32(slots.dyncell_i64_field);
+      llvm::Value* gep = builder.CreateInBoundsGEP(
+        dynamic_cell_type(),
+        slots.handle_slot,
+        {zero32, field});
+      handle = builder.CreateLoad(i64t, gep);
+    }
+    else {
+      handle = builder.CreateLoad(i64t, slots.handle_slot);
+    }
+  }
+  if (handle == nullptr) {
+    builder.CreateStore(llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(ptr_ty)), slots.data_slot);
+    builder.CreateStore(llvm::ConstantInt::get(i64t, 0), slots.len_slot);
+    return;
+  }
+  if (!handle->getType()->isIntegerTy(64)) {
+    handle = builder.CreateSExtOrTrunc(handle, i64t);
+  }
+  llvm::FunctionCallee data_fn = readonly_runtime_fn(
+    "styio_list_i64_data",
+    llvm::FunctionType::get(ptr_ty, {i64t}, false));
+  llvm::FunctionCallee len_fn = readonly_runtime_fn(
+    "styio_list_i64_len",
+    llvm::FunctionType::get(i64t, {i64t}, false));
+  builder.CreateStore(builder.CreateCall(data_fn, {handle}), slots.data_slot);
+  builder.CreateStore(builder.CreateCall(len_fn, {handle}), slots.len_slot);
+}
+
+void
+StyioToLLVM::note_i64_list_mutation(llvm::Value* mutated_handle) {
+  ++list_mutation_epoch_;
+  if (i64_list_view_cache_.empty()) {
+    return;
+  }
+
+  llvm::BasicBlock* current = theBuilder->GetInsertBlock();
+  if (current == nullptr || current->getTerminator() != nullptr) {
+    return;
+  }
+
+  for (auto& entry : i64_list_view_cache_) {
+    I64ListViewSlots& slots = entry.second;
+    if (slots.data_slot == nullptr) {
+      continue;
+    }
+    // A mutable handle slot is valid at every point in the function. An SSA
+    // view is refreshed only when the mutator receives that exact value; this
+    // avoids introducing a use before its defining branch for unrelated views.
+    if (slots.handle_slot == nullptr && slots.ssa_handle != mutated_handle) {
+      continue;
+    }
+    emit_fill_i64_list_view(*theBuilder, slots);
+  }
+}
+
+llvm::Value*
+StyioToLLVM::emit_i64_list_get(llvm::Value* list, llvm::Value* idx) {
+  llvm::Type* i64t = theBuilder->getInt64Ty();
+  llvm::Type* ptr_ty = llvm::PointerType::get(*theContext, 0);
+  if (!list->getType()->isIntegerTy(64)) {
+    list = theBuilder->CreateSExtOrTrunc(list, i64t);
+  }
+  if (!idx->getType()->isIntegerTy(64)) {
+    idx = theBuilder->CreateSExtOrTrunc(idx, i64t);
+  }
+
+  llvm::Value* cache_key = list;
+  llvm::AllocaInst* handle_slot = nullptr;
+  int dyncell_field = -1;
+  llvm::Value* ssa_handle = list;
+  if (auto* load = llvm::dyn_cast<llvm::LoadInst>(list)) {
+    llvm::Value* ptr = load->getPointerOperand();
+    if (auto* slot = llvm::dyn_cast<llvm::AllocaInst>(ptr)) {
+      cache_key = slot;
+      handle_slot = slot;
+      ssa_handle = nullptr;
+    }
+    else if (auto* gep = llvm::dyn_cast<llvm::GetElementPtrInst>(ptr)) {
+      if (auto* slot = llvm::dyn_cast<llvm::AllocaInst>(gep->getPointerOperand())) {
+        cache_key = slot;
+        handle_slot = slot;
+        ssa_handle = nullptr;
+        if (gep->getNumOperands() >= 3) {
+          if (auto* field = llvm::dyn_cast<llvm::ConstantInt>(gep->getOperand(2))) {
+            dyncell_field = static_cast<int>(field->getSExtValue());
+          }
+        }
+      }
+    }
+  }
+
+  auto& slots = i64_list_view_cache_[cache_key];
+  if (slots.data_slot == nullptr) {
+    slots.data_slot = create_entry_alloca(ptr_ty, "i64.list.data");
+    slots.len_slot = create_entry_alloca(i64t, "i64.list.len");
+    slots.handle_slot = handle_slot;
+    slots.dyncell_i64_field = dyncell_field;
+    slots.ssa_handle = ssa_handle;
+  }
+
+  llvm::BasicBlock* preheader = nullptr;
+  llvm::Instruction* fill_before = nullptr;
+  if (!loop_stack_.empty() && loop_stack_.back().preheader != nullptr) {
+    preheader = loop_stack_.back().preheader;
+    fill_before = preheader->getTerminator();
+  }
+
+  bool ssa_ok = true;
+  if (slots.handle_slot == nullptr && slots.ssa_handle != nullptr) {
+    if (auto* inst = llvm::dyn_cast<llvm::Instruction>(slots.ssa_handle)) {
+      if (fill_before == nullptr) {
+        ssa_ok = true;
+      }
+      else if (inst->getParent() == preheader) {
+        ssa_ok = inst->comesBefore(fill_before);
+      }
+      else if (inst->getParent() == &preheader->getParent()->getEntryBlock()) {
+        ssa_ok = true;
+      }
+      else {
+        ssa_ok = false;
+      }
+    }
+  }
+
+  const bool mutation_before_get =
+    !loop_stack_.empty()
+    && loop_stack_.back().list_mutation_epoch != list_mutation_epoch_;
+  if (fill_before != nullptr && ssa_ok && !mutation_before_get) {
+    if (slots.filled_preheaders.insert(preheader).second) {
+      llvm::IRBuilder<> pb(fill_before);
+      emit_fill_i64_list_view(pb, slots);
+    }
+  }
+  else {
+    emit_fill_i64_list_view(*theBuilder, slots);
+  }
+
+  llvm::Value* data = theBuilder->CreateLoad(ptr_ty, slots.data_slot);
+  llvm::Value* len = theBuilder->CreateLoad(i64t, slots.len_slot);
+  llvm::FunctionCallee get_fn = theModule->getOrInsertFunction(
+    "styio_list_get",
+    llvm::FunctionType::get(i64t, {i64t, i64t}, false));
+
+  llvm::Value* data_ok = theBuilder->CreateICmpNE(
+    data,
+    llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(ptr_ty)));
+  llvm::Value* idx_ge0 =
+    theBuilder->CreateICmpSGE(idx, llvm::ConstantInt::get(i64t, 0));
+  llvm::Value* idx_lt = theBuilder->CreateICmpSLT(idx, len);
+  llvm::Value* in_range =
+    theBuilder->CreateAnd(theBuilder->CreateAnd(data_ok, idx_ge0), idx_lt);
+
+  llvm::Function* fn = theBuilder->GetInsertBlock()->getParent();
+  llvm::BasicBlock* fast_bb =
+    llvm::BasicBlock::Create(*theContext, "list_i64_get_fast", fn);
+  llvm::BasicBlock* slow_bb =
+    llvm::BasicBlock::Create(*theContext, "list_i64_get_slow", fn);
+  llvm::BasicBlock* merge_bb =
+    llvm::BasicBlock::Create(*theContext, "list_i64_get_merge", fn);
+  theBuilder->CreateCondBr(in_range, fast_bb, slow_bb);
+
+  theBuilder->SetInsertPoint(fast_bb);
+  llvm::Value* elem_ptr = theBuilder->CreateInBoundsGEP(i64t, data, idx);
+  llvm::Value* fast_val = theBuilder->CreateLoad(i64t, elem_ptr);
+  llvm::BasicBlock* fast_end = theBuilder->GetInsertBlock();
+  theBuilder->CreateBr(merge_bb);
+
+  theBuilder->SetInsertPoint(slow_bb);
+  llvm::Value* slow_val = theBuilder->CreateCall(get_fn, {list, idx});
+  if (resource_effect_operation_depth_ == 0) {
+    emit_runtime_error_guard_return();
+  }
+  llvm::BasicBlock* slow_end = theBuilder->GetInsertBlock();
+  theBuilder->CreateBr(merge_bb);
+
+  theBuilder->SetInsertPoint(merge_bb);
+  llvm::PHINode* phi = theBuilder->CreatePHI(i64t, 2, "list_i64_get");
+  phi->addIncoming(fast_val, fast_end);
+  phi->addIncoming(slow_val, slow_end);
+  return phi;
+}
+
 void
 StyioToLLVM::emit_runtime_error_guard_return() {
   llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
@@ -3057,6 +3268,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
+  auto saved_i64_list_views = i64_list_view_cache_;
+  auto saved_list_mutation_epoch = list_mutation_epoch_;
   auto saved_file_scopes = file_handle_scope_stack_;
   auto saved_cstr_scopes = cstr_slot_scope_stack_;
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
@@ -3075,6 +3288,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_cstr_scope_stack_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
+  i64_list_view_cache_.clear();
+  list_mutation_epoch_ = saved_list_mutation_epoch;
   file_handle_scope_stack_.clear();
   cstr_slot_scope_stack_.clear();
   dynamic_slot_scope_stack_.clear();
@@ -3146,6 +3361,8 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
+  i64_list_view_cache_ = std::move(saved_i64_list_views);
+  list_mutation_epoch_ = saved_list_mutation_epoch;
   file_handle_scope_stack_ = std::move(saved_file_scopes);
   cstr_slot_scope_stack_ = std::move(saved_cstr_scopes);
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
@@ -3336,6 +3553,7 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
       list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
     }
     theBuilder->CreateCall(pop_fn, {list});
+    note_i64_list_mutation(list);
     return theBuilder->getInt64(0);
   }
 
@@ -3500,6 +3718,7 @@ StyioToLLVM::toLLVMIR(SGCall* node) {
     else {
       theBuilder->CreateCall(list_fn, {list, value});
     }
+    note_i64_list_mutation(list);
     if (value_family == StyioValueFamily::String) {
       free_owned_cstr_temp_if_tracked(value_raw);
     }
@@ -4032,8 +4251,9 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
   llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "styloop_body", F);
 
   if (node->tag == SGLoopTag::Infinite) {
+    llvm::BasicBlock* preheader = theBuilder->GetInsertBlock();
     theBuilder->CreateBr(body_bb);
-    loop_stack_.push_back(LoopFrame{exit_bb, body_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, body_bb, file_handle_scope_stack_.size(), preheader, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     node->body->toLLVMIR(this);
     emit_bounded_ring_pending_commits();
@@ -4047,6 +4267,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
   }
 
   llvm::BasicBlock* cond_bb = llvm::BasicBlock::Create(*theContext, "styloop_cond", F);
+  llvm::BasicBlock* while_preheader = theBuilder->GetInsertBlock();
   theBuilder->CreateBr(cond_bb);
   theBuilder->SetInsertPoint(cond_bb);
   llvm::Value* cv = node->cond->toLLVMIR(this);
@@ -4057,7 +4278,7 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
       llvm::ConstantInt::get(llvm::cast<llvm::IntegerType>(cv->getType()), 0));
   }
   theBuilder->CreateCondBr(c, body_bb, exit_bb);
-  loop_stack_.push_back(LoopFrame{exit_bb, cond_bb, file_handle_scope_stack_.size()});
+  loop_stack_.push_back(LoopFrame{exit_bb, cond_bb, file_handle_scope_stack_.size(), while_preheader, list_mutation_epoch_});
   theBuilder->SetInsertPoint(body_bb);
   node->body->toLLVMIR(this);
   emit_bounded_ring_pending_commits();
@@ -4167,6 +4388,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
 
     llvm::AllocaInst* idx_slot = create_entry_alloca(i64t, "fe_idx");
     theBuilder->CreateStore(zero, idx_slot);
+    llvm::BasicBlock* fe_lit_preheader = theBuilder->GetInsertBlock();
     theBuilder->CreateBr(hdr_bb);
 
     theBuilder->SetInsertPoint(hdr_bb);
@@ -4175,7 +4397,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
     llvm::Value* go = theBuilder->CreateICmpSLT(idxv, n);
     theBuilder->CreateCondBr(go, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), fe_lit_preheader, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
     llvm::Value* z32 = theBuilder->getInt32(0);
@@ -4270,6 +4492,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   llvm::BasicBlock* hdr_bb = llvm::BasicBlock::Create(*theContext, "foreach_rt_hdr", F);
   llvm::BasicBlock* body_bb = llvm::BasicBlock::Create(*theContext, "foreach_rt_body", F);
   llvm::BasicBlock* step_bb = llvm::BasicBlock::Create(*theContext, "foreach_rt_step", F);
+  llvm::BasicBlock* fe_rt_preheader = theBuilder->GetInsertBlock();
   theBuilder->CreateBr(hdr_bb);
 
   theBuilder->SetInsertPoint(hdr_bb);
@@ -4279,7 +4502,7 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
   llvm::Value* go = theBuilder->CreateICmpSLT(idxv, len);
   theBuilder->CreateCondBr(go, body_bb, exit_bb);
 
-  loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+  loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), fe_rt_preheader, list_mutation_epoch_});
   theBuilder->SetInsertPoint(body_bb);
   llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
   llvm::Value* cur_list = theBuilder->CreateLoad(i64t, list_slot);
@@ -4357,6 +4580,7 @@ StyioToLLVM::toLLVMIR(SGRangeFor* node) {
   }
 
   llvm::AllocaInst* idx_slot = create_entry_alloca(i64t, node->var + ".idx");
+  llvm::BasicBlock* range_preheader = theBuilder->GetInsertBlock();
   theBuilder->CreateStore(start, idx_slot);
   theBuilder->CreateBr(hdr_bb);
 
@@ -4370,7 +4594,7 @@ StyioToLLVM::toLLVMIR(SGRangeFor* node) {
   llvm::Value* go = theBuilder->CreateSelect(is_zero, llvm::ConstantInt::getFalse(*theContext), go_non_zero);
   theBuilder->CreateCondBr(go, body_bb, exit_bb);
 
-  loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+  loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), range_preheader, list_mutation_epoch_});
 
   theBuilder->SetInsertPoint(body_bb);
   llvm::AllocaInst* vs = create_entry_alloca(i64t, node->var);
@@ -5496,6 +5720,8 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     exit_bb,
     hdr,
     file_handle_scope_stack_.size(),
+    nullptr,
+    list_mutation_epoch_,
   });
   node->body->toLLVMIR(this);
 
@@ -5701,6 +5927,18 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
   const bool list_elem = elem_family == StyioValueFamily::ListHandle;
   const bool dict_elem = elem_family == StyioValueFamily::DictHandle;
   const bool matrix_elem = elem_family == StyioValueFamily::MatrixHandle;
+  llvm::Value* list = node->list->toLLVMIR(this);
+  llvm::Value* idx = node->index->toLLVMIR(this);
+  if (!list->getType()->isIntegerTy(64)) {
+    list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
+  }
+  if (!idx->getType()->isIntegerTy(64)) {
+    idx = theBuilder->CreateSExtOrTrunc(idx, theBuilder->getInt64Ty());
+  }
+  if (!string_elem && !float_elem && !bool_elem && !char_elem
+      && !list_elem && !dict_elem && !matrix_elem) {
+    return emit_i64_list_get(list, idx);
+  }
   llvm::Type* result_type = string_elem
     ? static_cast<llvm::Type*>(llvm::PointerType::get(*theContext, 0))
     : (float_elem
@@ -5721,19 +5959,11 @@ StyioToLLVM::toLLVMIR(SCListGet* node) {
                       ? "styio_list_get_list"
                       : (dict_elem
                           ? "styio_list_get_dict"
-                          : (matrix_elem ? "styio_list_get_matrix" : "styio_list_get")))))),
+                          : "styio_list_get_matrix"))))),
     llvm::FunctionType::get(
       result_type,
       {theBuilder->getInt64Ty(), theBuilder->getInt64Ty()},
       false));
-  llvm::Value* list = node->list->toLLVMIR(this);
-  llvm::Value* idx = node->index->toLLVMIR(this);
-  if (!list->getType()->isIntegerTy(64)) {
-    list = theBuilder->CreateSExtOrTrunc(list, theBuilder->getInt64Ty());
-  }
-  if (!idx->getType()->isIntegerTy(64)) {
-    idx = theBuilder->CreateSExtOrTrunc(idx, theBuilder->getInt64Ty());
-  }
   llvm::Value* out = theBuilder->CreateCall(get_fn, {list, idx});
   if (resource_effect_operation_depth_ == 0) {
     emit_runtime_error_guard_return();
@@ -5850,6 +6080,7 @@ StyioToLLVM::toLLVMIR(SCListSet* node) {
     theBuilder.get(),
     "list set");
   theBuilder->CreateCall(set_fn, {list, idx, value});
+  note_i64_list_mutation(list);
   if (value_family == StyioValueFamily::String) {
     free_owned_cstr_temp_if_tracked(value_raw);
   }
@@ -6440,7 +6671,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* ok_b = theBuilder->CreateICmpSLT(idxv, len_b);
     theBuilder->CreateCondBr(theBuilder->CreateAnd(ok_a, ok_b), body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), nullptr, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -6575,7 +6806,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* got_line = theBuilder->CreateICmpNE(line, null_line);
     theBuilder->CreateCondBr(got_line, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), nullptr, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -6742,7 +6973,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     theBuilder->CreateCondBr(
       theBuilder->CreateAnd(ready_a, ready_b), body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), nullptr, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -6861,7 +7092,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* got = theBuilder->CreateICmpNE(ln, null_ln);
     theBuilder->CreateCondBr(got, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), nullptr, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -6980,7 +7211,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* got = theBuilder->CreateICmpNE(ln, null_ln);
     theBuilder->CreateCondBr(got, body_bb, exit_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, step_bb, file_handle_scope_stack_.size(), nullptr, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* idx = theBuilder->CreateLoad(i64t, idx_slot);
@@ -7098,7 +7329,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     llvm::Value* stop = theBuilder->CreateOr(da, db);
     theBuilder->CreateCondBr(stop, exit_bb, body_bb);
 
-    loop_stack_.push_back(LoopFrame{exit_bb, hdr_bb, file_handle_scope_stack_.size()});
+    loop_stack_.push_back(LoopFrame{exit_bb, hdr_bb, file_handle_scope_stack_.size(), nullptr, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
     emit_snapshot_shadow_reload();
     llvm::Value* val_a = la;

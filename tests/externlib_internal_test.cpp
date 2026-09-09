@@ -302,6 +302,28 @@ TEST(StyioExternLibInternal, RuntimeRepresentationCloneAndConfigHelpersStayExpli
   delete invalid_dict;
 }
 
+TEST(StyioExternLibInternal, I64ListDataProbeDoesNotDiagnoseAndTracksStorage) {
+  styio_runtime_clear_error();
+  EXPECT_EQ(styio_list_i64_data(0), nullptr);
+  EXPECT_EQ(styio_list_i64_len(0), 0);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+
+  int64_t ints = styio_list_new_i64();
+  styio_list_push_i64(ints, 7);
+  styio_list_push_i64(ints, 9);
+  EXPECT_EQ(styio_list_i64_len(ints), 2);
+  const int64_t* data = styio_list_i64_data(ints);
+  ASSERT_NE(data, nullptr);
+  EXPECT_EQ(data[0], 7);
+  EXPECT_EQ(data[1], 9);
+  styio_list_push_i64(ints, 11);
+  EXPECT_EQ(styio_list_i64_len(ints), 3);
+  data = styio_list_i64_data(ints);
+  ASSERT_NE(data, nullptr);
+  EXPECT_EQ(data[2], 11);
+  styio_list_release(ints);
+}
+
 TEST(StyioExternLibInternal, ListCloneSliceAndEmptyMutationEdgesStayExplicit) {
   list_insert_value(static_cast<StyioListI64*>(nullptr), 0, int64_t{1});
   list_set_value(static_cast<StyioListI64*>(nullptr), 0, int64_t{1});

@@ -3567,6 +3567,24 @@ styio_tuple_active_count() {
   return g_active_tuple_handles;
 }
 
+extern "C" DLLEXPORT const int64_t*
+styio_list_i64_data(int64_t h) {
+  StyioListI64* list = as_list_i64(h, false);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  return list->elems.data();
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_i64_len(int64_t h) {
+  StyioListI64* list = as_list_i64(h, false);
+  if (list == nullptr) {
+    return 0;
+  }
+  return static_cast<int64_t>(list->elems.size());
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_len(int64_t h) {
   StyioListBase* list = as_list_base(h, true);
