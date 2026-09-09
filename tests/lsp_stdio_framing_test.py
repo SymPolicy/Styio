@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import queue
 import subprocess
 import sys
@@ -104,6 +105,10 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="styio-lspd-framing-") as workspace:
         workspace_path = Path(workspace)
+        unavailable_cache_parent = workspace_path / "cache-parent"
+        unavailable_cache_parent.write_text("occupied", encoding="utf-8")
+        environment = os.environ.copy()
+        environment["XDG_CACHE_HOME"] = str(unavailable_cache_parent)
         request = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -124,6 +129,7 @@ def main() -> int:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=environment,
         )
         assert process.stdin is not None
         assert process.stdout is not None
