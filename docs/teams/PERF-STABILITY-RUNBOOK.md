@@ -2,13 +2,15 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-08
 
 ## Mission
 
 Own the compiler-side profiler and the explicit integration seam used by `styio-benchmark`. All performance workloads, probe implementations, runners, reports, baselines, and cross-runtime comparisons live in `styio-benchmark`; this repository retains compiler correctness tests and `benchmark/CMakeLists.txt` only. It does not accept behavior changes without the implementation and Test Quality owners.
 
 Relative `STYIO_BENCHMARK_ROOT` values are resolved from the Styio source directory so the same explicit command works from either the compiler checkout or its two-repository parent.
+
+Use [Performance Research](../../workflows/PERFORMANCE-RESEARCH-WORKFLOW.md) and its [agent skill](../../workflows/skills/styio-performance-research/SKILL.md) for deep investigation or continuing optimization. Separate Benchmark and Modification tasks own evidence and implementation respectively: Benchmark reports findings and independently evaluates stable candidates; Modification returns bounded source changes and correctness results. Unspecified research defaults to Benchmark, which keeps measurements and the dossier external. Select continuous mode for repeated research: each report records the next action, waiting on one Modification handoff does not suspend independent investigation, and host continuation resumes existing state. This runbook remains the current compiler-tool authority; the skill reuses its commands and budgets.
 
 ## Owned Surface
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Define where development Markdown belongs, how distributed and cross-feature SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-09-08
 
 **Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
 
@@ -207,6 +207,7 @@ Manifest exports also include text-volume statistics for the selected document s
 3. External systems may be named only as cited references, integration targets, or measured baselines with reproducible evidence.
 4. Avoid absolute marketing superlatives and unsupported superiority language. Use neutral terms such as "reference", "baseline", "measured result", or "implementation target".
 5. Performance, safety, resource-management, and maturity statements must point to compiler tests, `styio-benchmark` reports, audit records, or primary source references.
+6. Neutral uses of `claim`, its inflected forms, and `performance claims` are allowed. These terms alone do not establish unsupported superiority; assess the actual statement and its evidence under the rules above.
 
 ---
 

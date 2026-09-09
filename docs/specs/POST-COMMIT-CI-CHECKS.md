@@ -2,7 +2,7 @@
 
 **Purpose:** Define the required workflow for checking GitHub Actions after a local commit is pushed, including what must be verified before committing and what must be watched after pushing.
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-10
 
 ## Scope
 
@@ -69,7 +69,7 @@ When one delivery touches `styio-nightly`, `pafio-nightly`, and `vityo-nightly`,
 
 Cross-repository gates must use the same workspace checkout set that will be visible to CI. If a gate consumes another repository's branch, perform an already-authorized dependency push first; otherwise prepare the required handoff and report the revision mismatch. A gate dependency does not grant permission to publish another repository.
 
-`styio-nightly` GitHub Actions check out `pafio-nightly` and `vityo-nightly` at `${{ github.ref_name }}` for cross-repository gates. A branch used for coordinated work must therefore exist in all three repositories before relying on remote Actions as the final source of truth.
+`styio-nightly` GitHub Actions resolve the ecosystem lane from the pull request target branch, or from the pushed branch. Temporary pull request branches targeting `nightly` therefore consume the siblings' `nightly` branches. Publish any required sibling changes to that lane before relying on the cross-repository checks.
 
 ## Delivery Ruleset Governance
 
