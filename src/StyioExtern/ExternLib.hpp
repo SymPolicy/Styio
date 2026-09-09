@@ -155,6 +155,8 @@ extern "C" DLLEXPORT void styio_list_insert_dict(int64_t h, int64_t idx, int64_t
 extern "C" DLLEXPORT void styio_list_insert_matrix(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT int64_t styio_list_clone(int64_t h);
 extern "C" DLLEXPORT int64_t styio_list_len(int64_t h);
+extern "C" DLLEXPORT const int64_t* styio_list_i64_data(int64_t h);
+extern "C" DLLEXPORT int64_t styio_list_i64_len(int64_t h);
 extern "C" DLLEXPORT int64_t styio_list_get_bool(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int8_t styio_list_get_char(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_get(int64_t h, int64_t idx);

@@ -71,13 +71,26 @@ class StyioToLLVM : public StyioCodeGenVisitor
   std::vector<std::vector<std::string>> bounded_ring_cstr_scope_stack_;
   std::unordered_set<std::string> dynamic_variable_names_;
   std::unordered_set<std::string> list_slot_names_;
+  std::uint64_t list_mutation_epoch_ = 0;
 
   struct LoopFrame {
     llvm::BasicBlock* break_dest = nullptr;
     llvm::BasicBlock* continue_dest = nullptr;
     std::size_t resource_scope_depth = 0;
+    llvm::BasicBlock* preheader = nullptr;
+    std::uint64_t list_mutation_epoch = 0;
   };
   std::vector<LoopFrame> loop_stack_;
+
+  struct I64ListViewSlots {
+    llvm::AllocaInst* data_slot = nullptr;
+    llvm::AllocaInst* len_slot = nullptr;
+    llvm::AllocaInst* handle_slot = nullptr;
+    int dyncell_i64_field = -1;
+    llvm::Value* ssa_handle = nullptr;
+    std::unordered_set<llvm::BasicBlock*> filled_preheaders;
+  };
+  std::unordered_map<llvm::Value*, I64ListViewSlots> i64_list_view_cache_;
 
 public:
   StyioToLLVM(std::unique_ptr<StyioJIT_ORC> styio_jit) :
@@ -366,6 +379,10 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   llvm::Value* default_runtime_return_value(llvm::Type* ret_ty);
   void emit_runtime_error_guard_return();
   void emit_runtime_error_guard_return_after_cleanup();
+  llvm::FunctionCallee readonly_runtime_fn(const char* name, llvm::FunctionType* type);
+  void emit_fill_i64_list_view(llvm::IRBuilder<>& builder, I64ListViewSlots& slots);
+  void note_i64_list_mutation(llvm::Value* mutated_handle = nullptr);
+  llvm::Value* emit_i64_list_get(llvm::Value* list, llvm::Value* idx);
   bool emit_active_file_handle_cleanup();
   void emit_scope_cleanup_to_depth(std::size_t keep_depth);
   void emit_file_handle_slot_close(llvm::AllocaInst* slot);

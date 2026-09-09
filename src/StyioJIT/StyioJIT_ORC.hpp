@@ -160,6 +160,8 @@ public:
     add_symbol("styio_list_insert_matrix", &styio_list_insert_matrix);
     add_symbol("styio_list_clone", &styio_list_clone);
     add_symbol("styio_list_len", &styio_list_len);
+    add_symbol("styio_list_i64_data", &styio_list_i64_data);
+    add_symbol("styio_list_i64_len", &styio_list_i64_len);
     add_symbol("styio_list_get_bool", &styio_list_get_bool);
     add_symbol("styio_list_get_char", &styio_list_get_char);
     add_symbol("styio_list_get", &styio_list_get);
