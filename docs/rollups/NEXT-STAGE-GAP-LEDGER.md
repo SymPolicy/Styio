@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the active, evidence-based phase summary for repository-wide unfinished work so maintainers can split the next stage into checkpoint-sized, multi-team deliveries without creating parallel truths.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-10
 
 **Status:** Active collaboration ledger. This file distinguishes:
 
@@ -138,13 +138,13 @@ The previous planning generation is removed from the current tree. The items bel
 
 ### 8.1 Observable Language Delivery Sequence
 
-The observable-language roadmap now has explicit repository-owned plans. All rows remain unapproved and not started; a document, reference archive, or downstream readiness note is not implementation authority.
+The observable-language roadmap has repository-owned delivery records. S1 and S2 completed their recorded acceptance; S3 has committed opt-in implementation but remains blocked on approved performance-budget evidence. A completed producer stage does not imply that every language producer or downstream integration is complete; remaining gaps live in [OBSERVABLE-DELIVERY-FOLLOW-UPS.md](./OBSERVABLE-DELIVERY-FOLLOW-UPS.md).
 
-| Stage | Owning plan | Start gate | Cross-repository handoff |
+| Stage | Owning plan | Recorded status | Cross-repository handoff |
 |---|---|---|---|
-| S1 — immutable static snapshot | [PLAN-004](../plan/observable-static-snapshot/Plan.md) | Separate approval of the ready semantic plan | `pafio-nightly:docs/external/for-styio/Styio-Observable-Identity-Handoff-Plan.md` stays dormant unless accepted identity fixtures prove an ambiguity; `styio-benchmark:docs/OBSERVABLE-LANGUAGE-PERFORMANCE-GATE-PLAN.md` owns B1 evidence |
-| S2 — delta, lineage, and bounded queries | [PLAN-005](../plan/observable-delta-query-lineage/Plan.md) | S1 public contract and producer fixtures accepted, then separate S2 approval | `vityo-nightly:docs/external/for-styio/Styio-Observable-Integration-Plan.md` may begin V2 only after S2 fixtures; the benchmark plan owns B2 evidence |
-| S3 — runtime and scheduler correlation | [PLAN-006](../plan/observable-runtime-correlation/Plan.md) | S1/S2 identifiers and fixtures accepted, then separate S3 approval | Vityo may begin V3 only after S3 fixtures; the benchmark plan owns B3 evidence |
+| S1 — immutable static snapshot | [PLAN-004](../plan/observable-static-snapshot/Plan.md) | Completed; full regression recorded passing | Qualified snapshot fixtures define the compiler-owned producer contract |
+| S2 — delta, lineage, and bounded queries | [PLAN-005](../plan/observable-delta-query-lineage/Plan.md) | Completed; full regression recorded passing | Delta/query/lineage fixtures define the producer contract; absent Sema lineage producers remain explicit follow-ups |
+| S3 — runtime and scheduler correlation | [PLAN-006](../plan/observable-runtime-correlation/Plan.md) | Blocked on approved benchmark budgets; implementation is opt-in | `styio-benchmark` owns baseline evidence and approved ceilings; default enablement requires the passing budget contract |
 
 Stage boundaries remain strict: S1 publishes static compiler-owned facts; S2 adds incremental transport and bounded lookup over those facts; S3 adds loss-accounted runtime correlation. Vityo integration, backend telemetry, cloud storage, policy, replay, and raw runtime-value capture are not folded into these producer stages.
 

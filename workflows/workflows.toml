@@ -1,6 +1,6 @@
 title = "Styio Workflows Registry"
 purpose = "Registry of root-level workflow TOML definitions and repo-local skills."
-last_updated = "2026-06-28"
+last_updated = "2026-09-08"
 
 [[workflow]]
 id = "workflow-orchestration"
@@ -88,6 +88,11 @@ file = "PROMOTE-NIGHTLY-PARSER-SUBSET.toml"
 doc = "PROMOTE-NIGHTLY-PARSER-SUBSET.md"
 
 [[workflow]]
+id = "performance-research"
+file = "PERFORMANCE-RESEARCH-WORKFLOW.toml"
+doc = "PERFORMANCE-RESEARCH-WORKFLOW.md"
+
+[[workflow]]
 id = "repo-hygiene-commit-standard"
 file = "REPO-HYGIENE-COMMIT-STANDARD.toml"
 doc = "REPO-HYGIENE-COMMIT-STANDARD.md"
@@ -121,6 +126,10 @@ file = "skills/styio-functional-commit-readiness/skill.toml"
 [[skill]]
 id = "styio-parser-subset"
 file = "skills/styio-parser-subset/skill.toml"
+
+[[skill]]
+id = "styio-performance-research"
+file = "skills/styio-performance-research/skill.toml"
 
 [[skill]]
 id = "styio-resource-identifier-change"

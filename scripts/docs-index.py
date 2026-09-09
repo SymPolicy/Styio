@@ -180,7 +180,7 @@ def build_entries(base: Path) -> List[Entry]:
                             compact_plain(str(plan["title"])),
                             f"Current Better Plan v3 delivery `{plan['code']}`; semantic state lives in `{plan['plan']}`.",
                             True,
-                            TODAY,
+                            extract_last_updated(base / "README.md"),
                         )
                     )
         backlog = ROOT / "docs/rollups/NEXT-STAGE-GAP-LEDGER.md"
