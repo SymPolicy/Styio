@@ -199,7 +199,11 @@ PersistentIndex::save_symbols(const std::vector<IndexedSymbol>& symbols) const {
     return;
   }
 
-  std::filesystem::create_directories(cache_root_);
+  std::error_code directory_error;
+  std::filesystem::create_directories(cache_root_, directory_error);
+  if (directory_error) {
+    return;
+  }
   llvm::json::Array items;
   for (const auto& symbol : symbols) {
     items.push_back(llvm::json::Object{
@@ -214,6 +218,9 @@ PersistentIndex::save_symbols(const std::vector<IndexedSymbol>& symbols) const {
   }
 
   std::ofstream output(std::filesystem::path(cache_root_) / "symbols.json");
+  if (!output) {
+    return;
+  }
   output << llvm::formatv("{0:2}", llvm::json::Value(std::move(items))).str();
 }
 

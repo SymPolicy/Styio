@@ -17,6 +17,7 @@
 #include "StyioAST/AST.hpp"
 #include "StyioServices/StyioIDE/CompilerBridge.hpp"
 #include "StyioServices/StyioIDE/HIR.hpp"
+#include "StyioServices/StyioIDE/Index.hpp"
 #include "StyioServices/StyioIDE/Service.hpp"
 #include "StyioServices/StyioIDE/Syntax.hpp"
 #include "StyioServices/StyioLSP/Server.hpp"
@@ -1606,6 +1607,20 @@ TEST(StyioWorkspaceIndex, PersistentIndexClearsDeletedSymbolsOnNewSession) {
   const std::string uri = styio::ide::uri_from_path(path);
   warmed_service.did_open(uri, "# live_symbol := (x: i32) => x\n", 2);
   EXPECT_TRUE(has_indexed_symbol(warmed_service.workspace_symbols("live_symbol"), "live_symbol", path));
+}
+
+TEST(StyioWorkspaceIndex, PersistentIndexSaveSkipsInvalidCachePath) {
+  const std::filesystem::path root = make_temp_project_dir("ide_invalid_cache");
+  const std::filesystem::path cache_parent = root / "cache-parent";
+  write_text_file(cache_parent.string(), "occupied");
+
+  styio::ide::PersistentIndex index((cache_parent / "nested").string());
+  styio::ide::IndexedSymbol symbol;
+  symbol.path = (root / "main.styio").string();
+  symbol.name = "symbol";
+
+  EXPECT_NO_THROW(index.save_symbols({symbol}));
+  EXPECT_TRUE(index.load_symbols().empty());
 }
 
 TEST(StyioWorkspaceIndex, ClosedFileRefreshesFromDiskBeforeBackgroundIndexing) {
