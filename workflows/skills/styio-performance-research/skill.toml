@@ -1,0 +1,50 @@
+[skill]
+name = "styio-performance-research"
+display_name = "Styio Performance Research"
+description = "Separate Styio performance research into Benchmark and Modification agent tasks, with reproducible profiling, bounded implementation, and independent performance evaluation. Use for deep performance research and optimization follow-ups."
+last_updated = "2026-09-08"
+
+workflow = [
+  "read SKILL.md and select the task role and single/continuous run mode; unspecified research defaults to Benchmark",
+  "Benchmark recovers evidence, profiles one scenario, compares applicable open-source implementations, and reports a bounded handoff",
+  "Modification implements one authorized candidate and returns its source identity, review, and focused correctness results",
+  "Benchmark independently evaluates the stable candidate, saves raw samples, and reports its verdict before another implementation round",
+  "Modification acts on the verdict and runs one required final complete regression at the delivery boundary",
+  "link role handoffs and report the next action; continuous mode keeps processing supported questions or returned candidates",
+]
+
+constraints = [
+  "SKILL.md owns execution details; research-topics.md contains optional experiment directions, not confirmed bottlenecks",
+  "Benchmark and Modification require separate agent tasks; do not combine both roles or create extra agents merely by invoking this skill",
+  "Benchmark does not modify compiler/runtime source, build configuration, semantic tests, or implementation owner documents; missing instrumentation goes to Modification",
+  "Modification does not modify benchmark workloads, oracles, sampling rules, thresholds, exclusions, or performance conclusions",
+  "benchmark workloads, runners, performance reports, and thresholds remain in styio-benchmark",
+  "publish baseline evidence before implementation and save and report each candidate evaluation before the next round",
+  "negative and inconclusive findings are valid research results; a Benchmark task need not produce code changes",
+  "continuous mode preserves the assigned role across resumptions; one report or handoff does not complete the campaign",
+  "resume existing operations and reuse evidence; do not duplicate active measurements or repeat rejected work without changed premises",
+  "record checkpoint dependencies and resume conditions when no work is actionable; use host continuation only when requested",
+  "do not treat instrumented, noisy, incomplete, or semantically unequal measurements as performance proof",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, credentials, or backend operating data; use portable placeholders and approved synthetic fixtures",
+  "do not introduce permanent migration checks, speculative guards, a second harness, or automatic background research",
+  "reuse existing authorization and pause only work dependent on a genuinely new decision",
+  "after a final complete-regression failure, diagnose and propose; the developer decides repair and rerun",
+  "if delegation is explicitly requested, preserve file ownership, avoid fast mode, and follow SKILL.md observation windows",
+]
+
+completion_report = [
+  "task role, run mode, research question, scope, and role-specific handoff",
+  "comparable baseline and candidate evidence",
+  "root cause and measured benefit or rejected hypothesis",
+  "implementation and semantic tradeoffs",
+  "focused verification and final regression status",
+  "local/server info placeholder check",
+  "pending decisions, next discriminating experiment, and any checkpoint resume condition",
+]
+
+references = [
+  "SKILL.md",
+  "references/research-topics.md",
+  "assets/deep-performance-research.prompt.md",
+  "assets/performance-modification.prompt.md",
+]

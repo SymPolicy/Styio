@@ -270,8 +270,6 @@ PUBLIC_WORDING_FORBIDDEN_PATTERNS = (
     (re.compile(r"\boptimal\b", re.I), "unsupported superiority wording"),
     (re.compile(r"\bgenuinely\s+novel\b", re.I), "unsupported novelty wording"),
     (re.compile(r"\bfully\s+functional\b", re.I), "over-broad maturity wording"),
-    (re.compile(r"\bclaim(?:s|ed|ing)?\b", re.I), "public-claim wording"),
-    (re.compile(r"\bperformance\s+claims\b", re.I), "unsupported public-claim wording"),
     (re.compile(r"\bbenchmark(?:ed|ing)\s+against\b", re.I), "external-comparison wording without evidence scope"),
     (re.compile(r"\bR" r"ust[- ]equivalent\b|\bR" r"ust\s+equivalence\b|R" r"ust\s*等价", re.I), "unsupported language-equivalence wording"),
     (re.compile(r"宣称|声称"), "public-claim wording"),

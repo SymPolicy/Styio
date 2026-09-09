@@ -2,11 +2,15 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-10
 
 ## Mission
 
 Own documentation structure and cross-repository clarity. This team protects SSOT discipline, generated indexes, archive provenance, external repository boundaries, handoff notes, and reusable templates. It does not redefine language semantics, accepted tests, or package-manager ownership.
+
+Maintain [Performance Research](../../workflows/PERFORMANCE-RESEARCH-WORKFLOW.md) as the sequencing entrypoint for the [repo-local performance skill](../../workflows/skills/styio-performance-research/SKILL.md). Keep skill frontmatter aligned with its registered TOML metadata and keep role boundaries in `SKILL.md`. The [Benchmark prompt](../../workflows/skills/styio-performance-research/assets/deep-performance-research.prompt.md) dispatches continuous research and independent evaluation; the [Modification prompt](../../workflows/skills/styio-performance-research/assets/performance-modification.prompt.md) dispatches bounded implementation from a Benchmark handoff. Preserve this separation and explicit single/continuous run modes, with one Benchmark-owned dossier in the external checkout. Keep host continuation guidance distinct from workflow logic; do not describe a checkpoint as completed continuous research.
+
+Apply [Public Wording Discipline](../specs/DOCUMENTATION-POLICY.md#012-public-wording-discipline) to statements and their evidence. The docs audit permits neutral `claim` wording, including inflections and `performance claims`; evidence requirements and the remaining unsupported-superiority checks still apply.
 
 Keep workflow skills, commit-readiness tool messages, and reusable decision templates aligned with [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md): reuse existing approvals and evidence, distinguish committer self-checks from user approval, preserve explicit decision gates, and report unfinished acceptance truthfully. Final complete regression follows source review and focused repairs; failures require the developer's repair and verification decision.
 
