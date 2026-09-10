@@ -54,6 +54,7 @@ TEST(StyioCppReferenceEquivalence, test_counting_sort_fixed_cases) {
     { "[]\n", "[]\n" },
     { "[0]\n", "[0]\n" },
     { "[2,5,3,0,2,3,0,3]\n", "[0,0,2,2,3,3,3,5]\n" },
+    { "[15,0,7,7,1,15,3,0]\n", "[0,0,1,3,7,7,15,15]\n" },
   };
 
   for (const auto& [stdin_text, expected] : cases) {

@@ -66,7 +66,7 @@ equivalence (same harness as above):
 | `insertion_sort` | CLRS insertion sort |
 | `merge_sort` | C++ and Styio: bottom-up merge sort (Styio clones a tmp buffer via `tmp << l`) |
 | `quicksort` | C++ and Styio: iterative Lomuto quicksort (Styio uses local stack arrays) |
-| `heap_sort` | C++ and Styio: in-place heapsort (Styio nests bounds checks; logical `&&` is eager) |
+| `heap_sort` | C++ and Styio: in-place heapsort (Styio uses short-circuit `&&` for index-bound guards) |
 | `bubble_sort` | Classical (already present) |
 | `selection_sort` | Classical (already present) |
 | `bfs_distance` | CLRS BFS: unweighted directed distance `s -> t` (or `-1`) |
@@ -74,7 +74,7 @@ equivalence (same harness as above):
 | `rod_cutting` | CLRS 15.1 rod-cutting maximum revenue |
 | `lcs_length` | CLRS 15.4 LCS length |
 | `knapsack_01` | Classic 0-1 knapsack maximum value (DP companion) |
-| `counting_sort` | CLRS 8.2 counting sort (non-negative `list[i32]`) |
+| `counting_sort` | C++ and Styio: CLRS 8.2 counting sort (non-negative `list[i32]`; Styio local `count[]`/`out[]`) |
 | `select_ith` | CLRS Ch.9 order statistic (0-based) |
 | `bellman_ford` | CLRS 24.1 Bellman-Ford `s -> t` |
 | `dijkstra` | CLRS 24.3 Dijkstra `s -> t` (non-negative weights) |
@@ -183,7 +183,7 @@ Notes:
 
 | Case | Encoding | Output |
 |------|----------|--------|
-| `counting_sort` | `[a1..an]` non-negative integers | sorted `list[i32]` (C++: counting sort with `k=max`; Styio: insertion known-green) |
+| `counting_sort` | `[a1..an]` non-negative integers | sorted `list[i32]` (C++ and Styio: counting sort with `k=max`; Styio local `count[]`/`out[]`) |
 | `select_ith` | `[i, a1..an]` (`i` 0-based rank) | `a_{(i)}` or `-1` if invalid (C++: `nth_element`; Styio: sort-then-index) |
 | `bellman_ford` | `[n, m, s, t, u1,v1,w1, ..., then n dist zeros]` | distance; unreachable `1000000000`; malformed/neg-cycle `-1` |
 | `dijkstra` | `[n, m, s, t, u1,v1,w1, ...]` (weights `w >= 0`; optional trailing padding ignored) | distance; unreachable `1000000000`; malformed `-1` (C++ and Styio: binary-heap Dijkstra) |
