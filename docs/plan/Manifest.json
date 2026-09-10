@@ -43,6 +43,7 @@
       "title": "Correlate runtime and scheduler events with semantic sites"
     },
     {
+      "checkpoints": "observable-delta-query-lineage-review-followup-01/Checkpoints.json",
       "code": "PLAN-007",
       "directory": "observable-delta-query-lineage-review-followup-01",
       "plan": "observable-delta-query-lineage-review-followup-01/Plan.json",
