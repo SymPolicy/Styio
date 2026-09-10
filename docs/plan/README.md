@@ -35,14 +35,14 @@
    - [PLAN-003 — persistent semantic IDs](./persistent-semantic-ids/Plan.md)
    - [PLAN-004 — immutable observable topology snapshots](./observable-static-snapshot/Plan.md)
    - [PLAN-005 — topology delta, lineage, and queries](./observable-delta-query-lineage/Plan.md)
+   - [PLAN-007 — IDE cache directory failure](./observable-delta-query-lineage-review-followup-01/Plan.md)
+     was repaired by PR #42; cache persistence now degrades safely and stdio framing remains byte-exact.
 4. Incomplete delivery records:
    - [PLAN-006 — runtime and scheduler correlation](./observable-runtime-correlation/Plan.md)
      has committed opt-in implementation but remains blocked on approved performance-budget evidence.
-   - [PLAN-007 — IDE cache directory failure](./observable-delta-query-lineage-review-followup-01/Plan.md)
-     records the unimplemented cache failure repair.
 5. Explicit future-work register: [NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md#8-carry-forward-register)
 
 The generated plan index takes its maintenance date from this document, so
 unchanged plan files do not become stale merely because a check runs on a later day.
 
-PLAN-004 through PLAN-006 are planning artifacts only. They have no authorization receipt or execution checkpoints, and no Worker may start from them until each plan is separately approved.
+PLAN-006 remains a planning artifact with committed opt-in implementation but no approved performance-budget evidence; no Worker may enable the default runtime-correlation path until that external evidence is available.

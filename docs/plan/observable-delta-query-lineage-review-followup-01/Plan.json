@@ -47,8 +47,16 @@
         "source": "src/StyioServices/StyioIDE/Index.cpp"
       },
       {
-        "fact": "PLAN-005 excludes IDE SemanticDB caches and any IDE or LSP behavior change (REQ-014 requires IDE and LSP behavior to remain unchanged), this delivery makes no IDE or LSP source modification, and the defect predates the Plan.",
-        "source": "observable-delta-query-lineage/Plan.json"
+        "fact": "The repair in PR #42 makes IDE index-cache directory creation and symbols.json persistence best-effort: an unavailable cache returns without changing the LSP protocol or terminating the daemon.",
+        "source": "src/StyioServices/StyioIDE/Index.cpp"
+      },
+      {
+        "fact": "StyioWorkspaceIndex.PersistentIndexSaveSkipsInvalidCachePath covers an invalid cache parent, while styio_lspd_stdio_framing verifies a byte-exact initialize response when the cache root is unavailable.",
+        "source": "tests/ide/styio_ide_test.cpp and tests/lsp_stdio_framing_test.py"
+      },
+      {
+        "fact": "The nightly merge commit containing PR #42 passed smoke, Linux, macOS, golden-standard, hygiene, audit, and Windows smoke checks.",
+        "source": "nightly CI for merge commit 5d4ebe497b1741fa83573b113222c89dc584a7f9"
       }
     ],
     "unresolved": [],
@@ -61,19 +69,49 @@
     "reviewer_session": null,
     "sealed": null
   },
-  "phase": "draft",
+  "phase": "completed",
   "schema": "better-plan.plan/v3",
   "spec": {
     "architecture": {
-      "notes": [],
-      "summary": ""
+      "notes": [
+        "Cache persistence is best-effort: a directory or symbols.json write failure must not terminate styio_lspd or alter its stdio protocol.",
+        "The repair keeps the existing per-root cache identity and workspace fallback accounting unchanged."
+      ],
+      "summary": "Make IDE index cache persistence fail-safe while preserving the existing LSP response bytes and cache identity."
     },
     "full_regression": {
-      "commands": [],
-      "paths": []
+      "commands": [
+        "cmake --build build/default --target styio_lspd styio_ide_test -j2",
+        "ctest --test-dir build/default -L ide --output-on-failure --no-tests=error",
+        "python3 tests/lsp_stdio_framing_test.py"
+      ],
+      "paths": [
+        "src/StyioServices/StyioIDE/Index.cpp",
+        "tests/ide/styio_ide_test.cpp",
+        "tests/lsp_stdio_framing_test.py"
+      ]
     },
-    "requirements": [],
-    "tasks": []
+    "requirements": [
+      "cache-write-failures-are-isolated",
+      "stdio-framing-remains-byte-exact"
+    ],
+    "tasks": [
+      {
+        "code": "TASK-001",
+        "outcome": "Guard cache directory creation and symbols.json writes, then prove invalid-cache initialization and persistence behavior with focused IDE and stdio tests.",
+        "scope": {
+          "in": [
+            "src/StyioServices/StyioIDE/Index.cpp",
+            "tests/ide/styio_ide_test.cpp",
+            "tests/lsp_stdio_framing_test.py"
+          ],
+          "out": [
+            "LSP protocol changes, cache identity changes, and unrelated IDE behavior"
+          ]
+        },
+        "title": "Make IDE cache persistence best-effort"
+      }
+    ]
   },
   "title": "styio_lspd terminates on uncaught filesystem_error when the IDE cache directory cannot be created"
 }
