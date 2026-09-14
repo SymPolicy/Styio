@@ -30,6 +30,7 @@ reports/
 
 # Local IDE / agent metadata
 .cursor/
+/.commandcode/
 /.idea/
 /.clangd/
 /.cache/
