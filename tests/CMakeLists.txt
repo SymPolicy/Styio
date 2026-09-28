@@ -1341,3 +1341,14 @@ option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 if(STYIO_ENABLE_FUZZ)
   add_subdirectory(fuzz)
 endif()
+
+# Source-read failures must not be accepted as valid empty syntax input.
+add_test(
+  NAME services_syntax_source_io
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/services_source_io_test.py" "${STYIO_EXE}"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(services_syntax_source_io PROPERTIES
+  LABELS "styio_pipeline;services;unit"
+  TIMEOUT 180
+)
