@@ -13,7 +13,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m1/t20_combined.styio", "tests/pipeline_cases/p01_print_add/input.styio"]
+      "golden_cases": ["tests/features/scalar_expressions/t20_combined.styio", "tests/pipeline_cases/p01_print_add/input.styio"]
     },
     {
       "id": "core.final-and-mutable-binding",
@@ -25,7 +25,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/milestones/m1/t07_typed_bind.styio", "tests/milestones/m8/t01_bounded_final_bind.styio"]
+      "golden_cases": ["tests/features/scalar_expressions/t07_typed_bind.styio", "tests/features/final_bindings/t01_bounded_final_bind.styio"]
     },
     {
       "id": "core.type-expression",
@@ -37,7 +37,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m10/t08_stdin_typed_f64_list_pull.styio", "tests/milestones/m8/t02_bounded_read.styio"]
+      "golden_cases": ["tests/features/stdio_input/t08_stdin_typed_f64_list_pull.styio", "tests/features/final_bindings/t02_bounded_read.styio"]
     },
     {
       "id": "core.function-definition",
@@ -49,7 +49,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m2/t01_simple_func.styio", "tests/pipeline_cases/p02_simple_func/input.styio"]
+      "golden_cases": ["tests/features/functions/t01_simple_func.styio", "tests/pipeline_cases/p02_simple_func/input.styio"]
     },
     {
       "id": "core.return-export",
@@ -61,7 +61,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/syntax/CONTINUATION_TRANSFER.md"],
-      "golden_cases": ["tests/milestones/m2/t06_multi_stmt.styio", "tests/milestones/m3/t10_fizzbuzz.styio"]
+      "golden_cases": ["tests/features/functions/t06_multi_stmt.styio", "tests/features/control_flow/t10_fizzbuzz.styio"]
     },
     {
       "id": "core.match-cases",
@@ -73,7 +73,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m3/t01_match.styio", "tests/milestones/m3/t02_match_expr.styio"]
+      "golden_cases": ["tests/features/control_flow/t01_match.styio", "tests/features/control_flow/t02_match_expr.styio"]
     },
     {
       "id": "core.conditional-expression",
@@ -85,7 +85,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m4/t01_wave_merge.styio", "tests/milestones/m4/t03_wave_dispatch.styio"]
+      "golden_cases": ["tests/features/wave_dispatch/t01_wave_merge.styio", "tests/features/wave_dispatch/t03_wave_dispatch.styio"]
     },
     {
       "id": "core.list-iterator",
@@ -97,7 +97,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m3/t05_for_each.styio", "tests/pipeline_cases/p05_snapshot_accum/input.styio"]
+      "golden_cases": ["tests/features/control_flow/t05_for_each.styio", "tests/pipeline_cases/p05_snapshot_accum/input.styio"]
     },
     {
       "id": "core.infinite-loop",
@@ -109,7 +109,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m3/t06_inf_break.styio", "tests/milestones/m3/t07_while.styio"]
+      "golden_cases": ["tests/features/control_flow/t06_inf_break.styio", "tests/features/control_flow/t07_while.styio"]
     },
     {
       "id": "core.import-declaration",
@@ -121,7 +121,7 @@
         "owner": "Parser / Grammar"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-EBNF.md"],
-      "golden_cases": ["tests/milestones/m1/t20_combined.styio"]
+      "golden_cases": ["tests/features/scalar_expressions/t20_combined.styio"]
     },
     {
       "id": "resource.slot-declaration",
@@ -133,7 +133,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m6/t03_window_avg.styio"]
+      "golden_cases": ["tests/features/state_resources/t03_window_avg.styio"]
     },
     {
       "id": "resource.selector-read",
@@ -145,7 +145,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m6/t03_window_avg.styio", "tests/milestones/m6/t05_frame_lock.styio"]
+      "golden_cases": ["tests/features/state_resources/t03_window_avg.styio", "tests/features/state_resources/t05_frame_lock.styio"]
     },
     {
       "id": "resource.selector-offset",
@@ -157,7 +157,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m6/t03_window_avg.styio"]
+      "golden_cases": ["tests/features/state_resources/t03_window_avg.styio"]
     },
     {
       "id": "resource.sink-write",
@@ -169,7 +169,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m6/t03_window_avg.styio", "tests/milestones/m9/t01_stdout_string.styio"]
+      "golden_cases": ["tests/features/state_resources/t03_window_avg.styio", "tests/features/stdio_output/t01_stdout_string.styio"]
     },
     {
       "id": "resource.iterable-redirect",
@@ -193,7 +193,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m7/t04_instant_pull.styio", "tests/pipeline_cases/p07_instant_pull/input.styio"]
+      "golden_cases": ["tests/features/stream_processing/t04_instant_pull.styio", "tests/pipeline_cases/p07_instant_pull/input.styio"]
     },
     {
       "id": "resource.stdin-pull",
@@ -205,7 +205,7 @@
         "owner": "Parser / Runtime IO"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m10/t02_stdin_pull.styio", "tests/milestones/m10/t07_stdin_typed_tuple_pull.styio"]
+      "golden_cases": ["tests/features/stdio_input/t02_stdin_pull.styio", "tests/features/stdio_input/t07_stdin_typed_tuple_pull.styio"]
     },
     {
       "id": "resource.file-atom",
@@ -217,7 +217,7 @@
         "owner": "Parser / Runtime IO"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m5/t01_read_file.styio", "tests/pipeline_cases/p04_read_file/input.styio"]
+      "golden_cases": ["tests/features/file_resources/t01_read_file.styio", "tests/pipeline_cases/p04_read_file/input.styio"]
     },
     {
       "id": "resource.method-definition",
@@ -229,7 +229,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m7/t07_singleton.styio"]
+      "golden_cases": ["tests/features/stream_processing/t07_singleton.styio"]
     },
     {
       "id": "resource.zip-iterator",
@@ -241,7 +241,7 @@
         "owner": "Parser / Resource Topology"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Resource-Topology.md"],
-      "golden_cases": ["tests/milestones/m7/t01_zip_collections.styio", "tests/pipeline_cases/p06_zip_files/input.styio"]
+      "golden_cases": ["tests/features/stream_processing/t01_zip_collections.styio", "tests/pipeline_cases/p06_zip_files/input.styio"]
     },
     {
       "id": "task.single-task",
@@ -253,7 +253,7 @@
         "owner": "Parser / Task Runtime"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/milestones/m12/t01_task_pull_left.styio", "tests/milestones/m12/t04_task_capture_i64.styio"]
+      "golden_cases": ["tests/features/task_resources/t01_task_pull_left.styio", "tests/features/task_resources/t04_task_capture_i64.styio"]
     },
     {
       "id": "task.group-launch",
@@ -265,7 +265,7 @@
         "owner": "Parser / Task Runtime"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/milestones/m12/t06_task_group_await.styio"]
+      "golden_cases": ["tests/features/task_resources/t06_task_group_await.styio"]
     },
     {
       "id": "task.await-bind",
@@ -277,7 +277,7 @@
         "owner": "Parser / Task Runtime"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/milestones/m12/t01_task_pull_left.styio", "tests/milestones/m12/t06_task_group_await.styio"]
+      "golden_cases": ["tests/features/task_resources/t01_task_pull_left.styio", "tests/features/task_resources/t06_task_group_await.styio"]
     },
     {
       "id": "task.resource-order",
@@ -289,7 +289,7 @@
         "owner": "Parser / Task Runtime"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/design/Styio-Language-Design.md"],
-      "golden_cases": ["tests/milestones/m12/t02_task_flow_right.styio"]
+      "golden_cases": ["tests/features/task_resources/t02_task_flow_right.styio"]
     },
     {
       "id": "parser.shadow-cutover",
@@ -301,7 +301,7 @@
         "owner": "Parser / Shadow Gates"
       },
       "docs": ["docs/design/syntax/ACTIVE-SYNTAX.md", "docs/assets/workflow/TEST-CATALOG.md"],
-      "golden_cases": ["tests/milestones/m1/t01_int_arith.styio", "tests/milestones/m2/t01_simple_func.styio"]
+      "golden_cases": ["tests/features/scalar_expressions/t01_int_arith.styio", "tests/features/functions/t01_simple_func.styio"]
     }
   ]
 }
