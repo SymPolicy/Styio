@@ -119,3 +119,18 @@ Record unfinished quality work with:
 4. Owning implementation team.
 5. Required team runbook when the team-docs gate fails.
 6. Exact command that reproduces the failure.
+
+### Staged Upstream CI Baseline (2026-09-28)
+
+The dated upstream contribution sequence retains the existing Linux, smoke,
+and golden-standard jobs. The required `styio-ci-gate` check aggregates all
+three results and fails on failed, cancelled, skipped, missing, or unexpected
+results. CTest selections must find real tests (`--no-tests=error`). Smoke and
+language-feature goldens use the existing `tests/features/` layout, and the
+syntax convergence checker validates their expected-output files as well.
+
+The existing cross-repository v1 documentation check is retained. Its Pafio
+and Vityo inputs use immutable historical revisions from their accessible
+repositories so unrelated sibling changes do not alter a compiler promotion.
+These pins establish the historical v1 baseline, not current sibling-version
+compatibility; any pin update must rerun that same check.
