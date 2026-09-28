@@ -46,9 +46,9 @@ jobs:
       - name: Check out styio-pafio sibling repository
         uses: actions/checkout@v5
         with:
-          repository: Unka-Malloc/pafio-nightly
+          repository: SymPolicy/Pafio
           # Freeze the existing v1 docs contract during staged compiler promotion.
-          ref: d68d1649741630bee5775b2d6650797148835ed3
+          ref: 813dd24ed1b7a527c928333e22aac5d5fde129f4
           path: styio-pafio
 
       - name: Check out styio-view sibling repository
