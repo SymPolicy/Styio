@@ -213,3 +213,11 @@ reference material only.
 `docs/rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md`. The rollup is a report only;
 it does not authorize implementation, default-enable runtime observation, or
 change language lineage/wait-reason producers.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures as CLI errors rather than
+accepting a failed read as empty input. Empty regular files remain valid.
+`services_syntax_source_io` exercises the public CLI for directories, missing
+sources, empty files, escaped paths, and read-buffer boundaries. The check is
+part of the existing `styio_pipeline` gate; it does not require extra services.

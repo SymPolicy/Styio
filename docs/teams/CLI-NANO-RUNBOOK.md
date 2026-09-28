@@ -117,3 +117,11 @@ Record unfinished CLI/nano work with:
 3. Package layout or registry contract delta.
 4. Exact create/publish/consume command used.
 5. Whether `pafio-nightly` is expected to take over the responsibility later.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures as CLI errors rather than
+accepting a failed read as empty input. Empty regular files remain valid.
+`services_syntax_source_io` exercises the public CLI for directories, missing
+sources, empty files, escaped paths, and read-buffer boundaries. The check is
+part of the existing `styio_pipeline` gate; it does not require extra services.
