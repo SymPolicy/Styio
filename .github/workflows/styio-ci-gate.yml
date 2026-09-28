@@ -102,7 +102,7 @@ jobs:
         working-directory: styio-nightly
         run: >
           cmake --build build/ci --target
-          styio styio_test styio_algorithm_equivalence_test
+          styio styio_lspd styio_test styio_algorithm_equivalence_test
           styio_security_test styio_resource_topology_test styio_ide_test
           styio_soak_test styio_fuzz_suite
 
@@ -116,7 +116,9 @@ jobs:
 
       - name: IDE and LSP service tests
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L ide --output-on-failure --no-tests=error
+        run: |
+          ctest --test-dir build/ci -L ide --output-on-failure --no-tests=error
+          python3 tests/services_syntax_check_test.py build/ci/bin/styio
 
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
