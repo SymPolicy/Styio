@@ -323,3 +323,31 @@ jobs:
 
       - name: Run parser legacy entry audit
         run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure --no-tests=error
+
+  required-ci-gate:
+    # Keep this check name stable: upstream branch protection requires it.
+    name: styio-ci-gate
+    if: ${{ always() }}
+    needs: [styio-ci-gate, macos-ci-gate, test-smoke, test-golden-standard]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+
+    steps:
+      - name: Require every CI lane to succeed
+        shell: bash
+        env:
+          LINUX_RESULT: ${{ needs.styio-ci-gate.result }}
+          MACOS_RESULT: ${{ needs.macos-ci-gate.result }}
+          SMOKE_RESULT: ${{ needs.test-smoke.result }}
+          GOLDEN_RESULT: ${{ needs.test-golden-standard.result }}
+        run: |
+          set -euo pipefail
+          printf 'linux=%s macos=%s smoke=%s golden=%s\n' \
+            "$LINUX_RESULT" "$MACOS_RESULT" "$SMOKE_RESULT" "$GOLDEN_RESULT"
+          for result in "$LINUX_RESULT" "$MACOS_RESULT" "$SMOKE_RESULT" "$GOLDEN_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::All required CI lanes must succeed; failed, cancelled, skipped, or missing results block this gate."
+              exit 1
+            fi
+          done
