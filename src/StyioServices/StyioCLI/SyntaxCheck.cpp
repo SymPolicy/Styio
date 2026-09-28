@@ -1,6 +1,7 @@
 #include "SyntaxCheck.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <filesystem>
@@ -8,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -155,16 +157,26 @@ diagnostic_offset_from_message(const std::string& message, const SourceText& sou
 
 bool
 read_file(const std::string& path, std::string& out, std::string& error) {
+  out.clear();
+  error.clear();
   std::ifstream input(path, std::ios::binary);
   if (!input.is_open()) {
-    error = std::filesystem::exists(path) ? "cannot open file" : "file not found";
+    std::error_code ec;
+    const bool exists = std::filesystem::exists(path, ec);
+    error = ec || exists ? "cannot open file" : "file not found";
     return false;
   }
 
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  out = buffer.str();
-  if (!input.good() && !input.eof()) {
+  // Read through the input stream so I/O failures set its error bits. Inserting
+  // input.rdbuf() into an ostringstream can leave input.good() true after a
+  // read failure, incorrectly treating a directory as a valid empty source.
+  std::array<char, 8192> buffer{};
+  while (input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()))) {
+    out.append(buffer.data(), buffer.size());
+  }
+  out.append(buffer.data(), static_cast<std::size_t>(input.gcount()));
+  if (input.bad() || !input.eof()) {
+    out.clear();
     error = "failed to read file";
     return false;
   }
