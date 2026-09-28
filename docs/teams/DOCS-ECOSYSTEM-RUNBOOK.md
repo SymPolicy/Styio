@@ -152,3 +152,12 @@ Record unfinished docs/ecosystem work with:
 ### Staged upstream validation (2026-09-28)
 
 Keep convergence fixtures and golden-standard commands aligned with tests/features. Preserve every convergence record and require its output oracle. Historical sibling pins document the existing v1 contract; they do not certify the latest sibling versions.
+
+### Public service contract integration (2026-09-28)
+
+The public service batch adds syntax-check before compile-plan in the CLI
+contract matrix and adds `services` to the source-build module graph. Keep
+all three corresponding gate assertions aligned without changing sibling
+requirements or upstream repository naming. Preserve the frozen v1 sibling
+contract checks; native IDE and syntax-check tests provide separate functional
+evidence. Their Debug latency exclusion must not be described as a pass.

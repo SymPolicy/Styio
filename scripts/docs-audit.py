@@ -213,6 +213,14 @@ def classify_markdown(path: Path) -> ManifestEntry:
         return ManifestEntry(path, "valid", "approved reusable template documentation", character_count, word_count)
     if has_prefix(path, Path("workflows")):
         return ManifestEntry(path, "valid", "approved root workflow documentation and skills", character_count, word_count)
+    if has_prefix(path, Path("src/StyioServices")) and path.name in {"README.md", "MANIFEST.md"}:
+        return ManifestEntry(
+            path,
+            "valid",
+            "approved source-level service README or manifest",
+            character_count,
+            word_count,
+        )
     if rel == "grammar/tree-sitter-styio/README.md":
         return ManifestEntry(
             path,

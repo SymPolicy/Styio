@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../StyioToken/Token.hpp"
+#include "StyioToken/Token.hpp"
 #include "Common.hpp"
 #include "VFS.hpp"
 

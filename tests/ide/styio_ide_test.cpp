@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "StyioAST/AST.hpp"
-#include "StyioIDE/CompilerBridge.hpp"
-#include "StyioIDE/HIR.hpp"
-#include "StyioIDE/Service.hpp"
-#include "StyioIDE/Syntax.hpp"
-#include "StyioLSP/Server.hpp"
+#include "StyioServices/StyioIDE/CompilerBridge.hpp"
+#include "StyioServices/StyioIDE/HIR.hpp"
+#include "StyioServices/StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioLSP/Server.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
@@ -2160,7 +2160,7 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
     cases.push_back(DriftCase{
       path,
       {"binding:items", "binding:count"},
-      {"binding:items"},
+      {"binding:items", "binding:count"},
       {0, source.find("count")},
       {},
       {
@@ -2172,8 +2172,8 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
       },
       0,
       21,
-      true,
-      "nightly recovery currently keeps the first typed binding but may drop the later member-access binding in this typed list case"});
+      false,
+      ""});
   }
 
   {

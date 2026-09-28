@@ -13,13 +13,13 @@ Own user-facing command execution, the bootstrap packaging path for `styio-nano`
 Primary paths:
 
 1. `src/main.cpp`
-2. `src/StyioConfig/`
+2. `src/StyioServices/StyioConfig/`
 3. `configs/`
 4. `scripts/gen-styio-nano-profile.py`
 5. `scripts/source-build-minimal.sh`
 6. Nano package tests in `tests/styio_test.cpp`
 
-Key implementation seams inside `src/StyioConfig/`:
+Key implementation seams inside `src/StyioServices/StyioConfig/`:
 
 1. `CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
 2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload and its mapping to the official `pafio build` source-layout contract.
@@ -42,7 +42,7 @@ Key handoff document:
 10. Keep `scripts/source-build-minimal.sh` aligned with the published `--source-build-info=json` contract so build-channel consumers have one stable compiler-side helper entry.
 11. Prefer named enum tables and shared field-resolution helpers for project config, nano package config, nano publish config, and nano manifest parsing so new keys or aliases are added in one place instead of another `if/else` ladder in `src/main.cpp`.
 12. Treat config alias changes as contract changes when they affect source-build, nano packaging, or publish bootstrap behavior; update this runbook and the handoff docs in the same checkpoint.
-13. Keep compile-plan contract parsing and source-build metadata export in `src/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
+13. Keep compile-plan contract parsing and source-build metadata export in `src/StyioServices/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
 14. When frontend, StyioIR optimizer, or runtime source roots gain new support libraries, update the local-subset nano closure seed list, generated CMake include paths, generated config headers, and link libraries together; `StyioNanoPackage.LocalSubset*` tests must prove the extracted clean-room bundle still links.
 15. When compiler source-layout directories move, update `SourceBuildInfo.*`, `styio_nano_source_roots_latest(...)`, and the `StyioDiagnostics.SourceBuildInfoJsonReportsOfficialSourceLayoutFields` regression together so `pafio build` consumers see the same controlled component graph as local nano bundles.
 16. When internal prelude source files such as `src/StyioPrelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.

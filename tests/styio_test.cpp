@@ -445,21 +445,23 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
+    result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
     std::string::npos
   );
   EXPECT_NE(
-    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
+    result.stdout_text.find("\"supported_contract_versions\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"syntax_check\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
     std::string::npos
   );
   EXPECT_NE(result.stdout_text.find("\"supported_adapter_modes\":[\"cli\"]"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"feature_flags\":{\"single_file_entry\":true"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compile_plan_consumer\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"project_execution_via_compile_plan\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"runtime_event_stream\":true"), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"machine_info_json\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"single_file_entry\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"jsonl_diagnostics\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check_json\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"nano_package_registry_publish_v1\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"edition_max\":\"2026\""), std::string::npos);
@@ -476,6 +478,99 @@ TEST(StyioDiagnostics, VersionPrintsCompilerVersion) {
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text, "styio 0.0.1\n");
+}
+
+TEST(StyioDiagnostics, SyntaxCheckJsonAcceptsSyntaxWithoutTypeChecking) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source = fs::temp_directory_path() / ("styio-syntax-check-ok-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "result: i32 := missing_symbol\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" check --syntax --json --file \"" + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"contract\":\"syntax-check\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"status\":\"ok\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"ok\":true"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"parse\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"parser_engine\":\"nightly\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"diagnostics\":[]"), std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, SyntaxCheckJsonReportsParseFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source = fs::temp_directory_path() / ("styio-syntax-check-bad-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "# broken := (a: i32) => a +\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" check --syntax --json --file \"" + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 3) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"contract\":\"syntax-check\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"status\":\"syntax_error\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"ok\":false"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"parse\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_PARSE\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"line\":"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"column\":"), std::string::npos);
+
+  fs::remove(source);
+}
+
+TEST(StyioDiagnostics, SyntaxCheckJsonReportsLexFailure) {
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path source = fs::temp_directory_path() / ("styio-syntax-check-lex-" + std::to_string(uniq) + ".styio");
+  {
+    std::ofstream out(source);
+    ASSERT_TRUE(out.is_open());
+    out << "x := 1\n";
+    out << "/* unterminated\n";
+  }
+
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::string cmd =
+    std::string("\"") + runner + "\" check --syntax --json --file \"" + source.string() + "\" 2>&1";
+  const CommandResult result = run_stdout_command(cmd);
+  EXPECT_EQ(result.exit_code, 2) << result.stdout_text;
+  EXPECT_NE(result.stdout_text.find("\"contract\":\"syntax-check\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"status\":\"lexical_error\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"phase\":\"lex\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_LEX\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"line\":2"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"column\":1"), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"offset\":7"), std::string::npos);
+
+  fs::remove(source);
 }
 
 TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplSelection) {
@@ -532,10 +627,17 @@ TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   EXPECT_NE(result.stdout_text.find("\"minimal\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"helper_script\": \"scripts/source-build-minimal.sh\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"cmake_target\": \"styio\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"syntax_check_consumer\": \"check --syntax --json --file\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"id\": \"std_symbols\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"styio_symbol_core\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"id\": \"runtime\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"styio_runtime_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"id\": \"services\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_cli_contract_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_ide_core\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"styio_lspd\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"src/StyioServices/StyioCLI/\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"src/StyioServices/StyioIDE/\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"id\": \"macro_prelude\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"path\": \"src/StyioParser/SymbolRegistry.cpp\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"src/StyioPrelude/resources.styio\""), std::string::npos);

@@ -72,7 +72,7 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
             DocRule(
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
-                    "### 2.2 `styio --compile-plan <path>`",
+                    "### 2.3 `styio --compile-plan <path>`",
                     "`build/check/run/test` 都走 compile-plan v1",
                     "`diagnostics.jsonl`",
                     "`CliError`",
@@ -105,9 +105,9 @@ CONTRACT_RULES: tuple[ContractRule, ...] = (
             DocRule(
                 "styio-nightly/docs/plans/Styio-Ecosystem-CLI-Contract-Matrix.md",
                 (
-                    "### 2.3 `styio --source-build-info=json`",
+                    "### 2.4 `styio --source-build-info=json`",
                     "`https://github.com/SymPolicy/Styio.git`",
-                    "`compiler_core / std_symbols / runtime / macro_prelude`",
+                    "`compiler_core / std_symbols / runtime / services / macro_prelude`",
                     "`minimal`",
                     "`scripts/source-build-minimal.sh`",
                     "`src/StyioParser/SymbolRegistry.cpp`",

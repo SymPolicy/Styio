@@ -134,3 +134,14 @@ and Vityo inputs use immutable historical revisions from their accessible
 repositories so unrelated sibling changes do not alter a compiler promotion.
 These pins establish the historical v1 baseline, not current sibling-version
 compatibility; any pin update must rerun that same check.
+
+### Public service acceptance (2026-09-28)
+
+Build `styio_lspd` and run the IDE label alongside the existing security and
+pipeline suites. The syntax-check black-box suite validates strict JSON, input
+read failures, empty files, buffer boundaries, lexer/parser errors, invalid
+options or parser engines, and absence of runtime file/stdout side effects.
+For the valid typed-list/member fixture, require two declarations and no
+recovery rather than retaining the obsolete partial-outline exception.
+The separate Release-only latency test is reported as skipped in Debug; a
+green Debug suite is not evidence that Release latency budgets were measured.
