@@ -67,7 +67,7 @@ def expected_oracle_paths(case_path: Path) -> list[Path]:
             expected / "stdout.txt",
         ]
 
-    if len(parts) >= 4 and parts[0:2] == ("tests", "milestones") and case_path.suffix == ".styio":
+    if len(parts) >= 4 and parts[0:2] in (("tests", "milestones"), ("tests", "features")) and case_path.suffix == ".styio":
         expected = case_path.parent / "expected"
         suffix = ".err" if case_path.stem.startswith("e") else ".out"
         return [expected / f"{case_path.stem}{suffix}"]

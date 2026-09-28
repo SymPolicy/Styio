@@ -148,3 +148,7 @@ Record unfinished docs/ecosystem work with:
 4. Team runbook gate failures, required runbook paths, and template/format violations.
 5. External repository or handoff owner affected.
 6. Archive/rollup lifecycle action still pending.
+
+### Staged upstream validation (2026-09-28)
+
+Keep convergence fixtures and golden-standard commands aligned with tests/features. Preserve every convergence record and require its output oracle. Historical sibling pins document the existing v1 contract; they do not certify the latest sibling versions.
