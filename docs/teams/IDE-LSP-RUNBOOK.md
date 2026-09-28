@@ -85,3 +85,12 @@ Record unfinished IDE/LSP work with:
 3. Repro document text and cursor/range.
 4. Expected diagnostics/completion/hover/symbol behavior.
 5. Exact `ctest -L ide` failure or manual LSP message flow.
+
+### Upstream service validation (2026-09-28)
+
+The `member-and-types.styio` drift fixture contains two valid typed bindings.
+Require both `items` and `count` from the nightly outline, without recovery,
+and require exact equality with the IDE syntax outline. The old exception
+that tolerated dropping the member-access binding is retired. Token, statement,
+block, and deliberately malformed-input recovery assertions remain unchanged.
+The Debug suite does not certify the separate Release latency budgets.
