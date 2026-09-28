@@ -114,6 +114,10 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L security --output-on-failure --no-tests=error
 
+      - name: IDE and LSP service tests
+        working-directory: styio-nightly
+        run: ctest --test-dir build/ci -L ide --output-on-failure --no-tests=error
+
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure --no-tests=error
