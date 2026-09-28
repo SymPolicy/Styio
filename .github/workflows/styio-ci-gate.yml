@@ -46,15 +46,16 @@ jobs:
       - name: Check out styio-pafio sibling repository
         uses: actions/checkout@v5
         with:
-          repository: styio-org/styio-pafio
-          ref: ${{ steps.lane.outputs.ecosystem_ref }}
+          repository: Unka-Malloc/pafio-nightly
+          # Freeze the existing v1 docs contract during staged compiler promotion.
+          ref: d68d1649741630bee5775b2d6650797148835ed3
           path: styio-pafio
 
       - name: Check out styio-view sibling repository
         uses: actions/checkout@v5
         with:
-          repository: styio-org/styio-view
-          ref: ${{ steps.lane.outputs.ecosystem_ref }}
+          repository: Unka-Malloc/vityo-nightly
+          ref: 6adfa4c2b2d11ba01a74f321cfebb6323ebac6ea
           path: styio-view
 
       - name: Set up Python
@@ -107,15 +108,15 @@ jobs:
 
       - name: Docs audit
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L docs --output-on-failure
+        run: ctest --test-dir build/ci -L docs --output-on-failure --no-tests=error
 
       - name: Security tests
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L security --output-on-failure
+        run: ctest --test-dir build/ci -L security --output-on-failure --no-tests=error
 
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure
+        run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure --no-tests=error
 
       - name: Parser shadow gate (scalar expressions suite + artifacts)
         working-directory: styio-nightly
@@ -141,15 +142,15 @@ jobs:
 
       - name: Soak smoke tests
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L soak_smoke --output-on-failure
+        run: ctest --test-dir build/ci -L soak_smoke --output-on-failure --no-tests=error
 
       - name: Language feature smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure
+        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
 
       - name: Fuzz smoke
         working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure
+        run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure --no-tests=error
 
   test-smoke:
     name: test / smoke
@@ -179,8 +180,8 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          ctest --test-dir build/smoke -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
-          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure
+          ctest --test-dir build/smoke -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
+          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure --no-tests=error
 
   test-golden-standard:
     name: test / golden-standard
@@ -215,13 +216,37 @@ jobs:
         run: python3 scripts/syntax-convergence-gate.py
 
       - name: Run milestone goldens
-        run: ctest --test-dir build/golden -L milestone --output-on-failure
+        run: ctest --test-dir build/golden -L language_feature --output-on-failure --no-tests=error
 
       - name: Run five-layer and convergence goldens
-        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure
+        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure --no-tests=error
 
       - name: Run parser shadow convergence gates
-        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure
+        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
 
       - name: Run parser legacy entry audit
-        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure
+        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure --no-tests=error
+
+  required-ci-gate:
+    name: styio-ci-gate
+    if: ${{ always() }}
+    needs: [styio-ci-gate, test-smoke, test-golden-standard]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every existing CI lane to succeed
+        shell: bash
+        env:
+          LINUX_RESULT: ${{ needs.styio-ci-gate.result }}
+          SMOKE_RESULT: ${{ needs.test-smoke.result }}
+          GOLDEN_RESULT: ${{ needs.test-golden-standard.result }}
+        run: |
+          set -euo pipefail
+          for name in LINUX_RESULT SMOKE_RESULT GOLDEN_RESULT; do
+            result="${!name:-missing}"
+            printf '%s=%s\n' "$name" "$result"
+            if [[ "$result" != success ]]; then
+              exit 1
+            fi
+          done

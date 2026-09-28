@@ -47,4 +47,4 @@ jobs:
         working-directory: Styio
         run: |
           git -C ../styio-audit rev-parse HEAD
-          python3 ../styio-audit/bin/styio-audit gate --repo . --project Styio
+          python3 ../styio-audit/bin/styio-audit gate --repo . --project styio
