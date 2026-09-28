@@ -90,6 +90,9 @@ class SyntaxCheckContract(unittest.TestCase):
     def test_unknown_option_is_a_cli_error(self) -> None:
         self.check(self.source("x := 1\n"), 6, "cli_error", "--not-a-real-option")
 
+    def test_unknown_parser_engine_is_a_cli_error(self) -> None:
+        self.check(self.source("x := 1\n"), 6, "cli_error", "--parser-engine=unknown")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
