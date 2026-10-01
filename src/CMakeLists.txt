@@ -1,4 +1,4 @@
-# Target composition only. Source membership and target settings live beside
+# Target composition only. Source lists and target settings live beside
 # their owners; do not reintroduce unrelated target edits in this entry point.
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/StyioTargetHelpers.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/targets/StyioSymbolCore.cmake")
