@@ -132,6 +132,10 @@ id = "styio-performance-research"
 file = "skills/styio-performance-research/skill.toml"
 
 [[skill]]
+id = "styio-research-review-page"
+file = "skills/styio-research-review-page/skill.toml"
+
+[[skill]]
 id = "styio-resource-identifier-change"
 file = "skills/styio-resource-identifier-change/skill.toml"
 

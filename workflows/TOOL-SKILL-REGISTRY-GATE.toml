@@ -1,7 +1,7 @@
 id = "tool-skill-registry-gate"
 title = "Tool And Skill Registry Gate"
 purpose = "Validate the current repo-local skill and maintenance-tool inventory before delivery or release."
-last_updated = "2026-09-08"
+last_updated = "2026-10-01"
 doc = "TOOL-SKILL-REGISTRY-GATE.md"
 current_state_review_date = "2026-06-19"
 
@@ -16,6 +16,7 @@ required_skill_ids = [
   "styio-functional-commit-readiness",
   "styio-parser-subset",
   "styio-performance-research",
+  "styio-research-review-page",
   "styio-resource-identifier-change",
   "styio-syntax-change",
 ]

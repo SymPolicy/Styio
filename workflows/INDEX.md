@@ -34,8 +34,8 @@
 | `DELIVERY-GATE.toml` | [Styio Unified Delivery Gate](./DELIVERY-GATE.toml) | Define the common delivery-floor entrypoint for local, branch, local-info leak, audit, and checkpoint health checks. |
 | `DOCS-GATE.md` | [Docs Gate](./DOCS-GATE.md) | Define the common docs/process gate entrypoint for styio-nightly so contributors can run owner-runbook maintenance, docs audit, and ecosystem CLI contract consistency through one command. |
 | `DOCS-GATE.toml` | [Docs Gate](./DOCS-GATE.toml) | Define the common docs/process gate entrypoint for styio-nightly. |
-| `DOCS-MAINTENANCE-WORKFLOW.md` | [Docs Maintenance Workflow](./DOCS-MAINTENANCE-WORKFLOW.md) | Define the repeatable workflow for maintaining docs/ metadata, generated indexes, archive lifecycle state, and structural validation. |
-| `DOCS-MAINTENANCE-WORKFLOW.toml` | [Docs Maintenance Workflow](./DOCS-MAINTENANCE-WORKFLOW.toml) | Maintain docs metadata, generated indexes, archive lifecycle state, and structural validation. |
+| `DOCS-MAINTENANCE-WORKFLOW.md` | [Docs Maintenance Workflow](./DOCS-MAINTENANCE-WORKFLOW.md) | Maintain current documentation, generated indexes, archive lifecycle state, and review-page projections of verified repository facts. |
+| `DOCS-MAINTENANCE-WORKFLOW.toml` | [Docs Maintenance Workflow](./DOCS-MAINTENANCE-WORKFLOW.toml) | Maintain current documentation, validated repository facts, and review-page projections. |
 | `FEATURE-CUTOVER-WORKFLOW.md` | [Feature Cutover Workflow](./FEATURE-CUTOVER-WORKFLOW.md) | Require every functional change to finish the cutover from old behavior to the new canonical behavior before final testing, instead of leaving partial migration, legacy fallbacks, or old implementation paths behind. |
 | `FEATURE-CUTOVER-WORKFLOW.toml` | [Feature Cutover Workflow](./FEATURE-CUTOVER-WORKFLOW.toml) | Require functional changes to fully migrate to the new canonical behavior and remove old implementation paths before final testing. |
 | `FIVE-LAYER-PIPELINE.md` | [Styio 五层流水线 Goldens](./FIVE-LAYER-PIPELINE.md) | 说明 Lexer → Parser(AST) → StyioIR → LLVM IR → 进程 stdout 的分层 golden 比对框架、目录约定与维护方式；与里程碑 仅比最终 stdout 的 styio_stdout_golden_test 互补。 |

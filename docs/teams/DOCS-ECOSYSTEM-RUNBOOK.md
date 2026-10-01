@@ -112,6 +112,11 @@ current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIV
    `skill.toml` owns discovery metadata and declared workflow references;
    a skill's detailed execution instructions have one documented owner.
    The performance skill uses `SKILL.md` for execution and TOML for registry metadata.
+   The [review-page skill](../../workflows/skills/styio-research-review-page/SKILL.md)
+   uses the same registration model. Its portable generator separates each
+   repository's current facts, proposed work, verification evidence, and Draft PR.
+   Refresh committed EBNF, document paths, and static build declarations through
+   the extractor; display stale or unavailable status when refresh fails.
 4. Preserve [Performance Research](../../workflows/PERFORMANCE-RESEARCH-WORKFLOW.md)
    role separation: Benchmark owns workload/evidence and independent evaluation;
    Modification owns authorized compiler changes. Workloads, measurements, and
