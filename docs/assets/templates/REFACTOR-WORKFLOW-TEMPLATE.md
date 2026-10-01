@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the reusable template documented in 通用重构工作流模板（可复用）.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-10-01
 
 **用途：** 作为维护代码库时的通用执行模板。  
 **目标：** 小步可合并、可中断恢复、每步可验证、风险可回滚。
@@ -48,13 +48,16 @@
 2. 跑关键链路（如 `pipeline`）。
 3. 跑基线回归（如 `language_feature`）。
 
-### 1.4 交付包（强制五件套）
+### 1.4 Delivery Evidence
 
-1. 代码：功能改动本体。
-2. 测试：失败先行 + 回归覆盖。
-3. 文档：行为变化与边界说明。
-4. ADR：关键决策（所有权/生命周期/兼容策略）。
-5. 恢复指引：追加到 `docs/history/YYYY-MM-DD.md`。
+1. Implementation changes and regression tests for the affected behavior.
+2. Current owner documentation describing behavior and interface boundaries.
+3. An ADR when a distinct architecture/ownership decision needs review.
+4. Recovery evidence in the owning plan/checkpoint; add a temporary dated note
+   only when otherwise missing information is needed to resume the work.
+5. Promote durable knowledge and remove absorbed recovery prose through the
+   lifecycle workflow after closure. Pure documentation changes use applicable
+   document/tool validation rather than unrelated implementation tests.
 
 ---
 
@@ -69,26 +72,16 @@
 
 ---
 
-## 3. 恢复模板（粘贴到 history 的 Checkpoint 段）
+## 3. Recovery Template
 
-```md
-## Checkpoint（<M.X 名称>）
+Use this content in the owning checkpoint record. If a separate recovery note
+is necessary, include `Purpose` and `Last updated` and link the owner contract.
 
-### 当前状态
-- <完成内容 1>
-- <完成内容 2>
-
-### 下一步
-1. <下一个微目标>
-2. <下一个风险点>
-
-### 复现命令
-```bash
-cmake -S . -B build/default
-cmake --build build/default --target <targets>
-ctest --test-dir build/default -L <label> --output-on-failure
-```
-```
+- State: completed behavior and affected files.
+- Next action: the next executable step and owner.
+- Reproduction: source revision and exact configure/build/test commands.
+- Verification: passed, failed and unexecuted checks, including external blockers.
+- Risk: interface/migration implications and rollback reference.
 
 ---
 
@@ -114,7 +107,7 @@ fix: make AST tracked cleanup non-owning to avoid double free
 3. 安全测试
 4. 关键链路测试
 5. 全量基线测试
-6. ADR + history
+6. Update the owning decision/contract and checkpoint recovery evidence
 7. 小提交合并
 8. 提交前执行一次 repo hygiene / large blob 检查
 

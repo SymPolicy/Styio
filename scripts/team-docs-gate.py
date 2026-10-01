@@ -49,12 +49,21 @@ class TeamRule:
 
 TEAM_RULES: tuple[TeamRule, ...] = (
     TeamRule(
+        "coordination",
+        "Coordination",
+        Path("docs/teams/COORDINATION-RUNBOOK.md"),
+        (),
+    ),
+    TeamRule(
         "frontend",
         "Frontend",
         Path("docs/teams/FRONTEND-RUNBOOK.md"),
         (
             "src/StyioToken/",
             "src/StyioUnicode/",
+            "src/StyioPlatform/",
+            "src/StyioUtil/SourceMap.cpp",
+            "src/StyioUtil/SourceMap.hpp",
             "src/StyioParser/",
             "src/Deprecated/",
             "scripts/parser-legacy-entry-audit.py",
@@ -73,7 +82,10 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioResourceTopology/",
             "src/StyioToString/",
             "src/StyioSession/",
-            "src/cmake/StyioFrontendSources.cmake",
+            "src/StyioServices/StyioObservable/",
+            "src/StyioServices/StyioObservableProducer/",
+            "src/StyioUtil/SemanticIdentity.hpp",
+            "src/StyioUtil/SemanticIdentity.cpp",
         ),
     ),
     TeamRule(
@@ -85,6 +97,9 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioJIT/",
             "src/StyioExtern/",
             "src/StyioRuntime/",
+            "src/StyioNative/",
+            "src/StyioServices/StyioObservable/RuntimeCorrelation.hpp",
+            "src/StyioServices/StyioObservable/RuntimeCorrelation.cpp",
             "scripts/runtime-surface-gate.py",
         ),
     ),
@@ -96,6 +111,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/main.cpp",
             "src/StyioServices/StyioCLI/",
             "src/StyioServices/StyioConfig/",
+            "src/StyioServices/StyioObservableProducer/",
             "configs/",
             "scripts/gen-styio-nano-profile.py",
             "scripts/source-build-minimal.sh",
@@ -169,6 +185,43 @@ TEAM_RULES: tuple[TeamRule, ...] = (
     ),
 )
 
+# Source fragments follow their maintainers; target modules follow the target's
+# contract. Transitive consumers do not become maintainers merely by linking it.
+# Only actual shared composition/helpers require several roles. The entry point
+# (and any not-yet-mapped CMake file) requires Coordination to assign ownership.
+CMAKE_ROLES: dict[str, tuple[str, ...]] = {
+    "src/CMakeLists.txt": ("coordination",),
+    "src/cmake/StyioTargetHelpers.cmake": ("frontend", "sema_ir", "codegen_runtime", "cli_nano", "ide_lsp"),
+    "src/cmake/StyioSymbolSources.cmake": ("frontend",),
+    "src/cmake/StyioFrontendFoundationSources.cmake": ("frontend",),
+    "src/cmake/StyioFrontendProfilerSources.cmake": ("perf_stability",),
+    "src/cmake/StyioSemaIRSources.cmake": ("sema_ir",),
+    "src/cmake/StyioNativeInteropSources.cmake": ("codegen_runtime",),
+    "src/cmake/StyioFrontendSources.cmake": ("frontend", "sema_ir", "codegen_runtime", "perf_stability"),
+    "src/cmake/StyioBackendSources.cmake": ("codegen_runtime",),
+    "src/cmake/StyioRuntimeSources.cmake": ("codegen_runtime",),
+    "src/cmake/StyioTestingSources.cmake": ("test_quality",),
+    "src/cmake/StyioCoreSources.cmake": ("codegen_runtime", "test_quality"),
+    "src/cmake/StyioRuntimeCorrelationSources.cmake": ("sema_ir", "codegen_runtime"),
+    "src/cmake/StyioObservableSources.cmake": ("sema_ir", "codegen_runtime"),
+    "src/cmake/StyioObservableProducerSources.cmake": ("sema_ir", "cli_nano"),
+    "src/cmake/StyioCLIContractSources.cmake": ("sema_ir", "cli_nano"),
+    "src/cmake/StyioIDESources.cmake": ("ide_lsp",),
+    "src/cmake/StyioLSPSources.cmake": ("ide_lsp",),
+    "src/cmake/StyioNanoCoreSources.cmake": ("cli_nano",),
+    "src/cmake/targets/StyioSymbolCore.cmake": ("frontend",),
+    "src/cmake/targets/StyioFrontendCore.cmake": ("frontend", "sema_ir", "codegen_runtime", "perf_stability"),
+    "src/cmake/targets/StyioRuntimeCore.cmake": ("codegen_runtime",),
+    "src/cmake/targets/StyioCore.cmake": ("codegen_runtime", "test_quality"),
+    "src/cmake/targets/StyioObservableCore.cmake": ("sema_ir", "codegen_runtime"),
+    "src/cmake/targets/StyioCLIContractCore.cmake": ("sema_ir", "cli_nano"),
+    "src/cmake/targets/StyioIDECore.cmake": ("ide_lsp", "grammar"),
+    "src/cmake/targets/StyioLSPD.cmake": ("ide_lsp",),
+    "src/cmake/targets/Styio.cmake": ("cli_nano",),
+    "src/cmake/targets/StyioNanoCore.cmake": ("cli_nano",),
+    "src/cmake/targets/StyioNano.cmake": ("cli_nano",),
+}
+
 TEAM_RUNBOOKS = {
     Path("docs/teams/CLI-NANO-RUNBOOK.md"),
     Path("docs/teams/CODEGEN-RUNTIME-RUNBOOK.md"),
@@ -234,7 +287,9 @@ def changed_from_worktree() -> List[Path]:
             continue
         raw = line[3:]
         if " -> " in raw:
-            raw = raw.split(" -> ", 1)[1]
+            previous, raw = raw.split(" -> ", 1)
+            if "R" in line[:2]:
+                paths.append(normalize_path(previous))
         paths.append(normalize_path(raw))
     return sorted(set(paths), key=lambda p: p.as_posix())
 
@@ -268,6 +323,8 @@ def parse_name_status(text: str) -> List[Path]:
         parts = line.split("\t")
         status = parts[0]
         if status.startswith(("R", "C")) and len(parts) >= 3:
+            if status.startswith("R"):
+                paths.append(normalize_path(parts[1]))
             paths.append(normalize_path(parts[2]))
         elif len(parts) >= 2:
             paths.append(normalize_path(parts[1]))
@@ -304,8 +361,11 @@ def required_team_updates(changed_paths: Iterable[Path]) -> Dict[TeamRule, List[
     for path in changed_paths:
         if is_ignored_trigger(path):
             continue
+        cmake_roles = CMAKE_ROLES.get(path.as_posix(), ())
+        if not cmake_roles and path.as_posix().startswith("src/cmake/") and path.suffix == ".cmake":
+            cmake_roles = ("coordination",)
         for rule in TEAM_RULES:
-            if any(matches_prefix(path, prefix) for prefix in rule.prefixes):
+            if rule.key in cmake_roles or any(matches_prefix(path, prefix) for prefix in rule.prefixes):
                 required.setdefault(rule, []).append(path)
     return required
 

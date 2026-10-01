@@ -1069,6 +1069,145 @@ def check_public_wording(errors: List[str]) -> None:
                     )
 
 
+DESIGN_INTENT_DOC = Path("docs/design/Styio-Language-Design.md")
+DESIGN_INTENT_RE = re.compile(r"^```toml design-intent[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
+DESIGN_REQUIREMENTS = frozenset({
+    "general_purpose_language", "visual_programming_language",
+    "symbol_motivation_is_not_semantics", "compiler_owns_semantic_facts",
+    "ordinary_compiler_layers", "independent_visual_ide",
+    "static_runtime_separation", "hierarchical_program_view",
+    "traceable_visual_explanations", "research_claims_need_evidence",
+})
+
+
+def validate_design_intent(data: object, root: Path) -> list[str]:
+    """Validate the closed documentation schema, not Styio syntax or wire data."""
+    errors: list[str] = []
+
+    def keys(value: object, expected: set[str] | frozenset[str], context: str) -> bool:
+        if not isinstance(value, dict):
+            errors.append(f"{context} must be a table")
+            return False
+        if set(value) != expected:
+            errors.append(f"{context} has missing or unknown fields: {sorted(set(value) ^ expected)}")
+        return True
+
+    def reference(value: object, context: str, *, anchor_required: bool = False) -> None:
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"{context} must be a non-empty repository reference")
+            return
+        file_name, separator, anchor = value.partition("#")
+        path = Path(file_name)
+        if not file_name or path.is_absolute() or ".." in path.parts or "\\" in file_name:
+            errors.append(f"{context} must stay inside the repository")
+            return
+        target = root / path
+        try:
+            target.resolve().relative_to(root.resolve())
+        except ValueError:
+            errors.append(f"{context} must stay inside the repository")
+            return
+        if not target.is_file():
+            errors.append(f"{context} references missing file: {file_name}")
+            return
+        if anchor_required and not separator:
+            errors.append(f"{context} requires a Markdown section anchor")
+        if separator:
+            if target.suffix != ".md" or not anchor:
+                errors.append(f"{context} has invalid Markdown anchor")
+                return
+            headings = re.findall(r"^#{1,6}\s+(.+?)\s*#*\s*$", strip_code_fences(target.read_text(encoding="utf-8")), re.M)
+            slugs = {re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-") for heading in headings}
+            if anchor not in slugs:
+                errors.append(f"{context} references missing anchor: {value}")
+
+    if not keys(data, {"schema_version", "kind", "requirements", "traceability", "capabilities"}, "design intent"):
+        return errors
+    if type(data.get("schema_version")) is not int or data.get("schema_version") != 1:
+        errors.append("design intent schema_version must be integer 1")
+    if data.get("kind") != "design-intent":
+        errors.append("design intent kind must be design-intent")
+    requirements = data.get("requirements")
+    if keys(requirements, DESIGN_REQUIREMENTS, "requirements"):
+        for key, value in requirements.items():
+            if value is not True:
+                errors.append(f"requirement {key} must be true; a changed design needs an explicit contract review")
+    capabilities = data.get("capabilities")
+    if not isinstance(capabilities, dict) or not capabilities:
+        errors.append("capabilities must be a non-empty table")
+        capabilities = {}
+    for name, capability in capabilities.items():
+        context = f"capability {name}"
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+            errors.append(f"{context} has invalid ID")
+        if not keys(capability, {"status", "scope", "owner", "contract", "evidence", "gap"}, context):
+            continue
+        if not isinstance(capability.get("status"), str) or capability["status"] not in {"implemented", "partial", "deferred"}:
+            errors.append(f"{context} has unknown implementation status")
+        if not isinstance(capability.get("scope"), str) or not capability["scope"].strip():
+            errors.append(f"{context} requires an explicit scope")
+        owner = capability.get("owner")
+        reference(owner, f"{context} owner")
+        if not isinstance(owner, str) or not re.fullmatch(r"docs/teams/[A-Z-]+-RUNBOOK\.md", owner):
+            errors.append(f"{context} owner must be a team runbook")
+        reference(capability.get("contract"), f"{context} contract")
+        reference(capability.get("gap"), f"{context} gap", anchor_required=True)
+        evidence = capability.get("evidence")
+        if not isinstance(evidence, list) or not all(isinstance(item, str) for item in evidence):
+            errors.append(f"{context} evidence must be a list of references")
+            continue
+        if len(evidence) != len(set(evidence)):
+            errors.append(f"{context} evidence must be unique")
+        for item in evidence:
+            reference(item, f"{context} evidence")
+        if isinstance(capability.get("status"), str) and capability["status"] in {"implemented", "partial"}:
+            if not any(item.startswith("src/") for item in evidence) or not any(item.startswith("tests/") for item in evidence):
+                errors.append(f"{context} needs both implementation and test evidence")
+    traceability = data.get("traceability")
+    referenced: set[str] = set()
+    if keys(traceability, DESIGN_REQUIREMENTS, "traceability"):
+        for name, trace in traceability.items():
+            context = f"traceability {name}"
+            if not keys(trace, {"authority", "affected_capabilities"}, context):
+                continue
+            reference(trace.get("authority"), f"{context} authority", anchor_required=True)
+            refs = trace.get("affected_capabilities")
+            if not isinstance(refs, list) or not all(isinstance(item, str) for item in refs):
+                errors.append(f"{context} requires a list of affected capability IDs")
+                continue
+            if len(refs) != len(set(refs)):
+                errors.append(f"{context} capability IDs must be unique")
+            for item in refs:
+                if item not in capabilities:
+                    errors.append(f"{context} references unknown capability: {item}")
+                referenced.add(item)
+    for name in set(capabilities) - referenced:
+        errors.append(f"capability {name} has no design-principle traceability")
+    return errors
+
+
+def check_design_intent_contract(errors: List[str], root: Path = ROOT) -> None:
+    path = root / DESIGN_INTENT_DOC
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"missing design-intent authority: {exc}")
+        return
+    blocks = DESIGN_INTENT_RE.findall(text)
+    if len(blocks) != 1:
+        errors.append("language design must contain exactly one toml design-intent block")
+        return
+    for other in (root / "docs").rglob("*.md"):
+        if other != path and DESIGN_INTENT_RE.search(other.read_text(encoding="utf-8")):
+            errors.append(f"duplicate design-intent authority: {other.relative_to(root)}")
+    try:
+        data = tomllib.loads(blocks[0])
+    except tomllib.TOMLDecodeError as exc:
+        errors.append(f"invalid design-intent TOML: {exc}")
+        return
+    errors.extend(validate_design_intent(data, root))
+
+
 def run_audit() -> int:
     errors: List[str] = []
     check_collection_dirs(errors)
@@ -1087,6 +1226,7 @@ def run_audit() -> int:
     check_local_info_policy(errors)
     check_resource_identifier_governance(errors)
     check_public_wording(errors)
+    check_design_intent_contract(errors)
 
     if errors:
         print("docs audit failed:", file=sys.stderr)

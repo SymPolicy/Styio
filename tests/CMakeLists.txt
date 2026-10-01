@@ -2,11 +2,34 @@ include(GoogleTest)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 add_test(
+  NAME cmake_ownership
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/cmake_ownership_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(cmake_ownership PROPERTIES LABELS "docs;workflow;cmake")
+
+add_test(
+  NAME cmake_target_contract
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/cmake_target_contract_test.py"
+          --cmake "${CMAKE_COMMAND}"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(cmake_target_contract PROPERTIES LABELS "workflow;cmake")
+
+
+add_test(
   NAME docs_audit
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/docs-audit.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(docs_audit PROPERTIES LABELS "docs")
+
+add_test(
+  NAME design_intent_contract
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/design_intent_contract_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(design_intent_contract PROPERTIES LABELS "docs;workflow")
 
 add_test(
   NAME architecture_layer_gate

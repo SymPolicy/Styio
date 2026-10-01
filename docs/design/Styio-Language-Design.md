@@ -2,7 +2,7 @@
 
 **Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), and observable semantic facts and consumer boundaries live in [`Styio-Observable-Language.md`](./Styio-Observable-Language.md).
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -12,7 +12,16 @@
 
 ## 1. Introduction
 
-Styio is an **intent-aware, symbol-driven stream processing language** designed for high-performance resource dispatching, with an initial target domain of **financial quantitative analysis**. It compiles through LLVM to native code, achieving C++-level performance with a fraction of the syntactic overhead.
+Styio is an **experimental general-purpose visual programming language with
+symbolic syntax for expressing data flow**. Sources, transformations, choices,
+and destinations describe how data moves. The compiler uses LLVM for native
+execution.
+
+The visual environment is designed to present program structure, data and
+control flow, and execution state using compiler-generated facts and correlated
+runtime observations. Section [2.4](#24-visual-design-intent) defines this model;
+the [observable contract](./Styio-Observable-Language.md) describes the current
+compiler interface and its coverage.
 
 The name encodes the language's identity:
 - **St** — Stream Computing
@@ -23,8 +32,9 @@ The name encodes the language's identity:
 
 | Pillar | Description |
 |--------|-------------|
+| **Visual Streaming Model** | Symbolic text expresses the same program relationships that a visual environment should reveal. Compiler-owned facts support that view through an explicit service boundary; ordinary compiler stages retain their own responsibilities. |
 | **Keyword-Free Pure Symbolism** | Styio reserves no word as a keyword. Symbols and structural position open grammar roles; word-shaped source text remains an identifier, a literal spelling, or a name resolved in a namespace. |
-| **Intent Awareness** | The compiler statically analyzes field access patterns and pushes intent down to resource drivers (e.g., only fetch needed database columns). |
+| **Intent Awareness** | Design target: derive safe source-access intent and pass it to capable drivers. Whole-program pushdown is not an implemented guarantee; see the [research scope](./Styio-Research-Innovations.md#source-proximal-acquisition-and-processing-research) and [proposed driver interface](./Styio-Resource-Driver.md). |
 | **Honest Missing** | Runtime absence is represented as `@` in diagnostics and stream algebra. Source-level bare `@` is retired from active syntax; current code should obtain absence from resources or intrinsics instead of authoring it directly. |
 | **Thick Library, Thin Artifact** | Development uses a rich standard library with protocol detection and AI-assisted probing. Production builds perform dead-code elimination to produce minimal binaries. |
 
@@ -82,6 +92,142 @@ The language follows a "write less, get convenience; write more, get speed" mode
 ### 2.3 Expression-Oriented
 
 All control flow constructs (match, conditional wave, loops) are **expressions** that produce values. There are no void statements — everything flows.
+
+### 2.4 Visual Design Intent
+
+#### Program views
+
+The visual environment is designed to provide three related views: program
+structure, data and control flow, and runtime execution. Structure views expose
+modules and nested operations; flow views expose supported dependencies and
+branch or loop structure; execution views correlate observed events with static
+program sites. Large programs require expandable views that preserve connections
+across collapsed boundaries.
+
+The compiler currently exposes resource-oriented facts and a scoped runtime
+overlay. Broader program views are a delivery target. Comprehension, navigation,
+and authoring benefits are evaluated through the [research tasks](./Styio-Research-Innovations.md#research-questions-and-acceptance-evidence).
+
+#### Why symbols
+
+The notation uses familiar associations to express direction, decisions, and
+resource relationships across natural-language backgrounds. Arrows make data
+movement visible in textual programs. Readability still depends on context and
+learning, and is evaluated empirically.
+
+| Symbol family | Design motivation |
+|---|---|
+| Arrows such as `->`, `<-`, `>>`, and `=>` | Direction, movement, or a connection. |
+| `?` | An unresolved question or decision. |
+| `!` | Attention or an exceptional condition. |
+| `...` and related dot runs | Continuation, unbounded extent, or an intentionally unfilled position, depending on structure. |
+| `@` | Pointing to a named object, motivating resource definition. |
+
+These associations motivate the notation. Exact meanings depend on grammatical
+context and are defined by the [symbol reference](./Styio-Symbol-Reference.md),
+[EBNF](./Styio-EBNF.md), and owning [feature contracts](./syntax/features/README.md).
+
+#### Mapping text to a visual view
+
+1. Export supported semantic relationships from compiler representations. A
+   displayed relationship must resolve to producer evidence or an explicit
+   incomplete/unavailable status.
+2. Map analyzed constructs, scopes, directions, and evidence to visual elements.
+   A glyph need not correspond to one node or edge; a construct may contribute
+   several facts, and several text forms may express the same relation.
+3. Preserve connections and dependencies when modules or operations are collapsed
+   and expanded. Current resource snapshots cover only part of this hierarchy.
+4. Keep static sites separate from runtime instances. A loop site may have many
+   iterations; branch structure describes alternatives while an execution takes
+   one path. Runtime-dependent relationships carry observed or incomplete status.
+5. Give textual and visual views consistent meanings for their shared facts.
+   Bidirectional graph editing and complete static resolution of dynamic
+   dependencies require separate contracts and are outside the current scope.
+
+#### Compiler and IDE responsibilities
+
+Lexer, parser, semantic analysis, lowering, code generation, and runtime retain
+their existing responsibilities. The observable service exports supported facts
+from those stages through explicit contracts. Compiler-only adapters translate
+owned representations into the public model. The IDE owns layout, hierarchy,
+navigation, and execution presentation.
+
+Compilation runs independently of the IDE. Artifact export and runtime
+observation are explicit options. Their capability, privacy, and cost boundaries
+are documented in the [observable contract](./Styio-Observable-Language.md#3-current-compiler-foundation)
+and [decoder contract](../../src/StyioServices/StyioObservable/README.md).
+
+### 2.5 Machine-Readable Design Intent
+
+The single `toml design-intent` block records design requirements and current
+compiler capabilities. A `true` requirement declares a design constraint; it
+does not assert completed implementation or prove a research hypothesis.
+`affected_capabilities` routes changes to the relevant delivery surfaces;
+identity and research-method entries may have none. Each capability separately
+records its implementation scope, owner, contract, evidence, and remaining gap.
+
+`partial` means that the stated slice exists but the target is broader.
+`implemented` applies only to the named scope. Update capability records with
+their owning contract and evidence. Syntax and wire formats retain their
+existing authorities.
+
+`scripts/docs-audit.py` validates schema, references, repository paths, Markdown
+anchors, and the presence of implementation/test evidence. Reviewers check
+whether that evidence supports the stated scope. No generated copy is maintained.
+
+```toml design-intent
+schema_version = 1
+kind = "design-intent"
+
+[requirements]
+general_purpose_language = true
+visual_programming_language = true
+symbol_motivation_is_not_semantics = true
+compiler_owns_semantic_facts = true
+ordinary_compiler_layers = true
+independent_visual_ide = true
+static_runtime_separation = true
+hierarchical_program_view = true
+traceable_visual_explanations = true
+research_claims_need_evidence = true
+
+[traceability]
+general_purpose_language = { authority = "docs/design/Styio-Language-Design.md#1-introduction", affected_capabilities = [] }
+visual_programming_language = { authority = "docs/design/Styio-Language-Design.md#program-views", affected_capabilities = [] }
+symbol_motivation_is_not_semantics = { authority = "docs/design/Styio-Language-Design.md#why-symbols", affected_capabilities = [] }
+compiler_owns_semantic_facts = { authority = "docs/design/Styio-Observable-Language.md#2-authority-and-layer-boundaries", affected_capabilities = ["program_structure", "observable_service"] }
+ordinary_compiler_layers = { authority = "docs/design/Styio-Language-Design.md#compiler-and-ide-responsibilities", affected_capabilities = ["observable_service"] }
+independent_visual_ide = { authority = "docs/design/Styio-Language-Design.md#compiler-and-ide-responsibilities", affected_capabilities = ["observable_service"] }
+static_runtime_separation = { authority = "docs/design/Styio-Observable-Language.md#8-static-and-runtime-separation", affected_capabilities = ["runtime_correlation"] }
+hierarchical_program_view = { authority = "docs/design/Styio-Language-Design.md#mapping-text-to-a-visual-view", affected_capabilities = ["program_structure"] }
+traceable_visual_explanations = { authority = "docs/design/Styio-Language-Design.md#mapping-text-to-a-visual-view", affected_capabilities = ["program_structure", "runtime_correlation"] }
+
+research_claims_need_evidence = { authority = "docs/design/Styio-Research-Innovations.md#research-questions-and-acceptance-evidence", affected_capabilities = [] }
+
+[capabilities.program_structure]
+status = "partial"
+scope = "Compiler-owned validated resource topology; not a complete hierarchical module/control-flow graph."
+owner = "docs/teams/SEMA-IR-RUNBOOK.md"
+contract = "docs/design/Styio-Observable-Language.md#3-current-compiler-foundation"
+evidence = ["src/StyioResourceTopology/ResourceTopology.hpp", "src/StyioResourceTopology/ResourceTopology.cpp", "tests/resource_topology_test.cpp"]
+gap = "docs/rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence"
+
+[capabilities.observable_service]
+status = "implemented"
+scope = "Incubating opt-in qualified static snapshot, delta and bounded query contracts; no UI or round-trip editing guarantee."
+owner = "docs/teams/SEMA-IR-RUNBOOK.md"
+contract = "src/StyioServices/StyioObservable/README.md"
+evidence = ["src/StyioServices/StyioObservable/Snapshot.cpp", "tests/observable_static_snapshot_test.cpp", "tests/observable_topology_consumer_test.cpp"]
+gap = "docs/rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence"
+
+[capabilities.runtime_correlation]
+status = "partial"
+scope = "Explicit runtime-events v2 overlay; missing producers and unapproved default-enablement budgets remain explicit."
+owner = "docs/teams/CODEGEN-RUNTIME-RUNBOOK.md"
+contract = "docs/design/Styio-Observable-Language.md#8-static-and-runtime-separation"
+evidence = ["src/StyioServices/StyioObservable/RuntimeCorrelation.cpp", "tests/observable_runtime_test.cpp"]
+gap = "docs/rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence"
+```
 
 ---
 

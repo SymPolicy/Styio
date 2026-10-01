@@ -2,9 +2,9 @@
 
 **Purpose:** Record the diagnostic contract decisions for IM-D3 so Styio diagnostics can become stable machine-readable compiler and service facts instead of ad hoc error text.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-10-01
 
-**Status:** Public diagnostic baseline implemented; family-specific refinement remains tracked below. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D3`.
+**Status:** Public diagnostic baseline implemented; family-specific refinement remains tracked below. This inventory supplies current evidence for [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md).
 
 ## Contract Manifest
 
