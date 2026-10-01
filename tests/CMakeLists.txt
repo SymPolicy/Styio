@@ -32,6 +32,22 @@ add_test(
 set_tests_properties(design_intent_contract PROPERTIES LABELS "docs;workflow")
 
 add_test(
+  NAME research_review_facts
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_SOURCE_DIR}/workflows/skills/styio-research-review-page/scripts/test_extract_facts.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(research_review_facts PROPERTIES LABELS "docs;workflow")
+
+add_test(
+  NAME research_review_page
+  COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+          -s "${CMAKE_SOURCE_DIR}/workflows/skills/styio-research-review-page/tests"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(research_review_page PROPERTIES LABELS "docs;workflow")
+
+add_test(
   NAME architecture_layer_gate
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/architecture-layer-gate.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

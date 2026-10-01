@@ -1,8 +1,9 @@
 id = "docs-maintenance"
 title = "Docs Maintenance Workflow"
-purpose = "Maintain docs metadata, generated indexes, archive lifecycle state, and structural validation."
+purpose = "Maintain current documentation, validated repository facts, and review-page projections."
 last_updated = "2026-10-01"
 doc = "DOCS-MAINTENANCE-WORKFLOW.md"
+skill = "skills/styio-research-review-page/skill.toml"
 
 commands = [
   "python3 scripts/docs-scaffold.py --help",

@@ -1,0 +1,42 @@
+[skill]
+name = "styio-research-review-page"
+display_name = "Styio Research Review Page"
+description = "Build and maintain portable HTML review pages for Styio repositories, with versioned source facts, per-repository proposals, Draft PR status, and verification evidence. Use for maintainer-facing engineering and research reviews, not the separate skill for authoring Styio programs."
+last_updated = "2026-10-01"
+
+workflow = [
+  "read SKILL.md and the selected repository's documentation authority",
+  "resolve the intended current ref or exact Draft PR head",
+  "extract committed grammar, documentation, and static build facts with explicit freshness state",
+  "write per-repository plans, implemented changes, benefits and costs, verification, and pending decisions",
+  "generate portable HTML and validate local links, state evidence, and rendered layout",
+  "refresh the same artifact through explicit daily or hook entrypoints when requested",
+]
+
+constraints = [
+  "SKILL.md owns execution instructions; input-schema.md owns generator input fields",
+  "keep maintenance skills separate from the end-user Styio programming skill",
+  "generated pages project existing source contracts and do not become another syntax authority",
+  "distinguish local implementation, pushed Draft PR, exact-head CI, and merge state",
+  "preserve static CMake declaration limits and stale or unavailable extraction states",
+  "building and extracting do not authorize remote publication, permissions changes, or scheduling",
+  "do not record developer-machine or server-machine paths, private endpoints, credentials, or deployment roots; use portable placeholders and synthetic fixtures",
+]
+
+completion_report = [
+  "selected repositories, refs, commits, and direct Draft PR links",
+  "implemented changes, research proposals, benefits, costs, and pending decisions",
+  "generator, extraction, source checks, and browser inspection results",
+  "freshness and deployment status, including unactivated hook proposals",
+  "local/server info placeholder check",
+]
+
+references = [
+  "SKILL.md",
+  "references/input-schema.md",
+  "scripts/build_review.py",
+  "scripts/extract_facts.py",
+  "scripts/refresh_review.py",
+  "fixtures/site.json",
+  "fixtures/refresh.json",
+]

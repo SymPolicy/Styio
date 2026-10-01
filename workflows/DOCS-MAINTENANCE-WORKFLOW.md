@@ -1,6 +1,6 @@
 # Docs Maintenance Workflow
 
-**Purpose:** Define the repeatable workflow for maintaining `docs/` metadata, generated indexes, archive lifecycle state, and structural validation.
+**Purpose:** Maintain current documentation, generated indexes, archive lifecycle state, and review-page projections of verified repository facts.
 
 **Last updated:** 2026-10-01
 
@@ -78,6 +78,14 @@ skills have a separate audience and distribution boundary.
    External consumers report their own acceptance separately.
 
 ## Rules
+
+For maintainer-facing HTML reviews, use
+[Styio Research Review Page](./skills/styio-research-review-page/SKILL.md).
+It supplies a portable generator, synthetic input fixture, and committed-fact
+extractor. Keep proposals and current source facts distinct, retain failed or
+unexecuted checks, and link each repository's exact Draft PR candidate. A daily
+refresh or repository hook reuses the same explicit entrypoints; successful
+generation does not imply that a schedule, publication, or merge occurred.
 
 1. Collection-directory `README.md` files describe scope, naming, and maintenance rules.
 2. Collection-directory `INDEX.md` files are generated inventories.
