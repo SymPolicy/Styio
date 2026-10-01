@@ -9,7 +9,9 @@ class BuildTests(unittest.TestCase):
 
     def setUp(self):
         self.t = tempfile.TemporaryDirectory()
-        self.base = Path(self.t.name)
+        # macOS may return a temporary root through a system directory alias.
+        # Select its actual directory before testing intentional output links.
+        self.base = Path(self.t.name).resolve()
         self.source = self.base / 'source'
         shutil.copytree(ROOT / 'fixtures', self.source)
         self.input = self.source / 'site.json'
@@ -142,6 +144,16 @@ class BuildTests(unittest.TestCase):
         alias.symlink_to(actual, target_is_directory=True)
         with self.assertRaises(builder.Invalid):
             builder.build(self.input, alias / 'out')
+
+    def test_explicit_canonical_parent_is_accepted(self):
+        actual = self.base / 'actual'
+        actual.mkdir()
+        alias = self.base / 'alias'
+        alias.symlink_to(actual, target_is_directory=True)
+        output = (alias / 'out').resolve()
+        result = builder.build(self.input, output)
+        self.assertEqual(result['pages'], 5)
+        self.assertEqual(builder.verify_output(output), 5)
 
     def test_reject_active_import_forms(self):
         for payload in ['<object data="x"></object>', '<embed src="x">', '<base href="https://example.invalid">', '<meta http-equiv="refresh" content="0;url=https://example.invalid">', '<form action="https://example.invalid"></form>', '<style>@import "x";</style>', '<style>body{background:url(https://example.invalid/x)}</style>']:
