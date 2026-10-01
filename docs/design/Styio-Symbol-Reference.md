@@ -2,12 +2,14 @@
 
 **Purpose:** Define the shared symbol-to-lexer-token lookup and physical symbol meanings; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), while cross-feature semantics live in [`Styio-Language-Design.md`](./Styio-Language-Design.md).
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28
 
 This document serves as the definitive lookup table for all symbols in Styio. It is the primary reference for implementing `enum class TokenKind` in the C++ lexer.
+
+For why these symbols were chosen, see the [visual design intent](./Styio-Language-Design.md#why-symbols). Those everyday mnemonics motivate the notation; the contextual rules below define its actual meaning.
 
 ## 0. Keyword-Free Token Contract
 
