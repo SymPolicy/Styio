@@ -1,8 +1,8 @@
 # Styio — Research Innovation Points & Paper Roadmap
 
-**Purpose:** 论文向研究假设与证据清单；**不**作为语言实现或语义的规范依据（实现见 `../specs/AGENT-SPEC.md`，语义见 `Styio-Language-Design.md`），也不作为产品、性能或外部系统比较声明。
+**Purpose:** Record research questions and evaluation evidence for a possible Styio paper. This is not a language-semantics, implementation-status, or product-comparison authority; those remain in the language/feature contracts and their tests.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -12,7 +12,7 @@
 
 ## Proposed Title
 
-> **Styio: An Intent-Aware Stream Processing Language with Static State Allocation and Algebraic Absence**
+> **Styio: A General-Purpose Symbolic Language for Visual Program Understanding**
 
 Alternative:
 
@@ -22,11 +22,48 @@ Alternative:
 
 ## Abstract (Draft)
 
-Stream processing language design involves tradeoffs among expressiveness, runtime cost, state layout, synchronization, and error propagation. This draft records Styio research hypotheses and the evidence needed to evaluate them.
+Styio is an experimental general-purpose visual programming language with
+symbolic syntax for expressing data flow. This research agenda evaluates its
+notation, inference, program views, execution model, and source-access planning.
 
 Styio explores five design areas: (1) **intent-aware compilation** that carries field-access analysis to resource drivers; (2) **pulse frame locking** for deterministic committed snapshots; (3) **explicit tagged absence** at compiler-owned value boundaries; (4) **virtual state mounting** with anonymous ledgers; and (5) **dual-track stream synchronization** that distinguishes push-aligned and pull-snapshot joins at the AST level.
 
 Any latency, code-size, safety, or related-work statement must be backed by repository tests, `styio-benchmark` reports, or cited primary sources before publication.
+
+---
+
+## Research Questions and Acceptance Evidence
+
+The [language design](./Styio-Language-Design.md#24-visual-design-intent)
+combines compiler-generated program views with runtime execution overlays in
+an independent editor. Evaluate comprehension and authoring on both human-written
+and AI-generated programs. The [current observable interface](./Styio-Observable-Language.md#3-current-compiler-foundation)
+covers resource-oriented facts and selected runtime events.
+
+For end-to-end diagnosis, evaluate whether correlated compiler and runtime
+evidence reduces the time and error rate of locating data-flow, scheduling,
+I/O, and resource-lifecycle failures. Each scenario records available OS/runtime
+observations, their program-site correlation, missing evidence, and collection
+overhead. Compare against a stated debugging baseline on the same workload.
+Each compiler and tooling layer retains its own representation and owner;
+explicit identifiers and completeness states connect the evidence.
+
+| Question | Evaluation needed before making a claim |
+|---|---|
+| Do the symbolic forms help people read intent across natural-language backgrounds? | Matched comprehension and error-localization tasks, with recorded prior experience, training, accuracy, time, and symbol-confusion cases. Compare identical semantics; do not assume traffic-sign intuition is universal or sufficient without learning. |
+| Does a compiler-backed visual view improve understanding of a large program? | Tasks covering module dependencies, data flow, branches, loops, and failure paths; compare text-only and text-plus-graph conditions, include collapsed/expanded hierarchy, and report incorrect/missing edges and incomplete facts. |
+| Can inference and recommended composition reduce unnecessary authoring without hiding errors? | Checked classic algorithms and practical programs with equivalent inputs/results; record annotation and expression burden, failed attempts, diagnostics and ambiguity. Shorter source alone does not establish readability, expressiveness, or type safety. |
+| Does the graph remain faithful during execution at acceptable cost? | Static-site/runtime-instance correlation fixtures, repeated loops and branch outcomes, loss/completeness checks, privacy boundaries, and approved time/memory/event-volume budgets. An attractive rendering is not semantic evidence. |
+
+Use the algorithm suite and focused language fixtures as experimental cases.
+Distinguish missing teaching material, missing library support, and language
+constraints when classifying authoring failures. User-facing tutorials and
+programming skills should exercise accepted idioms at a fixed compiler version.
+
+Report formal properties proved for a specified language subset, behaviors
+covered by regression tests, and usability or performance results measured
+experimentally as separate evidence categories. Section 6.2 defines the first
+proposed formalization scope.
 
 ---
 
@@ -38,11 +75,17 @@ Resource drivers may expose fields that a program never reads. The research ques
 
 ### Styio's Contribution
 
-The compiler performs **static field-access analysis** on the AST. For every `@resource` reference, it traces all downstream `.field` or `["key"]` accesses, constructing a **ResourceIntent** object that is passed to the driver at connection time.
+The research target is to derive required fields and admissible filtering from
+compiler-owned semantic facts and pass that intent to capable resource drivers.
+This is not a statement that current drivers perform whole-program pushdown;
+the [resource driver contract](./Styio-Resource-Driver.md) and executable
+resource paths determine the implemented scope.
 
 **Formal model:**
 
-Let \(R\) be a resource, \(F(R) = \{f_1, f_2, \ldots, f_n\}\) its full schema, and \(U(R) \subseteq F(R)\) the set of fields transitively accessed by user code. The compiler guarantees that the driver receives exactly \(U(R)\), enabling:
+Let \(R\) be a resource, \(F(R) = \{f_1, f_2, \ldots, f_n\}\) its full schema, and \(U(R) \subseteq F(R)\) the set of fields transitively accessed by user code. A candidate contract would communicate \(U(R)\), or an explicitly conservative
+approximation when complete static knowledge is unavailable. Potential uses,
+subject to the source format and driver capability, include:
 
 - SQL drivers to generate `SELECT f1, f2` instead of `SELECT *`
 - Columnar file drivers to seek directly to relevant column chunks
@@ -60,37 +103,61 @@ Measure bytes transferred from source to runtime for identical analytical querie
 
 ---
 
-## Innovation Point 2: Pulse Frame Locking
+### Source-Proximal Acquisition and Processing Research
 
-### The Problem
+Evaluate capability-aware projection and filtering on a delimited-text source
+and a columnar or indexed source. Separate file discovery, byte scanning,
+decoding/materialization, and query execution. A columnar source may skip
+columns or ranges; a text source may still scan all bytes while avoiding some
+parsing and copying.
 
-In asynchronous stream systems, reading a shared variable twice in the same computation step can yield different values if the source updates between reads. This "time-tearing" is a well-known problem in hardware design (metastability) but has no standard solution in software stream languages.
+Compare the current execution path, a selective C++ baseline using the same
+parser, and each proposed transformation with identical inputs. Record logical
+and physical bytes read, syscall count, decoding time, copies/allocations,
+time to first result, total time, and peak memory. Verify result, order, effect,
+error-timing, and buffer-lifetime equivalence. Unsupported driver capabilities
+retain the baseline path.
 
-### Styio's Contribution
+Current file iteration uses line-oriented reads, and native interop maps pointer
+results to strings. Binary buffers, explicit lengths, borrow lifetimes, opaque
+handles, and OS error propagation need an interface contract before zero-copy
+or low-level I/O experiments. Correlate source operation, rewrite justification,
+physical scan, runtime instance, and available OS evidence with explicit IDs;
+unavailable observations remain visible in the result.
 
-Styio introduces **pulse frame locking**: when a primary stream (`>>`) triggers a closure, committed resource snapshots such as `@price[-1]` are captured at the frame boundary. Within the closure, repeated reads observe the same committed value — a compile-time guarantee.
+---
 
-**Formal invariant:**
+## Innovation Point 2: Pulse-Scoped Snapshot Consistency
 
-For a closure \(C\) triggered by pulse \(p_t\) at time \(t\):
+### Research Question
 
-\[\forall \text{ reads } r_1, r_2 \text{ of } @v[-1] \text{ within } C: r_1 = r_2\]
+Determine which committed-state reads can share a consistent observation within
+a pulse, and at what collection/scheduling cost. Specify the source-update,
+commit and read ordering before comparing consistency models.
 
-**Implementation:**
+### Current Boundary and Proposed Extension
 
-At frame entry, the runtime performs one snapshot of declared shadow slots. The cost is O(k), where k is the number of declared shadows.
+The resource-topology contract defines current committed selectors and the
+supported history/snapshot slices. Their parser, Sema, lowering and runtime
+evidence lives in [Resource Topology](./Styio-Resource-Topology.md) and its tests.
+This does not establish a universal frame-entry snapshot for every asynchronous
+source or every resource family.
 
-**Evidence required before external comparison:**
-
-- cite primary documentation for each external consistency model being discussed
-- define the pulse/frame scenario before comparing behavior
-- separate measured behavior from design intent
-
-**Hot pull escape hatch:** The `(<< @resource)` syntax explicitly bypasses frame lock for latency-critical live reads, giving developers fine-grained control.
+For a selected supported state set, a candidate frame rule would require repeated
+reads during one pulse to observe the same captured committed value. Define when
+the capture occurs, which writes become visible, and what happens on absence,
+failed reads or unsupported resource capabilities. Any live-read alternative
+must follow its owning source contract; the research rule does not assign a
+new meaning to existing operators.
 
 ### Evaluation Criteria
 
-Construct a scenario where two state references are read in the same expression. Measure whether covered Styio paths preserve committed-snapshot consistency, then compare only against explicitly defined and cited baseline programs.
+Use repeated-read cases with controlled commit and source-update schedules.
+Check observed values and failure ordering against a reference event trace,
+then measure capture work, memory traffic and pulse latency. Report the tested
+state set and scheduler assumptions; extend coverage only with matching producer
+and runtime evidence. External comparisons need versioned primary references
+and the same observation model.
 
 ---
 
@@ -136,86 +203,67 @@ Compare source size and runtime overhead for a data pipeline with controlled mis
 
 ---
 
-## Innovation Point 4: Virtual State Mounting with Anonymous Ledgers
+## Innovation Point 4: Resource State Layout and Checkpointing
 
-### The Problem
+### Research Question
 
-Stream processing requires persistent state (accumulators, buffers, counters). This design studies how much state layout can be decided from source-level declarations.
+Determine whether compatible resource-state allocations can be grouped to reduce
+allocation and access cost while preserving resource identity and lifecycle.
 
-The comparison surface includes manual buffers, managed heaps, and external state backends, but each external system must be described from primary sources before publication.
+### Current Boundary and Proposed Extension
 
-### Styio's Contribution
+Current lowering creates resource bindings individually, and code generation
+allocates their ring/head/pending state separately. A whole-program contiguous
+ledger, constant-offset rewriting for every selector, and a single allocation
+for all program state are proposed transformations rather than current compiler
+guarantees. See [AstToStyioIR](../../src/StyioLowering/AstToStyioIR.cpp) and
+[CodeGenG](../../src/StyioCodeGen/CodeGenG.cpp) for the implemented paths.
 
-Styio's resource topology syntax lets developers declare resources **at the top level** while keeping reads and writes close to the logic that uses them. The compiler still globally optimizes the memory layout:
-
-1. **Explicit resource table:** Top-level `@name : Type|..n|` declarations establish durable slots during analysis
-2. **Contiguous allocation:** Hoisted states are packed into a single memory block (the "anonymous ledger")
-3. **Offset rewriting:** Resource selectors such as `@name[-1]` compile to `base_ptr + constant_offset`
-
-**Formal model:**
-
-Let \(S = \{s_1, s_2, \ldots, s_m\}\) be the set of all state declarations in a program. The compiler computes:
-
-\[\text{offset}(s_i) = \sum_{j=1}^{i-1} \text{sizeof}(s_j)\]
-
-\[\text{total\_size} = \sum_{i=1}^{m} \text{sizeof}(s_i)\]
-
-A single `mmap` or stack allocation of `total_size` bytes serves the entire program's state needs.
-
-**Implementation targets:**
-
-- **No per-pulse allocation in covered paths:** verified through compiler/runtime tests
-- **Contiguous slot layout:** selectors lower to offsets in the resource ledger
-- **Snapshot copy path:** `memcpy(disk, ledger_base, total_size)` is the candidate implementation for fixed-layout snapshots
-- **Hot restart:** Load snapshot, remap base pointer, resume execution with full history
-
-**Evidence required before external comparison:**
-
-- cite primary documentation for each external state model
-- measure allocation count, cache behavior, and snapshot cost on fixed workloads
-- avoid statements about external design goals unless sourced
+Start with a fixed set of bounded scalar resources. Define layout alignment,
+padding, lifetimes and valid selector offsets; prove or test that allocation
+coalescing preserves reads, writes, commit order and failures. Container handles,
+pointers and external resources require explicit serialization and reconstruction
+rules before checkpoint/restart is meaningful. A raw memory copy is not a general
+state-restoration contract.
 
 ### Evaluation Criteria
 
-Measure L1/L2 cache miss rates for state access patterns and snapshot/restore latency for a system with 100+ state variables. External baselines require source-linked implementations.
+Compare allocation count, bytes, cache behavior and state-access latency against
+the current per-resource layout. For checkpointing, compare logical state before
+and after restore, including absent/history values and failure cases. Keep
+measured workloads and reports in `styio-benchmark`.
 
 ---
 
-## Innovation Point 5: Dual-Track Stream Synchronization
+## Innovation Point 5: Zip and Snapshot Execution Strategies
 
-### The Problem
+### Research Question
 
-When combining streams of different frequencies (e.g., 100Hz market data + 1Hz fundamental data), developers must choose between:
+Determine how explicit zip and snapshot semantics affect scheduling, data
+freshness, buffering and latency for the supported source combinations.
 
-- **Inner join (zip):** Only process when both arrive — loses high-frequency resolution
-- **Latest-value join:** Process on every high-frequency tick, using stale low-frequency data — risk of using arbitrarily old data
+### Current Boundary and Proposed Extension
 
-The research question is whether making synchronization mode part of the AST gives the compiler a clearer lowering contract than library-only call sites.
+The owning language contracts distinguish aligned iteration and snapshot reads.
+Implementation strategy depends on source capabilities: current materialized-list
+zip uses length/index iteration, so a universal two-queue/barrier model would
+misdescribe that path. Snapshot reads likewise do not imply background atomic
+writes, atomic reads for every value representation, or zero synchronization
+cost.
 
-### Styio's Contribution
-
-Styio encodes synchronization mode **directly in the AST** via two distinct syntactic constructs:
-
-1. **Zip (`&`):** `A >> #(a) & B >> #(b) => { ... }` — generates synchronized barrier code
-2. **Snapshot (`snapshot << @res[...]` or `ref = (<< @res)`):** Generates async shadow update + atomic read
-
-Because the synchronization mode is known at compile time, the code generator produces fundamentally different LLVM IR:
-
-- **Zip:** Two input queues + barrier synchronization + merged dispatch
-- **Snapshot:** Background atomic write + foreground atomic load (no synchronization overhead on the hot path)
-
-**Evidence required before external comparison:**
-
-- cite external API semantics from primary documentation
-- define the same stream timing model for all programs under comparison
-- report Styio behavior only for AST and lowering paths covered by tests
+Extend one source combination at a time. Record its existing accepted source
+form, blocking/termination behavior, ordering, absent-value handling and resource
+lifecycle. Propose queues, barriers or atomic state only when required by that
+combination and justified by its memory model.
 
 ### Evaluation Criteria
 
-Benchmark a cross-exchange arbitrage strategy that combines a 100Hz price feed with a 1Hz risk_factor feed. Compare latency percentiles (p50, p99, p99.9) across:
-- Styio with `&` (zip mode)
-- Styio with `$` snapshot mode
-- cited external baseline implementations
+Use the existing [stream-processing fixtures](../../tests/features/stream_processing/)
+and [resource-topology contract](./Styio-Resource-Topology.md) to choose accepted
+programs. Compare zip and snapshot workloads with controlled rates and values;
+record freshness, output sequence, buffer growth, CPU cost and latency
+percentiles. Use current syntax and reject unsupported combinations explicitly.
+External baselines must implement the same timing and observation model.
 
 ---
 
@@ -232,11 +280,62 @@ Candidate application areas for evaluation:
 
 ### 6.2 Formal Verification
 
-The algebraic properties of `@` and the determinism of pulse frame locking define candidate proof obligations:
+The proposed first proof project uses Lean 4 and a fixed compiler revision.
+Model the existing closed, pure, final callable subset with `i64`, `bool`,
+homogeneous lists, immutable local bindings, direct non-recursive calls, and
+rank-1 equality-based type relations. Exclude implicit conversions, higher-order
+values, captures, mutation, I/O, and constrained overloads initially. Resolved
+core constructors describe existing AST forms; they introduce no source syntax.
 
-- stale-data checks for frame-locked reads
-- missing-data propagation checks for accumulators
-- snapshot consistency checks for contiguous ledgers
+Define global scheme and function environments, a local monomorphic type
+environment, values, and capture-avoiding substitution. Execution uses a
+left-to-right call-by-value small-step relation under the fixed function table.
+Integer literals have fixed `i64` type; initially admit empty lists only at
+listed positions with concrete expected element types. Same-call joint
+constraint propagation is a separate inference experiment. Use
+64-bit values for integer operations and verify their overflow behavior against
+both code generation and constant folding before freezing the model. Separate
+the source core with inferred schemes from the elaborated, concrete core used
+for execution.
+
+Deliver the proof obligations in dependency order:
+
+1. Substitution and environment lemmas; unifier soundness, occurs-check safety,
+   and most-general-unifier factorization for first-order equality constraints.
+2. Inference soundness: successful inference produces a well-typed annotated
+   source core under the substituted environment, with the resulting
+   substitution applied to both result types and core annotations. Generalization quantifies only
+   variables free in the inferred type but not free in the global or local type
+   environment, under the closed/pure eligibility rule.
+3. Preservation and progress for well-typed closed concrete-core programs with
+   total primitives and an abstract allocation model.
+4. Elaboration correspondence: produce a well-typed monomorphic function table
+   and concrete term with ground entry and reachable-call types. Relate their
+   values and multi-step execution to the rank-1 source. Core safety alone does
+   not establish source-pipeline correctness.
+5. Relative completeness and principal schemes for the stated declarative
+   subset, separately from fixed-default selection and C++ implementation claims.
+
+A test-only adapter should compare resolved ASTs, inferred schemes, and concrete
+instances from the pinned C++ frontend with the reference model. Start with
+named positive/negative fixtures, then generated cases and minimized mismatches.
+Treat parser extraction, C++ inference, lowering, LLVM, runtime, and machine
+execution as explicit trust gaps until independently validated. A model theorem
+and differential tests do not constitute a C++ refinement proof.
+
+Keep the proof project and its conformance tooling in the research workspace.
+Lock the Lean toolchain and dependencies; build every theorem, inspect its axiom
+dependencies, and reject unfinished `sorry` proofs or new axioms standing in for
+the target property. The existing observable evidence model is not a typing
+certificate. A compiler-emitted certificate/checker would be a later interface.
+
+References: [Lean inductive definitions](https://lean-lang.org/theorem_proving_in_lean4/Inductive-Types/),
+[recursive definitions](https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/),
+[axiom inspection](https://lean-lang.org/theorem_proving_in_lean4/Axioms-and-Computation/).
+
+Later resource proofs can extend this core with explicit absence, state,
+ordering, and failure semantics before addressing frame locking or ledger
+consistency.
 
 ### 6.3 Distributed Styio
 

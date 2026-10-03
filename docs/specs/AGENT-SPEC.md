@@ -2,7 +2,7 @@
 
 **Purpose:** Define implementation, test, and documentation rules for AI and human contributors; feature-specific language authority lives in `../design/syntax/features/`, while cross-feature grammar, token, and semantic invariants remain in the shared design specifications.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-10-01
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -32,7 +32,7 @@
 
 ## 1. Project Overview
 
-Styio is a **symbol-driven, intent-aware stream processing language** targeting financial quantitative analysis as its first domain. The compiler is written in **C++20** and emits **LLVM IR** for native execution via ORC JIT.
+Styio is a **general-purpose visual programming language with symbolic syntax for expressing data flow**. The [language design](../design/Styio-Language-Design.md#24-visual-design-intent) defines its program-view model and compiler/IDE interface responsibilities. The compiler is written in **C++20** and emits **LLVM IR** for native execution via ORC JIT.
 
 ### Key Facts
 
@@ -774,9 +774,9 @@ Agents must work on the **current active front** and not skip ahead. Start from 
 ### Conflict Resolution
 
 If two agents propose conflicting changes to the same file:
-1. The change that preserves backward compatibility wins
-2. If both are backward-compatible, the change with tests wins
-3. If still tied, the human project owner decides
+1. Apply the priority order in [Principles and Objectives](./PRINCIPLES-AND-OBJECTIVES.md).
+2. Compare the proposed behavior, compatibility effect and verification evidence against the owning contract.
+3. Refer unresolved language or architecture choices to the project owner; compatibility alone does not override an approved design.
 
 ---
 
@@ -795,7 +795,7 @@ If two agents propose conflicting changes to the same file:
 11. Verify all existing tests still pass (`ctest --test-dir build/default -L language_feature` plus `styio_test` when the build allows)
 12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../../workflows/TEST-CATALOG.md`
 13. Update the mapped team runbook using `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` and refresh `../teams/DOC-STATS.md` when the change affects owned folders or team maintenance knowledge
-14. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
+14. Update the owning active documents; use a temporary recovery note only when unfinished work needs it, following `DOCUMENTATION-POLICY.md`.
 15. Run `python3 scripts/team-docs-gate.py` and `python3 scripts/docs-audit.py` before delivery
 
 ## Appendix B: Compilation Pipeline Debug Flags
@@ -809,35 +809,17 @@ If two agents propose conflicting changes to the same file:
 | `--all` | Enable all of the above |
 | `--file <path>` | Specify input `.styio` file (also accepts positional arg) |
 
-## Appendix C: Feature Implementation Status
+## Appendix C: Current Feature State
 
-Features from the design documents and their current implementation state:
+Feature state is maintained in the distributed
+[feature SSOTs](../design/syntax/features/README.md) and their generated
+[feature graph](../design/syntax/SYNTAX-FEATURE-GRAPH.json). Read the owning
+feature's accepted surface, delivery state, prerequisites and evidence before
+changing behavior. The [active syntax map](../design/syntax/ACTIVE-SYNTAX.md)
+is the compact source-form entrypoint.
 
-| Feature | Design Doc Section | Lexer | Parser | AST | TypeInfer | IR | CodeGen | Status |
-|---------|-------------------|:-----:|:------:|:---:|:---------:|:--:|:-------:|--------|
-| Basic expressions (arithmetic, logic) | §8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Functions (`#`) | §4 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Pattern matching (`?=`) | §5.1 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Pipe / Iterate (`>>`) | §5.4 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Print (`>_`) | §11 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Resources (`@`) | §7 | ✅ | ✅ | ✅ | Partial | Partial | — | **In Progress** |
-| Bindings (`:=`, `=`) | §— | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Collections (list, tuple, set) | §10 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Format strings (`$"..."`) | §11.3 | ✅ | ✅ | ✅ | ✅ | ✅ | via string concat | **Working** |
-| Reserved wave tokens (`<~`, `~>`) | §3 reserved tokens | ✅ | Rejects active use | — | — | — | — | **Reserved** |
-| Retired state-resource state families | §8.2 | — | Rejects active use | — | — | — | — | **Retired** |
-| Resource topology selectors | §8.4 | ✅ | ✅ | Partial | Partial | Partial | Partial | **In Progress** |
-| Pulse Frame Lock | §8.5 | — | — | — | Partial | Partial | — | **In Progress** |
-| Break (`^...`) | §5.5 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Continue (`>>...` standalone) | §5.6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Stream Zip (`&`) | §9.1 | — | — | — | — | — | — | **Not Started** |
-| Snapshot Pull (`<< @res`) | §9.2 | — | — | — | — | — | — | **Not Started** |
-| Selector intrinsics (`[avg,n]`, `[max,n]`) | Intrinsics §2 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **Partial: avg/max pulse-state slice only** |
-| Matrix helper intrinsics (`mat_*`, `matmul`, `transpose`, `dot`, `norm`) | Intrinsics / matrix design | ✅ | ordinary calls | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Diagnostic `??` | §12.3 | — | — | — | — | — | — | **Not Started** |
-| Anonymous Ledger | §8.6 | — | — | — | — | — | — | **Not Started** |
-| Context capture `$(...)` | §4.3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working: affine program-static scalar slice** |
-| Yield `<|` | §5.7 | — | — | — | — | — | — | **Not Started** |
-| Infinite generator `[...]` | §5.2 | — | — | — | — | — | — | **Not Started** |
-| Guard `?(expr)` | §5.3 | — | — | — | — | — | — | **Not Started** |
-| Resource drivers (C++ interface) | Driver Spec | — | — | — | — | — | — | **Not Started** |
+Implementation limits beyond individual feature states are summarized in the
+[compiler capability review](../rollups/COMPILER-CAPABILITY-REVIEW.md) and
+[next-stage gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md). Executable fixture
+paths and test selections live in [TEST-CATALOG](../../workflows/TEST-CATALOG.md).
+This appendix does not maintain a second per-stage status matrix.

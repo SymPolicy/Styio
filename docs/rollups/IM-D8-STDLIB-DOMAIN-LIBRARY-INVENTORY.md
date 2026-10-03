@@ -2,7 +2,7 @@
 
 **Purpose:** Record the accepted language-core, compiler-intrinsic, standard-library, example, benchmark, and domain-library ownership decisions for IM-D8.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-10-01
 
 ## Scope
 
@@ -119,25 +119,27 @@ This preserves the "thick library, thin artifact" model: development can load a 
 
 ## External Examples
 
-Accepted decision:
+[styio-examples](https://github.com/SymPolicy/styio-examples) presents a generated
+gallery sourced from compiler examples and algorithm fixtures. Repository-local
+programs remain executable compiler-test and documentation evidence; the gallery
+preserves source-revision links rather than maintaining an independent corpus.
 
-- Examples belong in `styio-example`.
-- Repository-local examples may exist only when they are needed for compiler tests, docs smoke, or migration coverage.
-- Example code does not define language or standard-library behavior.
-- If an example demonstrates a behavior that should become accepted, the behavior must be promoted through the language-core, compiler-intrinsic, or standard-library process with tests and diagnostics.
-
-`styio-example` is the external project for maintained examples.
+Teaching material explains the applicable language version and links to the
+owning feature. An example does not define new language or standard-library
+behavior. Proposed behavior enters the accepted feature and test process first.
 
 ## Benchmark Workloads
 
-Accepted decision:
+Workloads, runners, baselines, reports and performance comparisons belong in
+`styio-benchmark`. The compiler repository retains probes and the explicit
+optional CMake integration described in [benchmark/README.md](../../benchmark/README.md).
+Without a configured external benchmark root, the normal build does not
+register benchmark targets. No local `benchmark/core/` corpus or redirect-wrapper
+layer is part of that contract.
 
-- Deep benchmark workloads, runners, baselines, reports, and performance comparisons belong in `styio-benchmark`.
-- This repository may keep probes, compatibility wrappers, command references needed to integrate with `styio-benchmark`, and a tiny deterministic `benchmark/core/` corpus for release-conformance timing-schema evidence.
-- A benchmark workload does not become a standard-library API by existing as a workload.
-- If benchmark work identifies a useful library capability, it must still pass the standard-library or compiler-intrinsic acceptance process before becoming an accepted API.
-
-`styio-benchmark` remains the SSOT for deep performance workloads, comparisons, baselines, and reports. `benchmark/core/` is not a competing benchmark suite; it exists so the compiler checkout always has a reproducible smoke corpus.
+A benchmark finding can motivate a library or compiler change, but it does not
+make a new API accepted. Language-core, intrinsic and standard-library proposals
+retain their own contract, diagnostic and acceptance process.
 
 ## Domain Libraries
 
