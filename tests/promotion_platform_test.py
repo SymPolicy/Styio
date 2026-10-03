@@ -229,6 +229,29 @@ class PlatformTests(unittest.TestCase):
                      "Set STYIO_TEST_NATIVE_COMPILER to run native portability integration")
 class NativeRuntimeTests(unittest.TestCase):
     """Opt-in actual platform compilation; never substitutes a different OS."""
+    def test_relocated_icu_module_uses_standard_cmake_helpers(self):
+        repository = Path(__file__).resolve().parents[1]
+        cmake = shutil.which("cmake")
+        self.assertIsNotNone(cmake, "Native validation requires CMake")
+        with tempfile.TemporaryDirectory(prefix="styio-icu-module-") as directory:
+            root = Path(directory)
+            headers = root / "icu/include/unicode"
+            headers.mkdir(parents=True)
+            (headers / "utypes.h").write_text("// configure-only fixture\n")
+            (headers / "uvernum.h").write_text('#define U_ICU_VERSION "78.3"\n')
+            library = root / "icu/libicuuc.a"
+            library.write_bytes(b"")
+            (root / "CMakeLists.txt").write_text(
+                "cmake_minimum_required(VERSION 3.20)\nproject(IcuModuleProbe LANGUAGES NONE)\n"
+                f'list(PREPEND CMAKE_MODULE_PATH "{repository.as_posix()}")\n'
+                f'set(ICU_INCLUDE_DIR "{headers.parent.as_posix()}" CACHE PATH "")\n'
+                f'set(ICU_UC_LIBRARY_RELEASE "{library.as_posix()}" CACHE FILEPATH "")\n'
+                "find_package(ICU REQUIRED COMPONENTS uc)\n"
+                'if(NOT TARGET ICU::uc)\n  message(FATAL_ERROR "ICU target missing")\nendif()\n')
+            completed = subprocess.run([cmake, "-S", str(root), "-B", str(root / "build")],
+                                       text=True, capture_output=True, timeout=30)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
     def test_native_c_cpp_loading_exports_cache_cleanup_and_compile_failure(self):
         repository = Path(__file__).resolve().parents[1]
         compiler = os.environ["STYIO_TEST_NATIVE_COMPILER"]
