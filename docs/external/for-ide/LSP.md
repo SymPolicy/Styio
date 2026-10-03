@@ -2,7 +2,7 @@
 
 **Purpose:** Define how IDE hosts should launch and talk to `styio_lspd`, and record the currently supported request and notification surface.
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-10-01
 
 ## Transport
 
@@ -27,6 +27,10 @@
 12. `textDocument/semanticTokens/full`
 13. `textDocument/publishDiagnostics` notification
 14. `$/cancelRequest`
+15. `workspace/didChangeWatchedFiles` notification
+16. `textDocument/rename` (resolved-identity edit set)
+17. `textDocument/codeAction` (diagnostic-backed fixes and disabled actions)
+18. `textDocument/inlayHint` (call-argument parameter hints)
 
 ## Startup Sequence
 
@@ -76,7 +80,12 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 ## Current Limits
 
 1. The server is local-only and single-workspace for now.
-2. `rename`, `codeAction`, and `inlayHint` are intentionally not implemented yet.
+2. `rename`, `codeAction`, and `inlayHint` have conservative implementations. Rename uses resolved definitions/references and returns null when a valid edit set is unavailable. Code actions use matching cached diagnostics on open documents; parameter hints use resolved call-site context. Pending semantic or background work returns null for rename and an empty list for actions/hints. Broader refactor support is outside these narrow contracts.
 3. Debounced semantic publication is request-driven in the stdio loop: `Server::run()` drains runtime diagnostics after each processed request.
 4. `workspace/didChangeWatchedFiles` schedules background reindex work; because the stdio runtime has no separate idle thread, `Server::run()` advances one background task as a request-driven fallback only after foreground responses and semantic diagnostic drains are clear. Embedders can call `IdeService::run_idle_tasks()` for the same semantic-first idle slice.
 5. Stale foreground and semantic work is guarded by snapshot/version checks and counted instead of being published after a newer visible snapshot.
+
+Focused acceptance for these methods is registered in
+[TEST-CATALOG](../../../workflows/TEST-CATALOG.md) under the conservative public
+LSP surface tests. Capability advertisement and handler presence do not imply
+that an edit or hint is available for every source form.

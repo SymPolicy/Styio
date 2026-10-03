@@ -2,9 +2,9 @@
 
 **Purpose:** Record the implementation inventory for IM-D1 so StyioIR contract work is judged by explicit lowering behavior instead of scattered placeholder returns.
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-10-01
 
-**Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D1`.
+**Status:** Active contract inventory. This inventory supplies current evidence for [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md).
 
 ## Contract Manifest
 

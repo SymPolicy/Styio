@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repo_url": "https://example.invalid/compiler",
+    "ref": "review/modules",
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "view": "draft",
+    "generated_at": "2026-10-01T00:00:00Z"
+  },
+  "grammar": [
+    {
+      "path": "docs/grammar.ebnf",
+      "text": "expression = literal | name ;",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "role": "authoritative-ebnf"
+    }
+  ],
+  "documents": [
+    {
+      "path": "docs/grammar.ebnf"
+    },
+    {
+      "path": "docs/guide.md"
+    }
+  ],
+  "cmake": {
+    "targets": [
+      {
+        "name": "frontend",
+        "kind": "library",
+        "path": "CMakeLists.txt",
+        "line": 2
+      }
+    ],
+    "links": [
+      {
+        "from": "frontend",
+        "to": "${DEPENDENCY}",
+        "visibility": "PUBLIC",
+        "path": "CMakeLists.txt",
+        "line": 3,
+        "unresolved": true
+      }
+    ],
+    "limitations": [
+      "Static declarations only; no configuration evaluation."
+    ]
+  },
+  "code": {
+    "directories": [
+      "src/frontend",
+      "src/runtime"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+# Reuse the exact full-build source lists; only pipeline-check support is profile-conditional.
+set(STYIO_NANO_CORE_SOURCES
+  ${STYIO_FRONTEND_SOURCES}
+  ${STYIO_BACKEND_SOURCES}
+  ${STYIO_RUNTIME_SUPPORT_SOURCES}
+)
+if(STYIO_NANO_INCLUDE_PIPELINE_CHECK)
+  list(APPEND STYIO_NANO_CORE_SOURCES ${STYIO_TESTING_SUPPORT_SOURCES})
+endif()

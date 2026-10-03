@@ -1,7 +1,7 @@
 # Styio
 
-**Styio is an experimental symbolic language for stream processing, resource
-topology, and intent-oriented execution.**
+**Styio is an experimental general-purpose visual programming language with
+symbolic syntax for expressing data flow.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Unka-Malloc/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/Unka-Malloc/styio-nightly/actions/workflows/styio-ci-gate.yml)
 [![License](https://img.shields.io/github/license/Unka-Malloc/styio-nightly?style=flat-square)](https://github.com/Unka-Malloc/styio-nightly/blob/nightly/LICENSE)
@@ -12,6 +12,17 @@ This repository carries the nightly compiler, CLI, resource-topology runtime
 model, tests, and repository-local documentation. It is intended for source
 builds and active development. Public binary release artifacts are not part of
 this branch contract.
+
+## Language Design
+
+Styio represents sources, transformations, branches, and destinations with
+symbolic syntax. Its visual environment is designed to combine compiler-generated
+structure and flow views with runtime execution overlays.
+
+The compiler currently exports validated resource topology through an opt-in
+observable interface. See the [language design](docs/design/Styio-Language-Design.md#24-visual-design-intent)
+for the broader program-view model and the [observable contract](docs/design/Styio-Observable-Language.md#3-current-compiler-foundation)
+for implemented capabilities.
 
 ## A Glimpse of Styio
 
@@ -75,6 +86,10 @@ build/default/bin/styio --file example/hello_world.styio
 printf '[3, 1, 2]\n' | build/default/bin/styio --file example/algorithms/bubble_sort.styio
 STYIO_BIN=build/default/bin/styio ./example/cli_calculator.sh "1 + 2 * (3 + 4)"
 ```
+
+The examples include classic algorithms and stream-oriented applications. They
+also provide executable cases for evaluating inference, composition, and
+source-code verbosity.
 
 The active examples under `example/` are covered by CTest. Draft language ideas
 that do not currently run should stay out of the active tree after their durable
