@@ -34,7 +34,7 @@ class SyntaxSourceIO(unittest.TestCase):
         if code == 0:
             self.assertEqual(payload["diagnostics"], [])
         else:
-            self.assertEqual(payload["phase"], "cli")
+            self.assertEqual(payload["phase"], "service")
             self.assertGreater(len(payload["diagnostics"]), 0)
         return payload
 

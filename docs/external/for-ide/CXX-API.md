@@ -2,7 +2,7 @@
 
 **Purpose:** Show how to embed Styio's IDE components directly from C++, from the high-level `IdeService` entrypoint down to the edit-time `SyntaxParser`.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-10-01
 
 ## High-Level Service
 
@@ -92,18 +92,26 @@ Use `styio::ide::analyze_document` when you want compiler-owned nightly semantic
 
 auto summary = styio::ide::analyze_document("memory://sample.styio", source_text);
 if (!summary.parse_success) {
-  // Use summary.diagnostics; semantic facts are not published from malformed source.
+  // Inspect diagnostics: no root AST was returned.
+}
+if (summary.used_recovery || !summary.diagnostics.empty()) {
+  // Any available facts are partial edit-time assistance, not a valid-program proof.
 }
 ```
 
 `SemanticSummary` currently reports:
 
 1. `parse_success`
-2. `used_recovery` retained for ABI compatibility; strict compiler parsing leaves it false for rejected source
+2. `used_recovery` is true when Nightly recovery parsing recorded parse diagnostics; `parse_success` only says a root AST was returned
 3. `diagnostics`
 4. `items`
 5. `inferred_types`
 6. `function_signatures`
+
+Recovery parsing can retain a root and later useful items after a malformed
+statement. Sema diagnostics may also coexist with collected item/type facts.
+Check diagnostics and `used_recovery`; neither `parse_success` nor the presence
+of an item establishes successful whole-program semantic validation.
 
 `items` contains AST/analyzer-backed semantic item facts for module-level functions, imports, resources, and global bindings. Top-level `@import { ... }` declarations surface here as import items; import names are exposed in canonical slash form (`std/io`), even when the source used the compatibility dot spelling (`std.io`). HIR lowering uses these facts as semantic truth, then binds them to edit-time syntax ranges.
 
@@ -189,7 +197,7 @@ Merge precedence is deterministic: open-file entries override background and per
 ## Layer Boundaries
 
 1. `SyntaxParser` owns edit-time CST and token spans, but it is not a grammar authority.
-2. The hand-written nightly compiler parser plus analyzer remain the semantic truth for `SemanticSummary`, with strict parsing for IDE semantic publication.
+2. The hand-written nightly compiler parser plus analyzer remain the semantic truth for `SemanticSummary`, with recovery parsing and explicit diagnostics for partial edit-time facts.
 3. `HirBuilder` lowers syntax plus semantic summary into the IDE-facing HIR.
 4. `SemanticDB` owns file-level and offset-level IDE query caches.
 5. `IdeService` is the recommended stable boundary for application code.

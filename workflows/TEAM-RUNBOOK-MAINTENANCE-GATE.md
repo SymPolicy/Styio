@@ -2,7 +2,7 @@
 
 **Purpose:** Define the delivery gate that requires team runbooks under `docs/teams/` to be updated and kept in the standard template shape when files in corresponding team-owned folders are added, modified, renamed, or deleted.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-10-01
 
 ## Goal
 
@@ -65,9 +65,9 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | Team doc | Watched paths |
 |----------|---------------|
 | `FRONTEND-RUNBOOK.md` | `src/StyioToken/`, `src/StyioUnicode/`, `src/StyioParser/`, `src/Deprecated/`, parser legacy-entry audit scripts |
-| `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioResourceTopology/`, `src/StyioToString/`, `src/StyioSession/`, frontend source CMake map |
-| `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/`, `scripts/runtime-surface-gate.py` |
-| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `scripts/source-build-minimal.sh`, `docs/external/for-pafio/` |
+| `SEMA-IR-RUNBOOK.md` | `src/StyioAST/`, `src/StyioSema/`, `src/StyioLowering/`, `src/StyioIR/`, `src/StyioResourceTopology/`, `src/StyioToString/`, `src/StyioSession/`, Sema / IR source fragment, `StyioObservable/`, `StyioObservableProducer/`, `StyioUtil/SemanticIdentity.*` |
+| `CODEGEN-RUNTIME-RUNBOOK.md` | `src/StyioCodeGen/`, `src/StyioJIT/`, `src/StyioExtern/`, `src/StyioRuntime/`, `scripts/runtime-surface-gate.py`, `StyioNative/`, `StyioObservable/RuntimeCorrelation.*`, backend source map |
+| `CLI-NANO-RUNBOOK.md` | `src/main.cpp`, `src/StyioServices/StyioCLI/`, `src/StyioServices/StyioConfig/`, `configs/`, `scripts/gen-styio-nano-profile.py`, `scripts/source-build-minimal.sh`, `docs/external/for-pafio/`, `StyioObservableProducer/` |
 | `IDE-LSP-RUNBOOK.md` | `src/StyioServices/StyioIDE/`, `src/StyioServices/StyioLSP/`, `docs/external/for-ide/`, `tests/ide/` |
 | `GRAMMAR-RUNBOOK.md` | `grammar/tree-sitter-styio/`, `src/StyioServices/StyioIDE/TreeSitterBackend.*` |
 | `TEST-QUALITY-RUNBOOK.md` | `tests/`, `src/StyioTesting/`, `tests/workflow_scheduler_test.py`, parser shadow suite gates, fuzz pack script, `scripts/coverage-gate.sh`, `scripts/checkpoint-health.sh` |
@@ -75,6 +75,44 @@ Gate failures print the missing, duplicate, extra, or out-of-order section and p
 | `DOCS-ECOSYSTEM-RUNBOOK.md` | `README.md`, `docs/`, `library/`, `workflows/`, `templates/`, docs maintenance scripts, `scripts/delivery-gate.sh`, `scripts/stdlib-manifest-gate.py`, `scripts/team-docs-gate.py`, `scripts/workflow-scheduler.py` |
 
 Generated `docs/**/INDEX.md` files do not themselves require runbook updates. They are regenerated inventory, not a maintenance decision.
+
+## Target-Scoped CMake Mapping
+
+`src/CMakeLists.txt` only assembles the existing target modules and requires
+Coordination. Edit the owning file for normal source or target-setting changes;
+do not move those changes back into the assembly entry point. New unmapped
+`src/cmake/*.cmake` files fall back to Coordination and fail the inventory
+regression until their explicit ownership is added.
+
+Source lists are explicit (no glob), target names and dependency directions are
+unchanged, and nano reuses the same ordered source lists. A transitive consumer
+is not an additional maintenance owner. The following exceptions are genuinely
+shared contracts, so all listed roles still update their runbooks.
+
+| Files under `src/cmake/` | Required roles |
+|---|---|
+| `StyioSymbolSources.cmake`, `StyioFrontendFoundationSources.cmake`, `targets/StyioSymbolCore.cmake` | Frontend |
+| `StyioSemaIRSources.cmake` | Sema / IR |
+| `StyioFrontendProfilerSources.cmake` | Performance / Stability |
+| `StyioBackendSources.cmake`, `StyioRuntimeSources.cmake`, `StyioNativeInteropSources.cmake`, `targets/StyioRuntimeCore.cmake` | Codegen / Runtime |
+| `StyioTestingSources.cmake` | Test Quality |
+| `StyioCoreSources.cmake`, `targets/StyioCore.cmake` | Codegen / Runtime + Test Quality |
+| `StyioFrontendSources.cmake`, `targets/StyioFrontendCore.cmake` | Frontend + Sema / IR + Codegen / Runtime + Performance / Stability |
+| `StyioObservableSources.cmake`, `StyioRuntimeCorrelationSources.cmake`, `targets/StyioObservableCore.cmake` | Sema / IR + Codegen / Runtime |
+| `StyioObservableProducerSources.cmake`, `StyioCLIContractSources.cmake`, `targets/StyioCLIContractCore.cmake` | Sema / IR + CLI / Nano |
+| `StyioIDESources.cmake`, `StyioLSPSources.cmake`, `targets/StyioLSPD.cmake` | IDE / LSP |
+| `targets/StyioIDECore.cmake` | IDE / LSP + Grammar |
+| `StyioNanoCoreSources.cmake`, `targets/Styio.cmake`, `targets/StyioNanoCore.cmake`, `targets/StyioNano.cmake` | CLI / Nano |
+| `StyioTargetHelpers.cmake` | Frontend + Sema / IR + Codegen / Runtime + CLI / Nano + IDE / LSP |
+
+`scripts/team-docs-gate.py:CMAKE_ROLES` is the executable mapping.
+`tests/cmake_ownership_test.py` asserts exact required-role sets, absence of
+unrelated roles, missing shared-owner failure, inventory coverage, and both
+source and destination roles for renames. Copies only trigger the destination.
+The configure-only `cmake_target_contract` CTest freezes pre-split target source
+order, links, settings, and the nano alias. It is not a substitute for building
+and testing the actual compiler, nano, Observable, and IDE/LSP targets.
+
 
 ## Stats Requirement
 

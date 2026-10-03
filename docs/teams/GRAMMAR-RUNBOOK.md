@@ -2,13 +2,15 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-01
 
 ## Mission
 
 Own edit-time CST structure, Tree-sitter error-node behavior, generated grammar artifacts, and the grammar-to-`SyntaxSnapshot` adapter contract. This team does not own compiler parser semantics, accepted grammar, or type truth.
 
 ## Owned Surface
+
+The Tree-sitter integration settings for the existing IDE target live in `src/cmake/targets/StyioIDECore.cmake` and are jointly reviewed with IDE / LSP. Generated grammar sources and TreeSitterBackend source edits retain their existing dual routing; unrelated service manifests do not trigger Grammar.
 
 Primary paths:
 

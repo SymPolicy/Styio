@@ -2,13 +2,15 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-10-01
 
 ## Mission
 
 Own StyioIR-to-LLVM lowering and the runtime surface that compiled programs call. This team protects LLVM IR correctness, JIT symbol exposure, external helper ownership, handle lifecycle, runtime diagnostics, and performance-sensitive execution paths.
 
 ## Owned Surface
+
+Build membership: edit `src/cmake/StyioBackendSources.cmake`, `StyioRuntimeSources.cmake`, or `StyioNativeInteropSources.cmake` for their owned units. `targets/StyioRuntimeCore.cmake` owns runtime links, including its public Observable dependency. `StyioCoreSources.cmake` and `targets/StyioCore.cmake` are joint with Test Quality because the core also contains PipelineCheck. RuntimeCorrelation manifests and the public Observable target remain joint with Sema / IR; unrelated IDE and CLI target lists do not trigger this runbook.
 
 Primary paths:
 
@@ -18,6 +20,8 @@ Primary paths:
 4. `src/StyioExtern/`
 5. `src/StyioRuntime/`
 6. Runtime-facing parts of `src/main.cpp`
+7. Event semantics in `src/StyioServices/StyioObservable/RuntimeCorrelation.*`, jointly reviewed with Sema / IR
+8. The Runtime-owned source and target modules listed above, with joint composition only at their declared boundaries
 
 Related docs:
 
@@ -25,6 +29,10 @@ Related docs:
 2. [../design/Styio-StdLib-Intrinsics.md](../design/Styio-StdLib-Intrinsics.md)
 3. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 4. [../../workflows/ADD-SYNTAX-WITH-SKILLS.md](../../workflows/ADD-SYNTAX-WITH-SKILLS.md)
+
+Runtime correlation uses the [observable semantic boundary](../design/Styio-Observable-Language.md#8-static-and-runtime-separation)
+and [public decoder contract](../../src/StyioServices/StyioObservable/README.md).
+The runtime reports execution instances; it does not reconstruct compiler facts.
 
 ## Daily Workflow
 
@@ -81,22 +89,32 @@ Minimum local commands:
 
 ```bash
 python3 scripts/runtime-surface-gate.py
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L language_feature
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
 ```
+
+When runtime event producers, correlation or observation modes change:
+
+```bash
+ctest --test-dir build/default -L observable_runtime --output-on-failure --no-tests=error
+```
+
+Also use the [Test Quality runtime correlation selection](./TEST-QUALITY-RUNBOOK.md#required-gates)
+for compact codegen descriptors and disabled/static ABI evidence; the runtime
+label alone does not select every lowering, codegen or CLI test.
 
 Runtime stability:
 
 ```bash
-ctest --test-dir build/default -L soak_smoke
+ctest --test-dir build/default -L soak_smoke --output-on-failure --no-tests=error
 /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --quick
 ```
 
 For deeper runtime or allocation work:
 
 ```bash
-ctest --test-dir build/default -L soak_deep
+ctest --test-dir build/default -L soak_deep --output-on-failure --no-tests=error
 STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
   /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```

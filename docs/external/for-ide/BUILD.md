@@ -2,7 +2,7 @@
 
 **Purpose:** Describe how to configure, build, and launch the IDE-facing targets `styio_ide_core` and `styio_lspd`, including the optional Tree-sitter syntax backend, after the repository-level toolchain is already in place.
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-10-01
 
 ## Targets
 
@@ -79,7 +79,7 @@ The server uses stdio JSON-RPC. Your IDE host is expected to launch it as a long
 
 1. Edit-time syntax goes through Tree-sitter when `STYIO_ENABLE_TREE_SITTER=ON`.
 2. `SyntaxParser` reuses the previous Tree-sitter tree for the same file path and applies a single incremental edit before reparsing.
-3. Semantic analysis uses the authoritative nightly compiler parser in strict mode. Malformed source emits diagnostics and does not publish recovered later semantic facts.
+3. Semantic analysis uses the authoritative Nightly compiler parser in recovery mode. Malformed source can retain later semantic items alongside diagnostics; callers must inspect `used_recovery` and diagnostics rather than treating a returned root or item as whole-program validation.
 
 ## Regenerate The Grammar
 
