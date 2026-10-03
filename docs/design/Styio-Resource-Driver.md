@@ -2,11 +2,13 @@
 
 **Purpose:** `@protocol(...)` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
 **Target Audience:** Driver plugin developers, runtime engineers
+
+**Status:** Proposed resource-driver interface and research target. The `ResourceIntent`, `IStyioDriver`, and `STYIO_REGISTER_DRIVER` examples below are not implemented interfaces in the current compiler tree. Dedicated driver threads, field-projection pushdown, and performance examples must not be read as delivered capabilities or measured results. Current executable file I/O and native interop are narrower contracts; use their implementation/tests for behavior and the [source-proximal research agenda](./Styio-Research-Innovations.md#source-proximal-acquisition-and-processing-research) for evaluation obligations.
 
 ---
 

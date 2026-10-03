@@ -2,7 +2,7 @@
 
 **Purpose:** Define the scope and naming rules for `docs/external/for-ide/`; this directory is the SSOT for consuming `styio`'s IDE-facing components, while consumer-neutral service rules live in [../SERVICES.md](../SERVICES.md) and the generated inventory lives in [INDEX.md](./INDEX.md).
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-10-01
 
 ## Scope
 
@@ -27,7 +27,8 @@
 4. Grammar and syntax backend maintenance: [TREE-SITTER.md](./TREE-SITTER.md)
 5. Verification commands: [TESTING.md](./TESTING.md)
 6. Consumer-neutral service catalog: [../SERVICES.md](../SERVICES.md)
-7. Repository bootstrap entry: [../../BUILD-AND-DEV-ENV.md](../../BUILD-AND-DEV-ENV.md)
+7. Visual program consumers: [observable semantic boundary](../../design/Styio-Observable-Language.md) and [incubating decoder contract](../../../src/StyioServices/StyioObservable/README.md). The independent IDE owns hierarchy, layout and execution presentation; ordinary LSP methods do not constitute a graph protocol, and consumers must not invent canonical semantic edges.
+8. Repository bootstrap entry: [../../BUILD-AND-DEV-ENV.md](../../BUILD-AND-DEV-ENV.md)
 
 ## Inventory
 

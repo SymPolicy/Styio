@@ -2,9 +2,9 @@
 
 **Purpose:** Record the implementation contract for IM-D2 so accepted Styio grammar is judged by the compiler-owned parser instead of legacy fallback, editor snapshot drift, or consumer-local syntax approximations.
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-10-01
 
-**Status:** Active contract inventory. This document supports [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md) §5.7 `IM-D2`.
+**Status:** Active contract inventory. This inventory supplies current evidence for [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md).
 
 ## Contract Manifest
 

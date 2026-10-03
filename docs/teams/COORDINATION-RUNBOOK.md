@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily coordination entrypoint for Styio maintainers and tech leads; this file routes ownership, review, escalation, checkpoint, and cutover decisions to existing SSOTs instead of redefining them.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -18,6 +18,8 @@ Authoritative references:
 6. Current delivery registry and future-work queue: [../plan/Manifest.json](../plan/Manifest.json) and [../rollups/NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md)
 
 ## Module Map
+
+Build assembly: `src/CMakeLists.txt` is now an include-only index of `src/cmake/targets/*.cmake`; it routes to Coordination rather than every target maintainer. Each existing target keeps its own definition/settings module and explicit source manifests. Review aggregate dependency changes with the affected target owners. A newly introduced unmapped `src/cmake/*.cmake` path routes to Coordination, and `cmake_ownership` fails until its explicit role mapping and exact regression expectations are added. Common target helpers retain real multi-role routing; transitive links alone do not broaden ownership.
 
 ```mermaid
 flowchart TB
@@ -43,14 +45,20 @@ flowchart TB
 | Team | Primary runbook | Main surface | Required review trigger |
 |------|-----------------|--------------|-------------------------|
 | Frontend | [FRONTEND-RUNBOOK.md](./FRONTEND-RUNBOOK.md) | lexer, parser, Unicode, legacy route | Token, grammar, parser route, fallback, or parse diagnostic change |
-| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | AST, type inference, lowering, IR, repr, session | AST lifecycle, type, IR shape, or golden repr change |
+| Sema / IR | [SEMA-IR-RUNBOOK.md](./SEMA-IR-RUNBOOK.md) | AST, type inference, lowering, IR, repr, session; observable facts, public contracts, semantic identity and producer adapters | AST lifecycle, type, IR shape, repr, snapshot/query contract, identity or evidence change |
 | Codegen / Runtime | [CODEGEN-RUNTIME-RUNBOOK.md](./CODEGEN-RUNTIME-RUNBOOK.md) | LLVM, JIT, externs, runtime helpers, handles | LLVM IR, runtime symbol, handle, memory, or error-code change |
-| CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | CLI options, diagnostics, nano package workflow | CLI surface, machine-info, nano profile, package contract change |
+| CLI / Nano | [CLI-NANO-RUNBOOK.md](./CLI-NANO-RUNBOOK.md) | CLI options, diagnostics, nano package workflow; observable admission, artifact and receipt publication | CLI surface, machine-info, nano profile, package or publication contract change |
 | IDE / LSP | [IDE-LSP-RUNBOOK.md](./IDE-LSP-RUNBOOK.md) | IDE service, VFS, HIR, SemDB, LSP server | Public IDE API, LSP method, incremental edit, or semantic cache change |
 | Grammar | [GRAMMAR-RUNBOOK.md](./GRAMMAR-RUNBOOK.md) | tree-sitter grammar and generated parser | `grammar.js`, generated CST surface, or syntax backend behavior change |
 | Test Quality | [TEST-QUALITY-RUNBOOK.md](./TEST-QUALITY-RUNBOOK.md) | language_feature, five-layer, security, fuzz, shadow gates | New feature, changed behavior, changed oracle, or regression sample |
 | Perf / Stability | [PERF-STABILITY-RUNBOOK.md](./PERF-STABILITY-RUNBOOK.md) | benchmark, soak, perf route, regression reports | Hot path, allocation, runtime loop, benchmark matrix, or RSS threshold change |
 | Docs / Ecosystem | [DOCS-ECOSYSTEM-RUNBOOK.md](./DOCS-ECOSYSTEM-RUNBOOK.md) | docs, templates, external handoff | SSOT, repo-boundary, generated index, archive, or ecosystem handoff change |
+
+Observable ownership above is a maintenance responsibility, not a change to
+compiler dependency direction. `styio_observable_core` remains a standalone
+public contract; compiler-only adapters remain in `StyioObservableProducer/`.
+The [language design](../design/Styio-Language-Design.md#compiler-and-ide-responsibilities)
+defines the compiler/IDE interface responsibilities.
 
 ## Review Matrix
 
@@ -60,6 +68,8 @@ flowchart TB
 4. CLI diagnostics or nano package changes require CLI / Nano and Docs / Ecosystem review; add Codegen / Runtime when runtime capability output changes.
 5. IDE public API or LSP surface changes require IDE / LSP, Grammar when syntax behavior changes, and Docs / Ecosystem for `docs/external/for-ide/`.
 6. Documentation structure changes require Docs / Ecosystem review and must preserve generated-index and audit gates.
+7. Observable fact, snapshot, delta or query changes require Sema / IR and Test Quality review; add CLI / Nano for admission/publication/receipts, Codegen / Runtime for runtime-event semantics or descriptors, and IDE / LSP for consumer-facing integration. Decoder details stay in one owning contract.
+8. Source manifests and target modules follow the exact roles in `scripts/team-docs-gate.py:CMAKE_ROLES`. The include-only `src/CMakeLists.txt` entrypoint routes to Coordination; shared helpers and composition retain their actual joint owners.
 
 ## Escalation Rules
 
@@ -97,7 +107,7 @@ The unified delivery floor is additive, not a replacement. Run `./scripts/delive
 
 ## Handoff / Recovery
 
-1. Every interrupted checkpoint records status, next step, reproduction commands, risks, and rollback point in `docs/history/YYYY-MM-DD.md`.
+1. Use the owning plan/checkpoint record first. Add a temporary dated recovery note only when it carries otherwise missing recovery information; promote durable content and clean it through the lifecycle workflow on closure.
 2. Link the owning team runbook and exact test command in the handoff note.
 3. If the runbook changed, refresh [DOC-STATS.md](./DOC-STATS.md) in the same delivery.
 4. If a team cannot finish a cross-team dependency inside the checkpoint, record it as a separate next checkpoint instead of leaving implicit work in comments.

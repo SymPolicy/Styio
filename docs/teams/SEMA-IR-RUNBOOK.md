@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -11,6 +11,8 @@ Own the compiler middle layer from parsed AST to StyioIR and stable textual repr
 The current performance contract preserves canonical builtin type IDs, merges pass-applicability facts into verified IR traversal, skips inapplicable rewrites, and shares one narrow scalar-only resource-topology no-op proof between Sema and lowering. A complete non-deferred `SGMainEntry` pass boundary may certify that exact tree for codegen so LLVM emission does not repeat the same full traversal; hand-built, deferred, or newly reprocessed IR remains untrusted and fail-closed.
 
 ## Owned Surface
+
+Build membership: `src/cmake/StyioSemaIRSources.cmake` owns semantic identity, session, Sema, IR, and lowering lists. Public Observable wiring is in `StyioObservableSources.cmake` and `targets/StyioObservableCore.cmake`; runtime-correlation membership is separately joint with Codegen / Runtime. Producer wiring is in `StyioObservableProducerSources.cmake` and the CLI contract composition, jointly with CLI / Nano. Keep frontend composition shared only at its actual aggregate boundary.
 
 Primary paths:
 
@@ -21,7 +23,11 @@ Primary paths:
 5. `src/StyioToString/`
 6. `src/StyioSession/`
 7. `src/StyioResourceTopology/`
-8. `src/cmake/StyioFrontendSources.cmake`
+8. `src/cmake/StyioSemaIRSources.cmake` and the shared frontend composition
+9. `src/StyioServices/StyioObservable/` public fact, identity, snapshot, delta and query contracts
+10. `src/StyioServices/StyioObservableProducer/` semantic adapters, jointly reviewed with CLI / Nano for admission/publication
+11. `src/StyioUtil/SemanticIdentity.*`
+12. The Sema-owned and joint target/source modules listed above
 
 High-value docs:
 
@@ -29,6 +35,11 @@ High-value docs:
 2. [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md)
 3. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 4. [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md)
+
+The [observable semantic contract](../design/Styio-Observable-Language.md) and
+[decoder contract](../../src/StyioServices/StyioObservable/README.md) own the
+observable boundary. Team ownership does not move query services into Sema or
+make compiler layers depend on an IDE.
 
 ## Daily Workflow
 
@@ -133,13 +144,18 @@ High-value docs:
 Minimum local commands:
 
 ```bash
-ctest --test-dir build/default -L language_feature
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L resource_topology
-ctest --test-dir build/default -L observable_static_snapshot
-ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)'
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
+ctest --test-dir build/default -L observable_static_snapshot --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error
 ```
+
+When snapshot/site bindings or observed IR descriptors change, also run the
+[observable runtime correlation selection](../../workflows/TEST-CATALOG.md)
+from the Test Quality runbook, including
+`StyioLoweringInternal.ObservationDescriptorsPreserveSnapshotAndSiteIds`.
 
 When AST or IR text changes:
 
@@ -170,3 +186,4 @@ Record unfinished middle-layer work with:
 4. Failing five-layer layer, if any.
 5. Whether Codegen has already been adapted.
 6. Any future unsupported-lowering handler or placeholder-retirement follow-up, including the owning negative matrix and whether Codegen has already been adapted.
+7. For observable changes: contract/schema and capability scope, static snapshot/site identity, completeness, independent consumer fixture, disabled-path evidence, and the CLI/runtime/IDE reviewer affected. Record unsupported producer coverage in the gap ledger, not as a new grammar rule.

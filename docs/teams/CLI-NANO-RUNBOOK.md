@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-03
 
 ## Mission
 
@@ -12,16 +12,23 @@ Native builds use compiler-owned content-addressed object caches for runtime and
 
 ## Owned Surface
 
+Build membership and packaging: `src/cmake/targets/Styio.cmake`, `StyioNanoCore.cmake`, and `StyioNano.cmake` own the existing executables/core without changing their target names. `StyioNanoCoreSources.cmake` reuses the full frontend/backend/runtime lists and preserves profile-conditional PipelineCheck. `StyioCLIContractSources.cmake`, `StyioObservableProducerSources.cmake`, and `targets/StyioCLIContractCore.cmake` are joint with Sema / IR. Source edits in the reused lists stay with their actual maintainers, rather than cascading through every consumer.
+
 Primary paths:
 
 1. `src/main.cpp`
-2. `src/StyioConfig/`
+2. `src/StyioServices/StyioCLI/` and `src/StyioServices/StyioConfig/`
 3. `configs/`
 4. `scripts/gen-styio-nano-profile.py`
 5. `scripts/source-build-minimal.sh`
 6. Nano package tests in `tests/styio_test.cpp`
 
-Key implementation seams inside `src/StyioConfig/`:
+Observable publication is jointly maintained with Sema / IR in
+`src/StyioServices/StyioObservableProducer/`: CLI / Nano owns admission,
+artifact/receipt output, and capability announcements; Sema / IR owns semantic
+facts. Target and source composition follows the specific manifest owners above.
+
+Key implementation seams inside `src/StyioServices/StyioConfig/`:
 
 1. `CompilePlanContract.*` owns compile-plan version/build-mode parsing and validation shared by full `styio` execution paths.
 2. `SourceBuildInfo.*` owns the published `--source-build-info=json` payload for compiler maintainers and system package builders.
@@ -48,10 +55,10 @@ Key handoff document:
 10. Keep `scripts/source-build-minimal.sh` aligned with the published `--source-build-info=json` contract so build-channel consumers have one stable compiler-side helper entry.
 11. Prefer named enum tables and shared field-resolution helpers for project config, nano package config, nano publish config, and nano manifest parsing so new keys or aliases are added in one place instead of another `if/else` ladder in `src/main.cpp`.
 12. Treat config alias changes as contract changes when they affect source-build, nano packaging, or publish bootstrap behavior; update this runbook and the handoff docs in the same checkpoint.
-13. Keep compile-plan contract parsing and source-build metadata export in `src/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
+13. Keep compile-plan contract parsing and source-build metadata export in `src/StyioServices/StyioConfig/` as the single source of truth; `src/main.cpp` may orchestrate those paths, but it should not grow a second parser or duplicate build-mode vocabulary.
 14. When frontend, StyioIR optimizer, or runtime source roots gain new support libraries, update the local-subset nano closure seed list, generated CMake include paths, generated config headers, and link libraries together; `StyioNanoPackage.LocalSubset*` tests must prove the extracted clean-room bundle still links.
 15. When compiler source-layout directories move, update `SourceBuildInfo.*`, `styio_nano_source_roots_latest(...)`, and the `StyioDiagnostics.SourceBuildInfoJsonReportsOfficialSourceLayoutFields` regression together so system package builders see the same controlled component graph as local nano bundles.
-16. When internal prelude source files such as `src/StyioPrelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.
+16. When internal prelude source files such as `share/styio/prelude/resources.styio` become part of compiler behavior, include them in `--source-build-info=json` controlled components and the matching diagnostics regression.
 17. When `--profile-frontend` grows runtime-side records, keep the CLI flush hook in `src/main.cpp` paired with a profiler smoke that proves the emitted JSON includes the new section. Native executable profiling stays opt-in through `STYIO_NATIVE_PROFILE_OUT` so benchmark validation can collect run-only attribution without adding overhead to measured repeats.
 18. Keep `--nano-create` clean-room local-subset builds on the same Clang CMake compiler pair used to build Styio unless `CC` or `CXX` is explicitly set by the caller; generated `build-styio-nano.sh` must preserve that override rule.
 19. When Sema / IR gains a new required implementation directory such as `src/StyioResourceTopology/`, add its `.cpp` seed to `styio_nano_source_roots_latest(...)` so local-subset nano packages link in a clean-room bundle.
@@ -87,16 +94,26 @@ Key handoff document:
 Minimum local commands:
 
 ```bash
-ctest --test-dir build/default -R '^StyioDiagnostics\.'
-ctest --test-dir build/default -R 'Nano|nano'
-ctest --test-dir build/default -L language_feature
+ctest --test-dir build/default -R '^StyioDiagnostics\.' --output-on-failure --no-tests=error
+ctest --test-dir build/default -R 'Nano|nano' --output-on-failure --no-tests=error
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
 ```
+
+When observable admission, publication, delta output or receipts change:
+
+```bash
+ctest --test-dir build/default -L observable_static_snapshot --output-on-failure --no-tests=error
+```
+
+For runtime-event negotiation, add the [runtime correlation tests](../../workflows/TEST-CATALOG.md)
+listed by Test Quality. Decoder fields remain owned by the
+[observable contract README](../../src/StyioServices/StyioObservable/README.md).
 
 When package behavior changes:
 
 ```bash
 cmake --build build/default --target styio styio_nano
-ctest --test-dir build/default -L styio_pipeline
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
 python3 scripts/ecosystem-cli-doc-gate.py
 python3 scripts/docs-audit.py
 ```
@@ -118,10 +135,13 @@ Record unfinished CLI/nano work with:
 4. Exact create/publish/consume command used.
 5. Whether `pafio-nightly` is expected to take over the responsibility later.
 
+For observable publication, include compile-plan request fields, emitted artifact/receipt, delta degradation, full/nano differences, the focused validation command, and outstanding Sema/runtime review in the handoff.
+
 ### Syntax source-read regression (2026-09-28)
 
-Syntax-only checking reports source I/O failures as CLI errors rather than
-accepting a failed read as empty input. Empty regular files remain valid.
-`services_syntax_source_io` exercises the public CLI for directories, missing
-sources, empty files, escaped paths, and read-buffer boundaries. The check is
-part of the existing `styio_pipeline` gate; it does not require extra services.
+Syntax-only checking reports source I/O failures with CLI-error status and the
+service diagnostic phase rather than accepting a failed read as empty input.
+Empty regular files remain valid. `services_syntax_source_io` exercises the
+public CLI for directories, missing sources, empty files, escaped paths, and
+read-buffer boundaries. The check is part of the existing `styio_pipeline`
+gate; it does not require extra services.
