@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
@@ -17,7 +17,7 @@ ARCHIVE_ROOT = DOCS / "archive"
 ROLLUP_ROOT = DOCS / "rollups"
 MANIFEST_PATH = ARCHIVE_ROOT / "ARCHIVE-MANIFEST.json"
 LEDGER_PATH = ARCHIVE_ROOT / "ARCHIVE-LEDGER.md"
-TODAY = date.today().isoformat()
+TODAY = datetime.now(timezone.utc).date().isoformat()
 DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 FAMILY_ORDER = {

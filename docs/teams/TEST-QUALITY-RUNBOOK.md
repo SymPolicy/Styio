@@ -16,6 +16,13 @@ Parser shadow checks are compiler correctness gates under `tests/gates/`. Perfor
 
 ## Owned Surface
 
+The `research_review_facts` and `research_review_page` CTests protect the
+developer review-page skill's real HTML output, commit/status consistency,
+Git-object extraction, and stale-result handling. Their fixtures are synthetic
+and network-free; passing them does not certify external CI or visual layout.
+
+CMake ownership regression: `python3 tests/cmake_ownership_test.py` checks exact role sets (including absent unrelated roles), shared-owner failures, and both sides of renames. `python3 tests/cmake_target_contract_test.py --cmake cmake` configures the real source target modules against frozen fd3b3e2 properties across nano/profile/size/Tree-sitter/compiler-setting variants; this is configure-only evidence, not a production build. CTest names are `cmake_ownership` and `cmake_target_contract`. PipelineCheck membership is in `src/cmake/StyioTestingSources.cmake`, jointly composed with Codegen / Runtime by `StyioCoreSources.cmake` and `targets/StyioCore.cmake`.
+
 Primary paths:
 
 1. `tests/`
@@ -121,6 +128,11 @@ Primary paths:
 1. Small: new fixture for already accepted behavior, expected-output fix, or test naming cleanup. Run targeted test.
 2. Medium: new milestone area, five-layer case, security regression, parser shadow gate update, or compile-plan artifact assertion expansion. Update docs and run affected labels.
 3. High: new test framework, changed oracle policy, fuzz corpus backflow, or checkpoint-health gate change. Use checkpoint workflow and add ADR if the gate becomes required.
+
+The documentation-contract regression test `tests/design_intent_contract_test.py`
+checks required design principles, status/scope distinctions, anchors and
+evidence references, plus observable owner mappings. It must fail on drift
+without interpreting design metaphors as language semantics.
 
 ## Required Gates
 

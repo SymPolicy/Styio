@@ -2,7 +2,7 @@
 
 **Purpose:** Define the durable language and compiler boundary for observable semantic facts, their ownership, identity, evidence, runtime correlation, and consumer isolation. This document does not own source syntax, implementation sequencing, UI design, or telemetry storage.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-01
 
 **Status:** Active design contract. The implemented incubating static snapshot, delta, lineage, and bounded query contracts live in `src/StyioServices/StyioObservable/README.md` with fixtures under `tests/fixtures/observable_static_snapshot/v1/` and `tests/fixtures/observable-topology/`; this document remains the long-term vocabulary and must not be treated as the wire-schema authority.
 
@@ -11,6 +11,10 @@
 ---
 
 ## 1. Contract
+
+The [language design](./Styio-Language-Design.md#24-visual-design-intent) defines
+the program-view model. This contract defines the compiler facts and runtime
+observations available to tooling consumers.
 
 Styio treats observability as a language and compiler property, not as a UI-side reconstruction of source text. The durable objective is to make program structure, data flow, effects, ownership, mutation, failure, task causality, and resource pressure available as facts that:
 
@@ -71,11 +75,34 @@ Its active edge vocabulary is:
 
 The graph currently supports validation, kind counts, cycle detection, a diagnostic `debug_string()`, and compiler-internal opaque semantic identity on every node. Dense node IDs remain build-order indexes and node source links remain process-local AST pointers. `debug_string()` is diagnostic text, contains no semantic IDs, may contain source-derived labels, and is not an external protocol or telemetry format.
 
-An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Snapshot delta, producer lineage, and bounded query are implemented as public S2 contracts over that snapshot. Runtime-events schema v2 is implemented as an explicit compile-plan overlay and remains unapproved for default enablement. Cancellation and cooperative suspension producers are schema-owned and advertised unavailable.
+An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Snapshot delta, lineage representation, and bounded query are implemented as public S2 contracts over that snapshot. The compiler currently emits no rename, move, split, or merge lineage records. Runtime-events schema v2 is implemented as an explicit compile-plan overlay and remains unapproved for default enablement. Cancellation and cooperative suspension producers are schema-owned and advertised unavailable.
 
 Semantic analysis owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Its order-unspecified descriptor seam exposes only node kind, typed semantic role, opaque identity, and explicit qualification status; the owning artifact retains the qualified-or-anonymous scope once. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal capability does not change diagnostics, code generation, or ordinary compiler operation.
 
-The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented snapshot, delta, lineage, bounded query, negotiation, retention, degradation, and runtime-events v2 contracts are owned by `src/StyioServices/StyioObservable/README.md` together with `tests/fixtures/observable_static_snapshot/v1/`, `tests/fixtures/observable-topology/`, and `tests/fixtures/observable-runtime-correlation/v2/`. Mutable service caches are not semantic facts. Vityo UI remains deferred. Snapshot and runtime-event schemas are incubating and unapproved.
+The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented snapshot, delta, lineage, bounded query, negotiation, retention, degradation, and runtime-events v2 contracts are owned by `src/StyioServices/StyioObservable/README.md` together with `tests/fixtures/observable_static_snapshot/v1/`, `tests/fixtures/observable-topology/`, and `tests/fixtures/observable-runtime-correlation/v2/`. Mutable service caches are not semantic facts. Vityo UI implementation and acceptance belong to its own repository, as defined by the [repository map](../specs/REPOSITORY-MAP.md); this compiler contract does not establish its current UI delivery status. Snapshot and runtime-event schemas are incubating and unapproved.
+
+### 3.1 Coverage and interpretation
+
+The existing resource graph is not a complete exported module or control-flow
+graph. It has no dedicated module, loop, or branch node kinds. Traversing a
+condition or a loop body for resource validation does not by itself publish all
+control alternatives, iteration structure, or call dependencies. The scalar
+no-op snapshot is deliberately empty; its completeness means that the admitted
+resource-topology contract was satisfied, not that every source construct has
+a visual representation. Source anchors currently have file precision only.
+
+Broader coverage is delivered in independently testable slices:
+
+| Proposed slice | Acceptance evidence |
+|---|---|
+| Module hierarchy | Module ownership, nested scopes, and cross-boundary connections remain traceable when an independent consumer collapses or expands a view. |
+| Data and control flow | Separate fixtures cover sequence, branch, loop, and call dependencies, including explicit unsupported cases and incomplete facts. |
+| Runtime correlation | Repeated iterations and different branch outcomes resolve to static sites; unobserved, sampled, and lost events remain distinguishable. |
+| Consumer integration | Each displayed semantic relationship links to producer evidence; the consumer uses the public contract without compiler-private dependencies. |
+
+Each slice needs its owning contract, producer fixture, independent consumer
+fixture, and completeness checks. Exact fields remain in the decoder contract;
+see the [gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence).
 
 ## 4. Static observable artifact
 

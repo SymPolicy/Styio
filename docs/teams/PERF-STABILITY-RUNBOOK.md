@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -13,6 +13,8 @@ Relative `STYIO_BENCHMARK_ROOT` values are resolved from the Styio source direct
 Use [Performance Research](../../workflows/PERFORMANCE-RESEARCH-WORKFLOW.md) and its [agent skill](../../workflows/skills/styio-performance-research/SKILL.md) for deep investigation or continuing optimization. Separate Benchmark and Modification tasks own evidence and implementation respectively: Benchmark reports findings and independently evaluates stable candidates; Modification returns bounded source changes and correctness results. Unspecified research defaults to Benchmark, which keeps measurements and the dossier external. Select continuous mode for repeated research: each report records the next action, waiting on one Modification handoff does not suspend independent investigation, and host continuation resumes existing state. This runbook remains the current compiler-tool authority; the skill reuses its commands and budgets.
 
 ## Owned Surface
+
+Frontend profiler source membership lives in `src/cmake/StyioFrontendProfilerSources.cmake`. Changing that fragment triggers Performance / Stability alone; changing the shared frontend composition (`StyioFrontendSources.cmake` or `targets/StyioFrontendCore.cmake`) requires its actual frontend, semantic, native, and profiler maintainers. Target splitting does not establish performance improvement.
 
 Primary paths:
 
