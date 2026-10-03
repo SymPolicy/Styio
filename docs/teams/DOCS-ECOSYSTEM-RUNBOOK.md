@@ -8,6 +8,8 @@ Delivery auto composes worktree and push profiles in one read-only scheduler inv
 
 File coverage discovery and final CI evidence reporting are advisory, automatically routed from Git paths, and do not add a per-file manifest or merge gate. Keep this boundary aligned with [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#automatic-advisory-inventory-and-final-report).
 
+Authorship documentation is maintained in [Authorship policy](../AUTHORSHIP.md). Preserve the policy requirements and keep contributor guidance aligned with its draft, human re-authorship, and review process; documentation maintenance does not waive those requirements.
+
 ## Mission
 
 Maintain current documentation, generated inventories, lifecycle metadata,
