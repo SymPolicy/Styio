@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -10,12 +10,15 @@ Own edit-time developer experience and host integration. This team makes compile
 
 ## Owned Surface
 
+Build membership: `src/cmake/StyioIDESources.cmake` and `StyioLSPSources.cmake` are IDE / LSP-owned lists. `targets/StyioLSPD.cmake` owns the server target. `targets/StyioIDECore.cmake` is joint with Grammar because it also configures Tree-sitter includes, definitions, and links. Routine IDE/LSP source-list changes do not require Sema, Runtime, or CLI runbook updates.
+
 Primary paths:
 
 1. `src/StyioServices/StyioIDE/`
 2. `src/StyioServices/StyioLSP/`
 3. `docs/external/for-ide/`
 4. `tests/ide/styio_ide_test.cpp`
+5. IDE/LSP source manifests and target modules listed above; Tree-sitter integration is joint with Grammar
 
 Build and test targets:
 
@@ -36,7 +39,7 @@ Build and test targets:
 9. Keep builtin/default-symbol completions sourced from the shared compiler-owned symbol registry under `src/StyioParser/`; do not reintroduce a private IDE-only builtin or keyword table.
 10. Preserve the runtime scheduling contract: request-loop drains are budgeted, foreground work yields over queued background reindexing, and explicit idle slices drain semantic diagnostics before background work.
 11. Mirror lexer token additions in the tolerant syntax layer so edit-time diagnostics and grouping do not drift from compiler tokenization.
-12. When async, continuation, or task syntax adds tokens such as `?|` or `||>`, update `src/StyioIDE/Syntax.cpp` in the same change so tolerant highlighting and diagnostics recognize the new token boundary.
+12. When async, continuation, or task syntax adds tokens such as `?|` or `||>`, update `src/StyioServices/StyioIDE/Syntax.cpp` in the same change so tolerant highlighting and diagnostics recognize the new token boundary.
 13. When testing `VFS` close/drop-open-file behavior, put expected closed-file contents on disk before closing the in-memory document; closed snapshots intentionally reload from disk instead of retaining stale open-buffer query state.
 14. Keep compiler bridge code pointed at `AstToStyioIRLowerer` for semantic truth; do not rebuild a separate IDE analyzer or depend on the legacy `StyioAnalyzer` compatibility alias for new code.
 15. Keep LSP lifecycle and transport behavior byte-exact: notifications such as `initialized` must not receive JSON-RPC responses, and `styio_lspd` must keep stdio in binary mode on Windows before any LSP frame is exchanged.
@@ -47,6 +50,13 @@ Build and test targets:
 20. Watched-file refreshes must accept only concrete closed `.styio` paths inside the selected workspace, coalesce duplicates, treat an empty change list as a no-op, and preserve an empty background-index tombstone for deleted files so stale persistent symbols cannot reappear.
 21. Keep edit snapshots immutable and cheap to copy. `TextBuffer` copies share read-only text plus line-index storage until `reset` installs a fresh snapshot; `SyntaxParser` retains that buffer in its incremental cache instead of duplicating the source string. Tolerant tokenization must construct final ranged `SyntaxToken` values directly rather than allocating a second whole-file token representation. Preserve byte ranges, diagnostics, Tree-sitter reuse, and full/incremental token equivalence while keeping `StyioIdePerf.EnforcesFrozenLatencyBudgets` green.
 22. Resource-topology failures remain compiler-owned Sema diagnostics. The IDE semantic bridge must forward the unchanged `sema-resource-topology` message under the existing type phase, without exposing AST pointers, machine paths, or a separate IDE topology analyzer.
+
+23. Persistent IDE index writes are best-effort. Cache directory creation and `symbols.json` opening must use non-throwing filesystem/error checks so a missing, read-only, or invalid cache path cannot terminate `styio_lspd`; an unavailable cache only disables persistence while in-memory IDE queries continue. Keep `styio_lspd_stdio_framing` running with an invalid `XDG_CACHE_HOME` parent so the initialize response proves this boundary.
+
+The [visual consumer entry](../external/for-ide/README.md) routes graph
+consumers to the compiler-owned observable contract. IDE recovery facts are
+edit-time assistance, not proof of a complete validated topology. Review
+recovery status and diagnostics before presenting any fact as proven.
 
 ## Change Classes
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -11,6 +11,8 @@ Own the compiler middle layer from parsed AST to StyioIR and stable textual repr
 The current performance contract preserves canonical builtin type IDs, merges pass-applicability facts into verified IR traversal, skips inapplicable rewrites, and shares one narrow scalar-only resource-topology no-op proof between Sema and lowering. A complete non-deferred `SGMainEntry` pass boundary may certify that exact tree for codegen so LLVM emission does not repeat the same full traversal; hand-built, deferred, or newly reprocessed IR remains untrusted and fail-closed.
 
 ## Owned Surface
+
+Build membership: `src/cmake/StyioSemaIRSources.cmake` owns semantic identity, session, Sema, IR, and lowering lists. Public Observable wiring is in `StyioObservableSources.cmake` and `targets/StyioObservableCore.cmake`; runtime-correlation membership is separately joint with Codegen / Runtime. Producer wiring is in `StyioObservableProducerSources.cmake` and the CLI contract composition, jointly with CLI / Nano. Keep frontend composition shared only at its actual aggregate boundary.
 
 Primary paths:
 
@@ -21,7 +23,11 @@ Primary paths:
 5. `src/StyioToString/`
 6. `src/StyioSession/`
 7. `src/StyioResourceTopology/`
-8. `src/cmake/StyioFrontendSources.cmake`
+8. `src/cmake/StyioSemaIRSources.cmake` and the shared frontend composition
+9. `src/StyioServices/StyioObservable/` public fact, identity, snapshot, delta and query contracts
+10. `src/StyioServices/StyioObservableProducer/` semantic adapters, jointly reviewed with CLI / Nano for admission/publication
+11. `src/StyioUtil/SemanticIdentity.*`
+12. The Sema-owned and joint target/source modules listed above
 
 High-value docs:
 
@@ -29,6 +35,11 @@ High-value docs:
 2. [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md)
 3. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 4. [../design/Styio-Resource-Topology.md](../design/Styio-Resource-Topology.md)
+
+The [observable semantic contract](../design/Styio-Observable-Language.md) and
+[decoder contract](../../src/StyioServices/StyioObservable/README.md) own the
+observable boundary. Team ownership does not move query services into Sema or
+make compiler layers depend on an IDE.
 
 ## Daily Workflow
 
@@ -119,6 +130,8 @@ High-value docs:
 80. Mark pulse/state IR reads that can carry runtime absence explicitly rather than inferring it from an `i64` payload. Windowed average/max current values and history reads retain that fact through lowering, while ordinary integer bindings keep the full signed 64-bit domain. Absence must reach value fallback, persistence, or formatting as a tagged value; do not restore sentinel comparison or implicit arithmetic propagation in Sema, lowering, or IR.
 81. Sema owns the resource-topology validation lifecycle for each top-level root. Reset before reanalysis, publish scalar-noop only for the import-free narrow scalar proof, publish the move-only validated artifact only after the unchanged `sema-resource-topology` report succeeds, and leave failures unconsumable. Lowering must require the matching root and reuse this const artifact without rebuilding, revalidating, or rerunning the scalar predicate.
 82. Qualified semantic identity for public snapshots uses package name plus normalized manifest-relative and entry-relative paths. Keep the opaque publication descriptors on `ValidatedArtifact` so the StyioObservable adapter never walks the private `Graph`. Public observers may read the lifecycle and const artifact for the requested root; lowering still requires the matching root and must not rebuild topology.
+83. S2 delta, lineage, bounded query, and retention live in `StyioObservable` / `ObservableTopologyService`. Sema remains the producer of snapshot facts and evidence only; do not move query evaluation, index caches, or delta application into Sema. Compiler-side publication adapters stay in `StyioObservableProducer/`.
+84. Runtime-events v2 correlation is opt-in. Sema may bind compact snapshot/site descriptors onto task and await AST nodes from the accepted topology artifact; lowering stores `ObservationSiteRef` on StyioIR and must preserve or reject it. Do not reconstruct static semantics at runtime. Disabled/static paths keep the uninstrumented task ABI. Cancellation and cooperative IR transitions are not implied by elapsed time.
 
 ## Change Classes
 
@@ -131,12 +144,18 @@ High-value docs:
 Minimum local commands:
 
 ```bash
-ctest --test-dir build/default -L language_feature
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L resource_topology
-ctest --test-dir build/default -L observable_static_snapshot
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
+ctest --test-dir build/default -L observable_static_snapshot --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error
 ```
+
+When snapshot/site bindings or observed IR descriptors change, also run the
+[observable runtime correlation selection](../../workflows/TEST-CATALOG.md)
+from the Test Quality runbook, including
+`StyioLoweringInternal.ObservationDescriptorsPreserveSnapshotAndSiteIds`.
 
 When AST or IR text changes:
 
@@ -167,3 +186,4 @@ Record unfinished middle-layer work with:
 4. Failing five-layer layer, if any.
 5. Whether Codegen has already been adapted.
 6. Any future unsupported-lowering handler or placeholder-retirement follow-up, including the owning negative matrix and whether Codegen has already been adapted.
+7. For observable changes: contract/schema and capability scope, static snapshot/site identity, completeness, independent consumer fixture, disabled-path evidence, and the CLI/runtime/IDE reviewer affected. Record unsupported producer coverage in the gap ledger, not as a new grammar rule.

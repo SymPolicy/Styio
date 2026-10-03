@@ -1,14 +1,16 @@
 id = "docs-maintenance"
 title = "Docs Maintenance Workflow"
-purpose = "Maintain docs metadata, generated indexes, archive lifecycle state, and structural validation."
-last_updated = "2026-06-28"
+purpose = "Maintain current documentation, validated repository facts, and review-page projections."
+last_updated = "2026-10-01"
 doc = "DOCS-MAINTENANCE-WORKFLOW.md"
+skill = "skills/styio-research-review-page/skill.toml"
 
 commands = [
   "python3 scripts/docs-scaffold.py --help",
   "python3 scripts/docs-index.py --write",
   "python3 scripts/docs-lifecycle.py validate",
   "python3 scripts/docs-audit.py",
+  "python3 tests/design_intent_contract_test.py",
   "python3 scripts/docs-lifecycle.py candidates --family all --format tree",
   "python3 scripts/docs-audit.py --manifest valid --format tree",
   "python3 scripts/docs-audit.py --manifest invalid --format list",
@@ -22,6 +24,9 @@ steps = [
   "scaffold new docs files or collection directories only with --reuse-reviewed",
   "reject version-style doc/workflow names and use the feature or transformation result",
   "replace local/server details with placeholders and run local-info-leak-gate",
+  "route the change to its semantic or wire authority and affected maintainer",
+  "update producer consumer evidence and affected runbook commands",
+  "update affected capability scope evidence and gap links",
   "edit docs or move files",
   "regenerate indexes",
   "validate lifecycle",

@@ -2,22 +2,24 @@
 
 **Purpose:** Define the required workflow for checking GitHub Actions after a local commit is pushed, including what must be verified before committing and what must be watched after pushing.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-10-03
 
 ## Scope
 
 This spec applies to agent and maintainer work on `styio-nightly` branches. It covers local pre-commit verification, post-push GitHub Actions monitoring, and failure recovery for repository-local and cross-repository gates.
 
+Use the current request and existing approvals to determine authority. This workflow does not itself authorize a commit, push, merge, release, or governance change. Repository review and approval requirements remain effective; do not ask again for an action already covered by the same scope and risk boundary. Resolve discoverable facts and ordinary in-scope implementation issues directly, report material findings, and pause only work that needs a new decision.
+
 ## Commit-Time Verification
 
-Before creating a commit, the agent must run the closest local equivalent of the GitHub Actions checks affected by the change.
+Before creating an authorized commit, run the closest local checks affected by the change. Use focused checks during implementation and reuse passing evidence while its inputs remain unchanged. The commands below are a scope-dependent catalog, not a requirement to run every gate before every commit.
 
 Functional changes must first complete [../../workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](../../workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md): run targeted feature validation, verify upstream/downstream adaptation, and record every objective unable-to-verify blocker with owner, substitute evidence, and follow-up gate. Changes that replace, migrate, broaden, or retire behavior must also complete [../../workflows/FEATURE-CUTOVER-WORKFLOW.md](../../workflows/FEATURE-CUTOVER-WORKFLOW.md) before commit.
 
-Minimum local checks for normal changes:
+Local checks for the affected surfaces:
 
 ```bash
-ctest --test-dir build/default --output-on-failure
+ctest --test-dir build/default --output-on-failure -R '<affected-test-pattern>'
 python3 scripts/local-info-leak-gate.py --mode worktree
 python3 scripts/repo-hygiene-gate.py --mode tracked
 python3 scripts/docs-audit.py
@@ -35,6 +37,44 @@ python3 ../pafio-nightly/scripts/verify-ecosystem-contracts.py \
 
 The commit message body or handoff should record the checks that were actually run, including functional commit-readiness evidence or objective blockers.
 
+## Reusing Local Evidence
+
+Record the command/selector, outcome, source revision plus any uncommitted
+changes tested, build variant, toolchain/configuration, and relevant environment
+or sibling inputs once in the task's test report. Other workflow steps refer to
+that result instead of demanding a new run or a duplicate evidence document.
+
+When the installed pre-commit hook runs the staged delivery floor, let that hook
+supply the staged evidence instead of manually running the identical staged
+profile immediately before it. When no hook is installed, run the staged floor
+once before commit. Neither path skips the index-specific checks.
+
+A successful result remains usable only while the inputs relevant to that check
+are unchanged. Review the intervening diff and configuration changes; a commit,
+staging operation, handoff, or documentation-only edit outside the check's inputs
+does not by itself invalidate it. Source/test/fixture changes, generated input
+changes, compiler/dependency/configuration changes, relevant environment changes,
+and a different platform or external service state require the affected checks
+to run again. Unknown provenance or uncertain input coverage also requires a run.
+A failed, interrupted, skipped, or never-run check is never reusable success.
+
+Build changed targets incrementally before their tests. Do not delete a working
+build directory or create a clean build just because a workflow step changed.
+Clean builds remain appropriate when diagnosing build contamination or validating
+clean-build behavior. Never treat an unchanged commit ID alone as proof that a
+dirty worktree or external dependency is unchanged. No full-tree hashing service
+or persistent test-result cache is required by this policy.
+
+This local evidence reuse does not replace required CI for the exact pushed
+candidate, nor does it claim local tests cover a different platform. Do not
+manually retrigger an already queued/running/successful CI run for the same
+candidate and configuration solely for another status report. Inspect its result;
+retry only after diagnosing a failure or invalidated evidence within authority.
+
+## Final Regression
+
+Run the required complete regression once, after all changes, source review, in-scope repairs, and focused verification are finished. Coordinate local and CI evidence for the same candidate; required CI checks still run after an authorized push. A final complete-regression failure requires a diagnosis and concrete repair and verification proposal for the developer. Do not automatically repair, rerun, or push a repair that would restart this regression before that decision. Continue independent authorized work, and do not mark unresolved acceptance as complete.
+
 ## Post-Push Verification
 
 After pushing a commit, the agent must actively check GitHub Actions while the current work turn remains open.
@@ -43,15 +83,15 @@ Required steps:
 
 1. Resolve the current branch and pushed commit.
 2. Query GitHub Actions for the repository and branch.
-3. Watch the relevant workflow run or check suite until it reaches a terminal state when the expected runtime is reasonable.
-4. If a check fails, inspect the failing job logs, identify the smallest fix, run the matching local gate, create a follow-up commit, and push again.
-5. If a check is still queued or running when the turn must end, report the run URL, current status, and the command needed to resume checking.
+3. Observe the relevant run for the exact pushed commit using bounded tool waits and progress updates. An expired observation window does not cancel the run or establish its result.
+4. If a check fails, inspect its diagnostics and report a privacy-safe cause and the smallest repair and verification proposal. Follow the Final Regression decision rule for complete-regression failures. Ordinary focused-check failures may be repaired within existing authority; a follow-up commit or push must also be covered by that authority.
+5. If observation is blocked or the turn ends before the run completes, report the run URL, commit, unresolved status, and resume command as an incomplete verification handoff.
 
 Preferred commands:
 
 ```bash
 gh run list --branch "$(git branch --show-current)" --limit 10
-gh run watch <run-id> --exit-status
+gh run view <run-id> --json headSha,status,conclusion,url
 gh run view <run-id> --log-failed
 ```
 
@@ -61,9 +101,50 @@ If `gh` is unavailable or unauthenticated, the agent must state that GitHub Acti
 
 When one delivery touches `styio-nightly`, `pafio-nightly`, and `vityo-nightly`, post-push verification applies to every pushed repository. The agent should check each repository's GitHub Actions status, not only the repository that received the last commit.
 
-Cross-repository gates must use the same workspace checkout set that will be visible to CI. If a gate consumes another repository's branch, push that repository first or report that remote CI may still be using an older sibling checkout.
+Cross-repository gates must use the same workspace checkout set that will be visible to CI. If a gate consumes another repository's branch, perform an already-authorized dependency push first; otherwise prepare the required handoff and report the revision mismatch. A gate dependency does not grant permission to publish another repository.
 
-`styio-nightly` GitHub Actions check out `pafio-nightly` and `vityo-nightly` at `${{ github.ref_name }}` for cross-repository gates. A branch used for coordinated work must therefore exist in all three repositories before relying on remote Actions as the final source of truth.
+`styio-nightly` GitHub Actions resolve the ecosystem lane from the pull request target branch, or from the pushed branch. Temporary pull request branches targeting `nightly` therefore consume the siblings' `nightly` branches. Publish any required sibling changes to that lane before relying on the cross-repository checks.
+
+## Automatic Advisory Inventory and Final Report
+
+`python3 scripts/verification-report.py inventory --compile-commands
+build/default/compile_commands.json --output build/reports/file-inventory.json`
+automatically discovers the Git-tracked candidate, including staged additions.
+Directory/type rules route new files without a per-file coverage manifest;
+existing team ownership rules supply owners. Untracked/ignored local files are
+outside the candidate and are not silently counted as verified.
+
+The report distinguishes routing, unknown routes, configured C/C++ translation
+units, per-target object presence, configured sources without observed objects,
+and sources without a configured target. Headers are indirect inputs. Native
+interop fixture candidates are routed by directory but remain explicitly
+unverified until consumer and runtime compilation evidence exists. Tracked generated
+and vendor files remain inventoried; downloaded/ignored build dependencies are
+outside the Git candidate. Optional/platform-specific sources may legitimately
+lack a target in the observed configuration; this is a finding, not failure.
+
+Linux CI exports its compilation database during the existing configure and
+observes it after the existing build. Presence in that database means configured
+membership only; object presence is not proof of freshness, successful linking,
+all target variants, or behavioral coverage. Keep the build outcome separate.
+Local reports require the caller to describe the build outcome honestly.
+
+The `observability / verification-report` job consumes that inventory, terminal
+results of the current workflow's four lanes and aggregate gate, and read-only
+job/step and commit-check snapshots. It writes a GitHub Job Summary and the
+`verification-report` JSON/Markdown artifact. Raw step failures/skips/cancellations
+and missing evidence remain visible. Separate workflows such as audit/hygiene or
+scheduled observability are snapshots: pending/missing is not success, and this
+is not a promise to wait for or refresh every independent workflow. The inventory
+records tested checkout SHA (which may be the PR merge candidate); the report
+also records PR head SHA, run ID/attempt, and snapshot time.
+
+Unknown/unbuilt/unclassified findings, unavailable artifacts, and report-tool
+failures are advisory only. The report job and inventory/upload steps use
+`continue-on-error`; the existing required aggregate does not depend on them.
+Do not add the report as a required Ruleset check. Real compiler/test/security
+failures keep their existing blocking behavior. Report generation reads existing
+evidence only and never configures, builds, or reruns a test suite to fill a gap.
 
 ## Delivery Ruleset Governance
 
@@ -79,8 +160,6 @@ Do not use `branches/nightly/protection/required_status_checks` as the authority
 
 ## Completion Criteria
 
-A pushed change is not complete until one of these is true:
+A delivery requiring remote verification is complete only when the required checks pass for the exact delivered commit and all authorized acceptance conditions are satisfied. After an approved repair and push, use the replacement commit's results.
 
-1. GitHub Actions checks passed.
-2. GitHub Actions checks failed, the failure was fixed and re-pushed, and the replacement run passed.
-3. GitHub Actions could not be observed within the current turn, and the final handoff records the unresolved run status and recovery command.
+Queued, running, failed, cancelled, or unobservable checks remain unresolved verification. A status URL and recovery command make the handoff actionable; they do not make the delivery complete. A local-only request is complete against its local acceptance conditions and does not require an unsolicited push.

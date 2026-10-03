@@ -1,0 +1,40 @@
+/* Sieve of Eratosthenes: count primes in [1..n].
+   Input: [n, then (n+1) mark workspace zeros]. n<=0 -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n <= 1) => {
+        answer = 0
+    } | {
+        ?(values.length >= 1 + n + 1) => {
+            base = 1
+            values[base + 0] = 0
+            values[base + 1] = 0
+            [2..n] >> #(i) => {
+                values[base + i] = 1
+            }
+            p = 2
+            [...] >> ?(p * p <= n) => {
+                ?(values[base + p] == 1) => {
+                    x = p * p
+                    [...] >> ?(x <= n) => {
+                        values[base + x] = 0
+                        x = x + p
+                    }
+                }
+                p = p + 1
+            }
+            count = 0
+            [2..n] >> #(i) => {
+                ?(values[base + i] == 1) => {
+                    count = count + 1
+                }
+            }
+            answer = count
+        }
+    }
+}
+
+>_(answer)

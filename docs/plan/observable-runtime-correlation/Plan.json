@@ -30,12 +30,33 @@
   },
   "ledger": {
     "defaulted": [],
-    "observed": [],
+    "observed": [
+      {
+        "fact": "PLAN-004 registers its producer and consumer suites under the ctest label observable_static_snapshot; no observable_snapshot_producer label exists, so the S1 entry gate selects that label.",
+        "source": "tests/CMakeLists.txt and docs/plan/observable-static-snapshot/Plan.json"
+      },
+      {
+        "fact": "docs/EXTERNAL-SERVICES.md does not exist; external machine-contract handoff documents live under docs/external/for-pafio/ and the service inventory under src/StyioServices/README.md.",
+        "source": "docs/external/for-pafio and src/StyioServices/README.md"
+      }
+    ],
     "unresolved": [],
     "user_decided": []
   },
   "lifecycle": {
-    "authorization": null,
+    "authorization": {
+      "authorized_at": "2026-09-04T21:50:21Z",
+      "autonomy": {
+        "allow_in_scope_revision": true,
+        "allow_reviewer_repairs": true,
+        "blocked_branch_policy": "continue_independent_work",
+        "forbid_mid_execution_questions": true
+      },
+      "reference_digest": "2d1e569f5e4264febbdfe7e3f788361d897a57f8c325d159f7f117c060922390",
+      "risk_reasons": [],
+      "semantic_digest": "be01ef5c4c673bab2bbe823e7b943b0049e87f4a721ea9a735a8d35a165b003a",
+      "source": "explicit"
+    },
     "continuation_receipts": [],
     "designer_session": {
       "agent_returned": true,
@@ -95,10 +116,43 @@
       },
       "status": "completed"
     },
-    "reviewer_session": null,
-    "sealed": null
+    "reviewer_session": {
+      "agent_returned": true,
+      "agent_returned_at": "2026-09-05T00:11:36Z",
+      "attempts": 1,
+      "blocker_evidence": {
+        "reason": "AC-008 requires an approved per-mode runtime-observation budget from the external benchmark authority; the Release seam budget contract fails closed until styio-benchmark records compatible baselines and approved ceilings. Every other full-regression command passed: full build, all 1499 ctest tests, benchmark seam build and perf measurement, and the focused gates.",
+        "targets": [
+          "TASK-001"
+        ]
+      },
+      "closed_at": "2026-09-05T00:11:37Z",
+      "count": 1,
+      "findings_recorded": true,
+      "findings_recorded_at": "2026-09-05T00:11:37Z",
+      "host_agent_id": "076e4340-d9e9-4a56-9ab7-9a49c801fe7a",
+      "id": "50e383b2-7ec9-4a66-a629-66b30f5c46c6",
+      "main_thread_fallback": false,
+      "opened_at": "2026-09-04T23:19:16Z",
+      "out_of_scope_findings": [],
+      "repair_required": true,
+      "role": "reviewer",
+      "selector": {
+        "agent_type": "reviewer",
+        "model": "gpt-5.6-sol",
+        "model_provider": null,
+        "reasoning_effort": "max",
+        "selector_source": "installed-codex-role"
+      },
+      "status": "blocked"
+    },
+    "sealed": {
+      "revision": 1,
+      "sealed_at": "2026-09-04T21:50:21Z",
+      "semantic_digest": "be01ef5c4c673bab2bbe823e7b943b0049e87f4a721ea9a735a8d35a165b003a"
+    }
   },
-  "phase": "ready",
+  "phase": "blocked",
   "schema": "better-plan.plan/v3",
   "spec": {
     "architecture": {
@@ -321,7 +375,7 @@
               "type": "command"
             },
             "given": "S1 public-snapshot and S2 delta/query/lineage plans and their producer fixtures",
-            "oracle": "`python3 -c \"import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)\"`, `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error`, and `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\\.)' --output-on-failure --no-tests=error` all exit zero before the first S3 write",
+            "oracle": "`python3 -c \"import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)\"`, `ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error`, and `ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\\.)' --output-on-failure --no-tests=error` all exit zero before the first S3 write",
             "then": "both upstream plans report completed delivery, their exact fixture oracles pass, and S3 reads their public IDs/capabilities without changing any S1/S2 file",
             "when": "the S3 entry gate runs before any implementation Node"
           },
@@ -544,7 +598,7 @@
         "focused_regression": {
           "commands": [
             "python3 -c \"import json,pathlib; ds=('observable-static-snapshot','observable-delta-query-lineage'); ps=[json.loads(pathlib.Path('docs','plan',d,'Checkpoints.json').read_text(encoding='utf-8')) for d in ds]; assert all(p['tasks'] and all(t['status']=='completed' for t in p['tasks']) and p['full_regression']['passed'] is True for p in ps)\"",
-            "ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error",
+            "ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error",
             "ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\\.)' --output-on-failure --no-tests=error",
             "cmake --build build/default --target styio styio_resource_topology_test styio_typeinfer_internal_test styio_lowering_internal_test styio_runtime_scheduler_test styio_externlib_internal_test styio_codegen_internal_test styio_observable_runtime_test styio_test styio_security_test -j2",
             "ctest --test-dir build/default -R '^(StyioObservableRuntime\\.|StyioLoweringInternal\\.ObservationDescriptorsPreserveSnapshotAndSiteIds|StyioCodegenInternal\\.(ObservedTaskAbiUsesCompactDescriptors|DisabledAndStaticObservationUseExistingTaskAbi)|StyioDiagnostics\\.(RuntimeEventCapabilitiesAdvertiseV2Only|CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode|CompilePlanNegotiatesRuntimeEventsV2|UnsupportedRuntimeEventVersionsAndCapabilitiesFailBeforeExecution))' --output-on-failure --no-tests=error",

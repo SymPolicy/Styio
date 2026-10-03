@@ -2188,7 +2188,7 @@ TEST(StyioMainContract, CompilePlanDirectorySetupFailuresEmitDiagnostics) {
       << result.stderr_text;
     EXPECT_NE(result.stderr_text.find(needle), std::string::npos) << result.stderr_text;
     styio_clear_diagnostic_sink_latest();
-    styio_clear_runtime_event_sink_latest();
+    g_runtime_events.close();
   };
 
   const fs::path ok_build = temp.path() / "ok-build";
@@ -3889,8 +3889,16 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
   EXPECT_NE(ReadText(temp.path() / "diag" / "diagnostics.jsonl").find("service_invalid_option"), std::string::npos);
   styio_clear_diagnostic_sink_latest();
 
-  styio_set_runtime_event_sink_latest(temp.path() / "events");
-  styio_emit_runtime_event_latest("custom.event", "unit", "{\"ok\":true}");
+  styio::config::CompilePlanRequest event_request;
+  event_request.build_root = temp.path() / "events";
+  std::string event_error;
+  ASSERT_TRUE(g_runtime_events.open(event_request, event_error)) << event_error;
+  {
+    styio::observable::RuntimeEvent entered;
+    entered.kind = styio::observable::EventKind::UnitEntered;
+    entered.unit_id = "unit";
+    g_runtime_events.emit_controller(std::move(entered));
+  }
   styio_runtime_log_sink_latest("stdout", "hello");
   styio_runtime_log_sink_latest(nullptr, "ignored");
   styio_runtime_log_sink_latest("stderr", nullptr);
@@ -3907,16 +3915,18 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
     "typecheck",
     "file.styio",
     &intent);
+  g_runtime_events.close();
   const std::string events = ReadText(temp.path() / "events" / "runtime-events.jsonl");
-  EXPECT_NE(events.find("\"eventKind\":\"custom.event\""), std::string::npos);
-  EXPECT_NE(events.find("\"eventKind\":\"log.emitted\""), std::string::npos);
-  EXPECT_NE(events.find("\"eventKind\":\"transition.fired\""), std::string::npos);
-  EXPECT_NE(events.find("\"eventKind\":\"state.changed\""), std::string::npos);
+  EXPECT_NE(events.find("\"event_kind\":\"unit.entered\""), std::string::npos);
+  EXPECT_NE(events.find("\"event_kind\":\"log.emitted\""), std::string::npos);
+  EXPECT_NE(events.find("\"event_kind\":\"transition.fired\""), std::string::npos);
+  EXPECT_NE(events.find("\"event_kind\":\"state.changed\""), std::string::npos);
   EXPECT_NE(events.find("\"intent\":\"test\""), std::string::npos);
+  EXPECT_EQ(events.find("\"eventKind\""), std::string::npos);
+  EXPECT_EQ(events.find("\"message\""), std::string::npos);
   EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Empty), "empty");
   EXPECT_STREQ(styio_runtime_phase_name_latest(CompilationPhase::Failed), "failed");
   EXPECT_STREQ(styio_runtime_phase_name_latest(static_cast<CompilationPhase>(999)), "unknown");
-  styio_clear_runtime_event_sink_latest();
 }
 
 TEST(StyioMainContract, FrontendProfilerSerializesPhasesCountersAndWriteFailures) {

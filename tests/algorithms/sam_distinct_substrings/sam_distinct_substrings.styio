@@ -1,0 +1,43 @@
+/* Distinct substring count (C++ SAM; Styio: O(n^2) LCP-with-prior).
+   Input: [n, s0..s{n-1}]. Empty -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= 1 + n) => {
+            total = 0
+            [0..n-1] >> #(i) => {
+                max_lcp = 0
+                ?(i > 0) => {
+                    [0..i-1] >> #(j) => {
+                        l = 0
+                        max_possible = n - i
+                        ?(n - j < max_possible) => {
+                            max_possible = n - j
+                        }
+                        ?(max_possible > 0) => {
+                            [0..max_possible-1] >> #(k) => {
+                                ?(l == k) => {
+                                    ?(values[1 + i + k] == values[1 + j + k]) => {
+                                        l = k + 1
+                                    }
+                                }
+                            }
+                        }
+                        ?(l > max_lcp) => {
+                            max_lcp = l
+                        }
+                    }
+                }
+                total = total + (n - i - max_lcp)
+            }
+            answer = total
+        }
+    }
+}
+
+>_(answer)

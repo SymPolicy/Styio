@@ -1,0 +1,65 @@
+/* Min assignment cost (C++ Hungarian; Styio: bit-DP O(n^2 2^n)).
+   Input: [n, c00..c{n-1}{n-1}, then (1<<n) DP zeros] (n<=6)
+   n<=0 -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(n <= 6) => {
+            Nmask = 1
+            [1..n] >> #(t) => {
+                Nmask = Nmask + Nmask
+            }
+            need = 1 + n * n + Nmask
+            ?(values.length >= need) => {
+                c_base = 1
+                dp_base = 1 + n * n
+                INF = 1000000000
+                values[dp_base] = 0
+                [1..Nmask-1] >> #(mask) => {
+                    values[dp_base + mask] = INF
+                }
+                [0..Nmask-1] >> #(mask) => {
+                    pc = 0
+                    tmp = mask
+                    [...] >> ?(tmp > 0) => {
+                        odd = tmp - (tmp / 2) * 2
+                        ?(odd == 1) => {
+                            pc = pc + 1
+                        }
+                        tmp = tmp / 2
+                    }
+                    ?(pc < n) => {
+                        ?(values[dp_base + mask] < INF) => {
+                            [0..n-1] >> #(j) => {
+                                bit = 1
+                                ?(j > 0) => {
+                                    [1..j] >> #(t) => {
+                                        bit = bit + bit
+                                    }
+                                }
+                                // bit unset?
+                                q = mask / bit
+                                bitset = q - (q / 2) * 2
+                                ?(bitset == 0) => {
+                                    nmask = mask + bit
+                                    cost = values[dp_base + mask] + values[c_base + pc * n + j]
+                                    ?(cost < values[dp_base + nmask]) => {
+                                        values[dp_base + nmask] = cost
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                answer = values[dp_base + Nmask - 1]
+            }
+        }
+    }
+}
+
+>_(answer)

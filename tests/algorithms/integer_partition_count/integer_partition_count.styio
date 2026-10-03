@@ -1,0 +1,35 @@
+/* Unrestricted integer partition count p(n) (DP companion to CLRS Ch.15).
+   Input: [n, then (n+1) DP workspace zeros]
+   Output: p(n); p(0)=1; n<0 / short -> -1. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n < 0) => {
+        answer = -1
+    } | {
+        ?(n == 0) => {
+            answer = 1
+        } | {
+            need = 1 + n + 1
+            ?(values.length >= need) => {
+                base = 1
+                values[base] = 1
+                ?(n > 0) => {
+                    [1..n] >> #(s) => {
+                        values[base + s] = 0
+                    }
+                }
+                [1..n] >> #(coin) => {
+                    [coin..n] >> #(s) => {
+                        values[base + s] = values[base + s] + values[base + s - coin]
+                    }
+                }
+                answer = values[base + n]
+            }
+        }
+    }
+}
+
+>_(answer)

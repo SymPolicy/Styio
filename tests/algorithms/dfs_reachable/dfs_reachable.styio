@@ -1,0 +1,51 @@
+/* CLRS DFS reachability (s -> t) on a directed graph.
+   Input: [n, m, s, t, u1, v1, ..., um, vm]
+   Output: 1 if t reachable from s, else 0.
+   Styio: iterative bitset closure (equivalent reachability; n <= 30). */
+# pow2 := (exp: i32) => {
+    exp ?= {
+        0 => { <| 1 }
+        _ => { <| 2 * pow2(exp - 1) }
+    }
+}
+
+# bit_on := (mask: i32, index: i32) => (mask / pow2(index)) % 2
+
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 4) => {
+    n = values[0]
+    m = values[1]
+    s = values[2]
+    t = values[3]
+    need = 4 + m + m
+
+    ?(n > 0 && n <= 30 && s >= 0 && s < n && t >= 0 && t < n) => {
+        ?(values.length >= need) => {
+            ?(s == t) => {
+                answer = 1
+            } | {
+                reach = pow2(s)
+                [0..n-1] >> #(round) => {
+                    [0..m-1] >> #(e) => {
+                        u = values[4 + e + e]
+                        v = values[5 + e + e]
+                        ?(u >= 0 && u < n && v >= 0 && v < n) => {
+                            ?(bit_on(reach, u) == 1) => {
+                                ?(bit_on(reach, v) == 0) => {
+                                    reach = reach + pow2(v)
+                                }
+                            }
+                        }
+                    }
+                }
+                ?(bit_on(reach, t) == 1) => {
+                    answer = 1
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

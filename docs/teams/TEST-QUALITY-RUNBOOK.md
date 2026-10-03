@@ -2,7 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-03
+
+Scheduler regression tests cover composed-profile deduplication, separate scope checks, failure propagation, fresh invocations, and docs-audit evidence context. Run `python3 tests/workflow_scheduler_test.py`; the shell fixture also verifies delivery auto calls the scheduler only once. Local test evidence reuse follows [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#reusing-local-evidence).
+
+Run `python3 tests/verification_report_test.py` for automatic tracked-file discovery, compilation membership versus observed objects, unknown routes, runtime fixtures, missing evidence, and report-only failure handling. CI inventory/report generation never reruns compiler or behavior tests; existing lane outcomes remain the evidence.
 
 ## Mission
 
@@ -11,6 +15,13 @@ Own the evidence that Styio behavior is accepted, reproducible, and recoverable.
 Parser shadow checks are compiler correctness gates under `tests/gates/`. Performance workloads, probe-specific JSON contracts, and benchmark reports are tested in `styio-benchmark` through the explicit CMake integration rather than duplicated in this repository.
 
 ## Owned Surface
+
+The `research_review_facts` and `research_review_page` CTests protect the
+developer review-page skill's real HTML output, commit/status consistency,
+Git-object extraction, and stale-result handling. Their fixtures are synthetic
+and network-free; passing them does not certify external CI or visual layout.
+
+CMake ownership regression: `python3 tests/cmake_ownership_test.py` checks exact role sets (including absent unrelated roles), shared-owner failures, and both sides of renames. `python3 tests/cmake_target_contract_test.py --cmake cmake` configures the real source target modules against frozen fd3b3e2 properties across nano/profile/size/Tree-sitter/compiler-setting variants; this is configure-only evidence, not a production build. CTest names are `cmake_ownership` and `cmake_target_contract`. PipelineCheck membership is in `src/cmake/StyioTestingSources.cmake`, jointly composed with Codegen / Runtime by `StyioCoreSources.cmake` and `targets/StyioCore.cmake`.
 
 Primary paths:
 
@@ -104,12 +115,24 @@ Primary paths:
 76. The Sema-owned topology cutover requires focused lifecycle tests for move-only const observation, validated publication, scalar-noop, exact failure diagnostics, replacement, same-object lowering reuse, mismatched-root rejection, and IDE forwarding. Pair those tests with a one-time source oracle that rejects any topology build, validation, or scalar predicate in top-level lowering; do not add a production build counter solely for test interception.
 77. PLAN-003 semantic-identity coverage requires fresh-build metamorphic tests for trivia, parser labels, unrelated edits, scope boundaries, repeated and anonymous sites, multi-slot declarations, synthetic roles, and unchanged dense/debug behavior; keep the direct `architecture_layer_gate` CTest registration and focused command discoverable.
 78. Observable static snapshot coverage is two registered GoogleTest targets, `styio_observable_static_snapshot_test` and `styio_observable_static_snapshot_consumer_test`, both labelled `observable_static_snapshot`. The producer suite owns canonical golden lock, admission, privacy, disabled-path, profiler, and write-failure evidence; the consumer suite must parse fixtures with LLVM JSON only and must not include Styio headers. Keep goldens under `tests/fixtures/observable_static_snapshot/v1/` free of host paths, pointer hex, content hashes, and raw source. Do not revive the unbuilt `tests/main_contract_test.cpp` binary for machine-info assertions.
+79. Observable S2 coverage is four targets labelled `observable_delta`, `observable_query`, `observable_service`, and `observable_consumer`: `styio_observable_delta_test` (suites `StyioObservableDelta` and `StyioObservableLineage`), `styio_observable_query_test`, `styio_observable_service_test`, and `styio_observable_consumer_test`. Keep reconstruction, producer-evidence, reference-versus-index (including merged-index serving with shard-reuse proof via `QueryIndexProbe`), retention/invalidation, and public isolation as property oracles over `tests/fixtures/observable-topology/`; every manifest delta family must reconstruct its checked-in child byte-for-byte. The consumer target must link only `styio_observable_core` and must not include compiler-internal headers. Multi-label `LABELS` values stay `\\\\;` escaped.
+80. Producer-owned delta emission is covered inside `styio_observable_static_snapshot_test` (suite `StyioObservableDeltaPublicationCli`, label `observable_static_snapshot`) so the S1 gate stays the single focused command. Keep it CLI-level: compile the fixture package twice through `--compile-plan`, pass the first artifact as `parent_snapshot_path`, and prove the delta is canonical, `apply_delta` reproduces the second snapshot byte-for-byte, the receipt `observable_static_snapshot` record carries matching ids, every closed degradation `reason` (`parent_unreadable`, `parent_mismatch`, `parent_invalid`, `write_failed`) leaves the snapshot published with exit code 0, the absent-parent path keeps golden bytes and no receipt record, and the parent path never appears in snapshot, delta, or receipt bytes. Fresh temp roots are wiped per run; keep parent fixtures outside the compile root.
+81. Runtime-events v2 coverage is `styio_observable_runtime_test` (label `observable_runtime`) plus focused lowering/codegen/diagnostics cases. Prove descriptor round-trip, disabled/static ABI, lifecycle/causal/wait pairing, aggregate/sampled/saturation/exporter isolation, conservation, additive-field compatibility, and privacy canaries over `tests/fixtures/observable-runtime-correlation/v2/`. Keep the v1-removal proof as a one-time plan `rg`, not a committed migration test. Budget evidence is `styio_observable_runtime_perf` / `styio_observable_runtime_budget_contract`; do not fake approval.
+82. CLRS classic cases live under `tests/algorithms/`: sorts (`insertion_sort`, `merge_sort`, `quicksort`, `heap_sort`, `counting_sort`), order stats (`select_ith`), graphs (`bfs_distance`, `dfs_reachable`, `bellman_ford`, `dijkstra`, `floyd_warshall`, `kruskal_mst_weight`, `topo_order`, `scc_count`, `prim_mst_weight`, `dag_shortest_path`, `bridges_count`, `articulation_points_count`, `edmonds_karp_maxflow`, `bipartite_matching`, `dinic_maxflow`, `hopcroft_karp_matching`, `johnson_apsp`, `two_sat_flag`, `gale_shapley_matching`, `push_relabel_maxflow`, `lca_binary_lifting`, `topo_unique_flag`), strings (`kmp_match_index`, `rabin_karp_match_index`, `z_algorithm_match_index`, `manacher_palindrome_length`, `boyer_moore_match_index`, `suffix_array_lcp`), DP (`rod_cutting`, `lcs_length`, `knapsack_01`, `matrix_chain_cost`, `edit_distance`, `lis_length`, `coin_change_min`, `subset_sum_flag`, `catalan_number`, `integer_partition_count`, `optimal_bst_cost`), greedy (`activity_selection`, `fractional_knapsack`, `huffman_cost`, `interval_chromatic`), parametric search (`binsearch_ship_capacity`), number theory (`extended_gcd`, `mod_pow`, `modular_inverse`, `chinese_remainder`, `miller_rabin_prime_flag`, `binomial_coefficient`, `euler_totient`), data structures (`fenwick_range_sum`, `uf_component_size`, `segment_tree_range_sum`, `sparse_table_rmq`), geometry (`convex_hull_andrew`, `closest_pair_dist_sq`), strings (`suffix_array_lcp`), assignment (`hungarian_assignment_cost`), NT (`binomial_coefficient`, `euler_totient`), flow (`push_relabel_maxflow`), linear algebra (`matrix_determinant`), topo (`topo_unique_flag`, `lca_binary_lifting`), FFT (`fft_poly_multiply`), sieve/NT (`sieve_prefix_prime_count`, `pollard_rho_factor`, `discrete_log_bsgs`), strings (`aho_corasick_match_count`, `sam_distinct_substrings`), interval/tree DP (`stone_merge_cost`, `tree_diameter_length`, `tree_mis_size`), cuts/flow (`stoer_wagner_mincut`, `mcmf_min_cost`), Mo (`mos_range_distinct`), and Cartesian (`cartesian_tree_height`). Keep each case's C++ reference as the textbook algorithm oracle; register both `reference.cpp` and `test.cpp` in `styio_algorithm_equivalence_test`. Document flat `list[i32]` stdin encodings for graphs/DP/greedy/number theory/strings in `tests/algorithms/README.md` (including optional trailing Styio workspace zeros that the C++ oracle ignores; weighted shortest paths use `1000000000` for unreachable; `topo_order` uses multi-line vertex ids). Prefer textbook Styio ports (`merge_sort`, `quicksort`, `heap_sort`, `counting_sort`, `bfs_distance`, `dijkstra` are true ports), and keep counting_sort fixed cases for empty, singleton, duplicate, and high-range inputs. When a remaining case still needs a known-green equivalent, document that honestly while preserving the I/O contract; do not defer graphs/DP/exercises once encodings are published. Index-bound guards may use short-circuit `&&`/`||` (SGCond codegen branches around the RHS). Keep golden coverage in `tests/features/scalar_expressions/t22_logic_and_short_circuit.styio`, `t23_logic_or_short_circuit.styio`, and `t24_logic_and_evaluates_rhs.styio`; `heap_sort` uses `right < n && l[right]` as a true-port proof. Keep public README prose evidence-scoped (avoid bare superiority adjectives; CLRS case directory names such as `optimal_bst_cost` remain identifiers and are allowed).
+
+83. Indexed i64 list-load optimizations need behavioral fixtures that mutate or rebind the source list inside the same loop as the read. Register the smallest stdout golden under the owning language-feature label and pair it with a runtime probe unit test when a new direct-data helper is exposed.
+84. Persistent-index write failures must be covered without changing IDE query behavior: use a deterministic invalid cache path or equivalent fixture, assert the save call does not throw, keep the stdio framing initialize smoke on that unavailable cache root, and retain the existing load and deleted-symbol persistence coverage.
 
 ## Change Classes
 
 1. Small: new fixture for already accepted behavior, expected-output fix, or test naming cleanup. Run targeted test.
 2. Medium: new milestone area, five-layer case, security regression, parser shadow gate update, or compile-plan artifact assertion expansion. Update docs and run affected labels.
 3. High: new test framework, changed oracle policy, fuzz corpus backflow, or checkpoint-health gate change. Use checkpoint workflow and add ADR if the gate becomes required.
+
+The documentation-contract regression test `tests/design_intent_contract_test.py`
+checks required design principles, status/scope distinctions, anchors and
+evidence references, plus observable owner mappings. It must fail on drift
+without interpreting design metaphors as language semantics.
 
 ## Required Gates
 
@@ -121,6 +144,8 @@ ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=
 ctest --test-dir build/default -L security --output-on-failure --no-tests=error
 ctest --test-dir build/default -L resource_topology --output-on-failure --no-tests=error
 ctest --test-dir build/default -L observable_static_snapshot --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\.)' --output-on-failure --no-tests=error
+ctest --test-dir build/default -R '^(StyioObservableRuntime\.|StyioLoweringInternal\.ObservationDescriptorsPreserveSnapshotAndSiteIds|StyioCodegenInternal\.(ObservedTaskAbiUsesCompactDescriptors|DisabledAndStaticObservationUseExistingTaskAbi)|StyioDiagnostics\.(RuntimeEventCapabilitiesAdvertiseV2Only|CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode|CompilePlanNegotiatesRuntimeEventsV2|UnsupportedRuntimeEventVersionsAndCapabilitiesFailBeforeExecution))' --output-on-failure --no-tests=error
 ctest --test-dir build/default -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
 ctest --test-dir build/default -L algorithm_equivalence --output-on-failure --no-tests=error
 python3 scripts/repo-hygiene-gate.py --mode residue
@@ -175,3 +200,16 @@ Record unfinished quality work with:
 4. Owning implementation team.
 5. Required team runbook when the team-docs gate fails.
 6. Exact command that reproduces the failure.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures as CLI errors rather than
+accepting a failed read as empty input. Empty regular files remain valid.
+`services_syntax_source_io` exercises the public CLI for directories, missing
+sources, empty files, escaped paths, and read-buffer boundaries. The check is
+part of the existing `styio_pipeline` gate; it does not require extra services.
+
+The cross-platform source-read check explicitly rejects directories (including
+symlink targets) before opening: some platforms report directory reads as EOF.
+Regular-file symlinks remain accepted; status-query errors still use the existing
+open/read error handling. The public CLI regression covers both symlink cases.

@@ -1,0 +1,128 @@
+{
+  "delivery_status": "blocked",
+  "full_regression": {
+    "commands": [
+      {
+        "command_sha256": "e5645dd13bf6d1ba131db419269ab902e2eba4d1f3afce6983eae783ecb88b79",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-05T00:04:00Z"
+      },
+      {
+        "command_sha256": "1300f72ce0b5e6d120ed6c481abb341561a08a3d941b9b9604c924fd0ce02295",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-05T00:09:27Z"
+      },
+      {
+        "command_sha256": "add3c09fe88bc4a0b919eb127a6483d2177d88c185f841d38a3a20ea55353032",
+        "exit_code": 0,
+        "outcome": "passed",
+        "recorded_at": "2026-09-05T00:09:28Z"
+      },
+      {
+        "command_sha256": "9c7d12085b210898e94dc95766802987e7d60b15f00ec38a9f36ffc7834a2182",
+        "exit_code": 8,
+        "outcome": "failed",
+        "recorded_at": "2026-09-05T00:09:28Z"
+      }
+    ],
+    "content_fingerprint": "e8c23cad7759c2601ba4933152a1b1fb9642fd004d62d1795e4d4c0968d4fc6a",
+    "passed": false,
+    "recorded_at": "2026-09-05T00:09:28Z"
+  },
+  "plan": "PLAN-006",
+  "revision": 1,
+  "schema": "better-plan.checkpoints/v3",
+  "semantic_digest": "be01ef5c4c673bab2bbe823e7b943b0049e87f4a721ea9a735a8d35a165b003a",
+  "tasks": [
+    {
+      "code": "TASK-001",
+      "dispatch": null,
+      "evidence": [
+        {
+          "commands": [
+            {
+              "command_sha256": "4d2e5e75d605a2e8d8fd7762dff3856632a7cfdd3f4e49f7c7481724790f2de3",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:09:43Z"
+            },
+            {
+              "command_sha256": "2f1cbb77b96a919be2dacd79bf60355294d3dad8fd06f8c9f4229ddb49467465",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:09:44Z"
+            },
+            {
+              "command_sha256": "9fe810665ce062c7f6343ee35cfd8edcd8fda224dc133b7c2900f24f165085e1",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:09:44Z"
+            },
+            {
+              "command_sha256": "7b6fde1459f961b88353f9301653733cb8b74a1ef7cfb79c29c5149fc74846d5",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:09:46Z"
+            },
+            {
+              "command_sha256": "f667f3c575baf07acfea16b0c2bf77bc95b7920c737ae9ebb797716712623340",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:09:47Z"
+            },
+            {
+              "command_sha256": "022a444c3bb4d5af283b5ca99a858206ad499bae86af469caed3958df0cfff91",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:09:47Z"
+            },
+            {
+              "command_sha256": "321cc23cabceca6ebf914380846b61f5b5940fe5219e55bc3503dc6dcca5481c",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:10:11Z"
+            },
+            {
+              "command_sha256": "3c82aafa06af80db0492a3fc7c750726dc05ba8f1e108050562f0dd56873ffb6",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:10:11Z"
+            },
+            {
+              "command_sha256": "f3071f45e36e6e0a27450d9acfbc3d4b01938313f71fef7868e074da62a192f5",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:10:11Z"
+            },
+            {
+              "command_sha256": "f9067b9ffe7ee979b186aef97f04b795fe95f1260858ff45bb56427b7ab6b106",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:10:12Z"
+            },
+            {
+              "command_sha256": "add3c09fe88bc4a0b919eb127a6483d2177d88c185f841d38a3a20ea55353032",
+              "exit_code": 0,
+              "outcome": "passed",
+              "recorded_at": "2026-09-04T23:10:57Z"
+            },
+            {
+              "command_sha256": "9c7d12085b210898e94dc95766802987e7d60b15f00ec38a9f36ffc7834a2182",
+              "exit_code": 8,
+              "outcome": "failed",
+              "recorded_at": "2026-09-04T23:10:58Z"
+            }
+          ],
+          "content_fingerprint": "50f44d1cd23fc12cdf4078abd6eb6f4920ca13d7e4bb91f1b9cd356bad0882ad",
+          "kind": "focused_regression",
+          "passed": false,
+          "recorded_at": "2026-09-04T23:10:58Z"
+        }
+      ],
+      "status": "blocked_by_authority",
+      "status_reason": "AC-008 requires an approved per-mode budget result from the external benchmark authority (styio-benchmark approved-result.json); every other focused command passed and the budget contract fails closed by design until the benchmark owner records compatible baselines and approved ceilings"
+    }
+  ]
+}

@@ -2,11 +2,50 @@ include(GoogleTest)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 add_test(
+  NAME cmake_ownership
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/cmake_ownership_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(cmake_ownership PROPERTIES LABELS "docs;workflow;cmake")
+
+add_test(
+  NAME cmake_target_contract
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/cmake_target_contract_test.py"
+          --cmake "${CMAKE_COMMAND}"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(cmake_target_contract PROPERTIES LABELS "workflow;cmake")
+
+
+add_test(
   NAME docs_audit
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/docs-audit.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(docs_audit PROPERTIES LABELS "docs")
+
+add_test(
+  NAME design_intent_contract
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/design_intent_contract_test.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(design_intent_contract PROPERTIES LABELS "docs;workflow")
+
+add_test(
+  NAME research_review_facts
+  COMMAND "${Python3_EXECUTABLE}"
+          "${CMAKE_SOURCE_DIR}/workflows/skills/styio-research-review-page/scripts/test_extract_facts.py"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(research_review_facts PROPERTIES LABELS "docs;workflow")
+
+add_test(
+  NAME research_review_page
+  COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+          -s "${CMAKE_SOURCE_DIR}/workflows/skills/styio-research-review-page/tests"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(research_review_page PROPERTIES LABELS "docs;workflow")
 
 add_test(
   NAME architecture_layer_gate
@@ -738,6 +777,162 @@ add_executable(styio_algorithm_equivalence_test
   algorithms/prefix_sum/test.cpp
   algorithms/selection_sort/reference.cpp
   algorithms/selection_sort/test.cpp
+  algorithms/insertion_sort/reference.cpp
+  algorithms/insertion_sort/test.cpp
+  algorithms/merge_sort/reference.cpp
+  algorithms/merge_sort/test.cpp
+  algorithms/quicksort/reference.cpp
+  algorithms/quicksort/test.cpp
+  algorithms/heap_sort/reference.cpp
+  algorithms/heap_sort/test.cpp
+  algorithms/bfs_distance/reference.cpp
+  algorithms/bfs_distance/test.cpp
+  algorithms/dfs_reachable/reference.cpp
+  algorithms/dfs_reachable/test.cpp
+  algorithms/rod_cutting/reference.cpp
+  algorithms/rod_cutting/test.cpp
+  algorithms/lcs_length/reference.cpp
+  algorithms/lcs_length/test.cpp
+  algorithms/knapsack_01/reference.cpp
+  algorithms/knapsack_01/test.cpp
+  algorithms/counting_sort/reference.cpp
+  algorithms/counting_sort/test.cpp
+  algorithms/select_ith/reference.cpp
+  algorithms/select_ith/test.cpp
+  algorithms/bellman_ford/reference.cpp
+  algorithms/bellman_ford/test.cpp
+  algorithms/dijkstra/reference.cpp
+  algorithms/dijkstra/test.cpp
+  algorithms/floyd_warshall/reference.cpp
+  algorithms/floyd_warshall/test.cpp
+  algorithms/matrix_chain_cost/reference.cpp
+  algorithms/matrix_chain_cost/test.cpp
+  algorithms/edit_distance/reference.cpp
+  algorithms/edit_distance/test.cpp
+  algorithms/lis_length/reference.cpp
+  algorithms/lis_length/test.cpp
+  algorithms/activity_selection/reference.cpp
+  algorithms/activity_selection/test.cpp
+  algorithms/kruskal_mst_weight/reference.cpp
+  algorithms/kruskal_mst_weight/test.cpp
+  algorithms/topo_order/reference.cpp
+  algorithms/topo_order/test.cpp
+  algorithms/scc_count/reference.cpp
+  algorithms/scc_count/test.cpp
+  algorithms/prim_mst_weight/reference.cpp
+  algorithms/prim_mst_weight/test.cpp
+  algorithms/dag_shortest_path/reference.cpp
+  algorithms/dag_shortest_path/test.cpp
+  algorithms/coin_change_min/reference.cpp
+  algorithms/coin_change_min/test.cpp
+  algorithms/subset_sum_flag/reference.cpp
+  algorithms/subset_sum_flag/test.cpp
+  algorithms/fractional_knapsack/reference.cpp
+  algorithms/fractional_knapsack/test.cpp
+  algorithms/huffman_cost/reference.cpp
+  algorithms/huffman_cost/test.cpp
+  algorithms/catalan_number/reference.cpp
+  algorithms/catalan_number/test.cpp
+  algorithms/extended_gcd/reference.cpp
+  algorithms/extended_gcd/test.cpp
+  algorithms/mod_pow/reference.cpp
+  algorithms/mod_pow/test.cpp
+  algorithms/bridges_count/reference.cpp
+  algorithms/bridges_count/test.cpp
+  algorithms/articulation_points_count/reference.cpp
+  algorithms/articulation_points_count/test.cpp
+  algorithms/edmonds_karp_maxflow/reference.cpp
+  algorithms/edmonds_karp_maxflow/test.cpp
+  algorithms/kmp_match_index/reference.cpp
+  algorithms/kmp_match_index/test.cpp
+  algorithms/rabin_karp_match_index/reference.cpp
+  algorithms/rabin_karp_match_index/test.cpp
+  algorithms/integer_partition_count/reference.cpp
+  algorithms/integer_partition_count/test.cpp
+  algorithms/modular_inverse/reference.cpp
+  algorithms/modular_inverse/test.cpp
+  algorithms/chinese_remainder/reference.cpp
+  algorithms/chinese_remainder/test.cpp
+  algorithms/bipartite_matching/reference.cpp
+  algorithms/bipartite_matching/test.cpp
+  algorithms/interval_chromatic/reference.cpp
+  algorithms/interval_chromatic/test.cpp
+  algorithms/binsearch_ship_capacity/reference.cpp
+  algorithms/binsearch_ship_capacity/test.cpp
+  algorithms/optimal_bst_cost/reference.cpp
+  algorithms/optimal_bst_cost/test.cpp
+  algorithms/dinic_maxflow/reference.cpp
+  algorithms/dinic_maxflow/test.cpp
+  algorithms/hopcroft_karp_matching/reference.cpp
+  algorithms/hopcroft_karp_matching/test.cpp
+  algorithms/johnson_apsp/reference.cpp
+  algorithms/johnson_apsp/test.cpp
+  algorithms/z_algorithm_match_index/reference.cpp
+  algorithms/z_algorithm_match_index/test.cpp
+  algorithms/manacher_palindrome_length/reference.cpp
+  algorithms/manacher_palindrome_length/test.cpp
+  algorithms/fft_poly_multiply/reference.cpp
+  algorithms/fft_poly_multiply/test.cpp
+  algorithms/miller_rabin_prime_flag/reference.cpp
+  algorithms/miller_rabin_prime_flag/test.cpp
+  algorithms/fenwick_range_sum/reference.cpp
+  algorithms/fenwick_range_sum/test.cpp
+  algorithms/uf_component_size/reference.cpp
+  algorithms/uf_component_size/test.cpp
+  algorithms/boyer_moore_match_index/reference.cpp
+  algorithms/boyer_moore_match_index/test.cpp
+  algorithms/two_sat_flag/reference.cpp
+  algorithms/two_sat_flag/test.cpp
+  algorithms/gale_shapley_matching/reference.cpp
+  algorithms/gale_shapley_matching/test.cpp
+  algorithms/segment_tree_range_sum/reference.cpp
+  algorithms/segment_tree_range_sum/test.cpp
+  algorithms/sparse_table_rmq/reference.cpp
+  algorithms/sparse_table_rmq/test.cpp
+  algorithms/lca_binary_lifting/reference.cpp
+  algorithms/lca_binary_lifting/test.cpp
+  algorithms/suffix_array_lcp/reference.cpp
+  algorithms/suffix_array_lcp/test.cpp
+  algorithms/convex_hull_andrew/reference.cpp
+  algorithms/convex_hull_andrew/test.cpp
+  algorithms/closest_pair_dist_sq/reference.cpp
+  algorithms/closest_pair_dist_sq/test.cpp
+  algorithms/hungarian_assignment_cost/reference.cpp
+  algorithms/hungarian_assignment_cost/test.cpp
+  algorithms/binomial_coefficient/reference.cpp
+  algorithms/binomial_coefficient/test.cpp
+  algorithms/euler_totient/reference.cpp
+  algorithms/euler_totient/test.cpp
+  algorithms/push_relabel_maxflow/reference.cpp
+  algorithms/push_relabel_maxflow/test.cpp
+  algorithms/matrix_determinant/reference.cpp
+  algorithms/matrix_determinant/test.cpp
+  algorithms/topo_unique_flag/reference.cpp
+  algorithms/topo_unique_flag/test.cpp
+  algorithms/aho_corasick_match_count/reference.cpp
+  algorithms/aho_corasick_match_count/test.cpp
+  algorithms/cartesian_tree_height/reference.cpp
+  algorithms/cartesian_tree_height/test.cpp
+  algorithms/discrete_log_bsgs/reference.cpp
+  algorithms/discrete_log_bsgs/test.cpp
+  algorithms/mcmf_min_cost/reference.cpp
+  algorithms/mcmf_min_cost/test.cpp
+  algorithms/mos_range_distinct/reference.cpp
+  algorithms/mos_range_distinct/test.cpp
+  algorithms/pollard_rho_factor/reference.cpp
+  algorithms/pollard_rho_factor/test.cpp
+  algorithms/sam_distinct_substrings/reference.cpp
+  algorithms/sam_distinct_substrings/test.cpp
+  algorithms/sieve_prefix_prime_count/reference.cpp
+  algorithms/sieve_prefix_prime_count/test.cpp
+  algorithms/stoer_wagner_mincut/reference.cpp
+  algorithms/stoer_wagner_mincut/test.cpp
+  algorithms/stone_merge_cost/reference.cpp
+  algorithms/stone_merge_cost/test.cpp
+  algorithms/tree_diameter_length/reference.cpp
+  algorithms/tree_diameter_length/test.cpp
+  algorithms/tree_mis_size/reference.cpp
+  algorithms/tree_mis_size/test.cpp
   algorithms/subrange_find_end_index/reference.cpp
   algorithms/subrange_find_end_index/test.cpp
   algorithms/subrange_search_index/reference.cpp
@@ -821,6 +1016,7 @@ target_include_directories(styio_lowering_internal_test PRIVATE
 )
 target_link_libraries(styio_lowering_internal_test PRIVATE
   styio_frontend_core
+  styio_observable_core
   GTest::gtest_main
 )
 styio_apply_llvm_compile_settings(styio_lowering_internal_test)
@@ -839,12 +1035,16 @@ styio_configure_windows_gtest_target(styio_runtime_scheduler_test)
 add_executable(styio_externlib_internal_test
   externlib_internal_test.cpp
   "${CMAKE_SOURCE_DIR}/src/StyioRuntime/RuntimeState.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioRuntime/ObservationBuffer.cpp"
 )
 target_include_directories(styio_externlib_internal_test PRIVATE
   "${CMAKE_SOURCE_DIR}/src"
   "${CMAKE_BINARY_DIR}/generated"
 )
-target_link_libraries(styio_externlib_internal_test PRIVATE GTest::gtest_main)
+target_link_libraries(styio_externlib_internal_test PRIVATE
+  GTest::gtest_main
+  styio_observable_core
+)
 styio_apply_llvm_compile_settings(styio_externlib_internal_test)
 styio_configure_windows_gtest_target(styio_externlib_internal_test)
 
@@ -869,6 +1069,9 @@ add_executable(styio_codegen_internal_test
 target_link_libraries(styio_codegen_internal_test PRIVATE
   styio_core
   GTest::gtest_main
+)
+target_compile_definitions(styio_codegen_internal_test PRIVATE
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
 )
 styio_apply_llvm_compile_settings(styio_codegen_internal_test)
 styio_configure_windows_gtest_target(styio_codegen_internal_test)
@@ -989,6 +1192,34 @@ styio_gtest_discover_tests(styio_codegen_internal_test
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
+add_executable(styio_observable_runtime_test
+  observable_runtime_test.cpp
+)
+target_include_directories(styio_observable_runtime_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_observable_runtime_test PRIVATE
+  styio_core
+  styio_cli_contract_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_runtime_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
+)
+styio_apply_llvm_compile_settings(styio_observable_runtime_test)
+styio_configure_windows_gtest_target(styio_observable_runtime_test)
+add_dependencies(styio_observable_runtime_test styio)
+styio_gtest_discover_tests(styio_observable_runtime_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_runtime\\\\;runtime\\\\;concurrency\\\\;unit"
+    ENVIRONMENT "STYIO_TASK_QUEUE_CAPACITY=2\\\\;STYIO_TASK_THREADS=1"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
 styio_gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
@@ -1045,6 +1276,87 @@ styio_gtest_discover_tests(styio_observable_static_snapshot_consumer_test
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
+add_executable(styio_observable_delta_test
+  observable_topology_delta_test.cpp
+)
+target_include_directories(styio_observable_delta_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_delta_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_delta_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_configure_windows_gtest_target(styio_observable_delta_test)
+styio_gtest_discover_tests(styio_observable_delta_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_delta\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_query_test
+  observable_topology_query_test.cpp
+)
+target_include_directories(styio_observable_query_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_query_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_query_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_configure_windows_gtest_target(styio_observable_query_test)
+styio_gtest_discover_tests(styio_observable_query_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_query\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_service_test
+  observable_topology_service_test.cpp
+)
+target_include_directories(styio_observable_service_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_service_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_service_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+)
+styio_configure_windows_gtest_target(styio_observable_service_test)
+styio_gtest_discover_tests(styio_observable_service_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_service\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
+add_executable(styio_observable_consumer_test
+  observable_topology_consumer_test.cpp
+)
+target_include_directories(styio_observable_consumer_test PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(styio_observable_consumer_test PRIVATE
+  styio_observable_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_observable_consumer_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_OBSERVABLE_CONSUMER_LINK_MAP=\"${CMAKE_CURRENT_BINARY_DIR}/observable_consumer_link_map.txt\""
+)
+styio_configure_windows_gtest_target(styio_observable_consumer_test)
+file(GENERATE
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/observable_consumer_link_map.txt"
+  CONTENT "consumer_link=$<TARGET_PROPERTY:styio_observable_consumer_test,LINK_LIBRARIES>\ncore_link=$<TARGET_PROPERTY:styio_observable_core,LINK_LIBRARIES>\ncore_interface=$<TARGET_PROPERTY:styio_observable_core,INTERFACE_LINK_LIBRARIES>\n"
+)
+styio_gtest_discover_tests(styio_observable_consumer_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "observable_consumer\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
 styio_gtest_discover_tests(styio_ide_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
@@ -1068,3 +1380,14 @@ option(STYIO_ENABLE_FUZZ "Build libFuzzer targets" OFF)
 if(STYIO_ENABLE_FUZZ)
   add_subdirectory(fuzz)
 endif()
+
+# Source-read failures must not be accepted as valid empty syntax input.
+add_test(
+  NAME services_syntax_source_io
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/services_source_io_test.py" "${STYIO_EXE}"
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(services_syntax_source_io PROPERTIES
+  LABELS "styio_pipeline;services;unit"
+  TIMEOUT 180
+)

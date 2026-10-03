@@ -2,16 +2,13 @@
 
 **Purpose:** Define where development Markdown belongs, how distributed and cross-feature SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-10-01
 
-**Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
-
-```bash
-cmake -S . -B build/default && cmake --build build/default
-ctest --test-dir build/default -L language_feature
-```
-
-（GoogleTest 目标 `styio_test` 需单独构建；若本机 LLVM 与 libstdc++ 头文件冲突导致 gtest 编译失败，仍以 `styio` 可执行文件与 `ctest -L language_feature` 为准。）
+**Automation:** Use `scripts/docs-index.py --check`,
+`scripts/docs-lifecycle.py validate`, and `scripts/docs-audit.py` for document
+structure. Run the focused language or tooling tests when a change affects its
+contract, and record any unavailable acceptance separately. Test registration
+and commands are owned by [TEST-CATALOG](../../workflows/TEST-CATALOG.md).
 
 ---
 
@@ -68,6 +65,7 @@ in cross-feature design documents.
 | 主题 | 权威文档 | 其它文档应 |
 |------|----------|------------|
 | Feature-specific syntax, semantics, lifecycle, dependencies, prerequisites, and evidence map | `../design/syntax/features/<feature-id>.md` | Update the owning feature SSOT first; consume the generated graph only as a composed view |
+| Language design requirements and capability traceability | `../design/Styio-Language-Design.md` sections 2.4–2.5 | Keep one embedded `toml design-intent` block; it links exact semantic/wire authorities and evidence, and never defines a second grammar |
 | Cross-feature semantic principles and section structure | `../design/Styio-Language-Design.md` | Link to the shared invariant; do not duplicate feature lifecycle facts |
 | Composed lexical and grammar EBNF | `../design/Styio-EBNF.md` | Link; the owning feature SSOT records why the rule applies |
 | Shared symbol ↔ lexer token names | `../design/Styio-Symbol-Reference.md` | Link; the owning feature SSOT records the feature boundary |
@@ -95,19 +93,29 @@ in cross-feature design documents.
 | **团队 runbook 标准格式** | `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` | 普通团队 runbook 必须使用该 H2 结构；协调者 runbook 的特殊结构由门禁说明列明 |
 | **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | `IMPLEMENTED-DECISIONS.md` 只保留当前最新代码实现对应的压缩决策；活跃规则必须提升到 owning SSOT；旧 ADR 全文和被替换实现使用 Git history |
 
-### 0.5 文档状态与 superseded 规则
+### 0.5 Active State and Historical Provenance
 
-1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、根目录 `workflows/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划。
-2. `docs/plan/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
-3. 语言验收不再使用冻结批次目录；`docs/plan/` 只能承载实施顺序、迁移方案和计划证据，不能作为语言验收规则的唯一 SSOT。验收规则必须提升到语言设计、feature test catalog、team runbook 或 active rollup。
-4. 若后续实现保留兼容层，文档必须明确区分：
-   - **canonical**：冻结示例与推荐写法；
-   - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
-5. 同一功能若存在较早草案和较晚活跃 SSOT，较早文档必须在文首显式写：
-   - `Status: Superseded draft`
-   - 指向新的活跃文档路径。
-6. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。`docs/adr/IMPLEMENTED-DECISIONS.md` 是当前实现快照，必须随最新代码和 owning SSOT 保鲜；已被替换、删除或仅作为历史兼容语境存在的决策不得作为当前树负担保留。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
-7. 当实现接受的兼容语法多于 canonical 示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
+1. Current maintenance knowledge belongs in design/specs/teams, root workflows,
+   current rollups, and the owning active plan.
+2. The registered [plan workspace](../plan/README.md#state-ownership) owns semantic
+   delivery state, execution checkpoints, and generated projections. Its tracked
+   completed delivery records remain part of that registry. Remove superseded
+   standalone planning narratives after their durable content is absorbed;
+   do not delete registered records solely because a stage completed.
+3. Language acceptance belongs in feature contracts and executable tests, with
+   the test catalog indexing evidence. Plans sequence work rather than defining
+   a second language specification.
+4. Active syntax distinguishes canonical teaching forms, accepted compatibility
+   forms, reserved proposals and rejected forms. Keep compatibility rationale
+   and executable evidence with the owning feature.
+5. Resolve duplicate draft/active specifications at their source. Promote valid
+   decisions and open questions to the owner before removing absorbed copies.
+6. ADR/history/archive are provenance or recovery surfaces. Maintain a current
+   decision record while it serves active review; use Git history for replaced
+   decisions and exact old prose. The implemented-decision summary links current
+   authorities and does not become an additional feature backlog.
+7. A historical test result remains tied to its recorded revision and run. Do
+   not restate it as current acceptance without fresh verification.
 
 ### 0.6 文档目录职责
 
@@ -117,8 +125,8 @@ in cross-feature design documents.
 | `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
 | `docs/teams/` | 团队日常 runbook、review 协作矩阵、跨团队维护入口；不替代语言、测试或仓库边界 SSOT |
 | `docs/review/` | review 发现、设计冲突、待定决议；不保留已归纳的旧 dated bundle |
-| `docs/plan/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项从当前树删除并依赖 Git 历史追溯 |
-| `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
+| `docs/plan/` | Registered semantic plans, execution checkpoints and generated delivery records; state ownership is defined by `docs/plan/README.md` |
+| `docs/external/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/templates/` | 可复用模板 |
 | 根目录 `workflows/` | 可复用工作流、测试框架、checkpoint / hygiene 标准（机器可读 `*.toml` 配对，repo-local skills 在 `workflows/skills/`） |
 | `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
@@ -153,6 +161,7 @@ in cross-feature design documents.
 2. Generated indexes must not be hand-maintained.
 3. Structural validation runs through `python3 scripts/docs-audit.py`, `ctest --test-dir build/default -L docs`, and the `checkpoint-health` workflow.
 4. A docs-tree change is not complete until the generated indexes and docs audit both pass.
+5. `docs-audit.py` validates the Language Design intent block as a closed TOML metadata schema, including required principles, scoped implementation states, owning runbooks, source/test evidence, and Markdown section links. `tests/design_intent_contract_test.py` supplies positive and negative regression evidence; semantic adequacy still requires review.
 
 ### 0.10 Repo-Wide Markdown Manifest
 
@@ -207,35 +216,39 @@ Manifest exports also include text-volume statistics for the selected document s
 3. External systems may be named only as cited references, integration targets, or measured baselines with reproducible evidence.
 4. Avoid absolute marketing superlatives and unsupported superiority language. Use neutral terms such as "reference", "baseline", "measured result", or "implementation target".
 5. Performance, safety, resource-management, and maturity statements must point to compiler tests, `styio-benchmark` reports, audit records, or primary source references.
+6. Neutral uses of `claim`, its inflected forms, and `performance claims` are allowed. These terms alone do not establish unsupported superiority; assess the actual statement and its evidence under the rules above.
 
 ---
 
-## 1. 目标
+## 1. Current Documentation
 
-- **历史（history）**：所有开发经验、排错记录、进展摘要按 **自然日** 写入 `docs/history/`，一天一篇或同日增量追加，禁止只写在聊天或未入库笔记里。
-- **测试说明（workflow assets）**：面向读者的测试说明按 **语言特性域** 维护在根 `workflows/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
-- **可机读元数据**：凡描述「某测试在测什么」的文档，须在文首或表格中写明 **Last updated**、**输入**、**期望输出/比对物**（golden 路径或约定临时文件），以便脚本与人工对照。
+- Keep accepted behavior, maintenance procedures and current limitations in the
+  owning active document. Revise obsolete statements instead of appending
+  contradictory updates.
+- Keep reusable test instructions in [TEST-CATALOG](../../workflows/TEST-CATALOG.md),
+  with current input/oracle paths and reproducible CTest selections.
+- Record implementation status separately from proposed behavior and dated
+  validation evidence. A previous test count or failure rate is not a current run.
+- Keep exact historical prose in Git. A completed change does not require a
+  permanent duplicate daily log after its durable content has been absorbed.
 
 ---
 
-## 2. 历史文档 `docs/history/`
+## 2. Recovery Notes
 
-| 规则 | 说明 |
-|------|------|
-| 命名 | `YYYY-MM-DD.md`，与日历日一致。 |
-| 内容 | 当日实现决策、踩坑、与 checkpoint / PR 的对应关系；可链接到具体提交或文件路径。 |
-| 索引 | `docs/history/README.md` 列出文件与一句话摘要（可手改或由 CI 校验存在性）。 |
+Use `docs/history/YYYY-MM-DD.md` only when an interrupted checkpoint needs
+recovery information that is not already represented in its owning plan or
+active handoff. Include purpose, update date, state, next action, reproducible
+commands, unverified gates and rollback reference.
 
-文首建议模板：
+After the checkpoint closes, promote current decisions and procedures to their
+owner documents and unresolved work to the gap ledger. Register the extracted
+value and targets with `docs-lifecycle.py mark`, then run `cleanup` under the
+zero-retention policy. This cleanup removes active copies; it does not rewrite
+Git history or erase an unresolved obligation.
 
-```markdown
-# 开发记录 — YYYY-MM-DD
-
-**Last updated:** YYYY-MM-DD
-
-## 摘要
-…
-```
+`docs/history/README.md` owns scope and recovery instructions. Its `INDEX.md` is
+generated by `docs-index.py`; neither file is a manually maintained daily diary.
 
 ---
 
@@ -273,13 +286,20 @@ Manifest exports also include text-volume statistics for the selected document s
 
 ## 6. Automation Gates
 
-CI 或本地可逐步引入：
+1. `python3 scripts/docs-index.py --check` verifies generated collection indexes.
+2. `python3 scripts/docs-lifecycle.py validate` verifies lifecycle metadata,
+   extraction targets, retention and source/archive state.
+3. `python3 scripts/docs-audit.py` verifies metadata, naming, links, directory
+   entrypoints and embedded documentation contracts.
+4. `python3 scripts/docs-audit.py --manifest invalid --format list` identifies
+   out-of-scope worktree documents; use `--source filesystem` when intentionally
+   inspecting ignored build output.
+5. Run focused CTest selections from `workflows/TEST-CATALOG.md` when language
+   behavior or executable examples are affected. Use `--output-on-failure
+   --no-tests=error`; a tolerated, failed or unexecuted test is not a pass.
+6. Run the [documentation maintenance workflow](../../workflows/DOCS-MAINTENANCE-WORKFLOW.md)
+   and applicable delivery gate. Missing platform, external audit or consumer
+   evidence remains explicit in the handoff.
 
-1. `ctest -L language_feature` 全绿（或允许已知失败列表，但须在 `TEST-CATALOG` 标注）。
-2. `python3 scripts/docs-index.py --check` 必须通过，确保 collection-directory `INDEX.md` 未过期。
-3. `python3 scripts/docs-lifecycle.py validate` 必须通过，确保 rollup/archive manifest、ledger、keep-window 与路径映射一致。
-4. `python3 scripts/docs-audit.py` 必须通过，确保 `Purpose` / `Last updated` / 命名 / 链接 / 目录入口都符合规则，并串联 lifecycle gate。
-5. `python3 scripts/docs-audit.py --manifest invalid --format list` 是仓库级 Markdown 清理清单；需要排查本地生成物时改用 `--source filesystem`。
-6. `../../workflows/TEST-CATALOG.md` 中列出的每个 `tests/features/...` 路径在仓库中存在。
-
-当前仓库的 **权威自动化入口** 为：**CMake 注册的 CTest + `styio --file`**（见 `tests/CMakeLists.txt`）。
+CMake-registered CTest and `styio --file` remain the executable language
+acceptance entrypoints, as defined in `tests/CMakeLists.txt`.
