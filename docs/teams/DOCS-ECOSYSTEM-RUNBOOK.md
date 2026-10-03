@@ -227,3 +227,12 @@ Record unfinished docs/ecosystem work with:
 6. Archive/rollup lifecycle action still pending.
 
 For observable work, resume from the [current delivery sequence](../rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence) and owning contracts, not earlier milestone deferrals. The [follow-up register](../rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md) records gaps, not authorization to implement them or enable runtime observation by default.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures with CLI-error status and the
+service diagnostic phase rather than accepting a failed read as empty input.
+Empty regular files remain valid. `services_syntax_source_io` exercises the
+public CLI for directories, missing sources, empty files, escaped paths, and
+read-buffer boundaries. The check is part of the existing `styio_pipeline`
+gate; it does not require extra services.
