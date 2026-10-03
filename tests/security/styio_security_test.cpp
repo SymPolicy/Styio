@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -21,6 +22,7 @@
 #include <vector>
 #if defined(_WIN32)
 #include <process.h>
+#include <io.h>
 #else
 #include <sys/stat.h>
 #include <unistd.h>
@@ -454,12 +456,17 @@ execute_program_engine_with_stdin_latest(
   StyioParserEngine engine,
   const std::string& stdin_text
 ) {
-#ifdef _WIN32
-  (void)source;
-  (void)engine;
-  (void)stdin_text;
-  GTEST_SKIP() << "stdin redirection helper is POSIX-only";
+#if defined(_WIN32)
+  const auto file_descriptor = [](FILE* file) { return _fileno(file); };
+  const auto duplicate_descriptor = [](int fd) { return _dup(fd); };
+  const auto redirect_stdin = [](int fd) { return _dup2(fd, _fileno(stdin)) == 0; };
+  const auto close_descriptor = [](int fd) { return _close(fd); };
 #else
+  const auto file_descriptor = [](FILE* file) { return fileno(file); };
+  const auto duplicate_descriptor = [](int fd) { return dup(fd); };
+  const auto redirect_stdin = [](int fd) { return dup2(fd, fileno(stdin)) >= 0; };
+  const auto close_descriptor = [](int fd) { return close(fd); };
+#endif
   auto tokens = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-exec-test>",
@@ -471,8 +478,20 @@ execute_program_engine_with_stdin_latest(
 
   MainBlockAST* ast = nullptr;
   StyioIR* ir = nullptr;
+  FILE* tmp = nullptr;
+  int saved_stdin = -1;
   auto cleanup = [&]()
   {
+    if (saved_stdin >= 0) {
+      EXPECT_TRUE(redirect_stdin(saved_stdin)) << "failed to restore test stdin";
+      close_descriptor(saved_stdin);
+      saved_stdin = -1;
+      std::clearerr(stdin);
+    }
+    if (tmp != nullptr) {
+      std::fclose(tmp);
+      tmp = nullptr;
+    }
     delete ir;
     delete ast;
     delete ctx;
@@ -480,18 +499,23 @@ execute_program_engine_with_stdin_latest(
     StyioAST::destroy_all_tracked_nodes();
   };
 
-  FILE* tmp = tmpfile();
-  ASSERT_NE(tmp, nullptr);
-  std::fwrite(stdin_text.data(), 1, stdin_text.size(), tmp);
-  std::rewind(tmp);
-
-  const int saved_stdin = dup(fileno(stdin));
-  ASSERT_GE(saved_stdin, 0);
-  ASSERT_EQ(dup2(fileno(tmp), fileno(stdin)), fileno(stdin));
-
-  styio_runtime_clear_error();
-
   try {
+    tmp = std::tmpfile();
+    if (tmp == nullptr) {
+      throw std::runtime_error("cannot create test stdin fixture: " + std::string(std::strerror(errno)));
+    }
+    if (std::fwrite(stdin_text.data(), 1, stdin_text.size(), tmp) != stdin_text.size()
+        || std::fflush(tmp) != 0) {
+      throw std::runtime_error("cannot write test stdin fixture");
+    }
+    std::rewind(tmp);
+    saved_stdin = duplicate_descriptor(file_descriptor(stdin));
+    if (saved_stdin < 0 || !redirect_stdin(file_descriptor(tmp))) {
+      throw std::runtime_error("cannot redirect test stdin: " + std::string(std::strerror(errno)));
+    }
+    std::clearerr(stdin);
+    styio_runtime_clear_error();
+
     ast = parse_main_block_with_engine_latest(*ctx, engine);
     ctx->skip();
     if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
@@ -512,18 +536,11 @@ execute_program_engine_with_stdin_latest(
     generator.execute();
   }
   catch (...) {
-    dup2(saved_stdin, fileno(stdin));
-    close(saved_stdin);
-    std::fclose(tmp);
     cleanup();
     throw;
   }
 
-  dup2(saved_stdin, fileno(stdin));
-  close(saved_stdin);
-  std::fclose(tmp);
   cleanup();
-#endif
 }
 }  // namespace
 

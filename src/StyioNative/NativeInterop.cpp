@@ -1191,7 +1191,18 @@ compile_and_load_block(
   }
 
   const CompilerResolution compiler = resolve_compiler_for_abi(normalized_abi);
-  const std::string source_text = source_preamble(normalized_abi) + body + "\n";
+  std::string source_text = source_preamble(normalized_abi) + body + "\n";
+#if defined(_WIN32)
+  if (normalized_abi == "c++") {
+    // link.exe may match /EXPORT:name to a decorated C++ symbol. Require the
+    // existing selected definition to have C linkage before that heuristic can
+    // create an unmangled export alias. A trailing decltype redeclaration keeps
+    // its exact type/calling convention and cannot confer linkage retroactively.
+    for (const auto& signature : selected) {
+      source_text += "extern \"C\" decltype(" + signature.name + ") " + signature.name + ";\n";
+    }
+  }
+#endif
   const std::string cache_key = native_cache_key(normalized_abi, compiler, source_text, selected);
 
   auto& process_cache = native_module_cache();
