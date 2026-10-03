@@ -7,17 +7,31 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
-#include <unistd.h>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+#endif
 
 #include "StyioException/Exception.hpp"
 #include "StyioNative/NativeToolchainConfig.hpp"
@@ -25,12 +39,40 @@
 namespace styio::native {
 namespace {
 
+#if defined(_WIN32)
+constexpr const char* kCompileFlags = "windows-shared-O2-exports-v1";
+constexpr const char* kSharedSuffix = ".dll";
+#elif defined(__APPLE__)
+constexpr const char* kCompileFlags = "-dynamiclib -fPIC -O2";
+constexpr const char* kSharedSuffix = ".dylib";
+#else
 constexpr const char* kCompileFlags = "-shared -fPIC -O2";
+constexpr const char* kSharedSuffix = ".so";
+#endif
+
+void
+close_native_module(void* handle) {
+#if defined(_WIN32)
+  ::FreeLibrary(static_cast<HMODULE>(handle));
+#else
+  ::dlclose(handle);
+#endif
+}
+
+long long
+native_process_id() {
+#if defined(_WIN32)
+  return static_cast<long long>(::GetCurrentProcessId());
+#else
+  return static_cast<long long>(::getpid());
+#endif
+}
 constexpr const char* kNativeCacheVersion = "styio-native-cache-v1";
 
 struct CachedModule {
   void* handle = nullptr;
   std::filesystem::path path;
+  bool remove_on_close = false;
 };
 
 class NativeModuleCache
@@ -42,7 +84,12 @@ public:
   ~NativeModuleCache() {
     for (auto& entry : modules) {
       if (entry.second.handle != nullptr) {
-        ::dlclose(entry.second.handle);
+        close_native_module(entry.second.handle);
+      }
+      if (entry.second.remove_on_close) {
+        std::error_code ec;
+        std::filesystem::remove(entry.second.path, ec);
+        std::filesystem::remove(entry.second.path.parent_path(), ec);
       }
     }
   }
@@ -169,7 +216,8 @@ std::string
 native_cache_key(
   const std::string& normalized_abi,
   const CompilerResolution& compiler,
-  const std::string& source_text
+  const std::string& source_text,
+  const std::vector<FunctionSignature>& selected
 ) {
   std::string input;
   input.reserve(
@@ -189,6 +237,24 @@ native_cache_key(
   input += kCompileFlags;
   input.push_back('\0');
   input += source_text;
+#if defined(_WIN32)
+  // /EXPORT changes the DLL link inputs. Canonicalize the selected ABI names
+  // so reordering an equivalent export set reuses the same native module.
+  std::vector<std::string> names;
+  names.reserve(selected.size());
+  for (const auto& signature : selected) {
+    names.push_back(signature.name);
+  }
+  std::sort(names.begin(), names.end());
+  names.erase(std::unique(names.begin(), names.end()), names.end());
+  input.append("\0exports\0", 9);
+  for (const auto& name : names) {
+    input += name;
+    input.push_back('\0');
+  }
+#else
+  (void)selected;  // Preserve the existing POSIX cache identity byte for byte.
+#endif
   return normalized_abi + "-" + stable_hash_hex(input);
 }
 
@@ -215,7 +281,7 @@ native_cache_path_for_key(const std::string& key, std::string& error_message) {
   if (!ensure_directory(dir, error_message)) {
     return {};
   }
-  return dir / ("lib" + key + ".so");
+  return dir / ("lib" + key + kSharedSuffix);
 }
 
 std::filesystem::path
@@ -224,7 +290,7 @@ native_cache_tmp_path_for_key(const std::filesystem::path& cache_path) {
   return cache_path.parent_path()
     / (cache_path.filename().string()
        + "."
-       + std::to_string(static_cast<long long>(::getpid()))
+       + std::to_string(native_process_id())
        + "."
        + std::to_string(static_cast<long long>(now))
        + ".tmp");
@@ -247,6 +313,107 @@ native_compile_command(
     + " 2>"
     + shell_quote(log_path.string());
 }
+
+
+#if defined(_WIN32)
+std::wstring
+windows_process_quote(const std::wstring& value) {
+  std::wstring out = L"\"";
+  size_t backslashes = 0;
+  for (wchar_t ch : value) {
+    if (ch == L'\\') {
+      ++backslashes;
+      continue;
+    }
+    out.append(backslashes * (ch == L'"' ? 2 : 1), L'\\');
+    backslashes = 0;
+    if (ch == L'"') {
+      out.push_back(L'\\');
+    }
+    out.push_back(ch);
+  }
+  out.append(backslashes * 2, L'\\');
+  out.push_back(L'"');
+  return out;
+}
+
+int
+run_windows_native_compile(
+  const CompilerResolution& compiler,
+  const std::filesystem::path& source_path,
+  const std::filesystem::path& shared_path,
+  const std::filesystem::path& log_path,
+  const std::vector<FunctionSignature>& selected
+) {
+  const std::string basename = lower_copy(std::filesystem::path(compiler.command).filename().string());
+  const bool msvc = basename == "cl" || basename == "cl.exe"
+    || basename == "clang-cl" || basename == "clang-cl.exe";
+  std::vector<std::string> argv;
+  if (msvc) {
+    argv = {compiler.command, "/nologo", "/LD", "/O2",
+            "/D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH", "/D_CRT_SECURE_NO_WARNINGS",
+            source_path.string(), "/Fo" + (source_path.parent_path() / "extern.obj").string(),
+            "/Fe" + shared_path.string(), "/link",
+            "/IMPLIB:" + (source_path.parent_path() / "extern.lib").string()};
+  }
+  else {
+    argv = {compiler.command, "-shared", "-O2", "-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH",
+            "-D_CRT_SECURE_NO_WARNINGS", source_path.string(), "-o", shared_path.string(),
+            "-Xlinker", "/IMPLIB:" + (source_path.parent_path() / "extern.lib").string()};
+  }
+  // Export only the already-selected ABI names. A C++ function without extern
+  // "C" still cannot supply the requested unmangled symbol, as on POSIX.
+  for (const auto& signature : selected) {
+    if (!msvc) {
+      argv.push_back("-Xlinker");
+    }
+    argv.push_back("/EXPORT:" + signature.name);
+  }
+  std::wstring command;
+  for (const auto& argument : argv) {
+    if (!command.empty()) {
+      command.push_back(L' ');
+    }
+    command += windows_process_quote(std::filesystem::path(argument).wstring());
+  }
+  SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+  HANDLE log = ::CreateFileW(log_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ,
+                            &security, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (log == INVALID_HANDLE_VALUE) {
+    throw StyioTypeError("cannot create native @extern compiler log");
+  }
+  HANDLE input = ::CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                              &security, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (input == INVALID_HANDLE_VALUE) {
+    ::CloseHandle(log);
+    throw StyioTypeError("cannot create native @extern compiler input");
+  }
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdInput = input;
+  startup.hStdOutput = log;
+  startup.hStdError = log;
+  PROCESS_INFORMATION process{};
+  const BOOL launched = ::CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE,
+                                         CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process);
+  const DWORD launch_error = launched ? ERROR_SUCCESS : ::GetLastError();
+  ::CloseHandle(input);
+  ::CloseHandle(log);
+  if (!launched) {
+    std::ofstream(log_path, std::ios::app) << "CreateProcessW failed: " << launch_error << '\n';
+    return 1;
+  }
+  const DWORD waited = ::WaitForSingleObject(process.hProcess, INFINITE);
+  DWORD exit_code = 1;
+  if (waited == WAIT_OBJECT_0) {
+    ::GetExitCodeProcess(process.hProcess, &exit_code);
+  }
+  ::CloseHandle(process.hThread);
+  ::CloseHandle(process.hProcess);
+  return exit_code == 0 ? 0 : 1;
+}
+#endif
 
 bool
 is_exported_name(
@@ -471,8 +638,14 @@ parse_c_type(const std::string& raw, CType& out) {
     out.kind = CTypeKind::I32;
     return true;
   }
-  if (normalized == "long" || normalized == "long int" || normalized == "long long"
-      || normalized == "long long int" || normalized == "int64_t" || normalized == "uint64_t"
+  if (normalized == "long" || normalized == "long int") {
+    // Native @extern uses the host compiler ABI: Windows LLP64 has 32-bit
+    // long, while the supported Unix LP64 hosts have 64-bit long.
+    out.kind = sizeof(long) == 4 ? CTypeKind::I32 : CTypeKind::I64;
+    return true;
+  }
+  if (normalized == "long long" || normalized == "long long int"
+      || normalized == "int64_t" || normalized == "uint64_t"
       || normalized == "size_t" || normalized == "ssize_t") {
     out.kind = CTypeKind::I64;
     return true;
@@ -660,6 +833,21 @@ parse_params(const std::string& raw_params) {
 std::filesystem::path
 make_native_temp_dir() {
   const std::filesystem::path base = std::filesystem::temp_directory_path();
+#if defined(_WIN32)
+  for (int attempt = 0; attempt < 100; ++attempt) {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto candidate = base / ("styio-native-" + std::to_string(native_process_id())
+      + "-" + std::to_string(stamp) + "-" + std::to_string(attempt));
+    std::error_code ec;
+    if (std::filesystem::create_directory(candidate, ec)) {
+      return candidate;
+    }
+    if (ec && ec != std::errc::file_exists) {
+      throw StyioTypeError("cannot create native @extern temporary directory: " + ec.message());
+    }
+  }
+  throw StyioTypeError("cannot create native @extern temporary directory");
+#else
   std::string tmpl = (base / "styio-native-XXXXXX").string();
   std::vector<char> buffer(tmpl.begin(), tmpl.end());
   buffer.push_back('\0');
@@ -671,6 +859,7 @@ make_native_temp_dir() {
       + std::string(std::strerror(errno)));
   }
   return std::filesystem::path(created);
+#endif
 }
 
 bool
@@ -706,7 +895,11 @@ is_executable_file(const std::filesystem::path& path) {
   if (!std::filesystem::is_regular_file(path, ec) && !std::filesystem::is_symlink(path, ec)) {
     return false;
   }
+#if defined(_WIN32)
+  return lower_copy(path.extension().string()) == ".exe";
+#else
   return ::access(path.c_str(), X_OK) == 0;
+#endif
 }
 
 void
@@ -722,7 +915,22 @@ push_unique_path(std::vector<std::filesystem::path>& paths, std::filesystem::pat
 
 std::filesystem::path
 current_executable_dir() {
-#if defined(__linux__)
+#if defined(_WIN32)
+  std::vector<wchar_t> buf(32768);
+  const DWORD count = ::GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+  if (count > 0 && count < buf.size()) {
+    return std::filesystem::path(std::wstring(buf.data(), count)).parent_path();
+  }
+#elif defined(__APPLE__)
+  uint32_t size = 0;
+  (void)::_NSGetExecutablePath(nullptr, &size);
+  std::vector<char> buf(size);
+  if (size > 0 && ::_NSGetExecutablePath(buf.data(), &size) == 0) {
+    std::error_code ec;
+    auto path = std::filesystem::weakly_canonical(buf.data(), ec);
+    return (ec ? std::filesystem::path(buf.data()) : path).parent_path();
+  }
+#elif defined(__linux__)
   std::array<char, 4096> buf{};
   const ssize_t len = ::readlink("/proc/self/exe", buf.data(), buf.size() - 1);
   if (len > 0) {
@@ -764,7 +972,11 @@ find_bundled_compiler(const std::string& normalized_abi) {
   for (const auto& root : candidate_native_toolchain_roots()) {
     for (const auto& dir : {root / "bin", root}) {
       for (const auto& name : names) {
+#if defined(_WIN32)
+        const std::filesystem::path candidate = dir / (name + ".exe");
+#else
         const std::filesystem::path candidate = dir / name;
+#endif
         if (is_executable_file(candidate)) {
           return candidate.string();
         }
@@ -804,7 +1016,11 @@ source_preamble(const std::string& normalized_abi) {
 
 void*
 dlopen_native_module(const std::filesystem::path& shared_path) {
+#if defined(_WIN32)
+  return static_cast<void*>(::LoadLibraryW(shared_path.c_str()));
+#else
   return ::dlopen(shared_path.c_str(), RTLD_NOW | RTLD_LOCAL);
+#endif
 }
 
 std::vector<LoadedSymbol>
@@ -816,10 +1032,16 @@ resolve_loaded_symbols(
   std::vector<LoadedSymbol> symbols;
   symbols.reserve(selected.size());
   for (const auto& sig : selected) {
+#if defined(_WIN32)
+    void* symbol = reinterpret_cast<void*>(::GetProcAddress(static_cast<HMODULE>(handle), sig.name.c_str()));
+    const bool failed = symbol == nullptr;
+#else
     ::dlerror();
     void* symbol = ::dlsym(handle, sig.name.c_str());
     const char* err = ::dlerror();
-    if (err != nullptr || symbol == nullptr) {
+    const bool failed = err != nullptr || symbol == nullptr;
+#endif
+    if (failed) {
       throw StyioTypeError(
         "native @extern(" + normalized_abi + ") could not resolve exported symbol `"
         + sig.name + "`; C++ blocks must expose callable symbols with extern \"C\"");
@@ -898,7 +1120,11 @@ resolve_compiler_for_abi(const std::string& abi) {
     }
   }
 
+#if defined(_WIN32)
+  return CompilerResolution{normalized_abi == "c++" ? "clang++" : "clang", "system"};
+#else
   return CompilerResolution{normalized_abi == "c++" ? "c++" : "cc", "system"};
+#endif
 }
 
 std::vector<FunctionSignature>
@@ -971,8 +1197,19 @@ compile_and_load_block(
   }
 
   const CompilerResolution compiler = resolve_compiler_for_abi(normalized_abi);
-  const std::string source_text = source_preamble(normalized_abi) + body + "\n";
-  const std::string cache_key = native_cache_key(normalized_abi, compiler, source_text);
+  std::string source_text = source_preamble(normalized_abi) + body + "\n";
+#if defined(_WIN32)
+  if (normalized_abi == "c++") {
+    // link.exe may match /EXPORT:name to a decorated C++ symbol. Require the
+    // existing selected definition to have C linkage before that heuristic can
+    // create an unmangled export alias. A trailing decltype redeclaration keeps
+    // its exact type/calling convention and cannot confer linkage retroactively.
+    for (const auto& signature : selected) {
+      source_text += "extern \"C\" decltype(" + signature.name + ") " + signature.name + ";\n";
+    }
+  }
+#endif
+  const std::string cache_key = native_cache_key(normalized_abi, compiler, source_text, selected);
 
   auto& process_cache = native_module_cache();
   std::lock_guard<std::mutex> cache_lock(process_cache.mutex);
@@ -999,7 +1236,7 @@ compile_and_load_block(
   const std::filesystem::path log_path = tmp_dir / "compile.log";
   const std::filesystem::path compile_shared_path =
     cache_path.empty()
-      ? tmp_dir / "libstyio_native.so"
+      ? tmp_dir / (std::string("libstyio_native") + kSharedSuffix)
       : native_cache_tmp_path_for_key(cache_path);
 
   std::string write_error;
@@ -1010,7 +1247,11 @@ compile_and_load_block(
 
   const std::string command = native_compile_command(compiler, source_path, compile_shared_path, log_path);
 
+#if defined(_WIN32)
+  const int rc = run_windows_native_compile(compiler, source_path, compile_shared_path, log_path, selected);
+#else
   const int rc = std::system(command.c_str());
+#endif
   if (rc != 0) {
     std::string log;
     (void)read_text_file(log_path, log);
@@ -1051,7 +1292,12 @@ compile_and_load_block(
 
   void* handle = dlopen_native_module(load_path);
   if (handle == nullptr) {
+#if defined(_WIN32)
+    const std::string load_error = "Windows dynamic-library error " + std::to_string(::GetLastError());
+#else
     const char* err = ::dlerror();
+    const std::string load_error = err != nullptr ? err : "unknown dlopen error";
+#endif
     if (cache_path.empty()) {
       std::filesystem::remove(compile_shared_path);
     }
@@ -1061,29 +1307,47 @@ compile_and_load_block(
     std::filesystem::remove_all(tmp_dir);
     throw StyioTypeError(
       "native @extern(" + normalized_abi + ") dlopen failed: "
-      + std::string(err != nullptr ? err : "unknown dlopen error"));
+      + load_error);
   }
 
   auto [it, inserted] = process_cache.modules.emplace(
     cache_key,
-    CachedModule{handle, load_path});
+    CachedModule{handle, load_path,
+#if defined(_WIN32)
+      cache_path.empty()
+#else
+      false
+#endif
+    });
   if (!inserted && it->second.handle != handle) {
-    ::dlclose(handle);
+    close_native_module(handle);
   }
 
   std::filesystem::remove(source_path);
   std::filesystem::remove(log_path);
+#if defined(_WIN32)
+  std::error_code cleanup_error;
+  for (const auto& entry : std::filesystem::directory_iterator(tmp_dir)) {
+    if (entry.path() != load_path) {
+      std::filesystem::remove(entry.path(), cleanup_error);
+    }
+  }
+  if (!cache_path.empty()) {
+    std::filesystem::remove(tmp_dir, cleanup_error);
+  }
+#else
   if (cache_path.empty()) {
     std::filesystem::remove(compile_shared_path);
   }
   std::filesystem::remove(tmp_dir);
+#endif
   return loaded_block_from_cached_module(it->second, normalized_abi, std::move(selected));
 }
 
 void
 close_loaded_block(void* handle) {
   if (handle != nullptr) {
-    ::dlclose(handle);
+    close_native_module(handle);
   }
 }
 

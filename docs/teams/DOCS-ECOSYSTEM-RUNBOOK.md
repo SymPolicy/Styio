@@ -2,7 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-03
+
+Maintain the [Incremental Promotion](../specs/INCREMENTAL-PROMOTION.md) contract: one public update stream, internal stages, source-bound evidence reuse, explicit advisory discovery, and no automatic publication or protection changes.
+
+Keep rebuildable promotion caches at seven days and verification evidence/sealed payloads at 90 days; cache expiry is missing build work, not invalidation of successful test evidence. The existing candidate-specific prebuild policy chain remains required.
 
 ## Mission
 

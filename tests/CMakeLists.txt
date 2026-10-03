@@ -1,8 +1,29 @@
 include(GoogleTest)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+# The language fixtures use native /tmp. On Windows this is the current drive's
+# root tmp, not Git Bash's installation-relative /tmp. CI prepares that directory.
+set(STYIO_TEST_NATIVE_TMP "/tmp")
+if(WIN32)
+  string(SUBSTRING "${CMAKE_SOURCE_DIR}" 0 2 _styio_test_drive)
+  set(STYIO_TEST_NATIVE_TMP "${_styio_test_drive}/tmp")
+endif()
+
+add_test(NAME promotion_native_portability
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/promotion_platform_test.py")
+set_tests_properties(promotion_native_portability PROPERTIES
+  LABELS "security;platform"
+  ENVIRONMENT "STYIO_TEST_NATIVE_COMPILER=${CMAKE_CXX_COMPILER}")
+add_test(NAME promotion_subprocess_capture
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/promotion_process_pipe_test.py")
+set_tests_properties(promotion_subprocess_capture PROPERTIES
+  LABELS "security;platform"
+  ENVIRONMENT "STYIO_TEST_NATIVE_COMPILER=${CMAKE_CXX_COMPILER}")
+
 
 add_test(
   NAME docs_audit
-  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/docs-audit.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/docs-audit.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(docs_audit PROPERTIES LABELS "docs")
@@ -148,7 +169,7 @@ set_tests_properties(stdio_input_t01_stdin_echo PROPERTIES LABELS "language_feat
 
 add_test(
   NAME styio_build_native_executable_stdin_echo
-  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && \"${STYIO_EXE}\" build \"${STYIO_FEATURES}/stdio_input/t01_stdin_echo.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" && cat \"${STYIO_FEATURES}/stdio_input/data/echo_input.txt\" | STYIO_NATIVE_PROFILE_OUT=\"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo\" | cmp -s - \"${STYIO_FEATURES}/stdio_input/expected/t01_stdin_echo.out\" && grep -q '\"tool\": \"styio-native-profiler\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && grep -q '\"name\": \"execute\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\""
+  COMMAND bash -c "rm -f \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo${CMAKE_EXECUTABLE_SUFFIX}\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && \"${STYIO_EXE}\" build \"${STYIO_FEATURES}/stdio_input/t01_stdin_echo.styio\" -o \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo${CMAKE_EXECUTABLE_SUFFIX}\" && test -x \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo${CMAKE_EXECUTABLE_SUFFIX}\" && cat \"${STYIO_FEATURES}/stdio_input/data/echo_input.txt\" | STYIO_NATIVE_PROFILE_OUT=\"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo${CMAKE_EXECUTABLE_SUFFIX}\" | cmp -s - \"${STYIO_FEATURES}/stdio_input/expected/t01_stdin_echo.out\" && grep -q '\"tool\": \"styio-native-profiler\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\" && grep -q '\"name\": \"execute\"' \"${CMAKE_BINARY_DIR}/styio-native-stdin-echo.profile.json\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(styio_build_native_executable_stdin_echo PROPERTIES
@@ -220,7 +241,7 @@ set_tests_properties(file_resources_t01_read_file PROPERTIES LABELS "language_fe
 
 add_test(
   NAME file_resources_t02_write_file
-  COMMAND bash -c "rm -f /tmp/styio_out.txt && \"${STYIO_EXE}\" --file \"${STYIO_FEATURES}/file_resources/t02_write_file.styio\" && test \"$(cat /tmp/styio_out.txt)\" = \"Hello from Styio\""
+  COMMAND bash -c "rm -f ${STYIO_TEST_NATIVE_TMP}/styio_out.txt && \"${STYIO_EXE}\" --file \"${STYIO_FEATURES}/file_resources/t02_write_file.styio\" && test \"$(cat ${STYIO_TEST_NATIVE_TMP}/styio_out.txt)\" = \"Hello from Styio\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(file_resources_t02_write_file PROPERTIES LABELS "language_feature;file_resources")
@@ -248,7 +269,7 @@ set_tests_properties(file_resources_t06_fail_fast PROPERTIES LABELS "language_fe
 
 add_test(
   NAME file_resources_t07_redirect
-  COMMAND bash -c "rm -f /tmp/styio_val.txt && \"${STYIO_EXE}\" --file \"${STYIO_FEATURES}/file_resources/t07_redirect.styio\" && test \"$(cat /tmp/styio_val.txt)\" = \"42\""
+  COMMAND bash -c "rm -f ${STYIO_TEST_NATIVE_TMP}/styio_val.txt && \"${STYIO_EXE}\" --file \"${STYIO_FEATURES}/file_resources/t07_redirect.styio\" && test \"$(cat ${STYIO_TEST_NATIVE_TMP}/styio_val.txt)\" = \"42\""
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(file_resources_t07_redirect PROPERTIES LABELS "language_feature;file_resources")
@@ -268,7 +289,7 @@ foreach(STREAM_PROCESSING_FILE IN LISTS STREAM_PROCESSING_STYIO_TESTS)
   if(STREAM_PROCESSING_NAME STREQUAL "t10_full_pipeline")
     add_test(
       NAME "stream_processing_${STREAM_PROCESSING_NAME}"
-      COMMAND bash -c "rm -f /tmp/styio_doubled.txt && \"${STYIO_EXE}\" --file \"${STREAM_PROCESSING_FILE}\" && cmp -s /tmp/styio_doubled.txt \"${STYIO_FEATURES}/stream_processing/expected/${STREAM_PROCESSING_NAME}.out\""
+      COMMAND bash -c "rm -f ${STYIO_TEST_NATIVE_TMP}/styio_doubled.txt && \"${STYIO_EXE}\" --file \"${STREAM_PROCESSING_FILE}\" && cmp -s ${STYIO_TEST_NATIVE_TMP}/styio_doubled.txt \"${STYIO_FEATURES}/stream_processing/expected/${STREAM_PROCESSING_NAME}.out\""
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
   else()
@@ -337,7 +358,7 @@ set_tests_properties(parser_legacy_entry_audit PROPERTIES
 
 add_test(
   NAME syntax_convergence_gate
-  COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/syntax-convergence-gate.py"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/syntax-convergence-gate.py"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 set_tests_properties(syntax_convergence_gate PROPERTIES

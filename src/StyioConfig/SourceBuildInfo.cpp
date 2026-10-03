@@ -24,8 +24,11 @@ component_paths(std::initializer_list<const char*> paths) {
 llvm::json::Array
 source_channel_entries() {
   llvm::json::Array channels;
-  channels.push_back(llvm::json::Object{{"name", "stable"}, {"branch", "stable"}});
-  channels.push_back(llvm::json::Object{{"name", "nightly"}, {"branch", "nightly"}});
+  // Legacy source refs remain discoverable; they are internal stages, not
+  // separate public update streams.
+  channels.push_back(llvm::json::Object{{"name", "release"}, {"branch", "release"}, {"public_update", true}});
+  channels.push_back(llvm::json::Object{{"name", "stable"}, {"branch", "stable"}, {"public_update", false}});
+  channels.push_back(llvm::json::Object{{"name", "nightly"}, {"branch", "nightly"}, {"public_update", false}});
   return channels;
 }
 
@@ -92,6 +95,9 @@ default_source_origin() {
 
 const char*
 source_branch_for_channel(const std::string& channel) {
+  if (channel == "release") {
+    return "release";
+  }
   if (channel == "nightly") {
     return "nightly";
   }
@@ -119,6 +125,8 @@ source_build_info_json(const SourceBuildInfoOptions& options) {
     {"source_layout_version", 1},
     {"compiler_version", options.compiler_version},
     {"binary_channel", options.compiler_channel},
+    {"public_update_channel", "release"},
+    {"build_id", options.build_id},
     {"edition_max", options.edition_max},
     {"official_source_origin", default_source_origin()},
     {"source_channels", source_channel_entries()},

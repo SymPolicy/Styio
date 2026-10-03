@@ -2,251 +2,230 @@ name: styio-ci-gate
 
 on:
   pull_request:
+    branches: [nightly, stable, release]
   push:
-    branches:
-      - release
-      - nightly
-      - stable
+    branches: [nightly, stable, release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
 
 jobs:
-  styio-ci-gate:
-    name: platform-adaptation / linux-ci-gate
+  route:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-
+    outputs:
+      tier: ${{ steps.route.outputs.tier }}
+      stable_run: ${{ steps.route.outputs.stable_run }}
+      required_platforms: ${{ steps.route.outputs.required_platforms }}
+      matrix: ${{ steps.route.outputs.matrix }}
+      pafio_sha: ${{ steps.route.outputs.pafio_sha }}
+      vityo_sha: ${{ steps.route.outputs.vityo_sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           path: styio-nightly
-
-      - name: Resolve ecosystem lane
-        id: lane
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            TARGET_LANE="${{ github.base_ref }}"
-          else
-            TARGET_LANE="${{ github.ref_name }}"
-          fi
-
-          case "$TARGET_LANE" in
-            release|stable|nightly)
-              ECOSYSTEM_REF="$TARGET_LANE"
-              ;;
-            *)
-              ECOSYSTEM_REF="nightly"
-              ;;
-          esac
-
-          echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
-          echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
-
-      - name: Check out styio-pafio sibling repository
-        uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.5'
+      - name: Validate promotion route and select missing-scope platforms
+        id: route
+        working-directory: styio-nightly
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/promotion-ci.py --route
+      - name: Test admission, reuse, examples and toolchain contracts
+        working-directory: styio-nightly
+        run: python3 -m unittest discover -s tests -p 'promotion_*_test.py'
+      - uses: actions/checkout@v5
         with:
           repository: SymPolicy/Pafio
-          # Freeze the existing v1 docs contract during staged compiler promotion.
-          ref: 813dd24ed1b7a527c928333e22aac5d5fde129f4
+          ref: ${{ steps.route.outputs.pafio_sha }}
           path: styio-pafio
-
-      - name: Check out styio-view sibling repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           repository: Unka-Malloc/vityo-nightly
-          ref: 6adfa4c2b2d11ba01a74f321cfebb6323ebac6ea
+          ref: ${{ steps.route.outputs.vityo_sha }}
           path: styio-view
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13.5"
-
-      - name: Run workflow scheduler prebuild chain
-        shell: bash
+      - name: Preserve existing current-change prebuild policy checks
         working-directory: styio-nightly
         env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
-          GITHUB_SHA: ${{ github.sha }}
           GITHUB_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          python3 scripts/workflow-scheduler.py run --profile ci-prebuild
+        run: python3 scripts/workflow-scheduler.py run --profile ci-prebuild
 
-      - name: Install dependencies
+  validate:
+    name: promotion / ${{ matrix.platform }}
+    needs: route
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.route.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: styio-nightly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          path: styio-nightly
+      - uses: actions/checkout@v5
+        with:
+          repository: SymPolicy/Pafio
+          ref: ${{ needs.route.outputs.pafio_sha }}
+          path: styio-pafio
+      - uses: actions/checkout@v5
+        with:
+          repository: Unka-Malloc/vityo-nightly
+          ref: ${{ needs.route.outputs.vityo_sha }}
+          path: styio-view
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.5'
+
+      - name: Linux native dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            clang-18 \
-            libclang-rt-18-dev \
-            lld-18 \
-            llvm-18-dev \
-            libicu-dev \
-            python3
-
-      - name: Configure
-        working-directory: styio-nightly
-        run: >
-          cmake -S . -B build/ci -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_COMPILER=clang-18
-          -DCMAKE_CXX_COMPILER=clang++-18
-          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
-          -DSTYIO_ENABLE_FUZZ=ON
-
-      - name: Build
-        working-directory: styio-nightly
-        run: >
-          cmake --build build/ci --target
-          styio styio_test styio_algorithm_equivalence_test
-          styio_security_test styio_resource_topology_test styio_ide_test
-          styio_soak_test styio_fuzz_suite
-
-      - name: Docs audit
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L docs --output-on-failure --no-tests=error
-
-      - name: Security tests
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L security --output-on-failure --no-tests=error
-
-      - name: Five-layer pipeline tests
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure --no-tests=error
-
-      - name: Parser shadow gate (scalar expressions suite + artifacts)
-        working-directory: styio-nightly
+          sudo apt-get install -y ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev
+          python3 -m pip install 'cmake==3.31.6'
+          echo 'STYIO_LLVM_ROOT=/usr/lib/llvm-18' >> "$GITHUB_ENV"
+          echo 'CC=clang-18' >> "$GITHUB_ENV"
+          echo 'CXX=clang++-18' >> "$GITHUB_ENV"
+      - name: macOS native dependencies
+        if: matrix.platform == 'macos'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
         run: |
-          mkdir -p build/ci/parser-shadow-artifacts
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
-
-      - name: Parser shadow gate (functions suite + artifacts)
-        working-directory: styio-nightly
+          brew install llvm@18 icu4c@78 ninja
+          python3 -m pip install 'cmake==3.31.6'
+          echo "STYIO_LLVM_ROOT=$(brew --prefix llvm@18)" >> "$GITHUB_ENV"
+          echo "CC=$(brew --prefix llvm@18)/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$(brew --prefix llvm@18)/bin/clang++" >> "$GITHUB_ENV"
+          echo "ICU_ROOT=$(brew --prefix icu4c@78)" >> "$GITHUB_ENV"
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+      - name: Windows compiler environment
+        if: matrix.platform == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Windows LLVM development dependencies
+        if: matrix.platform == 'windows'
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: styio-llvm18
+          cache-environment: true
+          create-args: >-
+            cmake=3.31.6 ninja llvm=18.1.8 llvmdev=18.1.8
+            clang-tools=18.1.8 zlib=1.3.2 zstd=1.5.7 libxml2-devel=2.15.3
+      - name: Resolve Windows native toolchain
+        if: matrix.platform == 'windows'
+        shell: pwsh
         run: |
-          mkdir -p build/ci/parser-shadow-artifacts-m2
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
+          $prefix = Join-Path $env:MAMBA_ROOT_PREFIX 'envs\styio-llvm18'
+          $root = Join-Path $prefix 'Library'
+          if (!(Test-Path "$root\lib\cmake\llvm\LLVMConfig.cmake")) { throw 'LLVM development package missing' }
+          Add-Content $env:GITHUB_PATH "$root\bin"
+          Add-Content $env:GITHUB_PATH "$prefix\Scripts"
+          Add-Content $env:GITHUB_ENV "STYIO_LLVM_ROOT=$root"
+          Add-Content $env:GITHUB_ENV "STYIO_LLVM_DIR=$root\lib\cmake\llvm"
+          Add-Content $env:GITHUB_ENV 'CC=cl'
+          Add-Content $env:GITHUB_ENV 'CXX=cl'
+          $git = (Get-Command git.exe).Source
+          $gitRoot = Split-Path (Split-Path $git)
+          $bash = Join-Path $gitRoot 'bin\bash.exe'
+          if (!(Test-Path $bash)) { throw 'Verified Git for Windows Bash is required by the test fixtures' }
+          Add-Content $env:GITHUB_ENV "STYIO_TEST_BASH=$bash"
+          $nativeTmp = Join-Path (Get-Location).Drive.Root 'tmp'
+          New-Item -ItemType Directory -Force $nativeTmp | Out-Null
+          Add-Content $env:GITHUB_ENV "STYIO_TEST_NATIVE_TMP=$nativeTmp"
 
-      - name: Upload parser shadow artifacts
-        if: failure()
+
+      - name: Execute only missing validation or consume stable payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STYIO_STABLE_SOURCE_RUN: ${{ needs.route.outputs.stable_run }}
+          GITHUB_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        run: python scripts/promotion-ci.py --tier '${{ needs.route.outputs.tier }}' --platform '${{ matrix.platform }}'
+      - name: Preserve current-candidate evidence and advisory findings
+        if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: parser-shadow-artifacts
+          name: promotion-evidence-${{ matrix.platform }}
           path: |
-            styio-nightly/build/ci/parser-shadow-artifacts
-            styio-nightly/build/ci/parser-shadow-artifacts-m2
-          if-no-files-found: ignore
-
-      - name: Soak smoke tests
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L soak_smoke --output-on-failure --no-tests=error
-
-      - name: Language feature smoke
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
-
-      - name: Fuzz smoke
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure --no-tests=error
-
-  test-smoke:
-    name: test / smoke
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install smoke dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
-
-      - name: Configure smoke build
-        run: >
-          cmake -S . -B build/smoke -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_COMPILER=clang-18
-          -DCMAKE_CXX_COMPILER=clang++-18
-          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
-          -DSTYIO_ENABLE_FUZZ=ON
-
-      - name: Build smoke targets
-        run: cmake --build build/smoke --target styio styio_test styio_fuzz_suite
-
-      - name: Run smoke tests
-        run: |
-          ctest --test-dir build/smoke -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
-          ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure --no-tests=error
-
-  test-golden-standard:
-    name: test / golden-standard
-    needs: [styio-ci-gate, test-smoke]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install golden-standard dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
-
-      - name: Configure golden-standard build
-        run: >
-          cmake -S . -B build/golden -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_COMPILER=clang-18
-          -DCMAKE_CXX_COMPILER=clang++-18
-          -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
-
-      - name: Build golden-standard targets
-        run: >
-          cmake --build build/golden --target
-          styio styio_test styio_algorithm_equivalence_test
-          styio_resource_topology_test
-
-      - name: Run syntax convergence gate
-        run: python3 scripts/syntax-convergence-gate.py
-
-      - name: Run milestone goldens
-        run: ctest --test-dir build/golden -L language_feature --output-on-failure --no-tests=error
-
-      - name: Run five-layer and convergence goldens
-        run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure --no-tests=error
-
-      - name: Run parser shadow convergence gates
-        run: ctest --test-dir build/golden -R '^parser_shadow_gate_' --output-on-failure --no-tests=error
-
-      - name: Run parser legacy entry audit
-        run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure --no-tests=error
+            styio-nightly/build/promotion-evidence/evidence.json
+            styio-nightly/build/promotion-evidence/report.md
+            styio-nightly/build/promotion-evidence/ctest-results.xml
+          retention-days: 90
+          overwrite: true
+          if-no-files-found: error
+      - name: Preserve trusted incremental build state
+        if: success() && needs.route.outputs.tier != 'release'
+        uses: actions/upload-artifact@v6
+        with:
+          name: promotion-build-${{ matrix.platform }}
+          path: styio-nightly/build/promotion-evidence/build.tar.gz
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve sealed distribution payload
+        if: success() && needs.route.outputs.tier != 'nightly'
+        uses: actions/upload-artifact@v6
+        with:
+          name: promotion-payload-${{ matrix.platform }}
+          path: styio-nightly/build/promotion-evidence/payload.tar.gz
+          retention-days: 90
+          overwrite: true
+          compression-level: 0
+          if-no-files-found: error
 
   required-ci-gate:
+    # Existing Ruleset identity remains stable. No separate report-only gate.
     name: styio-ci-gate
-    if: ${{ always() }}
-    needs: [styio-ci-gate, test-smoke, test-golden-standard]
+    if: always()
+    needs: [route, validate]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    permissions: {}
     steps:
-      - name: Require every existing CI lane to succeed
-        shell: bash
+      - uses: actions/checkout@v5
+        with:
+          path: styio-nightly
+      - name: Require real platform outcomes
         env:
-          LINUX_RESULT: ${{ needs.styio-ci-gate.result }}
-          SMOKE_RESULT: ${{ needs.test-smoke.result }}
-          GOLDEN_RESULT: ${{ needs.test-golden-standard.result }}
+          ROUTE_RESULT: ${{ needs.route.result }}
+          VALIDATION_RESULT: ${{ needs.validate.result }}
         run: |
-          set -euo pipefail
-          for name in LINUX_RESULT SMOKE_RESULT GOLDEN_RESULT; do
-            result="${!name:-missing}"
-            printf '%s=%s\n' "$name" "$result"
-            if [[ "$result" != success ]]; then
-              exit 1
-            fi
-          done
+          test "$ROUTE_RESULT" = success
+          test "$VALIDATION_RESULT" = success
+      - name: Collect actual candidate evidence
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh run download "$RUN_ID" --pattern 'promotion-evidence-*' --dir evidence
+      - name: Admit this candidate and all required platforms
+        if: always() && needs.route.result == 'success'
+        env:
+          STYIO_REQUIRED_PLATFORMS: ${{ needs.route.outputs.required_platforms }}
+        working-directory: styio-nightly
+        run: python3 scripts/promotion-ci.py --tier '${{ needs.route.outputs.tier }}' --aggregate ../evidence
+      - name: Final admission report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: promotion-admission
+          path: |
+            evidence/admission.json
+            evidence/admission.md
+          if-no-files-found: warn

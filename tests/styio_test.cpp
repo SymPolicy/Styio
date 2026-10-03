@@ -15,6 +15,7 @@
 
 #include "StyioTesting/PipelineCheck.hpp"
 #include "StyioToken/Token.hpp"
+#include "StyioUtil/ProcessPipe.hpp"
 
 namespace fs = std::filesystem;
 
@@ -39,38 +40,12 @@ struct CommandResult
   std::string stdout_text;
 };
 
-int
-decode_wait_status(int status) {
-#ifdef _WIN32
-  return status;
-#else
-  if (status == -1) {
-    return -1;
-  }
-  if (WIFEXITED(status)) {
-    return WEXITSTATUS(status);
-  }
-  if (WIFSIGNALED(status)) {
-    return 128 + WTERMSIG(status);
-  }
-  return status;
-#endif
-}
+using styio::util::shell_path_contents;
 
 CommandResult
 run_stdout_command(const std::string& cmd) {
-  CommandResult result;
-  FILE* pipe = popen(cmd.c_str(), "r");
-  if (pipe == nullptr) {
-    return result;
-  }
-  char buf[4096];
-  while (fgets(buf, static_cast<int>(sizeof(buf)), pipe) != nullptr) {
-    result.stdout_text += buf;
-  }
-  const int status = pclose(pipe);
-  result.exit_code = decode_wait_status(status);
-  return result;
+  const auto capture = styio::util::capture_shell_stdout(cmd);
+  return {capture.exit_code, capture.stdout_text};
 }
 
 std::string
@@ -97,7 +72,7 @@ trim_copy_latest(const std::string& text) {
 std::string
 sha256_file_latest(const fs::path& path) {
   const CommandResult shasum =
-    run_stdout_command(std::string("shasum -a 256 \"") + path.string() + "\" 2>/dev/null");
+    run_stdout_command(std::string("shasum -a 256 \"") + shell_path_contents(path) + "\" 2>/dev/null");
   if (shasum.exit_code == 0) {
     std::istringstream in(shasum.stdout_text);
     std::string digest;
@@ -108,7 +83,7 @@ sha256_file_latest(const fs::path& path) {
   }
 
   const CommandResult sha256sum =
-    run_stdout_command(std::string("sha256sum \"") + path.string() + "\" 2>/dev/null");
+    run_stdout_command(std::string("sha256sum \"") + shell_path_contents(path) + "\" 2>/dev/null");
   if (sha256sum.exit_code == 0) {
     std::istringstream in(sha256sum.stdout_text);
     std::string digest;
@@ -119,6 +94,85 @@ sha256_file_latest(const fs::path& path) {
 }
 
 }  // namespace
+
+TEST(StyioProcessPipe, PreservesQuotedShellMetacharacters) {
+  const std::string literal = "spaces ' quote \" double $HOME `echo unsafe` & ; | %PATH% \\";
+  const auto capture = styio::util::capture_shell_stdout(
+    "printf '%s' " + styio::util::shell_quote(literal));
+  EXPECT_EQ(capture.exit_code, 0);
+  EXPECT_EQ(capture.stdout_text, literal);
+}
+
+TEST(StyioProcessPipe, PreservesDoubleQuotedPathContents) {
+  const fs::path path("spaces ' dollar $HOME `echo unsafe` & semicolon ; %PATH%");
+  const auto capture = styio::util::capture_shell_stdout(
+    "printf '%s' \"" + shell_path_contents(path) + "\"");
+  EXPECT_EQ(capture.exit_code, 0);
+  EXPECT_EQ(capture.stdout_text, path.generic_string());
+}
+
+TEST(StyioProcessPipe, CapturesLargeOutputAndNonzeroExitStatus) {
+  const auto capture = styio::util::capture_shell_stdout(
+    "i=0; while [ \"$i\" -lt 10000 ]; do printf 0123456789; i=$((i+1)); done; exit 23");
+  EXPECT_EQ(capture.exit_code, 23);
+  ASSERT_EQ(capture.stdout_text.size(), 100000U);
+  EXPECT_EQ(capture.stdout_text.substr(99990), "0123456789");
+#ifdef _WIN32
+  EXPECT_EQ(capture.raw_status, 23);
+#else
+  ASSERT_TRUE(WIFEXITED(capture.raw_status));
+  EXPECT_EQ(WEXITSTATUS(capture.raw_status), 23);
+#endif
+}
+
+TEST(StyioProcessPipe, SupportsPipelinesAndStderrRedirection) {
+  const auto capture = styio::util::capture_shell_stdout(
+    "printf 'alpha\\nbeta\\n' | (read first; read second; "
+    "printf '%s:%s' \"$second\" \"$first\"; printf ignored >&2) 2>/dev/null");
+  EXPECT_EQ(capture.exit_code, 0);
+  EXPECT_EQ(capture.stdout_text, "beta:alpha");
+  const auto grouped = styio::util::capture_shell_stdout("(printf diagnostic >&2) 2>&1");
+  EXPECT_EQ(grouped.exit_code, 0);
+  EXPECT_EQ(grouped.stdout_text, "diagnostic");
+}
+
+TEST(StyioProcessPipe, RedirectsNativePathsWithSpacesAndMetacharacters) {
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  const fs::path root = fs::temp_directory_path()
+    / ("styio pipe ' $HOME `literal` & ; %PATH% " + std::to_string(stamp));
+  ASSERT_TRUE(fs::create_directory(root));
+  struct Cleanup {
+    fs::path path;
+    ~Cleanup() { std::error_code ec; fs::remove_all(path, ec); }
+  } cleanup{root};
+  const fs::path input = root / "input.txt";
+  const fs::path error = root / "stderr.txt";
+  {
+    std::ofstream out(input, std::ios::binary);
+    ASSERT_TRUE(out.is_open());
+    out << "from native file\n";
+  }
+  const auto capture = styio::util::capture_shell_stdout(
+    "(read line; printf '%s' \"$line\"; printf diagnostic >&2) < "
+    + styio::util::shell_path(input) + " 2> " + styio::util::shell_path(error));
+  EXPECT_EQ(capture.exit_code, 0);
+  EXPECT_EQ(capture.stdout_text, "from native file");
+  EXPECT_EQ(read_text_file_latest(error), "diagnostic");
+}
+
+#ifdef _WIN32
+TEST(StyioProcessPipe, RejectsMissingOrRelativeConfiguredBash) {
+  const std::wstring original = styio::util::process_detail::test_bash_path();
+  struct Restore {
+    std::wstring path;
+    ~Restore() { SetEnvironmentVariableW(L"STYIO_TEST_BASH", path.c_str()); }
+  } restore{original};
+  ASSERT_TRUE(SetEnvironmentVariableW(L"STYIO_TEST_BASH", nullptr));
+  EXPECT_THROW(styio::util::capture_shell_stdout("exit 0"), std::runtime_error);
+  ASSERT_TRUE(SetEnvironmentVariableW(L"STYIO_TEST_BASH", L"bash.exe"));
+  EXPECT_THROW(styio::util::capture_shell_stdout("exit 0"), std::runtime_error);
+}
+#endif
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {
   const fs::path case_dir =
@@ -394,7 +448,7 @@ TEST(StyioFiveLayerPipeline, StdinAliasAstShowsStringHandleType) {
   }
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --parser-engine=nightly --styio-ast --file \"" + input.string() + "\"");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --styio-ast --file \"" + shell_path_contents(input) + "\"");
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("s : stdin[string]"), std::string::npos);
 
@@ -421,7 +475,7 @@ TEST(StyioFiveLayerPipeline, StandaloneCollectBindFromStdinMaterializesStringLis
   }
 
   const std::string cmd =
-    std::string("printf 'alpha\\nbeta\\n' | \"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\"";
+    std::string("printf 'alpha\\nbeta\\n' | \"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\"";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("alpha"), std::string::npos);
@@ -437,12 +491,14 @@ TEST(StyioDiagnostics, MachineInfoJsonReportsStableHandshakeFields) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd = std::string("\"") + runner + "\" --machine-info=json";
+  const std::string cmd = std::string("\"") + shell_path_contents(runner) + "\" --machine-info=json";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"tool\":\"styio\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"compiler_version\":\"0.0.1\""), std::string::npos);
-  EXPECT_NE(result.stdout_text.find("\"channel\":\"nightly\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"release\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"build_id\":\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"public_update_channel\":\"release\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"active_integration_phase\":\"compile-plan-live\""), std::string::npos);
   EXPECT_NE(
     result.stdout_text.find("\"supported_contracts\":{\"machine_info\":[1],\"jsonl_diagnostics\":[1],\"compile_plan\":[1],\"runtime_events\":[1]}"),
@@ -472,7 +528,7 @@ TEST(StyioDiagnostics, VersionPrintsCompilerVersion) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd = std::string("\"") + runner + "\" --version";
+  const std::string cmd = std::string("\"") + shell_path_contents(runner) + "\" --version";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text, "styio 0.0.1\n");
@@ -486,7 +542,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplSelection) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --machine-info=json --dict-impl=linear";
+    std::string("\"") + shell_path_contents(runner) + "\" --machine-info=json --dict-impl=linear";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
@@ -501,7 +557,7 @@ TEST(StyioDiagnostics, MachineInfoJsonReflectsCliDictImplAliasSelection) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --machine-info=json --dict-impl=v1";
+    std::string("\"") + shell_path_contents(runner) + "\" --machine-info=json --dict-impl=v1";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
@@ -515,7 +571,7 @@ TEST(StyioDiagnostics, SourceBuildInfoJsonReportsOfficialSourceLayoutFields) {
   }
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
-  const std::string cmd = std::string("\"") + runner + "\" --source-build-info=json";
+  const std::string cmd = std::string("\"") + shell_path_contents(runner) + "\" --source-build-info=json";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"contract\": \"source-build-info\""), std::string::npos);
@@ -547,7 +603,7 @@ TEST(StyioDiagnostics, SourceBuildMinimalHelperScriptPrintsCompilerPath) {
   const fs::path helper = fs::path(STYIO_SOURCE_DIR) / "scripts" / "source-build-minimal.sh";
   ASSERT_TRUE(fs::exists(helper));
 
-  const std::string cmd = std::string("bash \"") + helper.string() + "\" --help";
+  const std::string cmd = std::string("bash \"") + shell_path_contents(helper) + "\" --help";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("source-build"), std::string::npos);
@@ -611,21 +667,21 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -638,7 +694,7 @@ TEST(StyioDiagnostics, CompilePlanBuildWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text.find("compile-plan-build"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "demo.llvm.ir"));
@@ -693,21 +749,21 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"check\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-check\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -720,7 +776,7 @@ TEST(StyioDiagnostics, CompilePlanCheckWritesArtifactsWithoutExecutingEntry) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_EQ(result.stdout_text.find("compile-plan-check"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "demo-check.llvm.ir"));
@@ -775,21 +831,21 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"run\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-run\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": true, \"styio_ir\": true, \"llvm_ir\": true}\n"
       << "}\n";
@@ -802,7 +858,7 @@ TEST(StyioDiagnostics, CompilePlanRunExecutesAndWritesReceiptAndRequestedArtifac
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan-run"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "demo-run.original.ast.txt"));
@@ -863,21 +919,21 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"test\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"test\",\n"
       << "    \"target_name\": \"smoke\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"minimal\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -890,7 +946,7 @@ TEST(StyioDiagnostics, CompilePlanTestExecutesAndPublishesUnitTestRuntimeEvents)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan-test"), std::string::npos);
   ASSERT_TRUE(fs::exists(artifact_dir / "smoke.llvm.ir"));
@@ -935,21 +991,21 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-missing\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -962,7 +1018,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_NE(result.exit_code, 0);
 
   const fs::path diag_path = diag_dir / "diagnostics.jsonl";
@@ -973,7 +1029,7 @@ TEST(StyioDiagnostics, CompilePlanFailureWritesJsonlDiagnosticIntoDiagDir) {
   const std::string runtime_events = read_text_file_latest(runtime_events_path);
   EXPECT_NE(diagnostics.find("\"severity\":\"error\""), std::string::npos);
   EXPECT_NE(diagnostics.find("\"code\":\"STYIO_RUNTIME\""), std::string::npos);
-  EXPECT_NE(diagnostics.find("\"file\":\"" + source.string() + "\""), std::string::npos);
+  EXPECT_NE(diagnostics.find("\"file\":\"" + source.generic_string() + "\""), std::string::npos);
   EXPECT_NE(diagnostics.find("file not found"), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.entered\""), std::string::npos);
   EXPECT_NE(runtime_events.find("\"eventKind\":\"unit.exited\""), std::string::npos);
@@ -1013,21 +1069,21 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"ship\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-invalid-intent\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1040,7 +1096,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidIntentReportsCliDiagnosticAndWritesDiag
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
@@ -1084,21 +1140,21 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-invalid-build-mode\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"build_mode\": \"full\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1111,7 +1167,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidBuildModeReportsCliDiagnosticAndWritesD
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
@@ -1155,21 +1211,21 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-cli-conflict\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1183,7 +1239,7 @@ TEST(StyioDiagnostics, CompilePlanCliConflictReportsCliDiagnosticAndWritesDiagDi
 
   const CommandResult result =
     run_stdout_command(
-      std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" --file \"" + source.string()
+      std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" --file \"" + shell_path_contents(source)
       + "\" 2>&1"
     );
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
@@ -1223,7 +1279,7 @@ TEST(StyioDiagnostics, CompilePlanInvalidJsonReportsMachineReadableCliDiagnostic
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
@@ -1260,21 +1316,21 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"other-tool\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-generated-by-mismatch\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1287,7 +1343,7 @@ TEST(StyioDiagnostics, CompilePlanGeneratedByMismatchReportsCliDiagnosticAndWrit
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan generated_by.tool must equal \\\"pafio\\\""), std::string::npos);
@@ -1327,21 +1383,21 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bench\",\n"
       << "    \"target_name\": \"demo-bad-target-kind\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1354,7 +1410,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedTargetKindReportsCliDiagnosticAndWr
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan entry.target_kind: bench"), std::string::npos);
@@ -1399,16 +1455,16 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-relative-root\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
       << "  \"outputs\": {\n"
-      << "    \"build_root\": \"" << build_root.string() << "\",\n"
-      << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"
-      << "    \"diag_dir\": \"" << diag_dir.string() << "\"\n"
+      << "    \"build_root\": \"" << build_root.generic_string() << "\",\n"
+      << "    \"artifact_dir\": \"" << artifact_dir.generic_string() << "\",\n"
+      << "    \"diag_dir\": \"" << diag_dir.generic_string() << "\"\n"
       << "  },\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1421,7 +1477,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeWorkspaceRootReportsCliDiagnosticAndWr
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: workspace_root"), std::string::npos);
@@ -1459,12 +1515,12 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-missing-outputs\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
@@ -1481,7 +1537,7 @@ TEST(StyioDiagnostics, CompilePlanMissingOutputsReportsMachineReadableCliDiagnos
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("\"category\":\"CliError\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"code\":\"STYIO_CLI\""), std::string::npos);
@@ -1517,19 +1573,19 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
       << "  \"plan_version\": 9,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-version\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
-      << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
+      << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -1541,7 +1597,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedVersionWritesCliDiagnosticToDiagDir
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan version: 9"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -1578,19 +1634,19 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-empty-packages\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
-      << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
+      << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -1602,7 +1658,7 @@ TEST(StyioDiagnostics, CompilePlanEmptyPackagesWritesCliDiagnosticToDiagDir) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan packages array must not be empty"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -1639,19 +1695,19 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-error-format\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
-      << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
+      << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"yaml\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -1663,7 +1719,7 @@ TEST(StyioDiagnostics, CompilePlanUnsupportedErrorFormatWritesCliDiagnosticToDia
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("unsupported compile-plan emit.error_format: yaml"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -1700,7 +1756,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
@@ -1711,8 +1767,8 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
-      << "\", \"diag_dir\": \"" << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
+      << "\", \"diag_dir\": \"" << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -1724,7 +1780,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeEntryFileWritesCliDiagnosticToDiagDir)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: file"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -1760,19 +1816,19 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-relative-artifact-dir\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"artifacts\", \"diag_dir\": \""
-      << diag_dir.string() << "\"},\n"
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"artifacts\", \"diag_dir\": \""
+      << diag_dir.generic_string() << "\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
   }
@@ -1784,7 +1840,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeArtifactDirWritesCliDiagnosticToDiagDi
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: artifact_dir"), std::string::npos);
   ASSERT_TRUE(fs::exists(diag_dir / "diagnostics.jsonl"));
@@ -1820,18 +1876,18 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
       << "  \"plan_version\": 1,\n"
       << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0-dev\"},\n"
       << "  \"intent\": \"build\",\n"
-      << "  \"workspace_root\": \"" << root.string() << "\",\n"
+      << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
       << "    \"package_id\": \"demo/app@0.1.0\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo-relative-diag-dir\",\n"
-      << "    \"file\": \"" << source.string() << "\"\n"
+      << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
       << "  \"packages\": [{\"id\": \"demo/app@0.1.0\"}],\n"
       << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"demo/app@0.1.0\"]},\n"
-      << "  \"outputs\": {\"build_root\": \"" << build_root.string() << "\", \"artifact_dir\": \"" << artifact_dir.string()
+      << "  \"outputs\": {\"build_root\": \"" << build_root.generic_string() << "\", \"artifact_dir\": \"" << artifact_dir.generic_string()
       << "\", \"diag_dir\": \"diag\"},\n"
       << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false}\n"
       << "}\n";
@@ -1844,7 +1900,7 @@ TEST(StyioDiagnostics, CompilePlanRelativeDiagDirReportsMachineReadableCliDiagno
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const CommandResult result =
-    run_stdout_command(std::string("\"") + runner + "\" --compile-plan \"" + plan_path.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --compile-plan \"" + shell_path_contents(plan_path) + "\" 2>&1");
   EXPECT_EQ(result.exit_code, 6) << result.stdout_text;
   EXPECT_NE(result.stdout_text.find("compile-plan path must be absolute: diag_dir"), std::string::npos);
   EXPECT_FALSE(fs::exists(build_root / "diag" / "diagnostics.jsonl"));
@@ -1880,8 +1936,8 @@ TEST(StyioDiagnostics, MachineInfoJsonReflectsProjectConfigAndCliOverride) {
   }
 
   const std::string base_cmd =
-    std::string("cd \"") + project_dir.string() + "\" && \"" + runner
-    + "\" --machine-info=json --file \"" + input.filename().string() + "\"";
+    std::string("cd \"") + shell_path_contents(project_dir) + "\" && \"" + shell_path_contents(runner)
+    + "\" --machine-info=json --file \"" + shell_path_contents(input.filename()) + "\"";
   const CommandResult project_selected = run_stdout_command(base_cmd);
   ASSERT_EQ(project_selected.exit_code, 0) << project_selected.stdout_text;
   EXPECT_NE(project_selected.stdout_text.find("\"dict_impl\":{\"selected\":\"linear\""), std::string::npos);
@@ -1906,10 +1962,12 @@ TEST(StyioNano, MachineInfoReflectsPrunedProfile) {
     GTEST_SKIP() << "styio-nano target not built";
   }
 
-  const std::string cmd = std::string("\"") + runner + "\" --machine-info=json";
+  const std::string cmd = std::string("\"") + shell_path_contents(runner) + "\" --machine-info=json";
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
-  EXPECT_NE(result.stdout_text.find("\"channel\":\"nano\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"channel\":\"release\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"build_id\":\""), std::string::npos);
+  EXPECT_NE(result.stdout_text.find("\"public_update_channel\":\"release\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"name\":\"edge-default\""), std::string::npos);
   EXPECT_NE(result.stdout_text.find("\"dict_impl\":{\"selected\":\"ordered-hash\""), std::string::npos);
@@ -1937,7 +1995,7 @@ TEST(StyioNano, DisabledFlagsAndBackendsAreRejected) {
   }
 
   const CommandResult shadow_disabled =
-    run_stdout_command(std::string("\"") + runner + "\" --parser-shadow-compare --file \"" + input.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --parser-shadow-compare --file \"" + shell_path_contents(input) + "\" 2>&1");
   EXPECT_EQ(shadow_disabled.exit_code, 6);
   EXPECT_NE(
     shadow_disabled.stdout_text.find("disabled in this styio-nano profile"),
@@ -1945,7 +2003,7 @@ TEST(StyioNano, DisabledFlagsAndBackendsAreRejected) {
   );
 
   const CommandResult backend_disabled =
-    run_stdout_command(std::string("\"") + runner + "\" --dict-impl=linear --file \"" + input.string() + "\" 2>&1");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --dict-impl=linear --file \"" + shell_path_contents(input) + "\" 2>&1");
   EXPECT_EQ(backend_disabled.exit_code, 6);
   EXPECT_NE(backend_disabled.stdout_text.find("unsupported --dict-impl: linear"), std::string::npos);
 
@@ -1973,14 +2031,14 @@ TEST(StyioNanoPackage, LocalSubsetConfigMaterializesBundle) {
     out << "[nano]\n";
     out << "mode = \"local-subset\"\n";
     out << "name = \"edge-local-test\"\n";
-    out << "output_dir = \"" << output_dir.string() << "\"\n";
+    out << "output_dir = \"" << output_dir.generic_string() << "\"\n";
     out << "\n[nano.local]\n";
-    out << "profile = \"" << (fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml").string() << "\"\n";
-    out << "source_root = \"" << fs::path(STYIO_SOURCE_DIR).string() << "\"\n";
+    out << "profile = \"" << (fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml").generic_string() << "\"\n";
+    out << "source_root = \"" << fs::path(STYIO_SOURCE_DIR).generic_string() << "\"\n";
   }
 
   const CommandResult created =
-    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \"" + config.string() + "\"");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --nano-create --nano-package-config \"" + shell_path_contents(config) + "\"");
   ASSERT_EQ(created.exit_code, 0) << created.stdout_text;
   ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
   ASSERT_TRUE(fs::exists(output_dir / "styio-nano.profile.toml"));
@@ -1996,12 +2054,12 @@ TEST(StyioNanoPackage, LocalSubsetConfigMaterializesBundle) {
 
   fs::remove(output_dir / "bin" / "styio-nano");
   const CommandResult rebuilt =
-    run_stdout_command(std::string("\"") + (output_dir / "build-styio-nano.sh").string() + "\"");
+    run_stdout_command(std::string("\"") + shell_path_contents(output_dir / "build-styio-nano.sh") + "\"");
   ASSERT_EQ(rebuilt.exit_code, 0) << rebuilt.stdout_text;
   ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
 
   const CommandResult packaged =
-    run_stdout_command(std::string("\"") + (output_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
+    run_stdout_command(std::string("\"") + shell_path_contents(output_dir / "bin" / "styio-nano") + "\" --machine-info=json");
   ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
   EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
 
@@ -2024,10 +2082,10 @@ TEST(StyioNanoPackage, LocalSubsetCliMaterializesBundle) {
 
   const fs::path profile = fs::path(STYIO_SOURCE_DIR) / "configs" / "styio-nano-default.toml";
   const std::string cmd =
-    std::string("\"") + runner + "\" --nano-create --nano-mode=local-subset --nano-name=edge-cli-test"
-    + " --nano-output \"" + output_dir.string() + "\""
-    + " --nano-profile \"" + profile.string() + "\""
-    + " --nano-source-root \"" + fs::path(STYIO_SOURCE_DIR).string() + "\"";
+    std::string("\"") + shell_path_contents(runner) + "\" --nano-create --nano-mode=local-subset --nano-name=edge-cli-test"
+    + " --nano-output \"" + shell_path_contents(output_dir) + "\""
+    + " --nano-profile \"" + shell_path_contents(profile) + "\""
+    + " --nano-source-root \"" + shell_path_contents(fs::path(STYIO_SOURCE_DIR)) + "\"";
   const CommandResult created = run_stdout_command(cmd);
   ASSERT_EQ(created.exit_code, 0) << created.stdout_text;
   ASSERT_TRUE(fs::exists(output_dir / "bin" / "styio-nano"));
@@ -2086,7 +2144,7 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
     out << "[package]\nname = \"edge-cloud-test\"\nchannel = \"nano\"\nmode = \"cloud\"\n";
   }
   const CommandResult tar_created =
-    run_stdout_command(std::string("tar -cf \"") + blob.string() + "\" -C \"" + package_root.string() + "\" .");
+    run_stdout_command(std::string("tar -cf \"") + shell_path_contents(blob) + "\" -C \"" + shell_path_contents(package_root) + "\" .");
   ASSERT_EQ(tar_created.exit_code, 0) << tar_created.stdout_text;
   const std::string sha256 = trim_copy_latest(sha256_file_latest(blob));
   ASSERT_EQ(sha256.size(), 64U);
@@ -2124,15 +2182,15 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
     ASSERT_TRUE(out.is_open());
     out << "[nano]\n";
     out << "mode = \"cloud\"\n";
-    out << "output_dir = \"" << install_dir.string() << "\"\n";
+    out << "output_dir = \"" << install_dir.generic_string() << "\"\n";
     out << "\n[nano.cloud]\n";
-    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "registry = \"" << repo_dir.generic_string() << "\"\n";
     out << "package = \"" << package_name << "\"\n";
     out << "version = \"" << version << "\"\n";
   }
 
   const CommandResult created =
-    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \"" + config.string() + "\"");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --nano-create --nano-package-config \"" + shell_path_contents(config) + "\"");
   ASSERT_EQ(created.exit_code, 0) << created.stdout_text;
   ASSERT_TRUE(fs::exists(install_dir / "bin" / "styio-nano"));
   ASSERT_TRUE(fs::exists(install_dir / "styio-nano.profile.toml"));
@@ -2141,7 +2199,7 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
   EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("sha256 = \""), std::string::npos);
 
   const CommandResult packaged =
-    run_stdout_command(std::string("\"") + (install_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
+    run_stdout_command(std::string("\"") + shell_path_contents(install_dir / "bin" / "styio-nano") + "\" --machine-info=json");
   ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
   EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
 
@@ -2203,13 +2261,13 @@ TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall)
     std::ofstream out(publish_config);
     ASSERT_TRUE(out.is_open());
     out << "[nano.publish]\n";
-    out << "package_dir = \"" << package_dir.string() << "\"\n";
-    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "package_dir = \"" << package_dir.generic_string() << "\"\n";
+    out << "registry = \"" << repo_dir.generic_string() << "\"\n";
     out << "package = \"" << package_name << "\"\n";
   }
 
   const CommandResult published =
-    run_stdout_command(std::string("\"") + runner + "\" --nano-publish --nano-publish-config \"" + publish_config.string() + "\"");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --nano-publish --nano-publish-config \"" + shell_path_contents(publish_config) + "\"");
   ASSERT_EQ(published.exit_code, 0) << published.stdout_text;
 
   const fs::path marker = repo_dir / "styio-nano-repository.json";
@@ -2237,22 +2295,22 @@ TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall)
     ASSERT_TRUE(out.is_open());
     out << "[nano]\n";
     out << "mode = \"cloud\"\n";
-    out << "output_dir = \"" << install_dir.string() << "\"\n";
+    out << "output_dir = \"" << install_dir.generic_string() << "\"\n";
     out << "\n[nano.cloud]\n";
-    out << "registry = \"" << repo_dir.string() << "\"\n";
+    out << "registry = \"" << repo_dir.generic_string() << "\"\n";
     out << "package = \"" << package_name << "\"\n";
     out << "version = \"" << version << "\"\n";
   }
 
   const CommandResult installed =
-    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \"" + install_config.string() + "\"");
+    run_stdout_command(std::string("\"") + shell_path_contents(runner) + "\" --nano-create --nano-package-config \"" + shell_path_contents(install_config) + "\"");
   ASSERT_EQ(installed.exit_code, 0) << installed.stdout_text;
   ASSERT_TRUE(fs::exists(install_dir / "bin" / "styio-nano"));
   EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("package = \"edge/default\""), std::string::npos);
   EXPECT_NE(read_text_file_latest(install_dir / "styio-nano-package.toml").find("version = \"0.0.2\""), std::string::npos);
 
   const CommandResult packaged =
-    run_stdout_command(std::string("\"") + (install_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
+    run_stdout_command(std::string("\"") + shell_path_contents(install_dir / "bin" / "styio-nano") + "\" --machine-info=json");
   ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
   EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
 
@@ -2271,9 +2329,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2294,9 +2352,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsTypedBindSample)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2317,9 +2375,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnScalarExpressionsCompoundAssignSa
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2340,9 +2398,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnFunctionsSimpleFuncSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2363,9 +2421,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnControlFlowMatchExprSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2386,9 +2444,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnWaveDispatchMergeSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2409,9 +2467,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnWaveDispatchSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2432,9 +2490,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesWriteFileSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2455,9 +2513,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesRedirectSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2478,9 +2536,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesReadFileSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2501,9 +2559,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesAutoDetectSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2524,9 +2582,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnFileResourcesPipeFuncSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2547,9 +2605,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStdioOutputBoolSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2571,9 +2629,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStdioOutputFmtStringSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2595,9 +2653,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingInstantPullSample
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2618,9 +2676,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingSnapshotSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2641,9 +2699,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipCollectionsSam
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2664,9 +2722,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipUnequalSample)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2687,9 +2745,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingZipFilesSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2710,9 +2768,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingArbitrageSample) 
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2733,9 +2791,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnStreamProcessingFullPipelineSampl
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2764,9 +2822,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnUntypedParamFunction) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2796,9 +2854,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashExprBodyWithoutArrow) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2830,9 +2888,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashArrowWithoutAssignment) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2866,9 +2924,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashMatchCases) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2899,9 +2957,9 @@ TEST(StyioParserEngine, LegacyAndNightlyMatchOnHashIteratorDefinition) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --parser-engine=legacy --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2932,11 +2990,11 @@ TEST(StyioParserEngine, HashIteratorMatchForwardChainReturnsParseError) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + shell_path_contents(input) + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -2973,11 +3031,11 @@ TEST(StyioParserEngine, EmptyMatchCasesAreRejectedWithParseError) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + shell_path_contents(input) + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -3015,11 +3073,11 @@ TEST(StyioParserEngine, PointerScrutineeMatchDoesNotAbortAndReportsTypeError) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + shell_path_contents(input) + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -3046,7 +3104,7 @@ TEST(StyioParserEngine, UnsupportedEngineIsRejected) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_bad =
-    std::string("\"") + runner + "\" --parser-engine=bad --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=bad --file \"" + shell_path_contents(input) + "\" 2>&1";
   const CommandResult bad = run_stdout_command(cmd_bad);
   EXPECT_NE(bad.exit_code, 0);
   EXPECT_NE(bad.stdout_text.find("unsupported --parser-engine"), std::string::npos);
@@ -3070,8 +3128,8 @@ TEST(StyioParserEngine, DefaultEngineIsNightlyInShadowArtifact) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_default_shadow =
-    std::string("\"") + runner + "\" --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
   const CommandResult def = run_stdout_command(cmd_default_shadow);
   ASSERT_EQ(def.exit_code, 0) << def.stdout_text;
 
@@ -3109,9 +3167,9 @@ TEST(StyioParserEngine, DeprecatedNewAliasMatchesNightlySample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_alias =
-    std::string("\"") + runner + "\" --parser-engine=new --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=new --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_nightly =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult alias = run_stdout_command(cmd_alias);
   const CommandResult nightly = run_stdout_command(cmd_nightly);
@@ -3132,11 +3190,11 @@ TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsTypedBindSample) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy_shadow =
-    std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
-    + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+    + shell_path_contents(input) + "\" 2>/dev/null";
   const std::string cmd_new_shadow =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
-    + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --file \""
+    + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
   const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
@@ -3161,14 +3219,14 @@ TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsCoreSuite) {
 
   for (const auto& name : files) {
     const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "scalar_expressions" / name;
-    ASSERT_TRUE(fs::exists(input)) << input.string();
+    ASSERT_TRUE(fs::exists(input)) << input.generic_string();
 
     const std::string cmd_legacy_shadow =
-      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
     const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
@@ -3188,7 +3246,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsFullSuite) {
       continue;
     }
     const fs::path p = entry.path();
-    const std::string name = p.filename().string();
+    const std::string name = p.filename().generic_string();
     if (p.extension() == ".styio" && name.rfind("t", 0) == 0) {
       inputs.push_back(p);
     }
@@ -3203,13 +3261,13 @@ TEST(StyioParserEngine, ShadowCompareAcceptsScalarExpressionsFullSuite) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   for (const auto& input : inputs) {
-    const std::string case_name = input.filename().string();
+    const std::string case_name = input.filename().generic_string();
     const std::string cmd_legacy_shadow =
-      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
     const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
@@ -3234,14 +3292,14 @@ TEST(StyioParserEngine, ShadowCompareAcceptsFunctionsCoreSuite) {
 
   for (const auto& name : files) {
     const fs::path input = fs::path(STYIO_SOURCE_DIR) / "tests" / "features" / "functions" / name;
-    ASSERT_TRUE(fs::exists(input)) << input.string();
+    ASSERT_TRUE(fs::exists(input)) << input.generic_string();
 
     const std::string cmd_legacy_shadow =
-      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
     const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
@@ -3260,7 +3318,7 @@ TEST(StyioParserEngine, ShadowCompareAcceptsFunctionsFullSuite) {
       continue;
     }
     const fs::path p = entry.path();
-    const std::string name = p.filename().string();
+    const std::string name = p.filename().generic_string();
     if (p.extension() == ".styio" && name.rfind("t", 0) == 0) {
       inputs.push_back(p);
     }
@@ -3275,13 +3333,13 @@ TEST(StyioParserEngine, ShadowCompareAcceptsFunctionsFullSuite) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   for (const auto& input : inputs) {
-    const std::string case_name = input.filename().string();
+    const std::string case_name = input.filename().generic_string();
     const std::string cmd_legacy_shadow =
-      std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
     const std::string cmd_new_shadow =
-      std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --file \""
-      + input.string() + "\" 2>/dev/null";
+      std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --file \""
+      + shell_path_contents(input) + "\" 2>/dev/null";
 
     const CommandResult legacy_shadow = run_stdout_command(cmd_legacy_shadow);
     const CommandResult new_shadow = run_stdout_command(cmd_new_shadow);
@@ -3307,8 +3365,8 @@ TEST(StyioParserEngine, ShadowCompareWritesArtifactRecordWhenDirConfigured) {
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>/dev/null";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>/dev/null";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -3361,8 +3419,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForMixedRouteProgra
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3402,7 +3460,7 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"shadow resource postfix\" >> @file(\"" << output.string() << "\")\n";
+    out << "\"shadow resource postfix\" >> @file(\"" << output.generic_string() << "\")\n";
   }
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
@@ -3413,8 +3471,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForResourcePostfixS
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3458,8 +3516,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForRedirectFeature)
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3510,8 +3568,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForIteratorSubset) 
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3558,8 +3616,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForSnapshotDeclSubs
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3616,8 +3674,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailTracksZeroInternalLegacyBridgesForMa
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3667,8 +3725,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForListIteratorSubs
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3720,8 +3778,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackAcrossListBoundaryA
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3770,8 +3828,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForAtResourceSubset
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3814,8 +3872,8 @@ TEST(StyioParserEngine, ShadowArtifactDetailShowsZeroFallbackForArbitrageFeature
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --parser-shadow-compare --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   ASSERT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3858,8 +3916,8 @@ TEST(StyioParserEngine, ShadowArtifactDirRequiresShadowCompareFlag) {
   ASSERT_TRUE(fs::create_directories(artifact_dir));
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=legacy --parser-shadow-artifact-dir \""
-    + artifact_dir.string() + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=legacy --parser-shadow-artifact-dir \""
+    + shell_path_contents(artifact_dir) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 6);
   EXPECT_NE(
@@ -3888,11 +3946,11 @@ TEST(StyioParserEngine, DotChainStillRejectedConsistentlyAcrossEngines) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd_legacy =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=legacy --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=legacy --file \""
+    + shell_path_contents(input) + "\" 2>&1";
   const std::string cmd_new =
-    std::string("\"") + runner + "\" --error-format=jsonl --parser-engine=nightly --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --parser-engine=nightly --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult legacy = run_stdout_command(cmd_legacy);
   const CommandResult newer = run_stdout_command(cmd_new);
@@ -3927,7 +3985,7 @@ TEST(StyioParserEngine, RangeLiteralIteratesInclusivelyAndIgnoresDotCount) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -3957,8 +4015,8 @@ TEST(StyioDiagnostics, RuntimeHelperErrorEmitsJsonlRuntimeDiagnostic) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
@@ -3981,7 +4039,7 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   {
     std::ofstream out(input);
     ASSERT_TRUE(out.is_open());
-    out << "\"x\" >> @file(\"" << missing_target.string() << "\")\n";
+    out << "\"x\" >> @file(\"" << missing_target.generic_string() << "\")\n";
   }
 
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
@@ -3991,8 +4049,8 @@ TEST(StyioDiagnostics, RuntimeWriteHelperErrorEmitsJsonlRuntimeDiagnostic) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
@@ -4027,8 +4085,8 @@ TEST(StyioDiagnostics, InvalidNumericStdinArgumentEmitsJsonlRuntimeDiagnostic) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("printf 'abc\\n' | \"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("printf 'abc\\n' | \"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 5);
@@ -4061,8 +4119,8 @@ TEST(StyioDiagnostics, CompoundAssignOnImmutableBindingReportsTypeError) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
@@ -4095,8 +4153,8 @@ TEST(StyioDiagnostics, StreamZipUnsupportedSourceReportsTypeError) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
@@ -4127,8 +4185,8 @@ TEST(StyioDiagnostics, IteratorSequenceHashTagRoutingFailsClosed) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 4);
@@ -4163,8 +4221,8 @@ TEST(StyioDiagnostics, RetiredLegacyStateDeclReportsParseError) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3);
@@ -4199,7 +4257,7 @@ TEST(StyioDiagnostics, SingleArgStateFunctionInliningUsesCallArgument) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4233,7 +4291,7 @@ TEST(StyioDiagnostics, BlockStateFunctionInliningUsesCallArgument) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4270,7 +4328,7 @@ TEST(StyioDiagnostics, StateInlineMatchCasesFunctionUsesCallArgument) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4303,7 +4361,7 @@ TEST(StyioDiagnostics, StateInlineInfiniteLiteralFunctionUsesCallArgument) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4338,7 +4396,7 @@ TEST(StyioTopologyV2, LogicalResourceWritesCommitAtPulseEnd) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0) << result.stdout_text;
@@ -4369,7 +4427,7 @@ TEST(StyioDiagnostics, MatchWithoutDefaultDoesNotCrash) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4426,7 +4484,7 @@ TEST(StyioDiagnostics, FunctionMatchSugarAndTailExpressionsReturnValues) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4454,8 +4512,8 @@ TEST(StyioDiagnostics, MalformedStatementPrefixReportsParseErrorWithoutCrash) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --error-format=jsonl --file \""
-    + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --error-format=jsonl --file \""
+    + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 3);
@@ -4478,7 +4536,7 @@ TEST(StyioSamples, BubbleSortListInput) {
   ASSERT_TRUE(fs::exists(sample_path));
 
   const std::string cmd =
-    std::string("printf '[5,1,4,2,8]' | \"") + runner + "\" --file \"" + sample_path.string() + "\" 2>&1";
+    std::string("printf '[5,1,4,2,8]' | \"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(sample_path) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4510,7 +4568,7 @@ TEST(StyioSamples, DictTypeBasics) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4542,7 +4600,7 @@ TEST(StyioSamples, DictTypeBasicsLinearImpl) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --dict-impl=linear --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --dict-impl=linear --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4578,7 +4636,7 @@ TEST(StyioSamples, DictTypeScalarFamilies) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4618,7 +4676,7 @@ TEST(StyioSamples, DictTypeHandleFamilies) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4652,7 +4710,7 @@ TEST(StyioSamples, MatrixTypeNestedListLiteral) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4695,7 +4753,7 @@ TEST(StyioSamples, MatrixOperationsAndIntrinsics) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --parser-engine=nightly --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --parser-engine=nightly --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);
@@ -4757,7 +4815,7 @@ TEST(StyioSamples, ListPredefinedOperations) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
 
   const std::string cmd =
-    std::string("\"") + runner + "\" --file \"" + input.string() + "\" 2>&1";
+    std::string("\"") + shell_path_contents(runner) + "\" --file \"" + shell_path_contents(input) + "\" 2>&1";
 
   const CommandResult result = run_stdout_command(cmd);
   EXPECT_EQ(result.exit_code, 0);

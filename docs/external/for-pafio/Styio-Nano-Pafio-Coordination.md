@@ -488,3 +488,16 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - 对 **更细粒度 closure / compile-plan edge hardening** 而言：**仍待后续补完**
 
 这就是当前阶段的 handoff 边界。
+
+
+## Public Update Stream and Internal Source Stages
+
+The public compiler update stream is `release`. Machine-info keeps `channel`
+and adds `public_update_channel` and `build_id`; an update-stream value does not
+mean that a local/internal build has been published. Full/nano remain variants.
+Source-build-info retains legacy nightly/stable source refs marked as internal,
+and exposes release as the public source ref. Existing package registry channel
+options are separate from the compiler update stream.
+
+Promotion and consumer compatibility are defined in
+[Incremental Promotion](../../specs/INCREMENTAL-PROMOTION.md).

@@ -2,7 +2,9 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-10-03
+
+Native interop uses platform-specific library loading, compiler process invocation and temporary-file cleanup on Linux, macOS and Windows. Keep the existing C/C++ linkage/signature semantics; validate real compile/load/call behavior through the opt-in promotion platform probe.
 
 ## Mission
 

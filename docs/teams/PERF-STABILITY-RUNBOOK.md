@@ -2,7 +2,9 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-10-03
+
+Promotion composes applicable tests without repeating already-proven names; scheduled-only labels require explicit reasons. Performance and deep-soak investigations remain separate scopes, not silently removed or reported as promotion passes.
 
 ## Mission
 

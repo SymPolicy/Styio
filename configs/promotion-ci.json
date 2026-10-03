@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "repository": "SymPolicy/Styio",
+  "workflow": ".github/workflows/styio-ci-gate.yml",
+  "public_channel": "release",
+  "build_type": "Release",
+  "nightly_platforms": [
+    "linux"
+  ],
+  "acceptance_platforms": [
+    "linux",
+    "windows",
+    "macos"
+  ],
+  "nightly_targets": [
+    "styio",
+    "styio_security_test"
+  ],
+  "nightly_names": [
+    "scalar_expressions_t01_int_arith",
+    "functions_t01_simple_func",
+    "example_hello_world",
+    "docs_audit",
+    "bootstrap_dev_env_dependency_scope"
+  ],
+  "nightly_labels": [
+    "security"
+  ],
+  "scheduled_only_labels": {
+    "soak_deep": "Long-running soak is owned by the scheduled soak workflow, not promotion acceptance.",
+    "performance": "Timing research and opt-in report modes are environment-sensitive; they remain explicitly requested benchmark campaigns outside promotion acceptance."
+  },
+  "dependencies": {
+    "pafio": {
+      "repository": "SymPolicy/Pafio",
+      "sha": "813dd24ed1b7a527c928333e22aac5d5fde129f4"
+    },
+    "vityo": {
+      "repository": "Unka-Malloc/vityo-nightly",
+      "sha": "6adfa4c2b2d11ba01a74f321cfebb6323ebac6ea"
+    }
+  },
+  "evidence_retention_days": 90,
+  "candidate_search_limit": 20
+}

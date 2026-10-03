@@ -10,6 +10,7 @@ struct SourceBuildInfoOptions
   std::string compiler_version;
   std::string compiler_channel;
   std::string edition_max;
+  std::string build_id = "local-unsealed";
 };
 
 const char*

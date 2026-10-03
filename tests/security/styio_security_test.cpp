@@ -9,17 +9,22 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <memory>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-#ifndef _WIN32
+#if defined(_WIN32)
+#include <process.h>
+#include <io.h>
+#else
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -64,19 +69,27 @@ public:
 
   ~EnvSnapshot() {
     if (had_value_) {
-      setenv(name_.c_str(), old_value_.c_str(), 1);
+      set(old_value_);
     }
     else {
-      unsetenv(name_.c_str());
+      unset();
     }
   }
 
   void set(const std::string& value) {
+#if defined(_WIN32)
+    _putenv_s(name_.c_str(), value.c_str());
+#else
     setenv(name_.c_str(), value.c_str(), 1);
+#endif
   }
 
   void unset() {
+#if defined(_WIN32)
+    _putenv_s(name_.c_str(), "");
+#else
     unsetenv(name_.c_str());
+#endif
   }
 };
 
@@ -444,12 +457,17 @@ execute_program_engine_with_stdin_latest(
   StyioParserEngine engine,
   const std::string& stdin_text
 ) {
-#ifdef _WIN32
-  (void)source;
-  (void)engine;
-  (void)stdin_text;
-  GTEST_SKIP() << "stdin redirection helper is POSIX-only";
+#if defined(_WIN32)
+  const auto file_descriptor = [](FILE* file) { return _fileno(file); };
+  const auto duplicate_descriptor = [](int fd) { return _dup(fd); };
+  const auto redirect_stdin = [](int fd) { return _dup2(fd, _fileno(stdin)) == 0; };
+  const auto close_descriptor = [](int fd) { return _close(fd); };
 #else
+  const auto file_descriptor = [](FILE* file) { return fileno(file); };
+  const auto duplicate_descriptor = [](int fd) { return dup(fd); };
+  const auto redirect_stdin = [](int fd) { return dup2(fd, fileno(stdin)) >= 0; };
+  const auto close_descriptor = [](int fd) { return close(fd); };
+#endif
   auto tokens = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-exec-test>",
@@ -461,8 +479,20 @@ execute_program_engine_with_stdin_latest(
 
   MainBlockAST* ast = nullptr;
   StyioIR* ir = nullptr;
+  FILE* tmp = nullptr;
+  int saved_stdin = -1;
   auto cleanup = [&]()
   {
+    if (saved_stdin >= 0) {
+      EXPECT_TRUE(redirect_stdin(saved_stdin)) << "failed to restore test stdin";
+      close_descriptor(saved_stdin);
+      saved_stdin = -1;
+      std::clearerr(stdin);
+    }
+    if (tmp != nullptr) {
+      std::fclose(tmp);
+      tmp = nullptr;
+    }
     delete ir;
     delete ast;
     delete ctx;
@@ -470,18 +500,23 @@ execute_program_engine_with_stdin_latest(
     StyioAST::destroy_all_tracked_nodes();
   };
 
-  FILE* tmp = tmpfile();
-  ASSERT_NE(tmp, nullptr);
-  std::fwrite(stdin_text.data(), 1, stdin_text.size(), tmp);
-  std::rewind(tmp);
-
-  const int saved_stdin = dup(fileno(stdin));
-  ASSERT_GE(saved_stdin, 0);
-  ASSERT_EQ(dup2(fileno(tmp), fileno(stdin)), fileno(stdin));
-
-  styio_runtime_clear_error();
-
   try {
+    tmp = std::tmpfile();
+    if (tmp == nullptr) {
+      throw std::runtime_error("cannot create test stdin fixture: " + std::string(std::strerror(errno)));
+    }
+    if (std::fwrite(stdin_text.data(), 1, stdin_text.size(), tmp) != stdin_text.size()
+        || std::fflush(tmp) != 0) {
+      throw std::runtime_error("cannot write test stdin fixture");
+    }
+    std::rewind(tmp);
+    saved_stdin = duplicate_descriptor(file_descriptor(stdin));
+    if (saved_stdin < 0 || !redirect_stdin(file_descriptor(tmp))) {
+      throw std::runtime_error("cannot redirect test stdin: " + std::string(std::strerror(errno)));
+    }
+    std::clearerr(stdin);
+    styio_runtime_clear_error();
+
     ast = parse_main_block_with_engine_latest(*ctx, engine);
     ctx->skip();
     if (ctx->cur_tok_type() != StyioTokenType::TOK_EOF) {
@@ -502,18 +537,11 @@ execute_program_engine_with_stdin_latest(
     generator.execute();
   }
   catch (...) {
-    dup2(saved_stdin, fileno(stdin));
-    close(saved_stdin);
-    std::fclose(tmp);
     cleanup();
     throw;
   }
 
-  dup2(saved_stdin, fileno(stdin));
-  close(saved_stdin);
-  std::fclose(tmp);
   cleanup();
-#endif
 }
 }  // namespace
 
@@ -1599,6 +1627,47 @@ TEST(StyioSecurityNightlyParserStmt, RejectsDeprecatedExternCppAbiSpelling) {
   EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
 }
 
+TEST(StyioSecurityNativeToolchain, LongSignaturesMatchNativeHostAbi) {
+  using styio::native::CTypeKind;
+  const auto signatures = styio::native::parse_function_signatures(
+    "long signed_long(long value);\n"
+    "unsigned long int unsigned_long(unsigned long int value);\n"
+    "long long signed_wide(long long value);\n"
+    "unsigned long long unsigned_wide(unsigned long long value);\n");
+  ASSERT_EQ(signatures.size(), 4U);
+  const CTypeKind host_long = sizeof(long) == 4 ? CTypeKind::I32 : CTypeKind::I64;
+  for (size_t index = 0; index < signatures.size(); ++index) {
+    const auto& signature = signatures[index];
+    ASSERT_EQ(signature.params.size(), 1U);
+    const CTypeKind expected = index < 2 ? host_long : CTypeKind::I64;
+    EXPECT_EQ(signature.return_type.kind, expected);
+    EXPECT_EQ(signature.params[0].type.kind, expected);
+    EXPECT_EQ(signature.return_type.is_unsigned, index % 2 == 1);
+    EXPECT_EQ(signature.params[0].type.is_unsigned, index % 2 == 1);
+  }
+}
+
+TEST(StyioSecurityNativeToolchain, LongCallsPreserveNativeWidthAndSignedness) {
+  const auto loaded = styio::native::compile_and_load_block(
+    "c",
+    "long host_long_negate(long value) { return -value; }\n"
+    "unsigned long host_ulong_invert(unsigned long value) { return ~value; }\n"
+    "long long host_long_long_identity(long long value) { return value; }\n",
+    {"host_long_negate", "host_ulong_invert", "host_long_long_identity"});
+  ASSERT_EQ(loaded.symbols.size(), 3U);
+  const auto negate = reinterpret_cast<long (*)(long)>(loaded.symbols[0].address);
+  const auto invert = reinterpret_cast<unsigned long (*)(unsigned long)>(loaded.symbols[1].address);
+  const auto wide_identity = reinterpret_cast<long long (*)(long long)>(loaded.symbols[2].address);
+  ASSERT_NE(negate, nullptr);
+  ASSERT_NE(invert, nullptr);
+  ASSERT_NE(wide_identity, nullptr);
+  EXPECT_EQ(negate(123L), -123L);
+  EXPECT_EQ(negate(std::numeric_limits<long>::max()), -std::numeric_limits<long>::max());
+  EXPECT_EQ(invert(0UL), std::numeric_limits<unsigned long>::max());
+  EXPECT_EQ(invert(std::numeric_limits<unsigned long>::max()), 0UL);
+  EXPECT_EQ(wide_identity(0x123456789LL), 0x123456789LL);
+}
+
 TEST(StyioSecurityNativeToolchain, EnvCompilerOverridesBundledMode) {
   EnvSnapshot cxx("STYIO_NATIVE_CXX");
   EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
@@ -1623,7 +1692,11 @@ TEST(StyioSecurityNativeToolchain, BundledModeFindsClangPlusPlusUnderToolchainRo
     std::filesystem::temp_directory_path()
     / ("styio-native-toolchain-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
   const auto bin = root / "bin";
+#if defined(_WIN32)
+  const auto clangxx = bin / "clang++.exe";
+#else
   const auto clangxx = bin / "clang++";
+#endif
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(bin);
   {
@@ -1651,7 +1724,11 @@ TEST(StyioSecurityNativeToolchain, SystemModeSkipsBundledClangSearch) {
   root_env.set("/tmp/styio-ignored-toolchain-root");
 
   const auto resolved = styio::native::resolve_compiler_for_abi("c++");
+#if defined(_WIN32)
+  EXPECT_EQ(resolved.command, "clang++");
+#else
   EXPECT_EQ(resolved.command, "c++");
+#endif
   EXPECT_EQ(resolved.source, "system");
 }
 
@@ -1682,6 +1759,82 @@ TEST(StyioSecurityNativeToolchain, EnvCompilerCommandIsShellQuoted) {
   std::filesystem::remove_all(root);
 }
 
+#if defined(_WIN32)
+namespace {
+
+std::wstring
+quote_windows_fixture_argument(const std::wstring& value) {
+  std::wstring out = L"\"";
+  size_t slashes = 0;
+  for (wchar_t ch : value) {
+    if (ch == L'\\') {
+      ++slashes;
+      continue;
+    }
+    out.append(slashes * (ch == L'"' ? 2 : 1), L'\\');
+    slashes = 0;
+    if (ch == L'"') out.push_back(L'\\');
+    out.push_back(ch);
+  }
+  out.append(slashes * 2, L'\\');
+  out.push_back(L'"');
+  return out;
+}
+
+int
+run_windows_fixture_process(const std::vector<std::wstring>& arguments) {
+  std::vector<std::wstring> quoted;
+  for (const auto& argument : arguments) {
+    quoted.push_back(quote_windows_fixture_argument(argument));
+  }
+  std::vector<const wchar_t*> argv;
+  for (const auto& argument : quoted) argv.push_back(argument.c_str());
+  argv.push_back(nullptr);
+  const intptr_t result = _wspawnvp(_P_WAIT, arguments.front().c_str(), argv.data());
+  return result < 0 ? -1 : static_cast<int>(result);
+}
+
+constexpr const char* kWindowsCountingCompiler = R"STYIO(
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <process.h>
+#include <string>
+#include <vector>
+std::wstring quote(const std::wstring& value) {
+  std::wstring out = L"\"";
+  size_t slashes = 0;
+  for (wchar_t ch : value) {
+    if (ch == L'\\') { ++slashes; continue; }
+    out.append(slashes * (ch == L'"' ? 2 : 1), L'\\');
+    slashes = 0;
+    if (ch == L'"') out.push_back(L'\\');
+    out.push_back(ch);
+  }
+  out.append(slashes * 2, L'\\');
+  out.push_back(L'"');
+  return out;
+}
+int wmain(int argc, wchar_t** argv) {
+  const wchar_t* compiler = _wgetenv(L"STYIO_TEST_REAL_NATIVE_CC");
+  const wchar_t* counter = _wgetenv(L"STYIO_TEST_NATIVE_COUNTER");
+  if (!compiler || !counter) return 125;
+  int count = 0;
+  { std::ifstream input{std::filesystem::path(counter)}; input >> count; }
+  { std::ofstream output{std::filesystem::path(counter)}; output << count + 1 << '\n'; }
+  std::vector<std::wstring> quoted{quote(compiler)};
+  for (int i = 1; i < argc; ++i) quoted.push_back(quote(argv[i]));
+  std::vector<const wchar_t*> forwarded;
+  for (const auto& value : quoted) forwarded.push_back(value.c_str());
+  forwarded.push_back(nullptr);
+  const intptr_t result = _wspawnvp(_P_WAIT, compiler, forwarded.data());
+  return result < 0 ? 126 : static_cast<int>(result);
+}
+)STYIO";
+
+}  // namespace
+#endif
+
 TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvocation) {
   EnvSnapshot cc("STYIO_NATIVE_CC");
   EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
@@ -1691,11 +1844,38 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
   const auto root =
     std::filesystem::temp_directory_path()
     / ("styio-native-cache-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
+#if defined(_WIN32)
+  const auto wrapper = root / "cc-wrapper.exe";
+#else
   const auto wrapper = root / "cc-wrapper.sh";
+#endif
   const auto counter = root / "compiler-count";
   const auto cache_dir = root / "cache";
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(root);
+#if defined(_WIN32)
+  EnvSnapshot real_compiler_env("STYIO_TEST_REAL_NATIVE_CC");
+  EnvSnapshot counter_env("STYIO_TEST_NATIVE_COUNTER");
+  cc.unset();
+  mode.set("auto");
+  const auto real_compiler = styio::native::resolve_compiler_for_abi("c");
+  const auto wrapper_compiler = styio::native::resolve_compiler_for_abi("c++");
+  const auto wrapper_source = root / "cc-wrapper.cpp";
+  {
+    std::ofstream out(wrapper_source);
+    out << kWindowsCountingCompiler;
+  }
+  // Use the resolved native clang driver and explicit argv, never cmd.exe.
+  const std::vector<std::wstring> compile_arguments{
+    std::filesystem::path(wrapper_compiler.command).wstring(), L"-std=c++17",
+    L"-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH", L"-D_CRT_SECURE_NO_WARNINGS",
+    wrapper_source.wstring(), L"-o", wrapper.wstring(),
+  };
+  ASSERT_EQ(run_windows_fixture_process(compile_arguments), 0);
+  ASSERT_TRUE(std::filesystem::is_regular_file(wrapper));
+  real_compiler_env.set(real_compiler.command);
+  counter_env.set(counter.string());
+#else
   {
     std::ofstream out(wrapper);
     out << "#!/bin/sh\n"
@@ -1705,7 +1885,6 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
         << "printf '%s\\n' \"$n\" > \"$count_file\"\n"
         << "exec cc \"$@\"\n";
   }
-#ifndef _WIN32
   chmod(wrapper.c_str(), 0755);
 #endif
 
@@ -1734,14 +1913,49 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
   EXPECT_EQ(add(20, 22), 42);
   EXPECT_EQ(read_counter(), 1);
 
+  auto same_set = styio::native::compile_and_load_block("c", body, {"cached_add", "cached_add"});
+  ASSERT_EQ(same_set.symbols.size(), 1U);
+  EXPECT_EQ(same_set.symbols[0].address, first.symbols[0].address);
+  EXPECT_EQ(read_counter(), 1);
+
   auto second = styio::native::compile_and_load_block("c", body, {"cached_sub"});
   ASSERT_EQ(second.symbols.size(), 1U);
   auto* sub = reinterpret_cast<int (*)(int, int)>(second.symbols[0].address);
   ASSERT_NE(sub, nullptr);
   EXPECT_EQ(sub(50, 8), 42);
-  EXPECT_EQ(read_counter(), 1);
+#if defined(_WIN32)
+  // The changed DLL /EXPORT list is a changed compiler input on Windows.
+  constexpr int subset_compile_count = 2;
+#else
+  constexpr int subset_compile_count = 1;
+#endif
+  EXPECT_EQ(read_counter(), subset_compile_count);
+  auto second_hit = styio::native::compile_and_load_block("c", body, {"cached_sub"});
+  ASSERT_EQ(second_hit.symbols.size(), 1U);
+  EXPECT_EQ(second_hit.symbols[0].address, second.symbols[0].address);
+  EXPECT_EQ(read_counter(), subset_compile_count);
 
+  auto both = styio::native::compile_and_load_block("c", body, {"cached_add", "cached_sub"});
+  ASSERT_EQ(both.symbols.size(), 2U);
+#if defined(_WIN32)
+  constexpr int all_compile_count = 3;
+#else
+  constexpr int all_compile_count = 1;
+#endif
+  EXPECT_EQ(read_counter(), all_compile_count);
+  auto reordered = styio::native::compile_and_load_block("c", body, {"cached_sub", "cached_add"});
+  ASSERT_EQ(reordered.symbols.size(), 2U);
+  EXPECT_EQ(reordered.symbols[0].address, both.symbols[0].address);
+  EXPECT_EQ(reordered.symbols[1].address, both.symbols[1].address);
+  EXPECT_EQ(read_counter(), all_compile_count);
+
+#if defined(_WIN32)
+  // Loaded cache DLLs stay mapped until process exit and cannot be unlinked.
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(root, cleanup_error);
+#else
   std::filesystem::remove_all(root);
+#endif
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsLegacyStringListImportSyntax) {
