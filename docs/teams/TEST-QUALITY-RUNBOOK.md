@@ -2,7 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-03
+
+Scheduler regression tests cover composed-profile deduplication, separate scope checks, failure propagation, fresh invocations, and docs-audit evidence context. Run `python3 tests/workflow_scheduler_test.py`; the shell fixture also verifies delivery auto calls the scheduler only once. Local test evidence reuse follows [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#reusing-local-evidence).
+
+Run `python3 tests/verification_report_test.py` for automatic tracked-file discovery, compilation membership versus observed objects, unknown routes, runtime fixtures, missing evidence, and report-only failure handling. CI inventory/report generation never reruns compiler or behavior tests; existing lane outcomes remain the evidence.
 
 ## Mission
 
@@ -196,3 +200,16 @@ Record unfinished quality work with:
 4. Owning implementation team.
 5. Required team runbook when the team-docs gate fails.
 6. Exact command that reproduces the failure.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures as CLI errors rather than
+accepting a failed read as empty input. Empty regular files remain valid.
+`services_syntax_source_io` exercises the public CLI for directories, missing
+sources, empty files, escaped paths, and read-buffer boundaries. The check is
+part of the existing `styio_pipeline` gate; it does not require extra services.
+
+The cross-platform source-read check explicitly rejects directories (including
+symlink targets) before opening: some platforms report directory reads as EOF.
+Regular-file symlinks remain accepted; status-query errors still use the existing
+open/read error handling. The public CLI regression covers both symlink cases.

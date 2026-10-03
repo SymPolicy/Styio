@@ -2,7 +2,7 @@
 
 **Purpose:** Define the required workflow for checking GitHub Actions after a local commit is pushed, including what must be verified before committing and what must be watched after pushing.
 
-**Last updated:** 2026-09-10
+**Last updated:** 2026-10-03
 
 ## Scope
 
@@ -37,6 +37,40 @@ python3 ../pafio-nightly/scripts/verify-ecosystem-contracts.py \
 
 The commit message body or handoff should record the checks that were actually run, including functional commit-readiness evidence or objective blockers.
 
+## Reusing Local Evidence
+
+Record the command/selector, outcome, source revision plus any uncommitted
+changes tested, build variant, toolchain/configuration, and relevant environment
+or sibling inputs once in the task's test report. Other workflow steps refer to
+that result instead of demanding a new run or a duplicate evidence document.
+
+When the installed pre-commit hook runs the staged delivery floor, let that hook
+supply the staged evidence instead of manually running the identical staged
+profile immediately before it. When no hook is installed, run the staged floor
+once before commit. Neither path skips the index-specific checks.
+
+A successful result remains usable only while the inputs relevant to that check
+are unchanged. Review the intervening diff and configuration changes; a commit,
+staging operation, handoff, or documentation-only edit outside the check's inputs
+does not by itself invalidate it. Source/test/fixture changes, generated input
+changes, compiler/dependency/configuration changes, relevant environment changes,
+and a different platform or external service state require the affected checks
+to run again. Unknown provenance or uncertain input coverage also requires a run.
+A failed, interrupted, skipped, or never-run check is never reusable success.
+
+Build changed targets incrementally before their tests. Do not delete a working
+build directory or create a clean build just because a workflow step changed.
+Clean builds remain appropriate when diagnosing build contamination or validating
+clean-build behavior. Never treat an unchanged commit ID alone as proof that a
+dirty worktree or external dependency is unchanged. No full-tree hashing service
+or persistent test-result cache is required by this policy.
+
+This local evidence reuse does not replace required CI for the exact pushed
+candidate, nor does it claim local tests cover a different platform. Do not
+manually retrigger an already queued/running/successful CI run for the same
+candidate and configuration solely for another status report. Inspect its result;
+retry only after diagnosing a failure or invalidated evidence within authority.
+
 ## Final Regression
 
 Run the required complete regression once, after all changes, source review, in-scope repairs, and focused verification are finished. Coordinate local and CI evidence for the same candidate; required CI checks still run after an authorized push. A final complete-regression failure requires a diagnosis and concrete repair and verification proposal for the developer. Do not automatically repair, rerun, or push a repair that would restart this regression before that decision. Continue independent authorized work, and do not mark unresolved acceptance as complete.
@@ -70,6 +104,47 @@ When one delivery touches `styio-nightly`, `pafio-nightly`, and `vityo-nightly`,
 Cross-repository gates must use the same workspace checkout set that will be visible to CI. If a gate consumes another repository's branch, perform an already-authorized dependency push first; otherwise prepare the required handoff and report the revision mismatch. A gate dependency does not grant permission to publish another repository.
 
 `styio-nightly` GitHub Actions resolve the ecosystem lane from the pull request target branch, or from the pushed branch. Temporary pull request branches targeting `nightly` therefore consume the siblings' `nightly` branches. Publish any required sibling changes to that lane before relying on the cross-repository checks.
+
+## Automatic Advisory Inventory and Final Report
+
+`python3 scripts/verification-report.py inventory --compile-commands
+build/default/compile_commands.json --output build/reports/file-inventory.json`
+automatically discovers the Git-tracked candidate, including staged additions.
+Directory/type rules route new files without a per-file coverage manifest;
+existing team ownership rules supply owners. Untracked/ignored local files are
+outside the candidate and are not silently counted as verified.
+
+The report distinguishes routing, unknown routes, configured C/C++ translation
+units, per-target object presence, configured sources without observed objects,
+and sources without a configured target. Headers are indirect inputs. Native
+interop fixture candidates are routed by directory but remain explicitly
+unverified until consumer and runtime compilation evidence exists. Tracked generated
+and vendor files remain inventoried; downloaded/ignored build dependencies are
+outside the Git candidate. Optional/platform-specific sources may legitimately
+lack a target in the observed configuration; this is a finding, not failure.
+
+Linux CI exports its compilation database during the existing configure and
+observes it after the existing build. Presence in that database means configured
+membership only; object presence is not proof of freshness, successful linking,
+all target variants, or behavioral coverage. Keep the build outcome separate.
+Local reports require the caller to describe the build outcome honestly.
+
+The `observability / verification-report` job consumes that inventory, terminal
+results of the current workflow's four lanes and aggregate gate, and read-only
+job/step and commit-check snapshots. It writes a GitHub Job Summary and the
+`verification-report` JSON/Markdown artifact. Raw step failures/skips/cancellations
+and missing evidence remain visible. Separate workflows such as audit/hygiene or
+scheduled observability are snapshots: pending/missing is not success, and this
+is not a promise to wait for or refresh every independent workflow. The inventory
+records tested checkout SHA (which may be the PR merge candidate); the report
+also records PR head SHA, run ID/attempt, and snapshot time.
+
+Unknown/unbuilt/unclassified findings, unavailable artifacts, and report-tool
+failures are advisory only. The report job and inventory/upload steps use
+`continue-on-error`; the existing required aggregate does not depend on them.
+Do not add the report as a required Ruleset check. Real compiler/test/security
+failures keep their existing blocking behavior. Report generation reads existing
+evidence only and never configures, builds, or reruns a test suite to fill a gap.
 
 ## Delivery Ruleset Governance
 

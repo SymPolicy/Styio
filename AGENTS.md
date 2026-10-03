@@ -16,6 +16,32 @@
   downstream `nightly` and verify that the head is `Unka-Malloc:nightly`.
 - Never push a temporary branch to the `upstream` remote.
 
+## Local Iteration and Verification
+
+- Reuse the task's existing branch, checkout, and build directory. Create another
+  worktree only for concurrent independent work, an incompatible baseline, or to
+  protect unrelated changes; a new agent turn, test run, commit, or PR update is
+  not a reason to create another branch/worktree. Inspect status before reuse.
+- Never reset, clean, delete, or repurpose another task's branch/worktree merely
+  to simplify delivery. Long-lived branch and downstream PR rules still apply.
+- Use the evidence rules in `docs/specs/POST-COMMIT-CI-CHECKS.md`. Do not rerun a
+  successful check just to repeat it in another checklist or agent handoff.
+- Do not add whole-repository content hashing or repeatedly checksum build
+  outputs as a routine precondition for tests. Git revisions/status/diffs,
+  the build system's dependency tracking, and the command's actual inputs are
+  the normal evidence. Artifact integrity/security checks remain in force.
+
+## Advisory File Coverage and CI Reports
+
+- Discover candidate files automatically from Git and route by directory/type;
+  do not require a separate per-file coverage manifest for each new file.
+- Unknown routes, missing build membership, and unavailable coverage evidence
+  are report-only findings. They must not create commit, CI, or merge blockers.
+- Keep existing real build/test/security gates effective. File discovery does
+  not prove compilation, test execution, or behavioral coverage.
+- Generate the final CI report from existing outcomes/artifacts, never rerun
+  tests merely to populate it. See `docs/specs/POST-COMMIT-CI-CHECKS.md` for scope.
+
 ## Approved Staged Upstream Contribution Exception
 
 The maintainer approved the following exception on 2026-09-28 to split the

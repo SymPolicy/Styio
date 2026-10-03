@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-03
 
 ## Mission
 
@@ -136,3 +136,17 @@ Record unfinished CLI/nano work with:
 5. Whether `pafio-nightly` is expected to take over the responsibility later.
 
 For observable publication, include compile-plan request fields, emitted artifact/receipt, delta degradation, full/nano differences, the focused validation command, and outstanding Sema/runtime review in the handoff.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures with CLI-error status and the
+service diagnostic phase rather than accepting a failed read as empty input.
+Empty regular files remain valid. `services_syntax_source_io` exercises the
+public CLI for directories, missing sources, empty files, escaped paths, and
+read-buffer boundaries. The check is part of the existing `styio_pipeline`
+gate; it does not require extra services.
+
+The cross-platform source-read check explicitly rejects directories (including
+symlink targets) before opening: some platforms report directory reads as EOF.
+Regular-file symlinks remain accepted; status-query errors still use the existing
+open/read error handling. The public CLI regression covers both symlink cases.

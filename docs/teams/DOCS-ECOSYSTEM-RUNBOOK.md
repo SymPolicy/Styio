@@ -2,7 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-03
+
+Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
+
+File coverage discovery and final CI evidence reporting are advisory, automatically routed from Git paths, and do not add a per-file manifest or merge gate. Keep this boundary aligned with [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#automatic-advisory-inventory-and-final-report).
 
 ## Mission
 
@@ -223,3 +227,17 @@ Record unfinished docs/ecosystem work with:
 6. Archive/rollup lifecycle action still pending.
 
 For observable work, resume from the [current delivery sequence](../rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence) and owning contracts, not earlier milestone deferrals. The [follow-up register](../rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md) records gaps, not authorization to implement them or enable runtime observation by default.
+
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures with CLI-error status and the
+service diagnostic phase rather than accepting a failed read as empty input.
+Empty regular files remain valid. `services_syntax_source_io` exercises the
+public CLI for directories, missing sources, empty files, escaped paths, and
+read-buffer boundaries. The check is part of the existing `styio_pipeline`
+gate; it does not require extra services.
+
+The cross-platform source-read check explicitly rejects directories (including
+symlink targets) before opening: some platforms report directory reads as EOF.
+Regular-file symlinks remain accepted; status-query errors still use the existing
+open/read error handling. The public CLI regression covers both symlink cases.

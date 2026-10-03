@@ -20,6 +20,10 @@ Safe auto delivery floor:
 
 The default `auto` mode runs worktree checks when local changes exist, infers the delivery base for branch/promotion checks, runs push-range hygiene when `HEAD` is ahead of that base, then runs `styio-audit` and checkpoint health.
 
+When both scopes apply, auto composes their profiles in one scheduler invocation,
+reusing identical successful checks while preserving scope-specific checks. See
+[profile composition](./WORKFLOW-ORCHESTRATION.md#composing-local-profiles).
+
 Explicit checkpoint delivery floor:
 
 ```bash
