@@ -1,4 +1,5 @@
 #include "CxxReferenceEquivalence.hpp"
+#include "src/StyioUtil/ProcessPipe.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -23,38 +24,6 @@ namespace fs = std::filesystem;
 
 namespace styio::testing::algorithms {
 namespace {
-
-int
-decode_wait_status(int status) {
-#ifdef _WIN32
-  return status;
-#else
-  if (status == -1) {
-    return -1;
-  }
-  if (WIFEXITED(status)) {
-    return WEXITSTATUS(status);
-  }
-  if (WIFSIGNALED(status)) {
-    return 128 + WTERMSIG(status);
-  }
-  return status;
-#endif
-}
-
-std::string
-shell_quote(const std::string& value) {
-  std::string out = "'";
-  for (char ch : value) {
-    if (ch == '\'') {
-      out += "'\\''";
-    } else {
-      out += ch;
-    }
-  }
-  out += "'";
-  return out;
-}
 
 std::string
 compiler_path() {
@@ -135,22 +104,13 @@ run_styio_program(const fs::path& source, const std::string& stdin_text) {
     return result;
   }
 
-  const std::string command = shell_quote(compiler) + " --file " +
-    shell_quote(source.string()) + " < " + shell_quote(input_path.string()) +
-    " 2> " + shell_quote(stderr_path.string());
+  const std::string command = styio::util::shell_path(compiler) + " --file " +
+    styio::util::shell_path(source) + " < " + styio::util::shell_path(input_path) +
+    " 2> " + styio::util::shell_path(stderr_path);
 
-  FILE* pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) {
-    result.stderr_text = "failed to start styio command";
-    fs::remove_all(temp_dir);
-    return result;
-  }
-
-  char buffer[4096];
-  while (fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
-    result.stdout_text += buffer;
-  }
-  result.exit_code = decode_wait_status(pclose(pipe));
+  const auto capture = styio::util::capture_shell_stdout(command);
+  result.stdout_text = capture.stdout_text;
+  result.exit_code = capture.exit_code;
   result.stderr_text = read_text_file(stderr_path);
 
   fs::remove_all(temp_dir);

@@ -17,6 +17,13 @@ include(FetchContent)
 project(styio VERSION 0.0.1)
 include(GNUInstallDirs)
 
+# Internal promotion stages never change the public update stream or payload.
+set(STYIO_BUILD_ID "local-unsealed" CACHE STRING "Immutable compiler build identity; CI supplies a content/environment identity")
+if(NOT STYIO_BUILD_ID MATCHES "^[A-Za-z0-9._-]+$")
+  message(FATAL_ERROR "STYIO_BUILD_ID must contain only letters, digits, dots, underscores or hyphens")
+endif()
+
+
 list(APPEND CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
   "${CMAKE_CURRENT_SOURCE_DIR}"

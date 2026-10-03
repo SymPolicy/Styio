@@ -42,7 +42,8 @@ add_executable(styio main.cpp)
 styio_configure_binary_target(styio)
 target_compile_definitions(styio PRIVATE
   "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
-  "STYIO_RELEASE_CHANNEL=\"nightly\""
+  "STYIO_BUILD_ID=\"${STYIO_BUILD_ID}\""
+  "STYIO_RELEASE_CHANNEL=\"release\""
   "STYIO_EDITION_MAX=\"2026\""
   "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
   "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
@@ -80,7 +81,8 @@ if(STYIO_BUILD_NANO)
   target_compile_definitions(styio_nano PRIVATE
     ${STYIO_NANO_COMPILE_DEFINITIONS}
     "STYIO_PROJECT_VERSION=\"${PROJECT_VERSION}\""
-    "STYIO_RELEASE_CHANNEL=\"nano\""
+  "STYIO_BUILD_ID=\"${STYIO_BUILD_ID}\""
+    "STYIO_RELEASE_CHANNEL=\"release\""
     "STYIO_EDITION_MAX=\"2026\""
     "STYIO_LLVM_DIR=\"${LLVM_DIR}\""
     "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""

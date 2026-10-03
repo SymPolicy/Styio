@@ -32,7 +32,11 @@ env_int(const char* name, int fallback, int min_value, int max_value) {
 void
 set_task_threads(int workers) {
   const std::string value = std::to_string(workers);
+#if defined(_WIN32)
+  _putenv_s("STYIO_TASK_THREADS", value.c_str());
+#else
   setenv("STYIO_TASK_THREADS", value.c_str(), 1);
+#endif
 }
 
 int64_t

@@ -5,15 +5,35 @@ add_executable(styio_soak_test
 )
 target_link_libraries(styio_soak_test PRIVATE styio_core GTest::gtest_main)
 styio_apply_llvm_compile_settings(styio_soak_test)
+if(WIN32)
+  target_link_libraries(styio_soak_test PRIVATE psapi)
+endif()
 target_compile_definitions(styio_soak_test PRIVATE
   "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
   "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
 )
 add_dependencies(styio_soak_test styio)
-gtest_discover_tests(styio_soak_test
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  PROPERTIES LABELS "benchmark\\;soak\\;soak_smoke\\;single_thread"
-)
+# TEST_FILTER was added in CMake 3.22. Official promotion CI requires 3.29+.
+# Older local builds retain their legacy combined smoke/report registration.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.22")
+  gtest_discover_tests(styio_soak_test
+    TEST_FILTER "-StyioSoakSingleThread.*Report"
+    TEST_LIST STYIO_SOAK_SMOKE_TESTS
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    PROPERTIES LABELS "benchmark\\;soak\\;soak_smoke\\;single_thread"
+  )
+  gtest_discover_tests(styio_soak_test
+    TEST_FILTER "StyioSoakSingleThread.*Report"
+    TEST_LIST STYIO_SOAK_REPORT_TESTS
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    PROPERTIES LABELS "benchmark\\;soak\\;performance\\;single_thread"
+  )
+else()
+  gtest_discover_tests(styio_soak_test
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    PROPERTIES LABELS "benchmark\\;soak\\;soak_smoke\\;single_thread"
+  )
+endif()
 
 add_executable(styio_task_scheduler_perf_test
   styio_task_scheduler_perf_test.cpp

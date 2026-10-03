@@ -27,6 +27,10 @@
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioSession/CompilationSession.hpp"
+#include "StyioUtil/ProcessPipe.hpp"
+#ifdef _WIN32
+#include <psapi.h>
+#endif
 #include "llvm/Support/Error.h"
 #include "llvm/Support/TargetSelect.h"
 
@@ -764,40 +768,11 @@ print_compiler_stage_bench(
     << "\n";
 }
 
-struct CommandCapture
-{
-  std::string stdout_text;
-  int raw_status = -1;
-  int exit_code = -1;
-};
+using CommandCapture = styio::util::ProcessCapture;
 
 CommandCapture
 run_command_capture_stdout(const std::string& cmd) {
-  std::array<char, 4096> buf {};
-  CommandCapture result;
-  FILE* pipe = popen(cmd.c_str(), "r");
-  if (pipe == nullptr) {
-    return result;
-  }
-  while (fgets(buf.data(), static_cast<int>(buf.size()), pipe) != nullptr) {
-    result.stdout_text += buf.data();
-  }
-  result.raw_status = pclose(pipe);
-  if (result.raw_status == -1) {
-    result.exit_code = -1;
-    return result;
-  }
-#if defined(__linux__) || defined(__APPLE__)
-  if (WIFEXITED(result.raw_status)) {
-    result.exit_code = WEXITSTATUS(result.raw_status);
-  }
-  else {
-    result.exit_code = result.raw_status;
-  }
-#else
-  result.exit_code = result.raw_status;
-#endif
-  return result;
+  return styio::util::capture_shell_stdout(cmd);
 }
 
 std::string
@@ -835,6 +810,13 @@ read_rss_bytes() {
     return 0;
   }
   return static_cast<size_t>(info.resident_size);
+#elif defined(_WIN32)
+  PROCESS_MEMORY_COUNTERS counters{};
+  counters.cb = sizeof(counters);
+  if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
+    return 0;
+  }
+  return static_cast<size_t>(counters.WorkingSetSize);
 #else
   return 0;
 #endif
@@ -878,21 +860,6 @@ make_temp_line_file(const std::string& prefix, int lines) {
     out << i << "\n";
   }
   return path;
-}
-
-std::string
-shell_quote(const std::string& raw) {
-  std::string out = "'";
-  for (char ch : raw) {
-    if (ch == '\'') {
-      out += "'\\''";
-    }
-    else {
-      out.push_back(ch);
-    }
-  }
-  out.push_back('\'');
-  return out;
 }
 
 std::string
@@ -943,9 +910,9 @@ run_full_stack_bench(
 
   for (int i = 0; i < loops; ++i) {
     std::string cmd =
-      shell_quote(runner) + " --file " + shell_quote(source_path.string());
+      styio::util::shell_path(runner) + " --file " + styio::util::shell_path(source_path);
     if (!stdin_path.empty()) {
-      cmd += " < " + shell_quote(stdin_path.string());
+      cmd += " < " + styio::util::shell_path(stdin_path);
     }
     cmd += " 2>/dev/null";
 
@@ -1099,8 +1066,8 @@ run_error_bench(
 
   for (int i = 0; i < loops; ++i) {
     std::string cmd =
-      shell_quote(runner) + " --error-format jsonl --file "
-      + shell_quote(source_path.string()) + " 2>&1 >/dev/null";
+      styio::util::shell_path(runner) + " --error-format jsonl --file "
+      + styio::util::shell_path(source_path) + " 2>&1 >/dev/null";
 
     const auto t0 = std::chrono::steady_clock::now();
     CommandCapture capture = run_command_capture_stdout(cmd);
@@ -1296,18 +1263,14 @@ TEST(StyioSoakSingleThread, FileHandleMemoryGrowthBound) {
   ASSERT_FALSE(tmp.path.empty());
 
   const size_t rss_before = read_rss_bytes();
-  if (rss_before == 0) {
-    GTEST_SKIP() << "rss probe unavailable on this platform";
-  }
+  ASSERT_GT(rss_before, 0U) << "rss probe unavailable on this platform";
 
   for (int i = 0; i < loops; ++i) {
     ASSERT_TRUE(run_file_cycle(tmp.path, lines, i));
   }
 
   const size_t rss_after = read_rss_bytes();
-  if (rss_after == 0) {
-    GTEST_SKIP() << "rss probe unavailable on this platform";
-  }
+  ASSERT_GT(rss_after, 0U) << "rss probe unavailable on this platform";
 
   const size_t growth = (rss_after > rss_before) ? (rss_after - rss_before) : 0;
   const size_t limit_bytes = static_cast<size_t>(limit_kib) * 1024ULL;
@@ -1329,9 +1292,7 @@ TEST(StyioSoakSingleThread, ConcatMemoryGrowthBound) {
   size_t produced_bytes = 0;
 
   const size_t rss_before = read_rss_bytes();
-  if (rss_before == 0) {
-    GTEST_SKIP() << "rss probe unavailable on this platform";
-  }
+  ASSERT_GT(rss_before, 0U) << "rss probe unavailable on this platform";
 
   for (int i = 0; i < loops; ++i) {
     const char* cur = styio_strcat_ab("", "");
@@ -1349,9 +1310,7 @@ TEST(StyioSoakSingleThread, ConcatMemoryGrowthBound) {
   EXPECT_GT(produced_bytes, 0U);
 
   const size_t rss_after = read_rss_bytes();
-  if (rss_after == 0) {
-    GTEST_SKIP() << "rss probe unavailable on this platform";
-  }
+  ASSERT_GT(rss_after, 0U) << "rss probe unavailable on this platform";
 
   const size_t growth = (rss_after > rss_before) ? (rss_after - rss_before) : 0;
   const size_t limit_bytes = static_cast<size_t>(limit_kib) * 1024ULL;
@@ -1457,7 +1416,7 @@ TEST(StyioSoakSingleThread, StreamProgramLoop) {
   normalize_text(expected);
 
   const std::string cmd =
-    shell_quote(runner) + " --file " + shell_quote(src.string()) + " 2>/dev/null";
+    styio::util::shell_path(runner) + " --file " + styio::util::shell_path(src) + " 2>/dev/null";
 
   for (int i = 0; i < loops; ++i) {
     std::string out = capture_stdout(cmd);
@@ -1477,7 +1436,7 @@ TEST(StyioSoakSingleThread, StateInlineHelperProgramLoop) {
   ASSERT_FALSE(source_path.empty());
 
   const std::string cmd =
-    shell_quote(runner) + " --file " + shell_quote(source_path.string()) + " 2>/dev/null";
+    styio::util::shell_path(runner) + " --file " + styio::util::shell_path(source_path) + " 2>/dev/null";
   for (int i = 0; i < loops; ++i) {
     std::string out = capture_stdout(cmd);
     normalize_text(out);
@@ -1511,7 +1470,7 @@ TEST(StyioSoakSingleThread, StateInlineMatchCasesProgramLoop) {
   ASSERT_FALSE(source_path.empty());
 
   const std::string cmd =
-    shell_quote(runner) + " --file " + shell_quote(source_path.string()) + " 2>/dev/null";
+    styio::util::shell_path(runner) + " --file " + styio::util::shell_path(source_path) + " 2>/dev/null";
   for (int i = 0; i < loops; ++i) {
     std::string out = capture_stdout(cmd);
     normalize_text(out);
@@ -1541,7 +1500,7 @@ TEST(StyioSoakSingleThread, StateInlineInfiniteProgramLoop) {
   ASSERT_FALSE(source_path.empty());
 
   const std::string cmd =
-    shell_quote(runner) + " --file " + shell_quote(source_path.string()) + " 2>/dev/null";
+    styio::util::shell_path(runner) + " --file " + styio::util::shell_path(source_path) + " 2>/dev/null";
   for (int i = 0; i < loops; ++i) {
     std::string out = capture_stdout(cmd);
     normalize_text(out);

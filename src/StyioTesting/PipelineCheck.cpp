@@ -25,6 +25,7 @@
 #include "StyioParser/Tokenizer.hpp"
 #include "StyioToString/ToStringVisitor.hpp"
 #include "StyioToken/Token.hpp"
+#include "StyioUtil/ProcessPipe.hpp"
 
 #include "llvm/Support/Error.h"
 #include "llvm/Support/TargetSelect.h"
@@ -56,21 +57,6 @@ normalize_text(std::string& s) {
   s.push_back('\n');
 }
 
-std::string
-capture_subprocess_stdout(const std::string& cmd) {
-  std::string out;
-  std::array<char, 4096> buf{};
-  FILE* pipe = popen(cmd.c_str(), "r");
-  if (pipe == nullptr) {
-    return {};
-  }
-  while (fgets(buf.data(), static_cast<int>(buf.size()), pipe) != nullptr) {
-    out += buf.data();
-  }
-  pclose(pipe);
-  return out;
-}
-
 struct SubprocessCaptureLatest
 {
   std::string stdout_text;
@@ -90,9 +76,10 @@ capture_subprocess_output_latest(const std::string& cmd) {
   const fs::path stdout_path = make_capture_path_latest(".stdout.txt");
   const fs::path stderr_path = make_capture_path_latest(".stderr.txt");
   const std::string wrapped =
-    "(" + cmd + ") > \"" + stdout_path.string() + "\" 2> \"" + stderr_path.string() + "\"";
+    "(" + cmd + ") > " + styio::util::shell_path(stdout_path)
+    + " 2> " + styio::util::shell_path(stderr_path);
 
-  (void)std::system(wrapped.c_str());
+  (void)styio::util::capture_shell_stdout(wrapped);
 
   SubprocessCaptureLatest capture;
   if (fs::exists(stdout_path)) {
@@ -424,9 +411,10 @@ run_pipeline_case(const std::string& case_dir, const char* layer5_compiler_exe) 
     if (layer5_compiler_exe != nullptr && std::string(layer5_compiler_exe)[0] != '\0') {
       const fs::path stdin_fixture = root / "stdin.txt";
       const fs::path stderr_fixture = gold / "stderr.txt";
-      std::string cmd = std::string("\"") + layer5_compiler_exe + "\" --file \"" + input.string() + "\"";
+      std::string cmd = styio::util::shell_path(layer5_compiler_exe) + " --file "
+        + styio::util::shell_path(input);
       if (fs::exists(stdin_fixture)) {
-        cmd += " < \"" + stdin_fixture.string() + "\"";
+        cmd += " < " + styio::util::shell_path(stdin_fixture);
       }
       SubprocessCaptureLatest capture = capture_subprocess_output_latest(cmd);
       std::string got_out = capture.stdout_text;

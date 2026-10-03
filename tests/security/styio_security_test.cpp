@@ -19,7 +19,9 @@
 #include <string>
 #include <utility>
 #include <vector>
-#ifndef _WIN32
+#if defined(_WIN32)
+#include <process.h>
+#else
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -64,19 +66,27 @@ public:
 
   ~EnvSnapshot() {
     if (had_value_) {
-      setenv(name_.c_str(), old_value_.c_str(), 1);
+      set(old_value_);
     }
     else {
-      unsetenv(name_.c_str());
+      unset();
     }
   }
 
   void set(const std::string& value) {
+#if defined(_WIN32)
+    _putenv_s(name_.c_str(), value.c_str());
+#else
     setenv(name_.c_str(), value.c_str(), 1);
+#endif
   }
 
   void unset() {
+#if defined(_WIN32)
+    _putenv_s(name_.c_str(), "");
+#else
     unsetenv(name_.c_str());
+#endif
   }
 };
 
@@ -1623,7 +1633,11 @@ TEST(StyioSecurityNativeToolchain, BundledModeFindsClangPlusPlusUnderToolchainRo
     std::filesystem::temp_directory_path()
     / ("styio-native-toolchain-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
   const auto bin = root / "bin";
+#if defined(_WIN32)
+  const auto clangxx = bin / "clang++.exe";
+#else
   const auto clangxx = bin / "clang++";
+#endif
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(bin);
   {
@@ -1651,7 +1665,11 @@ TEST(StyioSecurityNativeToolchain, SystemModeSkipsBundledClangSearch) {
   root_env.set("/tmp/styio-ignored-toolchain-root");
 
   const auto resolved = styio::native::resolve_compiler_for_abi("c++");
+#if defined(_WIN32)
+  EXPECT_EQ(resolved.command, "clang++");
+#else
   EXPECT_EQ(resolved.command, "c++");
+#endif
   EXPECT_EQ(resolved.source, "system");
 }
 
@@ -1682,6 +1700,82 @@ TEST(StyioSecurityNativeToolchain, EnvCompilerCommandIsShellQuoted) {
   std::filesystem::remove_all(root);
 }
 
+#if defined(_WIN32)
+namespace {
+
+std::wstring
+quote_windows_fixture_argument(const std::wstring& value) {
+  std::wstring out = L"\"";
+  size_t slashes = 0;
+  for (wchar_t ch : value) {
+    if (ch == L'\\') {
+      ++slashes;
+      continue;
+    }
+    out.append(slashes * (ch == L'"' ? 2 : 1), L'\\');
+    slashes = 0;
+    if (ch == L'"') out.push_back(L'\\');
+    out.push_back(ch);
+  }
+  out.append(slashes * 2, L'\\');
+  out.push_back(L'"');
+  return out;
+}
+
+int
+run_windows_fixture_process(const std::vector<std::wstring>& arguments) {
+  std::vector<std::wstring> quoted;
+  for (const auto& argument : arguments) {
+    quoted.push_back(quote_windows_fixture_argument(argument));
+  }
+  std::vector<const wchar_t*> argv;
+  for (const auto& argument : quoted) argv.push_back(argument.c_str());
+  argv.push_back(nullptr);
+  const intptr_t result = _wspawnvp(_P_WAIT, arguments.front().c_str(), argv.data());
+  return result < 0 ? -1 : static_cast<int>(result);
+}
+
+constexpr const char* kWindowsCountingCompiler = R"STYIO(
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <process.h>
+#include <string>
+#include <vector>
+std::wstring quote(const std::wstring& value) {
+  std::wstring out = L"\"";
+  size_t slashes = 0;
+  for (wchar_t ch : value) {
+    if (ch == L'\\') { ++slashes; continue; }
+    out.append(slashes * (ch == L'"' ? 2 : 1), L'\\');
+    slashes = 0;
+    if (ch == L'"') out.push_back(L'\\');
+    out.push_back(ch);
+  }
+  out.append(slashes * 2, L'\\');
+  out.push_back(L'"');
+  return out;
+}
+int wmain(int argc, wchar_t** argv) {
+  const wchar_t* compiler = _wgetenv(L"STYIO_TEST_REAL_NATIVE_CC");
+  const wchar_t* counter = _wgetenv(L"STYIO_TEST_NATIVE_COUNTER");
+  if (!compiler || !counter) return 125;
+  int count = 0;
+  { std::ifstream input{std::filesystem::path(counter)}; input >> count; }
+  { std::ofstream output{std::filesystem::path(counter)}; output << count + 1 << '\n'; }
+  std::vector<std::wstring> quoted{quote(compiler)};
+  for (int i = 1; i < argc; ++i) quoted.push_back(quote(argv[i]));
+  std::vector<const wchar_t*> forwarded;
+  for (const auto& value : quoted) forwarded.push_back(value.c_str());
+  forwarded.push_back(nullptr);
+  const intptr_t result = _wspawnvp(_P_WAIT, compiler, forwarded.data());
+  return result < 0 ? 126 : static_cast<int>(result);
+}
+)STYIO";
+
+}  // namespace
+#endif
+
 TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvocation) {
   EnvSnapshot cc("STYIO_NATIVE_CC");
   EnvSnapshot mode("STYIO_NATIVE_TOOLCHAIN_MODE");
@@ -1691,11 +1785,38 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
   const auto root =
     std::filesystem::temp_directory_path()
     / ("styio-native-cache-test-" + std::to_string(static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count())));
+#if defined(_WIN32)
+  const auto wrapper = root / "cc-wrapper.exe";
+#else
   const auto wrapper = root / "cc-wrapper.sh";
+#endif
   const auto counter = root / "compiler-count";
   const auto cache_dir = root / "cache";
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(root);
+#if defined(_WIN32)
+  EnvSnapshot real_compiler_env("STYIO_TEST_REAL_NATIVE_CC");
+  EnvSnapshot counter_env("STYIO_TEST_NATIVE_COUNTER");
+  cc.unset();
+  mode.set("auto");
+  const auto real_compiler = styio::native::resolve_compiler_for_abi("c");
+  const auto wrapper_compiler = styio::native::resolve_compiler_for_abi("c++");
+  const auto wrapper_source = root / "cc-wrapper.cpp";
+  {
+    std::ofstream out(wrapper_source);
+    out << kWindowsCountingCompiler;
+  }
+  // Use the resolved native clang driver and explicit argv, never cmd.exe.
+  const std::vector<std::wstring> compile_arguments{
+    std::filesystem::path(wrapper_compiler.command).wstring(), L"-std=c++17",
+    L"-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH", L"-D_CRT_SECURE_NO_WARNINGS",
+    wrapper_source.wstring(), L"-o", wrapper.wstring(),
+  };
+  ASSERT_EQ(run_windows_fixture_process(compile_arguments), 0);
+  ASSERT_TRUE(std::filesystem::is_regular_file(wrapper));
+  real_compiler_env.set(real_compiler.command);
+  counter_env.set(counter.string());
+#else
   {
     std::ofstream out(wrapper);
     out << "#!/bin/sh\n"
@@ -1705,7 +1826,6 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
         << "printf '%s\\n' \"$n\" > \"$count_file\"\n"
         << "exec cc \"$@\"\n";
   }
-#ifndef _WIN32
   chmod(wrapper.c_str(), 0755);
 #endif
 
@@ -1734,14 +1854,49 @@ TEST(StyioSecurityNativeToolchain, NativeSourceCacheAvoidsRepeatedCompilerInvoca
   EXPECT_EQ(add(20, 22), 42);
   EXPECT_EQ(read_counter(), 1);
 
+  auto same_set = styio::native::compile_and_load_block("c", body, {"cached_add", "cached_add"});
+  ASSERT_EQ(same_set.symbols.size(), 1U);
+  EXPECT_EQ(same_set.symbols[0].address, first.symbols[0].address);
+  EXPECT_EQ(read_counter(), 1);
+
   auto second = styio::native::compile_and_load_block("c", body, {"cached_sub"});
   ASSERT_EQ(second.symbols.size(), 1U);
   auto* sub = reinterpret_cast<int (*)(int, int)>(second.symbols[0].address);
   ASSERT_NE(sub, nullptr);
   EXPECT_EQ(sub(50, 8), 42);
-  EXPECT_EQ(read_counter(), 1);
+#if defined(_WIN32)
+  // The changed DLL /EXPORT list is a changed compiler input on Windows.
+  constexpr int subset_compile_count = 2;
+#else
+  constexpr int subset_compile_count = 1;
+#endif
+  EXPECT_EQ(read_counter(), subset_compile_count);
+  auto second_hit = styio::native::compile_and_load_block("c", body, {"cached_sub"});
+  ASSERT_EQ(second_hit.symbols.size(), 1U);
+  EXPECT_EQ(second_hit.symbols[0].address, second.symbols[0].address);
+  EXPECT_EQ(read_counter(), subset_compile_count);
 
+  auto both = styio::native::compile_and_load_block("c", body, {"cached_add", "cached_sub"});
+  ASSERT_EQ(both.symbols.size(), 2U);
+#if defined(_WIN32)
+  constexpr int all_compile_count = 3;
+#else
+  constexpr int all_compile_count = 1;
+#endif
+  EXPECT_EQ(read_counter(), all_compile_count);
+  auto reordered = styio::native::compile_and_load_block("c", body, {"cached_sub", "cached_add"});
+  ASSERT_EQ(reordered.symbols.size(), 2U);
+  EXPECT_EQ(reordered.symbols[0].address, both.symbols[0].address);
+  EXPECT_EQ(reordered.symbols[1].address, both.symbols[1].address);
+  EXPECT_EQ(read_counter(), all_compile_count);
+
+#if defined(_WIN32)
+  // Loaded cache DLLs stay mapped until process exit and cannot be unlinked.
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(root, cleanup_error);
+#else
   std::filesystem::remove_all(root);
+#endif
 }
 
 TEST(StyioSecurityNightlyParserStmt, RejectsLegacyStringListImportSyntax) {
