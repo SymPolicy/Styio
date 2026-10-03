@@ -41,6 +41,28 @@ class SyntaxSourceIO(unittest.TestCase):
     def test_directory_is_not_an_empty_source(self) -> None:
         self.check(self.root, 6)
 
+    def create_symlink(self, link: Path, target: Path, *, directory: bool = False) -> None:
+        try:
+            link.symlink_to(target, target_is_directory=directory)
+        except OSError as error:
+            if sys.platform == "win32" and getattr(error, "winerror", None) == 1314:
+                self.skipTest("creating symlinks requires Windows privileges")
+            raise
+
+    def test_directory_symlink_is_not_an_empty_source(self) -> None:
+        directory = self.root / "directory"
+        directory.mkdir()
+        link = self.root / "directory-link.styio"
+        self.create_symlink(link, directory, directory=True)
+        self.check(link, 6)
+
+    def test_regular_file_symlink_is_valid(self) -> None:
+        source = self.root / "source.styio"
+        source.write_text("x := 1\n", encoding="utf-8")
+        link = self.root / "source-link.styio"
+        self.create_symlink(link, source)
+        self.check(link, 0)
+
     def test_missing_source_is_a_cli_error(self) -> None:
         self.check(self.root / "missing.styio", 6)
 
