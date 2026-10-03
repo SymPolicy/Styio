@@ -360,8 +360,9 @@ confirm_commit_readiness_if_needed
 
 case "$MODE" in
   auto)
+    SCHEDULER_PROFILES=()
     if has_worktree_changes; then
-      run_scheduler_profile delivery-checkpoint
+      SCHEDULER_PROFILES+=(--profile delivery-checkpoint)
     else
       log "worktree: nothing to check"
     fi
@@ -377,9 +378,13 @@ case "$MODE" in
       if [[ -z "$REV_RANGE" ]]; then
         REV_RANGE="${BASE_REF}..HEAD"
       fi
-      run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
+      SCHEDULER_PROFILES+=(--profile delivery-push)
     else
       log "push range ${BASE_REF}..HEAD: nothing to check"
+    fi
+    if [[ ${#SCHEDULER_PROFILES[@]} -gt 0 ]]; then
+      run_cmd python3 scripts/workflow-scheduler.py run "${SCHEDULER_PROFILES[@]}" \
+        --base "$BASE_REF" --range "$REV_RANGE"
     fi
     ;;
   checkpoint)

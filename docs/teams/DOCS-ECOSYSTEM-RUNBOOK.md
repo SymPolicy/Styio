@@ -2,7 +2,11 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-09-10
+**Last updated:** 2026-10-03
+
+Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
+
+File coverage discovery and final CI evidence reporting are advisory, automatically routed from Git paths, and do not add a per-file manifest or merge gate. Keep this boundary aligned with [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#automatic-advisory-inventory-and-final-report).
 
 ## Mission
 

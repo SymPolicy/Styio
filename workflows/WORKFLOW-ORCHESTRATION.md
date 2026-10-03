@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-10-03
 
 ## Separation Rules
 
@@ -104,6 +104,32 @@ Run branch delivery checks:
 ```bash
 python3 scripts/workflow-scheduler.py run --profile delivery-push --base origin/main --range origin/main..HEAD
 ```
+
+## Composing Local Profiles
+
+Repeat `--profile` to compose read-only profiles in one invocation:
+
+```bash
+python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint --profile delivery-push --base origin/nightly --range origin/nightly..HEAD
+```
+
+`delivery-gate.sh --mode auto` uses this composition when both worktree changes
+and outgoing commits exist. Identical successful commands run once: the two
+nine-tool profiles execute twelve distinct commands rather than eighteen.
+Worktree and incoming-range hygiene/info scans and team ownership checks remain
+separate because they inspect different inputs. Each profile keeps its ordering.
+The docs audit's embedded default team-docs check is suppressed only after that
+profile's correctly scoped team-docs check succeeds; standalone docs audit keeps
+its check. A skipped team check provides no evidence.
+
+Reuse lasts only for the current process, for identical commands and audit
+context. Failure aborts immediately and a new invocation starts fresh. No files,
+logs, hashes, or reusable success tokens are written. Run against a stable
+checkout and environment; do not edit inputs or run mutating tools concurrently.
+If inputs change during the run, discard the affected evidence and rerun. These
+profiles must stay read-only; a future mutating tool needs an explicit invalidation
+boundary before it may participate in composition. Cross-invocation local test
+reuse follows [Post-Commit CI Checks](../docs/specs/POST-COMMIT-CI-CHECKS.md).
 
 ## Adding A Workflow
 
