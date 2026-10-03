@@ -2,7 +2,9 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-03
+
+Promotion validation uses actual CTest-name set difference, not repeated overlapping label runs. Unknown example applicability is advisory; actual failed/skipped required tests block acceptance. Run the focused promotion tests in [Incremental Promotion](../specs/INCREMENTAL-PROMOTION.md); native platform results must remain separate.
 
 ## Mission
 

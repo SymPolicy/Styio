@@ -2,7 +2,9 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-03
+
+Maintain the [Incremental Promotion](../specs/INCREMENTAL-PROMOTION.md) contract: one public update stream, internal stages, source-bound evidence reuse, explicit advisory discovery, and no automatic publication or protection changes.
 
 ## Mission
 

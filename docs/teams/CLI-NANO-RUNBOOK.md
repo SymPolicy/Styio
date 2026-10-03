@@ -2,7 +2,9 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-03
+
+Full and nano variants now identify the same public release update stream, with stable build_id metadata independent of internal promotion stage. Legacy source refs remain developer metadata. See [Incremental Promotion](../specs/INCREMENTAL-PROMOTION.md) for compatibility and publication boundaries.
 
 ## Mission
 
