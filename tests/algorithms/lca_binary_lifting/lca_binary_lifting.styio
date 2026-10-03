@@ -1,0 +1,62 @@
+/* Offline LCA (C++ binary lifting; Styio: climb parents to equal depth then meet).
+   Input: [n, u, v, parent0..parent{n-1}, then n depth zeros]
+   parent[0] must be -1 (encoded as 0-1). Malformed -> -1. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 3) => {
+    n = values[0]
+    u = values[1]
+    v = values[2]
+    need = 3 + n + n
+    ?(n > 0 && u >= 0 && v >= 0 && u < n && v < n && values.length >= need) => {
+        p_base = 3
+        d_base = 3 + n
+        ?(values[p_base] == 0 - 1) => {
+            ok = 1
+            [1..n-1] >> #(i) => {
+                p = values[p_base + i]
+                ?(p < 0 || p >= n || p == i) => {
+                    ok = 0
+                }
+            }
+            ?(ok == 1) => {
+                values[d_base] = 0
+                [1..n-1] >> #(i) => {
+                    d = 0
+                    x = i
+                    steps = 0
+                    [...] >> ?(x != 0 && steps <= n) => {
+                        x = values[p_base + x]
+                        d = d + 1
+                        steps = steps + 1
+                    }
+                    ?(x != 0) => {
+                        ok = 0
+                    } | {
+                        values[d_base + i] = d
+                    }
+                }
+            }
+            ?(ok == 1) => {
+                cu = u
+                cv = v
+                ?(values[d_base + cu] < values[d_base + cv]) => {
+                    tmp = cu
+                    cu = cv
+                    cv = tmp
+                }
+                [...] >> ?(values[d_base + cu] > values[d_base + cv]) => {
+                    cu = values[p_base + cu]
+                }
+                [...] >> ?(cu != cv) => {
+                    cu = values[p_base + cu]
+                    cv = values[p_base + cv]
+                }
+                answer = cu
+            }
+        }
+    }
+}
+
+>_(answer)

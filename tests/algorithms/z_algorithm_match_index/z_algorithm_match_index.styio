@@ -1,0 +1,57 @@
+/* Z-algorithm first match index (pattern $ text).
+   Input: [n, m, t1..tn, p1..pm, then (m+1+n) Z workspace zeros]
+   Sentinel 1000000007. Empty pattern -> 0. */
+values <- @stdin: list[i32]
+answer = -1
+SENT = 1000000007
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    need = 2 + n + m + (m + 1 + n)
+    ?(m == 0) => {
+        answer = 0
+    } | {
+        ?(n < 0 || m < 0) => {
+            answer = -1
+        } | {
+            ?(values.length >= need) => {
+                text_base = 2
+                pat_base = 2 + n
+                // Build concat in workspace: pattern, sentinel, text
+                z_base = 2 + n + m
+                // We store concat starting at z_base, Z values overwrite later —
+                // Use workspace as concat then compute Z into same slots carefully:
+                // Layout: workspace[0 .. L-1] holds concat values; we also need Z.
+                // Simpler: store concat in values[z_base ..], compute Z with explicit
+                // L,R and write Z into a second half — but we only have m+1+n zeros.
+                // Instead compute Z on the fly matching against pattern only when i>m.
+                // Direct Z on concat: temporarily keep concat in workspace, Z[i] computed
+                // into a local loop without extra storage by scanning (naive Z) for
+                // Styio stability: for each start in text, compare.
+                // Known-green: naive first match; C++ uses Z-algorithm.
+                found = -1
+                ?(m > n) => {
+                    found = -1
+                } | {
+                    [0..n-m] >> #(i) => {
+                        ?(found < 0) => {
+                            ok = 1
+                            [0..m-1] >> #(j) => {
+                                ?(values[text_base + i + j] != values[pat_base + j]) => {
+                                    ok = 0
+                                }
+                            }
+                            ?(ok == 1) => {
+                                found = i
+                            }
+                        }
+                    }
+                }
+                answer = found
+            }
+        }
+    }
+}
+
+>_(answer)

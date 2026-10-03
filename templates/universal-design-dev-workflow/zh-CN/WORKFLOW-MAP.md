@@ -31,4 +31,4 @@ flowchart LR
   CAS[CONTRIBUTOR_SPEC] -.-> IMPL
 ```
 
-缺人类判断时回到 `OPEN-QUESTIONS-AND-HUMAN-INPUT.md`。
+确实缺少必要的人类决策时，遵守 `OPEN-QUESTIONS-AND-HUMAN-INPUT.md`：准备具体方案后仅暂停依赖动作，并继续独立的已授权工作。

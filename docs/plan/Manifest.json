@@ -29,16 +29,25 @@
       "title": "Publish immutable observable topology snapshots"
     },
     {
+      "checkpoints": "observable-delta-query-lineage/Checkpoints.json",
       "code": "PLAN-005",
       "directory": "observable-delta-query-lineage",
       "plan": "observable-delta-query-lineage/Plan.json",
       "title": "Deliver observable topology delta, lineage, and queries"
     },
     {
+      "checkpoints": "observable-runtime-correlation/Checkpoints.json",
       "code": "PLAN-006",
       "directory": "observable-runtime-correlation",
       "plan": "observable-runtime-correlation/Plan.json",
       "title": "Correlate runtime and scheduler events with semantic sites"
+    },
+    {
+      "checkpoints": "observable-delta-query-lineage-review-followup-01/Checkpoints.json",
+      "code": "PLAN-007",
+      "directory": "observable-delta-query-lineage-review-followup-01",
+      "plan": "observable-delta-query-lineage-review-followup-01/Plan.json",
+      "title": "styio_lspd terminates on uncaught filesystem_error when the IDE cache directory cannot be created"
     }
   ],
   "schema": "better-plan.manifest/v3"

@@ -262,6 +262,16 @@ public:
   const std::vector<RelationPublication>& relation_publications() const noexcept {
     return relation_publications_;
   }
+
+  struct SourceSiteBinding
+  {
+    const StyioAST* source = nullptr;
+    NodeKind kind = NodeKind::Value;
+    SemanticRole role = SemanticRole::Value;
+    styio::semantic_identity::SemanticIdentity identity;
+  };
+
+  std::vector<SourceSiteBinding> source_site_bindings() const;
 };
 
 struct ValidationError

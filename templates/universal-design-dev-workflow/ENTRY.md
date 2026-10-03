@@ -55,11 +55,11 @@ Copy **one** full tree (`en/` **or** `zh-CN/`), **including** its `global/`, int
 规则：在 zh-CN/ 内生成或修改的 Markdown 叙述部分必须为简体中文；代码、命令、标识符可与原文一致。
 
 0) 概括 ENTRY 与本树 WORKFLOW-MAP 的阶段与门禁（用中文）。
-1) 打开 zh-CN/OPEN-QUESTIONS-AND-HUMAN-INPUT.md，列出 A–E 空项或 BLOCKING；缺信息则提问，勿编造。
+1) 打开 zh-CN/OPEN-QUESTIONS-AND-HUMAN-INPUT.md，先检查仓库事实与已有决策，忽略空白占位；仅对必要且仍不可发现的信息或未获明确批准的动作提问，写清依赖动作与具体方案，并继续独立工作。勿编造或重复索要已有批准。
 2) 起草或补全 zh-CN/DOMAIN-OR-PRODUCT-SPEC.md；未知标「待补充」。
 3) 依检查点设想写 00-Checkpoint-Index 与分段草稿；日期占位 YYYY-MM-DD。
 4) 为验收写 TEST-CATALOG 示例行；无自动化标 gap。
-5) 给出「下一步给人」清单。
+5) 完成已授权且可独立推进的文档工作；仅列出仍需用户决策的具体事项，并明确未完成的验收。
 
 约束：勿编造商业产品名（除非用户提供）；遵守 SSOT，长篇事实只在一处权威文档叙述，他处链接。
 
@@ -88,11 +88,11 @@ You are a senior documentation and delivery coach. The user works in the en/ loc
 Rule: Narrative Markdown under en/ must be English-only; code, commands, and identifiers may stay as needed.
 
 0) Summarize phases and gates from ENTRY and this tree’s WORKFLOW-MAP.
-1) List empty or BLOCKING rows in en/OPEN-QUESTIONS-AND-HUMAN-INPUT.md sections A–E; do not invent facts.
+1) Read en/OPEN-QUESTIONS-AND-HUMAN-INPUT.md, inspect repository facts and prior decisions, and ignore empty placeholders. Ask only for necessary undiscoverable information or an action still requiring explicit approval; name the dependent action and concrete proposal, and continue independent work. Do not invent facts or request an existing approval again.
 2) Draft or extend en/DOMAIN-OR-PRODUCT-SPEC.md; use TBD for unknowns.
 3) Draft 00-Checkpoint-Index and segment specs; YYYY-MM-DD placeholders.
 4) Propose TEST-CATALOG rows; label gap; command placeholders.
-5) Human checklist: owners, spec review, CI updates.
+5) Complete independently actionable authorized documentation work; list only the concrete decisions still needed from the user and identify unfinished acceptance.
 
 Constraints: SSOT per DOCUMENTATION-POLICY; no long duplicate prose; no unrelated commercial names unless supplied.
 

@@ -35,7 +35,11 @@ Examples: unapproved dependencies; editing vendor/generated code against policy;
 
 ## 8. Decision authority
 
-(Project fills: self-serve vs human approval, conflict resolution.)
+Inspect repository facts and existing user decisions before asking questions. Continue ordinary work within the authorized goal, public contracts, and risk boundary; reporting an issue is not a request for approval. Reuse an existing approval when it covers the same action and risk. Explicit dependency, release, security, and other project approval requirements remain effective.
+
+When a necessary decision is still missing, complete the authorized investigation and prepare a concrete proposal, then pause only dependent work. Empty template fields are not blockers by themselves. Do not infer approval from silence, a suggested default, or a draft decision.
+
+Finish source review, in-scope repairs, and focused verification before the required final complete regression. If that regression fails, diagnose and propose the repair and verification for the developer's decision; do not automatically repair or rerun. Report incomplete acceptance honestly and continue independent authorized work. Add project-specific approval requirements here without turning routine implementation choices into new approval gates.
 
 ## Appendix — New contributor checklist
 

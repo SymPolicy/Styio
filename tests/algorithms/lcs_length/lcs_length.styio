@@ -1,0 +1,47 @@
+/* CLRS 15.4 LCS length (bottom-up DP).
+   Input: [n, m, a1..an, b1..bm, then (n+1)*(m+1) DP workspace zeros].
+   Output: LCS length. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    seq_end = 2 + n + m
+    need = seq_end + (n + 1) * (m + 1)
+
+    ?(n < 0 || m < 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            ?(n == 0 || m == 0) => {
+                answer = 0
+            } | {
+                base = seq_end
+                width = m + 1
+
+                [1..n] >> #(i) => {
+                    [1..m] >> #(j) => {
+                        ai = values[1 + i]
+                        bj = values[1 + n + j]
+                        ?(ai == bj) => {
+                            values[base + i * width + j] = values[base + (i - 1) * width + (j - 1)] + 1
+                        } | {
+                            up = values[base + (i - 1) * width + j]
+                            left = values[base + i * width + (j - 1)]
+                            ?(up > left) => {
+                                values[base + i * width + j] = up
+                            } | {
+                                values[base + i * width + j] = left
+                            }
+                        }
+                    }
+                }
+
+                answer = values[base + n * width + m]
+            }
+        }
+    }
+}
+
+>_(answer)

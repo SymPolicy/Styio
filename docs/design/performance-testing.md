@@ -3,7 +3,7 @@
 **Purpose:** Point the compiler checkout at the external parity-v2 authority;
 workloads, runner, reports, and thresholds remain in `styio-benchmark`.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 The standards-derived contract is
 `styio-benchmark/workloads/parity-v2/contract.json`. It freezes independent
@@ -66,3 +66,47 @@ verified LLVM O2 pipeline to promote eligible stack slots to SSA instead of
 adding a second whole-IR write-analysis pass. Use the `semantic-analysis` and
 `llvm-emission` reference cells to measure these paths; do not infer a win from
 total compile-and-run time alone.
+
+Observable S2 measurements stay with `styio-benchmark`. This checkout supplies
+`tests/fixtures/observable-topology/` plus path-free service counters
+(`input_records`, `changed_records`, `delta_bytes`, `visited_records`,
+`reused_shards`, `rebuilt_shards`, `retained_snapshot_bytes`,
+`retained_index_bytes`, `reference_fallbacks`). Suggested modes are cold full
+scan, cold index build, warm retained query, small-delta invalidation, full
+fallback after cache drop, and retention pressure. Do not add a local
+threshold or a second workload catalog here.
+
+## Observable runtime-events v2 budget seam
+
+This repository owns the measurement seam and budget enforcement:
+
+- `styio_observable_runtime_perf_test` (`ctest` name `styio_observable_runtime_perf`)
+- `styio_observable_runtime_budget_contract_test` (`ctest` name `styio_observable_runtime_budget_contract`)
+
+Comparable Release modes are `disabled`, `static-only`, `aggregate`, `sampled`,
+and `detailed`. Required fields are wall and CPU time, allocations, peak RSS,
+binary/artifact size, produced/aggregated/emitted bytes and records, lane
+occupancy, sampling, and every loss class. Disabled and static-only structural
+acceptance is zero S3 runtime callsites, allocations, buffers, worker/drain
+threads, instance/event atomics, and exporter work.
+
+`styio-benchmark` owns workloads, reports, baseline identity, and approved
+numeric ceilings. The budget reader rejects missing, stale, pending,
+incomparable, or failed result contracts. Do not encode guessed percentage
+thresholds in this tree. V2 remains opt-in until those approved green results
+exist.
+
+Proposed unapproved local Release seam sample (`styio_observable_runtime_perf`,
+status `pending`, 2026-09-05). These figures are a measurement handoff, not a
+budget gate:
+
+| mode | wall_ns | cpu_ns | allocations | occupancy_high | sampled_out | buffer_dropped | exporter_dropped | S3 structural zeros |
+| disabled | 452500 | 561000 | 0 | 0 | 0 | 0 | 0 | yes |
+| static-only | 78417 | 112000 | 0 | 0 | 0 | 0 | 0 | yes |
+| aggregate | 541500 | 561000 | 56 | 82 | 0 | 0 | 0 | no |
+| sampled | 310458 | 332000 | 56 | 88 | 8 | 0 | 0 | no |
+| detailed | 331667 | 352000 | 56 | 98 | 0 | 0 | 0 | no |
+
+Do not enable `emit.runtime_observation` by default until
+`approved-result.json` exists and `styio_observable_runtime_budget_contract`
+exits zero against it.

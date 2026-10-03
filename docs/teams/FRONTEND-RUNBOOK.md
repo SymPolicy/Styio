@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -11,6 +11,8 @@ Own the source-to-AST front end: token definitions, lexer behavior, parser routi
 Delimiter nesting queries use a parser-owned prefix table built once per token stream; operation-count tests protect linear construction and constant-time lookup without changing accepted syntax or diagnostics.
 
 ## Owned Surface
+
+Build membership: edit `src/cmake/StyioSymbolSources.cmake` or `StyioFrontendFoundationSources.cmake` for parser/token/Unicode/platform/source-map units. `targets/StyioSymbolCore.cmake` owns the symbol target; `StyioFrontendSources.cmake` and `targets/StyioFrontendCore.cmake` are shared composition with Sema / IR, Codegen / Runtime, and Performance / Stability. A parser-list edit must not require their runbooks merely because those targets consume it.
 
 Primary paths:
 
@@ -134,7 +136,7 @@ python3 scripts/runtime-surface-gate.py
 
 ## Handoff / Recovery
 
-Record unfinished parser work in `docs/history/YYYY-MM-DD.md` with:
+Record unfinished parser work in the owning plan/checkpoint record, using a temporary `docs/history/YYYY-MM-DD.md` only for otherwise missing recovery information with:
 
 1. Parser engine, route, and feature subset.
 2. Exact failing command or shadow artifact path.

@@ -1,7 +1,7 @@
 id = "workflow-orchestration"
 title = "Workflow Orchestration"
 purpose = "Define registered workflow documents, tool responsibilities, profile ordering, and scheduler entrypoints that keep delivery workflows separated and executable."
-last_updated = "2026-06-19"
+last_updated = "2026-10-03"
 doc = "WORKFLOW-ORCHESTRATION.md"
 
 separation_rules = [
@@ -9,6 +9,7 @@ separation_rules = [
   "each workflow document owns exactly one responsibility boundary",
   "each tool owns exactly one validation responsibility",
   "profiles must run tools in ascending phase order",
+  "composed read-only profiles reuse identical successful commands only within one stable invocation; failed or skipped checks are not evidence",
   "registry, docs, CI entrypoint, and delivery entrypoint must agree before delivery",
   "every workflow markdown is paired with a machine-readable <NAME>.toml registered in workflows.toml",
   "current repo-local skills and maintenance tools must pass the tool-skill registry gate before delivery",

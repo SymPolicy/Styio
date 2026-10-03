@@ -2,7 +2,7 @@
 
 **Purpose:** Require every functional change to finish the cutover from old behavior to the new canonical behavior before final testing, instead of leaving partial migration, legacy fallbacks, or old implementation paths behind.
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-09-08
 
 **TOML:** [FEATURE-CUTOVER-WORKFLOW.toml](./FEATURE-CUTOVER-WORKFLOW.toml) is the machine-readable workflow definition.
 
@@ -13,6 +13,8 @@ Use [styio-feature-cutover/skill.toml](./skills/styio-feature-cutover/skill.toml
 ## Goal
 
 A functional change is not complete when the new path merely works. It is complete when the new behavior is canonical, every intended caller uses it, tests prove the new contract, and the old implementation, compatibility path, fallback route, documentation wording, and acceptance fixtures are removed or explicitly rejected.
+
+The old surface is the implementation explicitly superseded by this authorized change. Independently maintained assets that repository rules require to keep, such as Vityo's `prototype/`, are not migration residue. A search match alone does not authorize removal or broaden the task. Prove removal with a one-time targeted search or script, not a permanent migration gate; retain behavioral tests only where they protect the current contract.
 
 After this cutover check, use [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) to prove the changed feature can stand as a targeted, upstream/downstream verified commit unit.
 
@@ -26,18 +28,18 @@ Before running final health tests, perform this self-check:
 4. Remove old implementation paths instead of leaving them linked from the new path.
 5. Rename feature, module, workflow, skill, and doc surfaces by the feature or transformation result, not by version-style names such as `v2`, `version`, `new`, `old`, `legacy`, or `latest`.
 6. Replace old acceptance tests with new canonical positives and adjacent negatives that reject old spellings or routes when public compatibility is not explicitly retained.
-7. Run the narrow feature tests first, then the registered delivery or checkpoint gate.
+7. Run the narrow feature tests first. Reuse that evidence in commit readiness and reserve the selected complete regression for the integrated, reviewed change.
 
 ## Allowed Exceptions
 
-Do not silently keep old behavior. If an external contract requires a temporary adapter, record it as a separate compatibility decision with:
+Do not silently keep old behavior. If an already-approved external contract requires a temporary adapter outside the superseded implementation, record that existing compatibility decision with:
 
 1. the owning SSOT or runbook;
 2. the public contract that still requires it;
 3. a sunset or follow-up checkpoint;
 4. tests proving the adapter delegates to the new canonical implementation and cannot revive the old implementation.
 
-If no such decision exists, delete the adapter.
+Creating this record does not approve new compatibility. Remove superseded adapters within the authorized migration; if an unresolved external contract prevents removal, prepare the decision and pause only the dependent cutover.
 
 ## Evidence
 

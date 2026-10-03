@@ -1,0 +1,90 @@
+/* 2-SAT satisfiability (C++ Kosaraju SCC; Styio: Floyd reachability).
+   Input: [nv, m, lit1a,lit1b,..., then N*N reach zeros] N=2*nv, nv<=8.
+   Literal +/-k for variable k (1-based). Output 1/0. */
+values <- @stdin: list[i32]
+answer = 1
+
+?(values.length >= 2) => {
+    nv = values[0]
+    m = values[1]
+    N = nv * 2
+    edge_end = 2 + m * 2
+    need = edge_end + N * N
+    ?(nv <= 0) => {
+        answer = 1
+    } | {
+        ?(nv > 8) => {
+            answer = 0
+        } | {
+            ?(values.length >= need) => {
+                reach_base = edge_end
+                [0..N-1] >> #(i) => {
+                    [0..N-1] >> #(j) => {
+                        ?(i == j) => {
+                            values[reach_base + i * N + j] = 1
+                        } | {
+                            values[reach_base + i * N + j] = 0
+                        }
+                    }
+                }
+                bad = 0
+                [0..m-1] >> #(e) => {
+                    la = values[2 + e * 2]
+                    lb = values[2 + e * 2 + 1]
+                    ?(la == 0 || lb == 0 || la < 0 - nv || la > nv || lb < 0 - nv || lb > nv) => {
+                        bad = 1
+                    } | {
+                        // idx(lit): lit>0 -> 2*(lit-1); lit<0 -> 2*((-lit)-1)+1
+                        ?(la > 0) => {
+                            a = 2 * (la - 1)
+                        } | {
+                            a = 2 * ((0 - la) - 1) + 1
+                        }
+                        ?(lb > 0) => {
+                            b = 2 * (lb - 1)
+                        } | {
+                            b = 2 * ((0 - lb) - 1) + 1
+                        }
+                        // neg(a) = a xor 1: even->odd, odd->even
+                        ?(a % 2 == 0) => {
+                            na = a + 1
+                        } | {
+                            na = a - 1
+                        }
+                        ?(b % 2 == 0) => {
+                            nb = b + 1
+                        } | {
+                            nb = b - 1
+                        }
+                        values[reach_base + na * N + b] = 1
+                        values[reach_base + nb * N + a] = 1
+                    }
+                }
+                ?(bad == 1) => {
+                    answer = 0
+                } | {
+                    [0..N-1] >> #(k) => {
+                        [0..N-1] >> #(i) => {
+                            [0..N-1] >> #(j) => {
+                                ?(values[reach_base + i * N + k] == 1 && values[reach_base + k * N + j] == 1) => {
+                                    values[reach_base + i * N + j] = 1
+                                }
+                            }
+                        }
+                    }
+                    sat = 1
+                    [0..nv-1] >> #(i) => {
+                        t = 2 * i
+                        f = 2 * i + 1
+                        ?(values[reach_base + t * N + f] == 1 && values[reach_base + f * N + t] == 1) => {
+                            sat = 0
+                        }
+                    }
+                    answer = sat
+                }
+            }
+        }
+    }
+}
+
+>_(answer)

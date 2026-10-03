@@ -1,0 +1,447 @@
+{
+  "styio": {
+    "TYPE": [
+      "EXECUTABLE"
+    ],
+    "SOURCES": [
+      "main.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_core",
+      "styio_cli_contract_core"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [],
+    "INCLUDE_DIRECTORIES": [
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS",
+      "STYIO_PROJECT_VERSION=\"0.0.1\"",
+      "STYIO_RELEASE_CHANNEL=\"nightly\"",
+      "STYIO_EDITION_MAX=\"2026\"",
+      "STYIO_LLVM_DIR=\"contract_LLVM_DIR\"",
+      "STYIO_SOURCE_DIR=\"contract_SOURCE_DIR\"",
+      "STYIO_CMAKE_C_COMPILER=\"contract_CMAKE_C_COMPILER\"",
+      "STYIO_CMAKE_CXX_COMPILER=\"contract_CMAKE_CXX_COMPILER\"",
+      "STYIO_CMAKE_MAKE_PROGRAM=\"contract_CMAKE_MAKE_PROGRAM\""
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio-nano": {
+    "TYPE": [
+      "UTILITY"
+    ],
+    "SOURCES": [],
+    "LINK_LIBRARIES": [],
+    "INTERFACE_LINK_LIBRARIES": [],
+    "INCLUDE_DIRECTORIES": [],
+    "INTERFACE_INCLUDE_DIRECTORIES": [],
+    "COMPILE_DEFINITIONS": [],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_cli_contract_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioServices/StyioCLI/SyntaxCheck.cpp",
+      "StyioServices/StyioCLI/RuntimeEventSession.cpp",
+      "StyioServices/StyioConfig/CompilePlanContract.cpp",
+      "StyioServices/StyioConfig/SourceBuildInfo.cpp",
+      "StyioServices/StyioObservableProducer/DeltaPublication.cpp",
+      "StyioServices/StyioObservableProducer/InstrumentationTable.cpp",
+      "StyioServices/StyioObservableProducer/StaticSnapshotContract.cpp",
+      "StyioServices/StyioObservableProducer/StaticSnapshotPublication.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_observable_core",
+      "styio_frontend_core",
+      "styio_symbol_core",
+      "contract_llvm"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [
+      "styio_observable_core",
+      "styio_frontend_core",
+      "styio_symbol_core",
+      "contract_llvm"
+    ],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS",
+      "STYIO_PROJECT_VERSION=\"0.0.1\"",
+      "STYIO_RELEASE_CHANNEL=\"nightly\"",
+      "STYIO_EDITION_MAX=\"2026\""
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioCodeGen/CallableSpecializationObjectCache.cpp",
+      "StyioCodeGen/GetTypeG.cpp",
+      "StyioCodeGen/CodeGenG.cpp",
+      "StyioCodeGen/LLVMEmission.cpp",
+      "StyioCodeGen/CodeGenPulse.cpp",
+      "StyioCodeGen/GetTypeIO.cpp",
+      "StyioCodeGen/CodeGenIO.cpp",
+      "StyioTesting/PipelineCheck.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_frontend_core",
+      "styio_runtime_core",
+      "contract_llvm"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [
+      "styio_frontend_core",
+      "styio_runtime_core",
+      "contract_llvm"
+    ],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS"
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_frontend_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioPlatform/Platform.cpp",
+      "StyioToken/Token.cpp",
+      "StyioUnicode/Unicode.cpp",
+      "StyioParser/Parser.cpp",
+      "StyioParser/ParserLookahead.cpp",
+      "StyioParser/NewParserExpr.cpp",
+      "StyioParser/Tokenizer.cpp",
+      "StyioProfiler/FrontendProfiler.cpp",
+      "StyioUtil/SemanticIdentity.cpp",
+      "StyioUtil/SourceMap.cpp",
+      "StyioSession/SymbolInterner.cpp",
+      "StyioSession/TypeTable.cpp",
+      "StyioNative/NativeInterop.cpp",
+      "StyioResourceTopology/ResourceTopology.cpp",
+      "StyioToString/ToString.cpp",
+      "StyioIR/Verifier.cpp",
+      "StyioIR/PortableCallableBody.cpp",
+      "StyioLowering/PortableCallableBody.cpp",
+      "StyioSema/CallableInterface.cpp",
+      "StyioSema/CallableModuleLoader.cpp",
+      "StyioSema/CallableSpecializationGraph.cpp",
+      "StyioSema/SemanticAnalysis.cpp",
+      "StyioSema/TypeInfer.cpp",
+      "StyioLowering/AstToStyioIR.cpp",
+      "StyioLowering/AstToStyioIRStage.cpp",
+      "StyioLowering/StyioIROptimizer.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_symbol_core",
+      "contract_llvm",
+      "contract_dl"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [
+      "styio_symbol_core",
+      "contract_llvm",
+      "contract_dl"
+    ],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS"
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_ide_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioServices/StyioIDE/Common.cpp",
+      "StyioServices/StyioIDE/VFS.cpp",
+      "StyioServices/StyioIDE/CompilerBridge.cpp",
+      "StyioServices/StyioIDE/Syntax.cpp",
+      "StyioServices/StyioIDE/TreeSitterBackend.cpp",
+      "StyioServices/StyioIDE/HIR.cpp",
+      "StyioServices/StyioIDE/Project.cpp",
+      "StyioServices/StyioIDE/Index.cpp",
+      "StyioServices/StyioIDE/SemDB.cpp",
+      "StyioServices/StyioIDE/Service.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_frontend_core",
+      "styio_symbol_core",
+      "contract_llvm",
+      "styio_tree_sitter_runtime",
+      "styio_tree_sitter_styio"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [
+      "styio_frontend_core",
+      "styio_symbol_core",
+      "contract_llvm",
+      "styio_tree_sitter_runtime",
+      "styio_tree_sitter_styio"
+    ],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated",
+      "<BINARY_DIR>/tree-sitter/lib/include",
+      "<FIXTURE_DIR>/grammar/tree-sitter-styio/src"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS",
+      "STYIO_HAS_TREE_SITTER"
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_lspd": {
+    "TYPE": [
+      "EXECUTABLE"
+    ],
+    "SOURCES": [
+      "StyioServices/StyioLSP/Server.cpp",
+      "StyioServices/StyioLSP/main.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_ide_core",
+      "contract_llvm"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [],
+    "INCLUDE_DIRECTORIES": [
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS"
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_nano": {
+    "TYPE": [
+      "EXECUTABLE"
+    ],
+    "SOURCES": [
+      "main.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_nano_core"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [],
+    "INCLUDE_DIRECTORIES": [
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS",
+      "STYIO_CONTRACT_PROFILE=1",
+      "STYIO_PROJECT_VERSION=\"0.0.1\"",
+      "STYIO_RELEASE_CHANNEL=\"nano\"",
+      "STYIO_EDITION_MAX=\"2026\"",
+      "STYIO_LLVM_DIR=\"contract_LLVM_DIR\"",
+      "STYIO_SOURCE_DIR=\"contract_SOURCE_DIR\"",
+      "STYIO_CMAKE_C_COMPILER=\"contract_CMAKE_C_COMPILER\"",
+      "STYIO_CMAKE_CXX_COMPILER=\"contract_CMAKE_CXX_COMPILER\"",
+      "STYIO_CMAKE_MAKE_PROGRAM=\"contract_CMAKE_MAKE_PROGRAM\""
+    ],
+    "COMPILE_OPTIONS": [
+      "-Os"
+    ],
+    "OUTPUT_NAME": [
+      "styio-nano"
+    ],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_nano_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioPlatform/Platform.cpp",
+      "StyioToken/Token.cpp",
+      "StyioUnicode/Unicode.cpp",
+      "StyioParser/Parser.cpp",
+      "StyioParser/ParserLookahead.cpp",
+      "StyioParser/NewParserExpr.cpp",
+      "StyioParser/Tokenizer.cpp",
+      "StyioProfiler/FrontendProfiler.cpp",
+      "StyioUtil/SemanticIdentity.cpp",
+      "StyioUtil/SourceMap.cpp",
+      "StyioSession/SymbolInterner.cpp",
+      "StyioSession/TypeTable.cpp",
+      "StyioNative/NativeInterop.cpp",
+      "StyioResourceTopology/ResourceTopology.cpp",
+      "StyioToString/ToString.cpp",
+      "StyioIR/Verifier.cpp",
+      "StyioIR/PortableCallableBody.cpp",
+      "StyioLowering/PortableCallableBody.cpp",
+      "StyioSema/CallableInterface.cpp",
+      "StyioSema/CallableModuleLoader.cpp",
+      "StyioSema/CallableSpecializationGraph.cpp",
+      "StyioSema/SemanticAnalysis.cpp",
+      "StyioSema/TypeInfer.cpp",
+      "StyioLowering/AstToStyioIR.cpp",
+      "StyioLowering/AstToStyioIRStage.cpp",
+      "StyioLowering/StyioIROptimizer.cpp",
+      "StyioCodeGen/CallableSpecializationObjectCache.cpp",
+      "StyioCodeGen/GetTypeG.cpp",
+      "StyioCodeGen/CodeGenG.cpp",
+      "StyioCodeGen/LLVMEmission.cpp",
+      "StyioCodeGen/CodeGenPulse.cpp",
+      "StyioCodeGen/GetTypeIO.cpp",
+      "StyioCodeGen/CodeGenIO.cpp",
+      "StyioExtern/ExternLib.cpp",
+      "StyioRuntime/RuntimeState.cpp",
+      "StyioRuntime/ObservationBuffer.cpp",
+      "StyioTesting/PipelineCheck.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "styio_symbol_core",
+      "styio_observable_core",
+      "contract_llvm"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [
+      "styio_symbol_core",
+      "styio_observable_core",
+      "contract_llvm"
+    ],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS",
+      "STYIO_CONTRACT_PROFILE=1"
+    ],
+    "COMPILE_OPTIONS": [
+      "-Os"
+    ],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_observable_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioServices/StyioObservable/Snapshot.cpp",
+      "StyioServices/StyioObservable/Delta.cpp",
+      "StyioServices/StyioObservable/Query.cpp",
+      "StyioServices/StyioObservable/Service.cpp",
+      "StyioServices/StyioObservable/RuntimeCorrelation.cpp"
+    ],
+    "LINK_LIBRARIES": [],
+    "INTERFACE_LINK_LIBRARIES": [],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_runtime_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioExtern/ExternLib.cpp",
+      "StyioRuntime/RuntimeState.cpp",
+      "StyioRuntime/ObservationBuffer.cpp"
+    ],
+    "LINK_LIBRARIES": [
+      "contract_llvm",
+      "styio_observable_core"
+    ],
+    "INTERFACE_LINK_LIBRARIES": [
+      "contract_llvm",
+      "styio_observable_core"
+    ],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS"
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  },
+  "styio_symbol_core": {
+    "TYPE": [
+      "STATIC_LIBRARY"
+    ],
+    "SOURCES": [
+      "StyioParser/SymbolRegistry.cpp"
+    ],
+    "LINK_LIBRARIES": [],
+    "INTERFACE_LINK_LIBRARIES": [],
+    "INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "INTERFACE_INCLUDE_DIRECTORIES": [
+      "<FIXTURE_DIR>/src",
+      "<BINARY_DIR>/generated"
+    ],
+    "COMPILE_DEFINITIONS": [
+      "STYIO_CONTRACT_LLVM_SETTINGS"
+    ],
+    "COMPILE_OPTIONS": [],
+    "OUTPUT_NAME": [],
+    "MANUALLY_ADDED_DEPENDENCIES": []
+  }
+}

@@ -2,13 +2,15 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-01
 
 ## Mission
 
 Own StyioIR-to-LLVM lowering and the runtime surface that compiled programs call. This team protects LLVM IR correctness, JIT symbol exposure, external helper ownership, handle lifecycle, runtime diagnostics, and performance-sensitive execution paths.
 
 ## Owned Surface
+
+Build membership: edit `src/cmake/StyioBackendSources.cmake`, `StyioRuntimeSources.cmake`, or `StyioNativeInteropSources.cmake` for their owned units. `targets/StyioRuntimeCore.cmake` owns runtime links, including its public Observable dependency. `StyioCoreSources.cmake` and `targets/StyioCore.cmake` are joint with Test Quality because the core also contains PipelineCheck. RuntimeCorrelation manifests and the public Observable target remain joint with Sema / IR; unrelated IDE and CLI target lists do not trigger this runbook.
 
 Primary paths:
 
@@ -18,6 +20,8 @@ Primary paths:
 4. `src/StyioExtern/`
 5. `src/StyioRuntime/`
 6. Runtime-facing parts of `src/main.cpp`
+7. Event semantics in `src/StyioServices/StyioObservable/RuntimeCorrelation.*`, jointly reviewed with Sema / IR
+8. The Runtime-owned source and target modules listed above, with joint composition only at their declared boundaries
 
 Related docs:
 
@@ -25,6 +29,10 @@ Related docs:
 2. [../design/Styio-StdLib-Intrinsics.md](../design/Styio-StdLib-Intrinsics.md)
 3. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
 4. [../../workflows/ADD-SYNTAX-WITH-SKILLS.md](../../workflows/ADD-SYNTAX-WITH-SKILLS.md)
+
+Runtime correlation uses the [observable semantic boundary](../design/Styio-Observable-Language.md#8-static-and-runtime-separation)
+and [public decoder contract](../../src/StyioServices/StyioObservable/README.md).
+The runtime reports execution instances; it does not reconstruct compiler facts.
 
 ## Daily Workflow
 
@@ -34,7 +42,7 @@ Related docs:
 4. Update security, five-layer, and soak coverage before accepting a runtime contract change.
 5. Use benchmark routes for hot paths, not terminal timing impressions.
 6. Preserve the current legacy bounded final-bind compatibility contract until an explicit final-binding/Topology checkpoint changes it: final-bind lowers to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete.
-7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
+7. Treat `runtime-events.jsonl` as a published artifact: v2 `event_kind` records (`compile.*` / `run.*` / `thread.*` / `unit.*` / `unit.test.*` / `state.changed` / `transition.fired` / `log.emitted` / `diagnostic.emitted` plus opt-in task/scheduler overlay) require same-checkpoint tests and consumer doc updates. Do not emit v1 `eventKind` or raw `message`/`file` payloads.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
 10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
@@ -49,6 +57,7 @@ Related docs:
 19. Typed stdin pulls lower from `InstantPull` to `SIOStdStreamPull::result_type` for scalar i64/f64/string and typed list pulls. Untyped collect-bind stdin may still use `SIOListReadStdin`. String pulls must clone the borrowed stdin buffer before binding, and `list[f64]` stdin pulls must use the f64 list reader rather than falling through to i64 parsing. String concatenation should route non-string operands through `promote_to_cstr` so f64 formatting uses the same runtime decimal helper as other output paths.
 20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
+21a. `SGCond` `Logic_AND` / `Logic_OR` must short-circuit like C/C++ boolean `&&` / `||`: evaluate the RHS only when the LHS does not already determine the result. Emit branch+phi (not eager `and`/`or` of both sides) so guards such as `i < n && xs[i]` never evaluate an out-of-bounds index when the bound check fails. Keep `Logic_XOR` eager; preserve the legacy mixed i1/i64 AND select shape with the same short-circuit control flow. Golden evidence: `tests/features/scalar_expressions/t22_logic_and_short_circuit.styio`, `t23_logic_or_short_circuit.styio`, `t24_logic_and_evaluates_rhs.styio`.
 22. Native interop platform compatibility belongs with runtime ownership: keep dynamic-library load/unload/symbol lookup paths portable across `dlopen` and Windows `LoadLibrary`, and pair loader changes with the smallest native interop or LSP build smoke that exercises the affected binary.
 23. Standalone continue codegen targets the innermost active loop. Do not reintroduce multi-depth continue dispatch in LLVM emission unless Sema and IR grow a new explicit continuation-domain contract first.
 24. Inferred callable schemes have no runtime representation. Lower only fully resolved, demand-driven specializations under deterministic compiler symbols, deduplicate equal concrete relations, and keep function parameter/result LLVM types synchronized with the active specialization. Do not add boxing, runtime type dictionaries, heap allocation, or GC to implement rank-1 callable instances.
@@ -66,6 +75,8 @@ Related docs:
 36. Treat top-level binding cardinality as a compile-time optimization fact, not a language change. Sema should reserve symbol/type tables from the known statement count and use the direct scalar path for a new unannotated bool/i64/f64 binding. Keep mutable `=` bindings addressable during emission and let the verified LLVM O2 pipeline perform mem2reg; do not add a second whole-IR write analysis that duplicates the optimizer and risks missing structured control-flow writes.
 37. Keep runtime absence out of raw scalar bit patterns. Absence-capable `i64` paths use the explicit `{defined, payload}` LLVM value ABI, pulse ledgers persist definition tags beside current/history payloads, and value fallback unwraps lazily before ordinary operators or callable/runtime argument ABIs. Raw `i64` arithmetic must accept the complete signed domain. A compile-time integer divisor proven nonzero and not `-1` emits `sdiv`/`srem` directly; every other integer division or remainder must branch around zero and `INT64_MIN / -1` before the instruction and report the stable arithmetic runtime error. Owned resource temporaries must clean up through entry-block handle slots whose runtime zeroing makes branch transfer dominance-safe and idempotent; cleanup calls must be guarded by a nonzero handle test so a transferred tuple cannot turn a successful return into a stale-handle failure. Runtime release treats handle zero as the empty ownership state while retaining diagnostics for stale nonzero tuple handles.
 
+38. The i64 list indexed-load fast path may cache a data pointer and length in a loop preheader only while the handle and backing storage remain current. List push, insert, set, pop, and list-handle rebinding must refresh cached views after mutation; keep a focused loop regression for each mutation shape before changing the cache policy.
+
 ## Change Classes
 
 1. Small: local LLVM builder cleanup or helper refactor with unchanged IR output. Run targeted pipeline tests.
@@ -78,22 +89,32 @@ Minimum local commands:
 
 ```bash
 python3 scripts/runtime-surface-gate.py
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L language_feature
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
 ```
+
+When runtime event producers, correlation or observation modes change:
+
+```bash
+ctest --test-dir build/default -L observable_runtime --output-on-failure --no-tests=error
+```
+
+Also use the [Test Quality runtime correlation selection](./TEST-QUALITY-RUNBOOK.md#required-gates)
+for compact codegen descriptors and disabled/static ABI evidence; the runtime
+label alone does not select every lowering, codegen or CLI test.
 
 Runtime stability:
 
 ```bash
-ctest --test-dir build/default -L soak_smoke
+ctest --test-dir build/default -L soak_smoke --output-on-failure --no-tests=error
 /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --quick
 ```
 
 For deeper runtime or allocation work:
 
 ```bash
-ctest --test-dir build/default -L soak_deep
+ctest --test-dir build/default -L soak_deep --output-on-failure --no-tests=error
 STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
   /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
@@ -104,7 +125,7 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
 2. Test Quality must review five-layer or security golden updates.
 3. Perf / Stability must review benchmark matrix, RSS thresholds, or long-loop behavior.
 4. CLI / Nano must review runtime capability output exposed through machine-info.
-5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes.
+5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes. Styio owns v2 semantics; consumers map fields only.
 
 ## Handoff / Recovery
 

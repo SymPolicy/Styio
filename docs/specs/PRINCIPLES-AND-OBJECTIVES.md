@@ -4,9 +4,9 @@
 
 [CN] 目标：定义 Styio 在规划、设计、开发、测试与审核中的项目级原则与目标；当取舍理由或文档发生冲突时，本文件定义 Styio 的优先级顺序与重写边界。
 
-[EN] Last updated: 2026-04-16
+[EN] Last updated: 2026-10-01
 
-[CN] 更新日期：2026-04-16
+[CN] 更新日期： 2026-10-01
 
 [EN] Status: Active project-governance SSOT
 
@@ -107,6 +107,13 @@
 | 4 | Keep the project converging toward one coherent system | Design, implementation, tests, reviews, and documentation should not drift into parallel truths. |
 | 5 | Preserve the ability to execute large architectural change | Compatibility-breaking migration and clean-room rewrite remain valid options as long as auditability and recovery discipline are preserved. |
 | 6 | Make the project easier to maintain as it grows | Each delivery should leave the next maintainer with clearer ownership boundaries, verification paths, and recovery instructions; growth must not push hidden complexity onto future maintainers. |
+
+### [EN] Language Identity
+
+Styio is a general-purpose visual programming language with symbolic syntax for
+expressing data flow. The [language design](../design/Styio-Language-Design.md#24-visual-design-intent)
+defines the program-view model and its machine-readable requirements; the
+observable contract records current compiler capabilities.
 
 ### [EN] Relationship To Other Documents
 

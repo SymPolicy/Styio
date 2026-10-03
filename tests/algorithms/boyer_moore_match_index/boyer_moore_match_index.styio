@@ -1,0 +1,44 @@
+/* Boyer-Moore-Horspool first match (C++ BMH; Styio: naive scan for same index).
+   Input: [n, m, t1..tn, p1..pm]
+   Empty pattern -> 0. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    need = 2 + n + m
+    ?(m == 0) => {
+        answer = 0
+    } | {
+        ?(n < 0 || m < 0) => {
+            answer = -1
+        } | {
+            ?(values.length >= need) => {
+                text_base = 2
+                pat_base = 2 + n
+                found = -1
+                ?(m > n) => {
+                    found = -1
+                } | {
+                    [0..n-m] >> #(i) => {
+                        ?(found < 0) => {
+                            ok = 1
+                            [0..m-1] >> #(j) => {
+                                ?(values[text_base + i + j] != values[pat_base + j]) => {
+                                    ok = 0
+                                }
+                            }
+                            ?(ok == 1) => {
+                                found = i
+                            }
+                        }
+                    }
+                }
+                answer = found
+            }
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,73 @@
+/* CLRS 22.4 Topological sort (Kahn): lex-smallest order; cycle -> empty stdout.
+   Input: [n, m, u1,v1,..., then n indeg + n alive workspace zeros]
+   Output: one vertex id per line (same multi-line style as minmax_pair). */
+values <- @stdin: list[i32]
+ok = 0
+count = 0
+order_base = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 2
+    need = edge_end + n + n + n
+
+    ?(n > 0 && values.length >= need) => {
+        indeg_base = edge_end
+        alive_base = edge_end + n
+        order_base = edge_end + n + n
+
+        [0..n-1] >> #(i) => {
+            values[indeg_base + i] = 0
+            values[alive_base + i] = 1
+            values[order_base + i] = 0
+        }
+        [0..m-1] >> #(e) => {
+            u = values[2 + e * 2]
+            v = values[2 + e * 2 + 1]
+            ?(u >= 0 && u < n && v >= 0 && v < n) => {
+                values[indeg_base + v] = values[indeg_base + v] + 1
+            }
+        }
+
+        count = 0
+        ok = 1
+        [0..n-1] >> #(step) => {
+            ?(ok == 1) => {
+                best = -1
+                [0..n-1] >> #(i) => {
+                    ?(values[alive_base + i] == 1 && values[indeg_base + i] == 0) => {
+                        ?(best < 0 || i < best) => {
+                            best = i
+                        }
+                    }
+                }
+                ?(best < 0) => {
+                    ok = 0
+                } | {
+                    values[alive_base + best] = 0
+                    values[order_base + count] = best
+                    count = count + 1
+                    [0..m-1] >> #(e) => {
+                        u = values[2 + e * 2]
+                        v = values[2 + e * 2 + 1]
+                        ?(u == best && v >= 0 && v < n) => {
+                            values[indeg_base + v] = values[indeg_base + v] - 1
+                        }
+                    }
+                }
+            }
+        }
+        ?(ok == 1 && count == n) => {
+            ok = 1
+        } | {
+            ok = 0
+        }
+    }
+}
+
+?(ok == 1) => {
+    [0..count-1] >> #(i) => {
+        >_(values[order_base + i])
+    }
+}

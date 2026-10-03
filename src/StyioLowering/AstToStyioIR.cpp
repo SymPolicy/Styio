@@ -275,6 +275,9 @@ main_sg_block_pipeline_options(AstToStyioIRLowerer* lowerer) {
   options.verify_after_each_pass = false;
   if (lowerer != nullptr) {
     options.result_sink = lowerer->pipeline_profile_sink();
+    if (lowerer->runtime_observation_requested()) {
+      options.verifier_options.require_observation_site_refs = true;
+    }
   }
   return options;
 }
@@ -4911,7 +4914,14 @@ AstToStyioIRLowerer::toStyioIR(TaskBlockAST* ast) {
   if (result_type.isUndefined()) {
     result_type = StyioDataType{StyioDataTypeOption::Integer, "i64", 64};
   }
-  return SIOTaskCreate::Create(body, result_type);
+  auto* created = SIOTaskCreate::Create(body, result_type);
+  if (const auto* binding = runtime_observation_site(ast)) {
+    created->observation.present = true;
+    created->observation.table_generation = binding->generation;
+    created->observation.descriptor_index = binding->descriptor_index;
+    created->observation.role = binding->role;
+  }
+  return created;
 }
 
 StyioIR*
@@ -4942,7 +4952,7 @@ AstToStyioIRLowerer::toStyioIR(FlowBindAST* ast) {
     result_type = source_type;
   }
   StyioIR* fallback = ast->hasFallback() ? ast->getFallback()->toStyioIR(this) : nullptr;
-  return SIOFlowBind::Create(
+  auto* bind = SIOFlowBind::Create(
     ast->getSource()->toStyioIR(this),
     ast->getTargetNameAsStr(),
     result_type,
@@ -4950,6 +4960,15 @@ AstToStyioIRLowerer::toStyioIR(FlowBindAST* ast) {
     fallback,
     ast->isAwaitBind()
   );
+  if (source_is_task || ast->isAwaitBind()) {
+    if (const auto* binding = runtime_observation_site(ast)) {
+      bind->observation.present = true;
+      bind->observation.table_generation = binding->generation;
+      bind->observation.descriptor_index = binding->descriptor_index;
+      bind->observation.role = binding->role;
+    }
+  }
+  return bind;
 }
 
 StyioIR*

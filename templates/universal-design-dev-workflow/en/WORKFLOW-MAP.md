@@ -31,4 +31,4 @@ flowchart LR
   CAS[CONTRIBUTOR_SPEC] -.-> IMPL
 ```
 
-Stall on human judgment: return to `OPEN-QUESTIONS-AND-HUMAN-INPUT.md`.
+For a necessary unresolved human decision, follow `OPEN-QUESTIONS-AND-HUMAN-INPUT.md`: pause only the dependent action after preparing the proposal, and continue independent authorized work.

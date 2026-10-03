@@ -1,6 +1,7 @@
 #include "SyntaxCheck.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <filesystem>
@@ -8,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -221,16 +223,34 @@ parse_diagnostics_from_context(const StyioContext& context, const SourceText& so
 
 bool
 read_file(const std::string& path, std::string& out, std::string& error) {
+  out.clear();
+  error.clear();
+  // Some platforms report EOF rather than a read error for directories. Follow
+  // symlinks here, but leave status errors and other file types to the existing
+  // open/read checks so readable non-regular sources remain supported.
+  std::error_code status_error;
+  if (std::filesystem::is_directory(path, status_error) && !status_error) {
+    error = "failed to read file";
+    return false;
+  }
   std::ifstream input(path, std::ios::binary);
   if (!input.is_open()) {
-    error = std::filesystem::exists(path) ? "cannot open file" : "file not found";
+    std::error_code ec;
+    const bool exists = std::filesystem::exists(path, ec);
+    error = ec || exists ? "cannot open file" : "file not found";
     return false;
   }
 
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  out = buffer.str();
-  if (!input.good() && !input.eof()) {
+  // Read through the input stream so I/O failures set its error bits. Inserting
+  // input.rdbuf() into an ostringstream can leave input.good() true after a
+  // read failure, incorrectly treating a directory as a valid empty source.
+  std::array<char, 8192> buffer{};
+  while (input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()))) {
+    out.append(buffer.data(), buffer.size());
+  }
+  out.append(buffer.data(), static_cast<std::size_t>(input.gcount()));
+  if (input.bad() || !input.eof()) {
+    out.clear();
     error = "failed to read file";
     return false;
   }

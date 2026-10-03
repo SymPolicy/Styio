@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-01
 
 ## Mission
 
@@ -10,7 +10,11 @@ Own the compiler-side profiler and the explicit integration seam used by `styio-
 
 Relative `STYIO_BENCHMARK_ROOT` values are resolved from the Styio source directory so the same explicit command works from either the compiler checkout or its two-repository parent.
 
+Use [Performance Research](../../workflows/PERFORMANCE-RESEARCH-WORKFLOW.md) and its [agent skill](../../workflows/skills/styio-performance-research/SKILL.md) for deep investigation or continuing optimization. Separate Benchmark and Modification tasks own evidence and implementation respectively: Benchmark reports findings and independently evaluates stable candidates; Modification returns bounded source changes and correctness results. Unspecified research defaults to Benchmark, which keeps measurements and the dossier external. Select continuous mode for repeated research: each report records the next action, waiting on one Modification handoff does not suspend independent investigation, and host continuation resumes existing state. This runbook remains the current compiler-tool authority; the skill reuses its commands and budgets.
+
 ## Owned Surface
+
+Frontend profiler source membership lives in `src/cmake/StyioFrontendProfilerSources.cmake`. Changing that fragment triggers Performance / Stability alone; changing the shared frontend composition (`StyioFrontendSources.cmake` or `targets/StyioFrontendCore.cmake`) requires its actual frontend, semantic, native, and profiler maintainers. Target splitting does not establish performance improvement.
 
 Primary paths:
 
@@ -38,6 +42,7 @@ High-value docs:
 6. Keep deep routes out of routine PR gates unless they protect an active high-risk change.
 7. When native `@extern` performance changes, measure both first-run compile cost and cached repeated-run cost. Cache results are only comparable when `STYIO_NATIVE_CACHE_DIR`, compiler command, and source hash inputs are controlled.
 8. Task scheduler changes need a wall-clock concurrency proof. Keep `StyioTaskSchedulerPerf.SleepTasksRunConcurrently` green and record the sequential/concurrent ratio when changing `styio_task_*_spawn`, worker-count selection, blocking pull, or task handle release. The repository-local `styio_runtime_scheduler_test` covers the single bounded-wait queue through capacity-one producer wake-up, close/drain settlement, and multi-producer/multi-consumer exact-once interleavings. External `styio_core_bench` emits scheduler metadata, and `styio-benchmark/tools/core-benchmark-compare.py --scheduler` reports it.
+9. Runtime-events v2 budgets are an explicit Release seam: `styio_observable_runtime_perf` and `styio_observable_runtime_budget_contract`. This tree records required metric fields and disabled/static structural zeros. Approved numeric ceilings live in the external result contract. Missing, stale, pending, or incomparable budgets fail the gate. Do not guess percentage thresholds or mark S3 approved.
 9. For Styio-language attribution, run `styio --profile-frontend --profile-out <report.json> --file <case.styio>` first. The report is `styio-profiler` JSON scoped to source read, tokenize, parser context creation, parse, type inference, Styio IR lowering, runtime/JIT initialization, LLVM IR generation, and execution, plus token histogram, parser-route counters, and async scheduler counters/queue metadata.
 10. For native executable run-only attribution, set `STYIO_NATIVE_PROFILE_OUT=<report.json>` while running a `styio build <file> -o <artifact>` output. The generated executable writes `styio-native-profiler` JSON with `runtime_init`, `execute`, and `runtime_check` phases; collect it during validation or a separate diagnostic run, not during measured repeats.
 11. Use LLVM XRay when benchmark deltas need C++ function-level attribution and `perf` is unavailable. Build an instrumented profile with `-fxray-instrument -fxray-instruction-threshold=1`, run with `XRAY_OPTIONS='patch_premain=true xray_mode=xray-basic xray_logfile_base=/tmp/styio-xray'`, then inspect with `llvm-xray account -instr_map=<instrumented-styio> -sort=sum -sortorder=dsc -top=30`. Treat XRay output as native profiler evidence, not Styio frontend attribution or release latency, because instrumentation inflates wall time.
@@ -64,7 +69,8 @@ cmake --build build/default --parallel --target styio styio_resource_topology_te
 ctest --test-dir build/default --output-on-failure --no-tests=error -L 'resource_topology|observable_static_snapshot'
 ```
 
-Profiler coherence is `snapshot_*_count` plus `snapshot_serialized_bytes` matching the published JSON size. Median durations remain JSON evidence, not local thresholds. The external benchmark owner decides collection and any later threshold.
+Profiler coherence is `snapshot_*_count` plus `snapshot_serialized_bytes` matching the published JSON size, and, when the plan names `parent_snapshot_path`, `delta_operation_count` plus `delta_serialized_bytes` matching the delta artifact size (both `0` on `full_snapshot_required`). Median durations remain JSON evidence, not local thresholds. The external benchmark owner decides collection and any later threshold.
+28. Observable S2 handoff uses `tests/fixtures/observable-topology/` and `ObservableTopologyService` counters (`input_records`, `changed_records`, `delta_bytes`, `visited_records`, `reused_shards`, `rebuilt_shards`, `retained_snapshot_bytes`, `retained_index_bytes`, `reference_fallbacks`). `styio-benchmark` owns wall time, allocation, RSS, reports, baselines, and thresholds. Suggested modes: cold full scan, cold index, warm retained bounded query, small-delta invalidation, full fallback, and retention pressure. Do not add a compiler-local threshold.
 
 ## Change Classes
 

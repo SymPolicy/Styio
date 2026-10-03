@@ -30,12 +30,29 @@
   },
   "ledger": {
     "defaulted": [],
-    "observed": [],
+    "observed": [
+      {
+        "fact": "PLAN-004 registers its producer and consumer suites under the ctest label observable_static_snapshot; no observable_snapshot_producer label exists, so the S1 acceptance gate selects that label.",
+        "source": "tests/CMakeLists.txt and docs/plan/observable-static-snapshot/Plan.json"
+      }
+    ],
     "unresolved": [],
     "user_decided": []
   },
   "lifecycle": {
-    "authorization": null,
+    "authorization": {
+      "authorized_at": "2026-09-04T20:03:04Z",
+      "autonomy": {
+        "allow_in_scope_revision": true,
+        "allow_reviewer_repairs": true,
+        "blocked_branch_policy": "continue_independent_work",
+        "forbid_mid_execution_questions": true
+      },
+      "reference_digest": "31393ccf47e2960c90b037fc859ff405e3394d97af2d03d11d01d04bdf557773",
+      "risk_reasons": [],
+      "semantic_digest": "c7e1081896576638efd433c8a6eec5bbb9655ff66b36c249580dda46609d7c04",
+      "source": "explicit"
+    },
     "continuation_receipts": [],
     "designer_session": {
       "agent_returned": true,
@@ -95,10 +112,56 @@
       },
       "status": "completed"
     },
-    "reviewer_session": null,
-    "sealed": null
+    "reviewer_session": {
+      "agent_returned": true,
+      "agent_returned_at": "2026-09-04T21:21:56Z",
+      "attempts": 1,
+      "closed_at": "2026-09-04T21:29:03Z",
+      "count": 1,
+      "findings_recorded": true,
+      "findings_recorded_at": "2026-09-04T21:21:56Z",
+      "host_agent_id": "0b34dc21-d5c1-49d8-bdc2-d34cf9c95ecf",
+      "id": "239ebb5c-b98a-443d-b96b-30b6252995ce",
+      "main_thread_fallback": false,
+      "opened_at": "2026-09-04T20:54:36Z",
+      "out_of_scope_findings": [
+        {
+          "evidence": "A manual initialize handshake against the built styio_lspd with a fresh workspace root under a read-only home prints libc++abi terminating due to uncaught exception filesystem_error in create_directories (Operation not permitted); the same test passes unchanged once the home directory is writable.",
+          "followup_plan": "PLAN-007",
+          "impact": "The LSP daemon crashes at startup instead of degrading (for example disabling the on-disk index cache) or failing with a clean diagnostic; the transport smoke test fails for purely environmental reasons, which can mask real regressions in sandboxed CI.",
+          "paths": [
+            "src/StyioServices/StyioIDE/Index.cpp"
+          ],
+          "risk_boundary": [
+            "Do not change LSP protocol behavior, stdio framing bytes, or the per-root cache identity scheme",
+            "Do not weaken the explicit environment-fallback and workspace-skip accounting rules for IDE project roots"
+          ],
+          "scope_reason": "PLAN-005 excludes IDE SemanticDB caches and any IDE or LSP behavior change (REQ-014 requires IDE and LSP behavior to remain unchanged), this delivery makes no IDE or LSP source modification, and the defect predates the Plan.",
+          "success": [
+            "styio_lspd answers initialize, or exits with a deliberate attributed diagnostic, when the IDE cache directory cannot be created",
+            "styio_lspd_stdio_framing passes in an environment with a read-only home directory"
+          ],
+          "summary": "On initialize, the IDE index cache unconditionally calls std::filesystem::create_directories for the per-root cache directory under the user cache root without catching std::filesystem::filesystem_error. When that cache root is not writable (read-only or sandboxed home), the daemon aborts via libc++abi before answering the initialize request, which surfaces as the styio_lspd_stdio_framing smoke test timing out with zero bytes.",
+          "title": "styio_lspd terminates on uncaught filesystem_error when the IDE cache directory cannot be created"
+        }
+      ],
+      "role": "reviewer",
+      "selector": {
+        "agent_type": "reviewer",
+        "model": "gpt-5.6-sol",
+        "model_provider": null,
+        "reasoning_effort": "max",
+        "selector_source": "installed-codex-role"
+      },
+      "status": "completed"
+    },
+    "sealed": {
+      "revision": 1,
+      "sealed_at": "2026-09-04T20:03:04Z",
+      "semantic_digest": "c7e1081896576638efd433c8a6eec5bbb9655ff66b36c249580dda46609d7c04"
+    }
   },
-  "phase": "ready",
+  "phase": "completed",
   "schema": "better-plan.plan/v3",
   "spec": {
     "architecture": {
@@ -293,7 +356,7 @@
               "type": "command"
             },
             "given": "PLAN-004 and its qualified producer fixtures",
-            "oracle": "`python3 -c \"import json; p=json.load(open('docs/plan/observable-static-snapshot/Checkpoints.json', encoding='utf-8')); assert p['tasks'] and all(t['status']=='completed' for t in p['tasks']); assert p['full_regression']['passed'] is True\"` and `ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error` both exit zero",
+            "oracle": "`python3 -c \"import json; p=json.load(open('docs/plan/observable-static-snapshot/Checkpoints.json', encoding='utf-8')); assert p['tasks'] and all(t['status']=='completed' for t in p['tasks']); assert p['full_regression']['passed'] is True\"` and `ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error` both exit zero",
             "then": "every PLAN-004 Task is completed, its full regression is green, and the producer-fixture label is non-empty and passing; otherwise S2 performs no implementation",
             "when": "the S2 stage gate is checked before any source Node runs"
           },
@@ -483,7 +546,7 @@
           "commands": [
             "cmake --build build/default --target styio styio_resource_topology_test styio_typeinfer_internal_test styio_lowering_internal_test styio_observable_delta_test styio_observable_query_test styio_observable_service_test styio_observable_consumer_test styio_ide_test -j2",
             "python3 -c \"import json; p=json.load(open('docs/plan/observable-static-snapshot/Checkpoints.json', encoding='utf-8')); assert p['tasks'] and all(t['status']=='completed' for t in p['tasks']); assert p['full_regression']['passed'] is True\"",
-            "ctest --test-dir build/default -L '^observable_snapshot_producer$' --output-on-failure --no-tests=error",
+            "ctest --test-dir build/default -L '^observable_static_snapshot$' --output-on-failure --no-tests=error",
             "ctest --test-dir build/default -R '^(StyioObservable(Delta|Lineage|Query|Service|Consumer)\\.)' --output-on-failure --no-tests=error",
             "ctest --test-dir build/default -L '^(resource_topology|sema_internal|lowering_internal)$' --output-on-failure --no-tests=error",
             "ctest --test-dir build/default -L '^(scalar_expressions|file_resources|state_resources|stream_processing|task_resources)$' --output-on-failure --no-tests=error",

@@ -41,3 +41,48 @@ The external `styio-benchmark` owner decides whether to collect these fields,
 which workloads to run, and whether any threshold belongs in that repository.
 This tree must not create `build/benchmark` or edit the external benchmark
 checkout for this incubating stage.
+
+## Observable delta, lineage, and bounded query handoff
+
+`styio-benchmark` owns timing, allocation, RSS, reports, baselines, and any
+later threshold. This repository owns correctness fixtures and path-free
+counters only.
+
+Fixture families live under `tests/fixtures/observable-topology/` and are
+indexed by `manifest.json` (`parent`, `child`, `delta`, `lineage`, `query`).
+
+Service counters to collect, without treating them as pass/fail here:
+
+- `input_records`, `changed_records`, `delta_bytes`
+- `visited_records`, `reused_shards`, `rebuilt_shards`
+- `retained_snapshot_bytes`, `retained_index_bytes`, `reference_fallbacks`
+
+Comparable modes: cold full snapshot scan, cold index build, warm retained
+bounded query, small-delta invalidation with shard reuse, full fallback after
+`drop_derived_indexes`, and retention-byte pressure. Privacy rules match the
+public snapshot contract: no source text, raw values, credentials, host paths,
+or backend runtime records.
+
+## Observable runtime-events v2 budget seam
+
+This repository owns measurement and budget enforcement for correlated runtime
+events. `styio-benchmark` owns approved numeric ceilings.
+
+```bash
+cmake -S . -B build/observable-runtime-benchmark \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  -DSTYIO_REQUIRE_EXTERNAL_BENCHMARK=ON
+cmake --build build/observable-runtime-benchmark --target \
+  styio_observable_runtime_perf_test styio_observable_runtime_budget_contract_test
+ctest --test-dir build/observable-runtime-benchmark \
+  -R '^styio_observable_runtime_(perf|budget_contract)$' --output-on-failure
+```
+
+`styio_observable_runtime_perf` writes a candidate result with the required
+wall, CPU, allocation, memory, size, volume, occupancy, and loss fields.
+`styio_observable_runtime_budget_contract` reads
+`STYIO_OBSERVABLE_RUNTIME_BUDGET_RESULT` or
+`build/.../benchmark/observable-runtime/approved-result.json` and fails closed
+on missing, stale, pending, incomparable, or unapproved budgets. Do not edit
+the external `styio-benchmark` checkout from this delivery.

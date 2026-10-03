@@ -1,0 +1,44 @@
+/* Subset-sum decision flag (CLRS DP / NP-completeness companion).
+   Input: [n, target, a1..an, then (target+1) DP workspace zeros]
+   Output: 1 if subset sums to target, else 0; target==0 -> 1. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    target = values[1]
+    need = 2 + n + target + 1
+
+    ?(target < 0) => {
+        answer = 0
+    } | {
+        ?(target == 0) => {
+            answer = 1
+        } | {
+            ?(n >= 0 && values.length >= need) => {
+                base = 2 + n
+                values[base] = 1
+                ?(target > 0) => {
+                    [1..target] >> #(s) => {
+                        values[base + s] = 0
+                    }
+                }
+                [0..n-1] >> #(i) => {
+                    v = values[2 + i]
+                    ?(v > 0 && v <= target) => {
+                        s = target
+                        [...] >> ?(s >= v) => {
+                            ?(values[base + s - v] == 1) => {
+                                values[base + s] = 1
+                            }
+                            s = s - 1
+                        }
+                    }
+                }
+                answer = values[base + target]
+            }
+        }
+    }
+}
+
+>_(answer)

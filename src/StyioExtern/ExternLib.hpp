@@ -65,6 +65,31 @@ extern "C" DLLEXPORT int64_t styio_task_i64_pull(int64_t h);
 extern "C" DLLEXPORT double styio_task_f64_pull(int64_t h);
 extern "C" DLLEXPORT const char* styio_task_cstr_pull(int64_t h);
 extern "C" DLLEXPORT void styio_task_release(int64_t h);
+struct StyioObservationDescriptor
+{
+  const char* snapshot_id;
+  const char* site_id;
+  uint8_t role;
+};
+extern "C" DLLEXPORT int64_t styio_task_i64_spawn_observed(
+  int64_t (*fn)(void*),
+  void* ctx,
+  uint32_t descriptor_index);
+extern "C" DLLEXPORT int64_t styio_task_f64_spawn_observed(
+  double (*fn)(void*),
+  void* ctx,
+  uint32_t descriptor_index);
+extern "C" DLLEXPORT int64_t styio_task_cstr_spawn_observed(
+  const char* (*fn)(void*),
+  void* ctx,
+  uint32_t descriptor_index);
+extern "C" DLLEXPORT int64_t styio_task_i64_pull_observed(int64_t h, uint32_t descriptor_index);
+extern "C" DLLEXPORT double styio_task_f64_pull_observed(int64_t h, uint32_t descriptor_index);
+extern "C" DLLEXPORT const char* styio_task_cstr_pull_observed(int64_t h, uint32_t descriptor_index);
+extern "C" DLLEXPORT void styio_observation_register_table(
+  uint32_t generation,
+  const StyioObservationDescriptor* table,
+  uint32_t count);
 extern "C" DLLEXPORT int64_t styio_task_active_count();
 extern "C" DLLEXPORT int64_t styio_task_worker_count();
 struct StyioTaskSchedulerProfileSnapshot
@@ -130,6 +155,8 @@ extern "C" DLLEXPORT void styio_list_insert_dict(int64_t h, int64_t idx, int64_t
 extern "C" DLLEXPORT void styio_list_insert_matrix(int64_t h, int64_t idx, int64_t value);
 extern "C" DLLEXPORT int64_t styio_list_clone(int64_t h);
 extern "C" DLLEXPORT int64_t styio_list_len(int64_t h);
+extern "C" DLLEXPORT const int64_t* styio_list_i64_data(int64_t h);
+extern "C" DLLEXPORT int64_t styio_list_i64_len(int64_t h);
 extern "C" DLLEXPORT int64_t styio_list_get_bool(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int8_t styio_list_get_char(int64_t h, int64_t idx);
 extern "C" DLLEXPORT int64_t styio_list_get(int64_t h, int64_t idx);

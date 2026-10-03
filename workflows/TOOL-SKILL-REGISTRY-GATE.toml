@@ -1,7 +1,7 @@
 id = "tool-skill-registry-gate"
 title = "Tool And Skill Registry Gate"
 purpose = "Validate the current repo-local skill and maintenance-tool inventory before delivery or release."
-last_updated = "2026-06-28"
+last_updated = "2026-10-01"
 doc = "TOOL-SKILL-REGISTRY-GATE.md"
 current_state_review_date = "2026-06-19"
 
@@ -15,6 +15,8 @@ required_skill_ids = [
   "styio-file-onboarding",
   "styio-functional-commit-readiness",
   "styio-parser-subset",
+  "styio-performance-research",
+  "styio-research-review-page",
   "styio-resource-identifier-change",
   "styio-syntax-change",
 ]
@@ -97,7 +99,7 @@ path = "scripts/docs-audit.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Validate documentation metadata, links, lifecycle state, public wording, and workflow metadata."
-last_reviewed = "2026-06-28"
+last_reviewed = "2026-09-08"
 
 [[tool]]
 id = "docs-gate"
@@ -297,7 +299,7 @@ path = "scripts/workflow-scheduler.py"
 owner = "Docs / Ecosystem"
 kind = "gate"
 purpose = "Register and run ordered workflow tool profiles."
-last_reviewed = "2026-06-28"
+last_reviewed = "2026-09-08"
 
 [[module_coverage]]
 module = "Frontend"
@@ -346,3 +348,11 @@ module = "Docs / Ecosystem"
 runbook = "docs/teams/DOCS-ECOSYSTEM-RUNBOOK.md"
 tool_ids = ["docs-gate", "workflow-scheduler", "tool-skill-registry-gate", "repo-hygiene-gate", "manifest-tool"]
 maintenance_command = "python3 scripts/tool-skill-registry-gate.py && ./scripts/docs-gate.sh"
+
+[[tool]]
+id = "verification-report"
+path = "scripts/verification-report.py"
+owner = "Test Quality"
+kind = "entrypoint"
+purpose = "Report Git-tracked file routing and existing CI/compilation evidence without blocking delivery or rerunning checks."
+last_reviewed = "2026-10-03"

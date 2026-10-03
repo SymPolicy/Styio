@@ -2,15 +2,19 @@
 
 **Purpose:** Define the durable language and compiler boundary for observable semantic facts, their ownership, identity, evidence, runtime correlation, and consumer isolation. This document does not own source syntax, implementation sequencing, UI design, or telemetry storage.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-01
 
-**Status:** Active design contract. The implemented incubating static-only snapshot schema lives in `src/StyioServices/StyioObservable/README.md` and `tests/fixtures/observable_static_snapshot/v1/`; this document remains the long-term vocabulary and must not be treated as the wire-schema authority.
+**Status:** Active design contract. The implemented incubating static snapshot, delta, lineage, and bounded query contracts live in `src/StyioServices/StyioObservable/README.md` with fixtures under `tests/fixtures/observable_static_snapshot/v1/` and `tests/fixtures/observable-topology/`; this document remains the long-term vocabulary and must not be treated as the wire-schema authority.
 
 **See also:** [Styio Language Design](./Styio-Language-Design.md), [Resource Topology](./Styio-Resource-Topology.md), [current repository state](../rollups/CURRENT-STATE.md), and [next-stage gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
 ---
 
 ## 1. Contract
+
+The [language design](./Styio-Language-Design.md#24-visual-design-intent) defines
+the program-view model. This contract defines the compiler facts and runtime
+observations available to tooling consumers.
 
 Styio treats observability as a language and compiler property, not as a UI-side reconstruction of source text. The durable objective is to make program structure, data flow, effects, ownership, mutation, failure, task causality, and resource pressure available as facts that:
 
@@ -71,11 +75,34 @@ Its active edge vocabulary is:
 
 The graph currently supports validation, kind counts, cycle detection, a diagnostic `debug_string()`, and compiler-internal opaque semantic identity on every node. Dense node IDs remain build-order indexes and node source links remain process-local AST pointers. `debug_string()` is diagnostic text, contains no semantic IDs, may contain source-derived labels, and is not an external protocol or telemetry format.
 
-An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Delta, query index, lineage protocol, and runtime correlation remain unimplemented.
+An incubating schema-v1 static snapshot adapter can serialize the Sema-owned artifact for a qualified package entry. Snapshot delta, lineage representation, and bounded query are implemented as public S2 contracts over that snapshot. The compiler currently emits no rename, move, split, or merge lineage records. Runtime-events schema v2 is implemented as an explicit compile-plan overlay and remains unapproved for default enablement. Cancellation and cooperative suspension producers are schema-owned and advertised unavailable.
 
 Semantic analysis owns one immutable validated topology artifact per successfully analyzed resource-bearing root. Its order-unspecified descriptor seam exposes only node kind, typed semantic role, opaque identity, and explicit qualification status; the owning artifact retains the qualified-or-anonymous scope once. Lowering requires and reuses that exact Sema-owned proof; the import-free narrow scalar subset records an explicit no-op result, while failed or replacement analysis leaves no stale consumable artifact. This internal capability does not change diagnostics, code generation, or ordinary compiler operation.
 
-The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented schema, capability names, completeness values, ID grammar, request shape, output filename, and receipt behavior are owned by `src/StyioServices/StyioObservable/README.md` and the producer/consumer fixtures. Delta, query, lineage, runtime correlation, scheduler hooks, and Vityo UI remain deferred. The schema is incubating, static-only, and unapproved.
+The full compiler may optionally publish one incubating schema-v1 static snapshot from that same Sema artifact for a qualified Pafio package entry. Publication is adapter-owned, privacy-preserving, and fail-closed. The default compiler path does not construct snapshot state. The implemented snapshot, delta, lineage, bounded query, negotiation, retention, degradation, and runtime-events v2 contracts are owned by `src/StyioServices/StyioObservable/README.md` together with `tests/fixtures/observable_static_snapshot/v1/`, `tests/fixtures/observable-topology/`, and `tests/fixtures/observable-runtime-correlation/v2/`. Mutable service caches are not semantic facts. Vityo UI implementation and acceptance belong to its own repository, as defined by the [repository map](../specs/REPOSITORY-MAP.md); this compiler contract does not establish its current UI delivery status. Snapshot and runtime-event schemas are incubating and unapproved.
+
+### 3.1 Coverage and interpretation
+
+The existing resource graph is not a complete exported module or control-flow
+graph. It has no dedicated module, loop, or branch node kinds. Traversing a
+condition or a loop body for resource validation does not by itself publish all
+control alternatives, iteration structure, or call dependencies. The scalar
+no-op snapshot is deliberately empty; its completeness means that the admitted
+resource-topology contract was satisfied, not that every source construct has
+a visual representation. Source anchors currently have file precision only.
+
+Broader coverage is delivered in independently testable slices:
+
+| Proposed slice | Acceptance evidence |
+|---|---|
+| Module hierarchy | Module ownership, nested scopes, and cross-boundary connections remain traceable when an independent consumer collapses or expands a view. |
+| Data and control flow | Separate fixtures cover sequence, branch, loop, and call dependencies, including explicit unsupported cases and incomplete facts. |
+| Runtime correlation | Repeated iterations and different branch outcomes resolve to static sites; unobserved, sampled, and lost events remain distinguishable. |
+| Consumer integration | Each displayed semantic relationship links to producer evidence; the consumer uses the public contract without compiler-private dependencies. |
+
+Each slice needs its owning contract, producer fixture, independent consumer
+fixture, and completeness checks. Exact fields remain in the decoder contract;
+see the [gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence).
 
 ## 4. Static observable artifact
 
@@ -113,7 +140,7 @@ Its logical inputs may include project identity, logical module identity, declar
 
 The implemented compiler-internal identity uses a qualified compilation-unit scope — namespaced package name plus canonical slash-form manifest-relative and matched entry-relative paths — or an explicit anonymous scope that is not globally comparable. A versioned, fixed-width length-prefixed preimage (`styio.semantic-resource-node.v2`) combines that scope with typed owner, role, and local structural discriminator components; the first 128 bits of SHA-256 are retained as the opaque value. Source locations, parser filenames, file-resource label text, literal payloads, addresses, session-local IDs, graph order, and raw source/body digests are forbidden inputs. A per-build exact-key guard fails closed on collision without salting or probing.
 
-Whitespace, comments, formatting, optimization level, and unrelated named or structurally distinct declarations do not cause identity churn. Named owner changes and typed structural rewrites may change the affected region. Indistinguishable same-owner siblings are unique and stable across an equivalent rebuild, but insertion, deletion, or reordering within that ambiguity class has no stability promise. Public lineage remains deferred; consumers must not infer it from text similarity.
+Whitespace, comments, formatting, optimization level, and unrelated named or structurally distinct declarations do not cause identity churn. Named owner changes and typed structural rewrites may change the affected region. Indistinguishable same-owner siblings are unique and stable across an equivalent rebuild, but insertion, deletion, or reordering within that ambiguity class has no stability promise. Public lineage is producer-authored only: rename, move, split, and merge records exist when compiler evidence is present, and consumers must not infer relations from text similarity.
 
 Runtime correlation uses an immutable `snapshot_id` plus a persistent static `site_id`. Runtime instance IDs never replace static site identity.
 
@@ -143,11 +170,13 @@ The query service may share workspace, file watching, source mapping, and proces
 
 Static topology answers what may or must exist. A runtime overlay answers what occurred in one execution. Neither substitutes for the other.
 
-Runtime events that correlate to topology must carry explicit causal identifiers when available. Timestamp proximity is not evidence that one task woke, blocked, cancelled, or backpressured another. Wait observations must distinguish at least runnable scheduling latency, cooperative suspension, I/O, resource, task, backpressure, timer, cancellation, and unknown waits before a consumer presents a precise cause.
+Runtime events that correlate to topology must carry explicit causal identifiers when available. Timestamp proximity is not evidence that one task woke, blocked, cancelled, or backpressured another. Wait observations must distinguish at least runnable scheduling latency, cooperative suspension, I/O, resource, task, backpressure, timer, cancellation, and unknown waits before a consumer presents a precise cause. The current producer implements runnable, task, and backpressure waits; the remaining reasons are schema-owned and advertised unavailable.
 
 High-frequency observations default to aggregation or sampling. Lifecycle, failure, cancellation, and loss-accounting events have higher retention value than per-item stream samples. Telemetry buffers must not block the application merely to preserve low-priority observations.
 
-OpenTelemetry and Perfetto are exporter targets. They do not define Styio's static ownership, mutation, effect, type, failure, or resource semantics.
+The implemented overlay is runtime-events v2: one session, one sink, one drain owner, and a closed four-mode enum (`disabled`, `aggregate`, `sampled`, `detailed`). Disabled and static-only compilation keep the existing task ABI. Enabled compilation registers compact snapshot/site descriptors and observed spawn/pull entrypoints. Instance IDs are lane-local sequences, not handles. Completeness is `complete` only when required producers ran, retained references resolve, no buffer/export loss occurred, and the final summary was written.
+
+OpenTelemetry and Perfetto are exporter targets. They do not define Styio's static ownership, mutation, effect, type, failure, or resource semantics. S3 is still unapproved.
 
 ## 9. Privacy and cost
 
@@ -182,12 +211,12 @@ This contract does not:
 - make arbitrary compiler internals public or stable;
 - make runtime samples the canonical project model;
 - allow Vityo to infer canonical semantic edges from text, call stacks, or addresses;
-- connect compiler topology directly to the runtime scheduler before a versioned correlation contract exists; or
+- connect compiler topology directly to the runtime scheduler without the versioned v2 correlation contract; or
 - allow an agent to weaken user-owned hard policy to make a change pass.
 
 ## 12. Evidence obligations
 
-Current compiler behavior remains guarded by `styio_resource_topology_test`, `styio_observable_static_snapshot_test`, `styio_observable_static_snapshot_consumer_test`, and the resource, task, state, stream, Sema, lowering, and IDE suites registered in `tests/CMakeLists.txt` and [the test catalog](../../workflows/TEST-CATALOG.md). Focused lifecycle evidence proves move-only const observation, successful publication, scalar no-op, failure/reanalysis cleanup, same-artifact lowering reuse, mismatched-root rejection, and compiler-owned IDE diagnostics; a source oracle proves lowering contains no alternate topology builder or validator path. The incubating snapshot stage adds canonical producer goldens, independent JSON-only consumer fixtures, admission/privacy/disabled-path proofs, and opt-in profiler counts without declaring the schema stable.
+Current compiler behavior remains guarded by `styio_resource_topology_test`, `styio_observable_static_snapshot_test`, `styio_observable_static_snapshot_consumer_test`, `styio_observable_delta_test`, `styio_observable_query_test`, `styio_observable_service_test`, `styio_observable_consumer_test`, and the resource, task, state, stream, Sema, lowering, and IDE suites registered in `tests/CMakeLists.txt` and [the test catalog](../../workflows/TEST-CATALOG.md). Focused lifecycle evidence proves move-only const observation, successful publication, scalar no-op, failure/reanalysis cleanup, same-artifact lowering reuse, mismatched-root rejection, and compiler-owned IDE diagnostics; a source oracle proves lowering contains no alternate topology builder or validator path. The incubating snapshot stage adds canonical producer goldens, independent JSON-only consumer fixtures, admission/privacy/disabled-path proofs, and opt-in profiler counts without declaring the schema stable. S2 adds deterministic delta reconstruction, producer-only lineage, bounded query equivalence, retention/invalidation, and public-consumer isolation over `tests/fixtures/observable-topology/`.
 
 Each delivered observable capability must add the narrowest applicable evidence:
 

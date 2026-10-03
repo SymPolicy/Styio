@@ -231,6 +231,12 @@ WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
         "Documentation metadata, generated indexes, and archive lifecycle.",
     ),
     WorkflowDoc(
+        "performance-research",
+        "workflows/PERFORMANCE-RESEARCH-WORKFLOW.md",
+        25,
+        "Separate Benchmark research, Modification implementation, and independent performance evaluation.",
+    ),
+    WorkflowDoc(
         "docs-gate",
         "workflows/DOCS-GATE.md",
         35,
@@ -590,13 +596,30 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    profile = PROFILES_BY_KEY.get(args.profile)
+    # These profiles contain read-only checks. Reuse is deliberately confined to
+    # this invocation: no persistent cache, tree hashing, or cross-machine claim.
+    profiles = args.profile if isinstance(args.profile, list) else [args.profile]
+    completed: set[tuple[tuple[str, ...], bool]] = set()
+    for profile_name in profiles:
+        result = run_profile(args, profile_name, completed)
+        if result:
+            return result
+    return 0
+
+
+def run_profile(
+    args: argparse.Namespace,
+    profile_name: str,
+    completed: set[tuple[tuple[str, ...], bool]],
+) -> int:
+    profile = PROFILES_BY_KEY.get(profile_name)
     if profile is None:
-        print(f"unknown profile: {args.profile}", file=sys.stderr)
+        print(f"unknown profile: {profile_name}", file=sys.stderr)
         return 2
     assert isinstance(profile, Profile)
 
     skip = set(args.skip_tool or [])
+    team_docs_passed = False
     for key in profile.tools:
         if key in skip:
             print(f"[workflow-scheduler] skip {key}")
@@ -621,10 +644,26 @@ def cmd_run(args: argparse.Namespace) -> int:
         except ValueError as exc:
             print(f"[workflow-scheduler] {key}: {exc}", file=sys.stderr)
             return 2
-        print(f"[workflow-scheduler] {key}: {' '.join(command)}", flush=True)
-        proc = subprocess.run(command, cwd=ROOT)
-        if proc.returncode != 0:
-            return proc.returncode
+        # docs-audit embeds a default worktree team-docs check. The profile
+        # already owns the correctly scoped check; suppress only that duplicate
+        # after it succeeded, never merely because it was listed or skipped.
+        reuse_team_docs = key == "docs-audit" and team_docs_passed
+        identity = (tuple(command), reuse_team_docs)
+        if identity in completed:
+            print(f"[workflow-scheduler] reuse {key} (passed in this invocation)", flush=True)
+        else:
+            print(f"[workflow-scheduler] {key}: {' '.join(command)}", flush=True)
+            env = os.environ.copy()
+            if key == "docs-audit":
+                env.pop("STYIO_SKIP_TEAM_DOC_GATE", None)
+                if reuse_team_docs:
+                    env["STYIO_SKIP_TEAM_DOC_GATE"] = "1"
+            proc = subprocess.run(command, cwd=ROOT, env=env)
+            if proc.returncode != 0:
+                return proc.returncode
+            completed.add(identity)
+        if key in {"team-docs-worktree", "team-docs-staged", "team-docs-base"}:
+            team_docs_passed = True
     print(f"[workflow-scheduler] profile {profile.key} passed")
     return 0
 
@@ -641,7 +680,8 @@ def parse_args() -> argparse.Namespace:
     list_cmd.set_defaults(func=cmd_list)
 
     run = sub.add_parser("run", help="Run a registered workflow profile.")
-    run.add_argument("--profile", required=True, choices=sorted(PROFILES_BY_KEY))
+    run.add_argument("--profile", required=True, action="append", choices=sorted(PROFILES_BY_KEY),
+                     help="Repeat to compose read-only profiles, reusing identical successful checks.")
     run.add_argument("--base", default=os.environ.get("STYIO_WORKFLOW_BASE", ""))
     run.add_argument("--range", default=os.environ.get("STYIO_WORKFLOW_RANGE", ""))
     run.add_argument("--event-name", default=os.environ.get("GITHUB_EVENT_NAME", ""))
