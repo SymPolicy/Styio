@@ -107,7 +107,10 @@ A compatible CMake/Ninja build tree may be restored on the same path/toolchain
 profile. Ephemeral checkout timestamps are normalized after identity validation
 so an unchanged promotion checkout does not cause a rebuild solely due to file
 mtime. An incompatible generated build cache is discarded before normalization;
-source files, user branches and other worktrees are never deleted. Build reuse
+source files, user branches and other worktrees are never deleted. Rebuildable
+build caches are retained for seven days; smaller verification evidence and
+sealed stable/release payloads retain the 90-day window. An expired build cache
+requires missing build work, not automatically repeating still-valid tests. Build reuse
 and test reuse are separate: a cached binary does not imply its tests passed.
 
 ## Examples and Advisory Findings

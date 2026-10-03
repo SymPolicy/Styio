@@ -172,7 +172,7 @@ jobs:
         with:
           name: promotion-build-${{ matrix.platform }}
           path: styio-nightly/build/promotion-evidence/build.tar.gz
-          retention-days: 90
+          retention-days: 7
           overwrite: true
           compression-level: 0
           if-no-files-found: error

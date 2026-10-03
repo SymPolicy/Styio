@@ -6,6 +6,8 @@
 
 Maintain the [Incremental Promotion](../specs/INCREMENTAL-PROMOTION.md) contract: one public update stream, internal stages, source-bound evidence reuse, explicit advisory discovery, and no automatic publication or protection changes.
 
+Keep rebuildable promotion caches at seven days and verification evidence/sealed payloads at 90 days; cache expiry is missing build work, not invalidation of successful test evidence. The existing candidate-specific prebuild policy chain remains required.
+
 ## Mission
 
 Own documentation structure and cross-repository clarity. This team protects SSOT discipline, generated indexes, archive provenance, external repository boundaries, handoff notes, and reusable templates. It does not redefine language semantics, accepted tests, or package-manager ownership.
