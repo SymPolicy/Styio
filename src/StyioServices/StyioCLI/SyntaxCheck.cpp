@@ -225,6 +225,14 @@ bool
 read_file(const std::string& path, std::string& out, std::string& error) {
   out.clear();
   error.clear();
+  // Some platforms report EOF rather than a read error for directories. Follow
+  // symlinks here, but leave status errors and other file types to the existing
+  // open/read checks so readable non-regular sources remain supported.
+  std::error_code status_error;
+  if (std::filesystem::is_directory(path, status_error) && !status_error) {
+    error = "failed to read file";
+    return false;
+  }
   std::ifstream input(path, std::ios::binary);
   if (!input.is_open()) {
     std::error_code ec;

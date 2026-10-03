@@ -236,3 +236,8 @@ Empty regular files remain valid. `services_syntax_source_io` exercises the
 public CLI for directories, missing sources, empty files, escaped paths, and
 read-buffer boundaries. The check is part of the existing `styio_pipeline`
 gate; it does not require extra services.
+
+The cross-platform source-read check explicitly rejects directories (including
+symlink targets) before opening: some platforms report directory reads as EOF.
+Regular-file symlinks remain accepted; status-query errors still use the existing
+open/read error handling. The public CLI regression covers both symlink cases.
