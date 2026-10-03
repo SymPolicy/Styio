@@ -638,8 +638,14 @@ parse_c_type(const std::string& raw, CType& out) {
     out.kind = CTypeKind::I32;
     return true;
   }
-  if (normalized == "long" || normalized == "long int" || normalized == "long long"
-      || normalized == "long long int" || normalized == "int64_t" || normalized == "uint64_t"
+  if (normalized == "long" || normalized == "long int") {
+    // Native @extern uses the host compiler ABI: Windows LLP64 has 32-bit
+    // long, while the supported Unix LP64 hosts have 64-bit long.
+    out.kind = sizeof(long) == 4 ? CTypeKind::I32 : CTypeKind::I64;
+    return true;
+  }
+  if (normalized == "long long" || normalized == "long long int"
+      || normalized == "int64_t" || normalized == "uint64_t"
       || normalized == "size_t" || normalized == "ssize_t") {
     out.kind = CTypeKind::I64;
     return true;

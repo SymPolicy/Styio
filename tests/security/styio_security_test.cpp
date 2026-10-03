@@ -16,6 +16,7 @@
 #include <fstream>
 #include <future>
 #include <memory>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -1624,6 +1625,47 @@ TEST(StyioSecurityNightlyParserStmt, RejectsDeprecatedExternCppAbiSpelling) {
     "@extern(cpp) => { int fast_add(int a, int b); }\n";
   EXPECT_THROW(parse_program_to_repr_latest(src, true), StyioSyntaxError);
   EXPECT_THROW(parse_program_to_repr_latest(src, false), StyioSyntaxError);
+}
+
+TEST(StyioSecurityNativeToolchain, LongSignaturesMatchNativeHostAbi) {
+  using styio::native::CTypeKind;
+  const auto signatures = styio::native::parse_function_signatures(
+    "long signed_long(long value);\n"
+    "unsigned long int unsigned_long(unsigned long int value);\n"
+    "long long signed_wide(long long value);\n"
+    "unsigned long long unsigned_wide(unsigned long long value);\n");
+  ASSERT_EQ(signatures.size(), 4U);
+  const CTypeKind host_long = sizeof(long) == 4 ? CTypeKind::I32 : CTypeKind::I64;
+  for (size_t index = 0; index < signatures.size(); ++index) {
+    const auto& signature = signatures[index];
+    ASSERT_EQ(signature.params.size(), 1U);
+    const CTypeKind expected = index < 2 ? host_long : CTypeKind::I64;
+    EXPECT_EQ(signature.return_type.kind, expected);
+    EXPECT_EQ(signature.params[0].type.kind, expected);
+    EXPECT_EQ(signature.return_type.is_unsigned, index % 2 == 1);
+    EXPECT_EQ(signature.params[0].type.is_unsigned, index % 2 == 1);
+  }
+}
+
+TEST(StyioSecurityNativeToolchain, LongCallsPreserveNativeWidthAndSignedness) {
+  const auto loaded = styio::native::compile_and_load_block(
+    "c",
+    "long host_long_negate(long value) { return -value; }\n"
+    "unsigned long host_ulong_invert(unsigned long value) { return ~value; }\n"
+    "long long host_long_long_identity(long long value) { return value; }\n",
+    {"host_long_negate", "host_ulong_invert", "host_long_long_identity"});
+  ASSERT_EQ(loaded.symbols.size(), 3U);
+  const auto negate = reinterpret_cast<long (*)(long)>(loaded.symbols[0].address);
+  const auto invert = reinterpret_cast<unsigned long (*)(unsigned long)>(loaded.symbols[1].address);
+  const auto wide_identity = reinterpret_cast<long long (*)(long long)>(loaded.symbols[2].address);
+  ASSERT_NE(negate, nullptr);
+  ASSERT_NE(invert, nullptr);
+  ASSERT_NE(wide_identity, nullptr);
+  EXPECT_EQ(negate(123L), -123L);
+  EXPECT_EQ(negate(std::numeric_limits<long>::max()), -std::numeric_limits<long>::max());
+  EXPECT_EQ(invert(0UL), std::numeric_limits<unsigned long>::max());
+  EXPECT_EQ(invert(std::numeric_limits<unsigned long>::max()), 0UL);
+  EXPECT_EQ(wide_identity(0x123456789LL), 0x123456789LL);
 }
 
 TEST(StyioSecurityNativeToolchain, EnvCompilerOverridesBundledMode) {
