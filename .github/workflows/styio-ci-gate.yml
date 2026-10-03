@@ -97,8 +97,10 @@ jobs:
           -DCMAKE_CXX_COMPILER=clang++-18
           -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
           -DSTYIO_ENABLE_FUZZ=ON
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build
+        id: build
         working-directory: styio-nightly
         run: >
           cmake --build build/ci --target
@@ -107,6 +109,25 @@ jobs:
           styio_newparser_internal_test styio_parser_internal_test
           styio_platform_internal_test styio_native_interop_internal_test
           styio_fuzz_suite
+
+      - name: Report tracked files and compilation evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        working-directory: styio-nightly
+        run: >
+          python3 scripts/verification-report.py inventory
+          --compile-commands build/ci/compile_commands.json
+          --build-outcome '${{ steps.build.outcome }}'
+          --output build/reports/file-inventory.json
+
+      - name: Upload advisory file inventory
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-file-inventory
+          path: styio-nightly/build/reports/file-inventory.*
+          if-no-files-found: warn
 
       - name: Docs audit
         working-directory: styio-nightly
@@ -351,3 +372,62 @@ jobs:
               exit 1
             fi
           done
+
+  verification-report:
+    name: observability / verification-report
+    if: ${{ always() }}
+    needs: [styio-ci-gate, macos-ci-gate, test-smoke, test-golden-standard, required-ci-gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+
+    steps:
+      - name: Checkout report tool
+        uses: actions/checkout@v5
+
+      - name: Test report tool in isolation
+        continue-on-error: true
+        run: python3 tests/verification_report_test.py
+
+      - name: Collect existing evidence without rerunning tests
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p build/reports
+          gh run download "$RUN_ID" --name verification-file-inventory --dir build/reports || true
+          gh api --paginate "repos/$GH_REPO/commits/$CANDIDATE/check-runs?per_page=100" \
+            --jq '.check_runs[] | {name,status,conclusion,head_sha,html_url}' \
+            | jq -s . > build/reports/checks.json
+          gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | {name,status,conclusion,head_sha,html_url,steps}' \
+            | jq -s . > build/reports/jobs.json
+
+      - name: Write final advisory verification report
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          STYIO_CI_RESULTS: ${{ toJSON(needs) }}
+          STYIO_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >
+          python3 scripts/verification-report.py final
+          --inventory build/reports/file-inventory.json
+          --checks build/reports/checks.json
+          --jobs build/reports/jobs.json
+          --output build/reports/verification-report.json
+
+      - name: Upload final verification report
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-report
+          path: build/reports/verification-report.*
+          if-no-files-found: warn

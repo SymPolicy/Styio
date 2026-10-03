@@ -348,3 +348,11 @@ module = "Docs / Ecosystem"
 runbook = "docs/teams/DOCS-ECOSYSTEM-RUNBOOK.md"
 tool_ids = ["docs-gate", "workflow-scheduler", "tool-skill-registry-gate", "repo-hygiene-gate", "manifest-tool"]
 maintenance_command = "python3 scripts/tool-skill-registry-gate.py && ./scripts/docs-gate.sh"
+
+[[tool]]
+id = "verification-report"
+path = "scripts/verification-report.py"
+owner = "Test Quality"
+kind = "entrypoint"
+purpose = "Report Git-tracked file routing and existing CI/compilation evidence without blocking delivery or rerunning checks."
+last_reviewed = "2026-10-03"
