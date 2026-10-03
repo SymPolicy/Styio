@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "title": "Example project review",
+  "updated_at": "2026-10-01T00:00:00Z",
+  "repositories": [
+    {
+      "id": "compiler",
+      "name": "Example compiler",
+      "url": "https://example.invalid/compiler",
+      "group": "engineering",
+      "route": "repositories/compiler/index.html",
+      "view": "draft",
+      "ref": "review/modules",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "state": {
+        "local": "complete",
+        "publication": "draft_pr",
+        "remote_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ci": "pending",
+        "pr": {
+          "url": "https://example.invalid/compiler/pull/1",
+          "state": "draft",
+          "head_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "sections": {
+        "plan": [
+          {
+            "type": "paragraph",
+            "text": "Clarify module boundaries without changing language semantics."
+          }
+        ],
+        "implemented": [
+          {
+            "type": "paragraph",
+            "text": "A local candidate separates existing build targets."
+          }
+        ],
+        "value": [
+          {
+            "type": "paragraph",
+            "text": "Benefit: more precise maintenance ownership. Cost: more explicit lists. User outcomes remain unmeasured."
+          }
+        ],
+        "verification": [
+          {
+            "type": "paragraph",
+            "text": "Focused checks passed; cross-platform builds were not run."
+          }
+        ],
+        "pending": [
+          {
+            "type": "paragraph",
+            "text": "Review the draft and investigate the preserved latency failure."
+          }
+        ]
+      },
+      "facts": {
+        "data": "facts.json",
+        "status": "facts-status.json"
+      }
+    }
+  ],
+  "pages": [
+    {
+      "title": "User guide",
+      "route": "guide/index.html",
+      "group": "user-docs",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Use verified source examples, with explicit version limits."
+        },
+        {
+          "type": "code",
+          "text": "value -> output"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Form",
+            "Meaning"
+          ],
+          "rows": [
+            [
+              "<| value",
+              "Return"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "title": "User skill",
+      "route": "skill/index.html",
+      "group": "user-skill",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Installation and runtime validation are separate states."
+        }
+      ]
+    },
+    {
+      "title": "Type model draft",
+      "route": "research/index.html",
+      "group": "research",
+      "html_file": "paper.html"
+    }
+  ]
+}

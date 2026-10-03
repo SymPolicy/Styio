@@ -1,10 +1,12 @@
 id = "team-runbook-maintenance-gate"
 title = "Team Runbook Maintenance Gate"
 purpose = "Require docs/teams runbooks to stay updated and shaped when owned folders change."
-last_updated = "2026-06-28"
+last_updated = "2026-10-01"
 doc = "TEAM-RUNBOOK-MAINTENANCE-GATE.md"
 
 commands = [
+  "python3 tests/cmake_ownership_test.py",
+  "python3 tests/cmake_target_contract_test.py --cmake cmake",
   "python3 scripts/team-docs-gate.py",
   "python3 scripts/team-docs-gate.py --mode staged",
   "python3 scripts/team-docs-gate.py --base origin/main",
