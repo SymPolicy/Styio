@@ -146,8 +146,10 @@ run_audit_gate() {
   fi
   local report
   report="$(git rev-parse --path-format=absolute --git-path general-auditor)"
-  run_cmd python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope history --output "$report/history.json"
-  run_cmd python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope worktree --output "$report/worktree.json"
+  audit_status=0
+  python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope history --output "$report/history.json" || audit_status=$?
+  python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope worktree --output "$report/worktree.json" || audit_status=$?
+  return "$audit_status"
 }
 
 run_scheduler_profile() {
