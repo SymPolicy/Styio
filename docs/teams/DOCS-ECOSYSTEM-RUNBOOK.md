@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-05
 
 Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
 
@@ -127,6 +127,9 @@ current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIV
    role separation: Benchmark owns workload/evidence and independent evaluation;
    Modification owns authorized compiler changes. Workloads, measurements, and
    dossiers stay in `styio-benchmark`; this repository owns compiler probes.
+   Treat agent observation windows as progress checkpoints, rely on host
+   completion notifications, and use bounded waits with progress updates only
+   when that host cannot notify.
 5. Route repository roles and external teaching material through the
    [repository map](../specs/REPOSITORY-MAP.md). Compiler-maintenance and user
    programming skills have different audiences and repositories.
