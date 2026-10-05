@@ -1912,6 +1912,9 @@ TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
     {"params", std::move(open_params)}});
   ASSERT_EQ(open_messages.size(), 1u);
   EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+  const auto* open_diagnostic_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(open_diagnostic_params, nullptr);
+  EXPECT_EQ(open_diagnostic_params->getInteger("version").value_or(-1), 1);
 
   auto completion_messages = server.handle(llvm::json::Object{
     {"jsonrpc", "2.0"},
@@ -2003,6 +2006,9 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
           {"version", 1},
           {"text", "# ad := (a: i32, b: i32) => a + b\nresult: i32 := ad\n"}}}}}});
   ASSERT_EQ(open_messages.size(), 1u);
+  const auto* open_diagnostic_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(open_diagnostic_params, nullptr);
+  EXPECT_EQ(open_diagnostic_params->getInteger("version").value_or(-1), 1);
 
   llvm::json::Array changes;
   changes.push_back(llvm::json::Object{
@@ -2020,6 +2026,9 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
        {"contentChanges", std::move(changes)}}}});
   ASSERT_EQ(change_messages.size(), 1u);
   EXPECT_EQ(change_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+  const auto* change_diagnostic_params = change_messages[0].payload.getObject("params");
+  ASSERT_NE(change_diagnostic_params, nullptr);
+  EXPECT_EQ(change_diagnostic_params->getInteger("version").value_or(-1), 2);
 
   auto symbol_messages = server.handle(llvm::json::Object{
     {"jsonrpc", "2.0"},
@@ -2183,6 +2192,9 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
           {"version", 1},
           {"text", "# add := (a: i32, b: i32) => a + b\nresult: i32 := add(1, 2)\n"}}}}}});
   ASSERT_EQ(open_messages.size(), 1u);
+  const auto* open_diagnostic_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(open_diagnostic_params, nullptr);
+  EXPECT_EQ(open_diagnostic_params->getInteger("version").value_or(-1), 1);
 
   llvm::json::Array invalid_changes;
   invalid_changes.push_back(llvm::json::Object{
@@ -2194,6 +2206,9 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
        {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 2}}},
        {"contentChanges", std::move(invalid_changes)}}}});
   ASSERT_EQ(invalid_messages.size(), 1u);
+  const auto* invalid_diagnostic_params = invalid_messages[0].payload.getObject("params");
+  ASSERT_NE(invalid_diagnostic_params, nullptr);
+  EXPECT_EQ(invalid_diagnostic_params->getInteger("version").value_or(-1), 2);
 
   llvm::json::Array invalid_changes_2;
   invalid_changes_2.push_back(llvm::json::Object{
@@ -2205,6 +2220,9 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
        {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 3}}},
        {"contentChanges", std::move(invalid_changes_2)}}}});
   ASSERT_EQ(invalid_messages_2.size(), 1u);
+  const auto* invalid_diagnostic_params_2 = invalid_messages_2[0].payload.getObject("params");
+  ASSERT_NE(invalid_diagnostic_params_2, nullptr);
+  EXPECT_EQ(invalid_diagnostic_params_2->getInteger("version").value_or(-1), 3);
 
   llvm::json::Array final_changes;
   final_changes.push_back(llvm::json::Object{
@@ -2216,12 +2234,16 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
        {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 4}}},
        {"contentChanges", std::move(final_changes)}}}});
   ASSERT_EQ(final_messages.size(), 1u);
+  const auto* final_diagnostic_params = final_messages[0].payload.getObject("params");
+  ASSERT_NE(final_diagnostic_params, nullptr);
+  EXPECT_EQ(final_diagnostic_params->getInteger("version").value_or(-1), 4);
 
   const auto runtime_messages = server.drain_runtime();
   ASSERT_EQ(runtime_messages.size(), 1u);
   EXPECT_EQ(runtime_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
   const auto* params = runtime_messages[0].payload.getObject("params");
   ASSERT_NE(params, nullptr);
+  EXPECT_EQ(params->getInteger("version").value_or(-1), 4);
   const auto* diagnostics = params->getArray("diagnostics");
   ASSERT_NE(diagnostics, nullptr);
   EXPECT_TRUE(diagnostics->empty());
