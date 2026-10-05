@@ -48,25 +48,25 @@ Release-candidate local floor:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint` when the worktree has changes
 2. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <ref>..HEAD` when `HEAD` is ahead of the inferred base
-Run the local audit route documented in `GENERAL-AUDITOR.md`.
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `checkpoint` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-Run the local audit route documented in `GENERAL-AUDITOR.md`.
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `push` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
-Run the local audit route documented in `GENERAL-AUDITOR.md`.
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `release` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-Run the local audit route documented in `GENERAL-AUDITOR.md`.
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh` with ASan/UBSan and fuzz smoke enabled
 
 ## Options
