@@ -2,7 +2,7 @@
 
 **Purpose:** Define the feature-based Styio test inventory, CTest labels, fixture layout, and gate commands for language acceptance coverage.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-06
 
 ---
 
@@ -80,6 +80,7 @@ ctest --test-dir build/default -L scalar_expressions --output-on-failure
 | `StyioSemanticDb.SemanticTokensUseUtf16PositionsAndLengths` | Prove semantic-token delta positions and token lengths use LSP UTF-16 units for emoji/CJK text instead of byte columns. | `ctest --test-dir build/default -R '^StyioSemanticDb\.SemanticTokensUseUtf16PositionsAndLengths$' --output-on-failure` |
 | `StyioIdeService.WatchFileRefreshFiltersAndCoalescesChangedPaths` | Prove watched-file refreshes only enqueue closed `.styio` files inside the workspace, preserve deletion refreshes, and coalesce duplicate changed paths. | `ctest --test-dir build/default -R '^StyioIdeService\.WatchFileRefreshFiltersAndCoalescesChangedPaths$' --output-on-failure` |
 | `StyioLspServer.WatchFileChangesFilterAndCoalesceBackgroundRefresh` | Prove `workspace/didChangeWatchedFiles` uses concrete changed URIs and ignores empty, duplicate, open-file, non-Styio, and out-of-workspace events. | `ctest --test-dir build/default -R '^StyioLspServer\.WatchFileChangesFilterAndCoalesceBackgroundRefresh$' --output-on-failure` |
+| `StyioLspServer.HandlesInitializeOpenAndCompletion`, `StyioLspServer.AppliesMultipleIncrementalChangesInOrder`, `StyioLspRuntime.DebouncesSemanticDiagnostics` | Prove immediate syntax publications and the final debounced semantic publication carry the `params.version` of their exact immutable snapshots across successive document edits. | `./build/default/bin/styio_ide_test --gtest_filter='StyioLspServer.HandlesInitializeOpenAndCompletion:StyioLspServer.AppliesMultipleIncrementalChangesInOrder:StyioLspRuntime.DebouncesSemanticDiagnostics'` |
 | `StyioLspServer` conservative public-surface tests | Prove rename, inlay hints, and code actions stay fail-closed behind compiler-owned identity, freshness, and exact diagnostic evidence; protocol-envelope smokes keep initialize notification handling and stdio header parsing non-crashing. | `ctest --test-dir build/default -R '^StyioLspServer\.(InitializeNotificationUpdatesWorkspaceWithoutResponse\|CoversTransportReaderAndMalformedRequestEdges\|RenameIsCapabilityGatedAndUsesResolvedSymbolIdentity\|InlayHintUsesResolvedCallsiteParameterNamesAndFailsClosed\|InlayHintReturnsEmptyWhileBackgroundRefreshIsPending\|CodeActionAddsEditForUnterminated(BlockComment\|StringLiteral)\|CodeActionDeletesUnmatchedClosingToken\|CodeActionEmitsDisabledQuickFixForUnsupportedEditorSyntaxDiagnostic)$' --output-on-failure` |
 | `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` | Keep editor syntax snapshots documented as non-authoritative when they intentionally differ from strict compiler parsing on malformed source. | `ctest --test-dir build/default -R '^StyioSyntaxDrift\.CorpusMatchesApprovedEnvelope$' --output-on-failure` |
 | `parser_shadow_gate_scalar_expressions_zero_fallback_and_internal_bridges` | Keep scalar expression fixtures identical across parser engines with no fallback records. | `ctest --test-dir build/default -R '^parser_shadow_gate_scalar_expressions_zero_fallback_and_internal_bridges$' --output-on-failure` |

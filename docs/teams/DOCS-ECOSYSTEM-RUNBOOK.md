@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-06
 
 Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
 
@@ -80,6 +80,9 @@ Key SSOTs:
 5. Follow [repository hygiene](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md)
    for approved document roots, ignored audit output, generated files, and
    residue checks. Current examples reference executable source and test oracles.
+6. Keep public host contract pages, including [LSP Usage](../external/for-ide/LSP.md),
+   aligned with owner sources and deterministic tests. Regenerate their collection
+   index when the page metadata changes.
 
 ### 3. Synchronize language contracts and evidence
 

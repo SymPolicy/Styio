@@ -742,6 +742,7 @@ strings_to_json_array(const std::vector<std::string>& values) {
 llvm::json::Object
 Server::make_diagnostic_notification(
   const std::string& uri,
+  styio::ide::DocumentVersion version,
   const styio::ide::TextBuffer& buffer,
   const std::vector<styio::ide::Diagnostic>& diagnostics
 ) {
@@ -753,7 +754,8 @@ Server::make_diagnostic_notification(
   return llvm::json::Object{
     {"jsonrpc", "2.0"},
     {"method", "textDocument/publishDiagnostics"},
-    {"params", llvm::json::Object{{"uri", uri}, {"diagnostics", std::move(items)}}}};
+    {"params", llvm::json::Object{{"uri", uri}, {"version", version}, {"diagnostics", std::move(items)}}}
+  };
 }
 
 llvm::json::Object
@@ -884,10 +886,14 @@ Server::handle(llvm::json::Object request) {
       const auto diagnostics = service_.did_open(
         uri,
         text,
-        static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0)));
+        static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0))
+      );
       diagnostics_cache_[uri] = diagnostics;
       const auto snapshot = service_.snapshot_for_uri(uri);
-      output.push_back(OutboundMessage{make_diagnostic_notification(uri, snapshot->buffer, diagnostics), true});
+      output.push_back(OutboundMessage{
+        make_diagnostic_notification(uri, snapshot->version, snapshot->buffer, diagnostics),
+        true
+      });
     }
     return output;
   }
@@ -902,10 +908,14 @@ Server::handle(llvm::json::Object request) {
       const auto diagnostics = service_.did_change(
         uri,
         delta,
-        static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0)));
+        static_cast<styio::ide::DocumentVersion>(text_document->getInteger("version").value_or(0))
+      );
       diagnostics_cache_[uri] = diagnostics;
       const auto snapshot = service_.snapshot_for_uri(uri);
-      output.push_back(OutboundMessage{make_diagnostic_notification(uri, snapshot->buffer, diagnostics), true});
+      output.push_back(OutboundMessage{
+        make_diagnostic_notification(uri, snapshot->version, snapshot->buffer, diagnostics),
+        true
+      });
     }
     return output;
   }
@@ -1173,9 +1183,12 @@ Server::drain_runtime(std::size_t max_documents) {
     output.push_back(OutboundMessage{
       make_diagnostic_notification(
         uri,
+        publication.snapshot->version,
         publication.snapshot->buffer,
-        publication.diagnostics),
-      true});
+        publication.diagnostics
+      ),
+      true
+    });
   }
   return output;
 }
