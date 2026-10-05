@@ -32,7 +32,7 @@ COLLECTION_SPECS: tuple[CollectionSpec, ...] = (
     CollectionSpec("docs/assets/workflow", "Workflow Assets Index", "Provide the generated inventory for `docs/assets/workflow/`; workflow boundaries and reuse rules live in [README.md](./README.md)."),
     CollectionSpec("docs/assets/templates", "Template Assets Index", "Provide the generated inventory for `docs/assets/templates/`; template boundaries and reuse rules live in [README.md](./README.md)."),
     CollectionSpec("docs/adr", "ADR Index", "Provide the generated inventory for `docs/adr/`; decision-record conventions live in [README.md](./README.md)."),
-    CollectionSpec("docs/audit", "Audit Index", "Provide the generated inventory for `docs/audit/`; transient defect records live in ignored `docs/audit/defects/` and are enforced by external `styio-audit` runs."),
+    CollectionSpec("docs/audit", "Audit Index", "Provide the generated inventory for `docs/audit/`; transient defect records live in ignored `docs/audit/defects/` and are enforced by General-Auditor runs."),
     CollectionSpec("docs/history", "History Index", "Provide the generated inventory for `docs/history/`; recovery rules live in [README.md](./README.md)."),
     CollectionSpec("workflows", "Workflows Index", "Provide the generated inventory for root-level `workflows/`; reusable delivery workflows and repo-local skills live in [README.md](./README.md)."),
     CollectionSpec("workflows/skills", "Workflow Skills Index", "Provide the generated inventory for `workflows/skills/`; repo-local skills used by root workflows live in [README.md](./README.md)."),

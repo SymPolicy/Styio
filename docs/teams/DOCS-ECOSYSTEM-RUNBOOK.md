@@ -43,7 +43,7 @@ Key SSOTs:
 8. Run the team runbook maintenance gate before delivery so source/test/docs folder changes cannot land without the mapped runbook update or required runbook format.
 9. Use archive lifecycle tooling for raw history/review metadata and cleanup rather than manually moving provenance.
 10. Use the default unified delivery gate for docs/process deliveries so worktree hygiene, branch-range hygiene, runbook maintenance, docs audit, and external audit stay coupled behind one command.
-11. When refactoring `scripts/delivery-gate.sh`, keep literal scheduler profile invocations visible for `delivery-checkpoint` and `delivery-push` so released `styio-audit` can verify that the unified entrypoint still delegates to the approved scheduler profiles.
+11. When refactoring `scripts/delivery-gate.sh`, keep literal scheduler profile invocations visible for `delivery-checkpoint` and `delivery-push` so released `General-Auditor` can verify that the unified entrypoint still delegates to the approved scheduler profiles.
 12. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-pafio` or `styio-view` handoff docs change.
 13. When a compiler-side machine contract grows, update the owner SSOT and both consumer handoff docs in the same checkpoint instead of leaving one side on preview wording.
 14. Keep generated `INDEX.md` files deterministic for empty collections by deriving fallback timestamps from collection metadata instead of local wall-clock date.
@@ -69,8 +69,8 @@ Key SSOTs:
 34. When language SSOT docs change token-count semantics, update the design page, EBNF, symbol reference, and test catalog in one checkpoint so docs readers do not see conflicting operator depth rules.
 35. When syntax is retired, document the cutover in active SSOT docs and tests. Do not keep retired examples as runnable acceptance cases or recreate old milestone pages in the current tree.
 36. When the SymPolicy Styio repository set changes, refresh the inventory with `gh repo list SymPolicy --limit 200`, then update root `README.md`, [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md), and any active ecosystem plan that names the old repository set.
-37. Keep [../specs/TECHNOLOGY-COMPONENT-INVENTORY.md](../specs/TECHNOLOGY-COMPONENT-INVENTORY.md) aligned with `styio-audit` whenever the technology stack, internal components, open-source components, dependency manifests, Apache-2.0 evidence, or commercial-risk boundaries change.
-38. Keep external `styio-audit` execution wired through the repository delivery gate and dedicated GitHub Actions workflow whenever audit policy or cross-repo CI ownership changes.
+37. Keep [../specs/TECHNOLOGY-COMPONENT-INVENTORY.md](../specs/TECHNOLOGY-COMPONENT-INVENTORY.md) aligned with `General-Auditor` whenever the technology stack, internal components, open-source components, dependency manifests, Apache-2.0 evidence, or commercial-risk boundaries change.
+38. Keep external `General-Auditor` execution wired through the repository delivery gate and dedicated GitHub Actions workflow whenever audit policy or cross-repo CI ownership changes.
 39. Maintain GitHub merge gates through Rulesets rather than legacy classic branch protection; audit effective branch rules when required status-check governance changes.
 40. Keep `docs/audit/defects/` ignored and out of tracked commits; promote audit findings into an approved docs collection or issue before they become repository-owned records.
 41. When compiler source directories are renamed or split, update active path references across `AGENT-SPEC`, technology inventory, workflow mirrors, rollups, audit findings, and team-runbook mappings in the same checkpoint; old paths remain recoverable through Git history.
