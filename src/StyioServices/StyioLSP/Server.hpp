@@ -38,8 +38,10 @@ STYIO_IDE_INTERNAL_ACCESS:
 
   llvm::json::Object make_diagnostic_notification(
     const std::string& uri,
+    styio::ide::DocumentVersion version,
     const styio::ide::TextBuffer& buffer,
-    const std::vector<styio::ide::Diagnostic>& diagnostics);
+    const std::vector<styio::ide::Diagnostic>& diagnostics
+  );
   llvm::json::Object make_initialize_workspace_state() const;
 
 public:

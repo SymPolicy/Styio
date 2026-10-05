@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-06
 
 Scheduler regression tests cover composed-profile deduplication, separate scope checks, failure propagation, fresh invocations, and docs-audit evidence context. Run `python3 tests/workflow_scheduler_test.py`; the shell fixture also verifies delivery auto calls the scheduler only once. Local test evidence reuse follows [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#reusing-local-evidence).
 
@@ -122,6 +122,7 @@ Primary paths:
 
 83. Indexed i64 list-load optimizations need behavioral fixtures that mutate or rebind the source list inside the same loop as the read. Register the smallest stdout golden under the owning language-feature label and pair it with a runtime probe unit test when a new direct-data helper is exposed.
 84. Persistent-index write failures must be covered without changing IDE query behavior: use a deterministic invalid cache path or equivalent fixture, assert the save call does not throw, keep the stdio framing initialize smoke on that unavailable cache root, and retain the existing load and deleted-symbol persistence coverage.
+85. LSP diagnostic-publication tests must assert that `params.version` matches the immutable snapshot for immediate `didOpen`/`didChange` results and debounced semantic results across successive edits; retain coverage that stale semantic work is suppressed.
 
 ## Change Classes
 

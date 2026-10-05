@@ -2,7 +2,7 @@
 
 **Purpose:** Define how IDE hosts should launch and talk to `styio_lspd`, and record the currently supported request and notification surface.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-06
 
 ## Transport
 
@@ -76,6 +76,7 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 3. Debounced semantic publication replaces the earlier syntax-only list with the full merged diagnostic set for the latest visible snapshot.
 4. Stale semantic runs are dropped by snapshot/version guards instead of being published.
 5. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
+6. Every `publishDiagnostics` notification includes `params.version` from the exact immutable snapshot used to produce its diagnostics. Immediate syntax publications use the `didOpen` or `didChange` snapshot; delayed semantic publications use the snapshot attached to that semantic result.
 
 ## Current Limits
 
