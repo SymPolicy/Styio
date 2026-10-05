@@ -133,7 +133,17 @@ resolve_delivery_base() {
 
 run_audit_gate() {
   local auditor_root="${AUDIT_BIN:-${GENERAL_AUDITOR_ROOT:-}}"
-  : "${auditor_root:?Set GENERAL_AUDITOR_ROOT or pass --audit-root}"
+  if [ -z "${auditor_root:-}" ]; then
+    auditor_root="$(git -C "$ROOT" config --local --get generalAuditor.root || true)"
+  fi
+  case "$auditor_root" in
+    /*) ;;
+    *) echo 'General-Auditor requires an absolute trusted root; use GENERAL_AUDITOR_ROOT or local git config generalAuditor.root.' >&2; exit 2 ;;
+  esac
+  if [ ! -f "$auditor_root/action_entry.py" ] || [ ! -f "$auditor_root/profiles/SymPolicy/Styio.json" ]; then
+    echo 'General-Auditor root must contain action_entry.py and the exact repository profile.' >&2
+    exit 2
+  fi
   local report
   report="$(git rev-parse --path-format=absolute --git-path general-auditor)"
   run_cmd python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope history --output "$report/history.json"
