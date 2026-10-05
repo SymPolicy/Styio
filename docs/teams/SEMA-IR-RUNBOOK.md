@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-06
 
 ## Mission
 
@@ -132,6 +132,7 @@ make compiler layers depend on an IDE.
 82. Qualified semantic identity for public snapshots uses package name plus normalized manifest-relative and entry-relative paths. Keep the opaque publication descriptors on `ValidatedArtifact` so the StyioObservable adapter never walks the private `Graph`. Public observers may read the lifecycle and const artifact for the requested root; lowering still requires the matching root and must not rebuild topology.
 83. S2 delta, lineage, bounded query, and retention live in `StyioObservable` / `ObservableTopologyService`. Sema remains the producer of snapshot facts and evidence only; do not move query evaluation, index caches, or delta application into Sema. Compiler-side publication adapters stay in `StyioObservableProducer/`.
 84. Runtime-events v2 correlation is opt-in. Sema may bind compact snapshot/site descriptors onto task and await AST nodes from the accepted topology artifact; lowering stores `ObservationSiteRef` on StyioIR and must preserve or reject it. Do not reconstruct static semantics at runtime. Disabled/static paths keep the uninstrumented task ABI. Cancellation and cooperative IR transitions are not implied by elapsed time.
+85. Runtime-event execution IDs remain opaque `x2_` values in the existing packed form and distinguish independent CLI invocations. The CLI producer owns allocation; every session capability, event, and summary retains that one ID. Consumers must not infer IDs from event order or expose host identity.
 
 ## Change Classes
 

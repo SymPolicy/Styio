@@ -21,6 +21,7 @@
 #include "StyioSema/CallableSpecializationGraph.hpp"
 #include "StyioSema/CallableUsage.hpp"
 #include "StyioIR/CallableEffectRow.hpp"
+#include "StyioServices/StyioObservable/RuntimeCorrelation.hpp"
 #include "StyioToken/Token.hpp"
 
 namespace fs = std::filesystem;
@@ -2354,6 +2355,47 @@ TEST(StyioDiagnostics, CompilePlanMigratesRuntimeEventArtifactToV2DisabledMode) 
   EXPECT_EQ(runtime_events.find("\"file\":"), std::string::npos);
   EXPECT_EQ(runtime_events.find("\"message\":"), std::string::npos);
   fs::remove_all(root);
+}
+
+TEST(StyioDiagnostics, RuntimeExecutionIdsAreDistinctAcrossCliInvocations) {
+  const CompilePlanContractCaseLatest plan = write_compile_plan_contract_case_latest(
+    "runtime-execution-id",
+    "{\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false}",
+    "[{\"id\": \"demo/app@0.1.0\"}]");
+  const char* runner = styio_compiler_runner_latest();
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const std::vector<std::string> argv{runner, "--compile-plan", plan.plan_path.string()};
+  for (int invocation = 0; invocation < 2; ++invocation) {
+    const CommandResult result = run_argv_capture_latest(argv);
+    ASSERT_EQ(result.exit_code, 0) << combined_output_latest(result);
+  }
+
+  std::vector<std::string> capability_ids;
+  std::vector<std::string> summary_ids;
+  std::istringstream lines(read_text_file_latest(plan.build_root / "runtime-events.jsonl"));
+  for (std::string line; std::getline(lines, line);) {
+    const styio::observable::ParseIssue record =
+      styio::observable::parse_runtime_record(line);
+    ASSERT_TRUE(record.ok) << record.error << ": " << line;
+    if (record.record_kind == "session.capability") {
+      capability_ids.push_back(record.capability.execution_id);
+    } else if (record.record_kind == "session.summary") {
+      summary_ids.push_back(record.summary.execution_id);
+    }
+  }
+
+  ASSERT_EQ(capability_ids.size(), 2u);
+  ASSERT_EQ(summary_ids.size(), 2u);
+  EXPECT_NE(capability_ids[0], capability_ids[1]);
+  for (std::size_t i = 0; i < capability_ids.size(); ++i) {
+    EXPECT_EQ(capability_ids[i], summary_ids[i]);
+    styio::observable::PackedInstance parsed;
+    EXPECT_TRUE(styio::observable::parse_packed_id(
+      capability_ids[i], styio::observable::kExecutionIdPrefix, parsed));
+  }
+
+  fs::remove_all(plan.root);
 }
 
 TEST(StyioDiagnostics, CompilePlanNegotiatesRuntimeEventsV2) {

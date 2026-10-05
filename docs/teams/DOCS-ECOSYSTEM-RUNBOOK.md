@@ -92,7 +92,7 @@ Key SSOTs:
 | Language model and program views | [Language Design](../design/Styio-Language-Design.md#24-visual-design-intent) | The single `toml design-intent` block, concise README descriptions, research evaluation criteria |
 | Resource definitions, state, selectors and transfer | [Resource Topology](../design/Styio-Resource-Topology.md) and the owning feature | [Resource identifiers](../design/syntax/RESOURCE_IDENTIFIERS.md), shared grammar and accepted/compatibility/retired fixtures |
 | Snapshot, delta, query, identity or runtime-event fields | [Observable decoder contract](../../src/StyioServices/StyioObservable/README.md) | [Observable semantics](../design/Styio-Observable-Language.md), producer/consumer fixtures, CLI/Runtime/IDE handoffs as affected |
-| Test registration, labels and oracles | [Test Catalog](../../workflows/TEST-CATALOG.md) and [Test Quality](./TEST-QUALITY-RUNBOOK.md) | CMake registration and the feature evidence map; algorithm layout stays in [tests/algorithms/README.md](../../tests/algorithms/README.md) |
+| Test registration, labels and oracles | [Test Catalog](../../workflows/TEST-CATALOG.md) and [Test Quality](./TEST-QUALITY-RUNBOOK.md) | CMake registration and the feature evidence map; focused CTest examples must select a registered test or label and use `--no-tests=error`; algorithm layout stays in [tests/algorithms/README.md](../../tests/algorithms/README.md) |
 
 Use [Add Syntax](../../workflows/ADD-SYNTAX-WITH-SKILLS.md) or
 [Correct Syntax Contract](../../workflows/CORRECT-SYNTAX-CONTRACT.md) for language

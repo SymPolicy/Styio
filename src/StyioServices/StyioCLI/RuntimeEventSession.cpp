@@ -3,11 +3,15 @@
 #if !STYIO_NANO_BUILD
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <fstream>
 #include <system_error>
 #include <thread>
 #include <tuple>
+#include <utility>
+
+#include <llvm/Support/RandomNumberGenerator.h>
 
 #include "StyioRuntime/ObservationBuffer.hpp"
 #include "StyioRuntime/TaskWorkerCount.hpp"
@@ -15,10 +19,30 @@
 namespace styio::cli::runtime_events {
 namespace {
 
-std::string make_execution_id() {
-  static std::uint64_t counter = 1;
-  styio::observable::PackedInstance id{0, counter++};
-  return styio::observable::encode_packed_id(styio::observable::kExecutionIdPrefix, id);
+bool make_execution_id(std::string& execution_id, std::string& error_message) {
+  // Seed one opaque 64-bit execution range per process directly from the OS
+  // random source. Do not fall back to time, process identity, or a weak PRNG.
+  static const auto process_seed = [] {
+    std::uint64_t value = 0;
+    const std::error_code error = llvm::getRandomBytes(&value, sizeof(value));
+    return std::pair{value, error};
+  }();
+  if (process_seed.second) {
+    error_message = "cannot generate runtime execution ID: " + process_seed.second.message();
+    return false;
+  }
+
+  // The atomic offset keeps sessions distinct when a process opens more than
+  // one session, including concurrent opens.
+  static std::atomic<std::uint64_t> next_offset{0};
+  const std::uint64_t packed =
+    process_seed.first + next_offset.fetch_add(1, std::memory_order_relaxed);
+  const styio::observable::PackedInstance id{
+    static_cast<std::uint32_t>(packed >> 48),
+    packed & 0x0000ffffffffffffull,
+  };
+  execution_id = styio::observable::encode_packed_id(styio::observable::kExecutionIdPrefix, id);
+  return true;
 }
 
 bool append_file(const std::filesystem::path& path, std::string_view text, std::string& error) {
@@ -53,7 +77,9 @@ Session::open(
     return true;
   }
   path_ = request.build_root / "runtime-events.jsonl";
-  execution_id_ = make_execution_id();
+  if (!make_execution_id(execution_id_, error_message)) {
+    return false;
+  }
   mode_ = request.emit_runtime_observation
     ? request.runtime_observation_mode
     : styio::observable::ObservationMode::Disabled;
