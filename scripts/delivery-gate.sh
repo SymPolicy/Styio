@@ -145,9 +145,16 @@ run_audit_gate() {
     exit 2
   fi
   local report
+  audit_command=scan
+  for ci_flag in "${CI:-}" "${GITHUB_ACTIONS:-}"; do
+    case "$ci_flag" in
+      ""|0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]) ;;
+      *) audit_command=check ;;
+    esac
+  done
   audit_status=0
-  python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope history || audit_status=$?
-  python3 -I "$auditor_root/action_entry.py" scan --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope worktree || audit_status=$?
+  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope history || audit_status=$?
+  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope worktree || audit_status=$?
   return "$audit_status"
 }
 
