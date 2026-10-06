@@ -112,3 +112,6 @@ docs/audit/defects/
 !tests/**/tmp/**
 !tests/**/*.tmp
 !tests/**/*.log
+
+# Private audit source evidence and local reports.
+/.audit/local/
