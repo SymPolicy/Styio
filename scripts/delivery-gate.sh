@@ -14,8 +14,8 @@ Options:
   --base <ref>              Base ref for team-docs-gate branch checks
   --range <rev-range>       Explicit revision range for repo-hygiene push mode
   --skip-health             Skip checkpoint-health (docs/process-only deliveries)
-  --skip-audit              Skip external styio-audit gate
-  --audit-bin <path>        Explicit styio-audit executable
+  --skip-audit              Skip external General-Auditor gate
+  --audit-root <path>        Trusted General-Auditor checkout
   --with-asan               Include the ASan/UBSan leg in checkpoint-health
   --with-fuzz               Include the fuzz-smoke leg in checkpoint-health
   --build-dir <dir>         Forwarded to checkpoint-health
@@ -131,38 +131,31 @@ resolve_delivery_base() {
   return 1
 }
 
-resolve_audit_bin() {
-  if [[ -n "$AUDIT_BIN" ]]; then
-    echo "$AUDIT_BIN"
-    return 0
-  fi
-  if [[ -n "${STYIO_AUDIT_BIN:-}" ]]; then
-    echo "$STYIO_AUDIT_BIN"
-    return 0
-  fi
-  if [[ -n "${STYIO_AUDIT_HOME:-}" && -x "${STYIO_AUDIT_HOME}/bin/styio-audit" ]]; then
-    echo "${STYIO_AUDIT_HOME}/bin/styio-audit"
-    return 0
-  fi
-  if command -v styio-audit >/dev/null 2>&1; then
-    command -v styio-audit
-    return 0
-  fi
-  return 1
-}
-
 run_audit_gate() {
-  local audit_bin
-  audit_bin="$(resolve_audit_bin || true)"
-  if [[ -z "$audit_bin" ]]; then
-    echo "styio-audit executable not found; set --audit-bin, STYIO_AUDIT_BIN, or use --skip-audit" >&2
+  local auditor_root="${AUDIT_BIN:-${GENERAL_AUDITOR_ROOT:-}}"
+  if [ -z "${auditor_root:-}" ]; then
+    auditor_root="$(git -C "$ROOT" config --local --get generalAuditor.root || true)"
+  fi
+  case "$auditor_root" in
+    /*) ;;
+    *) echo 'General-Auditor requires an absolute trusted root; use GENERAL_AUDITOR_ROOT or local git config generalAuditor.root.' >&2; exit 2 ;;
+  esac
+  if [ ! -f "$auditor_root/action_entry.py" ] || [ ! -f "$auditor_root/profiles/SymPolicy/Styio.json" ]; then
+    echo 'General-Auditor root must contain action_entry.py and the exact repository profile.' >&2
     exit 2
   fi
-  if [[ -x "$audit_bin" ]]; then
-    run_cmd "$audit_bin" gate --repo . --project styio
-  else
-    run_cmd python3 "$audit_bin" gate --repo . --project styio
-  fi
+  local report
+  audit_command=scan
+  for ci_flag in "${CI:-}" "${GITHUB_ACTIONS:-}"; do
+    case "$ci_flag" in
+      ""|0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]) ;;
+      *) audit_command=check ;;
+    esac
+  done
+  audit_status=0
+  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope history || audit_status=$?
+  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "SymPolicy/Styio" --scope worktree || audit_status=$?
+  return "$audit_status"
 }
 
 run_scheduler_profile() {
@@ -223,7 +216,7 @@ while [[ $# -gt 0 ]]; do
       RUN_AUDIT=0
       shift
       ;;
-    --audit-bin)
+    --audit-root)
       AUDIT_BIN="$2"
       shift 2
       ;;
@@ -359,7 +352,7 @@ esac
 if [[ "$RUN_AUDIT" -eq 1 ]]; then
   run_audit_gate
 else
-  log "styio-audit skipped"
+  log "General-Auditor skipped"
 fi
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then

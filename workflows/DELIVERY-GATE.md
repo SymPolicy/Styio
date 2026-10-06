@@ -16,7 +16,7 @@ Safe auto delivery floor:
 ./scripts/delivery-gate.sh
 ```
 
-The default `auto` mode runs worktree checks when local changes exist, infers the delivery base for branch/promotion checks, runs push-range hygiene when `HEAD` is ahead of that base, then runs `styio-audit` and checkpoint health.
+The default `auto` mode runs worktree checks when local changes exist, infers the delivery base for branch/promotion checks, runs push-range hygiene when `HEAD` is ahead of that base, then runs `General-Auditor` and checkpoint health.
 
 Explicit checkpoint delivery floor:
 
@@ -48,25 +48,25 @@ Release-candidate local floor:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint` when the worktree has changes
 2. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <ref>..HEAD` when `HEAD` is ahead of the inferred base
-3. `styio-audit gate --repo . --project styio`
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `checkpoint` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-2. `styio-audit gate --repo . --project styio`
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `push` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
-2. `styio-audit gate --repo . --project styio`
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`
 
 `release` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-2. `styio-audit gate --repo . --project styio`
+Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh` with ASan/UBSan and fuzz smoke enabled
 
 ## Options

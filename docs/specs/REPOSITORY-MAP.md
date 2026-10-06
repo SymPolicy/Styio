@@ -50,7 +50,7 @@ issue 状态和发布进度不在本文件维护。
 | [`Styio`](https://github.com/SymPolicy/Styio) / 当前开发镜像 [`README.md`](../../README.md) | 主语言与编译器仓库 | 语言设计、形式文法、编译器实现、CLI、测试、主文档入口 | 包管理器、编辑器插件、产品白皮书、示例工程生态 |
 | [`pafio`](https://github.com/SymPolicy/Pafio) | 平台级产品/hosted surface 整合入口 | 平台产品壳层、hosted surface 占位、未来跨仓平台入口与产品整合说明 | 语言语义、编译器实现、包解析规则 |
 | [`styio-pafio`](https://github.com/SymPolicy/styio-pafio) | 包管理器、registry/cloud backend、repo-hosted control console | 包格式、包解析/安装/发布、依赖解析、仓库源协议、仓库托管与云平台后台、仓库托管的管控台前端、跨仓 hosted API 合同包 | Styio 核心语言语义与编译器实现 |
-| [`styio-audit`](https://github.com/SymPolicy/styio-audit) | 集中审计框架 | auditable-code 框架、默认审计模块、Styio 专用审计模块与外部审计入口 | 编译器语义真相、语言接受测试、仓库本地代码实现 |
+| [`General-Auditor`](https://github.com/Unka-Malloc/General-Auditor) | 集中审计框架 | auditable-code 框架、默认审计模块、Styio 专用审计模块与外部审计入口 | 编译器语义真相、语言接受测试、仓库本地代码实现 |
 | [`styio-dev-doc`](https://github.com/SymPolicy/styio-dev-doc) | 开发者文档仓库 | 跨仓库开发手册、搭建流程、协作说明、外部开发者上手指南 | 语言权威语义、编译器测试验收、产品白皮书 |
 | [`styio-dev-env`](https://github.com/SymPolicy/styio-dev-env) | 标准开发环境 | devcontainer、toolchain bootstrap、统一环境脚本、CI/本地环境约定 | 语言设计、产品定义、示例工程内容 |
 | [`styio-book`](https://github.com/SymPolicy/styio-book) | 产品白皮书 | 产品愿景、定位、理念叙事、对外说明材料 | 编译器行为细节、测试接受标准、工程实现规范 |
@@ -87,7 +87,7 @@ issue 状态和发布进度不在本文件维护。
 - `styio-example` 可以展示语法如何使用，但不应维护另一份语言规范。
 - `styio-ext-vsc` 可以说明编辑器如何支持 Styio，但不应给出独立的语法真相版本。
 - `styio-book` 可以叙述“为什么需要 Styio”，但不应替代编译器与设计文档的技术定义。
-- `styio-audit` 可以执行外部审计和提供审计模块，但发现项进入当前仓库后仍要回到本仓源码、测试和 docs SSOT 落地。
+- `General-Auditor` 可以执行外部审计和提供审计模块，但发现项进入当前仓库后仍要回到本仓源码、测试和 docs SSOT 落地。
 
 ---
 
