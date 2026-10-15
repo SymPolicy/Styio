@@ -19,7 +19,6 @@
         "scope": "First full run failed; affected recovery passed with one retained skip. See HANDOFF independent reconciliation; no overlapping aggregate.",
         "source": "Assigned host plan FINAL validation and complete retained actual command/CTest records"
       },
-      "run_id": "3a1004ddbef0fc5754a4527d392eacbc",
       "running": false,
       "title": "Run final compiler regression after the ecosystem join checks"
     }
@@ -32,7 +31,7 @@
     "completion": "Hand the prepared candidate to the host for the single registered full regression. Keep this check pending until actual host evidence exists. Reconcile the retained complete logs and any affected follow-up evidence in place; do not claim Task/Tree delivery.",
     "execution": "Select only styio-task-resource-final. Before returning control to the host, review checks.sh final, preserve its build/CTest semantics and true process exits, arrange complete logs under ignored build/, and record current dirty-source/build/executable inputs. Never manually run the full suite first. See HANDOFF.md#finalclose-execution-plan for the current contract.",
     "external_inputs": [
-      "Coordinator acceptance 7c6eadba45c31325673712f68067ad5b: all three source reviews and same-candidate Vityo production-service/vityod E2E; runtime 0c7f97c7be1e7eb93dcefee3d62ebc76, check d5deb633e4fe8f39e9bad2a56c7ea1de; all three current HANDOFF records. Consume siblings in place without writes or rebuilds."
+      "Coordinator acceptance: all three source reviews and same-candidate Vityo production-service/vityod E2E; all three current HANDOFF records. Consume siblings in place without writes or rebuilds."
     ],
     "failure_recovery": "After an actual failure, retain the first complete run, diagnose and repair ordinary scoped defects, rebuild affected targets, and execute the host's same-ID follow-up once against only the required affected/remaining commands as a one-shot recovery; the registered checks.sh final entrypoint keeps its complete build and unfiltered CTest selection and is never rewritten to the recovery form. Explain retained passes and their valid inputs, invalidated cases, repaired failures, remaining checks and skips. Preserve every required check and permanent product gate; no arbitrary retries, silent skips, full-suite replay or hash/cache framework. Investigate alternatives for outside-scope contract/risk changes and hold only dependent work.",
     "ownership": "Use the existing non-fast host role. No subordinate agents or arbitrary time/silence/iteration/attempt cutoffs. Yield to host check execution; do not wait inside an Agent turn for sibling final nodes. Coordinator alone owns the final cross-repository join and source Task/Tree/hosted task closure.",
@@ -46,10 +45,8 @@
   "resources": [],
   "result": {
     "accepted_integration": {
-      "check_id": "d5deb633e4fe8f39e9bad2a56c7ea1de",
-      "evidence": "../vityo-nightly/build/task-resource-integration/host-gy1mv_16/",
-      "reuse": "Coordinator accepted; retained gate ok=true, skipped=false and process exit 0 inspected; not rerun.",
-      "runtime_id": "0c7f97c7be1e7eb93dcefee3d62ebc76"
+      "evidence": "../vityo-nightly/build/task-resource-integration/",
+      "reuse": "Coordinator accepted; retained gate ok=true, skipped=false and process exit 0 inspected; not rerun."
     },
     "boundaries": "Actual full run plus affected recovery and independent source/evidence review reconciled locally. Five distinct recorded skips remain unverified. CLOSE host patch check is pending; source Task/Tree delivery unset; no release or live acceptance.",
     "cross_repository_impact": "Only CLI relinked in FINAL; LSP has no runtime-core link dependency and is unchanged. Generated production launch reference counts are preserved, so accepted E2E behavior is reused by source impact analysis plus current affected tests, not claimed rerun on byte-identical inputs. Coordinator must reconcile CLI identity in sibling admission records. No sibling writes/rebuilds.",
@@ -127,7 +124,6 @@
           "1464 StyioIdePerf.EnforcesFrozenLatencyBudgets"
         ],
         "result": "failed",
-        "run_id": "16ee78c65d720bd94d7a851103603a31",
         "scope": "Complete unfiltered build plus CTest suite, 1756 checks"
       },
       "follow_up": {
@@ -143,11 +139,9 @@
         "evidence": "build/task-resource-final/host-sjCaPEkJ/",
         "result": "passed",
         "retention_exit": 0,
-        "run_id": "3a1004ddbef0fc5754a4527d392eacbc",
         "scope": "Explicit affected/remaining commands, not another full run"
       },
-      "result": "passed",
-      "run_id": "3a1004ddbef0fc5754a4527d392eacbc"
+      "result": "passed"
     }
   },
   "review": [],

@@ -133,16 +133,18 @@ public:
     if (size_ == 0) {
       return nullptr;
     }
-    void* task = slots_[head_];
-    slots_[head_] = nullptr;
-    if (++head_ == capacity_) {
-      head_ = 0;
-    }
-    --size_;
-    ++pops_;
-    lock.unlock();
-    not_full_.notify_one();
-    return task;
+    return take_locked(lock);
+  }
+
+  /// Removes one item without blocking; returns nullptr when empty.
+  ///
+  /// The task scheduler calls this from a thread that is already executing a
+  /// task body and must keep its own ready queue moving, so single-worker
+  /// configurations cannot strand dependency-satisfied work. Like wait_pop,
+  /// the pop claims the returned item exactly once.
+  void* try_pop() {
+    std::unique_lock<std::mutex> lock(mu_);
+    return take_locked(lock);
   }
 
   void close() {
@@ -188,6 +190,23 @@ public:
   }
 
 private:
+  /// Pops one item while `mu_` is held; nullptr when the queue is empty.
+  void* take_locked(std::unique_lock<std::mutex>& lock) {
+    if (size_ == 0) {
+      return nullptr;
+    }
+    void* task = slots_[head_];
+    slots_[head_] = nullptr;
+    if (++head_ == capacity_) {
+      head_ = 0;
+    }
+    --size_;
+    ++pops_;
+    lock.unlock();
+    not_full_.notify_one();
+    return task;
+  }
+
   const std::size_t capacity_;
   mutable std::mutex mu_;
   std::condition_variable not_empty_;

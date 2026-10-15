@@ -2,7 +2,7 @@
 
 **Purpose:** Own current milestone sequencing and acceptance without duplicating product contracts.
 
-**Last updated:** 2026-10-11
+**Last updated:** 2026-10-16
 
 [Programme.json](Programme.json) is the current delivery index. [Requirements.json](Requirements.json) owns requirement identity. The sole elaborated milestone is [task-resource-delivery/Tree.json](task-resource-delivery/Tree.json); its split Task and Node files own execution evidence. Future deliveries are outlines, not authorization. The programme index itself is not build or validation evidence.
 
@@ -14,8 +14,10 @@ Task/Tree delivery. Repair evidence is in
 retain/reject decision are in
 [COST.md](task-resource-delivery/COST.md). The independently reviewed candidate,
 actual checks and downstream conditions are in
-[HANDOFF.md](task-resource-delivery/HANDOFF.md). These records do not assert
-Task/Tree delivery.
+[HANDOFF.md](task-resource-delivery/HANDOFF.md), whose
+[coordinator join and delivery closure](task-resource-delivery/HANDOFF.md#coordinator-join-and-delivery-closure--2026-10-15)
+section records the current delivery status. Statements describing Task/Tree
+delivery as unfilled are historical.
 
 ## Current milestone
 

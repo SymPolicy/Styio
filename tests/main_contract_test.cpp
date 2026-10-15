@@ -2564,7 +2564,8 @@ TEST(StyioMainContract, CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation) 
   const fs::path diag_dir = temp.path() / "diag";
   WriteText(source, ">_(7)\n");
 
-  auto write_plan = [&](const std::string& name, const std::string& intent) {
+  auto write_plan = [&](const std::string& name, const std::string& intent,
+                        const fs::path* diag_override = nullptr) {
     const fs::path plan = temp.path() / (name + ".json");
     const std::string text =
       "{"
@@ -2580,7 +2581,9 @@ TEST(StyioMainContract, CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation) 
       "\"resolution\":{},"
       "\"outputs\":{\"build_root\":\"" + styio_json_escape(build_root.string())
       + "\",\"artifact_dir\":\"" + styio_json_escape(artifact_dir.string())
-      + "\",\"diag_dir\":\"" + styio_json_escape(diag_dir.string()) + "\"},"
+      + "\",\"diag_dir\":\""
+      + styio_json_escape((diag_override != nullptr ? *diag_override : diag_dir).string())
+      + "\"},"
       "\"emit\":{\"error_format\":\"jsonl\",\"ast\":false,\"styio_ir\":false,\"llvm_ir\":false}"
       "}";
     WriteText(plan, text);
@@ -2671,6 +2674,48 @@ TEST(StyioMainContract, CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation) 
   WriteText(diag_dir, "not a directory");
   EXPECT_EQ(run_plan(ok_plan).exit_code, static_cast<int>(StyioExitCode::RuntimeError));
   EXPECT_FALSE(fs::exists(receipt));
+
+  /* Invalid plan with an unremovable prior receipt: rejection must report the
+     output failure explicitly instead of silently keeping stale success. */
+  {
+    fs::remove(diag_dir);
+    WriteText(receipt, "{\"stale\":true}\n");
+    fs::permissions(build_root, fs::perms::owner_read | fs::perms::owner_exec,
+                    fs::perm_options::replace);
+    const MainRunResult result = run_plan(bad_plan);
+    fs::permissions(build_root, fs::perms::owner_all, fs::perm_options::replace);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::RuntimeError))
+      << result.stderr_text;
+    EXPECT_NE(result.stderr_text.find("cannot remove previous compile-plan receipt"),
+              std::string::npos);
+    EXPECT_TRUE(fs::exists(receipt));
+  }
+
+  /* Invalid plan whose diagnostics file cannot be initialized as a file: the
+     truncation failure must surface, not be dropped. */
+  {
+    fs::remove_all(diag_dir);
+    fs::create_directories(diag_dir / "diagnostics.jsonl");
+    const MainRunResult result = run_plan(bad_plan);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::RuntimeError))
+      << result.stderr_text;
+    EXPECT_NE(result.stderr_text.find("cannot open file for writing"), std::string::npos);
+    fs::remove_all(diag_dir);
+  }
+
+  /* Invalid plan whose diagnostics directory cannot be created: the directory
+     failure must surface as the invocation's output error. */
+  {
+    const fs::path blocked_parent = temp.path() / "diag-parent-file";
+    WriteText(blocked_parent, "not a directory\n");
+    const fs::path blocked_diag = blocked_parent / "diag";
+    const fs::path blocked_plan = write_plan("blocked-diag", "frobnicate", &blocked_diag);
+    const MainRunResult result = run_plan(blocked_plan);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::RuntimeError))
+      << result.stderr_text;
+    EXPECT_NE(result.stderr_text.find("cannot create compile-plan diag_dir"),
+              std::string::npos);
+  }
 
   /* A malformed root has no output identity; the caller must invalidate its
      previous invocation results. Here only rejection is asserted. */

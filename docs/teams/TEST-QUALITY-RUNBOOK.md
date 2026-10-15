@@ -244,3 +244,12 @@ committed suite: ASan/UBSan reproduced the pre-repair heap-use-after-free in the
 late-read shape and stayed clean after the repair, and TSan reproduced the
 pre-repair result-field race on the externlib internal binary and stayed clean
 after.
+
+Second-round audit findings add focused coverage: the task-resource native
+fixtures t13/t14 run nested task waits under a single configured worker through
+the CLI; `StyioExternLibInternal.NestedTaskWaitsKeepSingleWorkerForwardProgress`
+pins scheduler forward-progress counters, queue depth, handle balance and error
+propagation; three delivery-gate scenarios in `tests/workflow_scheduler_test.py`
+cover the single identity source, the CI check switch and untrusted-root
+rejection; and `styio_main_contract_test` extends the compile-plan freshness
+case to unremovable receipts and diagnostics-path failures.

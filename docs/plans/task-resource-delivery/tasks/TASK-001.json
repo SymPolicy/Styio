@@ -3,9 +3,8 @@
   "delivery": {
     "result": {
       "evidence": [
-        "../vityo-nightly/build/task-resource-integration/host-ehiyo1yz/ (E2E inputs and per-scenario results on the current candidate)",
-        "../vityo-nightly/build/task-resource-integration/host-ehiyo1yz/gate-report.json (35 scenarios + 4 contract cases accepted)",
-        "../vityo-nightly/build/task-resource-integration/host-ehiyo1yz/inputs.json (current styio/pafio/vityod binary identities)",
+        "../vityo-nightly/build/task-resource-integration/ (E2E inputs and per-scenario results on the current candidate)",
+        "../vityo-nightly/build/task-resource-integration/ (gate report: 35 scenarios + 4 contract cases accepted; inputs.json records the current styio/pafio/vityod binary identities)",
         "../pafio-nightly/build-codex/join-20261015/ (Pafio joined gate log; retention probe evidence)",
         "build/task-resource-final/ (styio FINAL runs and close evidence, unchanged)",
         "docs/plans/task-resource-delivery/HANDOFF.md#coordinator-join-and-delivery-closure--2026-10-15"
@@ -15,7 +14,7 @@
         "Five distinct recorded first-run skips remain unverified (see registered_regression in NODE-FINAL).",
         "This record covers the join and delivery closure; publication/landing is a separate step."
       ],
-      "summary": "Coordinator join recorded 2026-10-15 on the current three-repository candidate (styio ba37f64, pafio 62636ea, vityo cb8883de; all three worktrees clean). The milestone's external join is closed on the current candidate: the Vityo E2E through real production services and vityod passed with 35 required real cases and 4 deterministic contract cases accepted (ok=true, failure_category null; host-ehiyo1yz) using the current styio CLI (74959128 bytes), styio_lspd, Pafio with bounded per-invocation retention and vityod with the zero-deadline fix; the expanded Pafio integration gate passed on the same binaries (ok=true, validation_errors empty); vityod crate tests passed 56/0; the bounded-retention probe confirmed the documented bound (newest 8 plus current plus referenced parent owner). Styio production source is unchanged since the accepted FINAL result (run 3a1004ddbef0fc5754a4527d392eacbc); the relinked CLI identity is reconciled by the current-candidate E2E inputs instead of the earlier byte-identical reuse claim. NODE-FINAL and NODE-CLOSE are completed, review items invalidated by NODE-REPAIR's result change were resolved against the joined evidence, and the registered CLOSE review check executed as host. Hosted E04 is closed."
+      "summary": "Coordinator join recorded 2026-10-15 on the current three-repository candidate (styio ba37f64, pafio 62636ea, vityo cb8883de; all three worktrees clean). The milestone's external join is closed on the current candidate: the Vityo E2E through real production services and vityod passed with 35 required real cases and 4 deterministic contract cases accepted (ok=true, failure_category null) using the current styio CLI (74959128 bytes), styio_lspd, Pafio with bounded per-invocation retention and vityod with the zero-deadline fix; the expanded Pafio integration gate passed on the same binaries (ok=true, validation_errors empty); vityod crate tests passed 56/0; the bounded-retention probe confirmed the documented bound (newest 8 plus current plus referenced parent owner). Styio production source is unchanged since the accepted FINAL result; the relinked CLI identity is reconciled by the current-candidate E2E inputs instead of the earlier byte-identical reuse claim. NODE-FINAL and NODE-CLOSE are completed, review items invalidated by NODE-REPAIR's result change were resolved against the joined evidence, and the registered CLOSE review check executed as host. The hosted execution is closed."
     },
     "review": []
   },

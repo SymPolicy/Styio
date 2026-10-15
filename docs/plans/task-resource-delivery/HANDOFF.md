@@ -2,7 +2,7 @@
 
 **Purpose:** Maintain the reviewed CLI/LSP evidence and the finite FINAL/CLOSE execution handoff for the existing joint milestone.
 
-**Last updated:** 2026-10-15
+**Last updated:** 2026-10-16
 
 **Evidence observed:** 2026-10-11–12. **Review scope:** NODE-FINAL → NODE-CLOSE / TASK-001.
 **Registered checks:** FINAL selects only `styio-task-resource-final`; CLOSE selects only `styio-task-resource-review`.
@@ -11,23 +11,20 @@ The current execution contract is below. Earlier B1–B5/U1/U2/U3 compiler,
 editor and real Pafio producer records retain their historical scope; their
 then-pending external prerequisites do not supersede the coordinator's later
 acceptance. The independent reconciliation below supplies the actual final regression and
-scoped review evidence; it does not claim joint delivery. Existing source Task/Tree delivery fields remain unset.
+scoped review evidence; it does not claim joint delivery. The current delivery status is recorded in the [coordinator join and delivery closure](#coordinator-join-and-delivery-closure--2026-10-15); statements describing source Task/Tree delivery as unfilled are historical and superseded by that closure.
 
 ## FINAL/CLOSE execution plan
 
-Use the same hosted E04 and source `TASK-001` in this Tree. Current authority is
-the assigned objective, coordinator blackboard decision
-`7c6eadba45c31325673712f68067ad5b`, `Tree.json`, `tasks/TASK-001.json`,
-`../README.md` and the existing owner contracts. Read this HANDOFF and
+Use the same hosted source `TASK-001` in this Tree. Current authority is
+the assigned objective, the coordinator's blackboard decision, `Tree.json`,
+`tasks/TASK-001.json`, `../README.md` and the existing owner contracts. Read this HANDOFF and
 `../pafio-nightly/docs/plans/task-resource-delivery/HANDOFF.md` and
 `../vityo-nightly/docs/plans/task-resource-delivery/HANDOFF.md` from the repository
 root. Those sibling candidates are read-only, consumed in place; no rebuilds.
 
 The coordinator accepted all three source reviews and the same-candidate
-production-service/vityod → Pafio → Styio join: runtime
-`0c7f97c7be1e7eb93dcefee3d62ebc76`, registered check
-`d5deb633e4fe8f39e9bad2a56c7ea1de`. Vityo retains the complete evidence under
-`build/task-resource-integration/host-gy1mv_16/`. Planning inspected its
+production-service/vityod → Pafio → Styio join. Vityo retains the complete
+evidence under `build/task-resource-integration/`. Planning inspected its
 `gate-report.json` (`ok=true`, `skipped=false`) and `process.json` (exit 0).
 The coordinator accepted the 35 required real cases and four boundaries;
 unknown child skips remain unknown. Do not rerun this E2E unless a specific
@@ -35,11 +32,11 @@ changed input invalidates its evidence, and report that impact to coordinator.
 
 | Execution lane | Dependencies | Finite outcome and check |
 | --- | --- | --- |
-| FINAL Worker, source `NODE-FINAL` | Planning bootstrap `d80f6a51ba96b38f12fe42d66408f89c`; accepted common join above | Prepare current-source inputs and complete ignored logging; hand control to HOST for only `styio-task-resource-final`; address actual scoped failures with affected/remaining recovery. Hosted node `6544e819e22e32f4d6f1ddb0a532acbf`. |
-| Independent CLOSE Reviewer, source `NODE-CLOSE` | Same planning bootstrap **and** FINAL, including actual host check evidence | Independently inspect final code, migration, findings and complete evidence; reconcile local requirements and handoff; select only `styio-task-resource-review`. Hosted node `c179c69728b7bf37136dc1a528ca457c`. |
+| FINAL Worker, source `NODE-FINAL` | Planning bootstrap; accepted common join above | Prepare current-source inputs and complete ignored logging; hand control to HOST for only `styio-task-resource-final`; address actual scoped failures with affected/remaining recovery. |
+| Independent CLOSE Reviewer, source `NODE-CLOSE` | Same planning bootstrap **and** FINAL, including actual host check evidence | Independently inspect final code, migration, findings and complete evidence; reconcile local requirements and handoff; select only `styio-task-resource-review`. |
 
-The hosted execution task is `63ccb2a428e93260bde6c08a7f9514f5` within the
-assigned plan; it maps to existing source TASK-001, not a new source Task/Tree.
+The hosted execution runs under the assigned plan; it maps to existing source
+TASK-001, not a new source Task/Tree.
 Use current non-fast roles. FINAL exclusively owns this repository's scoped
 writes, then yields ownership to CLOSE. No extra execution lanes, subordinate
 agents, model changes or arbitrary time/silence/iteration/attempt cutoffs.
@@ -119,9 +116,8 @@ successful host recovery. Scoped findings and their dispositions follow.
 
 ### Actual final evidence
 
-The assigned host plan reports FINAL validation passed after check-stage
-`3a1004ddbef0fc5754a4527d392eacbc`; the failed first stage is
-`16ee78c65d720bd94d7a851103603a31`. Full evidence is under ignored
+The assigned host plan reports FINAL validation passed after an initial failed
+stage. Full evidence is under ignored
 `build/task-resource-final/`. These are separate overlapping selections, never
 an added total. CTest's success percentage includes skips; the counts below
 come from every named record in complete XML, checked against complete verbose
@@ -388,30 +384,27 @@ retain their stated scope. The coordinator owns resuming Vityo and its separate
 production-service join; no Vityo rerun or final regression is claimed here.
 No language feature expansion or Tree-sitter diagnostic suppression was used.
 
-The host subsequently passed both U3 registered checks: focused run
-`36f874df908fa0a137593c78204fe20f` and review run
-`431c25a01a63945fd0c410406982285d`. The coordinator inspected retained final
+The host subsequently passed both U3 registered checks: the focused and the
+review check. The coordinator inspected retained final
 build/protocol exits and IDE XML, accepted this CLI/LSP candidate and completed
 the current source REPAIR/HANDOFF check records. This permits resuming the
 existing Vityo phase; it does not establish its production join or final regression.
 
 ### Historical U3 scope and execution context
 
-This continuation uses the existing E04 source `TASK-001`, `NODE-REPAIR` and
-`NODE-HANDOFF`. The automation graph has only a Repair Worker followed by an
-independent Handoff Reviewer; both depend directly on the planning bootstrap.
-The host's registered focused check joins those lanes. Earlier BASELINE/COST
+This continuation uses the existing hosted source `TASK-001`, `NODE-REPAIR` and
+`NODE-HANDOFF`. The scope has one Repair Worker and an independent Handoff
+Reviewer; the host's registered focused check joins them. Earlier BASELINE/COST
 records and B1–B5/U1/U2 evidence remain historical inputs, not new work.
 
-Planning read the Vityo HANDOFF and source NODE-REPAIR account of finding
-`b0eea7409ce309598ce81b191fb28907` and the evidence selected by
+Planning read the Vityo HANDOFF and source NODE-REPAIR account of that finding
+and the evidence selected by
 `../vityo-nightly/build/task-resource-repair/latest-documents.json`:
 `document-diagnostics.json` contains 16 editor-syntax diagnostics. The original
-Vityo blackboard entry is not exposed by this Styio-scoped graph API; those
+Vityo blackboard entry is not exposed by this Styio-scoped interface; those
 mirrored records and retained diagnostics are the inspected input. The
-coordinator's Styio blackboard clarification
-`34be00c8c6c8be6a64527dec96bd09cb` also applies: immediate syntax publication
-does not establish completion of request-driven semantic publication.
+coordinator's Styio blackboard clarification also applies: immediate syntax
+publication does not establish completion of request-driven semantic publication.
 
 | Lane | Finite outcome and acceptance | Check ownership |
 | --- | --- | --- |
@@ -576,7 +569,7 @@ unchanged passing IDE/protocol inputs are reused, not rerun for reporting.
 | Review evidence | Actual result and limit |
 | --- | --- |
 | Independent direct grammar verification | `npx --yes tree-sitter-cli@0.26.8 parse --quiet` on all five authoritative fixture paths, exit 0. Exact argv and full log: `build/task-resource-handoff-20261011/u3/grammar-command.json`, `grammar-fixtures.log/.exit`. The CLI configuration warning is retained; no parser error was emitted. |
-| Host registered focused check | `styio-task-resource-focused`, run `36f874df908fa0a137593c78204fe20f`, reports passed through `project_plan_read`. `build/task-resource-handoff-20261011/u3/host-result.json` records this evidence. Full host console, per-command exits and detailed GoogleTest totals are not exposed by this API. |
+| Host registered focused check | `styio-task-resource-focused` reports passed through the assigned plan. `build/task-resource-handoff-20261011/u3/host-result.json` records this evidence. Full host console, per-command exits and detailed GoogleTest totals are not exposed by the assigned-plan interface. |
 | Retained local CTest evidence from that host execution | `build/task-resource-handoff-20261011/u3/host-focused-ctest.log` starts on 2026-10-11 at 23:19 CST and contains 54 passed / 0 failed records. This is the CTest portion only, not a total for the entire focused entrypoint. |
 | Independently inspected LSP capture | Good versions 1/3/5 have empty immediate and merged diagnostics; malformed 2/4 retain two editor errors and an additional compiler parse diagnostic in the merged result. The final saved copy matches authoritative t13. Rapid publications are 4/4/5/5, with no trailing output. Reused capture: `build/task-resource-repair-20261011/u3/candidate/protocol.json`. |
 | Recovery and stale-work evidence | Reused Worker XML covers six malformed/restored incremental edits, fresh/incremental equivalence, compiler token ranges, multiline folds, completion after a malformed await and pending-semantic coalescing to version 3. The 6-case strengthened rerun overlaps the 34-case run; totals are not added. |
@@ -665,7 +658,7 @@ stdout/stderr and artifacts are ignored and are not shared in these summaries.
 
 | Execution/evidence | Actual result and reuse boundary |
 | --- | --- |
-| Host `styio-task-resource-focused`, check run `8e93839c08907eed0f6ab829a127be27` | Assigned plan reports passed. Full console, per-command exits and GoogleTest totals are not exposed. Separate retained CTest log contains 54 passed records, zero failed; no aggregate total is inferred. `host-focused-evidence.json`, `host-focused-ctest.log`. |
+| Host `styio-task-resource-focused` | Assigned plan reports passed. Full console, per-command exits and GoogleTest totals are not exposed. Separate retained CTest log contains 54 passed records, zero failed; no aggregate total is inferred. `host-focused-evidence.json`, `host-focused-ctest.log`. |
 | Worker snapshot producer / static consumer / observable consumer / delta / query / service | Retained logs report 28 / 8 / 3 / 11 / 4 / 5 passes respectively; no skips reported. No separate exit files retained. Unchanged cases reused; altered request matrix superseded below. These are separate executions. |
 | Worker topology / lowering / type inference / constrained runtime / main contract | Retained logs report 57 / 26 / 45 / 25 / 45 passes respectively; no skips reported. Compiler selection reports 140 passes and two platform skips, which are not passes. No separate exit files retained. |
 | Reviewer `cmake --build build/default --target styio styio_lspd styio_observable_static_snapshot_test styio_resource_topology_test -j4` | Exit 0. Existing macOS arm64 Debug configuration; both CLI and LSP targets checked by incremental dependency tracking; changed test executables rebuilt. `build-command.json`, `build.log`, `build.exit`. |
@@ -732,7 +725,7 @@ No sibling binary was rebuilt or replaced.
 
 | Execution or evidence | Actual result and reuse boundary |
 | --- | --- |
-| Host `styio-task-resource-focused`, check run `d5497a4f2e7c13afc7f1998aa92fd33e` | Host plan reports passed after the Worker. Its full console, per-command exits and GoogleTest totals are not exposed by the assigned plan API; no such details are inferred. The retained CTest log independently records 54 passed state/task/LSP tests. |
+| Host `styio-task-resource-focused` | Host plan reports passed after the Worker. Its full console, per-command exits and GoogleTest totals are not exposed by the assigned plan API; no such details are inferred. The retained CTest log independently records 54 passed state/task/LSP tests. |
 | Worker `styio_observable_static_snapshot_test` | 28 passed, no failures/skips, in `snapshot-test.xml`; original execution retained. The changed helper/admission cases are superseded by affected reviewer evidence below; unchanged producer/identity/machine-info cases are reused. |
 | Reviewer affected build | Exit 0; `affected-build.log`, `.exit` and `affected-build-command.json`. |
 | Reviewer snapshot admission, affected CLI and delta publication selections | 17 passed, no failures/skips, exit 0; `snapshot-affected.xml`, `.log`, `.exit`. Includes relocation-stable bytes, unobserved operation, pre-parse rejection, publication failure and receipt/delta ownership. |
@@ -936,7 +929,7 @@ confirmed. No raw evidence was copied to shared records.
 ## Coordinator host-check acceptance (2026-10-11)
 
 The host subsequently completed the registered handoff check with
-`validation=passed` (check-stage run `104b66255b25ab157edd8f5be1e3a25e`).
+`validation=passed`.
 The coordinator accepts the current reviewed dirty-source candidate for the
 next dependent phase. Full host console and individual process exits are not
 exposed; no additional per-case totals are inferred. Existing detailed local
@@ -950,7 +943,7 @@ join was completed. Candidate revisions: styio `ba37f64`, pafio `62636ea`,
 vityo `cb8883de`; all three worktrees clean.
 
 - Same-candidate Vityo E2E through real production services and vityod:
-  `host-ehiyo1yz` — 35 required real cases and 4 deterministic contract cases
+  35 required real cases and 4 deterministic contract cases
   accepted, `ok=true`, failure category null, not skipped. Inputs are the
   current styio CLI, `styio_lspd`, the current Pafio binary (bounded
   per-invocation retention) and vityod (zero-deadline fix), recorded in
@@ -961,12 +954,11 @@ vityo `cb8883de`; all three worktrees clean.
 - vityod crate tests: 56 passed, 0 failed. The bounded-retention probe on the
   current Pafio binary confirmed the documented bound (newest 8 plus the
   current invocation plus a referenced parent-snapshot owner).
-- Styio production source is unchanged since the accepted FINAL result
-  (`3a1004ddbef0fc5754a4527d392eacbc`).
+- Styio production source is unchanged since the accepted FINAL result.
 - The registered CLOSE review check was executed as host during this closure;
   NODE-FINAL and NODE-CLOSE are completed and the review items invalidated by
   NODE-REPAIR's result change were resolved against the joined evidence.
-- Source `TASK-001` and Tree delivery are recorded; hosted E04 is closed.
+- Source `TASK-001` and Tree delivery are recorded; the hosted execution is closed.
 
 Boundaries are unchanged: macOS arm64 Debug only; Linux/Windows, Release,
 sanitizers, installed-client UI, real Agent/provider conversations and

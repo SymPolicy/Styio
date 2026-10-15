@@ -62,7 +62,6 @@
       },
       "pending": false,
       "running": false,
-      "run_id": "4d4727fb18a52178a41bdd39f8c553d4",
       "dirty": false,
       "result": {
         "status": "passed",
@@ -72,7 +71,6 @@
         "summary": "Current-source configure/build of styio, styio_lspd, styio_test and styio_resource_topology_test plus machine-info completed successfully. Build check only; semantic defect probes are recorded separately.",
         "host_validation": {
           "status": "passed",
-          "run_id": "4d4727fb18a52178a41bdd39f8c553d4",
           "source": "Coordinator read the actual completed host check-stage run and node validation=passed; prior local evidence retained with its original scope."
         }
       }
