@@ -62,9 +62,10 @@ run the full suite first or mark the check passed before actual host evidence.
 
 If that run fails, keep its original logs/results. Diagnose actual failures,
 repair ordinary scoped defects directly and rebuild affected targets. Before
-returning control for the host's automatic same-ID follow-up, explicitly route
-this milestone's `checks.sh final` branch to the required affected/remaining
-commands, not another full-suite invocation. Document the failed commands,
+returning control for the host's automatic same-ID follow-up, execute that
+follow-up once against only the required affected/remaining commands; the
+registered `checks.sh final` entrypoint keeps its complete-suite form and is
+never rewritten to the recovery selection. Document the failed commands,
 invalidated inputs, reused valid passes, repaired-case coverage and any remaining
 checks/skips. Keep every required check accounted for and permanent product gates
 effective; do not remove failures, silently skip work, retry without diagnosis or
@@ -140,8 +141,9 @@ selected extern/runtime/security/task/state paths; C1 supersedes just its altere
 test and C2 adds the missing two CLI paths. First-run successes on unchanged
 parser, sema, lowering, codegen, observation schema/consumer, CLI-contract, IDE,
 package, native/FFI and non-task feature paths are reused. No failing check was
-removed and no product gate was weakened. The existing final entrypoint retains
-its explicit affected recovery route; it cannot replay the unfiltered suite.
+removed and no product gate was weakened. The registered final entrypoint runs
+the complete build and unfiltered suite; the recorded recovery was a one-shot
+affected/remaining execution under the same check ID.
 
 ### Supported-capability reconciliation
 
@@ -273,9 +275,10 @@ run during FINAL preparation**; its check result and run ID remain pending/null.
 No case total or platform skip outcome is inferred before host evidence.
 
 After an actual host failure, preserve that directory, diagnose the named
-failures and repair ordinary scoped defects. Amend the existing final branch's
-build/test commands to explicit affected targets and affected/remaining tests
-before the same check ID runs again. Record exactly which first-run passes retain
+failures and repair ordinary scoped defects. Run the same check ID once against
+explicit affected targets and affected/remaining tests as the recovery
+follow-up; the registered final entrypoint itself keeps its complete-suite
+commands. Record exactly which first-run passes retain
 valid inputs, which are invalidated, and which checks remain; do not replay the
 whole suite or silently omit failed checks. No recovery selection is guessed now.
 
@@ -307,8 +310,10 @@ No permanent product gate was removed or weakened and no failing check was
 silently dropped. `checks.sh final` keeps its full evidence infrastructure
 (distinct `host-*` directory per invocation, invocation/environment record,
 command files, complete `build.log`/`ctest.log`/`ctest.xml`, copied `Testing/`,
-individual exit files, bounded console tails) and now runs the affected build
-and the affected/remaining test selection instead of another full-suite pass:
+individual exit files, bounded console tails). The recorded recovery follow-up
+under the same check ID executed only the affected build and the
+affected/remaining test selection, not another full-suite pass; the registered
+entrypoint retains its complete form for subsequent runs:
 
 - Build: `cmake --build build/default --target styio styio_security_test styio_externlib_internal_test styio_observable_runtime_test`
 - Tests: `ctest --test-dir build/default --output-on-failure --no-tests=error --verbose --output-junit <logdir>/ctest.xml -R 'StyioExternLibInternal\.|StyioObservableRuntime\.|StyioSafetyRuntime\.|StyioSecurityBoundedTaskScheduling\.|StyioSecurityNightlyRuntime\.|LegacyAndDeclarationAstLoweringEdgesStayExplicit|LeafNoopAndFailClosedTypeInferNodesStayExplicit|^(task_resources|state_resources)_|callable_capabilities_err_e02_task_instance|callable_capabilities_err_e07_copy_task_instance|callable_values_err_e04_captured_scheme|^syntax_feature_state_gate'` (135 entries)

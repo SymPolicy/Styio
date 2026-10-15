@@ -116,7 +116,8 @@ current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIV
    and `scripts/workflow-scheduler.py`. When editing `delivery-gate.sh`, preserve
    literal `delivery-checkpoint` and `delivery-push` scheduler invocations because
    audit checks those entrypoints. The audit gate itself runs through
-   `Unka-Malloc/audit@only`; the local root, scopes and private report
+   `Unka-Malloc/audit` pinned to a full commit SHA; the local root tracks
+   that pinned revision. Scopes and the private report
    location are documented in [AUDIT.md](../../AUDIT.md).
 3. Maintain repo-local skills through [workflows/skills/README.md](../../workflows/skills/README.md)
    and the [tool/skill registry](../../workflows/TOOL-SKILL-REGISTRY-GATE.md).

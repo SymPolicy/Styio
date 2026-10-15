@@ -185,7 +185,6 @@ required for the handoff to be actionable.
 | Blocked action | External repository | Blocking condition |
 |---|---|---|
 | Upstream promotion | `SymPolicy/Styio` | Delivery ends with the downstream integration pull request unmerged; the repository contract requires the downstream merge before any upstream pull request, and the upstream pull request head must be `Unka-Malloc:nightly`. |
-
 | Benchmark asset publication | `SymPolicy/styio-benchmark@canary` | Default branch publishes only 2 of the 8 gating assets; the complete set exists on the external `agent/styio-benchmark-externalization` branch. |
 
 No external write was performed by this delivery; all external state above was
