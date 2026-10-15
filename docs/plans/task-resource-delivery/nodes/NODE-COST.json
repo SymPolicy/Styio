@@ -16,7 +16,7 @@
       "result": {
         "host_validation": {
           "run_id": "4405330dfaa1a68bea23902b69cd4bb7",
-          "source": "Coordinator read actual completed task-resource-delivery check-stage run and node validation=passed; prior local evidence retained with its original scope.",
+          "source": "Coordinator read the actual completed host check-stage run and node validation=passed; prior local evidence retained with its original scope.",
           "status": "passed"
         },
         "log": "build/task-resource-cost-20261011/focused-checks.log",

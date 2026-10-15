@@ -2298,27 +2298,55 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
   };
 
   {
+    // Both early output-location probes share one implementation; this table
+    // exercises every rejection edge for each field.
+    struct ProbeShape {
+      const char* name;
+      const char* text;
+    };
+    const ProbeShape invalid_shapes[] = {
+      {"invalid-json", "{bad"},
+      {"root-array", "[]"},
+      {"missing-outputs", "{}"},
+      {"null-outputs", "{\"outputs\":null}"},
+      {"missing-field", "{\"outputs\":{}}"},
+      {"wrong-type", "{\"outputs\":{\"{FIELD}\":7}}"},
+      {"empty", "{\"outputs\":{\"{FIELD}\":\"\"}}"},
+      {"relative", "{\"outputs\":{\"{FIELD}\":\"relative\"}}"},
+    };
+    const std::string probe_fields[] = {"diag_dir", "build_root"};
+    const fs::path probe_targets[] = {diag_dir, build_root};
+    for (std::size_t field_ix = 0; field_ix < 2; ++field_ix) {
+      const std::string& field = probe_fields[field_ix];
+      auto probe = [&](const fs::path& path, fs::path& out) {
+        return field_ix == 0
+          ? styio::config::probe_compile_plan_diag_dir(path, out)
+          : styio::config::probe_compile_plan_build_root(path, out);
+      };
+      for (const ProbeShape& shape : invalid_shapes) {
+        std::string text = shape.text;
+        const std::string field_marker = "{FIELD}";
+        const auto marker_at = text.find(field_marker);
+        if (marker_at != std::string::npos) {
+          text.replace(marker_at, field_marker.size(), field);
+        }
+        fs::path probed;
+        EXPECT_FALSE(probe(
+          write_plan("probe-" + field + "-" + shape.name + ".json", text),
+          probed)) << field << " / " << shape.name;
+      }
+      fs::path probed;
+      EXPECT_TRUE(probe(
+        write_plan("probe-" + field + "-ok.json",
+                   "{\"outputs\":{\"" + field + "\":\""
+                     + quote(probe_targets[field_ix]) + "\"}}"),
+        probed)) << field;
+      EXPECT_EQ(probed, probe_targets[field_ix]) << field;
+    }
+    // The main.cpp wrappers reuse the same implementation for a missing file.
     fs::path probed;
     EXPECT_FALSE(styio_probe_compile_plan_diag_dir_latest(temp.path() / "missing.json", probed));
-    EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
-      write_plan("probe-invalid.json", "{bad"),
-      probed));
-    EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
-      write_plan("probe-array.json", "[]"),
-      probed));
-    EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
-      write_plan("probe-no-outputs.json", "{\"outputs\":null}"),
-      probed));
-    EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
-      write_plan("probe-relative.json", "{\"outputs\":{\"diag_dir\":\"relative\"}}"),
-      probed));
-    EXPECT_FALSE(styio::config::probe_compile_plan_diag_dir(
-      write_plan("probe-empty-diag.json", "{\"outputs\":{\"diag_dir\":\"\"}}"),
-      probed));
-    EXPECT_TRUE(styio::config::probe_compile_plan_diag_dir(
-      write_plan("probe-ok.json", "{\"outputs\":{\"diag_dir\":\"" + quote(diag_dir) + "\"}}"),
-      probed));
-    EXPECT_EQ(probed, diag_dir);
+    EXPECT_FALSE(styio_probe_compile_plan_build_root_latest(temp.path() / "missing.json", probed));
   }
 
   expect_parse_error(temp.path() / "missing.json", "cannot read file");

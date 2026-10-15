@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-15
+**Last updated:** 2026-10-16
 
 Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
 
@@ -290,3 +290,10 @@ crate tests and the bounded-retention probe; the milestone Tree/Task delivery
 now carries the join result and its boundaries. The registered CLOSE review
 check executed as host, and the review items invalidated by NODE-REPAIR's
 result change were resolved against the joined evidence.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Plan node provenance strings in `docs/plans/task-resource-delivery/nodes/` were
+rephrased to repository-local terminology; the records remain valid JSON and the
+recorded plan state is unchanged. The affected team runbooks and
+[DOC-STATS](./DOC-STATS.md) were refreshed in the same change.

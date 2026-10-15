@@ -648,6 +648,49 @@ compile_plan_profile_has_only_v1_fields(
   return true;
 }
 
+/* Shared implementation of the early output-location probes. The two public
+   entry points keep their own contracts; the read/parse/absolute-path rule
+   lives here exactly once so both fields can never drift apart. */
+bool
+probe_compile_plan_output_path(
+  const std::filesystem::path& plan_path,
+  llvm::StringRef field_name,
+  std::filesystem::path& out_path
+) {
+  std::string plan_text;
+  std::string error_message;
+  if (!read_text_file(plan_path, plan_text, error_message)) {
+    return false;
+  }
+
+  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(plan_text);
+  if (!parsed) {
+    return false;
+  }
+  const llvm::json::Object* root = parsed->getAsObject();
+  if (root == nullptr) {
+    return false;
+  }
+
+  const llvm::json::Object* outputs = root->getObject("outputs");
+  if (outputs == nullptr) {
+    return false;
+  }
+
+  const auto raw_value = outputs->getString(field_name);
+  if (!raw_value.has_value() || raw_value->empty()) {
+    return false;
+  }
+
+  const std::filesystem::path candidate{std::string(*raw_value)};
+  if (!candidate.is_absolute()) {
+    return false;
+  }
+
+  out_path = candidate;
+  return true;
+}
+
 } // namespace
 
 bool
@@ -655,38 +698,7 @@ probe_compile_plan_diag_dir(
   const std::filesystem::path& plan_path,
   std::filesystem::path& out_diag_dir
 ) {
-  std::string plan_text;
-  std::string error_message;
-  if (!read_text_file(plan_path, plan_text, error_message)) {
-    return false;
-  }
-
-  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(plan_text);
-  if (!parsed) {
-    return false;
-  }
-  const llvm::json::Object* root = parsed->getAsObject();
-  if (root == nullptr) {
-    return false;
-  }
-
-  const llvm::json::Object* outputs = root->getObject("outputs");
-  if (outputs == nullptr) {
-    return false;
-  }
-
-  const auto diag_dir = outputs->getString("diag_dir");
-  if (!diag_dir.has_value() || diag_dir->empty()) {
-    return false;
-  }
-
-  const std::filesystem::path candidate{std::string(*diag_dir)};
-  if (!candidate.is_absolute()) {
-    return false;
-  }
-
-  out_diag_dir = candidate;
-  return true;
+  return probe_compile_plan_output_path(plan_path, "diag_dir", out_diag_dir);
 }
 
 bool
@@ -694,38 +706,7 @@ probe_compile_plan_build_root(
   const std::filesystem::path& plan_path,
   std::filesystem::path& out_build_root
 ) {
-  std::string plan_text;
-  std::string error_message;
-  if (!read_text_file(plan_path, plan_text, error_message)) {
-    return false;
-  }
-
-  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(plan_text);
-  if (!parsed) {
-    return false;
-  }
-  const llvm::json::Object* root = parsed->getAsObject();
-  if (root == nullptr) {
-    return false;
-  }
-
-  const llvm::json::Object* outputs = root->getObject("outputs");
-  if (outputs == nullptr) {
-    return false;
-  }
-
-  const auto build_root = outputs->getString("build_root");
-  if (!build_root.has_value() || build_root->empty()) {
-    return false;
-  }
-
-  const std::filesystem::path candidate{std::string(*build_root)};
-  if (!candidate.is_absolute()) {
-    return false;
-  }
-
-  out_build_root = candidate;
-  return true;
+  return probe_compile_plan_output_path(plan_path, "build_root", out_build_root);
 }
 
 bool

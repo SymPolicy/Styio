@@ -2793,6 +2793,10 @@ StyioToLLVM::toLLVMIR(SGFinalBind* node) {
            != StyioDataTypeOption::Func) {
     register_cstr_slot_for_raii(variable);
     forget_owned_cstr_temp(value);
+    /* The scope owns this binding's string storage: mark the name so an
+       escaping task capture exports an independent copy instead of a pointer
+       the scope cleanup frees. */
+    owned_cstr_binding_names_.insert(varname);
   }
 
   return variable;
@@ -3348,6 +3352,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_cstr_scopes = cstr_slot_scope_stack_;
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
+  auto saved_cstr_bindings = owned_cstr_binding_names_;
   auto saved_owned_resource = owned_resource_temps_;
   auto saved_owned_resource_scopes = owned_resource_scope_stack_;
   auto saved_active_captures = active_callable_capture_names_;
@@ -3369,6 +3374,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   cstr_slot_scope_stack_.clear();
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
+  owned_cstr_binding_names_.clear();
   owned_resource_temps_.clear();
   owned_resource_scope_stack_.clear();
   active_callable_capture_names_.clear();
@@ -3443,6 +3449,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   cstr_slot_scope_stack_ = std::move(saved_cstr_scopes);
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
+  owned_cstr_binding_names_ = std::move(saved_cstr_bindings);
   owned_resource_temps_ = std::move(saved_owned_resource);
   owned_resource_scope_stack_ = std::move(saved_owned_resource_scopes);
   active_callable_capture_names_ =

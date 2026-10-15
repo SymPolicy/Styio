@@ -768,3 +768,50 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
   close_task(task);
   EXPECT_EQ(g_active_task_handles, 0);
 }
+
+TEST(StyioExternLibInternal, ReadyTaskPullsStaySettledWithoutEnqueueOrRerun) {
+  styio_task_scheduler_profile_reset();
+  styio_task_scheduler_profile_enable(1);
+
+  StyioTaskSchedulerProfileSnapshot before{};
+  styio_task_scheduler_profile_snapshot(&before);
+
+  const int64_t i64_task = styio_task_i64_ready(7);
+  const int64_t f64_task = styio_task_f64_ready(2.5);
+  const int64_t cstr_task = styio_task_cstr_ready("ready-text");
+
+  // Construction settles the result; nothing may be enqueued before a pull.
+  StyioTaskSchedulerProfileSnapshot prepared{};
+  styio_task_scheduler_profile_snapshot(&prepared);
+  EXPECT_EQ(prepared.enqueued_tasks, before.enqueued_tasks);
+  EXPECT_EQ(prepared.started_tasks, before.started_tasks);
+
+  EXPECT_EQ(styio_task_i64_pull(i64_task), 7);
+  EXPECT_DOUBLE_EQ(styio_task_f64_pull(f64_task), 2.5);
+  EXPECT_EQ(take_owned_cstr(styio_task_cstr_pull(cstr_task)), "ready-text");
+
+  // Pulling a settled task consumes the retained result without launching a
+  // worker; no enqueue, start, completion or queue pop may follow the pull.
+  StyioTaskSchedulerProfileSnapshot after{};
+  styio_task_scheduler_profile_snapshot(&after);
+  EXPECT_EQ(after.enqueued_tasks, prepared.enqueued_tasks);
+  EXPECT_EQ(after.started_tasks, prepared.started_tasks);
+  EXPECT_EQ(after.completed_tasks, prepared.completed_tasks);
+  EXPECT_EQ(after.queue_pops, prepared.queue_pops);
+  EXPECT_EQ(after.fast_ready_pulls, prepared.fast_ready_pulls + 3);
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  // A second pull stays rejected and never falls back to running the task.
+  EXPECT_EQ(styio_task_i64_pull(i64_task), 0);
+  EXPECT_EQ(styio_runtime_error_matches_effect("closed"), 1);
+  styio_runtime_clear_error();
+  StyioTaskSchedulerProfileSnapshot rejected{};
+  styio_task_scheduler_profile_snapshot(&rejected);
+  EXPECT_EQ(rejected.enqueued_tasks, prepared.enqueued_tasks);
+  EXPECT_EQ(rejected.started_tasks, prepared.started_tasks);
+
+  styio_task_scheduler_profile_enable(0);
+  styio_task_release(i64_task);
+  styio_task_release(f64_task);
+  styio_task_release(cstr_task);
+}

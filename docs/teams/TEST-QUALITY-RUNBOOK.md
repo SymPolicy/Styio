@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-10-11
+**Last updated:** 2026-10-16
 
 Scheduler regression tests cover composed-profile deduplication, separate scope checks, failure propagation, fresh invocations, and docs-audit evidence context. Run `python3 tests/workflow_scheduler_test.py`; the shell fixture also verifies delivery auto calls the scheduler only once. Local test evidence reuse follows [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#reusing-local-evidence).
 
@@ -229,3 +229,18 @@ entrypoint checks whitespace only. Final regression remains separately admitted.
 
 See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
 source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Post-closure audit findings on the task-resource delivery branch are covered by
+focused regressions: `StyioExternLibInternal.ReadyTaskPullsStaySettledWithoutEnqueueOrRerun`
+pins ready-constructed i64/f64/cstr pulls to unchanged enqueue/start/completion
+counters plus a rejected repeat pull; `tests/features/task_resources/t12_task_owned_string_scope_immutable.styio`
+runs an immutable capture of a scope-owned string through an escaping task with
+CLI and native registration; the security suite asserts the export/import/cleanup
+IR for that capture; and both compile-plan output-location probes stay covered by
+one malformed-schema table. Targeted sanitizer evidence ran outside the
+committed suite: ASan/UBSan reproduced the pre-repair heap-use-after-free in the
+late-read shape and stayed clean after the repair, and TSan reproduced the
+pre-repair result-field race on the externlib internal binary and stayed clean
+after.

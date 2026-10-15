@@ -428,6 +428,11 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   std::unordered_map<std::string, llvm::AllocaInst*> file_handle_var_slots_;
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
+  /* Immutable pointer bindings whose string storage the enclosing scope owns
+     through `cstr_slot_scope_stack_` cleanup (function-pointer bindings never
+     register). Task captures of these names export an independent copy so an
+     escaping task cannot read storage the parent frees at scope exit. */
+  std::unordered_set<std::string> owned_cstr_binding_names_;
   std::unordered_map<llvm::Value*, OwnedResourceTemp> owned_resource_temps_;
   std::vector<std::vector<OwnedResourceTemp>> owned_resource_scope_stack_;
   std::optional<TempResourceKind> current_function_return_resource_kind_;
