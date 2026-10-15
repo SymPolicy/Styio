@@ -12,8 +12,18 @@
       },
       "dirty": false,
       "id": "styio-task-resource-review",
-      "pending": true,
-      "result": null,
+      "pending": false,
+      "result": {
+        "details": [
+          {
+            "command": "bash docs/plans/task-resource-delivery/checks.sh review",
+            "exit_code": 0,
+            "outcome": "passed",
+            "recorded_at": "2026-10-15T12:52:27Z"
+          }
+        ],
+        "status": "passed"
+      },
       "run_id": null,
       "running": false,
       "title": "Independently reconcile delivery requirements checks"
@@ -29,78 +39,70 @@
     "external_inputs": [
       "All three current HANDOFF records and coordinator acceptance 7c6eadba45c31325673712f68067ad5b; actual host styio-task-resource-final result and complete retained logs, including first failure and affected recovery if needed. Sibling final nodes are not prerequisites inside this Agent turn."
     ],
+    "ownership": "Use the existing non-fast independent Reviewer; no subordinate agents or arbitrary cutoffs. Repair ordinary scoped findings directly and report cross-repository impact to coordinator. Investigate alternatives before escalating outside-scope contract/risk changes, holding only dependent work. Do not wait for sibling final nodes, close the programme/later milestones, commit, push, open PRs, install, publish or perform real Agent/installed-UI acceptance.",
+    "review_evidence": "Reconcile BASELINE supported-capability inventory with actual results, preserved passes and specific invalidations; distinguish every platform/feature skip and unverified release/live acceptance. Never derive totals from bounded host tails or add overlapping selections. Check required migration with one-off inspection, not a permanent migration gate. Privacy findings require a redacted per-item file/line/rule/category/basis/impact/disposition table.",
     "write_scope": [
       "Exclusive Styio write ownership after FINAL hands off: existing Node/check/HANDOFF records and ordinary scoped implementation/contract/test corrections with affected builds/checks. No competing Worker writes, sibling changes or sibling rebuilds; preserve user data and independent permanent assets."
-    ],
-    "review_evidence": "Reconcile BASELINE supported-capability inventory with actual results, preserved passes and specific invalidations; distinguish every platform/feature skip and unverified release/live acceptance. Never derive totals from bounded host tails or add overlapping selections. Check required migration with one-off inspection, not a permanent migration gate. Privacy findings require a redacted per-item file/line/rule/category/basis/impact/disposition table.",
-    "ownership": "Use the existing non-fast independent Reviewer; no subordinate agents or arbitrary cutoffs. Repair ordinary scoped findings directly and report cross-repository impact to coordinator. Investigate alternatives before escalating outside-scope contract/risk changes, holding only dependent work. Do not wait for sibling final nodes, close the programme/later milestones, commit, push, open PRs, install, publish or perform real Agent/installed-UI acceptance."
+    ]
   },
   "executors": [],
   "id": "NODE-CLOSE",
   "outcome": "Independently reconcile this repository's final implementation, complete required migration, scoped findings, actual registered check and complete log evidence against the supported-capability inventory. Repair scoped findings with affected validation only and amend the existing Node/check results and final HANDOFF. Preserve independent assets and user data; identify skips, unavailable platforms and unverified release/live acceptance. Report the repository result and cross-repository impact to coordinator without closing source TASK-001/Tree or waiting for sibling final nodes; no zero-defect or all-platform claim.",
   "resources": [],
   "result": {
-    "evidence": "docs/plans/task-resource-delivery/HANDOFF.md#independent-close-reconciliation--2026-10-12",
-    "review_scope": "Independent final source, required migration, complete host logs/XML and BASELINE capability reconciliation; no full-suite or accepted E2E replay",
-    "findings": [
-      {
-        "id": "C1",
-        "disposition": "Repaired internal scheduler test owner cleanup and real pending settlement; affected build and named case passed"
-      },
-      {
-        "id": "C2",
-        "disposition": "Two omitted CLI task-failure paths validated against current CLI, both passed"
-      },
-      {
-        "id": "C3",
-        "disposition": "Final host evidence reconciled; recovery-refreshed source input timestamp explicitly distinguished from first-run provenance"
-      },
-      {
-        "id": "C4",
-        "disposition": "Corrected internal direct-enqueue boundary; no exported scheduler ABI asserted"
-      }
-    ],
-    "final_check_run_id": "3a1004ddbef0fc5754a4527d392eacbc",
-    "engineering_evidence": "build/task-resource-final/close/",
     "affected_validation": {
-      "build_target": "styio_externlib_internal_test",
       "build_exit": 0,
-      "ctest_exit": 0,
+      "build_target": "styio_externlib_internal_test",
       "cases": 3,
-      "passed": 3,
+      "ctest_exit": 0,
       "failed": 0,
-      "skipped": 0,
-      "scope": "One corrected internal case plus two previously omitted current CLI failure cases; overlaps existing full/recovery results and is not added"
+      "passed": 3,
+      "scope": "One corrected internal case plus two previously omitted current CLI failure cases; overlaps existing full/recovery results and is not added",
+      "skipped": 0
     },
-    "migration": "One-off ignored inspection passed; active task-order pipeline, shared canonical identity and current-invocation setup replace superseded paths; no tracked independent asset deletion",
     "capability_limits": "Five distinct first-run skips remain explicit; macOS arm64 Debug / Tree-sitter ON / ICU OFF / Nano ON only; unavailable runtime features, unimplemented didSave, Release/other-platform/sanitizer/installed-UI/real-Agent acceptance unverified",
     "cross_repository_impact": "Only CLI relinked in FINAL; LSP has no runtime-core link dependency and is unchanged. Generated production launch reference counts are preserved, so accepted E2E behavior is reused by source impact analysis plus current affected tests, not claimed rerun on byte-identical inputs. Coordinator must reconcile CLI identity in sibling admission records. No sibling writes/rebuilds.",
-    "host_review_check": "Pending actual HOST styio-task-resource-review; git diff --check is patch hygiene, not independent semantic proof",
-    "delivery_boundary": "Source TASK-001 and Tree delivery remain unset; coordinator alone joins three final results. No sibling wait or later milestone.",
+    "delivery_boundary": "Source TASK-001 and Tree delivery were unset at CLOSE time and are recorded by the coordinator join on 2026-10-15. No sibling wait or later milestone.",
+    "engineering_evidence": "build/task-resource-final/close/",
+    "evidence": "docs/plans/task-resource-delivery/HANDOFF.md#independent-close-reconciliation--2026-10-12",
+    "final_check_run_id": "3a1004ddbef0fc5754a4527d392eacbc",
+    "findings": [
+      {
+        "disposition": "Repaired internal scheduler test owner cleanup and real pending settlement; affected build and named case passed",
+        "id": "C1"
+      },
+      {
+        "disposition": "Two omitted CLI task-failure paths validated against current CLI, both passed",
+        "id": "C2"
+      },
+      {
+        "disposition": "Final host evidence reconciled; recovery-refreshed source input timestamp explicitly distinguished from first-run provenance",
+        "id": "C3"
+      },
+      {
+        "disposition": "Corrected internal direct-enqueue boundary; no exported scheduler ABI asserted",
+        "id": "C4"
+      }
+    ],
+    "host_review_check": "Executed during the coordinator closure on 2026-10-15 as host (see the check record; git diff --check is patch hygiene, not independent semantic proof)",
+    "migration": "One-off ignored inspection passed; active task-order pipeline, shared canonical identity and current-invocation setup replace superseded paths; no tracked independent asset deletion",
     "record_validation": {
       "documentation_audit_exit": 0,
+      "evidence": "build/task-resource-final/close/",
       "one_off_evidence_migration_exit": 0,
       "plan_json_parse": "passed",
-      "review_file_whitespace": "no findings",
       "privacy": {
         "files": 158,
         "findings": [],
         "scope": "repository local-info path/address rules on changed tracked and unignored new files; manual review of runtime-data/credential categories and subsequent result-only additions"
       },
-      "evidence": "build/task-resource-final/close/"
-    }
+      "review_file_whitespace": "no findings"
+    },
+    "review_scope": "Independent final source, required migration, complete host logs/XML and BASELINE capability reconciliation; no full-suite or accepted E2E replay"
   },
-  "review": [
-    {
-      "reason": "result_changed",
-      "source": {
-        "id": "NODE-REPAIR",
-        "kind": "node"
-      }
-    }
-  ],
+  "review": [],
   "role": "reviewer",
-  "status": "pending",
+  "status": "completed",
   "task": "TASK-001",
   "title": "Independently reconcile delivery requirements"
 }

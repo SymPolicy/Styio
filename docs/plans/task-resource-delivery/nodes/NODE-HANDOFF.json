@@ -15,10 +15,10 @@
       "id": "styio-task-resource-review",
       "pending": false,
       "result": {
-        "outcome": "passed",
         "observed_date": "2026-10-11",
-        "source": "task-resource-delivery completed check-stage run and node validation=passed",
-        "scope": "Current U3 registered check. Detailed source/protocol evidence is in HANDOFF.md; unavailable individual host exits/totals are not inferred."
+        "outcome": "passed",
+        "scope": "Current U3 registered check. Detailed source/protocol evidence is in HANDOFF.md; unavailable individual host exits/totals are not inferred.",
+        "source": "task-resource-delivery completed check-stage run and node validation=passed"
       },
       "run_id": "431c25a01a63945fd0c410406982285d",
       "running": false,
@@ -34,15 +34,15 @@
     "execution": "Explicitly select these registered check IDs; an omitted list inherits all project checks and would run unrelated/full checks prematurely.",
     "external_inputs": [],
     "u3_execution": {
-      "plan": "docs/plans/task-resource-delivery/HANDOFF.md#u3-execution-plan",
-      "automation_task_id": "f267d5484036138012866ca7b6e25a4a",
-      "automation_node_id": "f7f37dbfd9e37874dc38c48031905d76",
       "automation_after": [
         "bc44eff66ade9e0d28ec42daeaad7e28",
         "5e2b082d2aec85937825e2ebd681d9e6"
       ],
+      "automation_node_id": "f7f37dbfd9e37874dc38c48031905d76",
+      "automation_task_id": "f267d5484036138012866ca7b6e25a4a",
       "outcome": "Independently review final source/generated artifacts, shared-fixture grammar, actual protocol/test evidence and host focused result; repair scoped findings and hand off the reviewed CLI/LSP candidate with the Vityo join explicitly separate.",
       "ownership": "Sole Styio writer for review corrections after REPAIR; current non-fast Codex role, no subagents. Historical NODE-COST is retained evidence, not a new execution lane.",
+      "plan": "docs/plans/task-resource-delivery/HANDOFF.md#u3-execution-plan",
       "verification": "Select only styio-task-resource-review; rebuild invalidated targets and rerun affected inputs only. Inspect the host focused result without duplicating the suite; do not treat patch hygiene as semantic review."
     },
     "write_scope": [
@@ -54,205 +54,6 @@
   "outcome": "Review the compiler source, defect closure and diagnostics; export the current built candidate to Pafio/Vityo. This handoff does not wait for Pafio integration or whole-Tree delivery. Pafio owns the subsequent real compiler-interface join.",
   "resources": [],
   "result": {
-    "continuation_u3": {
-      "reviewer_document_check": {
-        "exit_code": 0,
-        "log": "build/task-resource-handoff-20261011/u3/docs-audit.log",
-        "scope": "Reviewer HANDOFF and existing source Node amendments; later result-only additions manually reviewed."
-      },
-      "independent_review": {
-        "observed_date": "2026-10-11",
-        "evidence": "docs/plans/task-resource-delivery/HANDOFF.md#u3-independent-review-and-evidence-boundaries",
-        "scope": "Independent owner/parser, grammar/generated-artifact, tolerant-token, Tree-sitter adapter, fixture/test, versioned LSP and actual evidence review. Five shared programs and directly affected editor cases only.",
-        "findings": "No actionable in-scope production defect identified. Clarified current handoff, host evidence limits, unchanged didSave behavior and separate Vityo join. No production/test source change after Worker build.",
-        "selected_binaries": [
-          "build/default/bin/styio",
-          "build/default/bin/styio_lspd"
-        ],
-        "build_reuse": "Worker final build exit 0 inspected for styio/styio_lspd/styio_ide_test; Debug and Tree-sitter ON. No build input changed during review.",
-        "independent_grammar": {
-          "command": "npx --yes tree-sitter-cli@0.26.8 parse --quiet <five authoritative fixture paths>",
-          "exit_code": 0,
-          "argv": "build/task-resource-handoff-20261011/u3/grammar-command.json",
-          "log": "build/task-resource-handoff-20261011/u3/grammar-fixtures.log",
-          "exit": "build/task-resource-handoff-20261011/u3/grammar-fixtures.exit",
-          "boundary": "All five parsed without error; parser-directory configuration warning retained."
-        },
-        "host_focused": {
-          "check_id": "styio-task-resource-focused",
-          "check_run_id": "36f874df908fa0a137593c78204fe20f",
-          "result": "passed",
-          "source": "project_plan_read",
-          "detail": "Host plan result only. Full console and per-command exits are not exposed. Retained local CTest log is separate evidence."
-        },
-        "host_ctest": {
-          "passed": 54,
-          "failed": 0,
-          "started": "2026-10-11 23:19 CST",
-          "log": "build/task-resource-handoff-20261011/u3/host-focused-ctest.log",
-          "boundary": "Only retained CTest portion; not whole focused-suite GoogleTest totals."
-        },
-        "protocol_review": {
-          "capture": "build/task-resource-repair-20261011/u3/candidate/protocol.json",
-          "good_versions": [
-            1,
-            3,
-            5
-          ],
-          "good_immediate_merged_counts": [
-            0,
-            0
-          ],
-          "malformed_versions": [
-            2,
-            4
-          ],
-          "malformed_immediate_merged_counts": [
-            2,
-            3
-          ],
-          "rapid_publication_versions": [
-            4,
-            4,
-            5,
-            5
-          ],
-          "server_exit": 0,
-          "trailing_stdout_bytes": 0,
-          "saved_copy_matches_authoritative_fixture": true,
-          "save_boundary": "No save capability/handler. Copied-file writes and no-op notification preserve synchronized versions 1/2/3; actual Vityo save wiring is a separate obligation."
-        },
-        "ide_evidence_reuse": "Inspected Worker ide.xml (34 passed, no failures/skips) and strengthened ide-candidate.xml (6 passed, no failures/skips; overlapping subset). No rerun of unchanged cases.",
-        "compiler_evidence_reuse": "Existing B1-B5/U1/U2 evidence and current host focused result retain compiler/runtime failure contracts. Neither failure fixture requires editor syntax errors or unsupported semantic diagnostics.",
-        "privacy": {
-          "findings": [],
-          "scope": "Reuse unchanged Worker worktree scan; manually reviewed Reviewer records. Raw host/protocol evidence remains ignored."
-        },
-        "selected_review_check": "styio-task-resource-review",
-        "review_check_boundary": "Current host review check has not run at the time of this record; old check receipt remains historical.",
-        "handoff_boundary": "Reviewed CLI/LSP candidate only. Coordinator resumes Vityo production join. No sibling mutation/rebuild, full regression, producer replay, publication/install or live acceptance."
-      },
-      "document_checks": {
-        "docs_audit": {
-          "exit_code": 0,
-          "log": "build/task-resource-repair-20261011/u3/docs-audit-final.log",
-          "initial_exit": 1,
-          "repair": "Updated required Grammar runbook and generated IDE index; changed runbook statistics refreshed."
-        },
-        "privacy": {
-          "exit_code": 0,
-          "findings": [],
-          "log": "build/task-resource-repair-20261011/u3/privacy.log",
-          "boundary": "Worktree local-info scan; later result/doc additions manually reviewed. Raw local evidence remains ignored."
-        },
-        "patch_hygiene": {
-          "exit_code": 0,
-          "log": "build/task-resource-repair-20261011/u3/diff-check.log"
-        },
-        "provenance": [
-          "build/task-resource-repair-20261011/u3/source-revision.txt",
-          "build/task-resource-repair-20261011/u3/candidate-status.txt"
-        ]
-      },
-      "scope": "Worker candidate for the five authoritative shared programs; host focused verification and independent review are separate.",
-      "handoff": "docs/plans/task-resource-delivery/HANDOFF.md#u3-worker-candidate-and-evidence",
-      "implementation": "Single owner Tree-sitter grammar plus regenerated parser.c/grammar.json/node-types.json; tolerant compiler-matching task-launch, double-dot and print tokens. No compiler or runtime contract changes.",
-      "generator": {
-        "command": "npx --yes tree-sitter-cli@0.26.8 generate",
-        "node": "v24.18.1; documented macOS 24.x compatible baseline",
-        "exit_code": 0,
-        "log": "build/task-resource-repair-20261011/u3/generate.log"
-      },
-      "build": {
-        "command": "cmake --build build/default --target styio styio_lspd styio_ide_test -j4",
-        "configuration": "Debug; STYIO_ENABLE_TREE_SITTER=ON",
-        "exit_code": 0,
-        "log": "build/task-resource-repair-20261011/u3/build-candidate.log",
-        "exit": "build/task-resource-repair-20261011/u3/build-candidate.exit"
-      },
-      "before": {
-        "check_exit": 1,
-        "server_exit": 0,
-        "good_immediate_and_merged_diagnostics": [
-          16,
-          16
-        ],
-        "protocol": "build/task-resource-repair-20261011/u3/before/protocol.json"
-      },
-      "ide": {
-        "selector": "SharedPrograms/StyioTaskResourceSyntax.*:StyioSyntaxParser.*:StyioCompletionEngine.*:StyioLspRuntime.*:StyioLspServer.*:StyioSemanticDb.SemanticTokensUseUtf16PositionsAndLengths:StyioSyntaxDrift.CorpusMatchesApprovedEnvelope",
-        "passed": 34,
-        "failed": 0,
-        "skipped": 0,
-        "exit_code": 0,
-        "xml": "build/task-resource-repair-20261011/u3/ide.xml",
-        "exit": "build/task-resource-repair-20261011/u3/ide.exit"
-      },
-      "affected_rerun": {
-        "selector": "SharedPrograms/StyioTaskResourceSyntax.*:StyioSyntaxParser.TaskHistoryMalformedEditsRecoverIncrementally",
-        "reason": "Strengthened generic fold and actual error-node assertions; unchanged surrounding checks reused.",
-        "passed": 6,
-        "failed": 0,
-        "skipped": 0,
-        "exit_code": 0,
-        "xml": "build/task-resource-repair-20261011/u3/ide-candidate.xml",
-        "exit": "build/task-resource-repair-20261011/u3/ide-candidate.exit",
-        "overlap": "Six of the preceding 34; do not add executions."
-      },
-      "direct_grammar": {
-        "command": "npx --yes tree-sitter-cli@0.26.8 parse --quiet <five authoritative tests/features paths listed in HANDOFF>",
-        "exit_code": 0,
-        "log": "build/task-resource-repair-20261011/u3/grammar-fixtures.log",
-        "boundary": "Current grammar; parser-directory configuration warning retained. Actual backend separately asserted in IDE tests."
-      },
-      "protocol": {
-        "command": "python3 tests/lsp_stdio_framing_test.py --binary build/default/bin/styio_lspd --task-resource-parity --evidence-dir build/task-resource-repair-20261011/u3/candidate",
-        "check_exit": 0,
-        "server_exit": 0,
-        "good_versions": [
-          1,
-          3,
-          5
-        ],
-        "good_immediate_and_merged_diagnostics": [
-          0,
-          0
-        ],
-        "malformed_versions": [
-          2,
-          4
-        ],
-        "malformed_immediate_and_merged_diagnostics": [
-          2,
-          3
-        ],
-        "saved_versions": [
-          1,
-          2,
-          3
-        ],
-        "rapid_publication_versions": [
-          4,
-          4,
-          5,
-          5
-        ],
-        "trailing_stdout_bytes": 0,
-        "capture": "build/task-resource-repair-20261011/u3/candidate/protocol.json",
-        "exit": "build/task-resource-repair-20261011/u3/protocol-candidate.exit"
-      },
-      "registration": {
-        "new_cases": 9,
-        "evidence": "build/task-resource-repair-20261011/u3/test-membership.log",
-        "boundary": "Listing only; not another execution."
-      },
-      "initial_build_failure": {
-        "exit_code": 2,
-        "reason": "New test used nonexistent initialization helper; repaired to existing initialize API.",
-        "log": "build/task-resource-repair-20261011/u3/build.log"
-      },
-      "boundaries": "Worker did not run styio-task-resource-focused or styio-task-resource-review. Host alone runs the focused entrypoint; independent HANDOFF Reviewer owns review. Vityo join remains coordinator-owned. Earlier B1-B5/U1/U2 evidence retained without producer gate replay, full regression or sibling mutation."
-    },
     "artifacts": [
       "build/default/bin/styio",
       "build/default/bin/styio_lspd"
@@ -271,7 +72,408 @@
         "styio_codegen_internal_test"
       ]
     },
+    "continuation": {
+      "defect": "B5 canonical compile-plan v1 package identity",
+      "document_checks": {
+        "docs_audit": {
+          "exit_code": 0,
+          "log": "build/task-resource-handoff-20261011/package-identity/docs-audit.log"
+        },
+        "local_info": {
+          "exit_code": 0,
+          "findings": [],
+          "log": "build/task-resource-handoff-20261011/package-identity/privacy.log",
+          "scope": "Tracked and unignored worktree files; final result-record additions manually reviewed after the scan."
+        },
+        "privacy_disposition": "No matching file/line. No local-info or manual credential/runtime-data finding; complete raw diagnostics remain under ignored build directories."
+      },
+      "host_focused": {
+        "available_detail": "Host plan reports passed. Assigned API does not expose full check console, command exit codes or GoogleTest totals.",
+        "check_id": "styio-task-resource-focused",
+        "check_run_id": "d5497a4f2e7c13afc7f1998aa92fd33e",
+        "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
+        "host_result": "passed",
+        "local_ctest_evidence": "host-focused-ctest.log",
+        "local_ctest_result": "54 Test Passed records, 0 Test Failed records; log starts 2026-10-11 20:27 CST.",
+        "reuse": "Worker result retained; reviewer changed test producers and reran affected selections only.",
+        "source": "project_plan_read"
+      },
+      "limitations": [
+        "Full host check console and per-command exit codes are not exposed by assigned plan API; no detailed hosted GoogleTest totals claimed.",
+        "No reviewer Pafio invocation or sibling mutation/rebuild/gate.",
+        "No full regression, common E2E, Vityo admission, installed/UI/live acceptance or milestone completion.",
+        "Positive payloads compared with local producer schema by source review; no external JSON Schema validator run."
+      ],
+      "provenance": "build/task-resource-handoff-20261011/package-identity/provenance.json",
+      "readiness": "Corrected candidate ready for coordinator-admitted Pafio observation validation with selected CLI; coordinator owns same-candidate cross-repository join.",
+      "review_check": "Only styio-task-resource-review selected by Designer; host executes after reviewer. Earlier result remains historical, not a claim for this continuation.",
+      "reviewer_build": {
+        "command": [
+          "cmake",
+          "--build",
+          "build/default",
+          "--target",
+          "styio",
+          "styio_lspd",
+          "styio_test",
+          "styio_observable_static_snapshot_test",
+          "-j4"
+        ],
+        "exit_code": 0,
+        "log": "build/task-resource-handoff-20261011/package-identity/affected-build.log",
+        "scope": "Affected test producers rebuilt; production sources unchanged after Worker build."
+      },
+      "reviewer_verification": [
+        {
+          "evidence": "build/task-resource-handoff-20261011/package-identity/snapshot-affected.xml",
+          "exit_code": 0,
+          "failed": 0,
+          "passed": 17,
+          "selection": "Snapshot admission, affected snapshot CLI and delta publication tests; exact selector in test-commands.json",
+          "skipped": 0
+        },
+        {
+          "evidence": "build/task-resource-handoff-20261011/package-identity/runtime-negotiation.xml",
+          "exit_code": 0,
+          "failed": 0,
+          "passed": 1,
+          "selection": "StyioDiagnostics.CompilePlanNegotiatesRuntimeEventsV2",
+          "skipped": 0
+        }
+      ],
+      "scope": "Independent review of producer/schema, consumer and diagnostic paths, static publication/runtime binding, receipt ownership, affected tests, formal docs and actual evidence; only Styio test/document/evidence edits by reviewer.",
+      "selected_binaries": [
+        "build/default/bin/styio",
+        "build/default/bin/styio_lspd"
+      ],
+      "source_revision": "09f8fbdf6af9e27e590def6731eaa660d595a36c",
+      "worker_build": {
+        "evidence": "build/task-resource-repair-20261011/package-identity/build.log",
+        "result": "All target completions recorded; worker result records exit 0.",
+        "targets": [
+          "styio",
+          "styio_lspd",
+          "styio_test",
+          "styio_resource_topology_test",
+          "styio_main_contract_test",
+          "styio_observable_runtime_test",
+          "styio_codegen_internal_test",
+          "styio_observable_static_snapshot_test",
+          "styio_observable_static_snapshot_consumer_test"
+        ]
+      },
+      "worker_snapshot": {
+        "evidence": "build/task-resource-repair-20261011/package-identity/snapshot-test.xml",
+        "failed": 0,
+        "passed": 28,
+        "reuse": "Historical execution preserved; changed producer/admission cases superseded by affected reviewer verification.",
+        "skipped": 0
+      }
+    },
+    "continuation_u2": {
+      "actual_producer": "Worker-reported harness execution: styio-interface-gate.py --task-resource: exit 0, 30 steps, acme/task-resource identity, snapshot + parent-delta + missing-parent degradation + runtime settlement + observation-off verified; scratch project and isolated PAFIO_HOME under build/task-resource-repair-20261011/pafio-gate/; summary at build/task-resource-repair-20261011/logs/pafio-gate.json.",
+      "defect": "U2 real-producer canonical namespace/name incompatibility: Pafio Manifest.cpp NameRegex ^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9_-]*$ vs Styio slash-rejecting predicates in CompilePlanContract.cpp admission and SemanticIdentity.cpp Scope::qualified.",
+      "independent_review": {
+        "actual_producer": {
+          "assertions": "Eleven copied authoritative fixtures/expectations; explicit rebuilt Styio selection; unchanged existing Pafio; relative compilation-unit identity; receipt-listed artifacts; runtime snapshot/site correlation and task settlement; 137 older files preserved by final comparison.",
+          "commands": "build/task-resource-handoff-20261011/canonical-name/review_producer.py",
+          "initial_verifier_exit": 1,
+          "initial_verifier_reason": "Expected Worker receipt count was incorrect; failed before any producer call. Raw initial log/exit retained; corrected to 14.",
+          "new_invocations": [
+            "parent-after-runtime: exit 0, first retained parent, empty delta",
+            "observation-off-after-runtime: exit 0, expected output and disabled controller"
+          ],
+          "review_evidence": "build/task-resource-handoff-20261011/canonical-name/producer-review.json",
+          "review_exit_code": 0,
+          "source": "build/task-resource-repair-20261011/logs/pafio-gate.json",
+          "worker_steps": 30,
+          "worker_unobserved_receipts": 14
+        },
+        "build": {
+          "command": "cmake --build build/default --target styio styio_lspd styio_observable_static_snapshot_test styio_resource_topology_test -j4",
+          "evidence": "build/task-resource-handoff-20261011/canonical-name/build.log",
+          "exit_code": 0
+        },
+        "document_checks": {
+          "docs_audit": {
+            "command": "python3 scripts/docs-audit.py",
+            "evidence": "build/task-resource-handoff-20261011/canonical-name/docs-audit.log",
+            "exit_code": 0
+          },
+          "privacy": {
+            "command": "python3 scripts/local-info-leak-gate.py --mode worktree",
+            "evidence": "build/task-resource-handoff-20261011/canonical-name/privacy.log",
+            "exit_code": 0,
+            "findings": [],
+            "scope": "Local-info rules plus changed-text review; not a universal security proof. Result-only additions manually reviewed."
+          }
+        },
+        "downstream_join": "Reviewed Styio candidate only. Coordinator alone resumes Pafio admission and admits same-candidate Vityo production services/daemon join; no full regression or live acceptance.",
+        "evidence": "docs/plans/task-resource-delivery/HANDOFF.md",
+        "findings_repaired": [
+          "Completed both observation admission modes with five valid and 23 invalid canonical names; expanded independent Scope::qualified coverage. Production validator unchanged after review.",
+          "Added missing post-observed-run check against the original first snapshot, then observation-off transition in the same scratch; both exit 0. Reused all valid earlier producer requests.",
+          "Corrected original gate count to 30 and original successful unobserved receipts to 14; disabled controller JSONL remains. Do not infer unretained Worker process exits from test text."
+        ],
+        "host_focused": {
+          "check_id": "styio-task-resource-focused",
+          "check_run_id": "8e93839c08907eed0f6ab829a127be27",
+          "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
+          "detail": "Platform result only; full host console, per-command exits and GoogleTest totals not exposed. Retained CTest output is separate evidence.",
+          "host_result": "passed",
+          "selected_reviewer_check": "styio-task-resource-review",
+          "source": "project_plan_read"
+        },
+        "observed_date": "2026-10-11",
+        "registered_review_check": "styio-task-resource-review; host execution follows review, not asserted here",
+        "scope": "Independent U2 source, actual Pafio producer artifacts and host evidence; B1-B5 historical results preserved.",
+        "source_provenance": {
+          "boundary": "Normal Git evidence for the dirty candidate; selected final CLI/LSP built in place; no whole-repository checksums.",
+          "changed_paths": "build/task-resource-handoff-20261011/canonical-name/candidate-paths.txt",
+          "dirty_patch": "build/task-resource-handoff-20261011/canonical-name/candidate.patch",
+          "revision_file": "build/task-resource-handoff-20261011/canonical-name/source-revision.txt"
+        },
+        "source_trace": [
+          "Pafio Manifest.cpp NameRegex and BuildPackageJson",
+          "qualified admission, canonical fields, package matching and lexical containment",
+          "semantic identity and static producer",
+          "snapshot read/write, delta reconstruction and service scope",
+          "runtime descriptors/events and success-only receipt"
+        ],
+        "tests": [
+          {
+            "command": "build/default/bin/styio_observable_static_snapshot_test --gtest_filter=StyioObservableStaticSnapshotAdmission.PackageNameGrammarForBothObservationModes:StyioObservableStaticSnapshotAdmission.RequestMatrixFailsBeforeSema",
+            "evidence": "build/task-resource-handoff-20261011/canonical-name/name-admission.xml",
+            "exit_code": 0,
+            "failed": 0,
+            "passed": 2,
+            "skipped": 0
+          },
+          {
+            "command": "build/default/bin/styio_resource_topology_test --gtest_filter=StyioSemanticIdentity.CanonicalModuleRulesAndQualificationAreExplicit",
+            "evidence": "build/task-resource-handoff-20261011/canonical-name/semantic-name.xml",
+            "exit_code": 0,
+            "failed": 0,
+            "passed": 1,
+            "skipped": 0
+          }
+        ],
+        "worker_log_boundary": "Per-binary GoogleTest outcomes retained, no separate exit files. Host platform passed; no full host console or per-command exits exposed."
+      },
+      "readiness": "Reviewed in-place CLI/LSP candidate with actual Pafio producer compatibility. Coordinator owns subsequent Pafio admission and Vityo join.",
+      "scope": "Independent U2 source/producer review plus host focused evidence; exact bounded claims and remaining coordinator join recorded in HANDOFF.md.",
+      "selected_binaries": [
+        "build/default/bin/styio",
+        "build/default/bin/styio_lspd"
+      ],
+      "worker_repair": "Shared linear canonical_package_name_is_valid validator in StyioUtil/SemanticIdentity wired into admission and Scope::qualified; namespace/name diagnostic; positive producers/fixtures corrected; delta envelope and golden identities regenerated; independent invalid-name coverage at both gates."
+    },
+    "continuation_u3": {
+      "affected_rerun": {
+        "exit": "build/task-resource-repair-20261011/u3/ide-candidate.exit",
+        "exit_code": 0,
+        "failed": 0,
+        "overlap": "Six of the preceding 34; do not add executions.",
+        "passed": 6,
+        "reason": "Strengthened generic fold and actual error-node assertions; unchanged surrounding checks reused.",
+        "selector": "SharedPrograms/StyioTaskResourceSyntax.*:StyioSyntaxParser.TaskHistoryMalformedEditsRecoverIncrementally",
+        "skipped": 0,
+        "xml": "build/task-resource-repair-20261011/u3/ide-candidate.xml"
+      },
+      "before": {
+        "check_exit": 1,
+        "good_immediate_and_merged_diagnostics": [
+          16,
+          16
+        ],
+        "protocol": "build/task-resource-repair-20261011/u3/before/protocol.json",
+        "server_exit": 0
+      },
+      "boundaries": "Worker did not run styio-task-resource-focused or styio-task-resource-review. Host alone runs the focused entrypoint; independent HANDOFF Reviewer owns review. Vityo join remains coordinator-owned. Earlier B1-B5/U1/U2 evidence retained without producer gate replay, full regression or sibling mutation.",
+      "build": {
+        "command": "cmake --build build/default --target styio styio_lspd styio_ide_test -j4",
+        "configuration": "Debug; STYIO_ENABLE_TREE_SITTER=ON",
+        "exit": "build/task-resource-repair-20261011/u3/build-candidate.exit",
+        "exit_code": 0,
+        "log": "build/task-resource-repair-20261011/u3/build-candidate.log"
+      },
+      "direct_grammar": {
+        "boundary": "Current grammar; parser-directory configuration warning retained. Actual backend separately asserted in IDE tests.",
+        "command": "npx --yes tree-sitter-cli@0.26.8 parse --quiet <five authoritative tests/features paths listed in HANDOFF>",
+        "exit_code": 0,
+        "log": "build/task-resource-repair-20261011/u3/grammar-fixtures.log"
+      },
+      "document_checks": {
+        "docs_audit": {
+          "exit_code": 0,
+          "initial_exit": 1,
+          "log": "build/task-resource-repair-20261011/u3/docs-audit-final.log",
+          "repair": "Updated required Grammar runbook and generated IDE index; changed runbook statistics refreshed."
+        },
+        "patch_hygiene": {
+          "exit_code": 0,
+          "log": "build/task-resource-repair-20261011/u3/diff-check.log"
+        },
+        "privacy": {
+          "boundary": "Worktree local-info scan; later result/doc additions manually reviewed. Raw local evidence remains ignored.",
+          "exit_code": 0,
+          "findings": [],
+          "log": "build/task-resource-repair-20261011/u3/privacy.log"
+        },
+        "provenance": [
+          "build/task-resource-repair-20261011/u3/source-revision.txt",
+          "build/task-resource-repair-20261011/u3/candidate-status.txt"
+        ]
+      },
+      "generator": {
+        "command": "npx --yes tree-sitter-cli@0.26.8 generate",
+        "exit_code": 0,
+        "log": "build/task-resource-repair-20261011/u3/generate.log",
+        "node": "v24.18.1; documented macOS 24.x compatible baseline"
+      },
+      "handoff": "docs/plans/task-resource-delivery/HANDOFF.md#u3-worker-candidate-and-evidence",
+      "ide": {
+        "exit": "build/task-resource-repair-20261011/u3/ide.exit",
+        "exit_code": 0,
+        "failed": 0,
+        "passed": 34,
+        "selector": "SharedPrograms/StyioTaskResourceSyntax.*:StyioSyntaxParser.*:StyioCompletionEngine.*:StyioLspRuntime.*:StyioLspServer.*:StyioSemanticDb.SemanticTokensUseUtf16PositionsAndLengths:StyioSyntaxDrift.CorpusMatchesApprovedEnvelope",
+        "skipped": 0,
+        "xml": "build/task-resource-repair-20261011/u3/ide.xml"
+      },
+      "implementation": "Single owner Tree-sitter grammar plus regenerated parser.c/grammar.json/node-types.json; tolerant compiler-matching task-launch, double-dot and print tokens. No compiler or runtime contract changes.",
+      "independent_review": {
+        "build_reuse": "Worker final build exit 0 inspected for styio/styio_lspd/styio_ide_test; Debug and Tree-sitter ON. No build input changed during review.",
+        "compiler_evidence_reuse": "Existing B1-B5/U1/U2 evidence and current host focused result retain compiler/runtime failure contracts. Neither failure fixture requires editor syntax errors or unsupported semantic diagnostics.",
+        "evidence": "docs/plans/task-resource-delivery/HANDOFF.md#u3-independent-review-and-evidence-boundaries",
+        "findings": "No actionable in-scope production defect identified. Clarified current handoff, host evidence limits, unchanged didSave behavior and separate Vityo join. No production/test source change after Worker build.",
+        "handoff_boundary": "Reviewed CLI/LSP candidate only. Coordinator resumes Vityo production join. No sibling mutation/rebuild, full regression, producer replay, publication/install or live acceptance.",
+        "host_ctest": {
+          "boundary": "Only retained CTest portion; not whole focused-suite GoogleTest totals.",
+          "failed": 0,
+          "log": "build/task-resource-handoff-20261011/u3/host-focused-ctest.log",
+          "passed": 54,
+          "started": "2026-10-11 23:19 CST"
+        },
+        "host_focused": {
+          "check_id": "styio-task-resource-focused",
+          "check_run_id": "36f874df908fa0a137593c78204fe20f",
+          "detail": "Host plan result only. Full console and per-command exits are not exposed. Retained local CTest log is separate evidence.",
+          "result": "passed",
+          "source": "project_plan_read"
+        },
+        "ide_evidence_reuse": "Inspected Worker ide.xml (34 passed, no failures/skips) and strengthened ide-candidate.xml (6 passed, no failures/skips; overlapping subset). No rerun of unchanged cases.",
+        "independent_grammar": {
+          "argv": "build/task-resource-handoff-20261011/u3/grammar-command.json",
+          "boundary": "All five parsed without error; parser-directory configuration warning retained.",
+          "command": "npx --yes tree-sitter-cli@0.26.8 parse --quiet <five authoritative fixture paths>",
+          "exit": "build/task-resource-handoff-20261011/u3/grammar-fixtures.exit",
+          "exit_code": 0,
+          "log": "build/task-resource-handoff-20261011/u3/grammar-fixtures.log"
+        },
+        "observed_date": "2026-10-11",
+        "privacy": {
+          "findings": [],
+          "scope": "Reuse unchanged Worker worktree scan; manually reviewed Reviewer records. Raw host/protocol evidence remains ignored."
+        },
+        "protocol_review": {
+          "capture": "build/task-resource-repair-20261011/u3/candidate/protocol.json",
+          "good_immediate_merged_counts": [
+            0,
+            0
+          ],
+          "good_versions": [
+            1,
+            3,
+            5
+          ],
+          "malformed_immediate_merged_counts": [
+            2,
+            3
+          ],
+          "malformed_versions": [
+            2,
+            4
+          ],
+          "rapid_publication_versions": [
+            4,
+            4,
+            5,
+            5
+          ],
+          "save_boundary": "No save capability/handler. Copied-file writes and no-op notification preserve synchronized versions 1/2/3; actual Vityo save wiring is a separate obligation.",
+          "saved_copy_matches_authoritative_fixture": true,
+          "server_exit": 0,
+          "trailing_stdout_bytes": 0
+        },
+        "review_check_boundary": "Current host review check has not run at the time of this record; old check receipt remains historical.",
+        "scope": "Independent owner/parser, grammar/generated-artifact, tolerant-token, Tree-sitter adapter, fixture/test, versioned LSP and actual evidence review. Five shared programs and directly affected editor cases only.",
+        "selected_binaries": [
+          "build/default/bin/styio",
+          "build/default/bin/styio_lspd"
+        ],
+        "selected_review_check": "styio-task-resource-review"
+      },
+      "initial_build_failure": {
+        "exit_code": 2,
+        "log": "build/task-resource-repair-20261011/u3/build.log",
+        "reason": "New test used nonexistent initialization helper; repaired to existing initialize API."
+      },
+      "protocol": {
+        "capture": "build/task-resource-repair-20261011/u3/candidate/protocol.json",
+        "check_exit": 0,
+        "command": "python3 tests/lsp_stdio_framing_test.py --binary build/default/bin/styio_lspd --task-resource-parity --evidence-dir build/task-resource-repair-20261011/u3/candidate",
+        "exit": "build/task-resource-repair-20261011/u3/protocol-candidate.exit",
+        "good_immediate_and_merged_diagnostics": [
+          0,
+          0
+        ],
+        "good_versions": [
+          1,
+          3,
+          5
+        ],
+        "malformed_immediate_and_merged_diagnostics": [
+          2,
+          3
+        ],
+        "malformed_versions": [
+          2,
+          4
+        ],
+        "rapid_publication_versions": [
+          4,
+          4,
+          5,
+          5
+        ],
+        "saved_versions": [
+          1,
+          2,
+          3
+        ],
+        "server_exit": 0,
+        "trailing_stdout_bytes": 0
+      },
+      "registration": {
+        "boundary": "Listing only; not another execution.",
+        "evidence": "build/task-resource-repair-20261011/u3/test-membership.log",
+        "new_cases": 9
+      },
+      "reviewer_document_check": {
+        "exit_code": 0,
+        "log": "build/task-resource-handoff-20261011/u3/docs-audit.log",
+        "scope": "Reviewer HANDOFF and existing source Node amendments; later result-only additions manually reviewed."
+      },
+      "scope": "Worker candidate for the five authoritative shared programs; host focused verification and independent review are separate."
+    },
+    "coordinator_host_acceptance": {
+      "check_run_id": "431c25a01a63945fd0c410406982285d",
+      "observed_date": "2026-10-11",
+      "validation": "passed"
+    },
     "cost": "Correct i64 full-snapshot comparison retained selective capture for exact context/copy reductions. Bulk numeric copies retained after targeted same-output measurement: JIT 34.628s elementwise vs 0.481s bulk vs 96.714s full snapshot on one high-capacity cell. Single samples, no native speedup claim; COST.md records all metrics and limitations.",
+    "current_admission": "U3 current CLI/LSP candidate accepted after independent review and both host checks. Vityo production join and final regression remain pending.",
     "document_checks": {
       "docs_audit": {
         "evidence": "build/task-resource-handoff-20261011/docs-audit-corrected.log",
@@ -316,9 +518,9 @@
         "id": "OBSERVATION"
       },
       {
-        "id": "B5",
+        "detail": "Independent producer/schema/consumer review confirms canonical packages[].root_dir and manifest_path admission for snapshot and runtime-only observation. Reviewer corrected incomplete positive test producers and independently covered each identity field and manifest containment; production identity/receipt ownership unchanged.",
         "disposition": "repaired",
-        "detail": "Independent producer/schema/consumer review confirms canonical packages[].root_dir and manifest_path admission for snapshot and runtime-only observation. Reviewer corrected incomplete positive test producers and independently covered each identity field and manifest containment; production identity/receipt ownership unchanged."
+        "id": "B5"
       }
     ],
     "limitations": [
@@ -393,209 +595,7 @@
         "skipped": 0
       }
     ],
-    "verification_scope": "Earlier verification_groups are preserved historical executions under build/task-resource-handoff-20261011/. B5 continuation carries separate Worker, host-focused and reviewer affected evidence; overlapping groups are not aggregated. No full regression or cross-repository acceptance claim.",
-    "continuation": {
-      "defect": "B5 canonical compile-plan v1 package identity",
-      "scope": "Independent review of producer/schema, consumer and diagnostic paths, static publication/runtime binding, receipt ownership, affected tests, formal docs and actual evidence; only Styio test/document/evidence edits by reviewer.",
-      "selected_binaries": [
-        "build/default/bin/styio",
-        "build/default/bin/styio_lspd"
-      ],
-      "source_revision": "09f8fbdf6af9e27e590def6731eaa660d595a36c",
-      "provenance": "build/task-resource-handoff-20261011/package-identity/provenance.json",
-      "worker_build": {
-        "evidence": "build/task-resource-repair-20261011/package-identity/build.log",
-        "targets": [
-          "styio",
-          "styio_lspd",
-          "styio_test",
-          "styio_resource_topology_test",
-          "styio_main_contract_test",
-          "styio_observable_runtime_test",
-          "styio_codegen_internal_test",
-          "styio_observable_static_snapshot_test",
-          "styio_observable_static_snapshot_consumer_test"
-        ],
-        "result": "All target completions recorded; worker result records exit 0."
-      },
-      "reviewer_build": {
-        "command": [
-          "cmake",
-          "--build",
-          "build/default",
-          "--target",
-          "styio",
-          "styio_lspd",
-          "styio_test",
-          "styio_observable_static_snapshot_test",
-          "-j4"
-        ],
-        "exit_code": 0,
-        "log": "build/task-resource-handoff-20261011/package-identity/affected-build.log",
-        "scope": "Affected test producers rebuilt; production sources unchanged after Worker build."
-      },
-      "host_focused": {
-        "check_id": "styio-task-resource-focused",
-        "check_run_id": "d5497a4f2e7c13afc7f1998aa92fd33e",
-        "host_result": "passed",
-        "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
-        "source": "project_plan_read",
-        "available_detail": "Host plan reports passed. Assigned API does not expose full check console, command exit codes or GoogleTest totals.",
-        "local_ctest_evidence": "host-focused-ctest.log",
-        "local_ctest_result": "54 Test Passed records, 0 Test Failed records; log starts 2026-10-11 20:27 CST.",
-        "reuse": "Worker result retained; reviewer changed test producers and reran affected selections only."
-      },
-      "worker_snapshot": {
-        "passed": 28,
-        "failed": 0,
-        "skipped": 0,
-        "evidence": "build/task-resource-repair-20261011/package-identity/snapshot-test.xml",
-        "reuse": "Historical execution preserved; changed producer/admission cases superseded by affected reviewer verification."
-      },
-      "reviewer_verification": [
-        {
-          "selection": "Snapshot admission, affected snapshot CLI and delta publication tests; exact selector in test-commands.json",
-          "passed": 17,
-          "failed": 0,
-          "skipped": 0,
-          "exit_code": 0,
-          "evidence": "build/task-resource-handoff-20261011/package-identity/snapshot-affected.xml"
-        },
-        {
-          "selection": "StyioDiagnostics.CompilePlanNegotiatesRuntimeEventsV2",
-          "passed": 1,
-          "failed": 0,
-          "skipped": 0,
-          "exit_code": 0,
-          "evidence": "build/task-resource-handoff-20261011/package-identity/runtime-negotiation.xml"
-        }
-      ],
-      "review_check": "Only styio-task-resource-review selected by Designer; host executes after reviewer. Earlier result remains historical, not a claim for this continuation.",
-      "readiness": "Corrected candidate ready for coordinator-admitted Pafio observation validation with selected CLI; coordinator owns same-candidate cross-repository join.",
-      "limitations": [
-        "Full host check console and per-command exit codes are not exposed by assigned plan API; no detailed hosted GoogleTest totals claimed.",
-        "No reviewer Pafio invocation or sibling mutation/rebuild/gate.",
-        "No full regression, common E2E, Vityo admission, installed/UI/live acceptance or milestone completion.",
-        "Positive payloads compared with local producer schema by source review; no external JSON Schema validator run."
-      ],
-      "document_checks": {
-        "docs_audit": {
-          "exit_code": 0,
-          "log": "build/task-resource-handoff-20261011/package-identity/docs-audit.log"
-        },
-        "local_info": {
-          "exit_code": 0,
-          "log": "build/task-resource-handoff-20261011/package-identity/privacy.log",
-          "findings": [],
-          "scope": "Tracked and unignored worktree files; final result-record additions manually reviewed after the scan."
-        },
-        "privacy_disposition": "No matching file/line. No local-info or manual credential/runtime-data finding; complete raw diagnostics remain under ignored build directories."
-      }
-    },
-    "continuation_u2": {
-      "defect": "U2 real-producer canonical namespace/name incompatibility: Pafio Manifest.cpp NameRegex ^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9_-]*$ vs Styio slash-rejecting predicates in CompilePlanContract.cpp admission and SemanticIdentity.cpp Scope::qualified.",
-      "scope": "Independent U2 source/producer review plus host focused evidence; exact bounded claims and remaining coordinator join recorded in HANDOFF.md.",
-      "worker_repair": "Shared linear canonical_package_name_is_valid validator in StyioUtil/SemanticIdentity wired into admission and Scope::qualified; namespace/name diagnostic; positive producers/fixtures corrected; delta envelope and golden identities regenerated; independent invalid-name coverage at both gates.",
-      "actual_producer": "Worker-reported harness execution: styio-interface-gate.py --task-resource: exit 0, 30 steps, acme/task-resource identity, snapshot + parent-delta + missing-parent degradation + runtime settlement + observation-off verified; scratch project and isolated PAFIO_HOME under build/task-resource-repair-20261011/pafio-gate/; summary at build/task-resource-repair-20261011/logs/pafio-gate.json.",
-      "selected_binaries": [
-        "build/default/bin/styio",
-        "build/default/bin/styio_lspd"
-      ],
-      "readiness": "Reviewed in-place CLI/LSP candidate with actual Pafio producer compatibility. Coordinator owns subsequent Pafio admission and Vityo join.",
-      "independent_review": {
-        "observed_date": "2026-10-11",
-        "evidence": "docs/plans/task-resource-delivery/HANDOFF.md",
-        "scope": "Independent U2 source, actual Pafio producer artifacts and host evidence; B1-B5 historical results preserved.",
-        "findings_repaired": [
-          "Completed both observation admission modes with five valid and 23 invalid canonical names; expanded independent Scope::qualified coverage. Production validator unchanged after review.",
-          "Added missing post-observed-run check against the original first snapshot, then observation-off transition in the same scratch; both exit 0. Reused all valid earlier producer requests.",
-          "Corrected original gate count to 30 and original successful unobserved receipts to 14; disabled controller JSONL remains. Do not infer unretained Worker process exits from test text."
-        ],
-        "source_trace": [
-          "Pafio Manifest.cpp NameRegex and BuildPackageJson",
-          "qualified admission, canonical fields, package matching and lexical containment",
-          "semantic identity and static producer",
-          "snapshot read/write, delta reconstruction and service scope",
-          "runtime descriptors/events and success-only receipt"
-        ],
-        "host_focused": {
-          "check_id": "styio-task-resource-focused",
-          "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
-          "check_run_id": "8e93839c08907eed0f6ab829a127be27",
-          "host_result": "passed",
-          "source": "project_plan_read",
-          "detail": "Platform result only; full host console, per-command exits and GoogleTest totals not exposed. Retained CTest output is separate evidence.",
-          "selected_reviewer_check": "styio-task-resource-review"
-        },
-        "build": {
-          "command": "cmake --build build/default --target styio styio_lspd styio_observable_static_snapshot_test styio_resource_topology_test -j4",
-          "exit_code": 0,
-          "evidence": "build/task-resource-handoff-20261011/canonical-name/build.log"
-        },
-        "tests": [
-          {
-            "command": "build/default/bin/styio_observable_static_snapshot_test --gtest_filter=StyioObservableStaticSnapshotAdmission.PackageNameGrammarForBothObservationModes:StyioObservableStaticSnapshotAdmission.RequestMatrixFailsBeforeSema",
-            "passed": 2,
-            "failed": 0,
-            "skipped": 0,
-            "exit_code": 0,
-            "evidence": "build/task-resource-handoff-20261011/canonical-name/name-admission.xml"
-          },
-          {
-            "command": "build/default/bin/styio_resource_topology_test --gtest_filter=StyioSemanticIdentity.CanonicalModuleRulesAndQualificationAreExplicit",
-            "passed": 1,
-            "failed": 0,
-            "skipped": 0,
-            "exit_code": 0,
-            "evidence": "build/task-resource-handoff-20261011/canonical-name/semantic-name.xml"
-          }
-        ],
-        "actual_producer": {
-          "worker_steps": 30,
-          "worker_unobserved_receipts": 14,
-          "source": "build/task-resource-repair-20261011/logs/pafio-gate.json",
-          "review_evidence": "build/task-resource-handoff-20261011/canonical-name/producer-review.json",
-          "commands": "build/task-resource-handoff-20261011/canonical-name/review_producer.py",
-          "review_exit_code": 0,
-          "new_invocations": [
-            "parent-after-runtime: exit 0, first retained parent, empty delta",
-            "observation-off-after-runtime: exit 0, expected output and disabled controller"
-          ],
-          "assertions": "Eleven copied authoritative fixtures/expectations; explicit rebuilt Styio selection; unchanged existing Pafio; relative compilation-unit identity; receipt-listed artifacts; runtime snapshot/site correlation and task settlement; 137 older files preserved by final comparison.",
-          "initial_verifier_exit": 1,
-          "initial_verifier_reason": "Expected Worker receipt count was incorrect; failed before any producer call. Raw initial log/exit retained; corrected to 14."
-        },
-        "worker_log_boundary": "Per-binary GoogleTest outcomes retained, no separate exit files. Host platform passed; no full host console or per-command exits exposed.",
-        "downstream_join": "Reviewed Styio candidate only. Coordinator alone resumes Pafio admission and admits same-candidate Vityo production services/daemon join; no full regression or live acceptance.",
-        "registered_review_check": "styio-task-resource-review; host execution follows review, not asserted here",
-        "document_checks": {
-          "docs_audit": {
-            "command": "python3 scripts/docs-audit.py",
-            "exit_code": 0,
-            "evidence": "build/task-resource-handoff-20261011/canonical-name/docs-audit.log"
-          },
-          "privacy": {
-            "command": "python3 scripts/local-info-leak-gate.py --mode worktree",
-            "exit_code": 0,
-            "findings": [],
-            "evidence": "build/task-resource-handoff-20261011/canonical-name/privacy.log",
-            "scope": "Local-info rules plus changed-text review; not a universal security proof. Result-only additions manually reviewed."
-          }
-        },
-        "source_provenance": {
-          "revision_file": "build/task-resource-handoff-20261011/canonical-name/source-revision.txt",
-          "dirty_patch": "build/task-resource-handoff-20261011/canonical-name/candidate.patch",
-          "changed_paths": "build/task-resource-handoff-20261011/canonical-name/candidate-paths.txt",
-          "boundary": "Normal Git evidence for the dirty candidate; selected final CLI/LSP built in place; no whole-repository checksums."
-        }
-      }
-    },
-    "coordinator_host_acceptance": {
-      "check_run_id": "431c25a01a63945fd0c410406982285d",
-      "validation": "passed",
-      "observed_date": "2026-10-11"
-    },
-    "current_admission": "U3 current CLI/LSP candidate accepted after independent review and both host checks. Vityo production join and final regression remain pending."
+    "verification_scope": "Earlier verification_groups are preserved historical executions under build/task-resource-handoff-20261011/. B5 continuation carries separate Worker, host-focused and reviewer affected evidence; overlapping groups are not aggregated. No full regression or cross-repository acceptance claim."
   },
   "review": [
     {
@@ -604,21 +604,14 @@
       "scope": "All changed production sources, affected callers, permanent tests, formal contracts, cost evidence and candidate provenance"
     },
     {
-      "reason": "result_changed",
-      "source": {
-        "id": "NODE-REPAIR",
-        "kind": "node"
-      }
+      "evidence": "docs/plans/task-resource-delivery/HANDOFF.md",
+      "findings": "Production fix agrees with canonical Pafio schema and producer. Corrected incomplete positive package records/resolver and independent manifest rejection/containment coverage. No unresolved scoped implementation finding; Pafio observation validation remains coordinator-owned.",
+      "scope": "B5 independent canonical package identity continuation"
     },
     {
       "evidence": "docs/plans/task-resource-delivery/HANDOFF.md",
-      "scope": "B5 independent canonical package identity continuation",
-      "findings": "Production fix agrees with canonical Pafio schema and producer. Corrected incomplete positive package records/resolver and independent manifest rejection/containment coverage. No unresolved scoped implementation finding; Pafio observation validation remains coordinator-owned."
-    },
-    {
-      "evidence": "docs/plans/task-resource-delivery/HANDOFF.md",
-      "scope": "Independent U2 canonical-name and actual-producer continuation",
-      "findings": "Repaired incomplete two-mode invalid-name evidence and missing post-runtime parent sequence; corrected counts. Scoped evidence supports the reviewed candidate, not zero defects or downstream acceptance."
+      "findings": "Repaired incomplete two-mode invalid-name evidence and missing post-runtime parent sequence; corrected counts. Scoped evidence supports the reviewed candidate, not zero defects or downstream acceptance.",
+      "scope": "Independent U2 canonical-name and actual-producer continuation"
     }
   ],
   "role": "reviewer",

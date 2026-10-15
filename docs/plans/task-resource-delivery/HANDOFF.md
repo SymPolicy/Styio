@@ -2,7 +2,7 @@
 
 **Purpose:** Maintain the reviewed CLI/LSP evidence and the finite FINAL/CLOSE execution handoff for the existing joint milestone.
 
-**Last updated:** 2026-10-12
+**Last updated:** 2026-10-15
 
 **Evidence observed:** 2026-10-11–12. **Review scope:** NODE-FINAL → NODE-CLOSE / TASK-001.
 **Registered checks:** FINAL selects only `styio-task-resource-final`; CLOSE selects only `styio-task-resource-review`.
@@ -942,3 +942,33 @@ next dependent phase. Full host console and individual process exits are not
 exposed; no additional per-case totals are inferred. Existing detailed local
 evidence retains its stated scope. Vityo production integration and final
 regression remain outstanding; source Task/Tree delivery is not complete.
+
+## Coordinator join and delivery closure — 2026-10-15
+
+The coordinator joined the three current-candidate results after the external
+join was completed. Candidate revisions: styio `ba37f64`, pafio `62636ea`,
+vityo `cb8883de`; all three worktrees clean.
+
+- Same-candidate Vityo E2E through real production services and vityod:
+  `host-ehiyo1yz` — 35 required real cases and 4 deterministic contract cases
+  accepted, `ok=true`, failure category null, not skipped. Inputs are the
+  current styio CLI, `styio_lspd`, the current Pafio binary (bounded
+  per-invocation retention) and vityod (zero-deadline fix), recorded in
+  `inputs.json`. This run replaces the earlier byte-identical reuse claim, so
+  the relinked CLI identity is covered by an actual run.
+- Expanded Pafio joined integration gate on the same binaries: `ok=true`,
+  `validation_errors` empty.
+- vityod crate tests: 56 passed, 0 failed. The bounded-retention probe on the
+  current Pafio binary confirmed the documented bound (newest 8 plus the
+  current invocation plus a referenced parent-snapshot owner).
+- Styio production source is unchanged since the accepted FINAL result
+  (`3a1004ddbef0fc5754a4527d392eacbc`).
+- The registered CLOSE review check was executed as host during this closure;
+  NODE-FINAL and NODE-CLOSE are completed and the review items invalidated by
+  NODE-REPAIR's result change were resolved against the joined evidence.
+- Source `TASK-001` and Tree delivery are recorded; hosted E04 is closed.
+
+Boundaries are unchanged: macOS arm64 Debug only; Linux/Windows, Release,
+sanitizers, installed-client UI, real Agent/provider conversations and
+unadvertised `didSave` semantics remain unverified. Landing and publication
+are separate steps.
