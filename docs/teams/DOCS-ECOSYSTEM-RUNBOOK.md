@@ -284,7 +284,7 @@ Transient Better Plan locks are untracked under `docs/plans/**/`.
 
 2026-10-15: Recorded the coordinator join and delivery closure for the
 task-resource milestone. The joined evidence is the same-candidate Vityo E2E
-through real production services and vityod (`host-ehiyo1yz`; 35 scenarios and
+through real production services and vityod (35 scenarios and
 4 contract cases accepted), the expanded Pafio integration gate, the vityod
 crate tests and the bounded-retention probe; the milestone Tree/Task delivery
 now carries the join result and its boundaries. The registered CLOSE review
@@ -297,3 +297,12 @@ Plan node provenance strings in `docs/plans/task-resource-delivery/nodes/` were
 rephrased to repository-local terminology; the records remain valid JSON and the
 recorded plan state is unchanged. The affected team runbooks and
 [DOC-STATS](./DOC-STATS.md) were refreshed in the same change.
+
+The delivery gate now derives the repository identity once from the origin
+remote and reuses that single value for both audit scopes, and it fails closed
+before scanning when the identity is unresolvable. `checks.sh` resolves one
+`STYIO_BUILD_ROOT` (default `build/default`) for every configure, build, test,
+statistics and evidence-copy step. Plan-record sanitization removed hosted
+execution identifiers and coordination relations from the tracked plan records;
+desensitized technical conclusions, evidence references and Git revisions
+remain.

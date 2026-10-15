@@ -475,9 +475,22 @@ struct StyioTask
   }
 };
 
+/* Defined below StyioTaskScheduler; declared here so the wait path can help
+   drain ready work without depending on the class definition order. */
+bool styio_scheduler_assist_one_ready_task();
+
 void
 wait_until_task_ready(StyioTask* task) {
   while (!(*task).ready.load(std::memory_order_acquire)) {
+    /* A thread that is itself executing a task body must never stall its own
+       ready queue. With one configured worker the blocked thread is the only
+       executor, so waiting without helping would strand every
+       dependency-satisfied task behind the waiter and the awaited result could
+       never arrive. Executing one queued ready task inline is the same
+       work-first policy enqueue already applies when the queue is full. */
+    if (t_running_task != nullptr && styio_scheduler_assist_one_ready_task()) {
+      continue;
+    }
     (*task).ready.wait(false, std::memory_order_acquire);
   }
 }
@@ -741,6 +754,24 @@ public:
     (*task).run();
   }
 
+  /// Executes one dependency-satisfied ready task inline on this thread.
+  ///
+  /// Used by wait_until_task_ready when a thread that already runs a task body
+  /// blocks on another task: waiting without helping would deadlock a single
+  /// configured worker, whose only executor is the blocked thread itself. The
+  /// pop claims the task exactly once, run() restores the previous running
+  /// task on return, and the ready queue only exposes tasks whose ordering
+  /// constraints are satisfied, so dependency gating, execution-once and
+  /// thread-local capture state are preserved.
+  bool assist_one_ready_task() {
+    auto* task = static_cast<StyioTask*>(queue_.try_pop());
+    if (task == nullptr) {
+      return false;
+    }
+    (*task).run();
+    return true;
+  }
+
   std::size_t worker_count() {
     ensure_started();
     std::lock_guard<std::mutex> lock(lifecycle_mu_);
@@ -840,6 +871,11 @@ private:
     }
   }
 };
+
+bool
+styio_scheduler_assist_one_ready_task() {
+  return StyioTaskScheduler::instance().assist_one_ready_task();
+}
 
 // Called only under the graph lock. Scheduling takes place after unlocking:
 // enqueue may wait for queue space, and must never hold the graph lock.
@@ -1252,14 +1288,21 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
   }
   else {
     task_profile_inc(g_task_scheduler_profile_counters.blocking_pulls);
-    if (observation_live() && (*task).observation_live) {
+    /* The wait id is captured locally: while this thread waits it may help
+       execute nested ready tasks, and their observation ids must not
+       overwrite this wait's correlation. */
+    const bool wait_observed = observation_live() && (*task).observation_live;
+    const auto wait_id = wait_observed
+      ? styio::runtime::observation::next_wait_id()
+      : styio::observable::PackedInstance{};
+    if (wait_observed) {
+      t_wait_id = wait_id;
       StyioTask* waiter = t_running_task;
-      t_wait_id = styio::runtime::observation::next_wait_id();
       styio::runtime::observation::EmitBuilder begin;
       begin.kind = styio::observable::EventKind::WaitBegin;
       begin.descriptor_index = waiter != nullptr ? waiter->descriptor_index : (*task).descriptor_index;
       begin.instance = waiter != nullptr ? waiter->instance : (*task).instance;
-      begin.wait_id = t_wait_id;
+      begin.wait_id = wait_id;
       begin.waiter = waiter != nullptr ? waiter->instance : (*task).instance;
       begin.subject = (*task).instance;
       begin.subject_present = true;
@@ -1280,7 +1323,7 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
       end.wait_resolution = (*task).failed
         ? styio::observable::WaitResolution::Failed
         : styio::observable::WaitResolution::Completed;
-      end.wait_id = t_wait_id;
+      end.wait_id = wait_id;
       end.has_cause = true;
       end.cause = (*task).completion_event;
       end.cause_subject = (*task).instance;

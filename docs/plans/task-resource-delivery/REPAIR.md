@@ -118,7 +118,7 @@ text, runtime-events `build_root` creation order).
 
 ## U2 continuation: canonical `namespace/name` package identity
 
-Pafio runtime `798ff72acf150dcfa0891999c7a18e53` found U2 after B5: real
+The Pafio runtime lane found U2 after B5: real
 observation requests still failed. Pafio `src/PafioManifest/Manifest.cpp`
 `NameRegex` owns the package-name grammar
 `^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9_-]*$` — each segment starts with a
@@ -177,9 +177,8 @@ gate scratch project and its isolated `PAFIO_HOME` (`pafio-gate/project`,
 | Actual Pafio producer: `styio-interface-gate.py --task-resource --json` selecting this rebuilt `build/default/bin/styio` and the existing `pafio-nightly build-codex/bin/pafio` (producer revision `a20dce6e9d889e892457b45b14d8d745e686ed34`), scratch project + isolated `PAFIO_HOME` under ignored build | Worker-reported gate exit 0; retained JSON records 30 steps with expected exits: real `acme/task-resource` admission, `compilation_unit` = `acme/task-resource`/`pafio.toml`/`src/main.styio`, initial snapshot, parent-snapshot check with receipt-recorded empty delta, missing-parent `full_snapshot_required`/`parent_unreadable` with identical snapshot bytes, observed `run` with session.capability/summary framing and `task.created`/`task.completed`/`task.result_consumed` and no `task.failed`, compile-error exit-23 envelopes, dry-run, two concurrent builds with distinct output ownership, per-step old-artifact preservation | `logs/pafio-gate.json`, `logs/pafio-gate.stderr`; artifacts under `pafio-gate/` |
 | Observation-off receipt inspection (corrected by reviewer) | 14 successful unobserved receipts in the retained Worker run, no snapshot/delta artifacts; disabled controller JSONL remains. Six successful observed receipts are separate. The earlier 15 count was incorrect. | Retained gate artifacts; reviewer `producer-review.json` |
 
-The host subsequently reported `styio-task-resource-focused` passed in check
-run `8e93839c08907eed0f6ab829a127be27`; full console and per-command exits are
-not exposed by the assigned plan API. Independent review completed the scoped
+The host subsequently reported `styio-task-resource-focused` passed; full
+console and per-command exits are not exposed by the assigned plan API. Independent review completed the scoped
 source/evidence inspection described in HANDOFF.md. It added a dedicated
 23-invalid/five-valid name table for each admission mode, expanded independent
 semantic-scope coverage, and removed the smaller overlapping request-matrix

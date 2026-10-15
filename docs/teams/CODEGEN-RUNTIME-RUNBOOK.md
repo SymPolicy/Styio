@@ -162,3 +162,15 @@ record: an escaping task capture exports a clone of the owned string, the worker
 imports it into its own cleanup slot, a nested escaping capture exports again,
 and function-pointer bindings are never selected. The scope-escaping t12 fixture
 and the security-suite IR assertion cover the capture repair.
+
+The scheduler also keeps single-worker forward progress when a running task
+waits on a nested task it did not spawn: a non-blocking ready-queue claim takes
+a task exactly once, and the wait path assists one ready task only from a thread
+that is already executing a task body, saving and restoring the thread's
+running-task context so nested assisted runs cannot clobber the parent's wait
+correlation. No timeout, cancellation or replay is introduced; the assist runs
+the ready task to completion like the existing queue-full work-first path. The
+permanent `NestedTaskWaitsKeepSingleWorkerForwardProgress` case pins
+spawned/enqueued/started/completed counters, queue depth, handle balance and
+error propagation under one configured worker, and the t13/t14 fixtures cover
+nested waits from the CLI.

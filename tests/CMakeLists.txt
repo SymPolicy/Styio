@@ -308,7 +308,9 @@ styio_feature_stdout_golden_test(task_resources "t*.styio" task_resources)
 foreach(_case IN ITEMS
     "state_resources/t20_task_matrix_history"
     "task_resources/t10_task_order_reverse"
-    "task_resources/t12_task_owned_string_scope_immutable")
+    "task_resources/t12_task_owned_string_scope_immutable"
+    "task_resources/t13_task_nested_wait_pull"
+    "task_resources/t14_task_nested_wait_scope_release")
   get_filename_component(_family "${_case}" DIRECTORY)
   get_filename_component(_name "${_case}" NAME)
   add_test(

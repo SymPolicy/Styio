@@ -3980,6 +3980,49 @@ styio_probe_compile_plan_build_root_latest(
   return styio::config::probe_compile_plan_build_root(plan_path, out_build_root);
 }
 
+/* Converges compile-plan output preparation for both the accepted-plan path
+   and the probeable-output rejection path: invalidate any previous success
+   receipt first, then initialize this invocation's diagnostics directory,
+   sink and truncated diagnostics file. Every filesystem failure is reported
+   through `out_error` instead of being dropped, and an unsuccessfully
+   initialized sink is never treated as a normal output. */
+static bool
+styio_prepare_compile_plan_outputs_latest(
+  const std::filesystem::path* build_root,
+  const std::filesystem::path* diag_dir,
+  std::string& out_error
+) {
+  if (build_root != nullptr) {
+    std::error_code remove_ec;
+    std::filesystem::remove(*build_root / "receipt.json", remove_ec);
+    // ENOTDIR means no prior receipt can exist; retain the directory-setup
+    // diagnostic below for that malformed output location.
+    if (remove_ec && remove_ec != std::errc::not_a_directory) {
+      out_error = "cannot remove previous compile-plan receipt";
+      return false;
+    }
+  }
+  if (diag_dir != nullptr) {
+    std::error_code ec;
+    std::filesystem::create_directories(*diag_dir, ec);
+    if (ec) {
+      out_error = "cannot create compile-plan diag_dir: " + diag_dir->string();
+      return false;
+    }
+    styio_set_diagnostic_sink_latest(*diag_dir);
+    /* Each invocation owns its diagnostics file: truncate any content left
+       by a previous run so this run's entries are the whole file. */
+    std::ofstream fresh_diagnostics(
+      *diag_dir / "diagnostics.jsonl",
+      std::ios::binary | std::ios::trunc);
+    if (!fresh_diagnostics.is_open()) {
+      out_error = "cannot open file for writing: " + (*diag_dir / "diagnostics.jsonl").string();
+      return false;
+    }
+  }
+  return true;
+}
+
 static int
 styio_emit_compile_plan_cli_error_latest(
   const std::filesystem::path& plan_path,
@@ -3989,23 +4032,21 @@ styio_emit_compile_plan_cli_error_latest(
   styio_clear_diagnostic_sink_latest();
 
   std::filesystem::path diag_dir;
-  if (styio_probe_compile_plan_diag_dir_latest(plan_path, diag_dir)) {
-    /* A new invocation owns its diagnostics: start from an empty file so
-       no entries from a previous run survive. */
-    std::error_code ec;
-    std::filesystem::create_directories(diag_dir, ec);
-    if (!ec) {
-      std::ofstream fresh(diag_dir / "diagnostics.jsonl", std::ios::binary | std::ios::trunc);
-      (void)fresh;
-    }
-    styio_set_diagnostic_sink_latest(diag_dir);
-  }
+  const bool diag_probeable = styio_probe_compile_plan_diag_dir_latest(plan_path, diag_dir);
   std::filesystem::path build_root;
-  if (styio_probe_compile_plan_build_root_latest(plan_path, build_root)) {
-    /* Drop any receipt left by an earlier invocation; this run failed to
-       admit a plan and must not leave a stale success record behind. */
-    std::error_code ec;
-    std::filesystem::remove(build_root / "receipt.json", ec);
+  const bool build_probeable = styio_probe_compile_plan_build_root_latest(plan_path, build_root);
+
+  std::string output_error;
+  if (!styio_prepare_compile_plan_outputs_latest(
+        build_probeable ? &build_root : nullptr,
+        diag_probeable ? &diag_dir : nullptr,
+        output_error)) {
+    /* The invocation cannot own its outputs this time; report that output
+       failure itself instead of emitting into an uninitialized sink. */
+    styio_emit_diagnostic(
+      "jsonl", StyioErrorCategory::RuntimeError, plan_path.string(), output_error, "");
+    styio_clear_diagnostic_sink_latest();
+    return static_cast<int>(StyioExitCode::RuntimeError);
   }
 
   styio_emit_diagnostic("jsonl", StyioErrorCategory::CliError, plan_path.string(), message, subcode);
@@ -6553,44 +6594,20 @@ main(
   } frontend_profiler_flush {&frontend_profiler, &async_scheduler_profile_recorded, &record_async_scheduler_profile};
 
   if (compile_plan_request.has_value()) {
-    // Invalidate previous success before any output setup can fail.
-    std::error_code remove_ec;
-    std::filesystem::remove(compile_plan_request->build_root / "receipt.json", remove_ec);
-    // ENOTDIR means no prior receipt can exist; retain the directory-setup
-    // diagnostic below for that malformed output location.
-    if (remove_ec && remove_ec != std::errc::not_a_directory) {
-      styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath,
-        "cannot remove previous compile-plan receipt");
+    // One helper owns output preparation for both this accepted-plan path and
+    // the probeable-output rejection path: invalidate any previous success
+    // receipt, then initialize this invocation's diagnostics directory, sink
+    // and truncated file. Failures are reported, never dropped.
+    std::string output_error;
+    if (!styio_prepare_compile_plan_outputs_latest(
+          &compile_plan_request->build_root,
+          &compile_plan_request->diag_dir,
+          output_error)) {
+      styio_emit_diagnostic(error_format, StyioErrorCategory::RuntimeError, fpath, output_error);
       return styio_exit_code(StyioErrorCategory::RuntimeError);
-    }
-    std::error_code ec;
-    std::filesystem::create_directories(compile_plan_request->diag_dir, ec);
-    if (ec) {
-      styio_emit_diagnostic(
-        error_format,
-        StyioErrorCategory::RuntimeError,
-        fpath,
-        "cannot create compile-plan diag_dir: " + compile_plan_request->diag_dir.string());
-      return styio_exit_code(StyioErrorCategory::RuntimeError);
-    }
-    styio_set_diagnostic_sink_latest(compile_plan_request->diag_dir);
-    /* Each invocation owns its diagnostics file: truncate any content left
-       by a previous run so this run's entries are the whole file. */
-    {
-      std::ofstream fresh_diagnostics(
-        compile_plan_request->diag_dir / "diagnostics.jsonl",
-        std::ios::binary | std::ios::trunc);
-      if (!fresh_diagnostics.is_open()) {
-        styio_emit_diagnostic(
-          error_format,
-          StyioErrorCategory::RuntimeError,
-          fpath,
-          "cannot open file for writing: "
-            + (compile_plan_request->diag_dir / "diagnostics.jsonl").string());
-        return styio_exit_code(StyioErrorCategory::RuntimeError);
-      }
     }
 
+    std::error_code ec;
     std::filesystem::create_directories(compile_plan_request->build_root, ec);
     if (ec) {
       styio_emit_diagnostic(

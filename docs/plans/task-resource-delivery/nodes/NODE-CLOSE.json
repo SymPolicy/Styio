@@ -37,7 +37,7 @@
     "completion": "Reconcile only this repository's final code, scoped findings, migration, supported-capability inventory and actual full-log/check evidence. Amend existing Node/check results and HANDOFF in place. Leave source TASK-001 and Tree delivery unset; coordinator alone joins all three final results and closes source and hosted tasks.",
     "execution": "Select only styio-task-resource-review; its git diff --check command proves patch hygiene, not semantic correctness. Independently inspect actual implementation and complete logs after FINAL and host evidence. Do not repeat the full suite or valid E2E. Revalidate only genuinely invalidated inputs. See HANDOFF.md#finalclose-execution-plan for the current contract.",
     "external_inputs": [
-      "All three current HANDOFF records and coordinator acceptance 7c6eadba45c31325673712f68067ad5b; actual host styio-task-resource-final result and complete retained logs, including first failure and affected recovery if needed. Sibling final nodes are not prerequisites inside this Agent turn."
+      "All three current HANDOFF records and coordinator acceptance; actual host styio-task-resource-final result and complete retained logs, including first failure and affected recovery if needed. Sibling final nodes are not prerequisites inside this Agent turn."
     ],
     "ownership": "Use the existing non-fast independent Reviewer; no subordinate agents or arbitrary cutoffs. Repair ordinary scoped findings directly and report cross-repository impact to coordinator. Investigate alternatives before escalating outside-scope contract/risk changes, holding only dependent work. Do not wait for sibling final nodes, close the programme/later milestones, commit, push, open PRs, install, publish or perform real Agent/installed-UI acceptance.",
     "review_evidence": "Reconcile BASELINE supported-capability inventory with actual results, preserved passes and specific invalidations; distinguish every platform/feature skip and unverified release/live acceptance. Never derive totals from bounded host tails or add overlapping selections. Check required migration with one-off inspection, not a permanent migration gate. Privacy findings require a redacted per-item file/line/rule/category/basis/impact/disposition table.",
@@ -65,7 +65,6 @@
     "delivery_boundary": "Source TASK-001 and Tree delivery were unset at CLOSE time and are recorded by the coordinator join on 2026-10-15. No sibling wait or later milestone.",
     "engineering_evidence": "build/task-resource-final/close/",
     "evidence": "docs/plans/task-resource-delivery/HANDOFF.md#independent-close-reconciliation--2026-10-12",
-    "final_check_run_id": "3a1004ddbef0fc5754a4527d392eacbc",
     "findings": [
       {
         "disposition": "Repaired internal scheduler test owner cleanup and real pending settlement; affected build and named case passed",

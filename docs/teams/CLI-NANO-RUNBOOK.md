@@ -172,3 +172,10 @@ malformed-schema table covers both fields on the same rejection edges and the
 invocation-freshness receipt regression is retained. Plan node provenance
 strings were rephrased to repository-local terminology; the compile-plan JSON
 contract is unchanged.
+
+Compile-plan output preparation (receipt removal, diagnostics directory and
+diagnostics stream reset) is converged into one helper shared by the accepted
+and rejection paths, so a rejected plan whose output preparation fails now
+reports the output error instead of ignoring it. The permanent freshness
+regression extends to an unremovable receipt, a diagnostics file that is a
+directory and a diagnostics directory under a file.

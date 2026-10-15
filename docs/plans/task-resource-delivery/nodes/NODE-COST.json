@@ -15,7 +15,6 @@
       "pending": false,
       "result": {
         "host_validation": {
-          "run_id": "4405330dfaa1a68bea23902b69cd4bb7",
           "source": "Coordinator read the actual completed host check-stage run and node validation=passed; prior local evidence retained with its original scope.",
           "status": "passed"
         },
@@ -24,7 +23,6 @@
         "outcome": "passed",
         "summary": "Historical entrypoint: 6 fixtures; 110 compiler passes plus 2 skips; 57 topology; 1 main-contract; 6 runtime passes. Later candidate checks are listed in HANDOFF.md."
       },
-      "run_id": "4405330dfaa1a68bea23902b69cd4bb7",
       "running": false,
       "title": "Measure the correct implementation checks"
     }

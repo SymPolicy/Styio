@@ -19,7 +19,6 @@
         "source": "Host check-stage run completed and node validation=passed",
         "scope": "Current U3 registered check. Detailed source/protocol evidence is in HANDOFF.md; unavailable individual host exits/totals are not inferred."
       },
-      "run_id": "36f874df908fa0a137593c78204fe20f",
       "running": false,
       "title": "Repair confirmed task/resource and C1 defects checks"
     }
@@ -34,11 +33,6 @@
     "external_inputs": [],
     "u3_execution": {
       "plan": "docs/plans/task-resource-delivery/HANDOFF.md#u3-execution-plan",
-      "automation_task_id": "f267d5484036138012866ca7b6e25a4a",
-      "automation_node_id": "5e2b082d2aec85937825e2ebd681d9e6",
-      "automation_after": [
-        "bc44eff66ade9e0d28ec42daeaad7e28"
-      ],
       "outcome": "Restore actual Tree-sitter editor parity for the five authoritative shared milestone programs and directly affected editor cases; retain malformed-syntax and supported IDE behavior, final CLI/LSP builds and version-correct open/change/save evidence.",
       "ownership": "Sole Styio writer until independent HANDOFF review; current non-fast Codex role, no subagents, sibling writes or rebuilds.",
       "verification": "Worker runs uncovered IDE/grammar/protocol cases; host alone executes styio-task-resource-focused. Reuse accepted compiler/observation evidence; no full regression or Pafio gate replay."
@@ -78,9 +72,8 @@
         },
         "host_focused": {
           "check_id": "styio-task-resource-focused",
-          "check_run_id": "36f874df908fa0a137593c78204fe20f",
           "result": "passed",
-          "source": "project_plan_read",
+          "source": "assigned plan result",
           "detail": "Host plan result only. Full console and per-command exits are not exposed. Retained local CTest log is separate evidence."
         },
         "host_ctest": {
@@ -263,10 +256,9 @@
       "reproduction": "Canonical producer-shaped plan rejected at Styio CLI exit 6 with observable_static_snapshot_anonymous demanding packages[].root (build/task-resource-repair-20261011/package-identity/repro-diagnostic.jsonl). After repair the same plan exits 0 and publishes the snapshot with compilation_unit example.app/Styio.toml/src/main.styio.",
       "host_focused": {
         "check_id": "styio-task-resource-focused",
-        "check_run_id": "d5497a4f2e7c13afc7f1998aa92fd33e",
         "host_result": "passed",
         "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
-        "source": "project_plan_read",
+        "source": "assigned plan result",
         "available_detail": "Host plan reports passed. Assigned API does not expose full check console, command exit codes or GoogleTest totals.",
         "local_ctest_evidence": "host-focused-ctest.log",
         "local_ctest_result": "54 Test Passed records, 0 Test Failed records; log starts 2026-10-11 20:27 CST.",
@@ -276,7 +268,7 @@
     },
     "continuation_u2": {
       "boundaries": "Names consumed unchanged after validation; no transform, alias, fallback reader, schema version, or renamed opaque identity. package_name stays an opaque logical identity in snapshot bytes, length-prefixed preimages, delta comparison and service scope keys. Unrelated domains (snapshot root, compilation_unit.manifest_path, nano manifests, native manifest.txt) untouched.",
-      "defect": "U2 (found by Pafio runtime 798ff72acf150dcfa0891999c7a18e53 after B5): Pafio Manifest.cpp NameRegex requires namespace/name (lowercase ASCII letter/digit segment starts, then lowercase letters/digits/underscore/hyphen, exactly one slash). Styio rejected every slash twice: package_name_is_valid in CompilePlanContract.cpp and package_name_is_path_shaped in SemanticIdentity.cpp via Scope::qualified. Every real Pafio observation request failed admission; the name could never reach publication.",
+      "defect": "U2 (found by the Pafio runtime lane after B5): Pafio Manifest.cpp NameRegex requires namespace/name (lowercase ASCII letter/digit segment starts, then lowercase letters/digits/underscore/hyphen, exactly one slash). Styio rejected every slash twice: package_name_is_valid in CompilePlanContract.cpp and package_name_is_path_shaped in SemanticIdentity.cpp via Scope::qualified. Every real Pafio observation request failed admission; the name could never reach publication.",
       "files": [
         "src/StyioUtil/SemanticIdentity.cpp",
         "src/StyioUtil/SemanticIdentity.hpp",
@@ -319,9 +311,8 @@
         "host_focused": {
           "check_id": "styio-task-resource-focused",
           "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
-          "check_run_id": "8e93839c08907eed0f6ab829a127be27",
           "host_result": "passed",
-          "source": "project_plan_read",
+          "source": "assigned plan result",
           "detail": "Platform result only; full host console, per-command exits and GoogleTest totals not exposed. Retained CTest output is separate evidence.",
           "selected_reviewer_check": "styio-task-resource-review"
         },
@@ -470,7 +461,6 @@
     "summary": "Reviewed U3 editor/compiler parity for the five shared programs, with actual Tree-sitter and versioned LSP evidence. Historical compiler/Pafio evidence retains its scope. Coordinator resumes existing Vityo integration; source Task/Tree delivery is not complete.",
     "current_admission": "U3 current CLI/LSP candidate accepted after independent review and both host checks. Vityo production join and final regression remain pending.",
     "coordinator_host_acceptance": {
-      "check_run_id": "36f874df908fa0a137593c78204fe20f",
       "validation": "passed",
       "observed_date": "2026-10-11"
     }

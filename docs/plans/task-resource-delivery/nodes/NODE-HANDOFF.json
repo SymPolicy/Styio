@@ -20,7 +20,6 @@
         "scope": "Current U3 registered check. Detailed source/protocol evidence is in HANDOFF.md; unavailable individual host exits/totals are not inferred.",
         "source": "Host check-stage run completed and node validation=passed"
       },
-      "run_id": "431c25a01a63945fd0c410406982285d",
       "running": false,
       "title": "Review and hand off the compiler candidate checks"
     }
@@ -34,12 +33,6 @@
     "execution": "Explicitly select these registered check IDs; an omitted list inherits all project checks and would run unrelated/full checks prematurely.",
     "external_inputs": [],
     "u3_execution": {
-      "automation_after": [
-        "bc44eff66ade9e0d28ec42daeaad7e28",
-        "5e2b082d2aec85937825e2ebd681d9e6"
-      ],
-      "automation_node_id": "f7f37dbfd9e37874dc38c48031905d76",
-      "automation_task_id": "f267d5484036138012866ca7b6e25a4a",
       "outcome": "Independently review final source/generated artifacts, shared-fixture grammar, actual protocol/test evidence and host focused result; repair scoped findings and hand off the reviewed CLI/LSP candidate with the Vityo join explicitly separate.",
       "ownership": "Sole Styio writer for review corrections after REPAIR; current non-fast Codex role, no subagents. Historical NODE-COST is retained evidence, not a new execution lane.",
       "plan": "docs/plans/task-resource-delivery/HANDOFF.md#u3-execution-plan",
@@ -90,13 +83,12 @@
       "host_focused": {
         "available_detail": "Host plan reports passed. Assigned API does not expose full check console, command exit codes or GoogleTest totals.",
         "check_id": "styio-task-resource-focused",
-        "check_run_id": "d5497a4f2e7c13afc7f1998aa92fd33e",
         "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
         "host_result": "passed",
         "local_ctest_evidence": "host-focused-ctest.log",
         "local_ctest_result": "54 Test Passed records, 0 Test Failed records; log starts 2026-10-11 20:27 CST.",
         "reuse": "Worker result retained; reviewer changed test producers and reran affected selections only.",
-        "source": "project_plan_read"
+        "source": "assigned plan result"
       },
       "limitations": [
         "Full host check console and per-command exit codes are not exposed by assigned plan API; no detailed hosted GoogleTest totals claimed.",
@@ -217,12 +209,11 @@
         ],
         "host_focused": {
           "check_id": "styio-task-resource-focused",
-          "check_run_id": "8e93839c08907eed0f6ab829a127be27",
           "command": "bash docs/plans/task-resource-delivery/checks.sh focused",
           "detail": "Platform result only; full host console, per-command exits and GoogleTest totals not exposed. Retained CTest output is separate evidence.",
           "host_result": "passed",
           "selected_reviewer_check": "styio-task-resource-review",
-          "source": "project_plan_read"
+          "source": "assigned plan result"
         },
         "observed_date": "2026-10-11",
         "registered_review_check": "styio-task-resource-review; host execution follows review, not asserted here",
@@ -357,10 +348,9 @@
         },
         "host_focused": {
           "check_id": "styio-task-resource-focused",
-          "check_run_id": "36f874df908fa0a137593c78204fe20f",
           "detail": "Host plan result only. Full console and per-command exits are not exposed. Retained local CTest log is separate evidence.",
           "result": "passed",
-          "source": "project_plan_read"
+          "source": "assigned plan result"
         },
         "ide_evidence_reuse": "Inspected Worker ide.xml (34 passed, no failures/skips) and strengthened ide-candidate.xml (6 passed, no failures/skips; overlapping subset). No rerun of unchanged cases.",
         "independent_grammar": {
@@ -468,7 +458,6 @@
       "scope": "Worker candidate for the five authoritative shared programs; host focused verification and independent review are separate."
     },
     "coordinator_host_acceptance": {
-      "check_run_id": "431c25a01a63945fd0c410406982285d",
       "observed_date": "2026-10-11",
       "validation": "passed"
     },
