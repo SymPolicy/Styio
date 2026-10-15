@@ -79,6 +79,7 @@ class SIOStdStreamLineIter;
 class SIOStdStreamPull;
 class SIOTaskCreate;
 class SIOFlowBind;
+class SIOTaskOrder;
 
 /* SC = Styio Collection. List, dictionary, and future data structures
    such as matrix. */

@@ -78,25 +78,62 @@ TEST(StyioSemanticIdentity, CanonicalModuleRulesAndQualificationAreExplicit) {
     styio::semantic_identity::canonical_relative_path_error("../main.styio"),
     CanonicalRelativePathError::InvalidSegment);
   EXPECT_THROW(Scope::qualified("", "Styio.toml", "src/main.styio"), std::invalid_argument);
+  for (const char* invalid_name : {
+         "project",
+         "project/pkg/extra",
+         "/project",
+         "project/",
+         "project//pkg",
+         "Example/app",
+         "example/App",
+         "-example/app",
+         "_example/app",
+         "example/-app",
+         "example/_app",
+         "example/app.",
+         "example app/x",
+         "example\\app",
+         "example/app\\x",
+         "example/app@1",
+         "example\t/app",
+         "example/app\n",
+         "\xc3\xa9/app",
+         "example/\xc3\xa9",
+       }) {
+    EXPECT_THROW(
+      Scope::qualified(invalid_name, "Styio.toml", "src/main.styio"),
+      std::invalid_argument)
+      << invalid_name;
+  }
   EXPECT_THROW(
-    Scope::qualified("project/package", "Styio.toml", "src/main.styio"),
+    Scope::qualified("example/app", "foo\\bar.toml", "src/main.styio"),
     std::invalid_argument);
   EXPECT_THROW(
-    Scope::qualified("example.app", "foo\\bar.toml", "src/main.styio"),
+    Scope::qualified("example/app", "Styio.toml", "../main.styio"),
     std::invalid_argument);
-  EXPECT_THROW(
-    Scope::qualified("example.app", "Styio.toml", "../main.styio"),
-    std::invalid_argument);
-  const Scope qualified = Scope::qualified("example.app", "Styio.toml", "src/main.styio");
+  for (const char* valid_name : {
+         "example/app",
+         "a1/9z",
+         "0/9",
+         "example-/app-name_2",
+       }) {
+    EXPECT_TRUE(
+      styio::semantic_identity::canonical_package_name_is_valid(valid_name))
+      << valid_name;
+    EXPECT_NO_THROW(
+      Scope::qualified(valid_name, "Styio.toml", "src/main.styio"))
+      << valid_name;
+  }
+  const Scope qualified = Scope::qualified("example/app", "Styio.toml", "src/main.styio");
   EXPECT_TRUE(qualified.is_globally_comparable());
-  EXPECT_EQ(qualified.package_name(), "example.app");
+  EXPECT_EQ(qualified.package_name(), "example/app");
   EXPECT_EQ(qualified.manifest_relative_path(), "Styio.toml");
   EXPECT_EQ(qualified.entry_relative_path(), "src/main.styio");
   EXPECT_FALSE(Scope::anonymous().is_globally_comparable());
 }
 
 TEST(StyioSemanticIdentity, LengthPrefixedDigestIsDeterministic) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "pkg/module.styio");
+  const auto scope = styio::semantic_identity::Scope::qualified("example/project", "Styio.toml", "pkg/module.styio");
   const auto first = styio::semantic_identity::derive(scope, {"ab", "c"}, "Value", {"site"});
   const auto repeat = styio::semantic_identity::derive(scope, {"ab", "c"}, "Value", {"site"});
   const auto ambiguous_without_lengths = styio::semantic_identity::derive(scope, {"a", "bc"}, "Value", {"site"});
@@ -118,7 +155,7 @@ TEST(StyioSemanticIdentity, CollisionGuardFailsClosed) {
 }
 
 TEST(StyioResourceTopology, SemanticIdsSurviveFreshRebuildAndTrivia) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
+  const auto scope = styio::semantic_identity::Scope::qualified("example/project", "Styio.toml", "app/main.styio");
   const auto baseline = parsed_descriptors("\"hello\" -> @stdout\n", "first.styio", scope);
   const auto trivia = parsed_descriptors(
     "// formatting-only comment\n  \"hello\"    ->    @stdout\n",
@@ -128,7 +165,7 @@ TEST(StyioResourceTopology, SemanticIdsSurviveFreshRebuildAndTrivia) {
 }
 
 TEST(StyioResourceTopology, SemanticIdsIgnoreSourceLocationsFileNamesAndLabels) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
+  const auto scope = styio::semantic_identity::Scope::qualified("example/project", "Styio.toml", "app/main.styio");
   const auto first = parsed_descriptors(
     "f <- @file(\"alpha/input.txt\")\nf -> @()\n",
     "one/location.styio",
@@ -141,7 +178,7 @@ TEST(StyioResourceTopology, SemanticIdsIgnoreSourceLocationsFileNamesAndLabels) 
 }
 
 TEST(StyioResourceTopology, UnrelatedEditsPreserveUnaffectedSemanticIds) {
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
+  const auto scope = styio::semantic_identity::Scope::qualified("example/project", "Styio.toml", "app/main.styio");
   const auto before = parsed_descriptors(
     "stable = 1\n\"a\" -> @stdout\n",
     "baseline.styio",
@@ -225,7 +262,7 @@ TEST(StyioResourceTopology, ScopeRenameAndRewriteBoundariesAreExplicit) {
   const std::string baseline_source =
     "owned_site = 1\n"
     "\"stable\" -> @stdout\n";
-  const auto scope = styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/main.styio");
+  const auto scope = styio::semantic_identity::Scope::qualified("example/project", "Styio.toml", "app/main.styio");
   const auto baseline = parsed_descriptors(baseline_source, "baseline.styio", scope);
   const auto renamed = parsed_descriptors(
     "renamed_site = 1\n\"stable\" -> @stdout\n",
@@ -261,15 +298,15 @@ TEST(StyioResourceTopology, ScopeRenameAndRewriteBoundariesAreExplicit) {
   const auto project_changed = parsed_descriptors(
     baseline_source,
     "project-change.styio",
-    styio::semantic_identity::Scope::qualified("other-project", "Styio.toml", "app/main.styio"));
+    styio::semantic_identity::Scope::qualified("other/project", "Styio.toml", "app/main.styio"));
   const auto module_changed = parsed_descriptors(
     baseline_source,
     "module-change.styio",
-    styio::semantic_identity::Scope::qualified("project", "Styio.toml", "app/renamed.styio"));
+    styio::semantic_identity::Scope::qualified("example/project", "Styio.toml", "app/renamed.styio"));
   const auto manifest_changed = parsed_descriptors(
     baseline_source,
     "manifest-change.styio",
-    styio::semantic_identity::Scope::qualified("project", "Alt.toml", "app/main.styio"));
+    styio::semantic_identity::Scope::qualified("example/project", "Alt.toml", "app/main.styio"));
   EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(project_changed)));
   EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(module_changed)));
   EXPECT_FALSE(has_intersection(all_identities(baseline), all_identities(manifest_changed)));

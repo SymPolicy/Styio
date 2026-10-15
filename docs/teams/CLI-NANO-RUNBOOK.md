@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-11
 
 ## Mission
 
@@ -151,3 +151,15 @@ The cross-platform source-read check explicitly rejects directories (including
 symlink targets) before opening: some platforms report directory reads as EOF.
 Regular-file symlinks remain accepted; status-query errors still use the existing
 open/read error handling. The public CLI regression covers both symlink cases.
+
+### Task/resource compiler candidate (2026-10-11)
+
+Compile-plan invocations invalidate the previous receipt before diagnostics
+setup and truncate the current diagnostics stream; only success writes a receipt.
+Recoverable admission errors follow the same rule. Invalid plans without a known
+output root require consumer-side invocation invalidation. The permanent
+`CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation` and directory-failure
+cases protect this path; package/nano publication behavior is unchanged.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.

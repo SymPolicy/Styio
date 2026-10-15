@@ -701,6 +701,9 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
   *static_cast<BlockingTaskContext*>(first->ctx) = {&entered, &release, 40};
   StyioTaskScheduler::instance().enqueue(first);
   entered.wait(false, std::memory_order_acquire);
+  // The blocked callback keeps the executor live: both it and this test own
+  // references until completion and owner release, respectively.
+  EXPECT_EQ(first->references.load(std::memory_order_acquire), 2u);
 
   auto make_value_task = [](int64_t value) {
     auto* task = new StyioTask(StyioTaskValueKind::I64);
@@ -750,16 +753,18 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
   EXPECT_EQ(snapshot.queue_closed, 0);
   EXPECT_FALSE(styio::runtime::has_error());
   styio_task_scheduler_profile_enable(0);
-  delete first;
-  delete second;
-  delete third;
+  // Ready publication precedes the executor's final access. Release the owner
+  // reference instead of deleting underneath run()'s terminal decrement.
+  close_task(first);
+  close_task(second);
+  close_task(third);
 
-  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  auto* task = make_value_task(42);
+  ASSERT_NE(task->ctx, nullptr);
   ++g_active_task_handles;
-  std::thread ready([task]() {
-    (*task).ready.store(true, std::memory_order_release);
-    (*task).ready.notify_all();
-  });
+  EXPECT_FALSE(task->ready.load(std::memory_order_acquire));
+  // Closing a pending owner must demand a real launch and settle it. A helper
+  // thread publishing ready would race completion and bypass this contract.
   close_task(task);
-  ready.join();
+  EXPECT_EQ(g_active_task_handles, 0);
 }

@@ -2366,7 +2366,8 @@ StyioToLLVM::toLLVMIR(SGVar* node) {
 }
 
 void
-StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
+StyioToLLVM::emit_bounded_ring_pending_commit(
+  const std::string& name) {
   auto arr_it = mutable_variables.find(name);
   auto head_it = bounded_ring_head_slot_.find(name);
   auto cap_it = bounded_ring_capacity_.find(name);
@@ -2399,9 +2400,7 @@ StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
   llvm::Value* pending_count = theBuilder->CreateLoad(i64, pending_count_slot);
   llvm::Value* over_cap = theBuilder->CreateICmpUGT(pending_count, capv);
   llvm::Value* start = theBuilder->CreateSelect(
-    over_cap,
-    theBuilder->CreateSub(pending_count, capv),
-    zero);
+    over_cap, theBuilder->CreateSub(pending_count, capv), zero);
   llvm::AllocaInst* idx_slot = create_entry_alloca(i64, name + ".pending.commit.i");
   theBuilder->CreateStore(start, idx_slot);
 
@@ -2440,17 +2439,79 @@ StyioToLLVM::emit_bounded_ring_pending_commit(const std::string& name) {
 void
 StyioToLLVM::emit_bounded_ring_pending_commits() {
   std::vector<std::string> names;
-  names.reserve(bounded_ring_pending_count_slot_.size());
   for (const auto& kv : bounded_ring_pending_count_slot_) {
+    if (!bounded_ring_pending_scope_stack_.empty()) {
+      const auto& frame = bounded_ring_pending_scope_stack_.back();
+      auto it = frame.find(kv.first);
+      if (it != frame.end() && it->second.count == kv.second
+          && it->second.array == nullptr) continue;
+    }
     names.push_back(kv.first);
   }
-  for (const std::string& name : names) {
+  for (const auto& name : names) {
     emit_bounded_ring_pending_commit(name);
-    llvm::BasicBlock* cur = theBuilder->GetInsertBlock();
-    if (cur == nullptr || cur->getTerminator() != nullptr) {
-      break;
+    auto* cur = theBuilder->GetInsertBlock();
+    if (cur == nullptr || cur->getTerminator()) break;
+  }
+}
+
+void
+StyioToLLVM::push_bounded_ring_pending_scope() {
+  bounded_ring_pending_scope_stack_.emplace_back();
+  auto* cur = theBuilder->GetInsertBlock();
+  if (cur == nullptr || cur->getTerminator()) return;
+  auto& frame = bounded_ring_pending_scope_stack_.back();
+  for (auto& kv : bounded_ring_pending_count_slot_) {
+    PendingRingScope scope;
+    scope.parent_count = kv.second;
+    scope.parent_array = bounded_ring_pending_slot_.at(kv.first);
+    scope.count = create_entry_alloca(theBuilder->getInt64Ty(), kv.first + ".scope.count");
+    scope.initialize_at = theBuilder->CreateStore(theBuilder->getInt64(0), scope.count);
+    scope.cleanup_depth = file_handle_scope_stack_.size();
+    kv.second = scope.count;
+    frame.emplace(kv.first, scope);
+  }
+}
+
+void
+StyioToLLVM::release_pending_scope_arrays(std::size_t keep_depth) {
+  std::unordered_set<llvm::AllocaInst*> released;
+  for (const auto& frame : bounded_ring_pending_scope_stack_) {
+    for (const auto& [name, scope] : frame) {
+      if (scope.cleanup_depth <= keep_depth) continue;
+      for (auto* array : {scope.array, keep_depth == 0 ? scope.parent_array : nullptr}) {
+        if (!array || !released.insert(array).second) continue;
+        auto* type = llvm::cast<llvm::ArrayType>(array->getAllocatedType());
+        auto family = bounded_ring_handle_family_.find(name);
+        if (family != bounded_ring_handle_family_.end()) {
+          release_bounded_ring_handle_array(type, array, type->getNumElements(), family->second, name + ".scope.pending");
+        } else {
+          release_bounded_ring_cstr_array(type, array, type->getNumElements(), name + ".scope.pending");
+        }
+      }
     }
   }
+}
+
+void
+StyioToLLVM::pop_bounded_ring_pending_scope() {
+  if (bounded_ring_pending_scope_stack_.empty()) return;
+  for (const auto& [name, scope] : bounded_ring_pending_scope_stack_.back()) {
+    if (scope.array != nullptr) {
+      auto* type = llvm::cast<llvm::ArrayType>(scope.array->getAllocatedType());
+      auto family = bounded_ring_handle_family_.find(name);
+      if (family != bounded_ring_handle_family_.end()) {
+        release_bounded_ring_handle_array(type, scope.array, type->getNumElements(), family->second, name + ".scope.pending");
+      } else {
+        release_bounded_ring_cstr_array(type, scope.array, type->getNumElements(), name + ".scope.pending");
+      }
+    }
+    if (bounded_ring_pending_count_slot_[name] == scope.count) {
+      bounded_ring_pending_count_slot_[name] = scope.parent_count;
+      bounded_ring_pending_slot_[name] = scope.parent_array;
+    }
+  }
+  bounded_ring_pending_scope_stack_.pop_back();
 }
 
 /*
@@ -2511,6 +2572,18 @@ StyioToLLVM::toLLVMIR(SGFlexBind* node) {
     if (node->pending_resource_write
         && bounded_ring_pending_slot_.contains(varname)
         && bounded_ring_pending_count_slot_.contains(varname)) {
+      if (!bounded_ring_pending_scope_stack_.empty()) {
+        auto it = bounded_ring_pending_scope_stack_.back().find(varname);
+        if (it != bounded_ring_pending_scope_stack_.back().end()
+            && it->second.count == bounded_ring_pending_count_slot_[varname]
+            && it->second.array == nullptr) {
+          auto& scope = it->second;
+          scope.array = create_entry_alloca(arrTy, varname + ".scope.pending");
+          llvm::IRBuilder<> initialize(scope.initialize_at);
+          initialize.CreateStore(llvm::ConstantAggregateZero::get(arrTy), scope.array);
+          bounded_ring_pending_slot_[varname] = scope.array;
+        }
+      }
       llvm::AllocaInst* pending = bounded_ring_pending_slot_[varname];
       llvm::AllocaInst* pending_count_slot = bounded_ring_pending_count_slot_[varname];
       auto* pending_ty = llvm::cast<llvm::ArrayType>(pending->getAllocatedType());
@@ -3266,6 +3339,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
   auto saved_ring_handle_family = bounded_ring_handle_family_;
   auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
+  auto saved_ring_pending_scopes = bounded_ring_pending_scope_stack_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
   auto saved_i64_list_views = i64_list_view_cache_;
@@ -3286,6 +3360,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_pending_count_slot_.clear();
   bounded_ring_handle_family_.clear();
   bounded_ring_cstr_scope_stack_.clear();
+  bounded_ring_pending_scope_stack_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
   i64_list_view_cache_.clear();
@@ -3359,6 +3434,7 @@ StyioToLLVM::define_sgfunc_body(SGFunc* node) {
   bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
   bounded_ring_handle_family_ = std::move(saved_ring_handle_family);
   bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
+  bounded_ring_pending_scope_stack_ = std::move(saved_ring_pending_scopes);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
   i64_list_view_cache_ = std::move(saved_i64_list_views);
@@ -3988,6 +4064,7 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
   verifier_options.defer_unresolved_loop_control = !loop_stack_.empty();
   styio::ir::require_verified_styio_ir(node, verifier_options);
   push_file_handle_scope();
+  push_bounded_ring_pending_scope();
   llvm::Value* last = nullptr;
   StyioIR* last_ir = nullptr;
   for (auto const& s : node->stmts) {
@@ -3999,6 +4076,7 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
   }
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
+    emit_bounded_ring_pending_commits();
     std::optional<TempResourceKind> escaped_resource_kind;
     bool escaped_cstr = false;
     const bool scope_has_dynamic_slots =
@@ -4039,6 +4117,7 @@ StyioToLLVM::toLLVMIR(SGBlock* node) {
   else {
     discard_file_handle_scope_metadata();
   }
+  pop_bounded_ring_pending_scope();
   return last ? last : theBuilder->getInt64(0);
 }
 
@@ -4255,8 +4334,10 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
     theBuilder->CreateBr(body_bb);
     loop_stack_.push_back(LoopFrame{exit_bb, body_bb, file_handle_scope_stack_.size(), preheader, list_mutation_epoch_});
     theBuilder->SetInsertPoint(body_bb);
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
     emit_bounded_ring_pending_commits();
+    pop_bounded_ring_pending_scope();
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
     if (bcur && !bcur->getTerminator()) {
       theBuilder->CreateBr(body_bb);
@@ -4280,8 +4361,10 @@ StyioToLLVM::toLLVMIR(SGLoop* node) {
   theBuilder->CreateCondBr(c, body_bb, exit_bb);
   loop_stack_.push_back(LoopFrame{exit_bb, cond_bb, file_handle_scope_stack_.size(), while_preheader, list_mutation_epoch_});
   theBuilder->SetInsertPoint(body_bb);
+  push_bounded_ring_pending_scope();
   node->body->toLLVMIR(this);
   emit_bounded_ring_pending_commits();
+  pop_bounded_ring_pending_scope();
   llvm::BasicBlock* b2 = theBuilder->GetInsertBlock();
   if (b2 && !b2->getTerminator()) {
     theBuilder->CreateBr(cond_bb);
@@ -4410,8 +4493,10 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
 
     emit_snapshot_shadow_reload();
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
     run_pulse_epilogue();
+    pop_bounded_ring_pending_scope();
     mutable_variables.erase(node->var);
 
     llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
@@ -4517,8 +4602,10 @@ StyioToLLVM::toLLVMIR(SGForEach* node) {
 
   emit_snapshot_shadow_reload();
   run_pulse_prologue();
+  push_bounded_ring_pending_scope();
   node->body->toLLVMIR(this);
   run_pulse_epilogue();
+  pop_bounded_ring_pending_scope();
   mutable_variables.erase(node->var);
 
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
@@ -4600,8 +4687,10 @@ StyioToLLVM::toLLVMIR(SGRangeFor* node) {
   llvm::AllocaInst* vs = create_entry_alloca(i64t, node->var);
   theBuilder->CreateStore(cur, vs);
   mutable_variables[node->var] = vs;
+  push_bounded_ring_pending_scope();
   node->body->toLLVMIR(this);
   emit_bounded_ring_pending_commits();
+  pop_bounded_ring_pending_scope();
   llvm::BasicBlock* bcur = theBuilder->GetInsertBlock();
   if (bcur && !bcur->getTerminator()) {
     theBuilder->CreateBr(step_bb);
@@ -5283,6 +5372,7 @@ StyioToLLVM::emit_scope_cleanup_to_depth(std::size_t keep_depth) {
     return;
   }
 
+  release_pending_scope_arrays(keep_depth);
   emit_owned_resource_cleanup_to_depth(keep_depth);
 
   std::unordered_set<llvm::AllocaInst*> closed_file_slots;
@@ -5346,6 +5436,7 @@ StyioToLLVM::emit_scope_cleanup_to_depth(std::size_t keep_depth) {
 
 void
 StyioToLLVM::emit_active_scope_cleanup() {
+  release_pending_scope_arrays(0);
   emit_all_owned_resource_cleanup();
   (void)emit_active_file_handle_cleanup();
   std::unordered_set<llvm::AllocaInst*> freed_cstr_slots;
@@ -5723,6 +5814,7 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
     nullptr,
     list_mutation_epoch_,
   });
+  push_bounded_ring_pending_scope();
   node->body->toLLVMIR(this);
 
   llvm::BasicBlock* body_end = theBuilder->GetInsertBlock();
@@ -5740,6 +5832,7 @@ StyioToLLVM::toLLVMIR(SIOFileLineIter* node) {
   if (body_falls_through) {
     emit_bounded_ring_pending_commits();
   }
+  pop_bounded_ring_pending_scope();
 
   mutable_variables.erase(node->line_var);
   if (body_falls_through) {
@@ -6698,6 +6791,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     mutable_variables[node->var_b] = slot_b;
 
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
 
     mutable_variables.erase(node->var_a);
@@ -6713,6 +6807,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     else {
       abandon_uncommitted_pulse_frame();
     }
+    pop_bounded_ring_pending_scope();
 
     theBuilder->SetInsertPoint(step_bb);
     llvm::Value* nx = theBuilder->CreateAdd(theBuilder->CreateLoad(i64t, idx_slot), one);
@@ -6839,8 +6934,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     }
 
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
     run_pulse_epilogue();
+    pop_bounded_ring_pending_scope();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
@@ -6994,6 +7091,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     mutable_variables[node->var_b] = slot_b;
 
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
 
     mutable_variables.erase(node->var_a);
@@ -7007,6 +7105,7 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     else {
       abandon_uncommitted_pulse_frame();
     }
+    pop_bounded_ring_pending_scope();
 
     theBuilder->SetInsertPoint(step_bb);
     llvm::Value* nx = theBuilder->CreateAdd(theBuilder->CreateLoad(i64t, idx_slot), one);
@@ -7114,8 +7213,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     mutable_variables[node->var_b] = slot_b;
 
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
     run_pulse_epilogue();
+    pop_bounded_ring_pending_scope();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
@@ -7233,8 +7334,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     mutable_variables[node->var_b] = slot_b;
 
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
     run_pulse_epilogue();
+    pop_bounded_ring_pending_scope();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);
@@ -7352,8 +7455,10 @@ StyioToLLVM::toLLVMIR(SIOStreamZip* node) {
     mutable_variables[node->var_b] = slot_b;
 
     run_pulse_prologue();
+    push_bounded_ring_pending_scope();
     node->body->toLLVMIR(this);
     run_pulse_epilogue();
+    pop_bounded_ring_pending_scope();
 
     mutable_variables.erase(node->var_a);
     mutable_variables.erase(node->var_b);

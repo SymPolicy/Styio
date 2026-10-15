@@ -1,0 +1,7 @@
+job = ||> { <| "initial" }
+[0] >> #(unused) => {
+ message: string = "capture" + "d"
+ job = ||> { <| message }
+}
+?| job -> value: string
+>_(value)

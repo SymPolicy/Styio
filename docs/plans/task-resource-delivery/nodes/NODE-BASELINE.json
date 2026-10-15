@@ -1,0 +1,81 @@
+{
+  "id": "NODE-BASELINE",
+  "task": "TASK-001",
+  "title": "Build current sources and reproduce the reported behavior",
+  "outcome": "Record the actual task-history result before repairs; inspect nested commits, task order, C1 and existing coverage. A failing diagnostic probe is evidence, not a successful acceptance check. Enumerate the existing supported capabilities and platforms from owner contracts, link their current tests, and identify missing coverage. The inventory bounds preservation claims; it is not a new capability promise.",
+  "after": [],
+  "status": "completed",
+  "role": "worker",
+  "executors": [],
+  "resources": [],
+  "contract": {
+    "write_scope": [
+      "Current repository implementation, contracts and focused tests required by this milestone; existing user changes are preserved."
+    ],
+    "external_inputs": [],
+    "automation_check_ids": [
+      "styio-task-resource-baseline"
+    ],
+    "execution": "Explicitly select these registered check IDs; an omitted list inherits all project checks and would run unrelated/full checks prematurely.",
+    "completion": "Check success is necessary but not sufficient. Verify the stated outcome and required external input; no fabricated result or silent skip."
+  },
+  "review": [],
+  "result": {
+    "summary": "Built current working sources and classified task-history, nested pending-write ownership, explicit task-order and C1 invocation-freshness defects. Existing focused tests do not cover those counterexamples.",
+    "evidence": "docs/plans/task-resource-delivery/BASELINE.md",
+    "source_revision": "09f8fbdf6af9e27e590def6731eaa660d595a36c",
+    "provenance": "build/task-resource-baseline-20261011/provenance.json",
+    "confirmed_defects": [
+      "B1",
+      "B2",
+      "B3",
+      "B4"
+    ],
+    "focused_tests": {
+      "passed": 69,
+      "failed": 0,
+      "scope": "32 C1/failure GoogleTests, 30 task/state/LSP CTests, 7 resource-runtime GoogleTests"
+    },
+    "history_acceptance": {
+      "exit_code": 1,
+      "expected": "parent 9 / task 7",
+      "actual": "parent 9 / task 0"
+    },
+    "limitations": [
+      "No full regression or common E2E",
+      "Other platforms and build variants unverified",
+      "No cost measurement or independent candidate source review",
+      "Task/Tree delivery is not asserted"
+    ],
+    "observed_date": "2026-10-11"
+  },
+  "commit": null,
+  "checks": [
+    {
+      "id": "styio-task-resource-baseline",
+      "title": "Build current sources and reproduce the reported behavior checks",
+      "commands": [
+        "bash docs/plans/task-resource-delivery/checks.sh baseline"
+      ],
+      "coverage": {
+        "kind": "node"
+      },
+      "pending": false,
+      "running": false,
+      "run_id": "4d4727fb18a52178a41bdd39f8c553d4",
+      "dirty": false,
+      "result": {
+        "status": "passed",
+        "exit_code": 0,
+        "command": "bash docs/plans/task-resource-delivery/checks.sh baseline",
+        "evidence": "build/task-resource-baseline-20261011/baseline.log",
+        "summary": "Current-source configure/build of styio, styio_lspd, styio_test and styio_resource_topology_test plus machine-info completed successfully. Build check only; semantic defect probes are recorded separately.",
+        "host_validation": {
+          "status": "passed",
+          "run_id": "4d4727fb18a52178a41bdd39f8c553d4",
+          "source": "Coordinator read actual completed task-resource-delivery check-stage run and node validation=passed; prior local evidence retained with its original scope."
+        }
+      }
+    }
+  ]
+}

@@ -976,7 +976,7 @@ TEST(StyioLoweringInternal, ReusesSemaValidatedTopologyArtifact) {
 
 TEST(StyioLoweringInternal, OptimizationDoesNotMutateTopologySemanticIds) {
   LowererProbe analyzer(styio::semantic_identity::Scope::qualified(
-    "compiler-tests", "Styio.toml", "optimizer/root.styio"));
+    "compiler/tests", "Styio.toml", "optimizer/root.styio"));
   std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
     ResourceRedirectAST::Create(
       StringAST::Create("hello"),
@@ -3290,7 +3290,7 @@ TEST(StyioLoweringInternal, AllocationCountersTrackNodeLifecycle) {
 
 TEST(StyioLoweringInternal, ObservationDescriptorsPreserveSnapshotAndSiteIds) {
   LowererProbe analyzer(styio::semantic_identity::Scope::qualified(
-    "example.app", "Styio.toml", "src/main.styio"));
+    "example/app", "Styio.toml", "src/main.styio"));
   std::unique_ptr<MainBlockAST> root(MainBlockAST::Create({
     FinalBindAST::Create(
       VarAST::Create(NameAST::Create("job")),
