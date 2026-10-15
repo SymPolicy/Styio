@@ -654,12 +654,23 @@ TEST(StyioMainContract, MainEntryAstAndIrTTYOutputUsesAnsiHeaders) {
     styio_shell_quote_latest(styio_binary.string())
     + " --file " + styio_shell_quote_latest(source.string())
     + " --styio-ast --styio-ir --llvm-ir";
-  const std::string command =
+  std::string command;
+#if defined(__APPLE__)
+  /* BSD script takes the command positionally; -e propagates its exit code. */
+  command =
+    styio_shell_quote_latest(script_path)
+    + " -q -e " + styio_shell_quote_latest(transcript.string())
+    + " /bin/sh -c " + styio_shell_quote_latest(child_command)
+    + " > " + styio_shell_quote_latest(stdout_path.string())
+    + " 2> " + styio_shell_quote_latest(stderr_path.string());
+#else
+  command =
     styio_shell_quote_latest(script_path)
     + " -q -e -c " + styio_shell_quote_latest(child_command)
     + " " + styio_shell_quote_latest(transcript.string())
     + " > " + styio_shell_quote_latest(stdout_path.string())
     + " 2> " + styio_shell_quote_latest(stderr_path.string());
+#endif
   RunShellOrFail(command, "run styio AST/IR dump under pseudo-terminal");
 
   const std::string tty_output = ReadText(transcript);
@@ -1878,22 +1889,27 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   bool success = true;
   bool executed = false;
   const CompilationPhase final_phase = CompilationPhase::Typed;
-  const std::string payload = styio_render_compile_plan_unit_payload_latest(
-    request,
-    "test",
-    &success,
-    &executed,
-    &final_phase);
+  styio::observable::RuntimeEvent finished_event;
+  finished_event.kind = styio::observable::EventKind::UnitTestFinished;
+  finished_event.unit_id = styio_compile_plan_unit_id_latest(request);
+  finished_event.intent = "test";
+  finished_event.test_name = request.entry_target_name;
+  finished_event.success = success;
+  finished_event.success_present = true;
+  finished_event.executed = executed;
+  finished_event.executed_present = true;
+  finished_event.final_phase = styio_runtime_phase_name_latest(final_phase);
+  const std::string payload = styio::observable::serialize_runtime_event(finished_event);
   EXPECT_NE(payload.find("\"test_name\":\"unit/name\""), std::string::npos);
   EXPECT_NE(payload.find("\"success\":true"), std::string::npos);
   EXPECT_NE(payload.find("\"executed\":false"), std::string::npos);
   EXPECT_NE(payload.find("\"final_phase\":\"typed\""), std::string::npos);
-  EXPECT_EQ(styio_compile_plan_artifact_stem_latest(request), "unit_name");
+  EXPECT_EQ(styio::config::compile_plan_artifact_stem(request), "unit_name");
 
   request.entry_target_name.clear();
-  EXPECT_EQ(styio_compile_plan_artifact_stem_latest(request), "main");
+  EXPECT_EQ(styio::config::compile_plan_artifact_stem(request), "main");
   request.entry_file = fs::path();
-  EXPECT_EQ(styio_compile_plan_artifact_stem_latest(request), "entry");
+  EXPECT_EQ(styio::config::compile_plan_artifact_stem(request), "entry");
   request.entry_target_kind.clear();
   request.entry_package_id.clear();
   EXPECT_TRUE(styio_compile_plan_unit_id_latest(request).empty());
@@ -1915,6 +1931,7 @@ TEST(StyioMainContract, NanoSelectionAndCompilePlanHelpersCoverDirectBranches) {
   ASSERT_TRUE(styio_write_compile_plan_receipt_latest(
     request,
     {temp.path() / "artifact" / "out.txt", temp.path() / "artifact" / "second.txt"},
+    "",
     "linear",
     "session-1",
     true,
@@ -2350,7 +2367,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
                + "\",\"diag_dir\":\"" + quote(diag_dir)
                + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
                "\"styio_ir\":false,\"llvm_ir\":false}}"),
-    "missing required string field: version");
+    "missing required string field: generated_by.version");
   expect_parse_error(
     write_plan("missing-profile-name.json",
                "{\"plan_version\":1,\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1\"},"
@@ -2363,7 +2380,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
                + "\",\"diag_dir\":\"" + quote(diag_dir)
                + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
                "\"styio_ir\":false,\"llvm_ir\":false}}"),
-    "missing required string field: name");
+    "missing required string field: profile.name");
   {
     std::string unsupported_profile =
       valid_plan_text("pafio", "test", "test", "jsonl");
@@ -2491,7 +2508,7 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
                + "\",\"diag_dir\":\"" + quote(diag_dir)
                + "\"},\"emit\":{\"error_format\":\"text\",\"ast\":false,"
                "\"styio_ir\":false,\"llvm_ir\":false}}"),
-    "missing required string field: build_root");
+    "missing required string field: outputs.build_root");
   expect_parse_error(
     write_plan("bad-error-format.json",
                valid_plan_text("pafio", "test", "test", "yaml")),
@@ -2508,6 +2525,135 @@ TEST(StyioMainContract, CompilePlanContractParserRejectsMalformedSchemaEdges) {
   EXPECT_EQ(parsed.error_format, "text");
   EXPECT_TRUE(parsed.emit_ast);
   EXPECT_FALSE(parsed.emit_styio_ir);
+}
+
+TEST(StyioMainContract, CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation) {
+  TempDir temp("compile-plan-invocation-outputs");
+  const fs::path workspace = temp.path() / "workspace";
+  const fs::path source = workspace / "main.styio";
+  const fs::path build_root = temp.path() / "build";
+  const fs::path artifact_dir = temp.path() / "artifacts";
+  const fs::path diag_dir = temp.path() / "diag";
+  WriteText(source, ">_(7)\n");
+
+  auto write_plan = [&](const std::string& name, const std::string& intent) {
+    const fs::path plan = temp.path() / (name + ".json");
+    const std::string text =
+      "{"
+      "\"plan_version\":1,"
+      "\"generated_by\":{\"tool\":\"pafio\",\"version\":\"1.0\"},"
+      "\"intent\":\"" + intent + "\","
+      "\"workspace_root\":\"" + styio_json_escape(workspace.string()) + "\","
+      "\"entry\":{\"package_id\":\"pkg/main\",\"target_kind\":\"bin\",\"target_name\":\"app\",\"file\":\""
+      + styio_json_escape(source.string()) + "\"},"
+      "\"toolchain\":{},"
+      "\"profile\":{\"name\":\"dev\"},"
+      "\"packages\":[{\"id\":\"pkg/main\"}],"
+      "\"resolution\":{},"
+      "\"outputs\":{\"build_root\":\"" + styio_json_escape(build_root.string())
+      + "\",\"artifact_dir\":\"" + styio_json_escape(artifact_dir.string())
+      + "\",\"diag_dir\":\"" + styio_json_escape(diag_dir.string()) + "\"},"
+      "\"emit\":{\"error_format\":\"jsonl\",\"ast\":false,\"styio_ir\":false,\"llvm_ir\":false}"
+      "}";
+    WriteText(plan, text);
+    return plan;
+  };
+
+  const fs::path receipt = build_root / "receipt.json";
+  const fs::path diagnostics = diag_dir / "diagnostics.jsonl";
+  const fs::path ok_plan = write_plan("ok", "run");
+  const fs::path bad_plan = write_plan("bad-intent", "frobnicate");
+
+  auto run_plan = [&](const fs::path& plan) {
+    MainRunResult result = RunMain({"styio", "--compile-plan=" + plan.string()});
+    styio_clear_diagnostic_sink_latest();
+    g_runtime_events.close();
+    return result;
+  };
+  auto diagnostic_line_count = [&]() -> int {
+    int lines = 0;
+    std::istringstream in(ReadText(diagnostics));
+    std::string line;
+    while (std::getline(in, line)) {
+      if (!line.empty()) {
+        ++lines;
+      }
+    }
+    return lines;
+  };
+
+  /* success: fresh receipt, empty diagnostics */
+  {
+    const MainRunResult result = run_plan(ok_plan);
+    ASSERT_EQ(result.exit_code, static_cast<int>(StyioExitCode::Success))
+      << result.stderr_text;
+    ASSERT_TRUE(fs::exists(receipt));
+    ASSERT_TRUE(fs::exists(diagnostics));
+    EXPECT_EQ(diagnostic_line_count(), 0);
+  }
+
+  /* compiler failure: prior receipt removed, only this run's diagnostic kept */
+  WriteText(source, ">_(7) ))\n");
+  {
+    const MainRunResult result = run_plan(ok_plan);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::ParseError))
+      << result.stderr_text;
+    EXPECT_FALSE(fs::exists(receipt));
+    EXPECT_EQ(diagnostic_line_count(), 1);
+    EXPECT_NE(ReadText(diagnostics).find("ParseError"), std::string::npos);
+  }
+
+  /* a second failure must not accumulate stale entries */
+  {
+    const MainRunResult result = run_plan(ok_plan);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::ParseError))
+      << result.stderr_text;
+    EXPECT_FALSE(fs::exists(receipt));
+    EXPECT_EQ(diagnostic_line_count(), 1);
+  }
+
+  /* repaired success: fresh receipt, fresh empty diagnostics */
+  WriteText(source, ">_(8)\n");
+  {
+    const MainRunResult result = run_plan(ok_plan);
+    ASSERT_EQ(result.exit_code, static_cast<int>(StyioExitCode::Success))
+      << result.stderr_text;
+    ASSERT_TRUE(fs::exists(receipt));
+    EXPECT_EQ(diagnostic_line_count(), 0);
+  }
+
+  /* invalid intent: prior success receipt must not survive */
+  {
+    const MainRunResult result = run_plan(bad_plan);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError))
+      << result.stderr_text;
+    EXPECT_FALSE(fs::exists(receipt));
+    ASSERT_TRUE(fs::exists(diagnostics));
+    EXPECT_EQ(diagnostic_line_count(), 1);
+    EXPECT_NE(ReadText(diagnostics).find("unsupported compile-plan intent"),
+              std::string::npos);
+  }
+
+  /* A valid current plan must invalidate prior success even if diagnostic
+     output setup fails before compilation. */
+  WriteText(source, ">_(9)\n");
+  ASSERT_EQ(run_plan(ok_plan).exit_code, static_cast<int>(StyioExitCode::Success));
+  ASSERT_TRUE(fs::exists(receipt));
+  fs::remove_all(diag_dir);
+  WriteText(diag_dir, "not a directory");
+  EXPECT_EQ(run_plan(ok_plan).exit_code, static_cast<int>(StyioExitCode::RuntimeError));
+  EXPECT_FALSE(fs::exists(receipt));
+
+  /* A malformed root has no output identity; the caller must invalidate its
+     previous invocation results. Here only rejection is asserted. */
+  {
+    const fs::path array_plan = temp.path() / "array.json";
+    WriteText(array_plan, "[1,2,3]\n");
+    const MainRunResult result = run_plan(array_plan);
+    EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::CliError))
+      << result.stderr_text;
+    EXPECT_FALSE(fs::exists(receipt));
+  }
 }
 
 TEST(StyioMainContract, ConfigScalarsCommentsAndProjectConfigAreParsedConservatively) {
@@ -3349,7 +3495,7 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   selection.registry_package = entry.package_name;
   selection.registry_version = entry.version;
   EXPECT_FALSE(styio_materialize_cloud_nano_package_latest(selection, error));
-  EXPECT_NE(error.find("blob extraction"), std::string::npos) << error;
+  EXPECT_NE(error.find("blob listing"), std::string::npos) << error;
 
   const fs::path no_bin_root = temp.path() / "no-bin-root";
   WriteText(no_bin_root / "README.txt", "no binary here\n");
@@ -3860,13 +4006,13 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
   ASSERT_TRUE(styio_append_text_file_latest(append_path, "one\n", error)) << error;
   ASSERT_TRUE(styio_append_text_file_latest(append_path, "two\n", error)) << error;
   EXPECT_EQ(ReadText(append_path), "one\ntwo\n");
-  ASSERT_TRUE(styio_ensure_text_file_exists_latest(temp.path() / "logs" / "empty.txt", error)) << error;
+  ASSERT_TRUE(styio_append_text_file_latest(temp.path() / "logs" / "empty.txt", "", error)) << error;
   EXPECT_TRUE(fs::exists(temp.path() / "logs" / "empty.txt"));
   const fs::path blocked_parent = temp.path() / "blocked-parent";
   WriteText(blocked_parent, "not a directory\n");
   EXPECT_FALSE(styio_append_text_file_latest(blocked_parent / "append.txt", "x", error));
   EXPECT_NE(error.find("cannot create file parent directory"), std::string::npos);
-  EXPECT_FALSE(styio_ensure_text_file_exists_latest(blocked_parent / "ensure.txt", error));
+  EXPECT_FALSE(styio_append_text_file_latest(blocked_parent / "ensure.txt", "", error));
   EXPECT_NE(error.find("cannot create file parent directory"), std::string::npos);
   if (fs::exists("/dev/full")) {
     EXPECT_FALSE(styio_append_text_file_latest("/dev/full", "x", error));
@@ -3891,6 +4037,7 @@ TEST(StyioMainContract, FileProcessAndRuntimeSinksCoverFailureAndAppendPaths) {
 
   styio::config::CompilePlanRequest event_request;
   event_request.build_root = temp.path() / "events";
+  fs::create_directories(event_request.build_root);
   std::string event_error;
   ASSERT_TRUE(g_runtime_events.open(event_request, event_error)) << event_error;
   {

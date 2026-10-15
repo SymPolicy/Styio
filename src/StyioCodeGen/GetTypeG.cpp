@@ -679,3 +679,9 @@ StyioToLLVM::toLLVMType(SIOFlowBind* node) {
       return theBuilder->getInt64Ty();
   }
 }
+
+llvm::Type*
+StyioToLLVM::toLLVMType(SIOTaskOrder* node) {
+  (void)node;
+  return theBuilder->getVoidTy();
+}

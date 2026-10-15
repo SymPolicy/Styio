@@ -1227,7 +1227,7 @@ TEST(StyioIRContract, LegacyAndDeclarationAstLoweringEdgesStayExplicit) {
       NameAST::Create("after")
     ));
     std::unique_ptr<StyioIR> ir(ast->toStyioIR(&analyzer));
-    EXPECT_NE(dynamic_cast<SGNoOp*>(ir.get()), nullptr);
+    EXPECT_NE(dynamic_cast<SIOTaskOrder*>(ir.get()), nullptr);
   }
   {
     std::unique_ptr<StyioAST> ast(ExportDeclAST::Create({"foo", "bar"}));
@@ -3202,7 +3202,6 @@ TEST(StyioTypeInferenceContract, LeafNoopAndFailClosedTypeInferNodesStayExplicit
   noops.emplace_back(FallbackAST::Create(UndefinedLitAST::Create(), IntAST::Create("0")));
   noops.emplace_back(GuardSelectorAST::Create(IntAST::Create("1"), BoolAST::Create(true)));
   noops.emplace_back(EqProbeAST::Create(IntAST::Create("1"), IntAST::Create("1")));
-  noops.emplace_back(ResourceOrderAST::Create(NameAST::Create("before"), NameAST::Create("after")));
   noops.emplace_back(ResPathAST::Create(StyioPathType::local_relevant_any, "data.txt"));
   noops.emplace_back(RemotePathAST::Create(StyioPathType::ipv4_addr, "127.0.0.1:/tmp/data"));
   noops.emplace_back(WebUrlAST::Create(StyioPathType::url_https, "https://example.test/data"));
@@ -3236,6 +3235,27 @@ TEST(StyioTypeInferenceContract, LeafNoopAndFailClosedTypeInferNodesStayExplicit
 
   for (auto& ast : noops) {
     EXPECT_NO_THROW(ast->typeInfer(&analyzer));
+  }
+
+  {
+    AstToStyioIRLowerer task_analyzer;
+    task_analyzer.local_binding_types["before"] = styio_data_type_from_name("task[i64]");
+    task_analyzer.local_binding_types["after"] = styio_data_type_from_name("task[i64]");
+    std::unique_ptr<StyioAST> order(ResourceOrderAST::Create(
+      NameAST::Create("before"),
+      NameAST::Create("after")
+    ));
+    EXPECT_NO_THROW(order->typeInfer(&task_analyzer));
+  }
+  {
+    AstToStyioIRLowerer non_task_analyzer;
+    non_task_analyzer.local_binding_types["before"] = styio_data_type_from_name("i64");
+    non_task_analyzer.local_binding_types["after"] = styio_data_type_from_name("i64");
+    std::unique_ptr<StyioAST> order(ResourceOrderAST::Create(
+      NameAST::Create("before"),
+      NameAST::Create("after")
+    ));
+    EXPECT_THROW(order->typeInfer(&non_task_analyzer), StyioTypeError);
   }
 
   {

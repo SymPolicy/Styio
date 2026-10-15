@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-19
 
 Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
 
@@ -249,3 +249,18 @@ The cross-platform source-read check explicitly rejects directories (including
 symlink targets) before opening: some platforms report directory reads as EOF.
 Regular-file symlinks remain accepted; status-query errors still use the existing
 open/read error handling. The public CLI regression covers both symlink cases.
+
+### Delivery-record naming pass (2026-10-19): node records under `docs/plans/task-resource-delivery/nodes/` use neutral `task-resource-delivery` naming; internal host names do not ship. `feat(task-resource): own task history, ordering, and invocation results`
+
+### Task/resource compiler candidate (2026-10-11)
+
+The current delivery programme is `docs/plans/Programme.json`. Its task-resource
+candidate handoff records dirty build inputs, independent source findings and
+actual tests separately from advertised capabilities. Historical execution
+commands remain evidence even when a duplicate fixture is relocated; current
+permanent fixtures own the assertions. Compiler/Pafio/Vityo candidate joins and
+common E2E are coordinator prerequisites to later final regression, not implicit
+cross-repository scheduler edges.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.

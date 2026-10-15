@@ -90,6 +90,7 @@ struct Session
 thread_local std::uint32_t t_lane = kControllerLane;
 std::unique_ptr<Session> g_session;
 std::atomic<bool> g_active{false};
+std::atomic<std::uint64_t> g_session_epoch{0};
 
 SessionCapability capability_record_from(const Session& session) {
   SessionCapability cap;
@@ -380,6 +381,11 @@ session_active() noexcept {
   return g_active.load(std::memory_order_acquire);
 }
 
+std::uint64_t
+session_epoch() noexcept {
+  return g_session_epoch.load(std::memory_order_acquire);
+}
+
 bool
 begin_session(SessionConfig config) {
   if (config.mode == ObservationMode::Disabled) {
@@ -426,6 +432,7 @@ begin_session(SessionConfig config) {
   (void)write_line(*session, styio::observable::serialize_session_capability(cap));
   session->capability_written = true;
   g_session = std::move(session);
+  g_session_epoch.fetch_add(1, std::memory_order_release);
   g_active.store(true, std::memory_order_release);
   t_lane = kControllerLane;
   try {

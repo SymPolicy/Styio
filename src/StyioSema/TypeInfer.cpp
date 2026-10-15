@@ -8685,6 +8685,11 @@ StyioSemaContext::typeInfer(ResourceOrderAST* ast) {
   if (ast->getAfter() != nullptr) {
     ast->getAfter()->typeInfer(this);
   }
+  if (ast->getBefore() == nullptr || ast->getAfter() == nullptr
+      || infer_expr_type(this, ast->getBefore()).handle_family != StyioHandleFamily::Task
+      || infer_expr_type(this, ast->getAfter()).handle_family != StyioHandleFamily::Task) {
+    throw StyioTypeError("task order `=>` requires task handles");
+  }
 }
 
 void

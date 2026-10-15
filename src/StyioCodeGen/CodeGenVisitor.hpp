@@ -69,6 +69,18 @@ class StyioToLLVM : public StyioCodeGenVisitor
   unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_count_slot_;
   unordered_map<string, StyioValueFamily> bounded_ring_handle_family_;
   std::vector<std::vector<std::string>> bounded_ring_cstr_scope_stack_;
+  struct PendingRingScope {
+    llvm::AllocaInst* parent_array = nullptr;
+    llvm::AllocaInst* parent_count = nullptr;
+    llvm::AllocaInst* array = nullptr;
+    llvm::AllocaInst* count = nullptr;
+    llvm::Instruction* initialize_at = nullptr;
+    std::size_t cleanup_depth = 0;
+  };
+  // Each block owns its pending storage. Allocate an array only if it writes;
+  // nested wraparound can never overwrite another owner's pending values.
+  std::vector<std::unordered_map<string, PendingRingScope>>
+    bounded_ring_pending_scope_stack_;
   std::unordered_set<std::string> dynamic_variable_names_;
   std::unordered_set<std::string> list_slot_names_;
   std::uint64_t list_mutation_epoch_ = 0;
@@ -249,6 +261,7 @@ public:
   llvm::Type* toLLVMType(SIOStdStreamPull* node);
   llvm::Type* toLLVMType(SIOTaskCreate* node);
   llvm::Type* toLLVMType(SIOFlowBind* node);
+  llvm::Type* toLLVMType(SIOTaskOrder* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
@@ -353,6 +366,7 @@ public:
   llvm::Value* toLLVMIR(SIOStdStreamPull* node);
   llvm::Value* toLLVMIR(SIOTaskCreate* node);
   llvm::Value* toLLVMIR(SIOFlowBind* node);
+  llvm::Value* toLLVMIR(SIOTaskOrder* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
@@ -528,8 +542,12 @@ STYIO_CODEGEN_INTERNAL_ACCESS:
   void pulse_copy_ledger_to_snap(llvm::Value* ledger, llvm::Value* snap, int nbytes);
   llvm::Value* coerce_pulse_input_i64(llvm::Value* v);
   void emit_pulse_commit_all(llvm::Value* ledger, const SGPulsePlan* plan);
-  void emit_bounded_ring_pending_commit(const std::string& name);
+  void emit_bounded_ring_pending_commit(
+    const std::string& name);
   void emit_bounded_ring_pending_commits();
+  void push_bounded_ring_pending_scope();
+  void pop_bounded_ring_pending_scope();
+  void release_pending_scope_arrays(std::size_t keep_depth);
 };
 
 #endif

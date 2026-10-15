@@ -285,6 +285,31 @@ main_sg_block_pipeline_options(AstToStyioIRLowerer* lowerer) {
 SGBlock*
 lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_value = false);
 
+std::string
+task_order_target_name(StyioAST* endpoint) {
+  if (auto* name = dynamic_cast<NameAST*>(endpoint)) {
+    return name->getAsStr();
+  }
+  return {};
+}
+
+/* Prescan a block's direct statements for `before => after` order edges so
+   binds that are after-targets spawn their tasks held until the declared
+   predecessors settle. */
+void
+collect_task_order_targets(
+  const std::vector<StyioAST*>& stmts,
+  std::unordered_map<std::string, int>& counts) {
+  for (auto* stmt : stmts) {
+    if (auto* order = dynamic_cast<ResourceOrderAST*>(stmt)) {
+      std::string name = task_order_target_name(order->getAfter());
+      if (!name.empty()) {
+        counts[name] += 1;
+      }
+    }
+  }
+}
+
 StyioIR*
 lower_tail_stmt(AstToStyioIRLowerer* an, StyioAST* stmt) {
   if (!stmt) {
@@ -317,6 +342,8 @@ lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_valu
         && (blk->stmts.empty() || !blk->followings.empty() || !ast_has_tail_value(blk->stmts.back()))) {
       throw StyioTypeError(kMissingFunctionTailMessage);
     }
+    auto saved_order_targets =
+      an->push_task_order_scope(blk->stmts, blk->followings);
     std::vector<StyioIR*> stmts;
     stmts.reserve(blk->stmts.size() + blk->followings.size());
     for (size_t i = 0; i < blk->stmts.size(); ++i) {
@@ -326,10 +353,12 @@ lower_func_body(AstToStyioIRLowerer* an, StyioAST* body, bool implicit_tail_valu
     for (auto* following : blk->followings) {
       stmts.push_back(following->toStyioIR(an));
     }
-    return static_cast<SGBlock*>(
+    SGBlock* lowered_block = static_cast<SGBlock*>(
       styio::lowering::require_default_styio_ir_pass_pipeline(
         SGBlock::Create(std::move(stmts)),
         intermediate_sg_block_pipeline_options()));
+    an->restore_task_order_scope(std::move(saved_order_targets));
+    return lowered_block;
   }
   std::vector<StyioIR*> one;
   one.push_back(implicit_tail_value ? lower_tail_stmt(an, body) : body->toStyioIR(an));
@@ -2667,6 +2696,38 @@ lower_pulse_body(
 
 }  // namespace
 
+std::unordered_map<std::string, int>
+AstToStyioIRLowerer::push_task_order_scope(
+  const std::vector<StyioAST*>& stmts,
+  const std::vector<StyioAST*>& followings) {
+  auto saved = std::move(task_order_after_counts_);
+  task_order_after_counts_.clear();
+  collect_task_order_targets(stmts, task_order_after_counts_);
+  collect_task_order_targets(followings, task_order_after_counts_);
+  return saved;
+}
+
+void
+AstToStyioIRLowerer::restore_task_order_scope(std::unordered_map<std::string, int> saved) {
+  task_order_after_counts_ = std::move(saved);
+}
+
+bool
+AstToStyioIRLowerer::is_task_order_after_target(const std::string& name) const noexcept {
+  return task_order_after_counts_.count(name) != 0;
+}
+
+bool
+AstToStyioIRLowerer::consume_task_order_edge(const std::string& name) {
+  auto it = task_order_after_counts_.find(name);
+  if (it == task_order_after_counts_.end()) {
+    /* Target was not prescanned in this block (e.g. bound in an outer
+       scope); the runtime reports an unorderable task when applicable. */
+    return true;
+  }
+  return --it->second == 0;
+}
+
 static StyioOpType
 comp_type_to_op(CompType ct) {
   switch (ct) {
@@ -2906,7 +2967,13 @@ AstToStyioIRLowerer::toStyioIR(FlexBindAST* ast) {
       || styio_is_matrix_type(var_type)) {
     var->is_dynamic_slot = true;
   }
-  return SGFlexBind::Create(var, ast->getValue()->toStyioIR(this));
+  StyioIR* bound_value = ast->getValue()->toStyioIR(this);
+  if (is_task_order_after_target(ast->getNameAsStr())) {
+    if (auto* task = dynamic_cast<SIOTaskCreate*>(bound_value)) {
+      task->defer_launch = true;
+    }
+  }
+  return SGFlexBind::Create(var, bound_value);
 }
 
 StyioIR*
@@ -2942,7 +3009,13 @@ AstToStyioIRLowerer::toStyioIR(FinalBindAST* ast) {
       || styio_is_matrix_type(var_type)) {
     var->is_dynamic_slot = true;
   }
-  return SGFinalBind::Create(var, ast->getValue()->toStyioIR(this));
+  StyioIR* bound_value = ast->getValue()->toStyioIR(this);
+  if (is_task_order_after_target(ast->getName())) {
+    if (auto* task = dynamic_cast<SIOTaskCreate*>(bound_value)) {
+      task->defer_launch = true;
+    }
+  }
+  return SGFinalBind::Create(var, bound_value);
 }
 
 StyioIR*
@@ -3827,8 +3900,14 @@ AstToStyioIRLowerer::toStyioIR(ResourceMethodDefAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(ResourceOrderAST* ast) {
-  (void)ast;
-  return SGNoOp::Create();
+  StyioIR* before =
+    ast->getBefore() != nullptr ? ast->getBefore()->toStyioIR(this) : nullptr;
+  StyioIR* after =
+    ast->getAfter() != nullptr ? ast->getAfter()->toStyioIR(this) : nullptr;
+  auto* order = SIOTaskOrder::Create(before, after);
+  order->emit_launch =
+    consume_task_order_edge(task_order_target_name(ast->getAfter()));
+  return order;
 }
 
 static StyioDataType
@@ -5075,6 +5154,8 @@ AstToStyioIRLowerer::toStyioIR(MatchCasesAST* ast) {
 
 StyioIR*
 AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
+  auto saved_order_targets =
+    push_task_order_scope(ast->stmts, ast->followings);
   std::vector<StyioIR*> ir_stmts;
   ir_stmts.reserve(ast->stmts.size() + ast->followings.size());
   for (auto* s : ast->stmts) {
@@ -5083,9 +5164,12 @@ AstToStyioIRLowerer::toStyioIR(BlockAST* ast) {
   for (auto* following : ast->followings) {
     ir_stmts.push_back(following->toStyioIR(this));
   }
-  return styio::lowering::require_default_styio_ir_pass_pipeline(
-    SGBlock::Create(std::move(ir_stmts)),
-    intermediate_sg_block_pipeline_options());
+  StyioIR* lowered_block =
+    styio::lowering::require_default_styio_ir_pass_pipeline(
+      SGBlock::Create(std::move(ir_stmts)),
+      intermediate_sg_block_pipeline_options());
+  restore_task_order_scope(std::move(saved_order_targets));
+  return lowered_block;
 }
 
 StyioIR*
@@ -5117,6 +5201,9 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
   file_resource_bindings_.clear();
   resource_method_body_defs_.clear();
   resource_receiver_expr_bindings_.clear();
+  static const std::vector<StyioAST*> kNoFollowings;
+  auto saved_order_targets =
+    push_task_order_scope(ast->getStmts(), kNoFollowings);
   register_imported_callable_definitions();
   for (auto* stmt : ast->getStmts()) {
     if (auto* f = dynamic_cast<FunctionAST*>(stmt)) {
@@ -5262,6 +5349,7 @@ AstToStyioIRLowerer::toStyioIR(MainBlockAST* ast) {
     ir_stmts.push_back(lower_top_level_stmt(definition));
   }
   set_post_pulse_hist_context(-1, nullptr);
+  restore_task_order_scope(std::move(saved_order_targets));
 
   return styio::lowering::require_default_styio_ir_pass_pipeline(
     SGMainEntry::Create(std::move(ir_stmts)),

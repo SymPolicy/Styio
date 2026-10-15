@@ -305,6 +305,28 @@ styio_feature_stdout_golden_test(final_bindings "t*.styio" final_bindings)
 styio_feature_stdout_golden_test(native_interop "t*.styio" native_interop)
 styio_feature_stdout_golden_test(task_resources "t*.styio" task_resources)
 
+foreach(_case IN ITEMS
+    "state_resources/t20_task_matrix_history"
+    "task_resources/t10_task_order_reverse")
+  get_filename_component(_family "${_case}" DIRECTORY)
+  get_filename_component(_name "${_case}" NAME)
+  add_test(
+    NAME "${_family}_native_${_name}"
+    COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}" build-run
+      --styio "${STYIO_EXE}"
+      --source "${STYIO_FEATURES}/${_case}.styio"
+      --cwd "${CMAKE_SOURCE_DIR}"
+      --expect-stdout "${STYIO_FEATURES}/${_family}/expected/${_name}.out"
+      --output "${CMAKE_BINARY_DIR}/${_name}${CMAKE_EXECUTABLE_SUFFIX}"
+      --env STYIO_TASK_THREADS=1
+      --env STYIO_TASK_QUEUE_CAPACITY=2
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties("${_family}_native_${_name}" PROPERTIES
+    LABELS "language_feature;${_family};native")
+endforeach()
+
+
 add_test(
   NAME StyioSecurityBoundedTaskScheduling.ActiveTaskGroupAwait
   COMMAND "${Python3_EXECUTABLE}" "${STYIO_TEST_RUNNER}"
@@ -1220,6 +1242,33 @@ styio_gtest_discover_tests(styio_observable_runtime_test
     ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
 )
 
+add_executable(styio_main_contract_test
+  main_contract_test.cpp
+)
+target_include_directories(styio_main_contract_test PRIVATE
+  "${CMAKE_SOURCE_DIR}/src"
+  "${CMAKE_BINARY_DIR}/generated"
+)
+target_link_libraries(styio_main_contract_test PRIVATE
+  styio_core
+  styio_cli_contract_core
+  GTest::gtest_main
+)
+target_compile_definitions(styio_main_contract_test PRIVATE
+  "STYIO_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\""
+  "STYIO_COMPILER_EXE=\"$<TARGET_FILE:styio>\""
+  "STYIO_BUILD_DIR=\"${CMAKE_BINARY_DIR}\""
+)
+styio_apply_llvm_compile_settings(styio_main_contract_test)
+styio_configure_windows_gtest_target(styio_main_contract_test)
+add_dependencies(styio_main_contract_test styio)
+styio_gtest_discover_tests(styio_main_contract_test
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  PROPERTIES
+    LABELS "main_contract\\\\;cli\\\\;compile_plan\\\\;unit"
+    ENVIRONMENT_MODIFICATION "${STYIO_TEST_RUNTIME_PATH_MODS_ESCAPED}"
+)
+
 styio_gtest_discover_tests(styio_resource_topology_test
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   PROPERTIES
@@ -1373,6 +1422,16 @@ add_test(
 set_tests_properties(styio_lspd_stdio_framing PROPERTIES
   LABELS "ide;lsp;transport;smoke"
 )
+
+if(STYIO_ENABLE_TREE_SITTER)
+  add_test(
+    NAME styio_lspd_task_resource_parity
+    COMMAND python3 "${CMAKE_CURRENT_LIST_DIR}/lsp_stdio_framing_test.py"
+            --binary "$<TARGET_FILE:styio_lspd>" --task-resource-parity
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(styio_lspd_task_resource_parity PROPERTIES LABELS "ide;lsp;transport")
+endif()
 
 styio_apply_runtime_path_to_current_tests()
 

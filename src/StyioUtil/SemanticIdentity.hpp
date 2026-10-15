@@ -30,6 +30,13 @@ enum class CanonicalRelativePathError : std::uint8_t
 
 CanonicalRelativePathError canonical_relative_path_error(std::string_view path) noexcept;
 
+// Canonical package-name grammar owned by the Pafio manifest contract
+// (`namespace/name`): exactly one slash; each segment starts with a
+// lowercase ASCII letter or digit and continues with lowercase letters,
+// digits, underscores, or hyphens.  The package name is a logical identity,
+// never a path; admission and qualified scopes share this one rule.
+bool canonical_package_name_is_valid(std::string_view name) noexcept;
+
 class Scope
 {
   bool qualified_ = false;

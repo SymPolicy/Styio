@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-11
 
 ## Mission
 
@@ -137,3 +137,17 @@ Record unfinished codegen/runtime work with:
 4. Failing security, pipeline, soak, or benchmark command.
 5. Known rollback point and whether generated goldens are intentionally stale.
 6. Runtime-event family changes and the exact consumer docs/gates updated with them.
+
+### Task/resource compiler candidate (2026-10-11)
+
+Task history captures snapshot committed rings at creation. Numeric arrays use
+bulk copies without changing storage ownership; strings and container graphs
+export owned packets and import into the worker table. Nested pending writes use
+lazy per-scope storage. Runtime task edges synchronize registration and launch,
+reject reachability cycles and retain executor lifetime through completion;
+worker queue saturation uses work-first execution. Wait episodes are session
+owned. Preserve the permanent `TaskOrder*`, `TaskCapture*` and session-order cases
+when changing these helpers; performance evidence is in the candidate handoff.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.

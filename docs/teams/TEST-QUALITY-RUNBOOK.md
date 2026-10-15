@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-11
 
 Scheduler regression tests cover composed-profile deduplication, separate scope checks, failure propagation, fresh invocations, and docs-audit evidence context. Run `python3 tests/workflow_scheduler_test.py`; the shell fixture also verifies delivery auto calls the scheduler only once. Local test evidence reuse follows [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#reusing-local-evidence).
 
@@ -214,3 +214,18 @@ The cross-platform source-read check explicitly rejects directories (including
 symlink targets) before opening: some platforms report directory reads as EOF.
 Regular-file symlinks remain accepted; status-query errors still use the existing
 open/read error handling. The public CLI regression covers both symlink cases.
+
+### Task/resource compiler candidate (2026-10-11)
+
+The sole history fixture is
+`tests/features/state_resources/t13_task_history_capture.styio`; the former
+planning duplicate was removed after comparison. State/task goldens now cover
+nested wraparound, owned capture lifetime/failure and reverse task order; native
+matrix capture and reverse order are registered in CTest. Required build targets
+include `styio_lspd` and `styio_main_contract_test`. The focused entrypoint covers
+these permanent cases, but handoff evidence reuses valid component results:
+platform skips are not passes, overlapping runs are not summed, and the review
+entrypoint checks whitespace only. Final regression remains separately admitted.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.

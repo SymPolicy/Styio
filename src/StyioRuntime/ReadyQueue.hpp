@@ -16,6 +16,7 @@ enum class ReadyQueueKind {
 enum class ReadyQueuePushResult {
   Accepted,
   Closed,
+  Full,
 };
 
 struct ReadyQueueSnapshot {
@@ -67,10 +68,17 @@ public:
     hooks_ = hooks;
   }
 
-  ReadyQueuePushResult push(void* task) {
+  ReadyQueuePushResult try_push(void* task) {
+    return push(task, false);
+  }
+
+  ReadyQueuePushResult push(void* task, bool wait = true) {
     std::unique_lock<std::mutex> lock(mu_);
     if (closed_) {
       return ReadyQueuePushResult::Closed;
+    }
+    if (size_ == capacity_ && !wait) {
+      return ReadyQueuePushResult::Full;
     }
     if (size_ == capacity_) {
       ++pressure_events_;

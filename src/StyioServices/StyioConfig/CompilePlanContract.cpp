@@ -49,7 +49,8 @@ json_require_string(
   const char* effective_field = field_path == nullptr ? key : field_path;
   const llvm::json::Value* value = obj.get(key);
   if (value == nullptr) {
-    error_message = std::string("compile-plan is missing required string field: ") + key;
+    error_message =
+      std::string("compile-plan is missing required string field: ") + effective_field;
     return false;
   }
 
@@ -200,17 +201,6 @@ snapshot_capability_is_supported(std::string_view name) {
     }
   }
   return false;
-}
-
-bool
-package_name_is_valid(std::string_view name) {
-  if (name.empty() || name == "." || name == "..") {
-    return false;
-  }
-  return name.find('/') == std::string_view::npos
-    && name.find('\\') == std::string_view::npos
-    && name.find('@') == std::string_view::npos
-    && name.find(' ') == std::string_view::npos;
 }
 
 bool
@@ -595,27 +585,27 @@ admit_qualified_compilation_unit(
   std::filesystem::path manifest_path;
   if (!json_require_string(*matched, "name", package_name, error_message, "packages[].name")
       || !compile_plan_require_absolute_path(
-        *matched, "root", package_root, error_message, "packages[].root")
+        *matched, "root_dir", package_root, error_message, "packages[].root_dir")
       || !compile_plan_require_absolute_path(
-        *matched, "manifest", manifest_path, error_message, "packages[].manifest")) {
+        *matched, "manifest_path", manifest_path, error_message, "packages[].manifest_path")) {
     error_subcode = "observable_static_snapshot_anonymous";
     if (error_message.find("packages[]") == std::string::npos) {
       error_message =
-        "observable static snapshots require one qualified package name, root, and manifest";
+        "observable static snapshots require one qualified package name, root_dir, and manifest_path";
     }
     return false;
   }
-  if (!package_name_is_valid(package_name)) {
+  if (!styio::semantic_identity::canonical_package_name_is_valid(package_name)) {
     error_subcode = "observable_static_snapshot_anonymous";
     error_message =
-      "compile-plan package name must be a namespaced identity and must not be path-shaped";
+      "compile-plan package name must match namespace/name";
     return false;
   }
 
   std::string manifest_relative;
   std::string entry_relative;
   if (!slash_relative_from_root(
-        package_root, manifest_path, manifest_relative, error_message, "packages[].manifest")
+        package_root, manifest_path, manifest_relative, error_message, "packages[].manifest_path")
       || !slash_relative_from_root(
         package_root, entry_file, entry_relative, error_message, "entry.file")) {
     error_subcode = "observable_static_snapshot_escaping_path";
@@ -696,6 +686,45 @@ probe_compile_plan_diag_dir(
   }
 
   out_diag_dir = candidate;
+  return true;
+}
+
+bool
+probe_compile_plan_build_root(
+  const std::filesystem::path& plan_path,
+  std::filesystem::path& out_build_root
+) {
+  std::string plan_text;
+  std::string error_message;
+  if (!read_text_file(plan_path, plan_text, error_message)) {
+    return false;
+  }
+
+  llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(plan_text);
+  if (!parsed) {
+    return false;
+  }
+  const llvm::json::Object* root = parsed->getAsObject();
+  if (root == nullptr) {
+    return false;
+  }
+
+  const llvm::json::Object* outputs = root->getObject("outputs");
+  if (outputs == nullptr) {
+    return false;
+  }
+
+  const auto build_root = outputs->getString("build_root");
+  if (!build_root.has_value() || build_root->empty()) {
+    return false;
+  }
+
+  const std::filesystem::path candidate{std::string(*build_root)};
+  if (!candidate.is_absolute()) {
+    return false;
+  }
+
+  out_build_root = candidate;
   return true;
 }
 

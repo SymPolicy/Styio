@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of `styio_ide_core`, `styio_lspd`, IDE-facing C++ APIs, VFS snapshots, syntax/HIR/SemDB services, and LSP protocol behavior.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-11
 
 ## Mission
 
@@ -54,6 +54,13 @@ Build and test targets:
 23. Persistent IDE index writes are best-effort. Cache directory creation and `symbols.json` opening must use non-throwing filesystem/error checks so a missing, read-only, or invalid cache path cannot terminate `styio_lspd`; an unavailable cache only disables persistence while in-memory IDE queries continue. Keep `styio_lspd_stdio_framing` running with an invalid `XDG_CACHE_HOME` parent so the initialize response proves this boundary.
 
 24. Every LSP `publishDiagnostics` notification must take `params.version` from the immutable `DocumentSnapshot` used to produce its diagnostics. Immediate syntax results use the `didOpen` or `didChange` snapshot; delayed semantic results use their publication snapshot, never a fresh lookup of current VFS state.
+
+25. Task/history grammar changes must exercise the authoritative shared state-resource
+    t13/t22/t23/e06 and task-resource e06 programs through the actual Tree-sitter
+    backend. Use `SharedPrograms/StyioTaskResourceSyntax`, the `TaskHistory` IDE
+    cases and `styio_lspd_task_resource_parity`; keep malformed edits, restored
+    diagnostics, compiler token boundaries and latest-snapshot publication covered.
+    Syntactically valid semantic/runtime failures are not malformed editor input.
 
 The [visual consumer entry](../external/for-ide/README.md) routes graph
 consumers to the compiler-owned observable contract. IDE recovery facts are

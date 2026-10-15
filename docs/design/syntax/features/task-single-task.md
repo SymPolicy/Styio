@@ -2,7 +2,7 @@
 
 **Purpose:** Own single-task launch syntax, task-handle binding, capture boundary, and task runtime evidence.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-10-11
 
 ## Feature Contract
 
@@ -61,6 +61,18 @@ after = []
 `||> { ... }` launches one task and produces a task handle. Captures and
 resource access are explicit semantic obligations; task launch does not create
 implicit data transfer.
+
+Bounded-history captures contain the committed creation-time ring and cursor.
+Parent writes and parent-stage exit do not mutate that captured version. Owned
+strings and container histories transfer independent captured storage into the
+task runtime; thread-local handle identifiers are never reused across threads.
+Cleanup applies on normal return and failed settlement. Source resource sharing
+and block-local resource declarations are not introduced by capture.
+
+Permanent capture evidence: `tests/features/state_resources/t13` through `t14`
+and `t17` through `t23` (descriptive filenames in that directory), the captured
+failure negative case, `tests/features/task_resources/t11_task_owned_string_scope.styio`,
+and `StyioObservableRuntime.TaskCapture*`.
 
 ## Evolution Boundary
 

@@ -1730,6 +1730,22 @@ TEST(StyioCodeGenInternal, TaskCaptureScannerCoversNestedReturnExpressions) {
   });
 }
 
+TEST(StyioCodeGenInternal, TaskScalarHistoryCopyIRDoesNotExpandWithCapacity) {
+  auto generator = make_generator();
+  std::unique_ptr<SGMainEntry> entry(SGMainEntry::Create({
+    SGFinalBind::Create(var("history_i64", bounded_ring_type("i64", 8192)), SGConstInt::Create(7)),
+    SGFinalBind::Create(var("history_f64", bounded_ring_type("f64", 8192)), SGConstFloat::Create("1.25")),
+    SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGResId::Create("history_i64"))}), i64_type()),
+    SIOTaskCreate::Create(SGBlock::Create({SGReturn::Create(SGResId::Create("history_f64"))}), f64_type()),
+  }));
+  ASSERT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+  std::size_t copies = 0;
+  for (std::size_t at = 0; (at = ir.find("call void @llvm.memcpy", at)) != std::string::npos; ++at) ++copies;
+  EXPECT_EQ(copies, 4u);  // Spawn and materialization for each typed snapshot.
+  EXPECT_LT(ir.size(), 30000u);  // Capacity must not expand scalar copies into per-cell IR.
+}
+
 TEST(StyioCodeGenInternal, TaskCaptureScannerSkipsUnsupportedCaptureSlots) {
   expect_codegen_ok({
     SGFinalBind::Create(var("wide_slot", bounded_ring_type("i64", 2)), SGConstInt::Create(1)),

@@ -2,7 +2,7 @@
 
 **Purpose:** Define how IDE hosts should launch and talk to `styio_lspd`, and record the currently supported request and notification surface.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-11
 
 ## Transport
 
@@ -77,6 +77,11 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 4. Stale semantic runs are dropped by snapshot/version guards instead of being published.
 5. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
 6. Every `publishDiagnostics` notification includes `params.version` from the exact immutable snapshot used to produce its diagnostics. Immediate syntax publications use the `didOpen` or `didChange` snapshot; delayed semantic publications use the snapshot attached to that semantic result.
+7. `didSave` currently has no dedicated handler and does not change document text,
+   version or diagnostics. A save refers to the last synchronized open/change
+   snapshot. The stdio loop still performs its usual request-driven drain after
+   the notification; clients must not interpret receipt of a save as compiler
+   validation or assume a new publication is emitted.
 
 ## Current Limits
 
