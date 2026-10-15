@@ -14,10 +14,10 @@
       "id": "styio-task-resource-final",
       "pending": false,
       "result": {
-        "outcome": "passed",
         "observed_date": "2026-10-12",
-        "source": "Assigned host plan FINAL validation and complete retained actual command/CTest records",
-        "scope": "First full run failed; affected recovery passed with one retained skip. See HANDOFF independent reconciliation; no overlapping aggregate."
+        "outcome": "passed",
+        "scope": "First full run failed; affected recovery passed with one retained skip. See HANDOFF independent reconciliation; no overlapping aggregate.",
+        "source": "Assigned host plan FINAL validation and complete retained actual command/CTest records"
       },
       "run_id": "3a1004ddbef0fc5754a4527d392eacbc",
       "running": false,
@@ -34,63 +34,85 @@
     "external_inputs": [
       "Coordinator acceptance 7c6eadba45c31325673712f68067ad5b: all three source reviews and same-candidate Vityo production-service/vityod E2E; runtime 0c7f97c7be1e7eb93dcefee3d62ebc76, check d5deb633e4fe8f39e9bad2a56c7ea1de; all three current HANDOFF records. Consume siblings in place without writes or rebuilds."
     ],
+    "failure_recovery": "After an actual failure, retain the first complete run, diagnose and repair ordinary scoped defects, rebuild affected targets, and execute the host's same-ID follow-up once against only the required affected/remaining commands as a one-shot recovery; the registered checks.sh final entrypoint keeps its complete build and unfiltered CTest selection and is never rewritten to the recovery form. Explain retained passes and their valid inputs, invalidated cases, repaired failures, remaining checks and skips. Preserve every required check and permanent product gate; no arbitrary retries, silent skips, full-suite replay or hash/cache framework. Investigate alternatives for outside-scope contract/risk changes and hold only dependent work.",
+    "ownership": "Use the existing non-fast host role. No subordinate agents or arbitrary time/silence/iteration/attempt cutoffs. Yield to host check execution; do not wait inside an Agent turn for sibling final nodes. Coordinator alone owns the final cross-repository join and source Task/Tree/hosted task closure.",
     "write_scope": [
       "Exclusive Styio write ownership until handoff to CLOSE: milestone checks.sh, ignored evidence, existing Node/check/HANDOFF records, and current-repository source/contracts/tests only for demonstrated scoped defects. Preserve dirty source and accepted evidence; no sibling writes or rebuilds."
-    ],
-    "failure_recovery": "After an actual failure, retain the first complete run, diagnose and repair ordinary scoped defects, rebuild affected targets, and execute the host's same-ID follow-up once against only the required affected/remaining commands as a one-shot recovery; the registered checks.sh final entrypoint keeps its complete build and unfiltered CTest selection and is never rewritten to the recovery form. Explain retained passes and their valid inputs, invalidated cases, repaired failures, remaining checks and skips. Preserve every required check and permanent product gate; no arbitrary retries, silent skips, full-suite replay or hash/cache framework. Investigate alternatives for outside-scope contract/risk changes and hold only dependent work.",
-    "ownership": "Use the existing non-fast host role. No subordinate agents or arbitrary time/silence/iteration/attempt cutoffs. Yield to host check execution; do not wait inside an Agent turn for sibling final nodes. Coordinator alone owns the final cross-repository join and source Task/Tree/hosted task closure."
+    ]
   },
   "executors": [],
   "id": "NODE-FINAL",
   "outcome": "Prepare exact current-source inputs and complete ignored logs for the host's single applicable compiler regression after the accepted common E2E/source-review join. Preserve actual exit semantics; reconcile only evidence that actually ran. Repair demonstrated scoped failures and arrange affected/remaining host follow-up without replaying the entire suite. Hand this repository's stable candidate and complete evidence to the independent CLOSE Reviewer.",
   "resources": [],
   "result": {
+    "accepted_integration": {
+      "check_id": "d5deb633e4fe8f39e9bad2a56c7ea1de",
+      "evidence": "../vityo-nightly/build/task-resource-integration/host-gy1mv_16/",
+      "reuse": "Coordinator accepted; retained gate ok=true, skipped=false and process exit 0 inspected; not rerun.",
+      "runtime_id": "0c7f97c7be1e7eb93dcefee3d62ebc76"
+    },
+    "boundaries": "Actual full run plus affected recovery and independent source/evidence review reconciled locally. Five distinct recorded skips remain unverified. CLOSE host patch check is pending; source Task/Tree delivery unset; no release or live acceptance.",
+    "cross_repository_impact": "Only CLI relinked in FINAL; LSP has no runtime-core link dependency and is unchanged. Generated production launch reference counts are preserved, so accepted E2E behavior is reused by source impact analysis plus current affected tests, not claimed rerun on byte-identical inputs. Coordinator must reconcile CLI identity in sibling admission records. No sibling writes/rebuilds.",
     "evidence": "docs/plans/task-resource-delivery/HANDOFF.md#independent-close-reconciliation--2026-10-12",
     "preparation": {
-      "source_revision": "09f8fbdf6af9e27e590def6731eaa660d595a36c",
       "candidate": "Existing dirty working tree and build/default; production/test/fixture/generated sources unchanged by FINAL preparation.",
-      "inputs": "build/task-resource-final/prepared-inputs/ (refreshed during recovery at 2026-10-11T20:22:41 UTC; not the first-run source patch); current CLOSE delta in close/current.patch",
-      "logs": "build/task-resource-final/host-*/; build/task-resource-final/latest.txt selects actual host evidence after invocation.",
       "entrypoint": "bash docs/plans/task-resource-delivery/checks.sh final",
+      "inputs": "build/task-resource-final/prepared-inputs/ (refreshed during recovery at 2026-10-11T20:22:41 UTC; not the first-run source patch); current CLOSE delta in close/current.patch",
       "logging": "Complete redirected build/verbose CTest output, individual exits, JUnit, copied Testing records, relevant environment and selected executable stats; no pipeline exit masking.",
+      "logs": "build/task-resource-final/host-*/; build/task-resource-final/latest.txt selects actual host evidence after invocation.",
+      "source_revision": "09f8fbdf6af9e27e590def6731eaa660d595a36c",
       "validation": [
         {
           "command": "bash -n docs/plans/task-resource-delivery/checks.sh",
+          "evidence": "build/task-resource-final/preparation/bash-syntax.log",
           "exit_code": 0,
-          "scope": "Shell syntax only",
-          "evidence": "build/task-resource-final/preparation/bash-syntax.log"
+          "scope": "Shell syntax only"
         },
         {
           "command": "python3 build/task-resource-final/preparation/verify_logging.py",
+          "evidence": "build/task-resource-final/preparation/logging-probe-current.log",
           "exit_code": 0,
-          "scope": "Three isolated stub-command logging/exit fixtures only; no product build or tests",
-          "evidence": "build/task-resource-final/preparation/logging-probe-current.log"
+          "scope": "Three isolated stub-command logging/exit fixtures only; no product build or tests"
         },
         {
           "command": "Repository local-info scan_path rules on checks.sh, HANDOFF.md and NODE-FINAL.json",
+          "evidence": "build/task-resource-final/preparation/privacy.json",
           "exit_code": 0,
-          "scope": "Only the three FINAL source records; no findings. Later result-only additions manually reviewed.",
-          "evidence": "build/task-resource-final/preparation/privacy.json"
+          "scope": "Only the three FINAL source records; no findings. Later result-only additions manually reviewed."
         },
         {
           "command": "git diff --no-index --check /dev/null <each FINAL source record>",
+          "evidence": "build/task-resource-final/preparation/whitespace-corrected.json",
           "exit_code": 1,
-          "scope": "No whitespace diagnostics after removing existing HANDOFF trailing spaces; no-index exit 1 means content differs. Initial diagnostic/exit 3 retained.",
-          "evidence": "build/task-resource-final/preparation/whitespace-corrected.json"
+          "scope": "No whitespace diagnostics after removing existing HANDOFF trailing spaces; no-index exit 1 means content differs. Initial diagnostic/exit 3 retained."
         }
       ]
     },
+    "recovery": {
+      "coverage_reconciliation": "HANDOFF.md#final-first-run-failure-diagnosis-and-scoped-recovery--2026-10-12 records invalidated checks, reused passes by exercised path, remaining checks and recorded skips.",
+      "diagnosis_repairs": [
+        "Missing direct-internal-enqueue executor reference repaired by claiming it in enqueue, the single execution funnel; exported ABI spawn paths already route via claim_task_launch. CLOSE also migrated the internal test to reference-counted owner release and real pending settlement.",
+        "Two stale contract assertions updated to the accepted B3 `=>` contract: ResourceOrderAST lowers to SIOTaskOrder and typeInfer requires task handles (tests/security/styio_security_test.cpp).",
+        "Stale generated SYNTAX-FEATURE-GRAPH.json regenerated via scripts/syntax-feature-state-gate.py --write."
+      ],
+      "host_evidence": "Actual follow-up passed; see registered_regression.follow_up. CLOSE supplied corrected scheduler-test and two omitted CLI cases, each passed.",
+      "routed_follow_up": "The recorded follow-up was a one-shot recovery run under the same check ID: it built only affected targets (styio, styio_security_test, styio_externlib_internal_test, styio_observable_runtime_test) and reran only the documented 135-entry affected/remaining CTest -R selection. The registered checks.sh final entrypoint remains the complete build plus unfiltered CTest suite; the recovery selection never replaces that form.",
+      "state": "repaired_and_routed",
+      "worker_verification": "Same affected/remaining selection run once locally: 134 passed, 1 environment-conditional skip (1152, same as first run), 21.42 s; all four failed checks pass. Not the registered host result."
+    },
     "registered_regression": {
       "check_id": "styio-task-resource-final",
-      "execution_owner": "host",
       "executed_during_preparation": false,
-      "result": "passed",
-      "run_id": "3a1004ddbef0fc5754a4527d392eacbc",
+      "execution_owner": "host",
       "first_run": {
-        "result": "failed",
-        "exit_code": 8,
+        "counts": {
+          "cases": 1756,
+          "failed": 4,
+          "passed": 1747,
+          "skipped": 5
+        },
         "evidence": "build/task-resource-final/host-eQXYCDzm/",
-        "scope": "Complete unfiltered build plus CTest suite, 1756 checks",
+        "exit_code": 8,
         "failures": [
           "StyioExternLibInternal.TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit (subprocess killed after ~3h)",
           "StyioIRContract.LegacyAndDeclarationAstLoweringEdgesStayExplicit",
@@ -104,63 +126,33 @@
           "1152 StyioSafetyRuntime.FileCloseFailureIsCleanupRuntimeEffect",
           "1464 StyioIdePerf.EnforcesFrozenLatencyBudgets"
         ],
+        "result": "failed",
         "run_id": "16ee78c65d720bd94d7a851103603a31",
-        "counts": {
-          "cases": 1756,
-          "passed": 1747,
-          "failed": 4,
-          "skipped": 5
-        }
+        "scope": "Complete unfiltered build plus CTest suite, 1756 checks"
       },
       "follow_up": {
-        "run_id": "3a1004ddbef0fc5754a4527d392eacbc",
-        "evidence": "build/task-resource-final/host-sjCaPEkJ/",
-        "result": "passed",
         "build_exit": 0,
-        "ctest_exit": 0,
-        "retention_exit": 0,
         "check_exit": 0,
         "counts": {
           "cases": 135,
-          "passed": 134,
           "failed": 0,
+          "passed": 134,
           "skipped": 1
         },
+        "ctest_exit": 0,
+        "evidence": "build/task-resource-final/host-sjCaPEkJ/",
+        "result": "passed",
+        "retention_exit": 0,
+        "run_id": "3a1004ddbef0fc5754a4527d392eacbc",
         "scope": "Explicit affected/remaining commands, not another full run"
-      }
-    },
-    "accepted_integration": {
-      "runtime_id": "0c7f97c7be1e7eb93dcefee3d62ebc76",
-      "check_id": "d5deb633e4fe8f39e9bad2a56c7ea1de",
-      "evidence": "../vityo-nightly/build/task-resource-integration/host-gy1mv_16/",
-      "reuse": "Coordinator accepted; retained gate ok=true, skipped=false and process exit 0 inspected; not rerun."
-    },
-    "recovery": {
-      "state": "repaired_and_routed",
-      "diagnosis_repairs": [
-        "Missing direct-internal-enqueue executor reference repaired by claiming it in enqueue, the single execution funnel; exported ABI spawn paths already route via claim_task_launch. CLOSE also migrated the internal test to reference-counted owner release and real pending settlement.",
-        "Two stale contract assertions updated to the accepted B3 `=>` contract: ResourceOrderAST lowers to SIOTaskOrder and typeInfer requires task handles (tests/security/styio_security_test.cpp).",
-        "Stale generated SYNTAX-FEATURE-GRAPH.json regenerated via scripts/syntax-feature-state-gate.py --write."
-      ],
-      "routed_follow_up": "The recorded follow-up was a one-shot recovery run under the same check ID: it built only affected targets (styio, styio_security_test, styio_externlib_internal_test, styio_observable_runtime_test) and reran only the documented 135-entry affected/remaining CTest -R selection. The registered checks.sh final entrypoint remains the complete build plus unfiltered CTest suite; the recovery selection never replaces that form.",
-      "coverage_reconciliation": "HANDOFF.md#final-first-run-failure-diagnosis-and-scoped-recovery--2026-10-12 records invalidated checks, reused passes by exercised path, remaining checks and recorded skips.",
-      "worker_verification": "Same affected/remaining selection run once locally: 134 passed, 1 environment-conditional skip (1152, same as first run), 21.42 s; all four failed checks pass. Not the registered host result.",
-      "host_evidence": "Actual follow-up passed; see registered_regression.follow_up. CLOSE supplied corrected scheduler-test and two omitted CLI cases, each passed."
-    },
-    "cross_repository_impact": "Only CLI relinked in FINAL; LSP has no runtime-core link dependency and is unchanged. Generated production launch reference counts are preserved, so accepted E2E behavior is reused by source impact analysis plus current affected tests, not claimed rerun on byte-identical inputs. Coordinator must reconcile CLI identity in sibling admission records. No sibling writes/rebuilds.",
-    "boundaries": "Actual full run plus affected recovery and independent source/evidence review reconciled locally. Five distinct recorded skips remain unverified. CLOSE host patch check is pending; source Task/Tree delivery unset; no release or live acceptance."
-  },
-  "review": [
-    {
-      "reason": "result_changed",
-      "source": {
-        "id": "NODE-REPAIR",
-        "kind": "node"
-      }
+      },
+      "result": "passed",
+      "run_id": "3a1004ddbef0fc5754a4527d392eacbc"
     }
-  ],
+  },
+  "review": [],
   "role": "worker",
-  "status": "pending",
+  "status": "completed",
   "task": "TASK-001",
   "title": "Run final compiler regression after the ecosystem join"
 }

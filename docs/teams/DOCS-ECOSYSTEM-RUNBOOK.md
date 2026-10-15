@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-10-15
 
 Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
 
@@ -281,3 +281,12 @@ is collapsed into a history note pointing at
 [GENERAL-AUDITOR.md](../../GENERAL-AUDITOR.md); [DELIVERY-GATE.md](../../workflows/DELIVERY-GATE.md)
 and the IM-D6 conformance inventory now cite the General-Auditor route.
 Transient Better Plan locks are untracked under `docs/plans/**/`.
+
+2026-10-15: Recorded the coordinator join and delivery closure for the
+task-resource milestone. The joined evidence is the same-candidate Vityo E2E
+through real production services and vityod (`host-ehiyo1yz`; 35 scenarios and
+4 contract cases accepted), the expanded Pafio integration gate, the vityod
+crate tests and the bounded-retention probe; the milestone Tree/Task delivery
+now carries the join result and its boundaries. The registered CLOSE review
+check executed as host, and the review items invalidated by NODE-REPAIR's
+result change were resolved against the joined evidence.
