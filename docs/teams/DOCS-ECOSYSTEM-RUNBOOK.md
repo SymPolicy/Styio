@@ -266,3 +266,17 @@ cross-repository scheduler edges.
 
 See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
 source provenance, executed selections and downstream conditions.
+
+### Gate and audit-path repairs (2026-10-15)
+
+The delivery gate's audit leg keeps the history- and worktree-scope exit codes
+separately and fails closed on either; a passing worktree scope can no longer
+mask a failing history scope. `checks.sh final` in task-resource-delivery runs
+the complete build and unfiltered CTest suite again — the affected/remaining
+selection discharged the recorded first-run recovery once and never becomes the
+registered entrypoint. The retired `styio-audit` policy section in
+[EXTERNAL-AUTHORITY-HANDOFF.md](../external/upstream/EXTERNAL-AUTHORITY-HANDOFF.md)
+is collapsed into a history note pointing at
+[GENERAL-AUDITOR.md](../../GENERAL-AUDITOR.md); [DELIVERY-GATE.md](../../workflows/DELIVERY-GATE.md)
+and the IM-D6 conformance inventory now cite the General-Auditor route.
+Transient Better Plan locks are untracked under `docs/plans/**/`.

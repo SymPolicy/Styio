@@ -86,62 +86,32 @@ the expected blocked terminal state.
 
 ---
 
-## 2. Blocked action: released audit policy update
+## 2. Retired action: released audit policy update
 
-### Verified current state
+**Retired.** The `styio-audit` framework is private and archived, and this
+repository's `.github/workflows/styio-audit.yml` was removed. CI and the local
+delivery gate now use General-Auditor; the live audit path is documented in
+`GENERAL-AUDITOR.md` at the repository root (trusted `GENERAL_AUDITOR_ROOT` /
+`generalAuditor.root` checkout, `action_entry.py` with `--scope
+staged|worktree|history|range`). No maintainer action remains for this item.
+
+The original record below is preserved as history only; the
+`SymPolicy/styio-audit@stable` policy replacement steps and the downstream
+workflow normalization they gated no longer apply and must not be executed.
+
+<details>
+<summary>Historical record (2026-08-22): the retired styio-audit policy update</summary>
 
 - Released policy repository: `SymPolicy/styio-audit` (formerly
-  `eBioRing/styio-audit`), branch `stable`, tip `9d3faa7` (2026-04-26, "Merge
-  pull request #22 ... Promote downstream nightly sync audit policy").
-- Policy file: `for-styio/module.json`, `last_updated` field `2026-04-24`.
-- The downstream workflow `.github/workflows/styio-audit.yml` checks out
-  `SymPolicy/styio-audit@stable` and applies three string replacements to
-  `for-styio/module.json` at CI time to match the current source layout. All
-  three replacement source strings were verified present in the released
-  `module.json` (one occurrence each), so the released policy still matches the
-  runtime replacements and the normalization is still required.
+  `eBioRing/styio-audit`), branch `stable`, tip `9d3faa7` (2026-04-26).
+- The retired workflow `.github/workflows/styio-audit.yml` checked out
+  `SymPolicy/styio-audit@stable` and applied three runtime replacements to
+  `for-styio/module.json` (`StyioIDE`/`StyioLSP` → `StyioServices/*`,
+  `StyioAnalyzer` → `StyioSema`) to match the current source layout.
+- The durable fix that was pending — publishing the corrected `module.json` to
+  `stable` — is moot now that the consumer workflow is deleted.
 
-### Required content (corrected policy)
-
-The durable fix is to publish the corrected `for-styio/module.json` on
-`stable`, i.e. the released content with exactly these three replacements
-applied (verified against the current source layout: `src/StyioServices/`
-contains `StyioIDE` and `StyioLSP`, `src/StyioSema` exists, and
-`src/StyioAnalyzer` does not exist):
-
-1. In `internal_components`, replace
-   `"StyioIDE and StyioLSP editor-facing workspace services"` with
-   `"StyioServices/StyioIDE and StyioServices/StyioLSP editor-facing workspace services"`.
-2. In resource class `ide_lsp_workspace_state`, replace
-   `"scope_globs": ["src/StyioIDE/**", "src/StyioLSP/**", "tests/ide/**"]` with
-   `"scope_globs": ["src/StyioServices/StyioIDE/**", "src/StyioServices/StyioLSP/**", "tests/ide/**"]`.
-3. In resource class `compiler_ast_ir_ownership`, replace
-   `"scope_globs": ["src/StyioAST/**", "src/StyioAnalyzer/**", "src/StyioIR/**", "src/StyioCodeGen/**", "tests/styio_test.cpp"]` with
-   `"scope_globs": ["src/StyioAST/**", "src/StyioSema/**", "src/StyioIR/**", "src/StyioCodeGen/**", "tests/styio_test.cpp"]`.
-
-### Ordering constraint
-
-The corrected policy must land on `stable` before the downstream workflow can
-drop its runtime normalization step. Until then, the local fail-loud
-normalization (owned by the workflow task) remains the interim guard.
-
-### Executable step sequence
-
-1. In `SymPolicy/styio-audit`, update `for-styio/module.json` on a temporary
-   branch with the three replacements above and bump `last_updated`.
-2. Open a pull request into `stable` and merge it.
-3. Verify: `gh api "repos/SymPolicy/styio-audit/contents/for-styio/module.json?ref=stable"`
-   contains `"src/StyioSema/**"` and `"src/StyioServices/StyioIDE/**"` and no
-   longer contains `"src/StyioAnalyzer/**"` or `"src/StyioIDE/**"` as a bare
-   scope glob.
-4. Downstream follow-up (separate task): remove the three replacements from
-   `.github/workflows/styio-audit.yml` and re-run the audit job to confirm it
-   passes against the released policy.
-
-### Verification
-
-- `grep -c "StyioSema" for-styio/module.json` on `stable` reports at least 1.
-- `grep -c "StyioAnalyzer" for-styio/module.json` on `stable` reports 0.
+</details>
 
 ---
 
@@ -215,7 +185,7 @@ required for the handoff to be actionable.
 | Blocked action | External repository | Blocking condition |
 |---|---|---|
 | Upstream promotion | `SymPolicy/Styio` | Delivery ends with the downstream integration pull request unmerged; the repository contract requires the downstream merge before any upstream pull request, and the upstream pull request head must be `Unka-Malloc:nightly`. |
-| Audit policy update | `SymPolicy/styio-audit@stable` | Policy file lives outside the authorized boundary; the released `module.json` still requires the three runtime replacements. |
+
 | Benchmark asset publication | `SymPolicy/styio-benchmark@canary` | Default branch publishes only 2 of the 8 gating assets; the complete set exists on the external `agent/styio-benchmark-externalization` branch. |
 
 No external write was performed by this delivery; all external state above was

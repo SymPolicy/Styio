@@ -54,25 +54,25 @@ Release-candidate local floor:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint` when the worktree has changes
 2. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <ref>..HEAD` when `HEAD` is ahead of the inferred base
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
+3. Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `checkpoint` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
+3. Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `push` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
+3. Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `release` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
+3. Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
 3. `./scripts/checkpoint-health.sh` with the 95% coverage gate, ASan/UBSan, and fuzz smoke enabled
 
 The scheduler expands those profiles into tool/skill registry validation, [LOCAL-INFO-LEAK-GATE.md](./LOCAL-INFO-LEAK-GATE.md), repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
