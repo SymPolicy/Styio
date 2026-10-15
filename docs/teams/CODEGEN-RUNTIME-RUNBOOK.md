@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-10-11
+**Last updated:** 2026-10-16
 
 ## Mission
 
@@ -151,3 +151,14 @@ when changing these helpers; performance evidence is in the candidate handoff.
 
 See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
 source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Ready-constructed tasks are excluded from the launch claim, so a demand pull of
+a settled i64/f64/cstr task can no longer enqueue and rerun it over its result
+fields; the externlib internal ready-pull test pins the scheduler counters and
+the rejected repeat pull. Scope-owned cstr bindings keep a name-based ownership
+record: an escaping task capture exports a clone of the owned string, the worker
+imports it into its own cleanup slot, a nested escaping capture exports again,
+and function-pointer bindings are never selected. The scope-escaping t12 fixture
+and the security-suite IR assertion cover the capture repair.

@@ -16,7 +16,7 @@
       "result": {
         "outcome": "passed",
         "observed_date": "2026-10-11",
-        "source": "task-resource-delivery completed check-stage run and node validation=passed",
+        "source": "Host check-stage run completed and node validation=passed",
         "scope": "Current U3 registered check. Detailed source/protocol evidence is in HANDOFF.md; unavailable individual host exits/totals are not inferred."
       },
       "run_id": "36f874df908fa0a137593c78204fe20f",

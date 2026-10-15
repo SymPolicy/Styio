@@ -843,8 +843,14 @@ private:
 
 // Called only under the graph lock. Scheduling takes place after unlocking:
 // enqueue may wait for queue space, and must never hold the graph lock.
+// A task that is already ready is never enqueued: `styio_task_*_ready`
+// settles the result at construction and has no body to run, and completing
+// tasks publish ready before their successors can be claimed. Enqueueing a
+// settled task would rerun `run()` over final, non-atomic result fields
+// while a pull already reads them.
 bool claim_task_launch(StyioTask* task) {
-  if (!task->launch_requested || task->pending_deps != 0 || task->enqueued) {
+  if (!task->launch_requested || task->pending_deps != 0 || task->enqueued
+      || task->ready.load(std::memory_order_acquire)) {
     return false;
   }
   task->enqueued = true;

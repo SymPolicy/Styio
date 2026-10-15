@@ -8469,6 +8469,30 @@ TEST(StyioSecurityNightlyParserStmt, ParsesTaskGroupAndAwaitBindings) {
   EXPECT_NE(llvm_ir.find("styio_runtime_clear_error"), std::string::npos);
 }
 
+TEST(StyioSecurityNightlyParserStmt, ExportsImmutableOwnedStringCapturesForEscapingTasks) {
+  const std::string src =
+    "job = ||> { <| \"initial\" }\n"
+    "[0] >> #(unused) => {\n"
+    "  message: string := \"capture\" + \"d\"\n"
+    "  job = ||> { <| message }\n"
+    "}\n"
+    "?| job -> value: string\n"
+    ">_(value)\n";
+
+  EXPECT_NO_THROW(
+    parse_typecheck_and_lower_program_engine_latest(src, StyioParserEngine::Nightly));
+  const std::string llvm_ir =
+    compile_program_to_llvm_ir_engine_latest(src, StyioParserEngine::Nightly);
+  EXPECT_NE(llvm_ir.find("styio_task_cstr_spawn"), std::string::npos);
+  // The immutable binding's string storage is freed at the parent scope exit,
+  // so the escaping capture must clone on export, adopt the clone on the
+  // worker, and free it through the task body's scope cleanup.
+  EXPECT_NE(llvm_ir.find("styio_task_export_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_task_import_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_free_cstr"), std::string::npos);
+  EXPECT_NE(llvm_ir.find("styio_task_cstr_pull"), std::string::npos);
+}
+
 TEST(StyioSecurityNightlyParserStmt, RejectsBareAwaitFreezeFallbackBeforeContinuationLowering) {
   const std::string src =
     "?| -> answer: i64 | 0\n"

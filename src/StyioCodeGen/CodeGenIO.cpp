@@ -617,7 +617,15 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
     if (!is_capture_type(type)) {
       continue;
     }
-    captures.push_back(TaskCapture{item.first, type, item.second, false});
+    TaskCapture capture{item.first, type, item.second, false};
+    /* Immutable string bindings registered for the enclosing scope's cstr
+       cleanup are scope-owned; an escaping task must export an independent
+       copy. LLVM pointer type alone is not enough: function-pointer bindings
+       never register, so only the registration metadata selects owned
+       strings. */
+    capture.owns_cstr =
+      type->isPointerTy() && owned_cstr_binding_names_.count(item.first) != 0;
+    captures.push_back(std::move(capture));
   }
   std::sort(
     captures.begin(),
@@ -783,6 +791,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_cstr_scopes = cstr_slot_scope_stack_;
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
+  auto saved_cstr_bindings = owned_cstr_binding_names_;
   auto saved_owned_resource = owned_resource_temps_;
   auto saved_owned_resource_scopes = owned_resource_scope_stack_;
   auto saved_return_resource_kind = current_function_return_resource_kind_;
@@ -804,6 +813,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   cstr_slot_scope_stack_.clear();
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
+  owned_cstr_binding_names_.clear();
   owned_resource_temps_.clear();
   owned_resource_scope_stack_.clear();
   current_function_return_resource_kind_.reset();
@@ -828,6 +838,16 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
     }
     else {
       named_values[captures[i].name] = loaded;
+      if (captures[i].owns_cstr) {
+        /* The imported string is owned by this task body alone: a dedicated
+           slot carries the scope cleanup, and the name joins the ownership
+           metadata so a nested escaping task exports its own copy. */
+        llvm::AllocaInst* slot =
+          create_entry_alloca(captures[i].type, captures[i].name + ".import");
+        theBuilder->CreateStore(loaded, slot);
+        register_cstr_slot_for_raii(slot);
+        owned_cstr_binding_names_.insert(captures[i].name);
+      }
     }
   }
 
@@ -951,6 +971,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   cstr_slot_scope_stack_ = std::move(saved_cstr_scopes);
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
+  owned_cstr_binding_names_ = std::move(saved_cstr_bindings);
   owned_resource_temps_ = std::move(saved_owned_resource);
   owned_resource_scope_stack_ = std::move(saved_owned_resource_scopes);
   current_function_return_resource_kind_ = saved_return_resource_kind;

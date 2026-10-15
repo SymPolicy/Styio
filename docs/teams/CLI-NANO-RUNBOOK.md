@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-10-11
+**Last updated:** 2026-10-16
 
 ## Mission
 
@@ -163,3 +163,12 @@ cases protect this path; package/nano publication behavior is unchanged.
 
 See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
 source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Both compile-plan early output-location probes (`diag_dir`, `build_root`) share
+one private implementation so the field shapes cannot drift apart; the
+malformed-schema table covers both fields on the same rejection edges and the
+invocation-freshness receipt regression is retained. Plan node provenance
+strings were rephrased to repository-local terminology; the compile-plan JSON
+contract is unchanged.
