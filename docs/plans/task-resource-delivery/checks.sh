@@ -54,15 +54,14 @@ def selected_stats():
     "selected_executables_before_build": selected_stats(),
 }, indent=2) + "\n")
 PY
-    # Recovery selection after the first full run's diagnosed failures: rebuild
-    # only the binaries consumed by the affected checks, then rerun only the
-    # four previously failing checks plus the checks exercising the repaired
-    # scheduler reference protocol. First-run passes on unaffected paths retain
-    # valid inputs and are not replayed; see HANDOFF.md coverage reconciliation.
-    printf '%s\n' 'cmake --build build/default --target styio styio_security_test styio_externlib_internal_test styio_observable_runtime_test' > "$final_log_dir/build.command"
+    # The registered entrypoint is the complete engineering check: build every
+    # target, then run the full unfiltered CTest suite. A diagnosed failure may
+    # justify a per-run affected/remaining selection for that host attempt;
+    # that recovery narrows a single run's record and never replaces this form.
+    printf '%s\n' 'cmake --build build/default' > "$final_log_dir/build.command"
     # Direct redirection retains stdout/stderr without a pipeline masking exits.
     set +e
-    cmake --build build/default --target styio styio_security_test styio_externlib_internal_test styio_observable_runtime_test > "$final_log_dir/build.log" 2>&1
+    cmake --build build/default > "$final_log_dir/build.log" 2>&1
     build_exit=$?
     set -e
     printf '%s\n' "$build_exit" > "$final_log_dir/build.exit"
@@ -79,13 +78,8 @@ paths = (pathlib.Path("build/default/bin/styio"),
 }, indent=2) + "\n")
 PY
     # Verbose logging and JUnit reporting change reporting only, not selection.
-    # -R limits this follow-up to the documented affected/remaining checks:
-    # the four first-run failures, every check executing the repaired task
-    # scheduler paths, the task/state feature fixtures, and the regenerated
-    # syntax feature gate pair. All other first-run checks keep their verdicts.
     ctest_command=(ctest --test-dir build/default --output-on-failure --no-tests=error
-      --verbose --output-junit "$final_log_dir/ctest.xml"
-      -R 'StyioExternLibInternal\.|StyioObservableRuntime\.|StyioSafetyRuntime\.|StyioSecurityBoundedTaskScheduling\.|StyioSecurityNightlyRuntime\.|LegacyAndDeclarationAstLoweringEdgesStayExplicit|LeafNoopAndFailClosedTypeInferNodesStayExplicit|^(task_resources|state_resources)_|callable_capabilities_err_e02_task_instance|callable_capabilities_err_e07_copy_task_instance|callable_values_err_e04_captured_scheme|^syntax_feature_state_gate')
+      --verbose --output-junit "$final_log_dir/ctest.xml")
     printf '%q ' "${ctest_command[@]}" > "$final_log_dir/ctest.command"
     printf '\n' >> "$final_log_dir/ctest.command"
     set +e
