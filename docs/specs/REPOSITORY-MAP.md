@@ -51,7 +51,7 @@ verification. Downstream development repositories keep their own boundaries.
 | [`Styio`](https://github.com/SymPolicy/Styio) / development mirror [README.md](../../README.md) | Language and compiler | Language design, grammar, compiler, CLI, tests, primary technical docs | Package-manager product, editor UI, standalone teaching corpus |
 | [`styio-platform`](https://github.com/eBioRing/styio-platform) | Registry and hosted platform | Registry/control plane, hosted workspace, cloud job, worker and hosted API; workers invoke `pafio build` | Language semantics, compiler implementation, Pafio client state |
 | [`pafio-nightly`](https://github.com/Unka-Malloc/pafio-nightly) | Package and project build entry | Manifest/lock, resolution, cache, offline reproduction, metadata, sync/check/build/run/test, vendor/pack/publish client | Language semantics, compiler, registry server or hosted workers |
-| [`styio-audit`](https://github.com/eBioRing/styio-audit) | External audit framework | Auditable-code framework, default and Styio-specific audit modules | Language semantics, acceptance tests, compiler implementation |
+| [`General-Auditor`](https://github.com/Unka-Malloc/General-Auditor) | External audit framework | Auditable-code framework, default and Styio-specific audit modules | Language semantics, acceptance tests, compiler implementation |
 | [`styio-dev-doc`](https://github.com/SymPolicy/styio-dev-doc) | Contributor documentation | Cross-repository development guides, setup and collaboration | Independent language semantics or compiler acceptance criteria |
 | [`styio-dev-env`](https://github.com/eBioRing/styio-dev-env) | Development environment | Devcontainer, toolchain bootstrap, shared CI/local setup | Language design or example programs |
 | [`styio-book`](https://github.com/SymPolicy/styio-book) | Learning material and language narrative | Tutorials and explanatory chapters, each tied to its applicable language version | Authoritative current syntax, compiler internals or acceptance rules |
@@ -92,7 +92,7 @@ verification. Downstream development repositories keep their own boundaries.
 - `styio-book` provides explanations and tutorials. A chapter identifies its
   compiler version and executable evidence; historical chapters are not an
   active-syntax authority.
-- `styio-audit` owns external audit execution. Accepted findings return to the
+- `General-Auditor` owns external audit execution. Accepted findings return to the
   owning compiler source, tests, and technical documents.
 
 ### 4.4 Maintenance and Programming Skills

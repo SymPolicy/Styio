@@ -115,7 +115,9 @@ current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIV
 2. Register workflow changes through [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md)
    and `scripts/workflow-scheduler.py`. When editing `delivery-gate.sh`, preserve
    literal `delivery-checkpoint` and `delivery-push` scheduler invocations because
-   the released external audit checks those entrypoints.
+   General-Auditor checks those entrypoints. The audit gate itself runs through
+   `Unka-Malloc/General-Auditor@only`; the local root, scopes and private report
+   location are documented in [GENERAL-AUDITOR.md](../../GENERAL-AUDITOR.md).
 3. Maintain repo-local skills through [workflows/skills/README.md](../../workflows/skills/README.md)
    and the [tool/skill registry](../../workflows/TOOL-SKILL-REGISTRY-GATE.md).
    `skill.toml` owns discovery metadata and declared workflow references;
