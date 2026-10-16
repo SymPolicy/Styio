@@ -3360,4 +3360,49 @@ TEST(StyioLoweringInternal, ObservationDescriptorsPreserveSnapshotAndSiteIds) {
   }
 }
 
+TEST(StyioLoweringInternal, TaskOrderExhaustedTargetLetsLaterRebindLaunchNormally) {
+  LowererProbe analyzer;
+  auto task_value = []() -> StyioAST* {
+    return TaskBlockAST::Create(BlockAST::Create({PassAST::Create()}));
+  };
+  /* Same-block shape: create the target, declare the block's only edge onto
+     it, then re-create the same name. The re-created task has no remaining
+     incoming edge and must launch normally instead of inheriting the held
+     spawn of the exhausted target. */
+  std::unique_ptr<BlockAST> block(BlockAST::Create({
+    FlexBindAST::Create(VarAST::Create(NameAST::Create("a")), task_value()),
+    FlexBindAST::Create(VarAST::Create(NameAST::Create("b")), task_value()),
+    ResourceOrderAST::Create(NameAST::Create("a"), NameAST::Create("b")),
+    FlexBindAST::Create(VarAST::Create(NameAST::Create("b")), task_value()),
+  }));
+  std::unique_ptr<StyioIR> ir(block->toStyioIR(&analyzer));
+  auto* lowered = dynamic_cast<SGBlock*>(ir.get());
+  ASSERT_NE(lowered, nullptr);
+  ASSERT_EQ(lowered->stmts.size(), 4u);
+
+  auto bound_task = [](StyioIR* node) -> SIOTaskCreate* {
+    auto* bind = dynamic_cast<SGFlexBind*>(node);
+    if (bind == nullptr) {
+      return nullptr;
+    }
+    return dynamic_cast<SIOTaskCreate*>(bind->value);
+  };
+
+  SIOTaskCreate* predecessor = bound_task(lowered->stmts[0]);
+  ASSERT_NE(predecessor, nullptr);
+  EXPECT_FALSE(predecessor->defer_launch);
+
+  SIOTaskCreate* first_target = bound_task(lowered->stmts[1]);
+  ASSERT_NE(first_target, nullptr);
+  EXPECT_TRUE(first_target->defer_launch);
+
+  auto* order = dynamic_cast<SIOTaskOrder*>(lowered->stmts[2]);
+  ASSERT_NE(order, nullptr);
+  EXPECT_TRUE(order->emit_launch);
+
+  SIOTaskCreate* recreated = bound_task(lowered->stmts[3]);
+  ASSERT_NE(recreated, nullptr);
+  EXPECT_FALSE(recreated->defer_launch);
+}
+
 }  // namespace

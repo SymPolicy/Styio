@@ -9,6 +9,10 @@ BUILD_ROOT="${STYIO_BUILD_ROOT:-build/default}"
 # Single evidence-root configuration: the final run reads this one value and
 # derives every evidence directory and record path from it.
 EVIDENCE_ROOT="${STYIO_EVIDENCE_ROOT:-build/task-resource-final}"
+# Both overrides accept a repository-relative or absolute path; resolve them to
+# absolute paths once here so every command below reuses the same value.
+case "$BUILD_ROOT" in /*) ;; *) BUILD_ROOT="$ROOT/$BUILD_ROOT" ;; esac
+case "$EVIDENCE_ROOT" in /*) ;; *) EVIDENCE_ROOT="$ROOT/$EVIDENCE_ROOT" ;; esac
 case "${1:-}" in
   baseline)
     cmake -S . -B "$BUILD_ROOT"
@@ -25,14 +29,14 @@ case "${1:-}" in
     ;;
   integration)
     test -n "${PAFIO_ROOT:?Set the selected Pafio source root}"
-    python3 "$PAFIO_ROOT/scripts/styio-interface-gate.py" --styio-bin "$PWD/$BUILD_ROOT/bin/styio" --pafio-bin "${PAFIO_BIN:?Set the current-source Pafio binary}" --require-compile-plan --json
+    python3 "$PAFIO_ROOT/scripts/styio-interface-gate.py" --styio-bin "$BUILD_ROOT/bin/styio" --pafio-bin "${PAFIO_BIN:?Set the current-source Pafio binary}" --require-compile-plan --json
     ;;
   final)
     # HOST owns the one full run. After a diagnosed failure, replace only the
     # build/test commands below with the documented affected/remaining selection.
     # Each invocation keeps its own evidence; never overwrite the first run.
     mkdir -p "$EVIDENCE_ROOT"
-    final_log_dir="$(mktemp -d "$ROOT/$EVIDENCE_ROOT/host-XXXXXXXX")"
+    final_log_dir="$(mktemp -d "$EVIDENCE_ROOT/host-XXXXXXXX")"
     printf '%s\n' "${final_log_dir#"$ROOT/"}" > "$EVIDENCE_ROOT/latest.txt"
     trap 'final_exit=$?; trap - EXIT; printf "%s\n" "$final_exit" > "$final_log_dir/check.exit"; exit "$final_exit"' EXIT
     cp docs/plans/task-resource-delivery/checks.sh "$final_log_dir/checks.sh"

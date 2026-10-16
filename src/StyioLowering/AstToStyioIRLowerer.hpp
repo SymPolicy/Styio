@@ -186,8 +186,8 @@ protected:
 private:
   std::unordered_set<std::string> active_function_parameter_names_;
   /* Per-name count of `=>` edges prescanned in the block currently being
-     lowered; task binds matching a key spawn held, and the final edge
-     statement for a name emits the launch request. */
+     lowered; task binds matching a name with unconsumed edges spawn held, and
+     the final edge statement for a name emits the launch request. */
   std::unordered_map<std::string, int> task_order_after_counts_;
   std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
   std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodDefAST*>> resource_method_body_defs_;

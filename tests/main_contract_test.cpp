@@ -2676,19 +2676,21 @@ TEST(StyioMainContract, CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation) 
   EXPECT_FALSE(fs::exists(receipt));
 
   /* Invalid plan with an unremovable prior receipt: rejection must report the
-     output failure explicitly instead of silently keeping stale success. */
+     output failure explicitly instead of silently keeping stale success. The
+     removal failure is deterministic for every account and platform: a
+     non-empty directory holds the receipt path. */
   {
     fs::remove(diag_dir);
-    WriteText(receipt, "{\"stale\":true}\n");
-    fs::permissions(build_root, fs::perms::owner_read | fs::perms::owner_exec,
-                    fs::perm_options::replace);
+    fs::remove_all(receipt);
+    fs::create_directories(receipt / "held");
+    WriteText(receipt / "held" / "payload", "{\"stale\":true}\n");
     const MainRunResult result = run_plan(bad_plan);
-    fs::permissions(build_root, fs::perms::owner_all, fs::perm_options::replace);
     EXPECT_EQ(result.exit_code, static_cast<int>(StyioExitCode::RuntimeError))
       << result.stderr_text;
     EXPECT_NE(result.stderr_text.find("cannot remove previous compile-plan receipt"),
               std::string::npos);
     EXPECT_TRUE(fs::exists(receipt));
+    fs::remove_all(receipt);
   }
 
   /* Invalid plan whose diagnostics file cannot be initialized as a file: the

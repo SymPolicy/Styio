@@ -265,3 +265,13 @@ previously executed test, and the task contexts created by those fixtures are
 allocated with `std::malloc` through one in-place-initializing helper that
 matches the runtime's `std::free` contract, with allocation failure reported
 through the test framework.
+
+Fourth-round audit findings pin task-order identity at both layers: the
+lowering case `TaskOrderExhaustedTargetLetsLaterRebindLaunchNormally` asserts
+that a re-created name after the final edge lowers to a normally launched task
+while the original target keeps its held spawn and the edge keeps its launch
+emission, and the codegen case `TaskOrderHeldSpawnSelectionStaysExplicit` pins
+the `_spawn_held` versus plain spawn call selection in statement order. The
+compile-plan case whose prior receipt must be reported as unremovable now fails
+deterministically by holding a non-empty directory at the receipt path instead
+of relying on directory permissions.

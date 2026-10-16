@@ -2714,7 +2714,11 @@ AstToStyioIRLowerer::restore_task_order_scope(std::unordered_map<std::string, in
 
 bool
 AstToStyioIRLowerer::is_task_order_after_target(const std::string& name) const noexcept {
-  return task_order_after_counts_.count(name) != 0;
+  /* Only a name with unconsumed edges still orders a bind: once the last edge
+     for the name has been lowered, later same-name instances are ordinary
+     tasks without incoming edges and launch normally. */
+  auto it = task_order_after_counts_.find(name);
+  return it != task_order_after_counts_.end() && it->second > 0;
 }
 
 bool

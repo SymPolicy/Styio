@@ -313,3 +313,10 @@ creation, host `mktemp` record, `latest.txt` pointer and the embedded invocation
 record all derive from that single read, and the same value reaches the
 invocation record's `prepared_inputs` field; `STYIO_EVIDENCE_ROOT` is recorded
 among the invocation environment keys.
+
+Both `STYIO_BUILD_ROOT` and `STYIO_EVIDENCE_ROOT` accept a repository-relative
+or absolute override and are resolved to absolute paths once at entry, so every
+build, integration, statistics and evidence step — including the recorded
+build command and the recorded executable-selection keys — reuses one resolved
+value; an isolated stub fixture verified relative and absolute overrides
+against the same invariants.
