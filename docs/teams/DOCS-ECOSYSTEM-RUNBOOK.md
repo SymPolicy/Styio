@@ -306,3 +306,10 @@ statistics and evidence-copy step. Plan-record sanitization removed hosted
 execution identifiers and coordination relations from the tracked plan records;
 desensitized technical conclusions, evidence references and Git revisions
 remain.
+
+`checks.sh` resolves every final-run evidence directory and record path from one
+`STYIO_EVIDENCE_ROOT` value (default `build/task-resource-final`): the directory
+creation, host `mktemp` record, `latest.txt` pointer and the embedded invocation
+record all derive from that single read, and the same value reaches the
+invocation record's `prepared_inputs` field; `STYIO_EVIDENCE_ROOT` is recorded
+among the invocation environment keys.

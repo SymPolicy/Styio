@@ -354,6 +354,34 @@ void observe_started(StyioTask* task);
 void observe_completion(StyioTask* task, bool failed);
 void observe_enqueued(StyioTask* task);
 
+/* Restores the calling thread's runtime error slot around a nested run. A
+   nested task executes inline on its caller's thread (wait assist or the
+   queue-full work-first dispatch); without this guard the child's own error
+   handling would clear the caller's not-yet-propagated error, so a failing
+   parent could settle as success depending on scheduling. Inactive for a
+   top-level run, whose thread slot is fresh by contract. */
+struct ParentTaskErrorGuard
+{
+  explicit ParentTaskErrorGuard(bool nested) :
+      nested_(nested) {
+    if (nested_) {
+      saved_ = styio::runtime::take_error();
+    }
+  }
+
+  ~ParentTaskErrorGuard() {
+    if (nested_) {
+      styio::runtime::restore_error(std::move(saved_));
+    }
+  }
+
+  ParentTaskErrorGuard(const ParentTaskErrorGuard&) = delete;
+  ParentTaskErrorGuard& operator=(const ParentTaskErrorGuard&) = delete;
+
+  bool nested_;
+  styio::runtime::RuntimeErrorSnapshot saved_;
+};
+
 struct StyioTask
 {
   using I64Fn = int64_t (*)(void*);
@@ -400,6 +428,10 @@ struct StyioTask
   void run() noexcept {
     StyioTask* previous_task = t_running_task;
     t_running_task = this;
+    /* Nested execution shares this thread with the calling task body: capture
+       the caller's pending error before this task clears the slot, and let
+       this task's own error settle only to itself. */
+    ParentTaskErrorGuard caller_error(previous_task != nullptr);
     observe_started(this);
     task_profile_inc(g_task_scheduler_profile_counters.started_tasks);
     int64_t local_i64 = 0;
