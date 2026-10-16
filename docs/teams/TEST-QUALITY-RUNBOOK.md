@@ -253,3 +253,15 @@ propagation; three delivery-gate scenarios in `tests/workflow_scheduler_test.py`
 cover the single identity source, the CI check switch and untrusted-root
 rejection; and `styio_main_contract_test` extends the compile-plan freshness
 case to unremovable receipts and diagnostics-path failures.
+
+Third-round audit findings extend the nested-wait coverage: a pending parent
+error survives both the wait assist and the queue-full work-first inline path
+and still fails the parent with its own subcode, and the queue-full case pins
+exact-once spawn, enqueue, start, complete and pop deltas for both children. The
+single-worker forward-progress case now configures `STYIO_TASK_THREADS=1` and
+`STYIO_TASK_QUEUE_CAPACITY=1` before its first scheduler access and asserts the
+observed worker count and ready-queue capacity instead of depending on a
+previously executed test, and the task contexts created by those fixtures are
+allocated with `std::malloc` through one in-place-initializing helper that
+matches the runtime's `std::free` contract, with allocation failure reported
+through the test framework.

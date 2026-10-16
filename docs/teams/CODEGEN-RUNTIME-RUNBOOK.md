@@ -174,3 +174,12 @@ permanent `NestedTaskWaitsKeepSingleWorkerForwardProgress` case pins
 spawned/enqueued/started/completed counters, queue depth, handle balance and
 error propagation under one configured worker, and the t13/t14 fixtures cover
 nested waits from the CLI.
+
+A nested task run also preserves its caller's error accounting: `run()` captures
+the calling body's pending runtime error through `ParentTaskErrorGuard` before
+the inline execution clears the thread slot and restores it through
+`styio::runtime::restore_error` on every exit path, so the child's own error
+settles only to the child. A parent that raised before the wait assist or the
+queue-full work-first dispatch keeps its own subcode instead of settling as
+success once the child runs inline. The guard is inactive for a top-level run,
+whose thread slot is fresh by contract.

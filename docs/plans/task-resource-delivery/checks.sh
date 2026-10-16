@@ -6,6 +6,9 @@ cd "$ROOT"
 # Single build-root configuration: every build, test, integration, statistics
 # and evidence-copy step resolves the same directory from this one value.
 BUILD_ROOT="${STYIO_BUILD_ROOT:-build/default}"
+# Single evidence-root configuration: the final run reads this one value and
+# derives every evidence directory and record path from it.
+EVIDENCE_ROOT="${STYIO_EVIDENCE_ROOT:-build/task-resource-final}"
 case "${1:-}" in
   baseline)
     cmake -S . -B "$BUILD_ROOT"
@@ -28,15 +31,16 @@ case "${1:-}" in
     # HOST owns the one full run. After a diagnosed failure, replace only the
     # build/test commands below with the documented affected/remaining selection.
     # Each invocation keeps its own evidence; never overwrite the first run.
-    mkdir -p build/task-resource-final
-    final_log_dir="$(mktemp -d "$ROOT/build/task-resource-final/host-XXXXXXXX")"
-    printf '%s\n' "${final_log_dir#"$ROOT/"}" > build/task-resource-final/latest.txt
+    mkdir -p "$EVIDENCE_ROOT"
+    final_log_dir="$(mktemp -d "$ROOT/$EVIDENCE_ROOT/host-XXXXXXXX")"
+    printf '%s\n' "${final_log_dir#"$ROOT/"}" > "$EVIDENCE_ROOT/latest.txt"
     trap 'final_exit=$?; trap - EXIT; printf "%s\n" "$final_exit" > "$final_log_dir/check.exit"; exit "$final_exit"' EXIT
     cp docs/plans/task-resource-delivery/checks.sh "$final_log_dir/checks.sh"
-    python3 - "$final_log_dir" "$BUILD_ROOT" <<'PY'
+    python3 - "$final_log_dir" "$BUILD_ROOT" "$EVIDENCE_ROOT" <<'PY'
 import datetime, json, os, pathlib, shutil, sys
 out = pathlib.Path(sys.argv[1])
 build_root = pathlib.Path(sys.argv[2])
+evidence_root = pathlib.Path(sys.argv[3])
 keys = (
     "PATH", "CC", "CXX", "SDKROOT", "MACOSX_DEPLOYMENT_TARGET",
     "DYLD_LIBRARY_PATH", "LD_LIBRARY_PATH", "LANG", "LC_ALL", "TZ", "TMPDIR",
@@ -45,14 +49,14 @@ keys = (
     "STYIO_TASK_THREADS", "STYIO_TASK_QUEUE_CAPACITY", "STYIO_BIN",
     "STYIO_LSP_BIN", "PAFIO_BIN", "PAFIO_ROOT", "VITYO_PRODUCT_PLATFORM",
     "GTEST_FILTER", "GTEST_SHARD_INDEX", "GTEST_TOTAL_SHARDS", "GTEST_REPEAT",
-    "STYIO_BUILD_ROOT",
+    "STYIO_BUILD_ROOT", "STYIO_EVIDENCE_ROOT",
 )
 def selected_stats():
     return {str(p): {"size": p.stat().st_size, "mtime_ns": p.stat().st_mtime_ns}
             for p in (build_root / "bin/styio", build_root / "bin/styio_lspd")}
 (out / "invocation.json").write_text(json.dumps({
     "started_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    "prepared_inputs": "build/task-resource-final/prepared-inputs",
+    "prepared_inputs": str(evidence_root / "prepared-inputs"),
     "environment": {key: os.environ.get(key) for key in keys},
     "tools": {key: shutil.which(key) for key in ("cmake", "ctest")},
     "selected_executables_before_build": selected_stats(),
