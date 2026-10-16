@@ -2361,3 +2361,35 @@ TEST(StyioCodegenInternal, DisabledAndStaticObservationUseExistingTaskAbi) {
   write_fixture("disabled.llvm.ir", ir);
   write_fixture("static-only.llvm.ir", ir);
 }
+
+TEST(StyioCodeGenInternal, TaskOrderHeldSpawnSelectionStaysExplicit) {
+  auto generator = make_generator();
+  auto* held_task = SIOTaskCreate::Create(
+    SGBlock::Create({SGReturn::Create(SGConstInt::Create(1))}), i64_type());
+  held_task->defer_launch = true;
+  auto* direct_task = SIOTaskCreate::Create(
+    SGBlock::Create({SGReturn::Create(SGConstInt::Create(2))}), i64_type());
+  std::unique_ptr<SGMainEntry> entry(
+    SGMainEntry::Create({held_task, direct_task}));
+  EXPECT_NO_THROW((void)entry->toLLVMIR(generator.get()));
+  const std::string ir = generator->dump_llvm_ir();
+
+  auto count_occurrences = [](const std::string& haystack,
+                              const std::string& needle) {
+    std::size_t count = 0;
+    for (std::size_t pos = haystack.find(needle); pos != std::string::npos;
+         pos = haystack.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+  constexpr const char* held_call = "call i64 @styio_task_i64_spawn_held(";
+  constexpr const char* direct_call = "call i64 @styio_task_i64_spawn(";
+  EXPECT_EQ(count_occurrences(ir, held_call), 1u) << ir;
+  EXPECT_EQ(count_occurrences(ir, direct_call), 1u) << ir;
+  const std::size_t held_pos = ir.find(held_call);
+  const std::size_t direct_pos = ir.find(direct_call);
+  ASSERT_NE(held_pos, std::string::npos);
+  ASSERT_NE(direct_pos, std::string::npos);
+  EXPECT_LT(held_pos, direct_pos) << ir;
+}

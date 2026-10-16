@@ -201,3 +201,14 @@ negative fixtures when changing this path.
 
 See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
 source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+An order prescan now treats a name as a pending after-target only while it has
+unconsumed `=>` edges: once the final edge of a block is lowered, the name
+stops holding later binds, so a task re-created under the same name launches
+normally instead of inheriting the exhausted target's held spawn with no
+launch site. The lowering case pins the first target's held flag, the final
+edge's launch emission and the re-created task's normal launch; the codegen
+case pins the `_spawn_held` versus plain spawn call selection at the bind
+sites.
