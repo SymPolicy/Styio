@@ -114,10 +114,9 @@ current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIV
    versions against actual configuration instead of copying a frozen tool list.
 2. Register workflow changes through [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md)
    and `scripts/workflow-scheduler.py`. When editing `delivery-gate.sh`, preserve
-   literal `delivery-checkpoint` and `delivery-push` scheduler invocations because
-   General-Auditor checks those entrypoints. The audit gate itself runs through
-   `Unka-Malloc/General-Auditor@only`; the local root, scopes and private report
-   location are documented in [GENERAL-AUDITOR.md](../../GENERAL-AUDITOR.md).
+   literal `delivery-checkpoint` and `delivery-push` scheduler invocations; the
+   `styio-audit` CI job checks those entrypoints. The audit gate runs the
+   repository-internal `scripts/local-info-leak-gate.py`.
 3. Maintain repo-local skills through [workflows/skills/README.md](../../workflows/skills/README.md)
    and the [tool/skill registry](../../workflows/TOOL-SKILL-REGISTRY-GATE.md).
    `skill.toml` owns discovery metadata and declared workflow references;

@@ -22,7 +22,7 @@ commands = [
   "python3 scripts/repo-hygiene-gate.py --mode staged",
   "python3 scripts/repo-hygiene-gate.py --mode residue",
   "python3 scripts/local-info-leak-gate.py --mode staged",
-  "./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit",
+  "./scripts/delivery-gate.sh --mode staged --skip-health",
 ]
 
 functional_commit_checks = [

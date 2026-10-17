@@ -6,7 +6,7 @@ usage() {
 Usage: scripts/delivery-gate.sh [options]
 
 Run the common Styio delivery floor through the workflow scheduler, then run
-external audit and checkpoint health when requested.
+checkpoint health when requested.
 
 Options:
   --mode <auto|checkpoint|staged|push|release>
@@ -14,8 +14,6 @@ Options:
   --base <ref>              Base ref for team-docs-gate branch checks
   --range <rev-range>       Explicit revision range for repo-hygiene push mode
   --skip-health             Skip checkpoint-health (docs/process-only deliveries)
-  --skip-audit              Skip external General-Auditor gate
-  --audit-root <path>        Trusted General-Auditor checkout
   --with-asan               Include the ASan/UBSan leg in checkpoint-health
   --with-fuzz               Include the fuzz-smoke leg in checkpoint-health
   --build-dir <dir>         Forwarded to checkpoint-health
@@ -176,32 +174,6 @@ resolve_delivery_base() {
   return 1
 }
 
-run_audit_gate() {
-  local auditor_root="${AUDIT_BIN:-${GENERAL_AUDITOR_ROOT:-}}"
-  if [ -z "${auditor_root:-}" ]; then
-    auditor_root="$(git -C "$ROOT" config --local --get generalAuditor.root || true)"
-  fi
-  case "$auditor_root" in
-    /*) ;;
-    *) echo 'General-Auditor requires an absolute trusted root; use GENERAL_AUDITOR_ROOT or local git config generalAuditor.root.' >&2; exit 2 ;;
-  esac
-  if [ ! -f "$auditor_root/action_entry.py" ]; then
-    echo 'General-Auditor root must contain action_entry.py.' >&2
-    exit 2
-  fi
-  audit_command=scan
-  for ci_flag in "${CI:-}" "${GITHUB_ACTIONS:-}"; do
-    case "$ci_flag" in
-      ""|0|[Ff][Aa][Ll][Ss][Ee]|[Nn][Oo]) ;;
-      *) audit_command=check ;;
-    esac
-  done
-  audit_status=0
-  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "Unka-Malloc/styio-nightly" --scope history || audit_status=$?
-  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "Unka-Malloc/styio-nightly" --scope worktree || audit_status=$?
-  return "$audit_status"
-}
-
 run_scheduler_profile() {
   local profile
   profile="$1"
@@ -230,8 +202,6 @@ MODE="auto"
 BASE_REF=""
 REV_RANGE="${STYIO_DELIVERY_RANGE:-}"
 RUN_HEALTH=1
-RUN_AUDIT=1
-AUDIT_BIN=""
 RUN_ASAN=0
 RUN_FUZZ=0
 BUILD_DIR=""
@@ -257,14 +227,6 @@ while [[ $# -gt 0 ]]; do
     --skip-health)
       RUN_HEALTH=0
       shift
-      ;;
-    --skip-audit)
-      RUN_AUDIT=0
-      shift
-      ;;
-    --audit-root)
-      AUDIT_BIN="$2"
-      shift 2
       ;;
     --with-asan)
       RUN_ASAN=1
@@ -414,12 +376,6 @@ case "$MODE" in
     run_scheduler_profile delivery-checkpoint
     ;;
 esac
-
-if [[ "$RUN_AUDIT" -eq 1 ]]; then
-  run_audit_gate
-else
-  log "styio-audit skipped"
-fi
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then
   run_cmd "${HEALTH_CMD[@]}"

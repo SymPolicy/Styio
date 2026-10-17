@@ -43,7 +43,7 @@ gates = [
   "read workflows/FEATURE-CUTOVER-WORKFLOW.md when behavior replaces, migrates, broadens, or retires old behavior",
   "run the targeted feature command",
   "run the upstream/downstream integration or owner-team command",
-  "run ./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit before commit when changes are staged",
+  "run ./scripts/delivery-gate.sh --mode staged --skip-health before commit when changes are staged",
   "select ./scripts/delivery-gate.sh or ./scripts/checkpoint-health.sh --no-asan --no-fuzz for the required final regression, not both for the same evidence",
 ]
 

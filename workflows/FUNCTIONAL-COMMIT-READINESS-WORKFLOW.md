@@ -39,7 +39,7 @@ Run the smallest useful checks first, then widen only as the touched surface req
 3. Downstream consumer or integration smoke that proves callers work with the new behavior.
 4. Owner-team gate for the affected module.
 5. [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md) when behavior replaces, migrates, broadens, or retires an old route.
-6. `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit` before commit when changes are staged.
+6. `./scripts/delivery-gate.sh --mode staged --skip-health` before commit when changes are staged.
 7. Select `./scripts/delivery-gate.sh` or `./scripts/checkpoint-health.sh --no-asan --no-fuzz` as the final complete regression when the delivery requires it, after source review, repairs, and focused checks finish. Do not run both for the same health evidence.
 
 Follow [../docs/specs/POST-COMMIT-CI-CHECKS.md](../docs/specs/POST-COMMIT-CI-CHECKS.md) for final-regression failures and post-push verification. A failed complete regression requires the developer's repair and verification decision, not an automatic repair or rerun loop.

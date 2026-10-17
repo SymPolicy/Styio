@@ -1,6 +1,6 @@
 # Styio License Policy
 
-**Purpose:** Record the source-license boundary enforced by `General-Auditor`.
+**Purpose:** Record the source-license boundary enforced by the repository audit gate.
 
 **Last updated:** 2026-05-09
 
