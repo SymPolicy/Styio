@@ -950,7 +950,7 @@ TEST(StyioObservableRuntime, ExporterFailureIsIsolated) {
 }
 
 TEST(StyioObservableRuntime, DeterministicFixtureIsConsumerIndependent) {
-  const std::string text = read_text(fixture_dir() / "canonical.jsonl");
+  const std::string text = read_text(fixture_dir() / "canonical.ndjson");
   ASSERT_FALSE(text.empty());
   const auto records = parse_jsonl(text);
   ASSERT_GE(records.size(), 4u);
@@ -1006,7 +1006,7 @@ TEST(StyioObservableRuntime, DeterministicFixtureIsConsumerIndependent) {
 }
 
 TEST(StyioObservableRuntime, UnknownAdditiveFieldsPreserveKnownSemantics) {
-  const std::string text = read_text(fixture_dir() / "additive-fields.jsonl");
+  const std::string text = read_text(fixture_dir() / "additive-fields.ndjson");
   ASSERT_FALSE(text.empty());
   for (const auto& line : split_lines(text)) {
     const auto parsed = obs::parse_runtime_record(line);
@@ -1038,7 +1038,7 @@ TEST(StyioObservableRuntime, UnknownAdditiveFieldsPreserveKnownSemantics) {
 TEST(StyioObservableRuntime, StrictPrivacyFixtureExcludesCanaries) {
   const auto canaries = obs::privacy_canaries();
   ASSERT_FALSE(canaries.empty());
-  for (const auto name : {"canonical.jsonl", "additive-fields.jsonl"}) {
+  for (const auto name : {"canonical.ndjson", "additive-fields.ndjson"}) {
     const std::string text = read_text(fixture_dir() / name);
     EXPECT_FALSE(obs::payload_contains_privacy_canary(text)) << name;
   }
