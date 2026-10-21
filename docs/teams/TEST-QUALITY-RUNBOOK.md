@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-10-16
+**Last updated:** 2026-10-18
 
 Scheduler regression tests cover composed-profile deduplication, separate scope checks, failure propagation, fresh invocations, and docs-audit evidence context. Run `python3 tests/workflow_scheduler_test.py`; the shell fixture also verifies delivery auto calls the scheduler only once. Local test evidence reuse follows [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#reusing-local-evidence).
 
@@ -214,64 +214,3 @@ The cross-platform source-read check explicitly rejects directories (including
 symlink targets) before opening: some platforms report directory reads as EOF.
 Regular-file symlinks remain accepted; status-query errors still use the existing
 open/read error handling. The public CLI regression covers both symlink cases.
-
-### Task/resource compiler candidate (2026-10-11)
-
-The sole history fixture is
-`tests/features/state_resources/t13_task_history_capture.styio`; the former
-planning duplicate was removed after comparison. State/task goldens now cover
-nested wraparound, owned capture lifetime/failure and reverse task order; native
-matrix capture and reverse order are registered in CTest. Required build targets
-include `styio_lspd` and `styio_main_contract_test`. The focused entrypoint covers
-these permanent cases, but handoff evidence reuses valid component results:
-platform skips are not passes, overlapping runs are not summed, and the review
-entrypoint checks whitespace only. Final regression remains separately admitted.
-
-See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
-source provenance, executed selections and downstream conditions.
-
-### Delivery-branch audit repairs (2026-10-16)
-
-Post-closure audit findings on the task-resource delivery branch are covered by
-focused regressions: `StyioExternLibInternal.ReadyTaskPullsStaySettledWithoutEnqueueOrRerun`
-pins ready-constructed i64/f64/cstr pulls to unchanged enqueue/start/completion
-counters plus a rejected repeat pull; `tests/features/task_resources/t12_task_owned_string_scope_immutable.styio`
-runs an immutable capture of a scope-owned string through an escaping task with
-CLI and native registration; the security suite asserts the export/import/cleanup
-IR for that capture; and both compile-plan output-location probes stay covered by
-one malformed-schema table. Targeted sanitizer evidence ran outside the
-committed suite: ASan/UBSan reproduced the pre-repair heap-use-after-free in the
-late-read shape and stayed clean after the repair, and TSan reproduced the
-pre-repair result-field race on the externlib internal binary and stayed clean
-after.
-
-Second-round audit findings add focused coverage: the task-resource native
-fixtures t13/t14 run nested task waits under a single configured worker through
-the CLI; `StyioExternLibInternal.NestedTaskWaitsKeepSingleWorkerForwardProgress`
-pins scheduler forward-progress counters, queue depth, handle balance and error
-propagation; three delivery-gate scenarios in `tests/workflow_scheduler_test.py`
-cover the single identity source, the CI check switch and untrusted-root
-rejection; and `styio_main_contract_test` extends the compile-plan freshness
-case to unremovable receipts and diagnostics-path failures.
-
-Third-round audit findings extend the nested-wait coverage: a pending parent
-error survives both the wait assist and the queue-full work-first inline path
-and still fails the parent with its own subcode, and the queue-full case pins
-exact-once spawn, enqueue, start, complete and pop deltas for both children. The
-single-worker forward-progress case now configures `STYIO_TASK_THREADS=1` and
-`STYIO_TASK_QUEUE_CAPACITY=1` before its first scheduler access and asserts the
-observed worker count and ready-queue capacity instead of depending on a
-previously executed test, and the task contexts created by those fixtures are
-allocated with `std::malloc` through one in-place-initializing helper that
-matches the runtime's `std::free` contract, with allocation failure reported
-through the test framework.
-
-Fourth-round audit findings pin task-order identity at both layers: the
-lowering case `TaskOrderExhaustedTargetLetsLaterRebindLaunchNormally` asserts
-that a re-created name after the final edge lowers to a normally launched task
-while the original target keeps its held spawn and the edge keeps its launch
-emission, and the codegen case `TaskOrderHeldSpawnSelectionStaysExplicit` pins
-the `_spawn_held` versus plain spawn call selection in statement order. The
-compile-plan case whose prior receipt must be reported as unremovable now fails
-deterministically by holding a non-empty directory at the receipt path instead
-of relying on directory permissions.

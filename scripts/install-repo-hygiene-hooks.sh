@@ -16,7 +16,7 @@ cat >"$HOOK_DIR/pre-commit" <<'HOOK'
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 export STYIO_COMMIT_READINESS_REQUIRE=1
-exec "$ROOT/scripts/delivery-gate.sh" --mode staged --skip-health --skip-audit
+exec "$ROOT/scripts/delivery-gate.sh" --mode staged --skip-health
 HOOK
 
 cat >"$HOOK_DIR/pre-push" <<'HOOK'
