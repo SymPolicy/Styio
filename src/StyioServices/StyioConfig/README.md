@@ -30,7 +30,7 @@ bool ok = styio::config::parse_compile_plan("compile-plan.json", request, error)
 | Function or Type | Header | Use |
 |------------------|--------|-----|
 | `CompilePlanRequest` | `CompilePlanContract.hpp` | Holds the normalized request envelope consumed by compiler build/check/run/test flows. |
-| `probe_compile_plan_diag_dir(...)` | `CompilePlanContract.hpp` | Extracts a diagnostics directory before full plan validation. |
+| `probe_compile_plan_output_paths(...)` | `CompilePlanContract.hpp` | Extracts the diagnostics directory and build root before full plan validation, from one read and parse of the plan. |
 | `parse_compile_plan(...)` | `CompilePlanContract.hpp` | Parses and validates the resolved compile-plan JSON contract. |
 | `CompilationUnit` | `CompilePlanContract.hpp` | Holds the admitted package name plus canonical manifest-relative and entry-relative paths used for qualified snapshot identity. Absolute paths never enter this value. |
 | `CompilePlanRequest::emit_observable_static_snapshot` | `CompilePlanContract.hpp` | Optional incubating request for schema-v1 static snapshot publication. Absent means the compiler must not construct snapshot state. |
