@@ -3965,19 +3965,13 @@ styio_emit_diagnostic(
 );
 
 static bool
-styio_probe_compile_plan_diag_dir_latest(
+styio_probe_compile_plan_output_paths_latest(
   const std::filesystem::path& plan_path,
-  std::filesystem::path& out_diag_dir
-) {
-  return styio::config::probe_compile_plan_diag_dir(plan_path, out_diag_dir);
-}
-
-static bool
-styio_probe_compile_plan_build_root_latest(
-  const std::filesystem::path& plan_path,
+  std::filesystem::path& out_diag_dir,
   std::filesystem::path& out_build_root
 ) {
-  return styio::config::probe_compile_plan_build_root(plan_path, out_build_root);
+  return styio::config::probe_compile_plan_output_paths(
+    plan_path, out_diag_dir, out_build_root);
 }
 
 /* Converges compile-plan output preparation for both the accepted-plan path
@@ -4031,15 +4025,16 @@ styio_emit_compile_plan_cli_error_latest(
 ) {
   styio_clear_diagnostic_sink_latest();
 
+  /* One read and one parse serve both output locations; an unusable field
+     keeps its path empty, which the preparation step below reads as absent. */
   std::filesystem::path diag_dir;
-  const bool diag_probeable = styio_probe_compile_plan_diag_dir_latest(plan_path, diag_dir);
   std::filesystem::path build_root;
-  const bool build_probeable = styio_probe_compile_plan_build_root_latest(plan_path, build_root);
+  styio_probe_compile_plan_output_paths_latest(plan_path, diag_dir, build_root);
 
   std::string output_error;
   if (!styio_prepare_compile_plan_outputs_latest(
-        build_probeable ? &build_root : nullptr,
-        diag_probeable ? &diag_dir : nullptr,
+        build_root.empty() ? nullptr : &build_root,
+        diag_dir.empty() ? nullptr : &diag_dir,
         output_error)) {
     /* The invocation cannot own its outputs this time; report that output
        failure itself instead of emitting into an uninitialized sink. */
