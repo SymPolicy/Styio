@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-10-16
+**Last updated:** 2026-10-06
 
 Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
 
@@ -114,11 +114,9 @@ current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIV
    versions against actual configuration instead of copying a frozen tool list.
 2. Register workflow changes through [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md)
    and `scripts/workflow-scheduler.py`. When editing `delivery-gate.sh`, preserve
-   literal `delivery-checkpoint` and `delivery-push` scheduler invocations because
-   General-Auditor checks those entrypoints. The audit gate itself runs through
-   `Unka-Malloc/General-Auditor` pinned to a full commit SHA; the local root tracks
-   that pinned revision. Scopes and the private report
-   location are documented in [GENERAL-AUDITOR.md](../../GENERAL-AUDITOR.md).
+   literal `delivery-checkpoint` and `delivery-push` scheduler invocations; the
+   `styio-audit` CI job checks those entrypoints. The audit gate runs the
+   repository-internal `scripts/local-info-leak-gate.py`.
 3. Maintain repo-local skills through [workflows/skills/README.md](../../workflows/skills/README.md)
    and the [tool/skill registry](../../workflows/TOOL-SKILL-REGISTRY-GATE.md).
    `skill.toml` owns discovery metadata and declared workflow references;
@@ -252,71 +250,3 @@ The cross-platform source-read check explicitly rejects directories (including
 symlink targets) before opening: some platforms report directory reads as EOF.
 Regular-file symlinks remain accepted; status-query errors still use the existing
 open/read error handling. The public CLI regression covers both symlink cases.
-
-### Delivery-record naming pass (2026-10-19): node records under `docs/plans/task-resource-delivery/nodes/` use neutral `task-resource-delivery` naming; internal host names do not ship. `feat(task-resource): own task history, ordering, and invocation results`
-
-### Task/resource compiler candidate (2026-10-11)
-
-The current delivery programme is `docs/plans/Programme.json`. Its task-resource
-candidate handoff records dirty build inputs, independent source findings and
-actual tests separately from advertised capabilities. Historical execution
-commands remain evidence even when a duplicate fixture is relocated; current
-permanent fixtures own the assertions. Compiler/Pafio/Vityo candidate joins and
-common E2E are coordinator prerequisites to later final regression, not implicit
-cross-repository scheduler edges.
-
-See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
-source provenance, executed selections and downstream conditions.
-
-### Gate and audit-path repairs (2026-10-15)
-
-The delivery gate's audit leg keeps the history- and worktree-scope exit codes
-separately and fails closed on either; a passing worktree scope can no longer
-mask a failing history scope. `checks.sh final` in task-resource-delivery runs
-the complete build and unfiltered CTest suite again — the affected/remaining
-selection discharged the recorded first-run recovery once and never becomes the
-registered entrypoint. The retired `styio-audit` policy section in
-[EXTERNAL-AUTHORITY-HANDOFF.md](../external/upstream/EXTERNAL-AUTHORITY-HANDOFF.md)
-is collapsed into a history note pointing at
-[GENERAL-AUDITOR.md](../../GENERAL-AUDITOR.md); [DELIVERY-GATE.md](../../workflows/DELIVERY-GATE.md)
-and the IM-D6 conformance inventory now cite the General-Auditor route.
-Transient Better Plan locks are untracked under `docs/plans/**/`.
-
-2026-10-15: Recorded the coordinator join and delivery closure for the
-task-resource milestone. The joined evidence is the same-candidate Vityo E2E
-through real production services and vityod (35 scenarios and
-4 contract cases accepted), the expanded Pafio integration gate, the vityod
-crate tests and the bounded-retention probe; the milestone Tree/Task delivery
-now carries the join result and its boundaries. The registered CLOSE review
-check executed as host, and the review items invalidated by NODE-REPAIR's
-result change were resolved against the joined evidence.
-
-### Delivery-branch audit repairs (2026-10-16)
-
-Plan node provenance strings in `docs/plans/task-resource-delivery/nodes/` were
-rephrased to repository-local terminology; the records remain valid JSON and the
-recorded plan state is unchanged. The affected team runbooks and
-[DOC-STATS](./DOC-STATS.md) were refreshed in the same change.
-
-The delivery gate now derives the repository identity once from the origin
-remote and reuses that single value for both audit scopes, and it fails closed
-before scanning when the identity is unresolvable. `checks.sh` resolves one
-`STYIO_BUILD_ROOT` (default `build/default`) for every configure, build, test,
-statistics and evidence-copy step. Plan-record sanitization removed hosted
-execution identifiers and coordination relations from the tracked plan records;
-desensitized technical conclusions, evidence references and Git revisions
-remain.
-
-`checks.sh` resolves every final-run evidence directory and record path from one
-`STYIO_EVIDENCE_ROOT` value (default `build/task-resource-final`): the directory
-creation, host `mktemp` record, `latest.txt` pointer and the embedded invocation
-record all derive from that single read, and the same value reaches the
-invocation record's `prepared_inputs` field; `STYIO_EVIDENCE_ROOT` is recorded
-among the invocation environment keys.
-
-Both `STYIO_BUILD_ROOT` and `STYIO_EVIDENCE_ROOT` accept a repository-relative
-or absolute override and are resolved to absolute paths once at entry, so every
-build, integration, statistics and evidence step — including the recorded
-build command and the recorded executable-selection keys — reuses one resolved
-value; an isolated stub fixture verified relative and absolute overrides
-against the same invariants.

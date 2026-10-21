@@ -1,4 +1,4 @@
-name: General-Auditor
+name: styio-audit
 
 on:
   pull_request:
@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  styio-audit:
+  audit:
     name: styio-audit
     runs-on: ubuntu-24.04
     steps:
@@ -34,10 +34,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run General-Auditor for Unka-Malloc/styio-nightly
-        uses: Unka-Malloc/General-Auditor@8589064b8b45a4da8e6d1adde6ab0725de789f65 # only, pinned to a reviewed commit
-        with:
-          repository: Unka-Malloc/styio-nightly
-          directory: .
-          head: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
-          base: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+      - name: Run the repository-internal local info leak audit
+        working-directory: .
+        run: python3 scripts/local-info-leak-gate.py --mode tracked
