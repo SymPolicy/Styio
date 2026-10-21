@@ -73,38 +73,58 @@ styio_task_result_is_cstr(const StyioDataType& type) {
 void collect_task_free_refs(
   StyioIR* node,
   std::unordered_set<std::string>& refs,
-  std::unordered_set<std::string>& locals);
+  std::unordered_set<std::string>& locals,
+  const std::unordered_set<std::string>& ring_names);
+
+void collect_task_bind_target(
+  const std::string& name,
+  std::unordered_set<std::string>& refs,
+  std::unordered_set<std::string>& locals,
+  const std::unordered_set<std::string>& ring_names) {
+  if (name.empty()) {
+    return;
+  }
+  if (ring_names.count(name) != 0) {
+    refs.insert(name);
+    return;
+  }
+  locals.insert(name);
+}
 
 void collect_task_block_refs(
   SGBlock* block,
   std::unordered_set<std::string>& refs,
-  std::unordered_set<std::string> locals) {
+  std::unordered_set<std::string> locals,
+  const std::unordered_set<std::string>& ring_names) {
   if (block == nullptr) {
     return;
   }
   for (StyioIR* stmt : block->stmts) {
     if (auto* bind = dynamic_cast<SGFlexBind*>(stmt)) {
-      collect_task_free_refs(bind->value, refs, locals);
+      collect_task_free_refs(bind->value, refs, locals, ring_names);
       if (bind->var != nullptr && bind->var->var_name != nullptr) {
-        locals.insert(bind->var->var_name->as_str());
+        collect_task_bind_target(
+          bind->var->var_name->as_str(), refs, locals, ring_names);
       }
       continue;
     }
     if (auto* bind = dynamic_cast<SGFinalBind*>(stmt)) {
-      collect_task_free_refs(bind->value, refs, locals);
+      collect_task_free_refs(bind->value, refs, locals, ring_names);
       if (bind->var != nullptr && bind->var->var_name != nullptr) {
-        locals.insert(bind->var->var_name->as_str());
+        collect_task_bind_target(
+          bind->var->var_name->as_str(), refs, locals, ring_names);
       }
       continue;
     }
-    collect_task_free_refs(stmt, refs, locals);
+    collect_task_free_refs(stmt, refs, locals, ring_names);
   }
 }
 
 void collect_task_free_refs(
   StyioIR* node,
   std::unordered_set<std::string>& refs,
-  std::unordered_set<std::string>& locals) {
+  std::unordered_set<std::string>& locals,
+  const std::unordered_set<std::string>& ring_names) {
   if (node == nullptr) {
     return;
   }
@@ -117,7 +137,7 @@ void collect_task_free_refs(
   }
   if (auto* var = dynamic_cast<SGVar*>(node)) {
     if (var->val_init != nullptr) {
-      collect_task_free_refs(var->val_init, refs, locals);
+      collect_task_free_refs(var->val_init, refs, locals, ring_names);
     }
     else if (var->var_name != nullptr) {
       const std::string name = var->var_name->as_str();
@@ -134,111 +154,118 @@ void collect_task_free_refs(
     return;
   }
   if (auto* bin = dynamic_cast<SGBinOp*>(node)) {
-    collect_task_free_refs(bin->lhs_expr, refs, locals);
-    collect_task_free_refs(bin->rhs_expr, refs, locals);
+    collect_task_free_refs(bin->lhs_expr, refs, locals, ring_names);
+    collect_task_free_refs(bin->rhs_expr, refs, locals, ring_names);
     return;
   }
   if (auto* cond = dynamic_cast<SGCond*>(node)) {
-    collect_task_free_refs(cond->lhs_expr, refs, locals);
-    collect_task_free_refs(cond->rhs_expr, refs, locals);
+    collect_task_free_refs(cond->lhs_expr, refs, locals, ring_names);
+    collect_task_free_refs(cond->rhs_expr, refs, locals, ring_names);
     return;
   }
   if (auto* ret = dynamic_cast<SGReturn*>(node)) {
-    collect_task_free_refs(ret->expr, refs, locals);
+    collect_task_free_refs(ret->expr, refs, locals, ring_names);
     return;
   }
   if (auto* block = dynamic_cast<SGBlock*>(node)) {
-    collect_task_block_refs(block, refs, locals);
+    collect_task_block_refs(block, refs, locals, ring_names);
     return;
   }
   if (auto* bind = dynamic_cast<SGFlexBind*>(node)) {
-    collect_task_free_refs(bind->value, refs, locals);
+    collect_task_free_refs(bind->value, refs, locals, ring_names);
     if (bind->var != nullptr && bind->var->var_name != nullptr) {
-      locals.insert(bind->var->var_name->as_str());
+      collect_task_bind_target(
+        bind->var->var_name->as_str(), refs, locals, ring_names);
     }
     return;
   }
   if (auto* bind = dynamic_cast<SGFinalBind*>(node)) {
-    collect_task_free_refs(bind->value, refs, locals);
+    collect_task_free_refs(bind->value, refs, locals, ring_names);
     if (bind->var != nullptr && bind->var->var_name != nullptr) {
-      locals.insert(bind->var->var_name->as_str());
+      collect_task_bind_target(
+        bind->var->var_name->as_str(), refs, locals, ring_names);
     }
     return;
   }
   if (auto* loop = dynamic_cast<SGLoop*>(node)) {
-    collect_task_free_refs(loop->cond, refs, locals);
-    collect_task_block_refs(loop->body, refs, locals);
+    collect_task_free_refs(loop->cond, refs, locals, ring_names);
+    collect_task_block_refs(loop->body, refs, locals, ring_names);
     return;
   }
   if (auto* each = dynamic_cast<SGForEach*>(node)) {
-    collect_task_free_refs(each->iterable, refs, locals);
+    collect_task_free_refs(each->iterable, refs, locals, ring_names);
     auto body_locals = locals;
     body_locals.insert(each->var);
-    collect_task_block_refs(each->body, refs, std::move(body_locals));
+    collect_task_block_refs(each->body, refs, std::move(body_locals), ring_names);
     return;
   }
   if (auto* range = dynamic_cast<SGRangeFor*>(node)) {
-    collect_task_free_refs(range->start, refs, locals);
-    collect_task_free_refs(range->end, refs, locals);
-    collect_task_free_refs(range->step, refs, locals);
+    collect_task_free_refs(range->start, refs, locals, ring_names);
+    collect_task_free_refs(range->end, refs, locals, ring_names);
+    collect_task_free_refs(range->step, refs, locals, ring_names);
     auto body_locals = locals;
     body_locals.insert(range->var);
-    collect_task_block_refs(range->body, refs, std::move(body_locals));
+    collect_task_block_refs(range->body, refs, std::move(body_locals), ring_names);
     return;
   }
   if (auto* branch = dynamic_cast<SGIf*>(node)) {
-    collect_task_free_refs(branch->cond, refs, locals);
-    collect_task_block_refs(branch->then_block, refs, locals);
-    collect_task_block_refs(branch->else_block, refs, locals);
+    collect_task_free_refs(branch->cond, refs, locals, ring_names);
+    collect_task_block_refs(branch->then_block, refs, locals, ring_names);
+    collect_task_block_refs(branch->else_block, refs, locals, ring_names);
     return;
   }
   if (auto* match = dynamic_cast<SGMatch*>(node)) {
-    collect_task_free_refs(match->scrutinee, refs, locals);
+    collect_task_free_refs(match->scrutinee, refs, locals, ring_names);
     for (auto& arm : match->int_arms) {
-      collect_task_block_refs(arm.second, refs, locals);
+      collect_task_block_refs(arm.second, refs, locals, ring_names);
     }
-    collect_task_block_refs(match->default_arm, refs, locals);
+    collect_task_block_refs(match->default_arm, refs, locals, ring_names);
     return;
   }
   if (auto* flow = dynamic_cast<SIOFlowBind*>(node)) {
-    collect_task_free_refs(flow->source_expr, refs, locals);
-    collect_task_free_refs(flow->fallback_expr, refs, locals);
+    collect_task_free_refs(flow->source_expr, refs, locals, ring_names);
+    collect_task_free_refs(flow->fallback_expr, refs, locals, ring_names);
     if (locals.count(flow->target_name) == 0) {
       refs.insert(flow->target_name);
     }
     return;
   }
   if (auto* release = dynamic_cast<SIOHandleRelease*>(node)) {
-    collect_task_free_refs(release->path_expr, refs, locals);
+    collect_task_free_refs(release->path_expr, refs, locals, ring_names);
     if (!release->from_path && locals.count(release->var_name) == 0) {
       refs.insert(release->var_name);
     }
     return;
   }
   if (auto* file_write = dynamic_cast<SIOResourceWriteToFile*>(node)) {
-    collect_task_free_refs(file_write->data_expr, refs, locals);
-    collect_task_free_refs(file_write->path_expr, refs, locals);
+    collect_task_free_refs(file_write->data_expr, refs, locals, ring_names);
+    collect_task_free_refs(file_write->path_expr, refs, locals, ring_names);
     return;
   }
   if (auto* write = dynamic_cast<SIOStdStreamWrite*>(node)) {
     for (StyioIR* expr : write->exprs) {
-      collect_task_free_refs(expr, refs, locals);
+      collect_task_free_refs(expr, refs, locals, ring_names);
     }
     return;
   }
   if (auto* effect = dynamic_cast<SIOResourceEffect*>(node)) {
-    collect_task_free_refs(effect->operation, refs, locals);
+    collect_task_free_refs(effect->operation, refs, locals, ring_names);
     for (const auto& handler : effect->handlers) {
-      collect_task_free_refs(handler.body, refs, locals);
+      collect_task_free_refs(handler.body, refs, locals, ring_names);
     }
-    collect_task_free_refs(effect->fallback, refs, locals);
+    collect_task_free_refs(effect->fallback, refs, locals, ring_names);
     return;
   }
   if (auto* print = dynamic_cast<SIOPrint*>(node)) {
     for (StyioIR* expr : print->expr) {
-      collect_task_free_refs(expr, refs, locals);
+      collect_task_free_refs(expr, refs, locals, ring_names);
     }
     return;
+  }
+  std::vector<StyioIR*> children;
+  node->collect_children(children);
+  for (StyioIR* child : children) {
+    collect_task_free_refs(child, refs, locals, ring_names);
   }
 }
 
@@ -457,6 +484,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
     nullptr,
     list_mutation_epoch_,
   });
+  push_bounded_ring_pending_scope();
   node->body->toLLVMIR(this);
 
   llvm::BasicBlock* body_end = theBuilder->GetInsertBlock();
@@ -474,6 +502,7 @@ StyioToLLVM::toLLVMIR(SIOStdStreamLineIter* node) {
   if (body_falls_through) {
     emit_bounded_ring_pending_commits();
   }
+  pop_bounded_ring_pending_scope();
 
   mutable_variables.erase(node->line_var);
   if (body_falls_through) {
@@ -536,6 +565,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
     llvm::Type* type = nullptr;
     llvm::Value* value = nullptr;
     bool mutable_slot = false;
+    bool owns_cstr = false;
   };
 
   auto is_capture_type = [](llvm::Type* type) {
@@ -546,7 +576,13 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   std::vector<TaskCapture> captures;
   std::unordered_set<std::string> capture_refs;
   std::unordered_set<std::string> task_locals;
-  collect_task_block_refs(node->body, capture_refs, std::move(task_locals));
+  std::unordered_set<std::string> ring_names;
+  ring_names.reserve(bounded_ring_head_slot_.size());
+  for (const auto& kv : bounded_ring_head_slot_) {
+    ring_names.insert(kv.first);
+  }
+  collect_task_block_refs(
+    node->body, capture_refs, std::move(task_locals), ring_names);
 
   captures.reserve(mutable_variables.size() + named_values.size());
   for (const auto& item : mutable_variables) {
@@ -566,7 +602,9 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
       item.first,
       type,
       theBuilder->CreateLoad(type, slot, item.first + ".capture"),
-      true});
+      true,
+      type->isPointerTy() && std::any_of(cstr_slot_scope_stack_.begin(), cstr_slot_scope_stack_.end(),
+        [slot](const auto& scope) { return std::find(scope.begin(), scope.end(), slot) != scope.end(); })});
   }
   for (const auto& item : named_values) {
     if (capture_refs.count(item.first) == 0) {
@@ -579,12 +617,66 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
     if (!is_capture_type(type)) {
       continue;
     }
-    captures.push_back(TaskCapture{item.first, type, item.second, false});
+    TaskCapture capture{item.first, type, item.second, false};
+    /* Immutable string bindings registered for the enclosing scope's cstr
+       cleanup are scope-owned; an escaping task must export an independent
+       copy. LLVM pointer type alone is not enough: function-pointer bindings
+       never register, so only the registration metadata selects owned
+       strings. */
+    capture.owns_cstr =
+      type->isPointerTy() && owned_cstr_binding_names_.count(item.first) != 0;
+    captures.push_back(std::move(capture));
   }
   std::sort(
     captures.begin(),
     captures.end(),
     [](const TaskCapture& lhs, const TaskCapture& rhs) {
+      return lhs.name < rhs.name;
+    });
+
+  struct TaskRingCapture {
+    std::string name;
+    std::uint64_t cap = 0;
+    llvm::ArrayType* arr_ty = nullptr;
+    llvm::Type* elem_ty = nullptr;
+    bool owns_cstr_elems = false;
+    std::optional<StyioValueFamily> handle_family;
+    unsigned snap_field = 0;
+    unsigned head_field = 0;
+  };
+  std::vector<TaskRingCapture> ring_captures;
+  for (const std::string& ref_name : capture_refs) {
+    auto head_it = bounded_ring_head_slot_.find(ref_name);
+    auto cap_it = bounded_ring_capacity_.find(ref_name);
+    auto arr_it = mutable_variables.find(ref_name);
+    if (head_it == bounded_ring_head_slot_.end()
+        || cap_it == bounded_ring_capacity_.end()
+        || arr_it == mutable_variables.end()
+        || arr_it->second == nullptr) {
+      continue;
+    }
+    auto* arr_ty =
+      llvm::dyn_cast<llvm::ArrayType>(arr_it->second->getAllocatedType());
+    if (arr_ty == nullptr) {
+      continue;
+    }
+    TaskRingCapture rc;
+    rc.name = ref_name;
+    rc.cap = cap_it->second;
+    rc.arr_ty = arr_ty;
+    rc.elem_ty = arr_ty->getElementType();
+    if (auto family_it = bounded_ring_handle_family_.find(ref_name);
+        family_it != bounded_ring_handle_family_.end()) {
+      rc.handle_family = family_it->second;
+    }
+    rc.owns_cstr_elems =
+      !rc.handle_family.has_value() && rc.elem_ty->isPointerTy();
+    ring_captures.push_back(std::move(rc));
+  }
+  std::sort(
+    ring_captures.begin(),
+    ring_captures.end(),
+    [](const TaskRingCapture& lhs, const TaskRingCapture& rhs) {
       return lhs.name < rhs.name;
     });
 
@@ -598,9 +690,15 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   }
 
   std::vector<llvm::Type*> capture_types;
-  capture_types.reserve(captures.size());
+  capture_types.reserve(captures.size() + ring_captures.size() * 2);
   for (const TaskCapture& cap : captures) {
     capture_types.push_back(cap.type);
+  }
+  for (TaskRingCapture& rc : ring_captures) {
+    rc.snap_field = static_cast<unsigned>(capture_types.size());
+    capture_types.push_back(rc.arr_ty);
+    rc.head_field = static_cast<unsigned>(capture_types.size());
+    capture_types.push_back(theBuilder->getInt64Ty());
   }
   llvm::StructType* ctx_ty = nullptr;
   llvm::Value* ctx_ptr = llvm::ConstantPointerNull::get(llvm::PointerType::get(*theContext, 0));
@@ -616,7 +714,53 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
     ctx_ptr = theBuilder->CreateCall(malloc_fn, {theBuilder->getInt64(ctx_bytes)});
     for (std::size_t i = 0; i < captures.size(); ++i) {
       llvm::Value* field = theBuilder->CreateStructGEP(ctx_ty, ctx_ptr, static_cast<unsigned>(i));
-      theBuilder->CreateStore(captures[i].value, field);
+      llvm::Value* value = captures[i].value;
+      if (captures[i].owns_cstr) {
+        auto export_fn = theModule->getOrInsertFunction("styio_task_export_cstr",
+          llvm::FunctionType::get(char_ptr, {char_ptr}, false));
+        value = theBuilder->CreateCall(export_fn, {value});
+      }
+      theBuilder->CreateStore(value, field);
+    }
+    llvm::Value* ring_zero =
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0);
+    for (const TaskRingCapture& rc : ring_captures) {
+      llvm::Value* snap_base =
+        theBuilder->CreateStructGEP(ctx_ty, ctx_ptr, rc.snap_field);
+      llvm::AllocaInst* src_arr = mutable_variables[rc.name];
+      if (!rc.handle_family && !rc.owns_cstr_elems) {
+        // Distinct context and ring storage; numeric history has no ownership hooks.
+        theBuilder->CreateMemCpy(snap_base, llvm::MaybeAlign(), src_arr,
+          llvm::MaybeAlign(), theModule->getDataLayout().getTypeAllocSize(rc.arr_ty));
+      }
+      else for (std::uint64_t i = 0; i < rc.cap; ++i) {
+        llvm::Value* idx =
+          llvm::ConstantInt::get(theBuilder->getInt64Ty(), i);
+        llvm::Value* src = theBuilder->CreateInBoundsGEP(
+          rc.arr_ty, src_arr, {ring_zero, idx});
+        llvm::Value* dst = theBuilder->CreateInBoundsGEP(
+          rc.arr_ty, snap_base, {ring_zero, idx});
+        llvm::Value* cell = theBuilder->CreateLoad(rc.elem_ty, src);
+        if (rc.handle_family.has_value()) {
+          const int family = *rc.handle_family == StyioValueFamily::ListHandle ? 0
+            : *rc.handle_family == StyioValueFamily::DictHandle ? 1 : 2;
+          auto export_fn = theModule->getOrInsertFunction("styio_task_export_resource",
+            llvm::FunctionType::get(theBuilder->getInt64Ty(),
+              {theBuilder->getInt64Ty(), theBuilder->getInt32Ty()}, false));
+          cell = theBuilder->CreateCall(export_fn, {cell, theBuilder->getInt32(family)});
+        }
+        else if (rc.owns_cstr_elems) {
+          auto export_fn = theModule->getOrInsertFunction("styio_task_export_cstr",
+            llvm::FunctionType::get(char_ptr, {char_ptr}, false));
+          cell = theBuilder->CreateCall(export_fn, {cell});
+        }
+        theBuilder->CreateStore(cell, dst);
+      }
+      llvm::Value* head_gep =
+        theBuilder->CreateStructGEP(ctx_ty, ctx_ptr, rc.head_field);
+      llvm::Value* head_value = theBuilder->CreateLoad(
+        theBuilder->getInt64Ty(), bounded_ring_head_slot_[rc.name]);
+      theBuilder->CreateStore(head_value, head_gep);
     }
   }
 
@@ -638,6 +782,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_ring_pending_count = bounded_ring_pending_count_slot_;
   auto saved_ring_handle_family = bounded_ring_handle_family_;
   auto saved_bounded_ring_cstr_scopes = bounded_ring_cstr_scope_stack_;
+  auto saved_ring_pending_scopes = bounded_ring_pending_scope_stack_;
   auto saved_dyn_names = dynamic_variable_names_;
   auto saved_list_names = list_slot_names_;
   auto saved_i64_list_views = i64_list_view_cache_;
@@ -646,6 +791,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   auto saved_cstr_scopes = cstr_slot_scope_stack_;
   auto saved_dynamic_scopes = dynamic_slot_scope_stack_;
   auto saved_owned_cstr = owned_cstr_temps_;
+  auto saved_cstr_bindings = owned_cstr_binding_names_;
   auto saved_owned_resource = owned_resource_temps_;
   auto saved_owned_resource_scopes = owned_resource_scope_stack_;
   auto saved_return_resource_kind = current_function_return_resource_kind_;
@@ -658,6 +804,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   bounded_ring_pending_count_slot_.clear();
   bounded_ring_handle_family_.clear();
   bounded_ring_cstr_scope_stack_.clear();
+  bounded_ring_pending_scope_stack_.clear();
   dynamic_variable_names_.clear();
   list_slot_names_.clear();
   i64_list_view_cache_.clear();
@@ -666,6 +813,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   cstr_slot_scope_stack_.clear();
   dynamic_slot_scope_stack_.clear();
   owned_cstr_temps_.clear();
+  owned_cstr_binding_names_.clear();
   owned_resource_temps_.clear();
   owned_resource_scope_stack_.clear();
   current_function_return_resource_kind_.reset();
@@ -673,20 +821,88 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*theContext, "task_entry", task_fn);
   theBuilder->SetInsertPoint(entry);
   llvm::Argument* ctx_arg = task_fn->getArg(0);
+  push_file_handle_scope();
   for (std::size_t i = 0; i < captures.size(); ++i) {
     llvm::Value* field = theBuilder->CreateStructGEP(ctx_ty, ctx_arg, static_cast<unsigned>(i));
     llvm::Value* loaded = theBuilder->CreateLoad(captures[i].type, field, captures[i].name);
+    if (captures[i].owns_cstr) {
+      auto import_fn = theModule->getOrInsertFunction("styio_task_import_cstr",
+        llvm::FunctionType::get(char_ptr, {char_ptr}, false));
+      loaded = theBuilder->CreateCall(import_fn, {loaded});
+    }
     if (captures[i].mutable_slot) {
       llvm::AllocaInst* slot = create_entry_alloca(captures[i].type, captures[i].name);
       theBuilder->CreateStore(loaded, slot);
       mutable_variables[captures[i].name] = slot;
+      if (captures[i].owns_cstr) register_cstr_slot_for_raii(slot);
     }
     else {
       named_values[captures[i].name] = loaded;
+      if (captures[i].owns_cstr) {
+        /* The imported string is owned by this task body alone: a dedicated
+           slot carries the scope cleanup, and the name joins the ownership
+           metadata so a nested escaping task exports its own copy. */
+        llvm::AllocaInst* slot =
+          create_entry_alloca(captures[i].type, captures[i].name + ".import");
+        theBuilder->CreateStore(loaded, slot);
+        register_cstr_slot_for_raii(slot);
+        owned_cstr_binding_names_.insert(captures[i].name);
+      }
     }
   }
 
-  push_file_handle_scope();
+  for (const TaskRingCapture& rc : ring_captures) {
+    llvm::AllocaInst* arr = create_entry_alloca(rc.arr_ty, rc.name);
+    llvm::AllocaInst* head =
+      create_entry_alloca(theBuilder->getInt64Ty(), rc.name + ".head");
+    llvm::AllocaInst* pending =
+      create_entry_alloca(rc.arr_ty, rc.name + ".pending");
+    llvm::AllocaInst* pending_count = create_entry_alloca(
+      theBuilder->getInt64Ty(), rc.name + ".pending.count");
+    theBuilder->CreateStore(
+      llvm::ConstantAggregateZero::get(rc.arr_ty), pending);
+    theBuilder->CreateStore(
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0), pending_count);
+    llvm::Value* snap_base =
+      theBuilder->CreateStructGEP(ctx_ty, ctx_arg, rc.snap_field);
+    llvm::Value* ring_zero =
+      llvm::ConstantInt::get(theBuilder->getInt64Ty(), 0);
+    if (!rc.handle_family && !rc.owns_cstr_elems) {
+      theBuilder->CreateMemCpy(arr, llvm::MaybeAlign(), snap_base,
+        llvm::MaybeAlign(), theModule->getDataLayout().getTypeAllocSize(rc.arr_ty));
+    }
+    else for (std::uint64_t i = 0; i < rc.cap; ++i) {
+      llvm::Value* idx =
+        llvm::ConstantInt::get(theBuilder->getInt64Ty(), i);
+      llvm::Value* src = theBuilder->CreateInBoundsGEP(
+        rc.arr_ty, snap_base, {ring_zero, idx});
+      llvm::Value* dst =
+        theBuilder->CreateInBoundsGEP(rc.arr_ty, arr, {ring_zero, idx});
+      llvm::Value* cell = theBuilder->CreateLoad(rc.elem_ty, src);
+      if (rc.handle_family.has_value() || rc.owns_cstr_elems) {
+        const char* name = rc.handle_family ? "styio_task_import_resource" : "styio_task_import_cstr";
+        auto import_fn = theModule->getOrInsertFunction(name,
+          llvm::FunctionType::get(rc.elem_ty, {rc.elem_ty}, false));
+        cell = theBuilder->CreateCall(import_fn, {cell});
+      }
+      theBuilder->CreateStore(cell, dst);
+    }
+    llvm::Value* head_gep =
+      theBuilder->CreateStructGEP(ctx_ty, ctx_arg, rc.head_field);
+    theBuilder->CreateStore(
+      theBuilder->CreateLoad(theBuilder->getInt64Ty(), head_gep), head);
+    mutable_variables[rc.name] = arr;
+    bounded_ring_head_slot_[rc.name] = head;
+    bounded_ring_capacity_[rc.name] = rc.cap;
+    bounded_ring_pending_slot_[rc.name] = pending;
+    bounded_ring_pending_count_slot_[rc.name] = pending_count;
+    if (rc.handle_family.has_value()) {
+      bounded_ring_handle_family_[rc.name] = *rc.handle_family;
+    }
+    if (rc.owns_cstr_elems || rc.handle_family.has_value()) {
+      register_bounded_ring_cstr_for_raii(rc.name);
+    }
+  }
   llvm::Value* result = nullptr;
   if (node->body != nullptr) {
     for (StyioIR* stmt : node->body->stmts) {
@@ -733,6 +949,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
     else if (fn_ret->isPointerTy() && !result->getType()->isPointerTy()) {
       result = promote_to_cstr(result);
     }
+    if (fn_ret->isPointerTy()) result = clone_cstr_for_runtime_owner(result);
     pop_file_handle_scope();
     theBuilder->CreateRet(result);
   }
@@ -745,6 +962,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   bounded_ring_pending_count_slot_ = std::move(saved_ring_pending_count);
   bounded_ring_handle_family_ = std::move(saved_ring_handle_family);
   bounded_ring_cstr_scope_stack_ = std::move(saved_bounded_ring_cstr_scopes);
+  bounded_ring_pending_scope_stack_ = std::move(saved_ring_pending_scopes);
   dynamic_variable_names_ = std::move(saved_dyn_names);
   list_slot_names_ = std::move(saved_list_names);
   i64_list_view_cache_ = std::move(saved_i64_list_views);
@@ -753,6 +971,7 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   cstr_slot_scope_stack_ = std::move(saved_cstr_scopes);
   dynamic_slot_scope_stack_ = std::move(saved_dynamic_scopes);
   owned_cstr_temps_ = std::move(saved_owned_cstr);
+  owned_cstr_binding_names_ = std::move(saved_cstr_bindings);
   owned_resource_temps_ = std::move(saved_owned_resource);
   owned_resource_scope_stack_ = std::move(saved_owned_resource_scopes);
   current_function_return_resource_kind_ = saved_return_resource_kind;
@@ -761,22 +980,23 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   llvm::FunctionCallee spawn_fn = nullptr;
   const bool observed = node->observation.present && runtime_observation_enabled();
   llvm::Type* char_ptr_ty = llvm::PointerType::get(*theContext, 0);
+  const char* spawn_suffix = node->defer_launch ? "_held" : "";
   if (observed) {
     ensure_runtime_observation_registration();
     llvm::Type* desc_ty = theBuilder->getInt32Ty();
     if (styio_task_result_is_f64(node->result_type)) {
       spawn_fn = theModule->getOrInsertFunction(
-        "styio_task_f64_spawn_observed",
+        std::string("styio_task_f64_spawn") + spawn_suffix + "_observed",
         llvm::FunctionType::get(
           theBuilder->getInt64Ty(), {char_ptr_ty, char_ptr_ty, desc_ty}, false));
     } else if (styio_task_result_is_cstr(node->result_type)) {
       spawn_fn = theModule->getOrInsertFunction(
-        "styio_task_cstr_spawn_observed",
+        std::string("styio_task_cstr_spawn") + spawn_suffix + "_observed",
         llvm::FunctionType::get(
           theBuilder->getInt64Ty(), {char_ptr_ty, char_ptr_ty, desc_ty}, false));
     } else {
       spawn_fn = theModule->getOrInsertFunction(
-        "styio_task_i64_spawn_observed",
+        std::string("styio_task_i64_spawn") + spawn_suffix + "_observed",
         llvm::FunctionType::get(
           theBuilder->getInt64Ty(), {char_ptr_ty, char_ptr_ty, desc_ty}, false));
     }
@@ -786,17 +1006,17 @@ StyioToLLVM::toLLVMIR(SIOTaskCreate* node) {
   }
   if (styio_task_result_is_f64(node->result_type)) {
     spawn_fn = theModule->getOrInsertFunction(
-      "styio_task_f64_spawn",
+      std::string("styio_task_f64_spawn") + spawn_suffix,
       llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr, char_ptr}, false));
   }
   else if (styio_task_result_is_cstr(node->result_type)) {
     spawn_fn = theModule->getOrInsertFunction(
-      "styio_task_cstr_spawn",
+      std::string("styio_task_cstr_spawn") + spawn_suffix,
       llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr, char_ptr}, false));
   }
   else {
     spawn_fn = theModule->getOrInsertFunction(
-      "styio_task_i64_spawn",
+      std::string("styio_task_i64_spawn") + spawn_suffix,
       llvm::FunctionType::get(theBuilder->getInt64Ty(), {char_ptr, char_ptr}, false));
   }
   return theBuilder->CreateCall(spawn_fn, {task_fn, ctx_ptr});
@@ -976,6 +1196,44 @@ StyioToLLVM::toLLVMIR(SIOFlowBind* node) {
     forget_owned_cstr_temp(value);
   }
   return value;
+}
+
+llvm::Value*
+StyioToLLVM::toLLVMIR(SIOTaskOrder* node) {
+  llvm::Type* i64 = theBuilder->getInt64Ty();
+  llvm::Value* before_v = node->before_expr != nullptr
+    ? node->before_expr->toLLVMIR(this)
+    : theBuilder->getInt64(0);
+  llvm::Value* after_v = node->after_expr != nullptr
+    ? node->after_expr->toLLVMIR(this)
+    : theBuilder->getInt64(0);
+  if (before_v != nullptr && before_v->getType() != i64) {
+    before_v = before_v->getType()->isIntegerTy()
+      ? theBuilder->CreateSExtOrTrunc(before_v, i64)
+      : theBuilder->getInt64(0);
+  }
+  if (after_v != nullptr && after_v->getType() != i64) {
+    after_v = after_v->getType()->isIntegerTy()
+      ? theBuilder->CreateSExtOrTrunc(after_v, i64)
+      : theBuilder->getInt64(0);
+  }
+  llvm::FunctionCallee depend_fn = theModule->getOrInsertFunction(
+    "styio_task_depend",
+    llvm::FunctionType::get(theBuilder->getVoidTy(), {i64, i64}, false));
+  theBuilder->CreateCall(depend_fn, {before_v, after_v});
+  emit_runtime_error_guard_return();
+  /* Request launch at the last edge site for this target: a held after-task
+     stays queued behind pending_deps until every predecessor settles, so
+     launching once all same-block edges are registered cannot violate the
+     happens-before contract. */
+  if (node->emit_launch) {
+    llvm::FunctionCallee launch_fn = theModule->getOrInsertFunction(
+      "styio_task_launch",
+      llvm::FunctionType::get(theBuilder->getVoidTy(), {i64}, false));
+    theBuilder->CreateCall(launch_fn, {after_v});
+    emit_runtime_error_guard_return();
+  }
+  return nullptr;
 }
 
 void

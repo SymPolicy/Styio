@@ -2415,7 +2415,7 @@ TEST(StyioDiagnostics, CompilePlanNegotiatesRuntimeEventsV2) {
   {
     std::ofstream out(manifest);
     ASSERT_TRUE(out.is_open());
-    out << "name = \"example.app\"\n";
+    out << "name = \"example/app\"\n";
   }
   {
     std::ofstream out(source);
@@ -2432,16 +2432,18 @@ TEST(StyioDiagnostics, CompilePlanNegotiatesRuntimeEventsV2) {
       << "  \"intent\": \"run\",\n"
       << "  \"workspace_root\": \"" << root.generic_string() << "\",\n"
       << "  \"entry\": {\n"
-      << "    \"package_id\": \"example.app@1\",\n"
+      << "    \"package_id\": \"example/app@1\",\n"
       << "    \"target_kind\": \"bin\",\n"
       << "    \"target_name\": \"demo\",\n"
       << "    \"file\": \"" << source.generic_string() << "\"\n"
       << "  },\n"
       << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
       << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
-      << "  \"packages\": [{\"id\": \"example.app@1\",\"name\":\"example.app\",\"root\":\""
-      << pkg.generic_string() << "\",\"manifest\":\"" << manifest.generic_string() << "\"}],\n"
-      << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"example.app@1\"]},\n"
+      << "  \"packages\": [{\"id\": \"example/app@1\",\"name\":\"example/app\",\"version\":\"1\",\"root_dir\":\""
+      << pkg.generic_string() << "\",\"manifest_path\":\"" << manifest.generic_string()
+      << "\",\"source_kind\":\"workspace\",\"targets\":{\"lib\":null,\"bins\":[{\"name\":\"demo\",\"path\":\""
+      << source.generic_string() << "\"}]},\"dependency_aliases\":{}}],\n"
+      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"example/app@1\"]},\n"
       << "  \"outputs\": {\n"
       << "    \"build_root\": \"" << build_root.string() << "\",\n"
       << "    \"artifact_dir\": \"" << artifact_dir.string() << "\",\n"

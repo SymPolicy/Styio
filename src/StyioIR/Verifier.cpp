@@ -832,6 +832,12 @@ private:
   }
 
   void
+  visitSIOTaskOrder(SIOTaskOrder* node) override {
+    walk_required(node->before_expr, "SIOTaskOrder.before_expr");
+    walk_required(node->after_expr, "SIOTaskOrder.after_expr");
+  }
+
+  void
   visitSIOPrint(SIOPrint* node) override {
     for (auto* expr : node->expr) {
       walk_required(expr, "SIOPrint.expr");

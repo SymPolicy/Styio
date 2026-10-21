@@ -102,8 +102,8 @@ struct SessionGuard
   }
 };
 
-std::uint64_t& clock_counter() {
-  static std::uint64_t value = 1000;
+std::atomic<std::uint64_t>& clock_counter() {
+  static std::atomic<std::uint64_t> value = 1000;
   return value;
 }
 
@@ -157,6 +157,31 @@ int64_t task_sleep_then_9(void*) {
 
 int64_t task_throw_canary(void*) {
   throw std::runtime_error("diagnostic canary message");
+}
+
+std::mutex g_task_order_log_mu;
+std::vector<int>* g_task_order_log = nullptr;
+
+/* The runtime takes ownership of task ctx (it calls std::free(ctx) after
+   the task settles), so tests must hand it a heap value. */
+void* order_ctx(int value) {
+  auto* slot = static_cast<int*>(std::malloc(sizeof(int)));
+  *slot = value;
+  return slot;
+}
+
+int64_t task_order_record(void* ctx) {
+  const int value = ctx != nullptr ? *static_cast<int*>(ctx) : 0;
+  {
+    std::lock_guard<std::mutex> lock(g_task_order_log_mu);
+    g_task_order_log->push_back(value);
+  }
+  return value;
+}
+
+int64_t task_order_slow_record(void* ctx) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(40));
+  return task_order_record(ctx);
 }
 
 std::vector<obs::ParseIssue> parse_jsonl(const std::string& text) {
@@ -301,9 +326,301 @@ TEST(StyioObservableRuntime, TaskSchedulerEmitsOwnedLifecycleAndCausalEdges) {
   EXPECT_EQ(sink.joined().find("diagnostic canary message"), std::string::npos);
 }
 
+TEST(StyioObservableRuntime, TaskOrderEdgeHoldsDependentUntilPredecessorSettles) {
+  styio_runtime_clear_error();
+  std::vector<int> log;
+  g_task_order_log = &log;
+
+  const int64_t first =
+    styio_task_i64_spawn(&task_order_slow_record, order_ctx(1));
+  const int64_t second =
+    styio_task_i64_spawn_held(&task_order_record, order_ctx(2));
+  ASSERT_NE(first, 0);
+  ASSERT_NE(second, 0);
+
+  styio_task_depend(first, second);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  styio_task_launch(second);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+
+  EXPECT_EQ(styio_task_i64_pull(second), 2);
+  EXPECT_EQ(styio_task_i64_pull(first), 1);
+  {
+    std::lock_guard<std::mutex> lock(g_task_order_log_mu);
+    ASSERT_EQ(log.size(), 2u);
+    EXPECT_EQ(log[0], 1);
+    EXPECT_EQ(log[1], 2);
+  }
+  styio_task_release(first);
+  styio_task_release(second);
+  g_task_order_log = nullptr;
+}
+
+TEST(StyioObservableRuntime, TaskOrderMultiplePredecessorsAllGateTheDependent) {
+  styio_runtime_clear_error();
+  std::vector<int> log;
+  g_task_order_log = &log;
+
+  const int64_t a =
+    styio_task_i64_spawn(&task_order_slow_record, order_ctx(1));
+  const int64_t b =
+    styio_task_i64_spawn(&task_order_slow_record, order_ctx(2));
+  const int64_t c =
+    styio_task_i64_spawn_held(&task_order_record, order_ctx(3));
+  ASSERT_NE(a, 0);
+  ASSERT_NE(b, 0);
+  ASSERT_NE(c, 0);
+
+  styio_task_depend(a, c);
+  styio_task_depend(b, c);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  styio_task_launch(c);
+
+  EXPECT_EQ(styio_task_i64_pull(c), 3);
+  {
+    std::lock_guard<std::mutex> lock(g_task_order_log_mu);
+    ASSERT_EQ(log.size(), 3u);
+    EXPECT_EQ(log[2], 3);
+  }
+  styio_task_release(a);
+  styio_task_release(b);
+  styio_task_release(c);
+  g_task_order_log = nullptr;
+}
+
+TEST(StyioObservableRuntime, TaskOrderPullBackstopLaunchesHeldTaskWithoutEdge) {
+  styio_runtime_clear_error();
+  std::vector<int> log;
+  g_task_order_log = &log;
+
+  const int64_t held =
+    styio_task_i64_spawn_held(&task_order_record, order_ctx(9));
+  ASSERT_NE(held, 0);
+  EXPECT_EQ(styio_task_i64_pull(held), 9);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  styio_task_release(held);
+  {
+    std::lock_guard<std::mutex> lock(g_task_order_log_mu);
+    ASSERT_EQ(log.size(), 1u);
+    EXPECT_EQ(log[0], 9);
+  }
+  g_task_order_log = nullptr;
+}
+
+TEST(StyioObservableRuntime, TaskOrderEdgeAfterPredecessorCompletionStillLaunches) {
+  styio_runtime_clear_error();
+  std::vector<int> log;
+  g_task_order_log = &log;
+
+  const int64_t first =
+    styio_task_i64_spawn(&task_order_record, order_ctx(1));
+  const int64_t second =
+    styio_task_i64_spawn_held(&task_order_record, order_ctx(2));
+  ASSERT_NE(first, 0);
+  ASSERT_NE(second, 0);
+
+  /* Settle the predecessor before the edge is even declared. */
+  EXPECT_EQ(styio_task_i64_pull(first), 1);
+  styio_task_depend(first, second);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  styio_task_launch(second);
+  EXPECT_EQ(styio_task_i64_pull(second), 2);
+
+  styio_task_release(first);
+  styio_task_release(second);
+  g_task_order_log = nullptr;
+}
+
+TEST(StyioObservableRuntime, TaskOrderFailedPredecessorStillReleasesDependent) {
+  styio_runtime_clear_error();
+  std::vector<int> log;
+  g_task_order_log = &log;
+
+  const int64_t failed =
+    styio_task_i64_spawn(&task_throw_canary, nullptr);
+  const int64_t second =
+    styio_task_i64_spawn_held(&task_order_record, order_ctx(2));
+  ASSERT_NE(failed, 0);
+  ASSERT_NE(second, 0);
+
+  styio_task_depend(failed, second);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  styio_task_launch(second);
+
+  /* The dependent must run once the predecessor settles, even on failure. */
+  EXPECT_EQ(styio_task_i64_pull(second), 2);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+  EXPECT_EQ(styio_task_i64_pull(failed), 0);
+  styio_runtime_clear_error();
+
+  {
+    std::lock_guard<std::mutex> lock(g_task_order_log_mu);
+    ASSERT_EQ(log.size(), 1u);
+    EXPECT_EQ(log[0], 2);
+  }
+  styio_task_release(failed);
+  styio_task_release(second);
+  g_task_order_log = nullptr;
+}
+
+TEST(StyioObservableRuntime, TaskOrderRejectsInvalidSelfAndLaunchedTargets) {
+  styio_runtime_clear_error();
+  const int64_t held =
+    styio_task_i64_spawn_held(&task_order_record, order_ctx(1));
+  ASSERT_NE(held, 0);
+
+  styio_task_depend(0, held);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+
+  styio_task_depend(held, 0);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+
+  styio_task_depend(held, held);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+
+  /* An already-launched task cannot be ordered retroactively. */
+  std::vector<int> log;
+  g_task_order_log = &log;
+  const int64_t eager =
+    styio_task_i64_spawn(&task_order_record, order_ctx(2));
+  ASSERT_NE(eager, 0);
+  styio_task_depend(held, eager);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+
+  EXPECT_EQ(styio_task_i64_pull(eager), 2);
+  EXPECT_EQ(styio_task_i64_pull(held), 1);
+  styio_task_release(held);
+  styio_task_release(eager);
+  g_task_order_log = nullptr;
+}
+
+TEST(StyioObservableRuntime, TaskOrderRejectsGeneralCyclesAndSettlesRemainingGraph) {
+  styio_runtime_clear_error();
+  const int64_t a = styio_task_i64_spawn_held(&task_return_7, nullptr);
+  const int64_t b = styio_task_i64_spawn_held(&task_return_7, nullptr);
+  const int64_t c = styio_task_i64_spawn_held(&task_return_7, nullptr);
+  styio_task_depend(a, b);
+  styio_task_depend(b, a);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+  styio_task_depend(b, c);
+  styio_task_depend(c, a);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+  // Reverse release demands all held ancestors; rejection must not strand them.
+  styio_task_release(c);
+  styio_task_release(b);
+  styio_task_release(a);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioObservableRuntime, TaskOrderFanoutExceedsQueueAndPredecessorCanBeReleased) {
+  styio_runtime_clear_error();
+  // This target runs with queue capacity 2 and one worker. Every successor is
+  // registered before the predecessor launches, so completion must dispatch >2.
+  const int64_t first = styio_task_i64_spawn_held(&task_return_7, nullptr);
+  std::vector<int64_t> dependents;
+  for (int i = 0; i < 8; ++i) {
+    const int64_t task = styio_task_i64_spawn_held(&task_return_7, nullptr);
+    styio_task_depend(first, task);
+    styio_task_launch(task);
+    dependents.push_back(task);
+  }
+  styio_task_launch(first);
+  EXPECT_EQ(styio_task_i64_pull(first), 7);
+  styio_task_release(first);
+  for (const int64_t task : dependents) {
+    EXPECT_EQ(styio_task_i64_pull(task), 7);
+    styio_task_release(task);
+  }
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioObservableRuntime, TaskCaptureTransfersMatrixAndStringOwnership) {
+  styio_runtime_clear_error();
+  auto* captures = static_cast<int64_t*>(std::malloc(2 * sizeof(int64_t)));
+  const int64_t parent_count = styio_matrix_active_count();
+  const int64_t source = styio_matrix_new_i64(1, 1);
+  styio_matrix_set_i64(source, 0, 0, 7);
+  captures[0] = styio_task_export_resource(source, 2);
+  captures[1] = reinterpret_cast<int64_t>(styio_task_export_cstr("captured"));
+  styio_matrix_release(source);
+  EXPECT_EQ(styio_matrix_active_count(), parent_count);
+  const int64_t task = styio_task_i64_spawn([](void* raw) -> int64_t {
+    auto* fields = static_cast<int64_t*>(raw);
+    const int64_t worker_count = styio_matrix_active_count();
+    const int64_t matrix = styio_task_import_resource(fields[0]);
+    const char* text = styio_task_import_cstr(reinterpret_cast<const char*>(fields[1]));
+    const int64_t value = styio_matrix_get_i64(matrix, 0, 0);
+    const bool valid_text = std::strcmp(text, "captured") == 0;
+    styio_matrix_release(matrix);
+    styio_free_cstr(text);
+    return valid_text && styio_matrix_active_count() == worker_count ? value : -1;
+  }, captures);
+  EXPECT_EQ(styio_task_i64_pull(task), 7);
+  styio_task_release(task);
+  EXPECT_EQ(styio_runtime_has_error(), 0);
+}
+
+TEST(StyioObservableRuntime, TaskCaptureNestedContainersOutliveParentAndReleaseOnFailure) {
+  styio_runtime_clear_error();
+  const int64_t parent_lists = styio_list_active_count();
+  const int64_t parent_dicts = styio_dict_active_count();
+  const int64_t values = styio_list_new_i64();
+  styio_list_push_i64(values, 7);
+  const int64_t inner = styio_dict_new_list();
+  styio_dict_set_list(inner, "values", values);
+  const int64_t outer = styio_dict_new_dict();
+  styio_dict_set_dict(outer, "inner", inner);
+  const int64_t list = styio_list_new_dict();
+  styio_list_push_dict(list, outer);
+  auto* capture = static_cast<int64_t*>(std::malloc(sizeof(int64_t)));
+  *capture = styio_task_export_resource(list, 0);
+  styio_list_release(list);
+  styio_dict_release(outer);
+  styio_dict_release(inner);
+  styio_list_release(values);
+  EXPECT_EQ(styio_list_active_count(), parent_lists);
+  EXPECT_EQ(styio_dict_active_count(), parent_dicts);
+  const int64_t task = styio_task_i64_spawn([](void* raw) -> int64_t {
+    const int64_t lists_before = styio_list_active_count();
+    const int64_t dicts_before = styio_dict_active_count();
+    const int64_t root = styio_task_import_resource(*static_cast<int64_t*>(raw));
+    const int64_t outer_copy = styio_list_get_dict(root, 0);
+    const int64_t inner_copy = styio_dict_get_dict(outer_copy, "inner");
+    const int64_t values_copy = styio_dict_get_list(inner_copy, "values");
+    const int64_t value = styio_list_get(values_copy, 0);
+    styio_list_release(values_copy);
+    styio_dict_release(inner_copy);
+    styio_dict_release(outer_copy);
+    styio_list_release(root);
+    if (value != 7 || styio_list_active_count() != lists_before
+        || styio_dict_active_count() != dicts_before) return -1;
+    throw std::runtime_error("capture failure after deterministic cleanup");
+  }, capture);
+  EXPECT_EQ(styio_task_i64_pull(task), 0);
+  EXPECT_NE(styio_runtime_has_error(), 0);
+  styio_runtime_clear_error();
+  styio_task_release(task);
+  EXPECT_EQ(styio_list_active_count(), parent_lists);
+  EXPECT_EQ(styio_dict_active_count(), parent_dicts);
+}
+
 TEST(StyioObservableRuntime, WaitEpisodesPairReasonsSubjectsAndResolutions) {
   styio_test_setenv("STYIO_TASK_QUEUE_CAPACITY", "2", 1);
   styio_test_setenv("STYIO_TASK_THREADS", "1", 1);
+  {
+    CapturingSink previous_sink;
+    ASSERT_TRUE(rt::begin_session(make_config(obs::ObservationMode::Detailed, previous_sink)));
+    const int64_t previous = styio_task_i64_spawn(&task_return_7, nullptr);
+    EXPECT_EQ(styio_task_i64_pull(previous), 7);
+    styio_task_release(previous);
+    rt::end_session();
+  }
   SessionGuard guard;
   reset_clock();
   CapturingSink sink;
@@ -633,7 +950,7 @@ TEST(StyioObservableRuntime, ExporterFailureIsIsolated) {
 }
 
 TEST(StyioObservableRuntime, DeterministicFixtureIsConsumerIndependent) {
-  const std::string text = read_text(fixture_dir() / "canonical.jsonl");
+  const std::string text = read_text(fixture_dir() / "canonical.ndjson");
   ASSERT_FALSE(text.empty());
   const auto records = parse_jsonl(text);
   ASSERT_GE(records.size(), 4u);
@@ -689,7 +1006,7 @@ TEST(StyioObservableRuntime, DeterministicFixtureIsConsumerIndependent) {
 }
 
 TEST(StyioObservableRuntime, UnknownAdditiveFieldsPreserveKnownSemantics) {
-  const std::string text = read_text(fixture_dir() / "additive-fields.jsonl");
+  const std::string text = read_text(fixture_dir() / "additive-fields.ndjson");
   ASSERT_FALSE(text.empty());
   for (const auto& line : split_lines(text)) {
     const auto parsed = obs::parse_runtime_record(line);
@@ -721,7 +1038,7 @@ TEST(StyioObservableRuntime, UnknownAdditiveFieldsPreserveKnownSemantics) {
 TEST(StyioObservableRuntime, StrictPrivacyFixtureExcludesCanaries) {
   const auto canaries = obs::privacy_canaries();
   ASSERT_FALSE(canaries.empty());
-  for (const auto name : {"canonical.jsonl", "additive-fields.jsonl"}) {
+  for (const auto name : {"canonical.ndjson", "additive-fields.ndjson"}) {
     const std::string text = read_text(fixture_dir() / name);
     EXPECT_FALSE(obs::payload_contains_privacy_canary(text)) << name;
   }

@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -93,15 +94,138 @@ def read_body(
     return bytes(buffer[body_start:body_end])
 
 
+def task_resource_parity(binary: Path, evidence_dir: Path | None) -> int:
+    """Exercise the selected server, including its request-driven semantic drain."""
+    fixture = Path(__file__).resolve().parent / "features/state_resources/t13_task_history_capture.styio"
+    if evidence_dir is not None:
+        evidence_dir = evidence_dir.resolve()
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="styio-lsp-task-") as temporary:
+        workspace = evidence_dir / "workspace" if evidence_dir else Path(temporary)
+        workspace.mkdir(parents=True, exist_ok=True)
+        document = workspace / fixture.name
+        shutil.copyfile(fixture, document)
+        good = document.read_text(encoding="utf-8")
+        assert "[-1]" in good
+        malformed = good.replace("[-1]", "[)]", 1)
+        uri = file_uri(document)
+        transcript = []
+        environment = os.environ.copy()
+        environment["XDG_CACHE_HOME"] = str(workspace / "cache")
+        stderr_path = (evidence_dir or Path(temporary)) / "server.stderr.log"
+        with stderr_path.open("wb") as stderr:
+            process = subprocess.Popen(
+                [str(binary)], cwd=workspace, env=environment,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr,
+            )
+            assert process.stdin is not None and process.stdout is not None
+
+            def send(method, params, request_id=None):
+                message = {"jsonrpc": "2.0", "method": method, "params": params}
+                if request_id is not None:
+                    message["id"] = request_id
+                transcript.append({"direction": "send", "message": message})
+                body = json.dumps(message, separators=(",", ":")).encode("utf-8")
+                process.stdin.write(b"Content-Length: " + str(len(body)).encode("ascii") + STANDARD_BOUNDARY + body)
+                process.stdin.flush()
+
+            def receive():
+                # EOF is a failure; elapsed time is not a reason to kill a viable server.
+                header = process.stdout.readline()
+                assert header.startswith(b"Content-Length: ") and header.endswith(b"\r\n"), header
+                assert process.stdout.readline() == b"\r\n"
+                body = process.stdout.read(int(header.split(b":", 1)[1]))
+                message = json.loads(body)
+                transcript.append({"direction": "receive", "message": message})
+                return message
+
+            def through_response(request_id):
+                publications = []
+                while True:
+                    message = receive()
+                    if message.get("id") == request_id:
+                        assert "result" in message, message
+                        return publications
+                    assert message.get("method") == "textDocument/publishDiagnostics", message
+                    publications.append(message["params"])
+
+            def barrier(request_id):
+                send("textDocument/documentSymbol", {"textDocument": {"uri": uri}}, request_id)
+                return through_response(request_id)
+
+            stages = []
+            try:
+                send("initialize", {"rootUri": file_uri(workspace), "capabilities": {}}, 1)
+                assert through_response(1) == []
+                send("initialized", {})
+                for version, source in ((1, good), (2, malformed), (3, good)):
+                    if version == 1:
+                        send("textDocument/didOpen", {"textDocument": {
+                            "uri": uri, "languageId": "styio", "version": version, "text": source}})
+                    else:
+                        send("textDocument/didChange", {"textDocument": {"uri": uri, "version": version},
+                            "contentChanges": [{"text": source}]})
+                    publications = barrier(version * 10)
+                    document.write_text(source, encoding="utf-8")
+                    # didSave has no version field: it refers to the latest synchronized version.
+                    transcript.append({"saved_document_version": version})
+                    send("textDocument/didSave", {"textDocument": {"uri": uri}})
+                    after_save = barrier(version * 10 + 1)
+                    stages.append((version, publications, after_save))
+
+                # Queue an invalid edit and its repair together; no old publication may
+                # follow a newer one, and the final current publication must be clear.
+                for version, source in ((4, malformed), (5, good)):
+                    send("textDocument/didChange", {"textDocument": {"uri": uri, "version": version},
+                        "contentChanges": [{"text": source}]})
+                rapid = barrier(50)
+                send("textDocument/didClose", {"textDocument": {"uri": uri}})
+            finally:
+                process.stdin.close()
+                trailing_stdout = process.stdout.read()
+                exit_code = process.wait()
+                if evidence_dir:
+                    (evidence_dir / "protocol.json").write_text(json.dumps({
+                        "binary": str(binary), "server_exit": exit_code, "transcript": transcript,
+                        "trailing_stdout": trailing_stdout.decode("utf-8", errors="replace"),
+                    }, indent=2) + "\n", encoding="utf-8")
+                    (evidence_dir / "server.exit").write_text(str(exit_code) + "\n")
+
+        assert exit_code == 0, exit_code
+        assert trailing_stdout == b"", trailing_stdout
+        for version, publications, after_save in stages:
+            # The first publication is syntax; the second is the merged compiler bridge result.
+            assert len(publications) == 2, (version, publications)
+            assert after_save == [], (version, after_save)  # save itself is currently a no-op
+            for publication in publications:
+                assert publication["uri"] == uri and publication["version"] == version
+                diagnostics = publication["diagnostics"]
+                if version == 2:
+                    assert any(d.get("code") == "STYIO_SERVICE_EDITOR_SYNTAX" for d in diagnostics)
+                else:
+                    assert diagnostics == [], (version, diagnostics)
+        assert [p["version"] for p in rapid] == [4, 4, 5, 5], rapid
+        assert all(p["uri"] == uri for p in rapid)
+        assert all(p["diagnostics"] for p in rapid if p["version"] == 4)
+        assert all(p["diagnostics"] == [] for p in rapid if p["version"] == 5)
+        print("task-resource LSP syntax/merged diagnostics and saved versions agree; restored and current diagnostics clear")
+        return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", required=True, help="Path to the built styio_lspd executable")
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--task-resource-parity", action="store_true")
+    parser.add_argument("--evidence-dir", type=Path)
     args = parser.parse_args()
 
     binary = Path(args.binary)
     if not binary.exists():
         fail(f"styio_lspd binary not found: {binary}")
+
+    if args.task_resource_parity:
+        return task_resource_parity(binary.resolve(), args.evidence_dir)
 
     with tempfile.TemporaryDirectory(prefix="styio-lspd-framing-") as workspace:
         workspace_path = Path(workspace)

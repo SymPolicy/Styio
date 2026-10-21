@@ -701,6 +701,9 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
   *static_cast<BlockingTaskContext*>(first->ctx) = {&entered, &release, 40};
   StyioTaskScheduler::instance().enqueue(first);
   entered.wait(false, std::memory_order_acquire);
+  // The blocked callback keeps the executor live: both it and this test own
+  // references until completion and owner release, respectively.
+  EXPECT_EQ(first->references.load(std::memory_order_acquire), 2u);
 
   auto make_value_task = [](int64_t value) {
     auto* task = new StyioTask(StyioTaskValueKind::I64);
@@ -750,16 +753,353 @@ TEST(StyioExternLibInternal, TaskSchedulerAndPendingTaskReleaseEdgesStayExplicit
   EXPECT_EQ(snapshot.queue_closed, 0);
   EXPECT_FALSE(styio::runtime::has_error());
   styio_task_scheduler_profile_enable(0);
-  delete first;
-  delete second;
-  delete third;
+  // Ready publication precedes the executor's final access. Release the owner
+  // reference instead of deleting underneath run()'s terminal decrement.
+  close_task(first);
+  close_task(second);
+  close_task(third);
 
-  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  auto* task = make_value_task(42);
+  ASSERT_NE(task->ctx, nullptr);
   ++g_active_task_handles;
-  std::thread ready([task]() {
-    (*task).ready.store(true, std::memory_order_release);
-    (*task).ready.notify_all();
-  });
+  EXPECT_FALSE(task->ready.load(std::memory_order_acquire));
+  // Closing a pending owner must demand a real launch and settle it. A helper
+  // thread publishing ready would race completion and bypass this contract.
   close_task(task);
-  ready.join();
+  EXPECT_EQ(g_active_task_handles, 0);
+}
+
+TEST(StyioExternLibInternal, ReadyTaskPullsStaySettledWithoutEnqueueOrRerun) {
+  styio_task_scheduler_profile_reset();
+  styio_task_scheduler_profile_enable(1);
+
+  StyioTaskSchedulerProfileSnapshot before{};
+  styio_task_scheduler_profile_snapshot(&before);
+
+  const int64_t i64_task = styio_task_i64_ready(7);
+  const int64_t f64_task = styio_task_f64_ready(2.5);
+  const int64_t cstr_task = styio_task_cstr_ready("ready-text");
+
+  // Construction settles the result; nothing may be enqueued before a pull.
+  StyioTaskSchedulerProfileSnapshot prepared{};
+  styio_task_scheduler_profile_snapshot(&prepared);
+  EXPECT_EQ(prepared.enqueued_tasks, before.enqueued_tasks);
+  EXPECT_EQ(prepared.started_tasks, before.started_tasks);
+
+  EXPECT_EQ(styio_task_i64_pull(i64_task), 7);
+  EXPECT_DOUBLE_EQ(styio_task_f64_pull(f64_task), 2.5);
+  EXPECT_EQ(take_owned_cstr(styio_task_cstr_pull(cstr_task)), "ready-text");
+
+  // Pulling a settled task consumes the retained result without launching a
+  // worker; no enqueue, start, completion or queue pop may follow the pull.
+  StyioTaskSchedulerProfileSnapshot after{};
+  styio_task_scheduler_profile_snapshot(&after);
+  EXPECT_EQ(after.enqueued_tasks, prepared.enqueued_tasks);
+  EXPECT_EQ(after.started_tasks, prepared.started_tasks);
+  EXPECT_EQ(after.completed_tasks, prepared.completed_tasks);
+  EXPECT_EQ(after.queue_pops, prepared.queue_pops);
+  EXPECT_EQ(after.fast_ready_pulls, prepared.fast_ready_pulls + 3);
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  // A second pull stays rejected and never falls back to running the task.
+  EXPECT_EQ(styio_task_i64_pull(i64_task), 0);
+  EXPECT_EQ(styio_runtime_error_matches_effect("closed"), 1);
+  styio_runtime_clear_error();
+  StyioTaskSchedulerProfileSnapshot rejected{};
+  styio_task_scheduler_profile_snapshot(&rejected);
+  EXPECT_EQ(rejected.enqueued_tasks, prepared.enqueued_tasks);
+  EXPECT_EQ(rejected.started_tasks, prepared.started_tasks);
+
+  styio_task_scheduler_profile_enable(0);
+  styio_task_release(i64_task);
+  styio_task_release(f64_task);
+  styio_task_release(cstr_task);
+}
+
+namespace {
+
+/* Task contexts are released by the runtime with std::free, so tests allocate
+   them with std::malloc and initialize the storage in place, matching the
+   compiled allocation contract; callers check the returned pointer before
+   writing through it. */
+template <typename T>
+T* allocate_task_ctx() {
+  auto* ctx = static_cast<T*>(std::malloc(sizeof(T)));
+  if (ctx == nullptr) {
+    ADD_FAILURE() << "task context allocation failed";
+  }
+  return ctx;
+}
+
+struct NestedWaitChildSpec {
+  int64_t value = 0;
+  bool raise = false;
+};
+
+int64_t
+run_nested_wait_child(void* raw) {
+  auto* spec = static_cast<NestedWaitChildSpec*>(raw);
+  if (spec->raise) {
+    /* Provoke a real runtime error so the task settles as failed. */
+    (void)styio_task_i64_pull(0);
+    return 0;
+  }
+  return spec->value;
+}
+
+struct NestedWaitParentSpec {
+  int64_t child_value = 0;
+  bool child_raises = false;
+  bool child_held = false;
+  int64_t predecessor_value = 0;
+  bool release_without_pull = false;
+  bool parent_pending_error = false;
+  int64_t parent_value = 0;
+};
+
+/* Mirrors compiled task creation inside a task body: create the child on the
+   executing thread, keep the handle thread-local, then pull or release it. */
+int64_t
+run_nested_wait_parent(void* raw) {
+  auto* spec = static_cast<NestedWaitParentSpec*>(raw);
+  if (spec->parent_pending_error) {
+    /* The parent's own error is still pending when the nested child runs
+       inline; it must survive to this body's settle. */
+    styio::runtime::set_error_once(
+      "STYIO_RUNTIME_FILE_OPEN_READ",
+      "nested parent pending");
+  }
+  auto* child = new StyioTask(StyioTaskValueKind::I64);
+  (*child).i64_fn = run_nested_wait_child;
+  (*child).ctx = allocate_task_ctx<NestedWaitChildSpec>();
+  if ((*child).ctx == nullptr) {
+    return 0;
+  }
+  *static_cast<NestedWaitChildSpec*>((*child).ctx) = {
+    spec->child_value, spec->child_raises};
+  const int64_t child_handle = stash_spawned_task(child, spec->child_held);
+  int64_t predecessor_handle = 0;
+  if (spec->child_held) {
+    auto* predecessor = new StyioTask(StyioTaskValueKind::I64);
+    (*predecessor).i64_fn = run_value_task;
+    (*predecessor).ctx = allocate_task_ctx<int64_t>();
+    if ((*predecessor).ctx == nullptr) {
+      return 0;
+    }
+    *static_cast<int64_t*>((*predecessor).ctx) = spec->predecessor_value;
+    predecessor_handle = stash_spawned_task(predecessor, true);
+    styio_task_depend(predecessor_handle, child_handle);
+  }
+  int64_t pulled = spec->parent_value;
+  if (spec->release_without_pull) {
+    styio_task_release(child_handle);
+  }
+  else {
+    pulled += styio_task_i64_pull(child_handle);
+    styio_task_release(child_handle);
+  }
+  if (predecessor_handle != 0) {
+    styio_task_release(predecessor_handle);
+  }
+  return pulled;
+}
+
+int64_t
+drive_nested_wait_parent(const NestedWaitParentSpec& spec) {
+  auto* parent = new StyioTask(StyioTaskValueKind::I64);
+  (*parent).i64_fn = run_nested_wait_parent;
+  (*parent).ctx = allocate_task_ctx<NestedWaitParentSpec>();
+  if ((*parent).ctx == nullptr) {
+    return 0;
+  }
+  *static_cast<NestedWaitParentSpec*>((*parent).ctx) = spec;
+  const int64_t handoff = stash_spawned_task(parent, false);
+  const int64_t pulled = styio_task_i64_pull(handoff);
+  styio_task_release(handoff);
+  return pulled;
+}
+
+struct QueueFullParentSpec {
+  int64_t first_value = 0;
+  int64_t second_value = 0;
+  bool parent_pending_error = false;
+};
+
+/* Mirrors a body that launches two children before pulling either: the first
+   fits the bounded ready queue, the second arrives while the queue is full
+   and the only executor is this body, so it runs through the queue-full
+   work-first path inline on this thread. */
+int64_t
+run_queue_full_parent(void* raw) {
+  auto* spec = static_cast<QueueFullParentSpec*>(raw);
+  if (spec->parent_pending_error) {
+    styio::runtime::set_error_once(
+      "STYIO_RUNTIME_FILE_OPEN_READ",
+      "nested parent pending");
+  }
+  auto* first = new StyioTask(StyioTaskValueKind::I64);
+  (*first).i64_fn = run_nested_wait_child;
+  (*first).ctx = allocate_task_ctx<NestedWaitChildSpec>();
+  if ((*first).ctx == nullptr) {
+    return 0;
+  }
+  *static_cast<NestedWaitChildSpec*>((*first).ctx) = {spec->first_value, false};
+  const int64_t first_handle = stash_spawned_task(first, false);
+  auto* second = new StyioTask(StyioTaskValueKind::I64);
+  (*second).i64_fn = run_nested_wait_child;
+  (*second).ctx = allocate_task_ctx<NestedWaitChildSpec>();
+  if ((*second).ctx == nullptr) {
+    return 0;
+  }
+  *static_cast<NestedWaitChildSpec*>((*second).ctx) = {spec->second_value, false};
+  const int64_t second_handle = stash_spawned_task(second, false);
+  int64_t sum = styio_task_i64_pull(first_handle);
+  sum += styio_task_i64_pull(second_handle);
+  styio_task_release(first_handle);
+  styio_task_release(second_handle);
+  return sum;
+}
+
+int64_t
+drive_queue_full_parent(const QueueFullParentSpec& spec) {
+  auto* parent = new StyioTask(StyioTaskValueKind::I64);
+  (*parent).i64_fn = run_queue_full_parent;
+  (*parent).ctx = allocate_task_ctx<QueueFullParentSpec>();
+  if ((*parent).ctx == nullptr) {
+    return 0;
+  }
+  *static_cast<QueueFullParentSpec*>((*parent).ctx) = spec;
+  const int64_t handoff = stash_spawned_task(parent, false);
+  const int64_t pulled = styio_task_i64_pull(handoff);
+  styio_task_release(handoff);
+  return pulled;
+}
+
+}  // namespace
+
+TEST(StyioExternLibInternal, NestedTaskWaitsKeepSingleWorkerForwardProgress) {
+  // This test protects the single-worker shape where a task body that waits
+  // on another task is the only executor, so it configures and verifies that
+  // shape itself before its first scheduler access instead of depending on a
+  // previously executed test: without helping drain dependency-satisfied
+  // work every shape below would strand its child behind the blocked worker
+  // and never return.
+  EnvVarGuard threads("STYIO_TASK_THREADS");
+  threads.set("1");
+  EnvVarGuard capacity("STYIO_TASK_QUEUE_CAPACITY");
+  capacity.set("1");
+  ASSERT_EQ(StyioTaskScheduler::instance().worker_count(), 1u);
+  // The queue-full scenarios below are defined by this capacity: a second
+  // launched child cannot queue behind the first while this body runs.
+  ASSERT_EQ(
+    StyioTaskScheduler::instance().ready_queue_snapshot().capacity,
+    1u);
+  const int64_t main_handles_before = g_active_task_handles;
+  styio_task_scheduler_profile_reset();
+  styio_task_scheduler_profile_enable(1);
+
+  StyioTaskSchedulerProfileSnapshot before{};
+  styio_task_scheduler_profile_snapshot(&before);
+
+  // 1. A task body creates and pulls a finite child while the queue has space.
+  const int64_t pulled = drive_nested_wait_parent(NestedWaitParentSpec{.child_value = 42});
+  EXPECT_EQ(pulled, 42);
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  // 2. A held child behind a never-launched predecessor: the demand pull must
+  //    launch the predecessor first, and both run before the child settles.
+  const int64_t ordered = drive_nested_wait_parent(NestedWaitParentSpec{
+    .child_value = 21, .child_held = true, .predecessor_value = 7, .parent_value = 1});
+  EXPECT_EQ(ordered, 22);
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  // 3. Scope release without a pull: releasing the unready child waits for it,
+  //    and that wait must also keep the single worker moving.
+  const int64_t released = drive_nested_wait_parent(NestedWaitParentSpec{
+    .child_value = 13, .release_without_pull = true, .parent_value = 55});
+  EXPECT_EQ(released, 55);
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  // Every scenario spawns, enqueues, starts and completes its tasks exactly
+  // once; the ordered scenario also runs its predecessor. Nothing reruns.
+  StyioTaskSchedulerProfileSnapshot after{};
+  styio_task_scheduler_profile_snapshot(&after);
+  EXPECT_EQ(after.spawned_tasks - before.spawned_tasks, 7);
+  EXPECT_EQ(after.enqueued_tasks - before.enqueued_tasks, 7);
+  EXPECT_EQ(after.started_tasks - before.started_tasks, 7);
+  EXPECT_EQ(after.completed_tasks - before.completed_tasks, 7);
+  EXPECT_EQ(after.queue_pops - before.queue_pops, 7);
+  const auto queue = StyioTaskScheduler::instance().ready_queue_snapshot();
+  EXPECT_EQ(queue.current_depth, 0u);
+
+  // 4. A failing child settles through the same wait, surfaces its error and
+  //    leaves the scheduler balanced.
+  const int64_t failed = drive_nested_wait_parent(NestedWaitParentSpec{.child_raises = true});
+  EXPECT_EQ(failed, 0);
+  EXPECT_TRUE(styio::runtime::has_error());
+  styio_runtime_clear_error();
+
+  // 5. A parent error that is still pending when the wait assist runs its
+  //    child survives the inline execution: the child settles only itself and
+  //    the parent still fails with its own error after the pull.
+  StyioTaskSchedulerProfileSnapshot preservation_before{};
+  styio_task_scheduler_profile_snapshot(&preservation_before);
+  const int64_t preserved = drive_nested_wait_parent(NestedWaitParentSpec{
+    .child_value = 42, .parent_pending_error = true});
+  EXPECT_EQ(preserved, 0);
+  EXPECT_TRUE(styio::runtime::has_error());
+  EXPECT_STREQ(styio::runtime::last_error(), "nested parent pending");
+  EXPECT_STREQ(
+    styio::runtime::last_error_subcode(),
+    "STYIO_RUNTIME_FILE_OPEN_READ");
+  styio_runtime_clear_error();
+
+  // 6. The queue-full work-first path executes a second launched child inline
+  //    on this body's thread and settles both children exactly once.
+  const int64_t queued_sum = drive_queue_full_parent(
+    QueueFullParentSpec{.first_value = 11, .second_value = 31});
+  EXPECT_EQ(queued_sum, 42);
+  EXPECT_FALSE(styio::runtime::has_error());
+
+  // 7. The same pending parent error survives the queue-full inline path.
+  const int64_t queued_preserved = drive_queue_full_parent(
+    QueueFullParentSpec{
+      .first_value = 11, .second_value = 31, .parent_pending_error = true});
+  EXPECT_EQ(queued_preserved, 0);
+  EXPECT_TRUE(styio::runtime::has_error());
+  EXPECT_STREQ(styio::runtime::last_error(), "nested parent pending");
+  EXPECT_STREQ(
+    styio::runtime::last_error_subcode(),
+    "STYIO_RUNTIME_FILE_OPEN_READ");
+  styio_runtime_clear_error();
+
+  // Scenarios 5-7 spawn, start and complete every task exactly once; the
+  // queue-full scenarios enqueue only the child that fit and pop it back.
+  StyioTaskSchedulerProfileSnapshot preservation_after{};
+  styio_task_scheduler_profile_snapshot(&preservation_after);
+  EXPECT_EQ(
+    preservation_after.spawned_tasks - preservation_before.spawned_tasks,
+    8);
+  EXPECT_EQ(
+    preservation_after.enqueued_tasks - preservation_before.enqueued_tasks,
+    6);
+  EXPECT_EQ(
+    preservation_after.started_tasks - preservation_before.started_tasks,
+    8);
+  EXPECT_EQ(
+    preservation_after.completed_tasks - preservation_before.completed_tasks,
+    8);
+  EXPECT_EQ(
+    preservation_after.queue_pops - preservation_before.queue_pops,
+    6);
+  EXPECT_EQ(
+    StyioTaskScheduler::instance().ready_queue_snapshot().current_depth,
+    0u);
+
+  StyioTaskSchedulerProfileSnapshot settled{};
+  styio_task_scheduler_profile_snapshot(&settled);
+  EXPECT_EQ(settled.started_tasks, settled.completed_tasks);
+
+  styio_task_scheduler_profile_enable(0);
+  EXPECT_EQ(g_active_task_handles, main_handles_before);
 }

@@ -1,12 +1,12 @@
 # Plan Docs
 
-**Purpose:** Define the tracked Better Plan v3 workspace under `docs/plan/`, with current delivery state indexed by [Manifest.json](./Manifest.json) and unfinished product work owned by the [next-stage gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md).
+**Purpose:** Preserve prior delivery evidence under `docs/plan/`. Current execution sequencing is owned by [the delivery programme](../plans/README.md); enduring product gaps remain in the [gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md).
 
-**Last updated:** 2026-09-10
+**Last updated:** 2026-10-11
 
 ## Workspace Boundary
 
-1. `Manifest.json` is the workspace registry and uses schema `better-plan.manifest/v3`.
+1. `Manifest.json` is the historical workspace registry and uses schema `better-plan.manifest/v3`.
 2. Each registered directory contains one semantic `Plan.json`, one execution-only `Checkpoints.json`, and one render-only `Plan.md` projection.
 3. `Design.md` and `Design.pristine.md` are compiler inputs and provenance; they are not alternate semantic state.
 4. The repository-local validator checks only v3 structure and cross-file identity:
@@ -20,7 +20,7 @@
 
 ## State Ownership
 
-1. Edit semantic delivery intent only through the Better Plan framework that owns `Plan.json`.
+1. Preserve historical `Plan.json` intent and evidence. Maintain the current milestone in `docs/plans/Programme.json` and its split Tree workspace.
 2. Do not hand-edit `Checkpoints.json`, rendered `Plan.md`, or archived design compiler inputs.
 3. Keep long-lived product backlog in [NEXT-STAGE-GAP-LEDGER.md](../rollups/NEXT-STAGE-GAP-LEDGER.md), not in a second planning hierarchy. The carry-forward register includes the M7 slice, Topology migration, performance evidence, W1–W8 queues, deferred callable decisions, and the next correctness cluster.
 4. Use Git history for removed planning generations and completed implementation narratives.

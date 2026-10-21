@@ -339,14 +339,48 @@ task_profile_inc(std::atomic<int64_t>& counter) {
 }
 
 struct StyioTask;
+/* Defined after StyioTaskScheduler below. */
+void styio_task_complete(StyioTask* task);
+std::mutex g_task_graph_mu;
+void styio_task_request_launch(StyioTask* task, bool demand = false);
+int64_t stash_task(StyioTask* task);
 thread_local StyioTask* t_running_task = nullptr;
 // One outstanding wait episode per thread; a blocking thread cannot nest a
 // second wait, so a thread-local id pairs begin/end without writing shared
 // task state from arbitrary pulling threads.
 thread_local styio::observable::PackedInstance t_wait_id{};
+thread_local std::uint64_t t_wait_session = 0;
 void observe_started(StyioTask* task);
 void observe_completion(StyioTask* task, bool failed);
 void observe_enqueued(StyioTask* task);
+
+/* Restores the calling thread's runtime error slot around a nested run. A
+   nested task executes inline on its caller's thread (wait assist or the
+   queue-full work-first dispatch); without this guard the child's own error
+   handling would clear the caller's not-yet-propagated error, so a failing
+   parent could settle as success depending on scheduling. Inactive for a
+   top-level run, whose thread slot is fresh by contract. */
+struct ParentTaskErrorGuard
+{
+  explicit ParentTaskErrorGuard(bool nested) :
+      nested_(nested) {
+    if (nested_) {
+      saved_ = styio::runtime::take_error();
+    }
+  }
+
+  ~ParentTaskErrorGuard() {
+    if (nested_) {
+      styio::runtime::restore_error(std::move(saved_));
+    }
+  }
+
+  ParentTaskErrorGuard(const ParentTaskErrorGuard&) = delete;
+  ParentTaskErrorGuard& operator=(const ParentTaskErrorGuard&) = delete;
+
+  bool nested_;
+  styio::runtime::RuntimeErrorSnapshot saved_;
+};
 
 struct StyioTask
 {
@@ -368,6 +402,17 @@ struct StyioTask
   void* ctx = nullptr;
   std::atomic<bool> ready{false};
   std::atomic<bool> consumed{false};
+  /* Explicit `t1 => t2` happens-before edges hold `t2` out of the ready queue
+     until every registered predecessor has settled. `pending_deps` counts
+     edges declared at runtime; `launch_requested` marks that the task may run
+     as soon as the count drains (edge site, pull, or scope-end backstop). */
+  // Graph state is protected by g_task_graph_mu; task bodies run independently.
+  int64_t pending_deps = 0;
+  bool launch_requested = false;
+  bool enqueued = false;
+  std::atomic<unsigned> references{1};
+  std::vector<StyioTask*> successors;
+  std::vector<StyioTask*> predecessors;
   bool failed = false;
   std::string error_message;
   std::string error_subcode;
@@ -381,7 +426,12 @@ struct StyioTask
   std::uint64_t wait_begin_ns = 0;
 
   void run() noexcept {
+    StyioTask* previous_task = t_running_task;
     t_running_task = this;
+    /* Nested execution shares this thread with the calling task body: capture
+       the caller's pending error before this task clears the slot, and let
+       this task's own error settle only to itself. */
+    ParentTaskErrorGuard caller_error(previous_task != nullptr);
     observe_started(this);
     task_profile_inc(g_task_scheduler_profile_counters.started_tasks);
     int64_t local_i64 = 0;
@@ -409,6 +459,7 @@ struct StyioTask
             const char* raw = cstr_fn(ctx);
             if (raw != nullptr) {
               local_str = raw;
+              styio_free_cstr(raw);
             }
           }
           break;
@@ -446,16 +497,32 @@ struct StyioTask
     error_message = std::move(local_error);
     error_subcode = std::move(local_subcode);
     observe_completion(this, local_failed);
-    ready.store(true, std::memory_order_release);
     task_profile_inc(g_task_scheduler_profile_counters.completed_tasks);
-    ready.notify_all();
-    t_running_task = nullptr;
+    styio_task_complete(this);
+    t_running_task = previous_task;
+    // The executor owns a reference through its final access, including notify.
+    if (references.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      delete this;
+    }
   }
 };
+
+/* Defined below StyioTaskScheduler; declared here so the wait path can help
+   drain ready work without depending on the class definition order. */
+bool styio_scheduler_assist_one_ready_task();
 
 void
 wait_until_task_ready(StyioTask* task) {
   while (!(*task).ready.load(std::memory_order_acquire)) {
+    /* A thread that is itself executing a task body must never stall its own
+       ready queue. With one configured worker the blocked thread is the only
+       executor, so waiting without helping would strand every
+       dependency-satisfied task behind the waiter and the awaited result could
+       never arrive. Executing one queued ready task inline is the same
+       work-first policy enqueue already applies when the queue is full. */
+    if (t_running_task != nullptr && styio_scheduler_assist_one_ready_task()) {
+      continue;
+    }
     (*task).ready.wait(false, std::memory_order_acquire);
   }
 }
@@ -582,6 +649,8 @@ styio::runtime::ReadyQueueObservationHooks make_queue_hooks() {
     emit_obs(pressure);
   };
   hooks.on_producer_wait_begin = [](void*, std::size_t depth, std::size_t capacity) {
+    t_wait_id = {};
+    t_wait_session = styio::runtime::observation::session_epoch();
     if (!observation_live()) {
       return;
     }
@@ -602,11 +671,13 @@ styio::runtime::ReadyQueueObservationHooks make_queue_hooks() {
     emit_obs(begin);
   };
   hooks.on_producer_wait_end = [](void*, bool closed) {
-    if (!observation_live()) {
+    const auto wait_id = std::exchange(t_wait_id, {});
+    const auto wait_session = std::exchange(t_wait_session, 0);
+    if (!observation_live()
+        || wait_session != styio::runtime::observation::session_epoch()) {
       return;
     }
     StyioTask* waiter = t_running_task;
-    const auto wait_id = t_wait_id;
     if (wait_id.seq == 0) {
       return;
     }
@@ -624,6 +695,8 @@ styio::runtime::ReadyQueueObservationHooks make_queue_hooks() {
     emit_obs(end);
   };
   hooks.on_consumer_wait_begin = [](void*) {
+    t_wait_id = {};
+    t_wait_session = styio::runtime::observation::session_epoch();
     if (!observation_live()) {
       return;
     }
@@ -642,11 +715,13 @@ styio::runtime::ReadyQueueObservationHooks make_queue_hooks() {
     emit_obs(begin);
   };
   hooks.on_consumer_wait_end = [](void*, bool got_item) {
-    if (!observation_live()) {
+    const auto wait_id = std::exchange(t_wait_id, {});
+    const auto wait_session = std::exchange(t_wait_session, 0);
+    if (!observation_live()
+        || wait_session != styio::runtime::observation::session_epoch()) {
       return;
     }
     StyioTask* waiter = t_running_task;
-    const auto wait_id = t_wait_id;
     if (wait_id.seq == 0) {
       return;
     }
@@ -683,9 +758,24 @@ public:
   }
 
   void enqueue(StyioTask* task) {
+    // The executor owns a reference from enqueue through run's final access,
+    // including ready publication and successor dispatch. This must hold for
+    // every executed task, not only graph-claimed launches: a caller that
+    // enqueues an externally owned task releases its own reference, and run's
+    // terminal decrement may never free a task whose owner is still live.
+    task->references.fetch_add(1, std::memory_order_relaxed);
     ensure_worker_for_enqueue();
     observe_enqueued(task);
-    if (queue_.push(static_cast<void*>(task))
+    const auto pushed = t_running_task != nullptr
+      ? queue_.try_push(static_cast<void*>(task))
+      : queue_.push(static_cast<void*>(task));
+    if (pushed == styio::runtime::ReadyQueuePushResult::Full) {
+      // Work-first dispatch: a worker cannot block waiting on its own queue.
+      // Execute the ready task with the current execution context restored on return.
+      (*task).run();
+      return;
+    }
+    if (pushed
         == styio::runtime::ReadyQueuePushResult::Accepted) {
       task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
       return;
@@ -694,6 +784,24 @@ public:
     // with close, settle its task normally instead of leaking its context or
     // leaving a handle that can never become ready.
     (*task).run();
+  }
+
+  /// Executes one dependency-satisfied ready task inline on this thread.
+  ///
+  /// Used by wait_until_task_ready when a thread that already runs a task body
+  /// blocks on another task: waiting without helping would deadlock a single
+  /// configured worker, whose only executor is the blocked thread itself. The
+  /// pop claims the task exactly once, run() restores the previous running
+  /// task on return, and the ready queue only exposes tasks whose ordering
+  /// constraints are satisfied, so dependency gating, execution-once and
+  /// thread-local capture state are preserved.
+  bool assist_one_ready_task() {
+    auto* task = static_cast<StyioTask*>(queue_.try_pop());
+    if (task == nullptr) {
+      return false;
+    }
+    (*task).run();
+    return true;
   }
 
   std::size_t worker_count() {
@@ -796,6 +904,82 @@ private:
   }
 };
 
+bool
+styio_scheduler_assist_one_ready_task() {
+  return StyioTaskScheduler::instance().assist_one_ready_task();
+}
+
+// Called only under the graph lock. Scheduling takes place after unlocking:
+// enqueue may wait for queue space, and must never hold the graph lock.
+// A task that is already ready is never enqueued: `styio_task_*_ready`
+// settles the result at construction and has no body to run, and completing
+// tasks publish ready before their successors can be claimed. Enqueueing a
+// settled task would rerun `run()` over final, non-atomic result fields
+// while a pull already reads them.
+bool claim_task_launch(StyioTask* task) {
+  if (!task->launch_requested || task->pending_deps != 0 || task->enqueued
+      || task->ready.load(std::memory_order_acquire)) {
+    return false;
+  }
+  task->enqueued = true;
+  return true;
+}
+
+void styio_task_request_launch(StyioTask* task, bool demand) {
+  std::vector<StyioTask*> runnable;
+  bool launch_self = false;
+  {
+    std::lock_guard<std::mutex> lock(g_task_graph_mu);
+    task->launch_requested = true;
+    launch_self = claim_task_launch(task);
+    // Ordinary tasks do not allocate traversal state. Only an actual demand
+    // for an ordered held graph walks its live ancestors.
+    if (demand && !task->predecessors.empty()) {
+      std::vector<StyioTask*> pending(task->predecessors);
+      std::unordered_set<StyioTask*> visited;
+      while (!pending.empty()) {
+        StyioTask* current = pending.back();
+        pending.pop_back();
+        if (!visited.insert(current).second) continue;
+        current->launch_requested = true;
+        if (claim_task_launch(current)) runnable.push_back(current);
+        pending.insert(pending.end(), current->predecessors.begin(), current->predecessors.end());
+      }
+    }
+  }
+  if (launch_self) StyioTaskScheduler::instance().enqueue(task);
+  for (StyioTask* next : runnable) StyioTaskScheduler::instance().enqueue(next);
+}
+
+void styio_task_complete(StyioTask* task) {
+  std::vector<StyioTask*> runnable;
+  {
+    std::lock_guard<std::mutex> lock(g_task_graph_mu);
+    for (StyioTask* next : task->successors) {
+      --next->pending_deps;
+      auto it = std::find(next->predecessors.begin(), next->predecessors.end(), task);
+      if (it != next->predecessors.end()) next->predecessors.erase(it);
+      if (claim_task_launch(next)) runnable.push_back(next);
+    }
+    task->successors.clear();
+    task->ready.store(true, std::memory_order_release);
+  }
+  task->ready.notify_all();
+  for (StyioTask* next : runnable) StyioTaskScheduler::instance().enqueue(next);
+}
+
+int64_t
+stash_spawned_task(StyioTask* task, bool held) {
+  const int64_t handle = stash_task(task);
+  if (handle != 0) {
+    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
+    if (!held) {
+      styio_task_request_launch(task);
+    }
+  }
+  return handle;
+}
+
 enum class StyioDictValueKind : std::uint8_t
 {
   Bool = 0,
@@ -880,9 +1064,9 @@ void close_list(void* raw);
 void close_dict(void* raw);
 void close_matrix(void* raw);
 void close_task(void* raw);
-int64_t clone_list_handle_value(int64_t h);
-int64_t clone_dict_handle_value(int64_t h);
-int64_t clone_matrix_handle_value(int64_t h);
+int64_t clone_list_handle_value(int64_t h, StyioHandleTable* destination = nullptr);
+int64_t clone_dict_handle_value(int64_t h, StyioHandleTable* destination = nullptr);
+int64_t clone_matrix_handle_value(int64_t h, StyioHandleTable* destination = nullptr);
 void append_list_handle_repr(std::string& out, int64_t h);
 void append_dict_handle_repr(std::string& out, int64_t h);
 void append_matrix_handle_repr(std::string& out, int64_t h);
@@ -1073,6 +1257,8 @@ close_task(void* raw) {
   auto* task = static_cast<StyioTask*>(raw);
   if (task != nullptr) {
     if (!(*task).ready.load(std::memory_order_acquire)) {
+      /* Releasing a held task must not hang on a never-executed `=>` edge. */
+      styio_task_request_launch(task, true);
       wait_until_task_ready(task);
     }
     if (observation_live() && (*task).observation_live) {
@@ -1082,7 +1268,9 @@ close_task(void* raw) {
       released.instance = (*task).instance;
       emit_obs(released);
     }
-    delete task;
+    if (task->references.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      delete task;
+    }
     task_profile_inc(g_task_scheduler_profile_counters.released_tasks);
     if (g_active_task_handles > 0) {
       --g_active_task_handles;
@@ -1123,19 +1311,30 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
   if (task == nullptr) {
     return nullptr;
   }
+  /* A pull demands the result: request launch so a held task whose `=>`
+     edge never executed still runs. Declared pending deps still gate the
+     actual enqueue, so this cannot violate a live happens-before edge. */
+  styio_task_request_launch(task, true);
   if ((*task).ready.load(std::memory_order_acquire)) {
     task_profile_inc(g_task_scheduler_profile_counters.fast_ready_pulls);
   }
   else {
     task_profile_inc(g_task_scheduler_profile_counters.blocking_pulls);
-    if (observation_live() && (*task).observation_live) {
+    /* The wait id is captured locally: while this thread waits it may help
+       execute nested ready tasks, and their observation ids must not
+       overwrite this wait's correlation. */
+    const bool wait_observed = observation_live() && (*task).observation_live;
+    const auto wait_id = wait_observed
+      ? styio::runtime::observation::next_wait_id()
+      : styio::observable::PackedInstance{};
+    if (wait_observed) {
+      t_wait_id = wait_id;
       StyioTask* waiter = t_running_task;
-      t_wait_id = styio::runtime::observation::next_wait_id();
       styio::runtime::observation::EmitBuilder begin;
       begin.kind = styio::observable::EventKind::WaitBegin;
       begin.descriptor_index = waiter != nullptr ? waiter->descriptor_index : (*task).descriptor_index;
       begin.instance = waiter != nullptr ? waiter->instance : (*task).instance;
-      begin.wait_id = t_wait_id;
+      begin.wait_id = wait_id;
       begin.waiter = waiter != nullptr ? waiter->instance : (*task).instance;
       begin.subject = (*task).instance;
       begin.subject_present = true;
@@ -1156,7 +1355,7 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
       end.wait_resolution = (*task).failed
         ? styio::observable::WaitResolution::Failed
         : styio::observable::WaitResolution::Completed;
-      end.wait_id = t_wait_id;
+      end.wait_id = wait_id;
       end.has_cause = true;
       end.cause = (*task).completion_event;
       end.cause_subject = (*task).instance;
@@ -2115,7 +2314,7 @@ copy_to_owned_cstr(const std::string& value) {
 }
 
 int64_t
-clone_list_handle_value(int64_t h) {
+clone_list_handle_value(int64_t h, StyioHandleTable* destination) {
   StyioListBase* src = as_list_base(h, true);
   if (src == nullptr) {
     return 0;
@@ -2124,111 +2323,160 @@ clone_list_handle_value(int64_t h) {
     case StyioListElemKind::Bool: {
       auto* clone = new StyioListBool();
       clone->elems = static_cast<StyioListBool*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::Char: {
       auto* clone = new StyioListChar();
       clone->elems = static_cast<StyioListChar*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::I64: {
       auto* clone = new StyioListI64();
       clone->elems = static_cast<StyioListI64*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::F64: {
       auto* clone = new StyioListF64();
       clone->elems = static_cast<StyioListF64*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::String: {
       auto* clone = new StyioListString();
       clone->elems = static_cast<StyioListString*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::ListHandle: {
       auto* clone = new StyioListListHandle();
       auto* handles = static_cast<StyioListListHandle*>(src);
       clone->elems.reserve(handles->elems.size());
       for (int64_t elem : handles->elems) {
-        clone->elems.push_back(clone_list_handle_value(elem));
+        clone->elems.push_back(clone_list_handle_value(elem, destination));
       }
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::DictHandle: {
       auto* clone = new StyioListDictHandle();
       auto* handles = static_cast<StyioListDictHandle*>(src);
       clone->elems.reserve(handles->elems.size());
       for (int64_t elem : handles->elems) {
-        clone->elems.push_back(clone_dict_handle_value(elem));
+        clone->elems.push_back(clone_dict_handle_value(elem, destination));
       }
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::MatrixHandle: {
       auto* clone = new StyioListMatrixHandle();
       auto* handles = static_cast<StyioListMatrixHandle*>(src);
       clone->elems.reserve(handles->elems.size());
       for (int64_t elem : handles->elems) {
-        clone->elems.push_back(clone_matrix_handle_value(elem));
+        clone->elems.push_back(clone_matrix_handle_value(elem, destination));
       }
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
   }
   return 0;
 }
 
 int64_t
-clone_matrix_handle_value(int64_t h) {
+clone_matrix_handle_value(int64_t h, StyioHandleTable* destination) {
   StyioMatrixBase* src = as_matrix_base(h, true);
   if (src == nullptr) {
     return 0;
   }
   switch (src->elem_kind) {
     case StyioMatrixElemKind::I64:
-      return clone_matrix(static_cast<StyioMatrixI64*>(src));
+      {
+      auto* clone = new StyioMatrixI64(*static_cast<StyioMatrixI64*>(src));
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Matrix, clone) : stash_matrix(clone);
+    }
     case StyioMatrixElemKind::F64:
-      return clone_matrix(static_cast<StyioMatrixF64*>(src));
+      {
+      auto* clone = new StyioMatrixF64(*static_cast<StyioMatrixF64*>(src));
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Matrix, clone) : stash_matrix(clone);
+    }
   }
   return 0;
 }
 
 int64_t
-clone_dict_handle_value(int64_t h) {
+clone_dict_handle_value(int64_t h, StyioHandleTable* destination) {
   StyioDictBase* src = as_dict_base(h, true);
   if (src == nullptr) {
     return 0;
   }
+  auto store = [&](StyioDictBase* clone) {
+    return destination ? destination->acquire(StyioHandleTable::HandleKind::Dict, clone) : stash_dict(clone);
+  };
   switch (src->value_kind) {
     case StyioDictValueKind::Bool:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictBool*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictBool*>(src), src->runtime_impl));
     case StyioDictValueKind::I64:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictI64*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictI64*>(src), src->runtime_impl));
     case StyioDictValueKind::F64:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictF64*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictF64*>(src), src->runtime_impl));
     case StyioDictValueKind::String:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictString*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictString*>(src), src->runtime_impl));
     case StyioDictValueKind::ListHandle: {
       auto* clone = new StyioDictListHandle(src->runtime_impl);
       auto* values = static_cast<StyioDictListHandle*>(src);
       clone->entries.reserve(values->entries.size());
       for (const auto& entry : values->entries) {
-        clone->entries.emplace_back(entry.first, clone_list_handle_value(entry.second));
+        clone->entries.emplace_back(entry.first, clone_list_handle_value(entry.second, destination));
       }
       dict_after_clone(clone);
-      return stash_dict(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Dict, clone) : stash_dict(clone);
     }
     case StyioDictValueKind::DictHandle: {
       auto* clone = new StyioDictDictHandle(src->runtime_impl);
       auto* values = static_cast<StyioDictDictHandle*>(src);
       clone->entries.reserve(values->entries.size());
       for (const auto& entry : values->entries) {
-        clone->entries.emplace_back(entry.first, clone_dict_handle_value(entry.second));
+        clone->entries.emplace_back(entry.first, clone_dict_handle_value(entry.second, destination));
       }
       dict_after_clone(clone);
-      return stash_dict(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Dict, clone) : stash_dict(clone);
     }
   }
   return 0;
+}
+
+struct TaskResourceCapture {
+  StyioHandleTable handles;
+  int64_t root = 0;
+  StyioHandleTable::HandleKind kind;
+};
+
+int64_t adopt_task_resource(StyioHandleTable& source, int64_t handle,
+                           StyioHandleTable::HandleKind kind) {
+  using Kind = StyioHandleTable::HandleKind;
+  int64_t adopted = 0;
+  source.release(handle, kind, [&](void* raw) {
+    if (kind == Kind::List) {
+      auto* list = static_cast<StyioListBase*>(raw);
+      auto remap = [&](auto* values, Kind child_kind) {
+        for (auto& child : values->elems) child = adopt_task_resource(source, child, child_kind);
+      };
+      switch (list->elem_kind) {
+        case StyioListElemKind::ListHandle: remap(static_cast<StyioListListHandle*>(list), Kind::List); break;
+        case StyioListElemKind::DictHandle: remap(static_cast<StyioListDictHandle*>(list), Kind::Dict); break;
+        case StyioListElemKind::MatrixHandle: remap(static_cast<StyioListMatrixHandle*>(list), Kind::Matrix); break;
+        default: break;
+      }
+      adopted = stash_list(list);
+    } else if (kind == Kind::Dict) {
+      auto* dict = static_cast<StyioDictBase*>(raw);
+      if (dict->value_kind == StyioDictValueKind::ListHandle) {
+        for (auto& item : static_cast<StyioDictListHandle*>(dict)->entries)
+          item.second = adopt_task_resource(source, item.second, Kind::List);
+      } else if (dict->value_kind == StyioDictValueKind::DictHandle) {
+        for (auto& item : static_cast<StyioDictDictHandle*>(dict)->entries)
+          item.second = adopt_task_resource(source, item.second, Kind::Dict);
+      }
+      adopted = stash_dict(dict);
+    } else if (kind == Kind::Matrix) {
+      adopted = stash_matrix(static_cast<StyioMatrixBase*>(raw));
+    }
+  });
+  return adopted;
 }
 
 void
@@ -2788,18 +3036,52 @@ styio_task_cstr_ready(const char* value) {
   return stash_task(task);
 }
 
+// Capture packets have no thread-local handle identity until adopted by the task.
+extern "C" DLLEXPORT int64_t
+styio_task_export_resource(int64_t handle, int32_t family) {
+  if (handle == 0) return 0;
+  auto packet = std::make_unique<TaskResourceCapture>();
+  using Kind = StyioHandleTable::HandleKind;
+  if (family == 0) {
+    packet->kind = Kind::List;
+    packet->root = clone_list_handle_value(handle, &packet->handles);
+  } else if (family == 1) {
+    packet->kind = Kind::Dict;
+    packet->root = clone_dict_handle_value(handle, &packet->handles);
+  } else {
+    packet->kind = Kind::Matrix;
+    packet->root = clone_matrix_handle_value(handle, &packet->handles);
+  }
+  return reinterpret_cast<int64_t>(packet.release());
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_import_resource(int64_t capture) {
+  if (capture == 0) return 0;
+  std::unique_ptr<TaskResourceCapture> packet(reinterpret_cast<TaskResourceCapture*>(capture));
+  return adopt_task_resource(packet->handles, packet->root, packet->kind);
+}
+
+extern "C" DLLEXPORT const char*
+styio_task_export_cstr(const char* value) {
+  const char* copy = styio_clone_cstr(value);
+  g_owned_cstr_ptrs.erase(copy);
+  return copy;
+}
+
+extern "C" DLLEXPORT const char*
+styio_task_import_cstr(const char* value) {
+  if (value) g_owned_cstr_ptrs.insert(value);
+  return value;
+}
+
 extern "C" DLLEXPORT int64_t
 styio_task_i64_spawn(int64_t (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::I64);
   (*task).i64_fn = fn;
   (*task).ctx = ctx;
   prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2808,12 +3090,7 @@ styio_task_f64_spawn(double (*fn)(void*), void* ctx) {
   (*task).f64_fn = fn;
   (*task).ctx = ctx;
   prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2822,12 +3099,7 @@ styio_task_cstr_spawn(const char* (*fn)(void*), void* ctx) {
   (*task).cstr_fn = fn;
   (*task).ctx = ctx;
   prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2868,12 +3140,7 @@ styio_task_i64_spawn_observed(int64_t (*fn)(void*), void* ctx, uint32_t descript
   (*task).i64_fn = fn;
   (*task).ctx = ctx;
   prepare_task_observation(task, descriptor_index);
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2882,12 +3149,7 @@ styio_task_f64_spawn_observed(double (*fn)(void*), void* ctx, uint32_t descripto
   (*task).f64_fn = fn;
   (*task).ctx = ctx;
   prepare_task_observation(task, descriptor_index);
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2896,12 +3158,7 @@ styio_task_cstr_spawn_observed(const char* (*fn)(void*), void* ctx, uint32_t des
   (*task).cstr_fn = fn;
   (*task).ctx = ctx;
   prepare_task_observation(task, descriptor_index);
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2917,6 +3174,124 @@ styio_task_f64_pull_observed(int64_t h, uint32_t) {
 extern "C" DLLEXPORT const char*
 styio_task_cstr_pull_observed(int64_t h, uint32_t) {
   return styio_task_cstr_pull(h);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_spawn_held(int64_t (*fn)(void*), void* ctx) {
+  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  (*task).i64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_f64_spawn_held(double (*fn)(void*), void* ctx) {
+  auto* task = new StyioTask(StyioTaskValueKind::F64);
+  (*task).f64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_cstr_spawn_held(const char* (*fn)(void*), void* ctx) {
+  auto* task = new StyioTask(StyioTaskValueKind::String);
+  (*task).cstr_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_spawn_held_observed(int64_t (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  (*task).i64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_f64_spawn_held_observed(double (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::F64);
+  (*task).f64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_cstr_spawn_held_observed(const char* (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::String);
+  (*task).cstr_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT void
+styio_task_depend(int64_t before_h, int64_t after_h) {
+  StyioTask* before = g_handle_table.lookup_as<StyioTask>(
+    before_h,
+    StyioHandleTable::HandleKind::Task);
+  StyioTask* after = g_handle_table.lookup_as<StyioTask>(
+    after_h,
+    StyioHandleTable::HandleKind::Task);
+  if (before == nullptr || after == nullptr) {
+    task_profile_inc(g_task_scheduler_profile_counters.invalid_pulls);
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidTaskHandle,
+      "task order `=>` requires live task handles");
+    return;
+  }
+  if (before == after) {
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidTaskHandle,
+      "task order `=>` self-edge is not a valid happens-before edge");
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_task_graph_mu);
+  if (after->enqueued || after->ready.load(std::memory_order_acquire)) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTaskHandle,
+      "task order `=>` cannot order a task that already launched");
+    return;
+  }
+  // Adding before -> after is cyclic exactly when after already reaches before.
+  // Traverse live adjacency once; no repeated whole-graph sorting or cache.
+  std::vector<StyioTask*> pending{after};
+  std::unordered_set<StyioTask*> visited;
+  while (!pending.empty()) {
+    StyioTask* current = pending.back();
+    pending.pop_back();
+    if (current == before) {
+      set_runtime_error_once(kRuntimeSubcodeInvalidTaskHandle,
+        "task order `=>` cycle is not a valid happens-before graph");
+      return;
+    }
+    if (!visited.insert(current).second) continue;
+    pending.insert(pending.end(), current->successors.begin(), current->successors.end());
+  }
+  if (!before->ready.load(std::memory_order_acquire)) {
+    ++after->pending_deps;
+    before->successors.push_back(after);
+    after->predecessors.push_back(before);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_task_launch(int64_t h) {
+  StyioTask* task = g_handle_table.lookup_as<StyioTask>(
+    h,
+    StyioHandleTable::HandleKind::Task);
+  if (task == nullptr) {
+    task_profile_inc(g_task_scheduler_profile_counters.invalid_pulls);
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidTaskHandle,
+      "task launch requires a live task handle");
+    return;
+  }
+  styio_task_request_launch(task);
 }
 
 extern "C" DLLEXPORT void

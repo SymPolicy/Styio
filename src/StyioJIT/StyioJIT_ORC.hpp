@@ -121,6 +121,18 @@ public:
     add_symbol("styio_task_i64_pull_observed", &styio_task_i64_pull_observed);
     add_symbol("styio_task_f64_pull_observed", &styio_task_f64_pull_observed);
     add_symbol("styio_task_cstr_pull_observed", &styio_task_cstr_pull_observed);
+    add_symbol("styio_task_i64_spawn_held", &styio_task_i64_spawn_held);
+    add_symbol("styio_task_f64_spawn_held", &styio_task_f64_spawn_held);
+    add_symbol("styio_task_cstr_spawn_held", &styio_task_cstr_spawn_held);
+    add_symbol("styio_task_i64_spawn_held_observed", &styio_task_i64_spawn_held_observed);
+    add_symbol("styio_task_f64_spawn_held_observed", &styio_task_f64_spawn_held_observed);
+    add_symbol("styio_task_cstr_spawn_held_observed", &styio_task_cstr_spawn_held_observed);
+    add_symbol("styio_task_depend", &styio_task_depend);
+    add_symbol("styio_task_launch", &styio_task_launch);
+    add_symbol("styio_task_import_cstr", &styio_task_import_cstr);
+    add_symbol("styio_task_import_resource", &styio_task_import_resource);
+    add_symbol("styio_task_export_cstr", &styio_task_export_cstr);
+    add_symbol("styio_task_export_resource", &styio_task_export_resource);
     add_symbol("styio_observation_register_table", &styio_observation_register_table);
     add_symbol("styio_task_active_count", &styio_task_active_count);
     add_symbol("styio_task_worker_count", &styio_task_worker_count);
