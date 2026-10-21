@@ -648,14 +648,17 @@ compile_plan_profile_has_only_v1_fields(
   return true;
 }
 
-/* Shared implementation of the early output-location probes. The two public
-   entry points keep their own contracts; the read/parse/absolute-path rule
-   lives here exactly once so both fields can never drift apart. */
+} // namespace
+
+/* One read and one parse serve both optional output locations. Each field is
+   extracted only when it is present, non-empty and absolute; an unusable
+   field simply leaves its own out path untouched. Returns true when at least
+   one location was extracted. */
 bool
-probe_compile_plan_output_path(
+probe_compile_plan_output_paths(
   const std::filesystem::path& plan_path,
-  llvm::StringRef field_name,
-  std::filesystem::path& out_path
+  std::filesystem::path& out_diag_dir,
+  std::filesystem::path& out_build_root
 ) {
   std::string plan_text;
   std::string error_message;
@@ -677,36 +680,23 @@ probe_compile_plan_output_path(
     return false;
   }
 
-  const auto raw_value = outputs->getString(field_name);
-  if (!raw_value.has_value() || raw_value->empty()) {
-    return false;
-  }
+  const auto extract = [&](llvm::StringRef field_name,
+                           std::filesystem::path& out_path) {
+    const auto raw_value = outputs->getString(field_name);
+    if (!raw_value.has_value() || raw_value->empty()) {
+      return false;
+    }
+    const std::filesystem::path candidate{std::string(*raw_value)};
+    if (!candidate.is_absolute()) {
+      return false;
+    }
+    out_path = candidate;
+    return true;
+  };
 
-  const std::filesystem::path candidate{std::string(*raw_value)};
-  if (!candidate.is_absolute()) {
-    return false;
-  }
-
-  out_path = candidate;
-  return true;
-}
-
-} // namespace
-
-bool
-probe_compile_plan_diag_dir(
-  const std::filesystem::path& plan_path,
-  std::filesystem::path& out_diag_dir
-) {
-  return probe_compile_plan_output_path(plan_path, "diag_dir", out_diag_dir);
-}
-
-bool
-probe_compile_plan_build_root(
-  const std::filesystem::path& plan_path,
-  std::filesystem::path& out_build_root
-) {
-  return probe_compile_plan_output_path(plan_path, "build_root", out_build_root);
+  const bool has_diag_dir = extract("diag_dir", out_diag_dir);
+  const bool has_build_root = extract("build_root", out_build_root);
+  return has_diag_dir || has_build_root;
 }
 
 bool
