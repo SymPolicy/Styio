@@ -1,0 +1,123 @@
+{
+  "after": [
+    "NODE-REPAIR"
+  ],
+  "checks": [
+    {
+      "commands": [
+        "bash docs/plans/task-resource-delivery/checks.sh focused"
+      ],
+      "coverage": {
+        "kind": "node"
+      },
+      "dirty": false,
+      "id": "styio-task-resource-focused",
+      "pending": false,
+      "result": {
+        "host_validation": {
+          "source": "Coordinator read the actual completed host check-stage run and node validation=passed; prior local evidence retained with its original scope.",
+          "status": "passed"
+        },
+        "log": "build/task-resource-cost-20261011/focused-checks.log",
+        "observed_date": "2026-10-11",
+        "outcome": "passed",
+        "summary": "Historical entrypoint: 6 fixtures; 110 compiler passes plus 2 skips; 57 topology; 1 main-contract; 6 runtime passes. Later candidate checks are listed in HANDOFF.md."
+      },
+      "running": false,
+      "title": "Measure the correct implementation checks"
+    }
+  ],
+  "commit": null,
+  "contract": {
+    "automation_check_ids": [
+      "styio-task-resource-focused"
+    ],
+    "completion": "Check success is necessary but not sufficient. Verify the stated outcome and required external input; no fabricated result or silent skip.",
+    "execution": "Explicitly select these registered check IDs; an omitted list inherits all project checks and would run unrelated/full checks prematurely.",
+    "external_inputs": [],
+    "write_scope": [
+      "Current repository implementation, contracts and focused tests required by this milestone; existing user changes are preserved."
+    ]
+  },
+  "executors": [],
+  "id": "NODE-COST",
+  "outcome": "Measure compile/runtime cost, peak memory and capture/allocation work versus a correct full-snapshot baseline. Vary history capacity, task count and references. Keep an optimization only with measured benefit and unchanged semantics; no invented percentage target.",
+  "resources": [],
+  "result": {
+    "baseline_variant": "Temporary capture-all-in-scope-rings patch built and measured, then reverted; worktree verified byte-identical to the repair state before the final build. Saved baseline binary under build/task-resource-cost-20261011/bin/styio-fullsnap.",
+    "decisions": [
+      "Retain selective capture for exact context/copy reduction when k<R; measured equality only applies to tested i64 cells. No universal wall/RSS or zero-regression claim.",
+      "Retain reviewer bulk numeric copies between separate existing arrays: high-capacity compiler/JIT benefit measured; owning-element operations retained.",
+      "Do not alias ctx as task-local ring storage; reject shortened live-window snapshots."
+    ],
+    "evidence": "docs/plans/task-resource-delivery/COST.md",
+    "focused_tests": {
+      "command": "bash docs/plans/task-resource-delivery/checks.sh focused (entrypoint as executed at that node)",
+      "groups": [
+        {
+          "failed": 0,
+          "passed": 6,
+          "skipped": 0,
+          "suite": "manual feature fixture runs"
+        },
+        {
+          "failed": 0,
+          "passed": 110,
+          "skipped": 2,
+          "suite": "styio_test filtered"
+        },
+        {
+          "failed": 0,
+          "passed": 57,
+          "skipped": 0,
+          "suite": "styio_resource_topology_test"
+        },
+        {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "suite": "main contract freshness case"
+        },
+        {
+          "failed": 0,
+          "passed": 6,
+          "skipped": 0,
+          "suite": "observable TaskOrder cases"
+        }
+      ],
+      "scope": "Separate execution groups; no deduplicated task-wide total. The two platform-conditional cleanup cases were skipped, not passed. Later reviewer changes require affected verification in HANDOFF.md."
+    },
+    "known_issues": [
+      "Single-sample timings and RSS vary with host load; original numerical results are historical. Exact allocation/IR evidence and reviewer follow-up are separated in COST.md."
+    ],
+    "limitations": [
+      "Single-sample compile wall times on a shared host",
+      "Runtime deltas only resolvable as aggregates at feasible scales",
+      "Only the macOS arm64 Debug build measured; O2 dead-store elimination inferred, not pass-log verified",
+      "No full regression, no Pafio/Vityo E2E, no Task/Tree delivery claim"
+    ],
+    "measured_axes": {
+      "capacity": "R=4 T=8 k=1, cap in {256,2048,8192}: compile 0.74-3.24s vs 0.75-5.76s; compiler RSS 61-236MB vs 99-862MB; JIT 0.79-32.89s vs 1.75-95.97s",
+      "capture_work": "ctx malloc per spawn = captured_rings*(cap*8+8), verified against --llvm-ir (2056 vs 8224B probe; 16392 vs 65568B loop-k1); k=0 avoids the ctx allocation entirely; emitted copy instructions scale captured_rings*cap*sites (IR 574KB vs 1929KB on probe)",
+      "references": "R=4 cap=2048 T=16, k in {0,1,2,4}: compile wall 0.21-31.10s selective vs 2.94-19.35s fullsnap; compiler peak RSS 64-537MB vs 447-518MB; JIT wall 0.09-66.29s vs 30.86-64.36s; identical outputs",
+      "runtime": "Native exe 20-rep aggregates on loop-spawn cells: +0.4-2.1ms per 512-2048 spawns under fullsnap; exe peak-RSS deltas sub-MB to ~1MB (short-lived ctx)",
+      "scope": "R=8 cap=2048 T=16 k=1: compile 6.88s vs 16.17s; compiler RSS 185MB vs 949MB; JIT 15.70s vs 69.00s",
+      "tasks": "R=4 cap=1024 k=1, T in {4,16,64}: compile 1.26-12.79s vs 1.32-21.33s; compiler RSS 78-316MB vs 117-944MB; JIT 1.87-36.50s vs 4.53-100.93s"
+    },
+    "observed_date": "2026-10-11",
+    "provenance": "build/task-resource-cost-20261011/out/results.json",
+    "reviewer_followup": {
+      "candidate_review": "docs/plans/task-resource-delivery/HANDOFF.md",
+      "evidence": "docs/plans/task-resource-delivery/COST.md",
+      "raw_evidence": "build/task-resource-handoff-20261011/cost/"
+    },
+    "semantics_check": "stdout sha256 identical between variants on all cells (native and JIT paths); focused check passed after revert+rebuild",
+    "source_revision": "09f8fbdf6af9e27e590def6731eaa660d595a36c",
+    "summary": "Measured correct i64 selective and full-snapshot implementations. Exact capture/allocation reductions support retaining selective snapshots; single-sample wall time and RSS do not prove universal improvements. Reviewer follow-up measures the repaired candidate and retains bulk numeric copies; see COST.md and HANDOFF.md."
+  },
+  "review": [],
+  "role": "worker",
+  "status": "completed",
+  "task": "TASK-001",
+  "title": "Measure the correct implementation"
+}

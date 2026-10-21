@@ -46,6 +46,10 @@
         {
           "type": "string",
           "named": true
+        },
+        {
+          "type": "task_expr",
+          "named": true
         }
       ]
     }
@@ -97,6 +101,136 @@
         {
           "type": "string",
           "named": true
+        },
+        {
+          "type": "task_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "await_stmt",
+    "named": true,
+    "fields": {
+      "fallback": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "attr_expr",
+            "named": true
+          },
+          {
+            "type": "binary_expr",
+            "named": true
+          },
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "list_expr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren_expr",
+            "named": true
+          },
+          {
+            "type": "range_expr",
+            "named": true
+          },
+          {
+            "type": "resource_expr",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "task_expr",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "source": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "attr_expr",
+            "named": true
+          },
+          {
+            "type": "binary_expr",
+            "named": true
+          },
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "list_expr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren_expr",
+            "named": true
+          },
+          {
+            "type": "range_expr",
+            "named": true
+          },
+          {
+            "type": "resource_expr",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "task_expr",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "type_expr",
+          "named": true
         }
       ]
     }
@@ -147,6 +281,10 @@
           },
           {
             "type": "string",
+            "named": true
+          },
+          {
+            "type": "task_expr",
             "named": true
           }
         ]
@@ -252,6 +390,10 @@
           {
             "type": "string",
             "named": true
+          },
+          {
+            "type": "task_expr",
+            "named": true
           }
         ]
       }
@@ -317,6 +459,10 @@
           "named": true
         },
         {
+          "type": "task_expr",
+          "named": true
+        },
+        {
           "type": "type_expr",
           "named": true
         }
@@ -332,6 +478,10 @@
       "required": false,
       "types": [
         {
+          "type": "await_stmt",
+          "named": true
+        },
+        {
           "type": "binding_stmt",
           "named": true
         },
@@ -345,6 +495,26 @@
         },
         {
           "type": "function_decl",
+          "named": true
+        },
+        {
+          "type": "iterator_stmt",
+          "named": true
+        },
+        {
+          "type": "print_stmt",
+          "named": true
+        },
+        {
+          "type": "resource_decl_stmt",
+          "named": true
+        },
+        {
+          "type": "resource_order_stmt",
+          "named": true
+        },
+        {
+          "type": "sink_stmt",
           "named": true
         },
         {
@@ -427,6 +597,10 @@
         {
           "type": "string",
           "named": true
+        },
+        {
+          "type": "task_expr",
+          "named": true
         }
       ]
     }
@@ -499,7 +673,96 @@
           "named": true
         },
         {
+          "type": "task_expr",
+          "named": true
+        },
+        {
           "type": "type_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "history_selector",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "integer",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "iterator_stmt",
+    "named": true,
+    "fields": {
+      "source": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "attr_expr",
+            "named": true
+          },
+          {
+            "type": "binary_expr",
+            "named": true
+          },
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "list_expr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren_expr",
+            "named": true
+          },
+          {
+            "type": "range_expr",
+            "named": true
+          },
+          {
+            "type": "resource_expr",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "task_expr",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "param_list",
           "named": true
         }
       ]
@@ -570,6 +833,10 @@
         },
         {
           "type": "string",
+          "named": true
+        },
+        {
+          "type": "task_expr",
           "named": true
         }
       ]
@@ -679,6 +946,25 @@
         {
           "type": "string",
           "named": true
+        },
+        {
+          "type": "task_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "print_stmt",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "arg_list",
+          "named": true
         }
       ]
     }
@@ -750,6 +1036,36 @@
     }
   },
   {
+    "type": "resource_decl_stmt",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "integer",
+          "named": true
+        },
+        {
+          "type": "type_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "resource_expr",
     "named": true,
     "fields": {},
@@ -762,7 +1078,132 @@
           "named": true
         },
         {
+          "type": "history_selector",
+          "named": true
+        },
+        {
           "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "resource_order_stmt",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "attr_expr",
+          "named": true
+        },
+        {
+          "type": "binary_expr",
+          "named": true
+        },
+        {
+          "type": "call_expr",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "list_expr",
+          "named": true
+        },
+        {
+          "type": "number",
+          "named": true
+        },
+        {
+          "type": "paren_expr",
+          "named": true
+        },
+        {
+          "type": "range_expr",
+          "named": true
+        },
+        {
+          "type": "resource_expr",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "task_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "sink_stmt",
+    "named": true,
+    "fields": {
+      "value": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "attr_expr",
+            "named": true
+          },
+          {
+            "type": "binary_expr",
+            "named": true
+          },
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "list_expr",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "paren_expr",
+            "named": true
+          },
+          {
+            "type": "range_expr",
+            "named": true
+          },
+          {
+            "type": "resource_expr",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "task_expr",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "resource_expr",
           "named": true
         }
       ]
@@ -777,6 +1218,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "await_stmt",
+          "named": true
+        },
         {
           "type": "binding_stmt",
           "named": true
@@ -794,7 +1239,42 @@
           "named": true
         },
         {
+          "type": "iterator_stmt",
+          "named": true
+        },
+        {
+          "type": "print_stmt",
+          "named": true
+        },
+        {
+          "type": "resource_decl_stmt",
+          "named": true
+        },
+        {
+          "type": "resource_order_stmt",
+          "named": true
+        },
+        {
+          "type": "sink_stmt",
+          "named": true
+        },
+        {
           "type": "yield_stmt",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "task_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "block",
           "named": true
         }
       ]
@@ -866,6 +1346,10 @@
         {
           "type": "string",
           "named": true
+        },
+        {
+          "type": "task_expr",
+          "named": true
         }
       ]
     }
@@ -908,6 +1392,10 @@
   },
   {
     "type": "-",
+    "named": false
+  },
+  {
+    "type": "->",
     "named": false
   },
   {
@@ -967,6 +1455,18 @@
     "named": false
   },
   {
+    "type": ">>",
+    "named": false
+  },
+  {
+    "type": ">_",
+    "named": false
+  },
+  {
+    "type": "?|",
+    "named": false
+  },
+  {
     "type": "@",
     "named": false
   },
@@ -988,6 +1488,10 @@
     "named": true
   },
   {
+    "type": "integer",
+    "named": true
+  },
+  {
     "type": "line_comment",
     "named": true,
     "extra": true
@@ -1005,7 +1509,15 @@
     "named": false
   },
   {
+    "type": "|",
+    "named": false
+  },
+  {
     "type": "||",
+    "named": false
+  },
+  {
+    "type": "||>",
     "named": false
   },
   {

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-11
 
 ## Mission
 
@@ -34,6 +34,15 @@ Primary paths:
 9. Tree-sitter and fallback syntax snapshots are non-authoritative editor aids. Accepted grammar must be proven through the hand-written nightly compiler parser and [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), not by Tree-sitter success.
 10. Range editing support must distinguish naked `start..end` as `range_expr` from bracketed `[start..end]` as `materialized_range`; do not let `[start..end]` collapse to a one-element `list_literal`, and keep `[start..end..step]` reserved rather than an active editor grammar form.
 11. Keep Tree-sitter snapshot range helpers single-pass on the source buffer. A newline-range check performs one lookup and reuses its result; verify adapter behavior with the IDE suite and retain the Tree-sitter ON/OFF fallback contract.
+12. For the task/history milestone, trace resource declarations/selectors in
+    `Parser.cpp` and task/await/iterator/sink/order/print rules in `NewParserExpr.cpp`
+    before changing the edit-time grammar. Read the authoritative state-resource
+    t13/t22/t23/e06 and task-resource e06 fixtures in permanent IDE tests. Require
+    actual Tree-sitter and retain malformed-edit errors, incremental/full equivalence,
+    folding, token boundaries and completion. Syntactically valid failure programs
+    retain their separate semantic/runtime contract. Use the pinned generator above
+    on the repository Node.js 24 baseline; do not claim complete language coverage
+    from this bounded fixture set.
 
 ## Change Classes
 

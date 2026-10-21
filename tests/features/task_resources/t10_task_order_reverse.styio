@@ -1,0 +1,6 @@
+first = ||> { >_(1) <| 1 }
+second = ||> { >_(2) <| 2 }
+second => first
+?| first -> a: i64
+?| second -> b: i64
+>_(a + b)

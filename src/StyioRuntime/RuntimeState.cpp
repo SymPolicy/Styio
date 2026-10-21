@@ -1,6 +1,7 @@
 #include "StyioRuntime/RuntimeState.hpp"
 
 #include <cstring>
+#include <utility>
 
 namespace {
 
@@ -107,6 +108,17 @@ take_error() {
   }
   clear_error_state();
   return snapshot;
+}
+
+void
+restore_error(RuntimeErrorSnapshot snapshot) {
+  clear_error_state();
+  if (!snapshot.has_error) {
+    return;
+  }
+  g_runtime_error = true;
+  g_runtime_error_message = std::move(snapshot.message);
+  g_runtime_error_subcode = std::move(snapshot.subcode);
 }
 
 void

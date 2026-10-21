@@ -1,0 +1,10 @@
+@local : i64|..2|
+[7] >> #(v) => { v -> @local }
+job = ||> { <| 0 }
+[0] >> #(unused) => {
+ saved: i64 = @local[-1]
+ job = ||> { <| saved + @local[-1] }
+}
+[9] >> #(v) => { v -> @local }
+?| job -> value: i64
+>_(value)

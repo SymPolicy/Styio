@@ -189,6 +189,12 @@ run_audit_gate() {
     echo 'General-Auditor root must contain action_entry.py.' >&2
     exit 2
   fi
+  local repository_identity
+  repository_identity="$(origin_repo_name || true)"
+  if [ -z "$repository_identity" ]; then
+    echo 'General-Auditor requires the repository identity; configure the origin remote.' >&2
+    exit 2
+  fi
   audit_command=scan
   for ci_flag in "${CI:-}" "${GITHUB_ACTIONS:-}"; do
     case "$ci_flag" in
@@ -196,10 +202,11 @@ run_audit_gate() {
       *) audit_command=check ;;
     esac
   done
-  audit_status=0
-  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "Unka-Malloc/styio-nightly" --scope history || audit_status=$?
-  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "Unka-Malloc/styio-nightly" --scope worktree || audit_status=$?
-  return "$audit_status"
+  local history_status=0 worktree_status=0
+  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "$repository_identity" --scope history || history_status=$?
+  python3 -I "$auditor_root/action_entry.py" "$audit_command" --policy-root "$auditor_root" --directory "$ROOT" --repository "$repository_identity" --scope worktree || worktree_status=$?
+  (( history_status == 0 )) || return "$history_status"
+  return "$worktree_status"
 }
 
 run_scheduler_profile() {
@@ -418,7 +425,7 @@ esac
 if [[ "$RUN_AUDIT" -eq 1 ]]; then
   run_audit_gate
 else
-  log "styio-audit skipped"
+  log "General-Auditor skipped"
 fi
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then

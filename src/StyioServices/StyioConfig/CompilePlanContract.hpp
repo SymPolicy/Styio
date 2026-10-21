@@ -65,6 +65,12 @@ probe_compile_plan_diag_dir(
 );
 
 bool
+probe_compile_plan_build_root(
+  const std::filesystem::path& plan_path,
+  std::filesystem::path& out_build_root
+);
+
+bool
 parse_compile_plan(
   const std::filesystem::path& plan_path,
   CompilePlanRequest& out_request,

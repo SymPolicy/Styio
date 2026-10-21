@@ -568,6 +568,12 @@ public:
   }
 
   virtual void
+  visitSIOTaskOrder(SIOTaskOrder* node) {
+    walk(node->before_expr);
+    walk(node->after_expr);
+  }
+
+  virtual void
   visitSIOPath(SIOPath* /*node*/) {
     /* leaf */
   }
@@ -831,6 +837,9 @@ protected:
     }
     else if (auto* n = dynamic_cast<SIOFlowBind*>(node)) {
       visitSIOFlowBind(n);
+    }
+    else if (auto* n = dynamic_cast<SIOTaskOrder*>(node)) {
+      visitSIOTaskOrder(n);
     }
     else if (auto* n = dynamic_cast<SIOPrint*>(node)) {
       visitSIOPrint(n);

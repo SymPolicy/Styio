@@ -82,6 +82,8 @@ struct SessionConfig
 };
 
 bool session_active() noexcept;
+// Process-local identity; descriptor generations may repeat across sessions.
+std::uint64_t session_epoch() noexcept;
 bool begin_session(SessionConfig config);
 void end_session();
 void register_table(std::uint32_t generation, std::vector<Descriptor> descriptors);

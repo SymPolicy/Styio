@@ -1,17 +1,20 @@
 # General-Auditor
 
-CI uses `Unka-Malloc/General-Auditor@only` to check this repository's common and
+CI uses `Unka-Malloc/General-Auditor` pinned to a full reviewed commit SHA in
+`.github/workflows/general-auditor.yml` to check this repository's common and
 repository-specific policy. It does not create or upload reports or source
 evidence. Existing required status names and product checks are preserved.
 Keyword matches are candidates for contextual review, not confirmed privacy
-disclosures.
+disclosures. Upgrade the pin explicitly and record the review when moving to a
+newer auditor revision.
 
 The retired `styio-audit` framework is private and archived. This repository has
 no active dependency on its packages, clones or workflow.
 
 ## Local source evidence
 
-Use a trusted General-Auditor checkout on `only`. Select its absolute directory
+Use a trusted General-Auditor checkout at the commit pinned in
+`.github/workflows/general-auditor.yml`. Select its absolute directory
 with `--audit-root` where supported, otherwise `GENERAL_AUDITOR_ROOT`, otherwise
 repository-local `git config --local generalAuditor.root`. The selected directory
 must contain `action_entry.py`. There is no PATH lookup or common-only fallback.

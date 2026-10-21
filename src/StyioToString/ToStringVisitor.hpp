@@ -439,6 +439,7 @@ public:
   std::string toString(SIOStdStreamPull* node, int indent = 0);
   std::string toString(SIOTaskCreate* node, int indent = 0);
   std::string toString(SIOFlowBind* node, int indent = 0);
+  std::string toString(SIOTaskOrder* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

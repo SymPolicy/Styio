@@ -15,6 +15,12 @@ module.exports = grammar({
       choice(
         $.function_decl,
         $.binding_stmt,
+        $.resource_decl_stmt,
+        $.await_stmt,
+        $.iterator_stmt,
+        $.sink_stmt,
+        $.resource_order_stmt,
+        $.print_stmt,
         $.yield_stmt,
         $.expr_stmt,
         $.block
@@ -51,6 +57,23 @@ module.exports = grammar({
 
     yield_stmt: ($) => seq("<|", $._expr),
 
+    // These edit-time forms mirror the nightly parser's resource/task slice.
+    resource_decl_stmt: ($) => seq(
+      "@", field("name", $.identifier), ":", $.type_expr,
+      optional(seq("|", optional(".."), $.integer, "|"))
+    ),
+    await_stmt: ($) => seq(
+      "?|", field("source", $._expr), "->",
+      field("name", $.identifier), ":", $.type_expr,
+      optional(seq("|", field("fallback", $._expr)))
+    ),
+    iterator_stmt: ($) => seq(
+      field("source", $._expr), ">>", "#", $.param_list, "=>", $.block
+    ),
+    sink_stmt: ($) => seq(field("value", $._expr), "->", $.resource_expr),
+    resource_order_stmt: ($) => seq($.identifier, "=>", $._expr),
+    print_stmt: ($) => seq(">_", $.arg_list),
+
     expr_stmt: ($) => $._expr,
 
     block: ($) => seq("{", repeat($._statement), "}"),
@@ -81,6 +104,7 @@ module.exports = grammar({
         $.list_expr,
         $.range_expr,
         $.resource_expr,
+        $.task_expr,
         $.paren_expr
       ),
 
@@ -118,12 +142,15 @@ module.exports = grammar({
     resource_expr: ($) =>
       choice(
         prec.right(2, seq("@", $.identifier, $.block)),
-        seq("@", $.identifier)
+        prec.right(4, seq("@", $.identifier, optional($.history_selector)))
       ),
+    history_selector: ($) => seq("[", "-", $.integer, "]"),
+    task_expr: ($) => seq("||>", $.block),
     paren_expr: ($) => seq("(", $._expr, ")"),
 
     identifier: () => /[_\p{XID_Start}][_\p{XID_Continue}]*/u,
     number: () => /\d+(\.\d+)?/,
+    integer: () => /\d+/,
     string: () => /"[^"\n\r]*"/,
     line_comment: () => token(seq("//", /.*/)),
     block_comment: () => token(seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/")),

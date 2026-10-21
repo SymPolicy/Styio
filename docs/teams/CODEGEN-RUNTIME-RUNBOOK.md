@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-16
 
 ## Mission
 
@@ -137,3 +137,49 @@ Record unfinished codegen/runtime work with:
 4. Failing security, pipeline, soak, or benchmark command.
 5. Known rollback point and whether generated goldens are intentionally stale.
 6. Runtime-event family changes and the exact consumer docs/gates updated with them.
+
+### Task/resource compiler candidate (2026-10-11)
+
+Task history captures snapshot committed rings at creation. Numeric arrays use
+bulk copies without changing storage ownership; strings and container graphs
+export owned packets and import into the worker table. Nested pending writes use
+lazy per-scope storage. Runtime task edges synchronize registration and launch,
+reject reachability cycles and retain executor lifetime through completion;
+worker queue saturation uses work-first execution. Wait episodes are session
+owned. Preserve the permanent `TaskOrder*`, `TaskCapture*` and session-order cases
+when changing these helpers; performance evidence is in the candidate handoff.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Ready-constructed tasks are excluded from the launch claim, so a demand pull of
+a settled i64/f64/cstr task can no longer enqueue and rerun it over its result
+fields; the externlib internal ready-pull test pins the scheduler counters and
+the rejected repeat pull. Scope-owned cstr bindings keep a name-based ownership
+record: an escaping task capture exports a clone of the owned string, the worker
+imports it into its own cleanup slot, a nested escaping capture exports again,
+and function-pointer bindings are never selected. The scope-escaping t12 fixture
+and the security-suite IR assertion cover the capture repair.
+
+The scheduler also keeps single-worker forward progress when a running task
+waits on a nested task it did not spawn: a non-blocking ready-queue claim takes
+a task exactly once, and the wait path assists one ready task only from a thread
+that is already executing a task body, saving and restoring the thread's
+running-task context so nested assisted runs cannot clobber the parent's wait
+correlation. No timeout, cancellation or replay is introduced; the assist runs
+the ready task to completion like the existing queue-full work-first path. The
+permanent `NestedTaskWaitsKeepSingleWorkerForwardProgress` case pins
+spawned/enqueued/started/completed counters, queue depth, handle balance and
+error propagation under one configured worker, and the t13/t14 fixtures cover
+nested waits from the CLI.
+
+A nested task run also preserves its caller's error accounting: `run()` captures
+the calling body's pending runtime error through `ParentTaskErrorGuard` before
+the inline execution clears the thread slot and restores it through
+`styio::runtime::restore_error` on every exit path, so the child's own error
+settles only to the child. A parent that raised before the wait assist or the
+queue-full work-first dispatch keeps its own subcode instead of settling as
+success once the child runs inline. The guard is inactive for a top-level run,
+whose thread slot is fresh by contract.

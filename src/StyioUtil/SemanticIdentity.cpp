@@ -32,14 +32,31 @@ void append_fields(std::string& out, const std::vector<std::string>& values) {
   }
 }
 
-bool package_name_is_path_shaped(std::string_view name) noexcept {
-  return name.find('/') != std::string_view::npos
-    || name.find('\\') != std::string_view::npos
-    || name.find('@') != std::string_view::npos
-    || name.find(' ') != std::string_view::npos;
-}
-
 } // namespace
+
+bool canonical_package_name_is_valid(std::string_view name) noexcept {
+  const std::size_t slash = name.find('/');
+  if (slash == std::string_view::npos || slash != name.rfind('/')) {
+    return false;
+  }
+  const auto segment_is_valid = [](std::string_view segment) noexcept {
+    if (segment.empty()) {
+      return false;
+    }
+    for (std::size_t index = 0; index < segment.size(); ++index) {
+      const char ch = segment[index];
+      const bool allowed =
+        (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')
+        || (index != 0 && (ch == '_' || ch == '-'));
+      if (!allowed) {
+        return false;
+      }
+    }
+    return true;
+  };
+  return segment_is_valid(name.substr(0, slash))
+    && segment_is_valid(name.substr(slash + 1));
+}
 
 CanonicalModuleError canonical_module_error(std::string_view module) noexcept {
   if (module.empty() || module.front() == '/' || module.back() == '/'
@@ -103,10 +120,8 @@ Scope Scope::qualified(
   std::string manifest_relative_path,
   std::string entry_relative_path
 ) {
-  if (package_name.empty() || package_name == "." || package_name == ".."
-      || package_name_is_path_shaped(package_name)) {
-    throw std::invalid_argument(
-      "package name must be a non-empty namespaced identity and must not be path-shaped");
+  if (!canonical_package_name_is_valid(package_name)) {
+    throw std::invalid_argument("package name must match namespace/name");
   }
   if (canonical_relative_path_error(manifest_relative_path)
       != CanonicalRelativePathError::None) {

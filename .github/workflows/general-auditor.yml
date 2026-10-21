@@ -35,7 +35,7 @@ jobs:
           python-version: '3.12'
 
       - name: Run General-Auditor for Unka-Malloc/styio-nightly
-        uses: Unka-Malloc/General-Auditor@only
+        uses: Unka-Malloc/General-Auditor@8589064b8b45a4da8e6d1adde6ab0725de789f65 # only, pinned to a reviewed commit
         with:
           repository: Unka-Malloc/styio-nightly
           directory: .

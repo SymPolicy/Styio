@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-repo_root="$(git rev-parse --show-toplevel)"
-export STYIO_COMMIT_READINESS_REQUIRE=1
-exec "$repo_root/scripts/delivery-gate.sh" --mode staged --skip-health --skip-audit
+ROOT="$(git rev-parse --show-toplevel)"
+exec "$ROOT/scripts/repo-hygiene-gate.py" --mode staged
