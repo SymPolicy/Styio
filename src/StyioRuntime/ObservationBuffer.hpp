@@ -89,7 +89,7 @@ void end_session();
 void register_table(std::uint32_t generation, std::vector<Descriptor> descriptors);
 bool table_registered() noexcept;
 std::uint32_t table_generation() noexcept;
-const Descriptor* descriptor_at(std::uint32_t index) noexcept;
+bool descriptor_at(std::uint32_t index, Descriptor& out) noexcept;
 
 void set_thread_lane(std::uint32_t lane) noexcept;
 std::uint32_t thread_lane() noexcept;
