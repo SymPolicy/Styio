@@ -58,9 +58,24 @@ while [[ $# -gt 0 ]]; do
 done
 
 rel_or_external() {
-  case "$1" in
-    "$ROOT"/*) printf '%s' "${1#"$ROOT"/}" ;;
+  local candidate="$1"
+  case "$candidate" in
+    /*) ;;
+    *) candidate="$ROOT/${candidate#./}" ;;
+  esac
+  local normalized="" part
+  local IFS='/'
+  read -ra parts <<< "$candidate"
+  for part in "${parts[@]}"; do
+    case "$part" in
+      ""|.) ;;
+      ..) normalized="${normalized%/*}" ;;
+      *) normalized="$normalized/$part" ;;
+    esac
+  done
+  case "$normalized" in
     "$ROOT") printf '.' ;;
+    "$ROOT"/*) printf '%s' "${normalized#"$ROOT"/}" ;;
     *) printf '<external>' ;;
   esac
 }
