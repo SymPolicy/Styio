@@ -66,6 +66,16 @@ fs::path fixture_root() {
   return fs::path(STYIO_SOURCE_DIR) / "tests/fixtures/observable_static_snapshot/v1";
 }
 
+void expect_no_host_paths(const std::string& bytes) {
+  if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
+    EXPECT_EQ(bytes.find(home), std::string::npos);
+    EXPECT_EQ(bytes.find(fs::path(home).parent_path().string()), std::string::npos);
+  }
+  const fs::path tmp_root = fs::temp_directory_path();
+  EXPECT_EQ(bytes.find(tmp_root.string()), std::string::npos);
+  EXPECT_EQ(bytes.find(fs::weakly_canonical(tmp_root).string()), std::string::npos);
+}
+
 std::vector<std::pair<size_t, size_t>> line_seps(const std::string& src) {
   std::vector<std::pair<size_t, size_t>> seps;
   size_t begin = 0;
@@ -425,10 +435,7 @@ TEST(StyioObservableStaticSnapshot, PrivacyScanRejectsForbiddenTokens) {
   const std::string source = read_text(fixture_root() / "package/src/main.styio");
   const auto published = publish_source(source, example_unit());
   ASSERT_TRUE(published.ok) << published.error;
-  EXPECT_EQ(published.json.find("/Users/"), std::string::npos);
-  EXPECT_EQ(published.json.find("/home/"), std::string::npos);
-  EXPECT_EQ(published.json.find("/private/"), std::string::npos);
-  EXPECT_EQ(published.json.find("/tmp/"), std::string::npos);
+  expect_no_host_paths(published.json);
   EXPECT_EQ(published.json.find("content_hash"), std::string::npos);
   EXPECT_EQ(published.json.find("raw_source"), std::string::npos);
   EXPECT_EQ(published.json.find("0x"), std::string::npos);
@@ -1267,9 +1274,7 @@ TEST(StyioObservableDeltaPublicationCli, ParentSnapshotProducesCanonicalReconstr
   EXPECT_EQ(receipt_text.find(parent_path), std::string::npos);
   EXPECT_EQ(delta_text.find(root_a.filename().string()), std::string::npos);
   EXPECT_EQ(delta_text.find(root_b.filename().string()), std::string::npos);
-  EXPECT_EQ(delta_text.find("/Users/"), std::string::npos);
-  EXPECT_EQ(delta_text.find("/tmp/"), std::string::npos);
-  EXPECT_EQ(delta_text.find("/private/"), std::string::npos);
+  expect_no_host_paths(delta_text);
 
   const std::string profile_json = read_text(second.profile_path);
   EXPECT_NE(profile_json.find("observable_static_snapshot"), std::string::npos);
