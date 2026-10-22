@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of Styio tokenization, parsing, Unicode handling, and the authoritative nightly parser contract; this file links to language and test SSOTs instead of redefining grammar.
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-22
 
 ## Mission
 
@@ -87,6 +87,7 @@ Build and test targets:
 50. A standalone break statement at a statement boundary requires at least two contiguous carets; `^^^` is the conventional spelling and every longer contiguous run has the same single-level meaning. Reject a lone caret with the exact migration diagnostic that asks for two or more carets, keep infix XOR plus list-caret forms outside this statement route, and name shared scanners by the separated-run behavior they detect rather than by a parser-route generation.
 51. Preserve every downloaded lexer/parser fuzz crash as a tracked corpus input after fixing its frontend root cause; do not guard only the fuzz entrypoint or discard a reproducer after smoke turns green.
 52. Forward-list helpers return the accumulated followings when the current token is `ITERATOR` (`>>`) and leave that token unconsumed for the outer iterator parser. An empty `break` at that edge is a no-progress loop; lexer/parser fuzz iterations must use `tokenizeOwned` so source lifetime is iteration-local rather than appended to the process-global legacy registry.
+53. Shared-temp filesystem helpers are platform-owned and must stay race-free at creation. `styio::platform::create_temp_directory` in `src/StyioPlatform/` is the only accepted way to obtain a scratch directory: it performs atomic owner-only creation (POSIX `mkdir` with mode `0700`; Windows `CreateDirectoryW` with an owner-scoped protected DACL applied at creation time) under a randomized suffix. Never reintroduce predictable shared-temp names, create-then-chmod sequences, or caller-side permission tightening after the directory already exists.
 
 ## Change Classes
 

@@ -712,37 +712,13 @@ parse_params(const std::string& raw_params) {
 
 std::filesystem::path
 make_native_temp_dir() {
-  const std::filesystem::path base = std::filesystem::temp_directory_path();
-#if defined(_WIN32)
-  const auto pid = static_cast<unsigned long long>(::GetCurrentProcessId());
-  for (int attempt = 0; attempt < 100; ++attempt) {
-    const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-    std::filesystem::path candidate =
-      base / ("styio-native-"
-              + std::to_string(pid)
-              + "-"
-              + std::to_string(static_cast<long long>(now))
-              + "-"
-              + std::to_string(attempt));
-    std::error_code ec;
-    if (std::filesystem::create_directory(candidate, ec)) {
-      return candidate;
-    }
+  std::string error_message;
+  const std::filesystem::path dir =
+    styio::platform::create_temp_directory("styio-native", error_message);
+  if (dir.empty()) {
+    throw StyioTypeError("cannot create native @extern temporary directory");
   }
-  throw StyioTypeError("cannot create native @extern temporary directory");
-#else
-  std::string tmpl = (base / "styio-native-XXXXXX").string();
-  std::vector<char> buffer(tmpl.begin(), tmpl.end());
-  buffer.push_back('\0');
-
-  char* created = ::mkdtemp(buffer.data());
-  if (created == nullptr) {
-    throw StyioTypeError(
-      "cannot create native @extern temporary directory: "
-      + std::string(std::strerror(errno)));
-  }
-  return std::filesystem::path(created);
-#endif
+  return dir;
 }
 
 bool
