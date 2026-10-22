@@ -8,6 +8,9 @@ on:
       - nightly
       - stable
 
+permissions:
+  contents: read
+
 jobs:
   styio-ci-gate:
     name: platform-adaptation / linux-ci-gate
@@ -20,6 +23,7 @@ jobs:
         with:
           fetch-depth: 0
           path: styio-nightly
+          persist-credentials: false
 
       - name: Resolve ecosystem lane
         id: lane
@@ -49,6 +53,7 @@ jobs:
           repository: Unka-Malloc/pafio-nightly
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: pafio-nightly
+          persist-credentials: false
 
       - name: Check out Vityo sibling repository
         uses: actions/checkout@v5
@@ -56,6 +61,7 @@ jobs:
           repository: Unka-Malloc/vityo-nightly
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: vityo-nightly
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -187,6 +193,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -265,6 +273,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -303,6 +313,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -388,6 +400,8 @@ jobs:
     steps:
       - name: Checkout report tool
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Test report tool in isolation
         continue-on-error: true

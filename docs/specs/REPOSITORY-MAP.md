@@ -48,12 +48,12 @@ verification. Downstream development repositories keep their own boundaries.
 
 | Repository | Role | Owns What | Does Not Own |
 |------------|------|-----------|--------------|
-| [`Styio`](https://github.com/SymPolicy/Styio) / development mirror [README.md](../../README.md) | Language and compiler | Language design, grammar, compiler, CLI, tests, primary technical docs | Package-manager product, editor UI, standalone teaching corpus |
+| [`Styio`](https://github.com/SymPolicy/Styio) / development mirror [README.md](../../README.md) | Language and compiler | Language design, grammar, compiler, CLI, tests, primary technical docs, this repository's own compiler-pinned toolchain bootstrap and devcontainer | Package-manager product, editor UI, standalone teaching corpus |
 | [`styio-platform`](https://github.com/eBioRing/styio-platform) | Registry and hosted platform | Registry/control plane, hosted workspace, cloud job, worker and hosted API; workers invoke `pafio build` | Language semantics, compiler implementation, Pafio client state |
 | [`pafio-nightly`](https://github.com/Unka-Malloc/pafio-nightly) | Package and project build entry | Manifest/lock, resolution, cache, offline reproduction, metadata, sync/check/build/run/test, vendor/pack/publish client | Language semantics, compiler, registry server or hosted workers |
 | [`styio-audit`](../../.github/workflows/styio-audit.yml) | Repository-internal audit gate | Local/server info-leak scan over the tracked tree | Language semantics, acceptance tests, compiler implementation |
 | [`styio-dev-doc`](https://github.com/SymPolicy/styio-dev-doc) | Contributor documentation | Cross-repository development guides, setup and collaboration | Independent language semantics or compiler acceptance criteria |
-| [`styio-dev-env`](https://github.com/eBioRing/styio-dev-env) | Development environment | Devcontainer, toolchain bootstrap, shared CI/local setup | Language design or example programs |
+| [`styio-dev-env`](https://github.com/eBioRing/styio-dev-env) | Development environment | Shared and multi-repo development environment, reusable CI/local setup | Language design or example programs |
 | [`styio-book`](https://github.com/SymPolicy/styio-book) | Learning material and language narrative | Tutorials and explanatory chapters, each tied to its applicable language version | Authoritative current syntax, compiler internals or acceptance rules |
 | [`vityo-nightly`](https://github.com/Unka-Malloc/vityo-nightly) | Visual IDE and execution presentation | Editor/workspace UI, runtime views and toolchain adapters | Compiler semantics, package rules or platform backend |
 | [`styio-examples`](https://github.com/SymPolicy/styio-examples) | Generated algorithm gallery | Presentation and indexing of versioned source examples | A second syntax definition or independent compiler test oracle |
