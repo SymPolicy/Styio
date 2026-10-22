@@ -1184,6 +1184,50 @@ styio_now_token_latest() {
   return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(now).count());
 }
 
+// Creates a fresh, exclusively-owned directory inside the shared system
+// temporary area. The name carries an unpredictable component and creation is
+// exclusive, so a local actor cannot pre-place a symlink at the path; the
+// owner-only permission set keeps the contents private while external tools
+// (curl, tar) write into it.
+static bool
+styio_make_secure_tempdir_latest(
+  const std::string& prefix,
+  std::filesystem::path& out_dir
+) {
+  std::error_code ec;
+  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
+  if (ec) {
+    return false;
+  }
+  std::random_device entropy;
+  for (int attempt = 0; attempt < 64; ++attempt) {
+    char suffix[32];
+    std::snprintf(
+      suffix,
+      sizeof(suffix),
+      "-%s-%08x%08x",
+      styio_now_token_latest().c_str(),
+      entropy(),
+      entropy());
+    const std::filesystem::path candidate = base / (prefix + suffix);
+    if (std::filesystem::create_directory(candidate, ec)) {
+      std::filesystem::permissions(
+        candidate,
+        std::filesystem::perms::owner_all,
+        std::filesystem::perm_options::replace,
+        ec);
+      if (ec) {
+        std::filesystem::remove(candidate, ec);
+        return false;
+      }
+      out_dir = candidate;
+      return true;
+    }
+    ec.clear();
+  }
+  return false;
+}
+
 static std::string
 styio_now_utc_iso8601_latest() {
   const std::time_t now = std::time(nullptr);
@@ -1814,8 +1858,12 @@ styio_read_text_file_latest(
   return true;
 }
 
-static std::filesystem::path
-styio_process_log_path_latest(const std::string& purpose) {
+static bool
+styio_process_log_scratch_latest(
+  const std::string& purpose,
+  std::filesystem::path& out_dir,
+  std::filesystem::path& out_path
+) {
   std::string safe_name;
   safe_name.reserve(purpose.size());
   for (char ch : purpose) {
@@ -1825,8 +1873,11 @@ styio_process_log_path_latest(const std::string& purpose) {
   if (safe_name.empty()) {
     safe_name = "process";
   }
-  return std::filesystem::temp_directory_path()
-    / ("styio-" + safe_name + "-" + styio_now_token_latest() + ".log");
+  if (!styio_make_secure_tempdir_latest("styio-" + safe_name, out_dir)) {
+    return false;
+  }
+  out_path = out_dir / "process.log";
+  return true;
 }
 
 static bool
@@ -1835,12 +1886,17 @@ styio_run_process_latest(
   const std::string& purpose,
   std::string& error_message
 ) {
-  const std::filesystem::path log_path = styio_process_log_path_latest(purpose);
+  std::filesystem::path log_dir;
+  std::filesystem::path log_path;
+  if (!styio_process_log_scratch_latest(purpose, log_dir, log_path)) {
+    error_message = purpose + " failed: could not create a temporary log location";
+    return false;
+  }
   const std::vector<std::string> resolved_argv = styio_resolved_process_argv_latest(argv);
   const auto result = styio::native::run_native_command_to_log(resolved_argv, log_path, true);
   if (result.ok()) {
     std::error_code cleanup_ec;
-    std::filesystem::remove(log_path, cleanup_ec);
+    std::filesystem::remove_all(log_dir, cleanup_ec);
     return true;
   }
 
@@ -1848,7 +1904,7 @@ styio_run_process_latest(
   std::string log_error;
   (void)styio_read_text_file_latest(log_path, log_text, log_error);
   std::error_code cleanup_ec;
-  std::filesystem::remove(log_path, cleanup_ec);
+  std::filesystem::remove_all(log_dir, cleanup_ec);
 
   error_message = purpose + " failed";
   if (!resolved_argv.empty()) {
@@ -1868,14 +1924,17 @@ styio_read_first_process_token_latest(
   const std::vector<std::string>& argv,
   std::string& out_token
 ) {
-  const std::filesystem::path stdout_path = styio_process_log_path_latest("stdout");
-  const std::filesystem::path stderr_path = styio_process_log_path_latest("stderr");
+  std::filesystem::path log_dir;
+  std::filesystem::path stdout_path;
+  if (!styio_process_log_scratch_latest("process-stdout", log_dir, stdout_path)) {
+    return false;
+  }
+  const std::filesystem::path stderr_path = log_dir / "stderr.log";
   const std::vector<std::string> resolved_argv = styio_resolved_process_argv_latest(argv);
   const auto result = styio::native::run_native_command_to_logs(resolved_argv, stdout_path, stderr_path);
   if (!result.ok()) {
     std::error_code cleanup_ec;
-    std::filesystem::remove(stdout_path, cleanup_ec);
-    std::filesystem::remove(stderr_path, cleanup_ec);
+    std::filesystem::remove_all(log_dir, cleanup_ec);
     return false;
   }
 
@@ -1883,8 +1942,7 @@ styio_read_first_process_token_latest(
   std::string error;
   const bool read_ok = styio_read_text_file_latest(stdout_path, output, error);
   std::error_code cleanup_ec;
-  std::filesystem::remove(stdout_path, cleanup_ec);
-  std::filesystem::remove(stderr_path, cleanup_ec);
+  std::filesystem::remove_all(log_dir, cleanup_ec);
   if (!read_ok) {
     return false;
   }
@@ -1901,8 +1959,13 @@ styio_run_process_capture_stdout_latest(
   std::string& out_text,
   std::string& error_message
 ) {
-  const std::filesystem::path stdout_path = styio_process_log_path_latest("stdout");
-  const std::filesystem::path stderr_path = styio_process_log_path_latest("stderr");
+  std::filesystem::path log_dir;
+  std::filesystem::path stdout_path;
+  if (!styio_process_log_scratch_latest("process-stdout", log_dir, stdout_path)) {
+    error_message = purpose + " failed: could not create a temporary log location";
+    return false;
+  }
+  const std::filesystem::path stderr_path = log_dir / "stderr.log";
   const std::vector<std::string> resolved_argv = styio_resolved_process_argv_latest(argv);
   const auto result = styio::native::run_native_command_to_logs(resolved_argv, stdout_path, stderr_path);
   std::string stdout_text;
@@ -1912,8 +1975,7 @@ styio_run_process_capture_stdout_latest(
   (void)styio_read_text_file_latest(stderr_path, stderr_text, read_error);
 
   std::error_code cleanup_ec;
-  std::filesystem::remove(stdout_path, cleanup_ec);
-  std::filesystem::remove(stderr_path, cleanup_ec);
+  std::filesystem::remove_all(log_dir, cleanup_ec);
   if (result.ok()) {
     out_text = std::move(stdout_text);
     return true;
@@ -2009,6 +2071,42 @@ styio_nano_repository_marker_relpath_latest() {
 static constexpr const char* kStyioNanoRepositoryMarkerSchemaLatest = "styio-nano-static-repository";
 static constexpr const char* kStyioNanoRepositoryEntrySchemaLatest = "styio-nano-repository-entry";
 
+// A package name becomes path components inside the registry layout; it must
+// be a `/`-separated list of plain components so a crafted name cannot escape
+// the registry root (absolute paths, dot segments, drive-relative prefixes,
+// backslashes and control characters are all rejected).
+static bool
+styio_nano_package_name_is_safe_latest(const std::string& package_name) {
+  if (package_name.empty()
+      || std::filesystem::path(package_name).is_absolute()
+      || package_name.front() == '/'
+      || package_name.back() == '/') {
+    return false;
+  }
+  std::size_t start = 0;
+  for (;;) {
+    const std::size_t sep = package_name.find('/', start);
+    const std::string_view component =
+      sep == std::string::npos
+        ? std::string_view(package_name).substr(start)
+        : std::string_view(package_name).substr(start, sep - start);
+    if (component.empty() || component == "." || component == "..") {
+      return false;
+    }
+    for (const char ch : component) {
+      const auto uch = static_cast<unsigned char>(ch);
+      if (uch < 0x20 || uch == 0x7f || ch == '\\' || ch == ':') {
+        return false;
+      }
+    }
+    if (sep == std::string::npos) {
+      break;
+    }
+    start = sep + 1;
+  }
+  return true;
+}
+
 static std::string
 styio_nano_repository_entry_relpath_latest(const std::string& package_name) {
   return (std::filesystem::path("index") / std::filesystem::path(package_name) / "entry.json")
@@ -2031,14 +2129,20 @@ styio_fetch_registry_text_latest(
 ) {
   const std::string full_ref = styio_join_registry_ref_latest(registry_root, rel_path);
   if (styio_ref_is_http_url_latest(full_ref)) {
-    const std::filesystem::path tmp_path =
-      std::filesystem::temp_directory_path() / ("styio-nano-fetch-" + styio_now_token_latest() + ".tmp");
+    std::filesystem::path scratch_dir;
+    if (!styio_make_secure_tempdir_latest("styio-nano-fetch", scratch_dir)) {
+      error_message = "failed to create a temporary download location";
+      return false;
+    }
+    const std::filesystem::path tmp_path = scratch_dir / "fetch.tmp";
     if (!styio_fetch_ref_to_file_latest(full_ref, {}, tmp_path, false, error_message)) {
+      std::error_code cleanup_ec;
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
     const bool ok = styio_read_text_file_latest(tmp_path, out_text, error_message);
     std::error_code ec;
-    std::filesystem::remove(tmp_path, ec);
+    std::filesystem::remove_all(scratch_dir, ec);
     return ok;
   }
 
@@ -2183,6 +2287,11 @@ styio_write_nano_repository_entry_latest(
   const StyioNanoRepositoryEntryLatest& entry,
   std::string& error_message
 ) {
+  if (!styio_nano_package_name_is_safe_latest(entry.package_name)) {
+    error_message =
+      "unsafe nano repository package name: " + entry.package_name;
+    return false;
+  }
   const std::filesystem::path entry_path =
     repo_root / std::filesystem::path(styio_nano_repository_entry_relpath_latest(entry.package_name));
   std::error_code ec;
@@ -3352,6 +3461,11 @@ styio_materialize_cloud_nano_package_latest(
       return false;
     }
 
+    if (!styio_nano_package_name_is_safe_latest(selection.registry_package)) {
+      error_message =
+        "unsafe nano repository package name: " + selection.registry_package;
+      return false;
+    }
     std::string entry_text;
     if (!styio_fetch_registry_text_latest(
           selection.registry_root,
@@ -3371,20 +3485,26 @@ styio_materialize_cloud_nano_package_latest(
       return false;
     }
 
-    const std::filesystem::path blob_path =
-      std::filesystem::temp_directory_path() / ("styio-nano-blob-" + styio_now_token_latest() + ".tar");
+    std::filesystem::path scratch_dir;
+    if (!styio_make_secure_tempdir_latest("styio-nano-cloud", scratch_dir)) {
+      error_message = "failed to create a temporary download location";
+      return false;
+    }
+    const std::filesystem::path blob_path = scratch_dir / "blob.tar";
     if (!styio_fetch_ref_to_file_latest(
           styio_join_registry_ref_latest(selection.registry_root, entry.blob_path),
           {},
           blob_path,
           false,
           error_message)) {
+      std::error_code cleanup_ec;
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
 
     std::error_code cleanup_ec;
     if (std::filesystem::file_size(blob_path, cleanup_ec) != entry.size_bytes) {
-      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       error_message = "nano repository blob size mismatch for " + selection.registry_package + "@"
                       + selection.registry_version;
       return false;
@@ -3392,48 +3512,42 @@ styio_materialize_cloud_nano_package_latest(
 
     std::string blob_sha256;
     if (!styio_compute_file_sha256_latest(blob_path, blob_sha256, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
     if (blob_sha256 != entry.sha256) {
-      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       error_message = "nano repository blob sha256 mismatch for " + selection.registry_package + "@"
                       + selection.registry_version;
       return false;
     }
 
-    const std::filesystem::path extract_root =
-      std::filesystem::temp_directory_path() / ("styio-nano-extract-" + styio_now_token_latest());
-    std::filesystem::create_directories(extract_root, cleanup_ec);
+    const std::filesystem::path extract_root = scratch_dir / "extract";
+    std::filesystem::create_directory(extract_root, cleanup_ec);
     if (!styio_validate_tar_archive_latest(blob_path, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
-      std::filesystem::remove_all(extract_root, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
     if (!styio_run_process_latest(
           {"tar", "-xf", blob_path.string(), "-C", extract_root.string()},
           "styio-nano blob extraction",
           error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
-      std::filesystem::remove_all(extract_root, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
 
     if (!styio_validate_nano_package_tree_latest(extract_root, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
-      std::filesystem::remove_all(extract_root, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
 
     std::filesystem::path package_root;
     if (!styio_resolve_extracted_nano_package_root_latest(extract_root, package_root, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
-      std::filesystem::remove_all(extract_root, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
     if (!styio_copy_directory_contents_latest(package_root, output_dir, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
-      std::filesystem::remove_all(extract_root, cleanup_ec);
+      std::filesystem::remove_all(scratch_dir, cleanup_ec);
       return false;
     }
     styio_make_file_executable_latest(binary_dest);
@@ -3462,18 +3576,23 @@ styio_materialize_cloud_nano_package_latest(
            ? std::string()
            : "published_at = \"" + styio_toml_escape_string_latest(entry.published_at) + "\"\n");
     const bool wrote_receipt = styio_write_text_file_latest(receipt_dest, receipt, error_message);
-    std::filesystem::remove(blob_path, cleanup_ec);
-    std::filesystem::remove_all(extract_root, cleanup_ec);
+    std::filesystem::remove_all(scratch_dir, cleanup_ec);
     return wrote_receipt;
   }
 
-  const std::filesystem::path manifest_copy =
-    std::filesystem::temp_directory_path() / ("styio-nano-manifest-" + styio_now_token_latest() + ".toml");
+  std::filesystem::path manifest_scratch;
+  if (!styio_make_secure_tempdir_latest("styio-nano-manifest", manifest_scratch)) {
+    error_message = "failed to create a temporary download location";
+    return false;
+  }
+  const std::filesystem::path manifest_copy = manifest_scratch / "manifest.toml";
   std::filesystem::path manifest_base_dir;
   if (!styio_fetch_ref_to_file_latest(selection.manifest_ref, {}, manifest_copy, false, error_message)) {
     if (!styio_ref_is_http_url_latest(selection.manifest_ref) && !styio_ref_is_file_uri_latest(selection.manifest_ref)) {
       manifest_base_dir = std::filesystem::path(selection.manifest_ref).parent_path();
     }
+    std::error_code cleanup_ec;
+    std::filesystem::remove_all(manifest_scratch, cleanup_ec);
     return false;
   }
 
@@ -3490,17 +3609,17 @@ styio_materialize_cloud_nano_package_latest(
 
   StyioNanoPackageManifestLatest manifest;
   if (!styio_parse_nano_package_manifest_latest(manifest_copy, manifest, error_message)) {
-    std::filesystem::remove(manifest_copy, ec);
+    std::filesystem::remove_all(manifest_scratch, ec);
     return false;
   }
 
   if (!styio_fetch_ref_to_file_latest(manifest.binary_ref, manifest_base_dir, binary_dest, true, error_message)) {
-    std::filesystem::remove(manifest_copy, ec);
+    std::filesystem::remove_all(manifest_scratch, ec);
     return false;
   }
   if (!manifest.profile_ref.empty()) {
     if (!styio_fetch_ref_to_file_latest(manifest.profile_ref, manifest_base_dir, profile_dest, false, error_message)) {
-      std::filesystem::remove(manifest_copy, ec);
+      std::filesystem::remove_all(manifest_scratch, ec);
       return false;
     }
   }
@@ -3523,11 +3642,11 @@ styio_materialize_cloud_nano_package_latest(
     + (manifest.profile_ref.empty() ? std::string()
                                     : "artifact_profile = \"" + styio_toml_escape_string_latest(manifest.profile_ref) + "\"\n");
   if (!styio_write_text_file_latest(receipt_dest, receipt, error_message)) {
-    std::filesystem::remove(manifest_copy, ec);
+    std::filesystem::remove_all(manifest_scratch, ec);
     return false;
   }
 
-  std::filesystem::remove(manifest_copy, ec);
+  std::filesystem::remove_all(manifest_scratch, ec);
   return true;
 }
 
@@ -3549,8 +3668,12 @@ styio_publish_nano_package_latest(
   if (!styio_validate_nano_package_tree_latest(package_dir, error_message)) {
     return false;
   }
-  const std::filesystem::path tar_path =
-    std::filesystem::temp_directory_path() / ("styio-nano-publish-" + styio_now_token_latest() + ".tar");
+  std::filesystem::path publish_scratch;
+  if (!styio_make_secure_tempdir_latest("styio-nano-publish", publish_scratch)) {
+    error_message = "failed to create a temporary archive location";
+    return false;
+  }
+  const std::filesystem::path tar_path = publish_scratch / "publish.tar";
   if (!styio_run_process_latest(
         {
           "tar",
@@ -3564,20 +3687,22 @@ styio_publish_nano_package_latest(
         },
         "styio-nano package archive",
         error_message)) {
+    std::error_code cleanup_ec;
+    std::filesystem::remove_all(publish_scratch, cleanup_ec);
     return false;
   }
 
   std::string sha256;
   if (!styio_compute_file_sha256_latest(tar_path, sha256, error_message)) {
     std::error_code cleanup_ec;
-    std::filesystem::remove(tar_path, cleanup_ec);
+    std::filesystem::remove_all(publish_scratch, cleanup_ec);
     return false;
   }
 
   std::error_code size_ec;
   const uint64_t size_bytes = std::filesystem::file_size(tar_path, size_ec);
   if (size_ec) {
-    std::filesystem::remove(tar_path, size_ec);
+    std::filesystem::remove_all(publish_scratch, size_ec);
     error_message = "failed to read styio-nano archive size: " + tar_path.string() + ": " + size_ec.message();
     return false;
   }
@@ -3586,7 +3711,7 @@ styio_publish_nano_package_latest(
   const std::filesystem::path blob_dest = repo_root / std::filesystem::path(blob_relpath);
   if (!styio_copy_file_with_exec_latest(tar_path, blob_dest, false, error_message)) {
     std::error_code cleanup_ec;
-    std::filesystem::remove(tar_path, cleanup_ec);
+    std::filesystem::remove_all(publish_scratch, cleanup_ec);
     return false;
   }
 
@@ -3600,7 +3725,7 @@ styio_publish_nano_package_latest(
   entry.published_at = styio_now_utc_iso8601_latest();
   const bool ok = styio_write_nano_repository_entry_latest(repo_root, entry, error_message);
   std::error_code cleanup_ec;
-  std::filesystem::remove(tar_path, cleanup_ec);
+  std::filesystem::remove_all(publish_scratch, cleanup_ec);
   return ok;
 }
 
