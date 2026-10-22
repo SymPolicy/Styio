@@ -627,12 +627,13 @@ an opaque package ID independently of all tested names.
 | Worker summary said 31 steps and 15 unobserved receipts | Retained JSON contains **30** steps, including machine info and doctor, and **14** successful unobserved receipts before review. The two reviewer invocations are separate evidence, not part of that original count. Disabled controller JSONL still exists when observation is off; no static snapshot/delta or task instrumentation is emitted. |
 | Exact Worker build exits were not retained beside test logs | Do not reconstruct process exits from passing GoogleTest text. Reuse the available per-binary test output and host result with that limit; the reviewer recorded an exact incremental final-target build and true exit below. |
 
-The actual producer is the existing `pafio-nightly/build-codex/bin/pafio`,
+The actual producer is the existing Pafio binary in the sibling workspace
+checkout (its host path is not material here; treat it as `<workspace-root>`),
 consumed in place, with base revision `a20dce6e9d889e892457b45b14d8d745e686ed34`
 plus its existing dirty candidate. The revision alone does not identify the
 binary. The gate source copies Pafio's authoritative manifest/programs into
-`build/task-resource-repair-20261011/pafio-gate/project/` and uses the isolated
-`pafio-gate/home/`. Review retained byte-identical copies of all five sources,
+`build/task-resource-repair-20261011/pafio-gate/project/` and uses an isolated
+scratch HOME under that gate directory. Review retained byte-identical copies of all five sources,
 five expectations and the manifest in `pafio-gate/authoritative-fixtures/`.
 There is one scratch project. Every real request explicitly selects
 `build/default/bin/styio`; the deliberately unusable `PAFIO_STYIO_BIN` proves
