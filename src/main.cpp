@@ -1184,48 +1184,18 @@ styio_now_token_latest() {
   return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(now).count());
 }
 
-// Creates a fresh, exclusively-owned directory inside the shared system
-// temporary area. The name carries an unpredictable component and creation is
-// exclusive, so a local actor cannot pre-place a symlink at the path; the
-// owner-only permission set keeps the contents private while external tools
-// (curl, tar) write into it.
+// Fresh, exclusively-owned, unpredictable directory inside the shared system
+// temporary area (see styio::platform::create_temp_directory): a local actor
+// cannot pre-place a symlink at the path and owner-only permissions keep the
+// contents private while external tools (curl, tar) write into it.
 static bool
 styio_make_secure_tempdir_latest(
   const std::string& prefix,
   std::filesystem::path& out_dir
 ) {
-  std::error_code ec;
-  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
-  if (ec) {
-    return false;
-  }
-  std::random_device entropy;
-  for (int attempt = 0; attempt < 64; ++attempt) {
-    char suffix[32];
-    std::snprintf(
-      suffix,
-      sizeof(suffix),
-      "-%s-%08x%08x",
-      styio_now_token_latest().c_str(),
-      entropy(),
-      entropy());
-    const std::filesystem::path candidate = base / (prefix + suffix);
-    if (std::filesystem::create_directory(candidate, ec)) {
-      std::filesystem::permissions(
-        candidate,
-        std::filesystem::perms::owner_all,
-        std::filesystem::perm_options::replace,
-        ec);
-      if (ec) {
-        std::filesystem::remove(candidate, ec);
-        return false;
-      }
-      out_dir = candidate;
-      return true;
-    }
-    ec.clear();
-  }
-  return false;
+  std::string error_message;
+  out_dir = styio::platform::create_temp_directory(prefix, error_message);
+  return !out_dir.empty();
 }
 
 static std::string
@@ -2091,6 +2061,11 @@ styio_nano_package_name_is_safe_latest(const std::string& package_name) {
         ? std::string_view(package_name).substr(start)
         : std::string_view(package_name).substr(start, sep - start);
     if (component.empty() || component == "." || component == "..") {
+      return false;
+    }
+    // Windows normalizes away trailing spaces and dots, which could turn e.g.
+    // ".. " into a parent component — reject them outright.
+    if (component.back() == ' ' || component.back() == '.') {
       return false;
     }
     for (const char ch : component) {
@@ -4423,27 +4398,7 @@ styio_resolve_source_root_latest(const std::filesystem::path& self_exe) {
 
 static std::filesystem::path
 styio_create_native_build_temp_root_latest(std::string& error_message) {
-  std::filesystem::path path =
-    styio::platform::create_temp_directory("styio-native-build", error_message);
-  if (path.empty()) {
-    return {};
-  }
-#if !defined(_WIN32)
-  std::error_code ec;
-  std::filesystem::permissions(
-    path,
-    std::filesystem::perms::owner_all,
-    std::filesystem::perm_options::replace,
-    ec);
-  if (ec) {
-    std::error_code remove_ec;
-    std::filesystem::remove(path, remove_ec);
-    error_message = "cannot secure native build temp directory: "
-      + path.string() + ": " + ec.message();
-    return {};
-  }
-#endif
-  return path;
+  return styio::platform::create_temp_directory("styio-native-build", error_message);
 }
 
 static bool

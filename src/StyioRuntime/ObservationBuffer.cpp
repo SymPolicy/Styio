@@ -98,6 +98,10 @@ std::atomic<std::uint32_t> g_inflight_producers{0};
 
 bool
 acquire_producer() noexcept {
+  // Capture the session epoch first: if teardown and a new begin interleave
+  // between the two checks, the epoch change unmasks the stale admission and
+  // the record cannot leak into a successor session.
+  const std::uint64_t epoch = g_session_epoch.load(std::memory_order_acquire);
   if (!g_active.load(std::memory_order_acquire)) {
     return false;
   }
@@ -105,7 +109,8 @@ acquire_producer() noexcept {
   // producer read in end_session: either the teardown observes this
   // registration and waits, or this load observes the closed gate.
   g_inflight_producers.fetch_add(1, std::memory_order_seq_cst);
-  if (g_active.load(std::memory_order_seq_cst)) {
+  if (g_active.load(std::memory_order_seq_cst)
+      && g_session_epoch.load(std::memory_order_acquire) == epoch) {
     return true;
   }
   g_inflight_producers.fetch_sub(1, std::memory_order_release);

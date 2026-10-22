@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <random>
 #include <sstream>
 #include <system_error>
 
@@ -20,6 +21,7 @@
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #endif
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -664,16 +666,16 @@ create_temp_directory(
   }
 
   const std::string clean_prefix = safe_prefix(prefix);
-  const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-  for (int attempt = 0; attempt < 256; ++attempt) {
-    const std::filesystem::path candidate =
-      base
-      / (clean_prefix + "-"
-         + std::to_string(static_cast<unsigned long long>(process_id()))
-         + "-"
-         + std::to_string(static_cast<long long>(now))
-         + "-"
-         + std::to_string(attempt));
+  std::random_device entropy;
+  for (int attempt = 0; attempt < 64; ++attempt) {
+    std::ostringstream name;
+    name << clean_prefix << "-"
+         << static_cast<unsigned long long>(process_id()) << "-"
+         << std::hex << entropy() << entropy() << entropy();
+    const std::filesystem::path candidate = base / name.str();
+#if defined(_WIN32)
+    // %TEMP% is already scoped to the owning user account; exclusive creation
+    // plus the unpredictable name is the guarantee here.
     ec.clear();
     if (std::filesystem::create_directory(candidate, ec)) {
       return candidate;
@@ -685,6 +687,18 @@ create_temp_directory(
         + candidate.string() + ": " + ec.message();
       return {};
     }
+#else
+    // mkdir(2) applies the owner-only mode atomically with creation: there is
+    // no window in which the directory exists with more permissive access.
+    if (::mkdir(candidate.c_str(), 0700) == 0) {
+      return candidate;
+    }
+    if (errno != EEXIST) {
+      error_message = "cannot create temporary directory: "
+        + candidate.string() + ": " + std::strerror(errno);
+      return {};
+    }
+#endif
   }
 
   error_message = "cannot allocate a unique temporary directory";
