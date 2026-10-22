@@ -1060,3 +1060,48 @@ TEST(StyioObservableRuntime, StrictPrivacyFixtureExcludesCanaries) {
   EXPECT_EQ(payload.find("CANARY_SECRET_sk-live-test"), std::string::npos);
   EXPECT_EQ(payload.find("diagnostic canary message"), std::string::npos);
 }
+
+TEST(StyioObservableRuntime, EmitEndSessionRaceDoesNotCorruptOrCrash) {
+  SessionGuard guard;
+  reset_clock();
+  CapturingSink sink;
+  constexpr std::uint32_t kProducerCount = 4;
+  ASSERT_TRUE(rt::begin_session(
+    make_config(obs::ObservationMode::Detailed, sink, kProducerCount)));
+  register_fixture_table();
+
+  std::atomic<bool> go{false};
+  std::atomic<bool> stop{false};
+  std::vector<std::thread> producers;
+  producers.reserve(kProducerCount);
+  for (std::uint32_t i = 0; i < kProducerCount; ++i) {
+    producers.emplace_back([&go, &stop, i] {
+      rt::set_thread_lane(i + 1);
+      while (!go.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      rt::EmitBuilder builder;
+      builder.kind = obs::EventKind::TaskStarted;
+      builder.descriptor_index = 0;
+      builder.instance = rt::allocate_instance();
+      builder.event_ref = rt::next_event_ref();
+      while (!stop.load(std::memory_order_acquire)) {
+        // After the session ends, emissions must fail cleanly rather than
+        // touch freed session state.
+        rt::emit_event(builder);
+      }
+    });
+  }
+  go.store(true, std::memory_order_release);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  rt::end_session();
+  stop.store(true, std::memory_order_release);
+  for (auto& producer : producers) {
+    producer.join();
+  }
+
+  rt::EmitBuilder builder;
+  builder.kind = obs::EventKind::TaskStarted;
+  builder.instance = rt::allocate_instance();
+  EXPECT_FALSE(rt::emit_event(builder));
+}
