@@ -3162,7 +3162,21 @@ TEST(StyioMainContract, ArtifactRefsCopyLocalPathsAndRejectUnsafeInputs) {
     temp.path() / "out" / "http-missing.txt",
     false,
     error));
-  EXPECT_NE(error.find("failed to download artifact via curl"), std::string::npos);
+  EXPECT_NE(error.find("plain HTTP artifact references are not permitted"), std::string::npos);
+  EXPECT_FALSE(fs::exists(temp.path() / "out" / "http-missing.txt"));
+
+  const std::vector<std::string> curl_args =
+    styio_curl_download_args_latest("https://example.test/artifact.bin", temp.path() / "out" / "dl.bin");
+  const auto curl_args_have_pair = [&curl_args](const std::string& flag, const std::string& value) {
+    for (size_t i = 0; i + 1 < curl_args.size(); ++i) {
+      if (curl_args[i] == flag && curl_args[i + 1] == value) {
+        return true;
+      }
+    }
+    return false;
+  };
+  EXPECT_TRUE(curl_args_have_pair("--proto", "=https"));
+  EXPECT_TRUE(curl_args_have_pair("--proto-redir", "=https"));
 
   const fs::path file_uri_dest = temp.path() / "out" / "file-uri.txt";
   const std::string file_uri = "file://" + source.string();
@@ -3387,7 +3401,7 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
     styio_nano_repository_marker_relpath_latest(),
     entry_text,
     error));
-  EXPECT_NE(error.find("failed to download artifact via curl"), std::string::npos);
+  EXPECT_NE(error.find("plain HTTP artifact references are not permitted"), std::string::npos);
 
   const fs::path invalid_repo = temp.path() / "invalid-repo";
   WriteText(
