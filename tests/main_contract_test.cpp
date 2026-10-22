@@ -305,7 +305,7 @@ void WriteNanoRepositoryBlobEntry(
   entry.version = version;
   entry.channel = "nano";
   entry.sha256 = sha256;
-  entry.blob_path = styio_nano_repository_blob_relpath_latest(sha256);
+  entry.blob_path = styio::config::nano_repository_blob_relpath(sha256);
   entry.size_bytes = size_bytes;
   ASSERT_TRUE(styio_copy_file_with_exec_latest(blob, repo / fs::path(entry.blob_path), false, error)) << error;
   ASSERT_TRUE(styio_write_nano_repository_entry_latest(repo, entry, error)) << error;
@@ -1976,8 +1976,8 @@ TEST(StyioMainContract, NanoRepositoryPublishAndCloudMaterializeRoundTrip) {
   ASSERT_TRUE(styio_publish_nano_package_latest(publish_selection, error)) << error;
 
   const fs::path repo = temp.path() / "repo";
-  EXPECT_TRUE(fs::exists(repo / styio_nano_repository_marker_relpath_latest()));
-  EXPECT_TRUE(fs::exists(repo / fs::path(styio_nano_repository_entry_relpath_latest("org/demo"))));
+  EXPECT_TRUE(fs::exists(repo / styio::config::nano_repository_marker_relpath()));
+  EXPECT_TRUE(fs::exists(repo / fs::path(styio::config::nano_repository_entry_relpath("org/demo"))));
 
   StyioNanoCreateSelectionLatest registry_selection;
   registry_selection.mode = "cloud";
@@ -3370,7 +3370,7 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   std::string marker_text;
   ASSERT_TRUE(styio_fetch_registry_text_latest(
     repo.string(),
-    styio_nano_repository_marker_relpath_latest(),
+    styio::config::nano_repository_marker_relpath(),
     marker_text,
     error)) << error;
   EXPECT_TRUE(styio_validate_nano_repository_marker_latest(marker_text, error)) << error;
@@ -3382,14 +3382,14 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   entry.channel = "nightly";
   entry.sha256 = GoodSha('f');
   entry.size_bytes = 1234;
-  entry.blob_path = styio_nano_repository_blob_relpath_latest(entry.sha256);
+  entry.blob_path = styio::config::nano_repository_blob_relpath(entry.sha256);
   entry.published_at = "2026-06-05T00:00:00Z";
   ASSERT_TRUE(styio_write_nano_repository_entry_latest(repo, entry, error)) << error;
 
   std::string entry_text;
   ASSERT_TRUE(styio_fetch_registry_text_latest(
     "file://" + repo.string(),
-    styio_nano_repository_entry_relpath_latest(entry.package_name),
+    styio::config::nano_repository_entry_relpath(entry.package_name),
     entry_text,
     error)) << error;
   StyioNanoRepositoryEntryLatest parsed;
@@ -3398,21 +3398,21 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   EXPECT_EQ(parsed.blob_path, entry.blob_path);
   EXPECT_FALSE(styio_fetch_registry_text_latest(
     "http://127.0.0.1:9",
-    styio_nano_repository_marker_relpath_latest(),
+    styio::config::nano_repository_marker_relpath(),
     entry_text,
     error));
   EXPECT_NE(error.find("plain HTTP artifact references are not permitted"), std::string::npos);
 
   const fs::path invalid_repo = temp.path() / "invalid-repo";
   WriteText(
-    invalid_repo / styio_nano_repository_marker_relpath_latest(),
+    invalid_repo / styio::config::nano_repository_marker_relpath(),
     "{\"kind\":\"bad\",\"schema\":\"styio-nano-static-repository\"}");
   EXPECT_FALSE(styio_ensure_writable_nano_repository_latest(invalid_repo, error));
   EXPECT_NE(error.find("does not match"), std::string::npos);
 
   const fs::path unreadable_marker_repo = temp.path() / "unreadable-marker-repo";
   const fs::path unreadable_marker =
-    unreadable_marker_repo / styio_nano_repository_marker_relpath_latest();
+    unreadable_marker_repo / styio::config::nano_repository_marker_relpath();
   WriteText(unreadable_marker, "{\"kind\":\"styio-nano-static\"}\n");
   std::error_code perm_ec;
   fs::permissions(
@@ -3425,11 +3425,11 @@ TEST(StyioMainContract, NanoRepositoryFilesAndRegistryRefsRoundTripLocally) {
   EXPECT_NE(error.find("cannot open file"), std::string::npos);
   fs::permissions(unreadable_marker, fs::perms::owner_read, fs::perm_options::add, perm_ec);
 
-  EXPECT_EQ(styio_nano_repository_package_leaf_latest("org/pkg"), "pkg");
-  EXPECT_EQ(styio_nano_repository_package_leaf_latest("pkg"), "pkg");
-  EXPECT_EQ(styio_nano_repository_package_leaf_latest("org/"), "org/");
+  EXPECT_EQ(styio::config::nano_repository_package_leaf("org/pkg"), "pkg");
+  EXPECT_EQ(styio::config::nano_repository_package_leaf("pkg"), "pkg");
+  EXPECT_EQ(styio::config::nano_repository_package_leaf("org/"), "org/");
   EXPECT_EQ(
-    styio_nano_repository_blob_relpath_latest(GoodSha('a')),
+    styio::config::nano_repository_blob_relpath(GoodSha('a')),
     "blobs/sha256/aa/aa/" + GoodSha('a') + ".tar");
 }
 
@@ -3547,7 +3547,7 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
 
   const fs::path repo_bad_marker = temp.path() / "repo-bad-marker";
   WriteText(
-    repo_bad_marker / styio_nano_repository_marker_relpath_latest(),
+    repo_bad_marker / styio::config::nano_repository_marker_relpath(),
     "{\"kind\":\"bad\",\"schema\":\"styio-nano-static-repository\"}");
   selection.output_dir = (temp.path() / "repo-bad-marker-out").string();
   selection.registry_root = repo_bad_marker.string();
@@ -3564,7 +3564,7 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   const fs::path repo_size_mismatch = temp.path() / "repo-size-mismatch";
   ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_size_mismatch, error)) << error;
   const std::string sha = GoodSha('a');
-  const std::string blob_relpath = styio_nano_repository_blob_relpath_latest(sha);
+  const std::string blob_relpath = styio::config::nano_repository_blob_relpath(sha);
   WriteText(repo_size_mismatch / fs::path(blob_relpath), "abc");
   StyioNanoRepositoryEntryLatest entry;
   entry.package_name = "org/pkg";
@@ -3582,7 +3582,7 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   const fs::path repo_sha_mismatch = temp.path() / "repo-sha-mismatch";
   ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo_sha_mismatch, error)) << error;
   const std::string wrong_sha = GoodSha('b');
-  const std::string wrong_blob_relpath = styio_nano_repository_blob_relpath_latest(wrong_sha);
+  const std::string wrong_blob_relpath = styio::config::nano_repository_blob_relpath(wrong_sha);
   WriteText(repo_sha_mismatch / fs::path(wrong_blob_relpath), "abc");
   entry.sha256 = wrong_sha;
   entry.blob_path = wrong_blob_relpath;
@@ -3600,7 +3600,7 @@ TEST(StyioMainContract, CloudMaterializationRejectsInvalidRegistryAndManifestInp
   entry.version = "1.0.0";
   entry.channel = "nano";
   entry.sha256 = GoodSha('c');
-  entry.blob_path = styio_nano_repository_blob_relpath_latest(entry.sha256);
+  entry.blob_path = styio::config::nano_repository_blob_relpath(entry.sha256);
   entry.size_bytes = 1;
   ASSERT_TRUE(styio_write_nano_repository_entry_latest(repo_missing_blob, entry, error)) << error;
   selection.output_dir = (temp.path() / "repo-missing-blob-out").string();
@@ -3682,7 +3682,7 @@ TEST(StyioMainContract, CloudRepositoryMaterializationVerifiesBlobAndExtractsPac
 
   const fs::path repo = temp.path() / "repo";
   ASSERT_TRUE(styio_ensure_writable_nano_repository_latest(repo, error)) << error;
-  const std::string blob_relpath = styio_nano_repository_blob_relpath_latest(sha256);
+  const std::string blob_relpath = styio::config::nano_repository_blob_relpath(sha256);
   ASSERT_TRUE(styio_copy_file_with_exec_latest(blob, repo / fs::path(blob_relpath), false, error)) << error;
 
   StyioNanoRepositoryEntryLatest entry;
@@ -3784,7 +3784,7 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   std::string entry_text;
   ASSERT_TRUE(styio_fetch_registry_text_latest(
     selection.registry_root,
-    styio_nano_repository_entry_relpath_latest(selection.registry_package),
+    styio::config::nano_repository_entry_relpath(selection.registry_package),
     entry_text,
     error)) << error;
   StyioNanoRepositoryEntryLatest entry;
@@ -3802,7 +3802,7 @@ TEST(StyioMainContract, PublishNanoPackageWritesStaticRepositoryEntryAndBlob) {
   std::string marker_text;
   EXPECT_TRUE(styio_fetch_registry_text_latest(
     selection.registry_root,
-    styio_nano_repository_marker_relpath_latest(),
+    styio::config::nano_repository_marker_relpath(),
     marker_text,
     error)) << error;
   EXPECT_TRUE(styio_validate_nano_repository_marker_latest(marker_text, error)) << error;

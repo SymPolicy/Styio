@@ -56,6 +56,7 @@
 #include "StyioServices/StyioCLI/RuntimeEventSession.hpp"
 #include "StyioServices/StyioConfig/CompilePlanContract.hpp"
 #include "StyioServices/StyioConfig/NanoProfile.hpp"
+#include "StyioServices/StyioConfig/NanoRepositoryLayout.hpp"
 #include "StyioServices/StyioConfig/SourceBuildInfo.hpp"
 #include "StyioServices/StyioObservableProducer/StaticSnapshotPublication.hpp"
 #if !STYIO_NANO_BUILD
@@ -1994,15 +1995,6 @@ styio_is_hex_digest_64_latest(const std::string& text) {
 }
 
 static std::string
-styio_nano_repository_package_leaf_latest(const std::string& package_name) {
-  const size_t slash = package_name.find_last_of('/');
-  if (slash == std::string::npos || slash + 1 >= package_name.size()) {
-    return package_name;
-  }
-  return package_name.substr(slash + 1);
-}
-
-static std::string
 styio_normalize_nano_registry_root_latest(const std::string& raw_root) {
   std::string value = raw_root;
   while (!value.empty() && (value.back() == '/' || value.back() == '\\')) {
@@ -2031,68 +2023,6 @@ styio_join_registry_ref_latest(
     return registry_root + "/" + rel_path;
   }
   return (std::filesystem::path(registry_root) / rel_path).string();
-}
-
-static std::string
-styio_nano_repository_marker_relpath_latest() {
-  return "styio-nano-repository.json";
-}
-
-static constexpr const char* kStyioNanoRepositoryMarkerSchemaLatest = "styio-nano-static-repository";
-static constexpr const char* kStyioNanoRepositoryEntrySchemaLatest = "styio-nano-repository-entry";
-
-// A package name becomes path components inside the registry layout; it must
-// be a `/`-separated list of plain components so a crafted name cannot escape
-// the registry root (absolute paths, dot segments, drive-relative prefixes,
-// backslashes and control characters are all rejected).
-static bool
-styio_nano_package_name_is_safe_latest(const std::string& package_name) {
-  if (package_name.empty()
-      || std::filesystem::path(package_name).is_absolute()
-      || package_name.front() == '/'
-      || package_name.back() == '/') {
-    return false;
-  }
-  std::size_t start = 0;
-  for (;;) {
-    const std::size_t sep = package_name.find('/', start);
-    const std::string_view component =
-      sep == std::string::npos
-        ? std::string_view(package_name).substr(start)
-        : std::string_view(package_name).substr(start, sep - start);
-    if (component.empty() || component == "." || component == "..") {
-      return false;
-    }
-    // Windows normalizes away trailing spaces and dots, which could turn e.g.
-    // ".. " into a parent component — reject them outright.
-    if (component.back() == ' ' || component.back() == '.') {
-      return false;
-    }
-    for (const char ch : component) {
-      const auto uch = static_cast<unsigned char>(ch);
-      if (uch < 0x20 || uch == 0x7f || ch == '\\' || ch == ':') {
-        return false;
-      }
-    }
-    if (sep == std::string::npos) {
-      break;
-    }
-    start = sep + 1;
-  }
-  return true;
-}
-
-static std::string
-styio_nano_repository_entry_relpath_latest(const std::string& package_name) {
-  return (std::filesystem::path("index") / std::filesystem::path(package_name) / "entry.json")
-    .generic_string();
-}
-
-static std::string
-styio_nano_repository_blob_relpath_latest(const std::string& sha256) {
-  return (std::filesystem::path("blobs") / "sha256" / sha256.substr(0, 2) / sha256.substr(2, 2)
-          / (sha256 + ".tar"))
-    .generic_string();
 }
 
 static bool
@@ -2149,7 +2079,7 @@ styio_validate_nano_repository_marker_latest(
   const auto kind = obj->getString("kind");
   const auto schema = obj->getString("schema");
   if (!kind.has_value() || *kind != "styio-nano-static" || !schema.has_value()
-      || *schema != kStyioNanoRepositoryMarkerSchemaLatest) {
+      || *schema != styio::config::kNanoRepositoryMarkerSchema) {
     error_message = "nano repository marker does not match the supported styio-nano static repository contract";
     return false;
   }
@@ -2184,7 +2114,7 @@ styio_parse_nano_repository_entry_latest(
   const auto channel = obj->getString("channel");
   const auto published_at = obj->getString("published_at");
 
-  if (!schema.has_value() || *schema != kStyioNanoRepositoryEntrySchemaLatest) {
+  if (!schema.has_value() || *schema != styio::config::kNanoRepositoryEntrySchema) {
     error_message = "nano repository entry does not match the supported schema";
     return false;
   }
@@ -2244,7 +2174,7 @@ styio_ensure_writable_nano_repository_latest(
     return false;
   }
 
-  const std::filesystem::path marker_path = repo_root / styio_nano_repository_marker_relpath_latest();
+  const std::filesystem::path marker_path = repo_root / styio::config::nano_repository_marker_relpath();
   if (!std::filesystem::exists(marker_path)) {
     return styio_write_nano_repository_marker_latest(marker_path, error_message);
   }
@@ -2262,13 +2192,13 @@ styio_write_nano_repository_entry_latest(
   const StyioNanoRepositoryEntryLatest& entry,
   std::string& error_message
 ) {
-  if (!styio_nano_package_name_is_safe_latest(entry.package_name)) {
+  if (!styio::config::nano_repository_package_name_is_safe(entry.package_name)) {
     error_message =
       "unsafe nano repository package name: " + entry.package_name;
     return false;
   }
   const std::filesystem::path entry_path =
-    repo_root / std::filesystem::path(styio_nano_repository_entry_relpath_latest(entry.package_name));
+    repo_root / std::filesystem::path(styio::config::nano_repository_entry_relpath(entry.package_name));
   std::error_code ec;
   std::filesystem::create_directories(entry_path.parent_path(), ec);
   if (ec) {
@@ -3151,7 +3081,7 @@ styio_resolve_nano_create_selection_latest(
     }
   }
   if (out_selection.package_name.empty() && !out_selection.registry_package.empty()) {
-    out_selection.package_name = styio_nano_repository_package_leaf_latest(out_selection.registry_package);
+    out_selection.package_name = styio::config::nano_repository_package_leaf(out_selection.registry_package);
   }
   if (out_selection.package_name.empty()
       && !(out_selection.mode == "cloud" && !out_selection.manifest_ref.empty())) {
@@ -3427,7 +3357,7 @@ styio_materialize_cloud_nano_package_latest(
     std::string marker_text;
     if (!styio_fetch_registry_text_latest(
           selection.registry_root,
-          styio_nano_repository_marker_relpath_latest(),
+          styio::config::nano_repository_marker_relpath(),
           marker_text,
           error_message)) {
       return false;
@@ -3436,7 +3366,7 @@ styio_materialize_cloud_nano_package_latest(
       return false;
     }
 
-    if (!styio_nano_package_name_is_safe_latest(selection.registry_package)) {
+    if (!styio::config::nano_repository_package_name_is_safe(selection.registry_package)) {
       error_message =
         "unsafe nano repository package name: " + selection.registry_package;
       return false;
@@ -3444,7 +3374,7 @@ styio_materialize_cloud_nano_package_latest(
     std::string entry_text;
     if (!styio_fetch_registry_text_latest(
           selection.registry_root,
-          styio_nano_repository_entry_relpath_latest(selection.registry_package),
+          styio::config::nano_repository_entry_relpath(selection.registry_package),
           entry_text,
           error_message)) {
       return false;
@@ -3529,7 +3459,7 @@ styio_materialize_cloud_nano_package_latest(
 
     const std::string package_name =
       selection.package_name.empty()
-        ? styio_nano_repository_package_leaf_latest(selection.registry_package)
+        ? styio::config::nano_repository_package_leaf(selection.registry_package)
         : selection.package_name;
     const std::string receipt =
       "[package]\n"
@@ -3682,7 +3612,7 @@ styio_publish_nano_package_latest(
     return false;
   }
 
-  const std::string blob_relpath = styio_nano_repository_blob_relpath_latest(sha256);
+  const std::string blob_relpath = styio::config::nano_repository_blob_relpath(sha256);
   const std::filesystem::path blob_dest = repo_root / std::filesystem::path(blob_relpath);
   if (!styio_copy_file_with_exec_latest(tar_path, blob_dest, false, error_message)) {
     std::error_code cleanup_ec;
