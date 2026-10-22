@@ -457,31 +457,33 @@ end_session() {
   if (g_session->drain_thread.joinable()) {
     g_session->drain_thread.join();
   }
-  std::lock_guard<std::mutex> lock(g_session->drain_mu);
-  drain_all_locked(*g_session);
-  for (auto& lane : g_session->lanes) {
-    flush_aggregates(*g_session, *lane);
-  }
-  SessionSummary summary;
-  summary.mode = g_session->config.mode;
-  summary.execution_id = g_session->config.execution_id;
-  summary.accounting = accounting_snapshot();
-  summary.accounting.completeness =
-    styio::observable::completeness_from_accounting(summary.accounting);
-  // A wait begin whose end never entered the stream (e.g. a worker still
-  // parked on the ready queue at session end) is an unresolved reference:
-  // the summary must not claim the stream is complete. Loss and exporter
-  // failure stay the stronger partial reasons.
-  const std::uint64_t open_waits = g_session->open_waits.load(std::memory_order_relaxed);
-  if (open_waits > 0
-      && (summary.accounting.completeness == styio::observable::Completeness::Complete
-          || summary.accounting.completeness == styio::observable::Completeness::PartialSampling
-          || summary.accounting.completeness == styio::observable::Completeness::PartialAggregation)) {
-    summary.accounting.completeness = styio::observable::Completeness::PartialUnresolved;
-  }
-  if (!g_session->exporter_failed.load(std::memory_order_relaxed)) {
-    (void)write_line(*g_session, styio::observable::serialize_session_summary(summary));
-    g_session->summary_written = true;
+  {
+    std::lock_guard<std::mutex> lock(g_session->drain_mu);
+    drain_all_locked(*g_session);
+    for (auto& lane : g_session->lanes) {
+      flush_aggregates(*g_session, *lane);
+    }
+    SessionSummary summary;
+    summary.mode = g_session->config.mode;
+    summary.execution_id = g_session->config.execution_id;
+    summary.accounting = accounting_snapshot();
+    summary.accounting.completeness =
+      styio::observable::completeness_from_accounting(summary.accounting);
+    // A wait begin whose end never entered the stream (e.g. a worker still
+    // parked on the ready queue at session end) is an unresolved reference:
+    // the summary must not claim the stream is complete. Loss and exporter
+    // failure stay the stronger partial reasons.
+    const std::uint64_t open_waits = g_session->open_waits.load(std::memory_order_relaxed);
+    if (open_waits > 0
+        && (summary.accounting.completeness == styio::observable::Completeness::Complete
+            || summary.accounting.completeness == styio::observable::Completeness::PartialSampling
+            || summary.accounting.completeness == styio::observable::Completeness::PartialAggregation)) {
+      summary.accounting.completeness = styio::observable::Completeness::PartialUnresolved;
+    }
+    if (!g_session->exporter_failed.load(std::memory_order_relaxed)) {
+      (void)write_line(*g_session, styio::observable::serialize_session_summary(summary));
+      g_session->summary_written = true;
+    }
   }
   g_session.reset();
   t_lane = kControllerLane;

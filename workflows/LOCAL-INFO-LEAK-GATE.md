@@ -51,6 +51,14 @@ The gate prints `WARNING` findings and fails unless explicitly run with `--warni
 
 Use TEST-NET documentation addresses when an IP example is required, and use placeholder path components for parser/security fixtures, such as `C:/<drive-root>/file` or `\\\\<server>\\<share>\\file`.
 
+## Scan Semantics
+
+- `--mode push` and `--mode staged` scan the exact committed/indexed blobs (`git show`), not the live worktree, so the reviewed bytes are the bytes that leave the machine.
+- The gate fails closed: files whose content cannot be read, and binary files outside the documented exclusion, are reported as `UNREVIEWED` and fail the run.
+- `tests/fuzz/corpus/` is the narrow binary exclusion: fuzz seeds are raw byte inputs, not publishable text.
+- A line containing the literal `local-info: allow` is exempt from all rules. Use it sparingly for generated or exceptional lines; the exemption applies to that line only.
+- Exception values (documentation networks, loopback literals, the public `git@github.com:` SSH endpoint used by delivery/test fixtures) live in `scripts/local-info-leak-gate.policy.json`, which the gate validates at startup and excludes from its own scan set.
+
 ## Required Evidence
 
 1. Scan mode and command.

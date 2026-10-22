@@ -1066,6 +1066,11 @@ styio_ref_is_http_url_latest(const std::string& ref) {
   return ref.rfind("http://", 0) == 0 || ref.rfind("https://", 0) == 0;
 }
 
+static std::vector<std::string>
+styio_curl_download_args_latest(const std::string& ref, const std::filesystem::path& dest_path) {
+  return {"curl", "-fsSL", "--proto", "=https", "--proto-redir", "=https", ref, "-o", dest_path.string()};
+}
+
 static bool
 styio_ref_is_file_uri_latest(const std::string& ref) {
   return ref.rfind("file://", 0) == 0;
@@ -1398,12 +1403,17 @@ styio_fetch_ref_to_file_latest(
     return false;
   }
 
+  if (ref.rfind("http://", 0) == 0) {
+    error_message = "plain HTTP artifact references are not permitted; use HTTPS: " + ref;
+    return false;
+  }
+
   if (styio_ref_is_http_url_latest(ref)) {
     std::error_code ec;
     std::filesystem::create_directories(dest_path.parent_path(), ec);
     std::string process_error;
     if (!styio_run_process_latest(
-          {"curl", "-fsSL", ref, "-o", dest_path.string()},
+          styio_curl_download_args_latest(ref, dest_path),
           "failed to download artifact via curl: " + ref,
           process_error)) {
       error_message = process_error;
