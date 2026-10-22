@@ -14,6 +14,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <sddl.h>
+#pragma comment(lib, "advapi32.lib")
 #else
 #include <cerrno>
 #include <dlfcn.h>
@@ -674,17 +676,28 @@ create_temp_directory(
          << std::hex << entropy() << entropy() << entropy();
     const std::filesystem::path candidate = base / name.str();
 #if defined(_WIN32)
-    // %TEMP% is already scoped to the owning user account; exclusive creation
-    // plus the unpredictable name is the guarantee here.
-    ec.clear();
-    if (std::filesystem::create_directory(candidate, ec)) {
+    // Apply a protected owner-only DACL atomically at creation: %TEMP% is
+    // normally per-user but nothing guarantees it, so the object carries its
+    // own access control rather than inheriting a shared parent's.
+    SECURITY_ATTRIBUTES attrs{};
+    attrs.nLength = sizeof(attrs);
+    attrs.bInheritHandle = FALSE;
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+          L"D:P(A;OICI;FA;;;OW)", SDDL_REVISION_1, &descriptor, nullptr)) {
+      error_message = "cannot build temporary directory security descriptor";
+      return {};
+    }
+    attrs.lpSecurityDescriptor = descriptor;
+    const BOOL created = CreateDirectoryW(candidate.wstring().c_str(), &attrs);
+    const DWORD create_error = GetLastError();
+    LocalFree(descriptor);
+    if (created) {
       return candidate;
     }
-    std::error_code exists_ec;
-    const bool already_exists = std::filesystem::exists(candidate, exists_ec);
-    if (ec && !already_exists) {
+    if (create_error != ERROR_ALREADY_EXISTS) {
       error_message = "cannot create temporary directory: "
-        + candidate.string() + ": " + ec.message();
+        + candidate.string() + ": win32 error " + std::to_string(create_error);
       return {};
     }
 #else

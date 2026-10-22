@@ -603,13 +603,20 @@ table_generation() noexcept {
   return guard ? g_session->generation : 0;
 }
 
-const Descriptor*
-descriptor_at(std::uint32_t index) noexcept {
+bool
+descriptor_at(std::uint32_t index, Descriptor& out) noexcept {
   ProducerGuard guard;
   if (!guard || index >= g_session->descriptors.size()) {
-    return nullptr;
+    return false;
   }
-  return &g_session->descriptors[index];
+  // Return a copy made while the producer slot is still held: callers must
+  // never hold a reference into session-owned storage across teardown.
+  try {
+    out = g_session->descriptors[index];
+  } catch (...) {
+    return false;
+  }
+  return true;
 }
 
 void
