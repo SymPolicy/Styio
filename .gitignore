@@ -87,6 +87,7 @@ build-*/
 
 # CI/local artifact staging
 fuzz-artifacts/
+fuzz-regressions/
 sanitizer-artifacts/
 soak-artifacts/
 parser-shadow-artifacts/
