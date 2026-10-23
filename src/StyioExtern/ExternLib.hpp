@@ -65,6 +65,32 @@ extern "C" DLLEXPORT int64_t styio_task_i64_pull(int64_t h);
 extern "C" DLLEXPORT double styio_task_f64_pull(int64_t h);
 extern "C" DLLEXPORT const char* styio_task_cstr_pull(int64_t h);
 extern "C" DLLEXPORT void styio_task_release(int64_t h);
+/* Explicit `t1 => t2` happens-before edges: `t2` spawns held, each `=>`
+   statement registers the dependency, and the task enqueues once every
+   registered predecessor has settled and a launch point (edge site, pull,
+   release, or scope end) is reached. */
+extern "C" DLLEXPORT int64_t styio_task_i64_spawn_held(int64_t (*fn)(void*), void* ctx);
+extern "C" DLLEXPORT int64_t styio_task_f64_spawn_held(double (*fn)(void*), void* ctx);
+extern "C" DLLEXPORT int64_t styio_task_cstr_spawn_held(const char* (*fn)(void*), void* ctx);
+extern "C" DLLEXPORT int64_t styio_task_i64_spawn_held_observed(
+  int64_t (*fn)(void*),
+  void* ctx,
+  uint32_t descriptor_index);
+extern "C" DLLEXPORT int64_t styio_task_f64_spawn_held_observed(
+  double (*fn)(void*),
+  void* ctx,
+  uint32_t descriptor_index);
+extern "C" DLLEXPORT int64_t styio_task_cstr_spawn_held_observed(
+  const char* (*fn)(void*),
+  void* ctx,
+  uint32_t descriptor_index);
+// Compiler-owned capture packets: deep snapshot at export, ownership transfer at import.
+extern "C" DLLEXPORT int64_t styio_task_export_resource(int64_t handle, int32_t family);
+extern "C" DLLEXPORT int64_t styio_task_import_resource(int64_t capture);
+extern "C" DLLEXPORT const char* styio_task_export_cstr(const char* value);
+extern "C" DLLEXPORT const char* styio_task_import_cstr(const char* value);
+extern "C" DLLEXPORT void styio_task_depend(int64_t before_h, int64_t after_h);
+extern "C" DLLEXPORT void styio_task_launch(int64_t h);
 struct StyioObservationDescriptor
 {
   const char* snapshot_id;

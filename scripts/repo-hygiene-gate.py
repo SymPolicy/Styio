@@ -69,6 +69,7 @@ FORBIDDEN_GLOBS = [
     "cmake_test_discovery_*.json",
     "compile_commands.json",
     "fuzz-artifacts/*",
+    "fuzz-regressions/*",
     "output.ll",
     "parser-shadow-artifacts/*",
     "parser-shadow-artifacts-*/*",

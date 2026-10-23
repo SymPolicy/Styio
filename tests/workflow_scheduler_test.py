@@ -84,7 +84,7 @@ class WorkflowSchedulerTest(unittest.TestCase):
                 subprocess.run(command, cwd=root, env=env, check=True, capture_output=True)
             base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, env=env, text=True).strip()
             subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-qm", "task"], cwd=root, env=env, check=True)
-            proc = subprocess.run(["bash", "scripts/delivery-gate.sh", "--base", base, "--skip-health", "--skip-audit"], cwd=root, env=env, capture_output=True, text=True)
+            proc = subprocess.run(["bash", "scripts/delivery-gate.sh", "--base", base, "--skip-health"], cwd=root, env=env, capture_output=True, text=True)
             self.assertEqual(0, proc.returncode, proc.stderr)
             calls = (root / "calls").read_text().splitlines()
             self.assertEqual(1, len(calls))

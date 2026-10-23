@@ -11,7 +11,7 @@
     "static-topology-nodes"
   ],
   "compilation_unit": {
-    "package_name": "example.app",
+    "package_name": "example/app",
     "manifest_path": "Styio.toml",
     "entry_path": "src/main.styio"
   },

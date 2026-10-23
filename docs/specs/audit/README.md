@@ -10,6 +10,6 @@ This directory owns audit rules that apply across code, tests, docs, gates, and 
 
 Start with [CODE-AUDIT-CHECKLIST.md](./CODE-AUDIT-CHECKLIST.md). Its first required check is whether the code follows the seven design principles.
 
-The auditable-code framework is external and centralized in the sibling `General-Auditor` repository. This repository does not expose an audit interface; external auditors run `General-Auditor` against the worktree and load `modules/default` plus `for-styio`.
+The audit gate is repository-internal: `scripts/local-info-leak-gate.py` runs through the `styio-audit` CI job and the local delivery gate. This repository does not expose an external audit interface.
 
 Generated inventory: [INDEX.md](./INDEX.md).

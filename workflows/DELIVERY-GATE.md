@@ -6,7 +6,7 @@
 
 ## Goal
 
-`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs current tool/skill inventory, local/server info leak scanning, repository hygiene, docs/runbook discipline, PR-range hygiene, and external audit. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off, while delegating docs/process ownership to [DOCS-GATE.md](./DOCS-GATE.md). Tool ownership, ordering, and separation are registered in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md).
+`checkpoint-health.sh` is the inner recovery/test gate, but a real delivery also needs current tool/skill inventory, local/server info leak scanning, repository hygiene, docs/runbook discipline, PR-range hygiene, and the repository-internal audit. This workflow defines the shared floor that must run before a checkpoint merges or a branch is handed off, while delegating docs/process ownership to [DOCS-GATE.md](./DOCS-GATE.md). Tool ownership, ordering, and separation are registered in [WORKFLOW-ORCHESTRATION.md](./WORKFLOW-ORCHESTRATION.md).
 
 For every functional change, run the [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) self-check before commit or handoff so the feature has targeted validation, upstream/downstream adaptation, version-style naming checked against the feature or transformation result, and explicit unable-to-verify records. For functional changes that replace, optimize, migrate, or broaden existing behavior, run the [FEATURE-CUTOVER-WORKFLOW.md](./FEATURE-CUTOVER-WORKFLOW.md) self-check before treating this delivery gate or its checkpoint-health leg as final evidence.
 
@@ -18,7 +18,7 @@ Safe auto delivery floor:
 ./scripts/delivery-gate.sh
 ```
 
-The default `auto` mode runs worktree checks when local changes exist, infers the delivery base for branch/promotion checks, runs push-range hygiene when `HEAD` is ahead of that base, then runs `General-Auditor` and checkpoint health.
+The default `auto` mode runs worktree checks when local changes exist, infers the delivery base for branch/promotion checks, runs push-range hygiene when `HEAD` is ahead of that base, then runs checkpoint health.
 
 When both scopes apply, auto composes their profiles in one scheduler invocation,
 reusing identical successful checks while preserving scope-specific checks. See
@@ -54,26 +54,22 @@ Release-candidate local floor:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint` when the worktree has changes
 2. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <ref>..HEAD` when `HEAD` is ahead of the inferred base
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
-4. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
+3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `checkpoint` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
-3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
+2. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `push` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-push --base <ref> --range <range>`
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
-3. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
+2. `./scripts/checkpoint-health.sh --no-asan --no-fuzz`, including the 95% coverage gate
 
 `release` mode composes:
 
 1. `python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint`
-Run the local audit route documented in the repository-root `GENERAL-AUDITOR.md`.
-3. `./scripts/checkpoint-health.sh` with the 95% coverage gate, ASan/UBSan, and fuzz smoke enabled
+2. `./scripts/checkpoint-health.sh` with the 95% coverage gate, ASan/UBSan, and fuzz smoke enabled
 
 The scheduler expands those profiles into tool/skill registry validation, [LOCAL-INFO-LEAK-GATE.md](./LOCAL-INFO-LEAK-GATE.md), repository hygiene, runtime-surface alignment, team-runbook maintenance, docs audit, and ecosystem CLI doc checks in registered phase order.
 The delivery entrypoint prints the committer self-check before running profile checks. In staged mode, local hooks can require evidence attestation through `STYIO_COMMIT_READINESS_REQUIRE=1`. For an already-authorized non-interactive commit, the agent completes the self-check and supplies `STYIO_COMMIT_READINESS_CONFIRMED=1` on the first invocation only after targeted feature validation, upstream/downstream checks, and version-style naming checks have passed, or objective blockers are recorded. This is not a new user approval, and an unverified acceptance condition remains incomplete. See [FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md](./FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md) for the attestation and final-regression boundary.

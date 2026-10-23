@@ -2,7 +2,7 @@
 
 **Purpose:** Explain how the repository-local Tree-sitter grammar plugs into `styio_ide_core`, and how to evolve it without breaking the IDE contracts.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-10-11
 
 ## Ownership
 
@@ -18,6 +18,12 @@
 3. Folding-oriented structural ranges
 4. Incremental tree reuse for repeated parses of the same file path
 5. Edit-time distinction between `range_expr` (`start..end`) and `materialized_range` (`[start..end]`); reserved step ranges still rely on the nightly compiler parser for authoritative rejection.
+6. The existing task/history milestone slice: bounded resource declarations,
+   negative integer history selectors, task blocks, typed await with optional
+   fallback, parameterized stream iteration into a block, resource sink writes,
+   named resource ordering and print statements. This is fixture-scoped editor
+   parity, not a claim of complete language coverage. Grammar rules follow
+   `Parser.cpp` and `NewParserExpr.cpp`; compiler syntax authority is unchanged.
 
 ## What It Does Not Own
 
@@ -33,6 +39,19 @@
 2. Run `npx --yes tree-sitter-cli@0.26.8 generate` inside `grammar/tree-sitter-styio/`.
 3. Rebuild `styio_ide_core` or `styio_lspd`.
 4. Run [TESTING.md](./TESTING.md) before landing the change.
+
+Use the repository Node.js 24 baseline (the macOS bootstrap permits the 24.x
+compatible line). Keep the tolerant tokenizer's multi-character boundaries in
+sync with the compiler tokenizer, including `||>`, `?|`, `..` and `>_`.
+
+Permanent task/history coverage reads the authoritative language fixtures:
+state-resource t13, t22, t23 and e06, plus task-resource e06. The two failure
+programs are syntactically valid; semantic and runtime failure contracts do not
+require an editor syntax error. `SharedPrograms/StyioTaskResourceSyntax` requires
+actual Tree-sitter, compares compiler token spans, and checks compiler parsing
+without recovery. Malformed-edit tests compare incremental and fresh trees,
+tokens, diagnostics, bracket matching and folds through repair. No error-node
+suppression or fixture-specific grammar branch is used.
 
 ## Build Toggle
 

@@ -4516,7 +4516,7 @@
         "semantic-contract": "docs/design/Styio-Language-Design.md",
         "diagnostic-boundary": "workflows/TEST-CATALOG.md",
         "compatibility-decision": "docs/design/syntax/ACTIVE-SYNTAX.md",
-        "golden-evidence": "tests/features/task_resources/t02_task_flow_right.styio",
+        "golden-evidence": "tests/features/task_resources/t07_task_order_edge.styio",
         "task-runtime-contract": "docs/rollups/IM-D5-STREAM-CONCURRENCY-INVENTORY.md"
       },
       "implementation": {
@@ -4548,11 +4548,11 @@
           "src/StyioLowering/AstToStyioIR.cpp"
         ],
         "evidence": [
-          "tests/features/task_resources/t02_task_flow_right.styio"
+          "tests/features/task_resources/t07_task_order_edge.styio"
         ]
       },
       "golden_cases": [
-        "tests/features/task_resources/t02_task_flow_right.styio"
+        "tests/features/task_resources/t07_task_order_edge.styio"
       ]
     },
     {

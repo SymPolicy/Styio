@@ -2,7 +2,7 @@
 
 **Purpose:** Define the current owner and consumer boundary among Styio, Pafio, Styio Platform, and Vityo without duplicating another product's schemas.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-11
 
 **Status:** Active contract projection. Release sequencing belongs to the project roadmap, not this document.
 
@@ -33,6 +33,22 @@ Pafio produces a resolved compile-plan with `generated_by.tool = "pafio"`.
 Styio validates and consumes that plan for `check`, `build`, `run`, and `test`.
 Styio remains the authority for concrete diagnostics, `receipt.json`,
 `diagnostics.jsonl`, `runtime-events.jsonl`, and compiler artifacts.
+
+Pafio owns compile-plan v1 package fields. Qualified observable identity uses
+the matching package's `name`, absolute `root_dir` and `manifest_path`, deriving
+canonical manifest-relative and entry-relative paths within that root. The
+`name` must be Pafio's canonical `namespace/name`: each segment starts with a
+lowercase ASCII letter or digit and continues with lowercase letters, digits,
+`_`, or `-`, joined by exactly one `/`. This same admission applies to static
+snapshots and runtime-only observation.
+
+Each admitted invocation owns its diagnostics and receipt: diagnostics start
+empty and previous success is invalidated before output setup. A receipt is
+published only on success. Invalid object plans with recoverable output locations
+receive the same freshness treatment. Malformed JSON or an invalid outer root
+may provide no output identity; consumers must use the current process outcome
+and invocation identity, never treat a pre-existing receipt as current success.
+Concurrent invocations require distinct output locations selected by the caller.
 
 Invalid plans and CLI conflicts return stable machine-readable compiler
 failures. Styio does not resolve dependencies, modify `pafio.lock`, or repair a

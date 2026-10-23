@@ -8,7 +8,7 @@ Usage:
 
 Options:
   --artifacts-root <path>  Fuzz artifact root (default: ./fuzz-artifacts)
-  --out-dir <path>         Packed regression output root (default: ./fuzz-regressions)
+  --out-dir <path>         Packed regression output root (default: ./build/fuzz-regressions)
   --corpus-root <path>     Fuzz corpus root (default: ./tests/fuzz/corpus)
   --run-id <id>            Stable run id for output folder naming
   --copy-into-corpus       Copy normalized crash seeds into <corpus-root>/<target>/
@@ -18,7 +18,7 @@ EOF
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_ROOT="$ROOT/fuzz-artifacts"
-OUT_DIR="$ROOT/fuzz-regressions"
+OUT_DIR="$ROOT/build/fuzz-regressions"
 CORPUS_ROOT="$ROOT/tests/fuzz/corpus"
 RUN_ID=""
 COPY_INTO_CORPUS=0
@@ -56,6 +56,29 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+rel_or_external() {
+  local candidate="$1"
+  case "$candidate" in
+    /*) ;;
+    *) candidate="$ROOT/${candidate#./}" ;;
+  esac
+  local normalized="" part
+  local IFS='/'
+  read -ra parts <<< "$candidate"
+  for part in "${parts[@]}"; do
+    case "$part" in
+      ""|.) ;;
+      ..) normalized="${normalized%/*}" ;;
+      *) normalized="$normalized/$part" ;;
+    esac
+  done
+  case "$normalized" in
+    "$ROOT") printf '.' ;;
+    "$ROOT"/*) printf '%s' "${normalized#"$ROOT"/}" ;;
+    *) printf '<external>' ;;
+  esac
+}
 
 hash_file() {
   local file="$1"
@@ -146,7 +169,7 @@ cat > "$case_dir/summary.json" <<EOF
 {
   "run_id": "$run_slug",
   "generated_at": "$(date +"%Y-%m-%dT%H:%M:%S%z")",
-  "artifact_root": "$(realpath "$ARTIFACT_ROOT")",
+  "artifact_root": "$(rel_or_external "$ARTIFACT_ROOT")",
   "samples": {
     "total": $total_count,
     "lexer": $lexer_count,
@@ -182,7 +205,7 @@ cat > "$case_dir/CASE.md" <<EOF
 
 - Run id: $run_slug
 - Generated at: $(date +"%Y-%m-%d %H:%M:%S %z")
-- Artifact root: $(realpath "$ARTIFACT_ROOT")
+- Artifact root: $(rel_or_external "$ARTIFACT_ROOT")
 - Collected samples: $total_count (lexer=$lexer_count, parser=$parser_count)
 
 ## Files

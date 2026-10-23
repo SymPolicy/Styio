@@ -114,6 +114,17 @@ public:
   StyioIR* toStyioIR(MainBlockAST* ast) override;
   StyioAST* resolveResourceReceiverExprLatest(StyioAST* expr) const;
 
+  /* Push/pop the per-name `=>` edge counts prescanned from a block's direct
+     statements; the displaced map is returned for restoration. */
+  std::unordered_map<std::string, int> push_task_order_scope(
+    const std::vector<StyioAST*>& stmts,
+    const std::vector<StyioAST*>& followings);
+  void restore_task_order_scope(std::unordered_map<std::string, int> saved);
+  bool is_task_order_after_target(const std::string& name) const noexcept;
+  /* Consume one `=>` edge for `name`; returns true when this was the final
+     edge declared for the target in the current block. */
+  bool consume_task_order_edge(const std::string& name);
+
   void enable_pipeline_profile(bool enabled) noexcept {
     pipeline_profile_enabled_ = enabled;
   }
@@ -174,6 +185,10 @@ protected:
 
 private:
   std::unordered_set<std::string> active_function_parameter_names_;
+  /* Per-name count of `=>` edges prescanned in the block currently being
+     lowered; task binds matching a name with unconsumed edges spawn held, and
+     the final edge statement for a name emits the launch request. */
+  std::unordered_map<std::string, int> task_order_after_counts_;
   std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
   std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodDefAST*>> resource_method_body_defs_;
   std::unordered_map<std::string, StyioAST*> resource_receiver_expr_bindings_;

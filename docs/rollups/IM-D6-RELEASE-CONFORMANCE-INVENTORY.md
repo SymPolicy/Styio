@@ -95,7 +95,7 @@ Accepted baseline:
 | Lane | Status | Block policy | Evidence |
 |------|--------|--------------|----------|
 | Unified delivery gate push profile | `required` | `block` | `./scripts/delivery-gate.sh --mode push ...` |
-| External audit | `required` for branch handoff and downstream promotion | `block` | `styio-audit gate --repo . --project styio` through delivery gate |
+| External audit | `required` for branch handoff and downstream promotion | `block` | the local General-Auditor route documented in `GENERAL-AUDITOR.md`, invoked through the delivery gate (`--audit-root` / `GENERAL_AUDITOR_ROOT`) |
 | Checkpoint health fast lane | `required` for non-doc delivery | `block` | `./scripts/checkpoint-health.sh --no-asan --no-fuzz` |
 | Project source line coverage >= 95% | `required` for non-doc delivery | `block` | `scripts/coverage-gate.sh --build-dir build/coverage --threshold 95` through checkpoint health |
 | Service contract smoke | `affected-required` for `src/StyioServices/**`, CLI, IDE, LSP, contract JSON changes | `block-if-affected` | focused service tests and documented machine-readable outputs |

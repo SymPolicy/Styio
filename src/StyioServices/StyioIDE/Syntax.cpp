@@ -157,6 +157,21 @@ tokenize_tolerant(const std::string& text, std::vector<Diagnostic>& diagnostics)
       i += 3;
       continue;
     }
+    if (maybe_three("||>")) {
+      push(StyioTokenType::TASK_LAUNCH, "||>");
+      i += 3;
+      continue;
+    }
+    if (maybe_two("..")) {
+      push(StyioTokenType::ELLIPSIS, "..");
+      i += 2;
+      continue;
+    }
+    if (maybe_two(">_")) {
+      push(StyioTokenType::PRINT, ">_");
+      i += 2;
+      continue;
+    }
     if (maybe_two(":=")) {
       push(StyioTokenType::WALRUS, ":=");
       i += 2;

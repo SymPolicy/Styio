@@ -1935,6 +1935,15 @@ StyioRepr::toString(SIOFlowBind* node, int indent) {
 }
 
 std::string
+StyioRepr::toString(SIOTaskOrder* node, int indent) {
+  return std::string("styio.ir.task_order { before=")
+         + (node->before_expr ? node->before_expr->toString(this, indent) : std::string("null"))
+         + ", after="
+         + (node->after_expr ? node->after_expr->toString(this, indent) : std::string("null"))
+         + " }";
+}
+
+std::string
 StyioRepr::toString(SIOPath* node, int indent) {
   return std::string("styio.ir.path { ") + " }";
 }

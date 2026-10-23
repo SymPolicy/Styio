@@ -1,0 +1,6 @@
+outer = ||> {
+    inner = ||> { <| 7 }
+    <| 99
+}
+?| outer -> r: i64
+r -> @stdout

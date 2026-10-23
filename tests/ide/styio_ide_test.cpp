@@ -775,6 +775,154 @@ TEST(StyioSyntaxParser, VariableLengthContinueTokenStaysSingleIteratorToken) {
   EXPECT_EQ(it->range.length(), 4u);
 }
 
+class StyioTaskResourceSyntax : public testing::TestWithParam<const char*> {};
+
+TEST_P(StyioTaskResourceSyntax, AuthoritativeFixtureUsesActualTreeSitter) {
+#ifndef STYIO_HAS_TREE_SITTER
+  GTEST_SKIP() << "Requires the Tree-sitter-enabled IDE build.";
+#endif
+  const std::string path = std::string("tests/features/") + GetParam();
+  const std::string source = read_text_file(path);
+  ASSERT_FALSE(source.empty()) << path;
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::SyntaxParser parser;
+  const auto syntax = parser.parse(*vfs.open(path, source, 1));
+  ASSERT_EQ(syntax.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+  EXPECT_TRUE(syntax.diagnostics.empty());
+  EXPECT_TRUE(std::none_of(syntax.nodes.begin(), syntax.nodes.end(), [](const auto& node) {
+    return node.kind == styio::ide::SyntaxNodeKind::Error;
+  }));
+  for (const auto* label : {"task_expr", "await_stmt"}) {
+    EXPECT_TRUE(std::any_of(syntax.nodes.begin(), syntax.nodes.end(), [&](const auto& node) {
+      return node.label == label;
+    })) << label;
+  }
+
+  // Failure fixtures are syntax-valid; their semantic/runtime result is separate.
+  const auto compiler = styio::ide::analyze_document(path, source);
+  EXPECT_TRUE(compiler.parse_success);
+  EXPECT_FALSE(compiler.used_recovery);
+  const auto compiler_tokens = StyioTokenizer::tokenizeOwned(source);
+  std::vector<const styio::ide::SyntaxToken*> editor_tokens;
+  for (const auto& token : syntax.tokens) {
+    if (!token.is_trivia() && token.type != StyioTokenType::TOK_EOF) {
+      editor_tokens.push_back(&token);
+    }
+  }
+  std::size_t index = 0;
+  for (const auto* token : compiler_tokens.tokens()) {
+    const styio::ide::SyntaxToken comparable{token->type, std::string(token->lexeme()), {token->begin(), token->end()}};
+    if (comparable.is_trivia() || token->type == StyioTokenType::TOK_EOF) {
+      continue;
+    }
+    ASSERT_LT(index, editor_tokens.size());
+    const auto& editor = *editor_tokens[index++];
+    EXPECT_EQ(editor.type, token->type) << token->lexeme();
+    EXPECT_EQ(editor.lexeme, token->lexeme());
+    EXPECT_EQ(editor.range.start, token->begin());
+    EXPECT_EQ(editor.range.end, token->end());
+  }
+  EXPECT_EQ(index, editor_tokens.size());
+  for (const auto& node : syntax.nodes) {
+    if (node.label == "block" && source.substr(node.range.start, node.range.length()).find('\n') != std::string::npos) {
+      EXPECT_TRUE(std::any_of(syntax.folding_ranges.begin(), syntax.folding_ranges.end(), [&](const auto& fold) {
+        return fold.range.start == node.range.start && fold.range.end == node.range.end;
+      }));
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(SharedPrograms, StyioTaskResourceSyntax, testing::Values(
+  "state_resources/t13_task_history_capture.styio",
+  "state_resources/t22_task_capture_failure_cleanup.styio",
+  "state_resources/t23_task_f64_history_precision.styio",
+  "state_resources/e06_task_capture_failure_no_fallback.styio",
+  "task_resources/e06_task_order_non_task.styio"));
+
+TEST(StyioSyntaxParser, TaskHistoryMalformedEditsRecoverIncrementally) {
+#ifndef STYIO_HAS_TREE_SITTER
+  GTEST_SKIP() << "Requires the Tree-sitter-enabled IDE build.";
+#endif
+  const std::string path = "tests/features/state_resources/t13_task_history_capture.styio";
+  const std::string source = read_text_file(path);
+  ASSERT_FALSE(source.empty());
+  const std::vector<std::pair<std::string, std::string>> edits{
+    {"..2|", "..)|"}, {"||> {", "||> ) {"}, {"[-1]", "[)]"},
+    {"captured: i64", "captured! i64"}, {"#(v)", "#(v]"}, {">_(captured)", ">_(captured]"}};
+  styio::ide::SyntaxParser incremental_parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.path = path;
+  snapshot.file_id = 12;
+  snapshot.version = snapshot.snapshot_id = 1;
+  snapshot.buffer = styio::ide::TextBuffer{source};
+  ASSERT_TRUE(incremental_parser.parse(snapshot).diagnostics.empty());
+  for (const auto& [before, after] : edits) {
+    SCOPED_TRACE(before);
+    const auto offset = source.find(before);
+    ASSERT_NE(offset, std::string::npos);
+    std::string malformed = source;
+    malformed.replace(offset, before.size(), after);
+    for (const bool restore : {false, true}) {
+      snapshot.version += 1;
+      snapshot.snapshot_id += 1;
+      snapshot.buffer = styio::ide::TextBuffer{restore ? source : malformed};
+      snapshot.applied_edits = {{{offset, offset + (restore ? after.size() : before.size())}, restore ? before : after}};
+      const auto incremental = incremental_parser.parse(snapshot);
+      styio::ide::SyntaxParser full_parser;
+      auto full_snapshot = snapshot;
+      full_snapshot.applied_edits.clear();
+      full_snapshot.from_full_sync = true;
+      const auto full = full_parser.parse(full_snapshot);
+      ASSERT_EQ(incremental.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+      EXPECT_TRUE(incremental.reused_incremental_tree);
+      EXPECT_EQ(incremental.diagnostics.empty(), restore);
+      EXPECT_EQ(std::any_of(incremental.nodes.begin(), incremental.nodes.end(), [](const auto& node) {
+        return node.kind == styio::ide::SyntaxNodeKind::Error;
+      }), !restore);
+      ASSERT_EQ(incremental.diagnostics.size(), full.diagnostics.size());
+      for (std::size_t i = 0; i < full.diagnostics.size(); ++i) {
+        EXPECT_EQ(incremental.diagnostics[i].code, full.diagnostics[i].code);
+        EXPECT_EQ(incremental.diagnostics[i].range.start, full.diagnostics[i].range.start);
+        EXPECT_EQ(incremental.diagnostics[i].range.end, full.diagnostics[i].range.end);
+      }
+      ASSERT_EQ(incremental.nodes.size(), full.nodes.size());
+      for (std::size_t i = 0; i < full.nodes.size(); ++i) {
+        EXPECT_EQ(incremental.nodes[i].label, full.nodes[i].label);
+        EXPECT_EQ(incremental.nodes[i].range.start, full.nodes[i].range.start);
+        EXPECT_EQ(incremental.nodes[i].range.end, full.nodes[i].range.end);
+        EXPECT_EQ(incremental.nodes[i].children, full.nodes[i].children);
+      }
+      ASSERT_EQ(incremental.tokens.size(), full.tokens.size());
+      for (std::size_t i = 0; i < full.tokens.size(); ++i) {
+        EXPECT_EQ(incremental.tokens[i].type, full.tokens[i].type);
+        EXPECT_EQ(incremental.tokens[i].lexeme, full.tokens[i].lexeme);
+        EXPECT_EQ(incremental.tokens[i].range.start, full.tokens[i].range.start);
+        EXPECT_EQ(incremental.tokens[i].range.end, full.tokens[i].range.end);
+      }
+      EXPECT_EQ(incremental.matching_tokens, full.matching_tokens);
+      ASSERT_EQ(incremental.folding_ranges.size(), full.folding_ranges.size());
+      for (std::size_t i = 0; i < full.folding_ranges.size(); ++i) {
+        EXPECT_EQ(incremental.folding_ranges[i].range.start, full.folding_ranges[i].range.start);
+        EXPECT_EQ(incremental.folding_ranges[i].range.end, full.folding_ranges[i].range.end);
+      }
+    }
+  }
+}
+
+TEST(StyioCompletionEngine, TaskHistoryMalformedAwaitRetainsLaterBinding) {
+  std::string source = read_text_file("tests/features/state_resources/t13_task_history_capture.styio");
+  const auto colon = source.find("captured:");
+  ASSERT_NE(colon, std::string::npos);
+  source[colon + std::string("captured").size()] = '!';
+  source += "editor_tail = 1\neditor_t";
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(make_temp_project_dir("task-history-recovery")));
+  const std::string uri = temp_uri("task_history_recovery.styio");
+  EXPECT_FALSE(service.did_open(uri, source, 1).empty());
+  const auto position = styio::ide::TextBuffer{source}.position_at(source.size());
+  EXPECT_TRUE(has_completion_label(service.completion(uri, position), "editor_tail"));
+}
+
 TEST(StyioSyntaxParser, ReusesIncrementalTreeForSubsequentParses) {
   styio::ide::SyntaxParser parser;
 
@@ -2249,6 +2397,39 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
   EXPECT_TRUE(diagnostics->empty());
   EXPECT_EQ(server.runtime_counters().semantic_diagnostic_runs, 1u);
   EXPECT_EQ(server.runtime_counters().semantic_diagnostic_debounces, 3u);
+}
+
+TEST(StyioLspRuntime, TaskHistoryCoalescesToLatestSnapshot) {
+  const std::string source = read_text_file("tests/features/state_resources/t13_task_history_capture.styio");
+  ASSERT_FALSE(source.empty());
+  std::string malformed = source;
+  const auto selector = malformed.find("[-1]");
+  ASSERT_NE(selector, std::string::npos);
+  malformed.replace(selector, 4, "[)]");
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(make_temp_project_dir("task-history-versions")));
+  const auto uri = temp_uri("task_history_versions.styio");
+  EXPECT_TRUE(service.did_open(uri, source, 1).empty());
+  auto publications = service.drain_semantic_diagnostics();
+  ASSERT_EQ(publications.size(), 1u);
+  EXPECT_EQ(publications.front().snapshot->version, 1);
+  EXPECT_TRUE(publications.front().includes_semantic);
+  EXPECT_TRUE(publications.front().diagnostics.empty());
+
+  EXPECT_FALSE(service.did_change(uri, malformed, 2).empty());
+  const auto old_snapshot = service.snapshot_for_uri(uri);
+  EXPECT_TRUE(service.did_change(uri, source, 3).empty());
+  EXPECT_EQ(old_snapshot->version, 2);
+  EXPECT_EQ(old_snapshot->buffer.text(), malformed);
+  EXPECT_EQ(service.pending_semantic_diagnostic_count(), 1u);
+  publications = service.drain_semantic_diagnostics();
+  ASSERT_EQ(publications.size(), 1u);
+  EXPECT_EQ(publications.front().snapshot->version, 3);
+  EXPECT_EQ(publications.front().snapshot->buffer.text(), source);
+  EXPECT_TRUE(publications.front().includes_semantic);
+  EXPECT_TRUE(publications.front().diagnostics.empty());
+  EXPECT_EQ(service.runtime_counters().semantic_diagnostic_debounces, 1u);
+  EXPECT_TRUE(service.drain_semantic_diagnostics().empty());
 }
 
 TEST(StyioLspRuntime, RuntimeDrainCanBeBudgetedForScheduling) {

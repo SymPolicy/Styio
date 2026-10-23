@@ -24,6 +24,10 @@ const char* last_error();
 const char* last_error_subcode();
 bool error_matches_effect(const char* effect_name);
 RuntimeErrorSnapshot take_error();
+/* Make the calling thread's error slot hold exactly this snapshot again; the
+   nested-run guard restores the caller's pending error after an inline task
+   settles only its own. */
+void restore_error(RuntimeErrorSnapshot snapshot);
 
 void set_log_sink(StyioRuntimeLogSink sink);
 void log_to_sink(const char* stream, const char* message);
