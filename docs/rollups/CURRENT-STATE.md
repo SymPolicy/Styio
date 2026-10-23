@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the compressed default read-in for the current repository state so future agents can orient themselves from active docs first; Git history and minimal lifecycle provenance are optional background, not required maintenance input.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-01
 
 ## Default Read Order
 
@@ -10,43 +10,60 @@
 2. Current state: this file
 3. Active next-stage gap ledger: [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md)
 4. Active SSOT by topic:
-   - language/runtime semantics: [`../design/INDEX.md`](../design/INDEX.md)
+   - feature-specific language authority: [`../design/syntax/features/INDEX.md`](../design/syntax/features/INDEX.md)
+   - cross-feature language/runtime invariants: [`../design/INDEX.md`](../design/INDEX.md)
    - project/doc rules: [`../specs/INDEX.md`](../specs/INDEX.md)
-   - workflow and gates: [`../assets/workflow/INDEX.md`](../assets/workflow/INDEX.md)
+   - workflow and gates: [`../../workflows/INDEX.md`](../../workflows/INDEX.md)
    - team execution: [`../teams/INDEX.md`](../teams/INDEX.md)
-5. Current implementation front: [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md), plus the owning team runbooks for each touched area
+5. Current implementation front: [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md), the structured [Better Plan manifest](../plan/Manifest.json), and the owning team runbooks for each touched area
 6. Optional provenance only when active docs are insufficient: Git history for exact old wording, [`../adr/IMPLEMENTED-DECISIONS.md`](../adr/IMPLEMENTED-DECISIONS.md) for compressed decisions, and [`../archive/ARCHIVE-LEDGER.md`](../archive/ARCHIVE-LEDGER.md) for lifecycle metadata
 
 ## Stable Baseline
 
 1. Project-level decision order is fixed by [`../specs/PRINCIPLES-AND-OBJECTIVES.md`](../specs/PRINCIPLES-AND-OBJECTIVES.md): performance first, usability second, and valuable rewrites are allowed even when compatibility breaks.
-2. Language/runtime acceptance is frozen through M1-M10. For standard streams, scalar writes are `expr -> @stdout/@stderr`, iterable writes are `items >> @stdout/@stderr`, stdin line iteration is `@stdin >> #(line) => {...}`, and immediate pull is `(<- @stdin)`. Compatibility forms remain accepted where already frozen: terminal spelling `(>_)` / symbolic stdin `<|(>_)` and legacy `(<< @stdin)` on the numeric instant-pull contract.
-3. The active parser/toolchain baseline is nightly-first rather than legacy-first. Shadow zero-fallback and five-layer pipeline coverage are part of the normal correctness story, not optional side tests.
-4. Repository docs now distinguish active maintenance docs (`design/specs/teams/assets/workflow/current rollups`) from Git-history provenance and the minimal `docs/archive/` lifecycle shell.
+2. Language/runtime acceptance is frozen through language feature acceptance suites. For standard streams, scalar writes are `expr -> @stdout/@stderr`, iterable writes are `items >> @stdout/@stderr`, stdin line iteration is `@stdin >> #(line) => {...}`, and immediate pull is `(<- @stdin)`. Compatibility forms remain accepted where already frozen: terminal spelling `(>_)` / symbolic stdin `<|(>_)` and legacy `(<< @stdin)` on the numeric instant-pull contract.
+3. The active parser/toolchain baseline is authoritative-nightly rather than legacy-first. Shadow zero-fallback and five-layer pipeline coverage remain migration evidence, but accepted grammar must pass through the hand-written nightly compiler parser without fallback.
+4. Repository docs now distinguish active maintenance docs (`docs/design`, `docs/specs`, `docs/teams`, root `workflows/`, current `docs/rollups/`) from Git-history provenance and the minimal `docs/archive/` lifecycle shell.
 5. File governance is now on the shared three-repo baseline: root `.gitignore` freezes the common ignore floor, `docs/**` and `tests/**` temp/build-style tracked fixtures use explicit negate rules, and `scripts/repo-hygiene-gate.py` checks both the patterns and the key governance doc links.
+6. Standard-library governance is manifest-first: `library/manifest.json` currently has only `std.resource` active, backed by `share/styio/prelude/resources.styio` and resource/stdin/stdout evidence. Matrix helper calls and series `avg/max` selectors are compiler intrinsics, not active `std.*` modules.
+7. Syntax authority is document-first and distributed by feature under [`../design/syntax/features/`](../design/syntax/features/README.md). The active syntax map, generated indexes, and `SYNTAX-FEATURE-GRAPH.json` are composed views; implementation may advance only for an accepted feature whose derived readiness is ready.
+
+Styio's [language design](../design/Styio-Language-Design.md#24-visual-design-intent)
+defines the general-purpose visual programming model. The [observable contract](../design/Styio-Observable-Language.md#3-current-compiler-foundation)
+and [decoder README](../../src/StyioServices/StyioObservable/README.md) describe
+current resource-topology exports and scoped runtime correlation.
+
+The [compiler capability review](./COMPILER-CAPABILITY-REVIEW.md) summarizes current implementation evidence and bounded engineering gaps.
 
 ## Current Development Front
 
 1. The active repo-wide unfinished-work summary is [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md). Use it to split compiler debt, IDE closure work, and `pafio` handoff tasks without collapsing repo boundaries.
-2. IDE work is tracked through the IDE external docs, IDE/LSP runbook, perf runbook, and current gap ledger instead of a retained milestone batch.
-3. Resource Topology v2 remains a dedicated migration track owned by [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md), [`../design/syntax/ACTIVE-SYNTAX.md`](../design/syntax/ACTIVE-SYNTAX.md), and the current gap ledger.
+2. IDE work is tracked through the IDE external docs, IDE/LSP runbook, perf runbook, and current gap ledger instead of a retained planning batch.
+3. Current resource topology and its remaining capability slices are owned by [`../design/Styio-Resource-Topology.md`](../design/Styio-Resource-Topology.md), [`../design/syntax/ACTIVE-SYNTAX.md`](../design/syntax/ACTIVE-SYNTAX.md), and the current gap ledger. Bounded selector history and selector-copy snapshots are now executable for scalar/string/char/bool/f64/i64 values plus list-valued, dict-valued, and matrix-valued resources; bounded matrix selector snapshots also have finite stream-zip evidence once materialized as `list[matrix]`; unbounded snapshots stay fail-closed in Sema, lowering, and topology graph validation; tuple history and broader file/topology-resource copy remain open. The next topology work follows the P0 Sema/IR placeholder inventory and must not revive retired state-resource spellings.
+4. Compiler capability work is tracked by the open gaps and carry-forward register in [`NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md). IM-D1's StyioIR contract inventory lives in [`IM-D1-STYIOIR-CONTRACT-INVENTORY.md`](./IM-D1-STYIOIR-CONTRACT-INVENTORY.md), IM-D2's parser-authority inventory lives in [`IM-D2-PARSER-AUTHORITY-INVENTORY.md`](./IM-D2-PARSER-AUTHORITY-INVENTORY.md), IM-D3's diagnostic contract inventory lives in [`IM-D3-DIAGNOSTIC-CONTRACT-INVENTORY.md`](./IM-D3-DIAGNOSTIC-CONTRACT-INVENTORY.md), and IM-D7's native interop ABI inventory lives in [`IM-D7-NATIVE-INTEROP-ABI-INVENTORY.md`](./IM-D7-NATIVE-INTEROP-ABI-INVENTORY.md). Direct file iterator and direct file release statements now have `?|` settlement evidence for success, fallback, matched `io`, and no-fallback paths, while non-file iterators and value-required release expressions remain rejected. Simple value-returning resource methods now also have evidence for statement-only prefaces, scalar local `=` / `:=` prefaces, local list/dict/matrix `=` / `:=` prefaces that return scalar/string values or local list/dict/matrix container handles, and returned explicit `matrix` ordinary function calls plus matrix fallback literals; flat-list matrix returns, local resource bindings, resource-method lexical/global captures, and capture method bodies still fail before runtime. Top-level final callables now accept exact explicit `$(...)` environments for program-static scalar bindings: shared captures may escape under one complete callable type, exclusive captures remain direct-call-only, and consume, imported, resource/container, or missing-drop environments fail before lowering. A missing compiler-language capability may remain unfinished only when it is recorded with a pending decision, a mature architecture reference, and a concrete stop condition.
+5. Pressure observer syntax currently has a parser/Sema/diagnostic boundary only: `resource.pressure >> #(p) => { ... }` reaches Sema and unsupported current resource families report `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`. Runtime pressure streams, payload typing, observer execution, and broader backpressure scheduling remain open IM-D4/IM-D5 implementation work.
+6. The completed algorithm work is summarized by the active IM-D inventories and owner runbooks; exact retired planning prose remains in Git history. Current parser-core authority is one constexpr operator-metadata table in `src/StyioToken/Token.hpp` (`styio_expr_operator_info`), one canonical `parse_expr(StyioContext&)` core, O(n) token visits, and `kStyioExprMaxDepth` = 128 active expression frames. Remaining stream, topology, performance, workstream, correctness, and callable-decision work is explicitly registered in [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md#8-carry-forward-register).
+7. The completed `OPT-C` parser contract remains active through IM-D2, the Frontend runbook, parser tests, and benchmark probes: preserve the operator table, associativity, parser entry/recovery contracts, accepted-grammar equivalence, zero-fallback behavior, diagnostics, bounded depth, complexity, and allocation evidence.
+8. Hash-tag iterator routes are retired by owner decision and stay fail-closed with stable migration diagnostics; duplicate `@stdin & @stdin` zip stays fail-closed until an explicit tee/buffer or duplicate-driver design is accepted.
 
 ## Active Gates
 
 1. File/docs governance floor: `python3 scripts/repo-hygiene-gate.py --mode tracked`, `python3 scripts/team-docs-gate.py`, `python3 scripts/docs-index.py --write`, `python3 scripts/docs-audit.py`, `python3 scripts/docs-lifecycle.py validate`
 2. Common delivery floor: `./scripts/delivery-gate.sh` (default safe auto mode; pass `--base <ref>` only when the intended branch/promotion base cannot be inferred)
-3. Core correctness: `ctest --test-dir build -L milestone`, `ctest --test-dir build -L styio_pipeline`, `ctest --test-dir build -L security`
-4. Parser migration health: shadow gate / zero-fallback / zero-internal-bridges flows described in [`../assets/workflow/TEST-CATALOG.md`](../assets/workflow/TEST-CATALOG.md)
-5. Benchmark/perf workflow: `styio-benchmark/tools/perf-route.sh --styio-root <styio-checkout>` plus structured reports in `styio-benchmark`; Styio keeps only probes and compatibility wrappers
+3. Core correctness: `ctest --test-dir build -L language_feature`, `ctest --test-dir build -L styio_pipeline`, `ctest --test-dir build -L security`
+4. Parser authority health: syntax-check authority tests plus shadow gate / zero-fallback / zero-internal-bridges flows described in [`../../workflows/TEST-CATALOG.md`](../../workflows/TEST-CATALOG.md)
+5. Source coverage: `scripts/coverage-gate.sh --build-dir build/coverage --threshold 95`; coverage below 95% fails checkpoint health and delivery.
+6. Benchmark/perf workflow: `styio-benchmark/tools/perf-route.sh --styio-root <styio-checkout>` plus structured reports in `styio-benchmark`; Styio keeps only probe build adapters and compatibility wrappers, while migrated probe sources live in `styio-benchmark/styio-probes/`
+7. Syntax feature graph: `python3 scripts/syntax-feature-state-gate.py`; regenerate intentionally with `python3 scripts/syntax-feature-state-gate.py --write`
 
 ## Optional Provenance
 
 1. `docs/history/`, `docs/review/`, and `docs/adr/` keep only active entrypoints or compressed summaries; exact old wording is recovered from Git history when needed.
-2. `docs/archive/` is a lifecycle metadata shell, not a place to keep old syntax catalogs, archived examples, archived source snapshots, old plans, old rollups, or absorbed milestone batches in the current tree.
+2. `docs/archive/` is a lifecycle metadata shell, not a place to keep old syntax catalogs, archived examples, archived source snapshots, old plans, old rollups, or absorbed planning batches in the current tree.
 
 ## Current Risks
 
-1. The deepest remaining implementation debt is summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): parser subset gaps, sema/lowering placeholders, incomplete M7 stream closure, compile-plan release hardening with `styio-pafio`, and IDE operational closure.
+1. The deepest remaining implementation debt is summarized in [`./NEXT-STAGE-GAP-LEDGER.md`](./NEXT-STAGE-GAP-LEDGER.md): feature-specific parser additions under the IM-D2 no-fallback authority contract, sema/type feature debt after the IM-D1 placeholder contract closure, IM-D3 diagnostic-family refinement beyond the implemented public baseline, incomplete stream-processing stream closure, compile-plan release hardening with `pafio-nightly`, IDE operational closure, and the remaining decisions in their owning feature contracts.
 2. Resource topology migration must keep design, parser/sema/lowering work, and test catalog updates in one checkpoint path.
 3. Benchmarking is now structured, but meaningful comparisons still depend on keeping parser shadow/five-layer gates green alongside the perf route.
 4. Shared ignore/fixture governance is only frozen for current tracked roots; any future repro root outside `docs/**` or `tests/**` still needs explicit negate rules before files land.

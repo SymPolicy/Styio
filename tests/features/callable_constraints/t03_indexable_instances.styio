@@ -1,0 +1,5 @@
+# item_at := (items, index) => items[index]
+numbers := [10, 20]
+mapping := dict {"answer": 42}
+>_(item_at(numbers, 1))
+>_(item_at(mapping, "answer"))

@@ -1,0 +1,5 @@
+# same := (left, right) => left == right
+# ordered := (left, right) => left < right
+>_(same(2, 2))
+>_(same("styio", "styio"))
+>_(ordered("alpha", "beta"))

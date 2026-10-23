@@ -2,14 +2,14 @@
 
 **Purpose:** Show how to embed Styio's IDE components directly from C++, from the high-level `IdeService` entrypoint down to the edit-time `SyntaxParser`.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-10-01
 
 ## High-Level Service
 
 Use `styio::ide::IdeService` when your host wants one façade over VFS, syntax, HIR, semdb, indexing, and IDE DTOs.
 
 ```cpp
-#include "StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Service.hpp"
 
 styio::ide::IdeService service;
 service.initialize("file:///abs/workspace");
@@ -26,7 +26,7 @@ auto semantic_tokens = service.semantic_tokens(uri);
 auto context = service.completion_context(uri, styio::ide::Position{1, 16});
 ```
 
-Public façade methods currently available in [../../../src/StyioIDE/Service.hpp](../../../src/StyioIDE/Service.hpp):
+Public façade methods currently available in [../../../src/StyioServices/StyioIDE/Service.hpp](../../../src/StyioServices/StyioIDE/Service.hpp):
 
 1. `initialize`
 2. `did_open`
@@ -44,10 +44,10 @@ Public façade methods currently available in [../../../src/StyioIDE/Service.hpp
 
 ## Edit-Time Syntax Only
 
-Use `styio::ide::SyntaxParser` when you only need a tolerant syntax snapshot and do not want the full semantic pipeline.
+Use `styio::ide::SyntaxParser` when you only need a non-authoritative edit-time syntax snapshot and do not want the full semantic pipeline.
 
 ```cpp
-#include "StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioIDE/Syntax.hpp"
 
 styio::ide::DocumentSnapshot snapshot;
 snapshot.file_id = 1;
@@ -85,25 +85,33 @@ The returned `SyntaxSnapshot` exposes:
 
 ## Semantic Bridge Only
 
-Use `styio::ide::analyze_document` when you want Nightly semantic facts without the full IDE service.
+Use `styio::ide::analyze_document` when you want compiler-owned nightly semantic facts without the full IDE service.
 
 ```cpp
-#include "StyioIDE/CompilerBridge.hpp"
+#include "StyioServices/StyioIDE/CompilerBridge.hpp"
 
 auto summary = styio::ide::analyze_document("memory://sample.styio", source_text);
-if (summary.used_recovery) {
-  // The parse continued past at least one malformed statement.
+if (!summary.parse_success) {
+  // Inspect diagnostics: no root AST was returned.
+}
+if (summary.used_recovery || !summary.diagnostics.empty()) {
+  // Any available facts are partial edit-time assistance, not a valid-program proof.
 }
 ```
 
 `SemanticSummary` currently reports:
 
 1. `parse_success`
-2. `used_recovery`
+2. `used_recovery` is true when Nightly recovery parsing recorded parse diagnostics; `parse_success` only says a root AST was returned
 3. `diagnostics`
 4. `items`
 5. `inferred_types`
 6. `function_signatures`
+
+Recovery parsing can retain a root and later useful items after a malformed
+statement. Sema diagnostics may also coexist with collected item/type facts.
+Check diagnostics and `used_recovery`; neither `parse_success` nor the presence
+of an item establishes successful whole-program semantic validation.
 
 `items` contains AST/analyzer-backed semantic item facts for module-level functions, imports, resources, and global bindings. Top-level `@import { ... }` declarations surface here as import items; import names are exposed in canonical slash form (`std/io`), even when the source used the compatibility dot spelling (`std.io`). HIR lowering uses these facts as semantic truth, then binds them to edit-time syntax ranges.
 
@@ -188,8 +196,8 @@ Merge precedence is deterministic: open-file entries override background and per
 
 ## Layer Boundaries
 
-1. `SyntaxParser` owns edit-time CST and tolerant token spans.
-2. Nightly parser + analyzer remain the semantic truth for `SemanticSummary`, with `ParseMode::Recovery` enabled for IDE usage.
+1. `SyntaxParser` owns edit-time CST and token spans, but it is not a grammar authority.
+2. The hand-written nightly compiler parser plus analyzer remain the semantic truth for `SemanticSummary`, with recovery parsing and explicit diagnostics for partial edit-time facts.
 3. `HirBuilder` lowers syntax plus semantic summary into the IDE-facing HIR.
 4. `SemanticDB` owns file-level and offset-level IDE query caches.
 5. `IdeService` is the recommended stable boundary for application code.

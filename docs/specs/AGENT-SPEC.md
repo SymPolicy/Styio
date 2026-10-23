@@ -1,8 +1,8 @@
 # Styio — Agent Development Specification
 
-**Purpose:** 约束 AI 与人类贡献者在 **编译器实现、测试与文档交叉引用** 上的操作规程与禁止项；**语言权威语义**仍以 `../design/Styio-Language-Design.md`、`../design/Styio-EBNF.md` 为准。文档目录与「最小改动 / SSOT」准则见 `DOCUMENTATION-POLICY.md` §0。
+**Purpose:** Define implementation, test, and documentation rules for AI and human contributors; feature-specific language authority lives in `../design/syntax/features/`, while cross-feature grammar, token, and semantic invariants remain in the shared design specifications.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-10-01
 
 **Version:** 1.1  
 **Date:** 2026-03-28  
@@ -32,7 +32,7 @@
 
 ## 1. Project Overview
 
-Styio is a **symbol-driven, intent-aware stream processing language** targeting financial quantitative analysis as its first domain. The compiler is written in **C++20** and emits **LLVM IR** for native execution via ORC JIT.
+Styio is a **general-purpose visual programming language with symbolic syntax for expressing data flow**. The [language design](../design/Styio-Language-Design.md#24-visual-design-intent) defines its program-view model and compiler/IDE interface responsibilities. The compiler is written in **C++20** and emits **LLVM IR** for native execution via ORC JIT.
 
 ### Key Facts
 
@@ -54,15 +54,15 @@ Before making any language-level change, agents MUST read:
 - `../design/Styio-Language-Design.md` — Full language specification
 - `../design/Styio-EBNF.md` — Formal grammar
 - `../design/Styio-Symbol-Reference.md` — Symbol lookup table
-- `../design/Styio-StdLib-Intrinsics.md` — Standard library algorithms
+- `../design/Styio-StdLib-Intrinsics.md` — compiler intrinsic and standard-library boundary evidence
 - `../design/Styio-Resource-Driver.md` — Resource driver interface
 - `../design/Styio-Research-Innovations.md` — Research novelty points (do not break these)
 - `./DOCUMENTATION-POLICY.md` — Doc layout, **§0** maintenance (minimal change, three-doc SSOT), history/checkpoint/feature-test rules
 - `./PRINCIPLES-AND-OBJECTIVES.md` — Project-wide priority order, rewrite boundary, and lifecycle objectives
-- `../assets/workflow/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (feature slices, recovery notes, ADR requirement)
-- `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` — Delivery gate requiring mapped team runbooks to be updated and kept in the documented template shape when owned folders change
+- `../../workflows/CHECKPOINT-WORKFLOW.md` — Interrupt-friendly checkpoint process (feature slices, recovery notes, ADR requirement)
+- `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` — Delivery gate requiring mapped team runbooks to be updated and kept in the documented template shape when owned folders change
 - `../adr/README.md` — ADR index for ownership/lifecycle/API decisions
-- `../assets/workflow/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
+- `../../workflows/TEST-CATALOG.md` — Functional test map (inputs, oracles, `ctest` commands)
 - `../README.md` — Docs taxonomy and directory entrypoints
 
 ---
@@ -75,7 +75,6 @@ Styio/
 ├── .clang-format               # C++ formatting rules (MUST use)
 ├── .gitignore
 ├── README.md
-├── extend_tests.py             # Test scaffolding script
 │
 ├── docs/                       # Project documentation root
 │   ├── README.md               # Taxonomy and entrypoints
@@ -91,7 +90,7 @@ Styio/
 │   │   ├── DOCUMENTATION-POLICY.md
 │   │   └── THIRD-PARTY.md
 │   ├── review/                 # Review findings and logic conflicts
-│   ├── plans/                  # Implementation and migration plans
+│   ├── plan/                   # Implementation plans, plan reports, and Better Plan state
 │   ├── assets/
 │   │   ├── workflow/           # Reusable workflows, test framework docs, repo hygiene
 │   │   └── templates/          # Reusable templates
@@ -129,8 +128,10 @@ Styio/
 │   ├── StyioIR/                # Styio intermediate representation
 │   │   ├── StyioIR.hpp         # IR base classes
 │   │   ├── IRDecl.hpp          # IR node forward declarations
-│   │   ├── GenIR/GenIR.hpp     # General IR node definitions
-│   │   └── IOIR/IOIR.hpp       # I/O-specific IR nodes
+│   │   ├── GenIR/GenIR.hpp     # General IR node aggregator
+│   │   ├── GenIR/SGIR.hpp      # General IR (default) nodes
+│   │   ├── GenIR/SIOIR.hpp     # I/O / std-stream / file IR nodes
+│   │   └── GenIR/SCIR.hpp      # Collection IR nodes (list/dict/matrix)
 │   │
 │   ├── StyioCodeGen/           # LLVM IR generation
 │   │   ├── CodeGenVisitor.hpp  # StyioToLLVM visitor class
@@ -141,8 +142,7 @@ Styio/
 │   │   └── GetTypeIO.cpp       # LLVM type resolution (I/O)
 │   │
 │   ├── StyioJIT/               # JIT execution
-│   │   ├── StyioJIT_ORC.hpp    # LLVM ORC JIT wrapper
-│   │   └── JITExecutor.hpp     # Execution entry point
+│   │   └── StyioJIT_ORC.hpp    # LLVM ORC JIT wrapper
 │   │
 │   ├── StyioNative/            # C/C++ @extern signature parsing, native compilation, dlopen/dlsym loading
 │   │   ├── NativeInterop.hpp
@@ -322,6 +322,13 @@ Group includes with section comments:
 
 When the language design introduces a new symbol (e.g., `??`, `<:`, `||>`):
 
+This workflow is symbol-only. Never add a token kind for a word-shaped spelling.
+All words remain `NAME`; an accepted symbol-anchored production may inspect a
+`NAME` spelling only inside the grammar family already opened by that symbol.
+Before adding a token, verify the keyword-free contract in
+`../design/Styio-Language-Design.md` section 1.1.1 and
+`../design/Styio-EBNF.md` section 2.0.
+
 ### Step 1: Define Token Type
 
 In `src/StyioToken/Token.hpp`, add to the `StyioTokenType` enum:
@@ -345,7 +352,7 @@ Update `getTokName()` in `Token.hpp` or `Token.cpp` so that debug printing shows
 
 ### Step 5: Write Lexer Test
 
-Create a `.styio` file in `tests/parsing/` that uses the new token. Verify it tokenizes correctly using `--debug` mode.
+Create a `.styio` feature fixture under `tests/features/<feature>/` that uses the new token, add the expected oracle when needed, and wire it through `tests/CMakeLists.txt`. Use focused `ctest` selectors as the acceptance harness.
 
 ---
 
@@ -465,7 +472,7 @@ When adding parsing logic for ambiguous tokens (e.g., `>>` as pipe vs. continue)
 ### Step 1: Add IR Node (if needed)
 
 If the new AST concept requires a distinct IR representation:
-1. Define in `src/StyioIR/GenIR/GenIR.hpp` (or `IOIR/IOIR.hpp` for I/O nodes)
+1. Define in the right domain header under `src/StyioIR/GenIR/`: general nodes in `SGIR.hpp`, I/O / std-stream / file nodes in `SIOIR.hpp`, collection nodes (list/dict/matrix) in `SCIR.hpp`. `GenIR.hpp` is a compatibility aggregator only.
 2. Forward-declare in `src/StyioIR/IRDecl.hpp`
 
 ### Step 2: Implement IR Lowering
@@ -497,7 +504,7 @@ llvm::Value* StyioToLLVM::toLLVMIR(SGWaveExpr* node) {
 ### CodeGen Rules
 
 - **Prefer `select` over `br` + `phi`** for conditional values without side effects
-- **Mark intrinsic implementations as `alwaysinline`**
+- **Use direct LLVM inlining only when that is the implemented intrinsic route; runtime-helper intrinsics must instead name their registered helper boundary**
 - **Never allocate on the heap** from generated code — all state must be stack-allocated or in the pre-allocated state ledger
 - **Respect the type system** — always call `getDataType()` on the AST/IR node to determine the correct LLVM type
 
@@ -505,20 +512,28 @@ llvm::Value* StyioToLLVM::toLLVMIR(SGWaveExpr* node) {
 
 ## 9. How to Add a New Compiler Intrinsic
 
-Compiler intrinsics are recognized selector modes like `[avg, n]`, `[max, n]`, etc.
+Compiler intrinsics are compiler-owned surfaces that need parser, Sema, lowering,
+runtime helper routing, or codegen participation. Current active examples are
+the `avg`/`max` series selector slice and matrix helper calls such as `mat_zeros`,
+`matmul`, `transpose`, `dot`, and `norm`. Do not treat deferred algorithm names
+as accepted behavior until `../design/Styio-StdLib-Intrinsics.md`,
+`workflows/TEST-CATALOG.md`, and the owning tests name implementation evidence.
 
-### Step 1: Define Selector Mode
+### Step 1: Define The Compiler-Owned Surface
 
-Add the mode string to the selector_mode recognition in the parser (e.g., `"avg"`, `"max"`, `"std"`, `"ema"`, `"rsi"`).
+For selector-style intrinsics, add the mode string to the parser only when the
+same checkpoint also adds Sema/lowering/codegen evidence. For call-style
+intrinsics, keep the grammar as ordinary calls and add the compiler-owned
+recognition in Sema/lowering instead.
 
 ### Step 2: Document the Algorithm
 
 Add a full specification to `../design/Styio-StdLib-Intrinsics.md` including:
 - Algorithm pseudocode
-- Time complexity (must be O(1) amortized per pulse)
-- Memory requirements (exact byte count)
-- `@` handling behavior
-- LLVM codegen hints
+- Time and memory behavior only when supported by implementation or measured evidence
+- absence/resource-effect behavior
+- LLVM codegen or runtime-helper route
+- deferred non-goals for nearby unsupported forms
 
 ### Step 3: Implement State Allocation
 
@@ -526,7 +541,10 @@ The intrinsic's state (ring buffer, accumulator, deque) must be allocated as par
 
 ### Step 4: Implement Inline CodeGen
 
-Generate LLVM IR that performs the algorithm directly without helper calls. Record benchmark evidence before making performance statements about the generated path.
+Generate LLVM IR directly when the intrinsic requires codegen ownership, or route
+to an explicitly registered runtime helper when the active implementation uses
+that boundary. Record benchmark evidence before adding performance wording about
+the generated path.
 
 ---
 
@@ -549,9 +567,9 @@ Every change MUST include tests for:
 - **Stdout oracle:** `expected/<same_basename>.out` (compared via `styio --file … | cmp -s - …` in CMake)
 - **Registration:** `tests/CMakeLists.txt` (`add_test` + labels `language_feature`, `<feature>`, and optional `<feature>_semantic`)
 
-**Human-readable index:** `../assets/workflow/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
+**Human-readable index:** `../../workflows/TEST-CATALOG.md` (must list **input**, **oracle** or side-effect path, and **`ctest -R` / `-L`**). When you add a fixture, update both CMake and the catalog.
 
-**Ad-hoc parsing/scaffolding** may still use `extend_tests.py` and numbered files under `tests/parsing/` if present; do not use that layout for feature regressions unless those tests are also wired into CTest.
+Do not add numbered `tests/parsing/` or lit-style scaffolding. Current feature regressions must be CTest-wired under `tests/features/`.
 
 ### 10.3 GoogleTest
 
@@ -584,7 +602,7 @@ The build is orchestrated by the top-level `CMakeLists.txt`, which delegates com
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | LLVM | 18.1.0+ (CMake) | IR generation, JIT, native target |
-| ICU | System + `FindICU.cmake` | Unicode (`uc`, `i18n`) |
+| ICU | System + `cmake/FindICU.cmake` | Unicode (`uc`, `i18n`) |
 | GoogleTest | FetchContent zip in `cmake/StyioGoogleTest.cmake` | Tests and benchmark targets only |
 | cxxopts | Vendored `src/include/cxxopts.hpp` | CLI argument parsing |
 
@@ -600,7 +618,7 @@ The build is orchestrated by the top-level `CMakeLists.txt`, which delegates com
 
 ### 12.1 When to Update Docs
 
-- **New syntax or symbol:** Update `../design/Styio-Language-Design.md`, `../design/Styio-EBNF.md`, and `../design/Styio-Symbol-Reference.md`
+- **New syntax or symbol:** Create or update the owning `../design/syntax/features/<feature-id>.md` first, declare dependencies and prerequisites there, then update affected shared invariants in `../design/Styio-Language-Design.md`, `../design/Styio-EBNF.md`, and `../design/Styio-Symbol-Reference.md`
 - **New intrinsic:** Update `../design/Styio-StdLib-Intrinsics.md`
 - **New driver interface change:** Update `../design/Styio-Resource-Driver.md`
 - **Innovation-affecting change:** Verify `../design/Styio-Research-Innovations.md` still holds
@@ -612,6 +630,14 @@ All documentation is Markdown. Use:
 - Tables for structured data
 - Fenced code blocks with language tags (`cpp`, `ebnf`, or no tag for Styio code)
 - No emojis
+
+### 12.2.1 Documentation Language
+
+Write repository documentation in English by default. This rule applies to development docs, design docs, specs, ADRs, runbooks, workflows, plans, test catalogs, audit records, and source-level README files.
+
+Use Chinese or bilingual text only for explicit product-facing, marketing, localization, or translation artifacts, such as the root `README.md` / `README_zh.md` pair. The English document remains authoritative unless a localization owner explicitly marks a translated artifact as the active user-facing source for that audience.
+
+When editing an existing non-English development document, convert the touched section to English instead of adding more non-English maintenance prose, unless the file is explicitly a translation artifact.
 
 ### 12.3 Code Examples in Docs
 
@@ -644,8 +670,8 @@ Follow `./DOCUMENTATION-POLICY.md` (including **§0** — minimal change, three-
 
 - **Progress and lessons learned:** durable lessons must be promoted into active rollups, SSOTs, or runbooks; raw dated checkpoint text is recovered from Git history when needed.
 - **Implemented decisions:** `../adr/IMPLEMENTED-DECISIONS.md` keeps a compressed provenance summary; exact old ADR wording comes from Git history.
-- **Test catalog:** `../assets/workflow/TEST-CATALOG.md` — group by **language feature**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
-- **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
+- **Test catalog:** `../../workflows/TEST-CATALOG.md` — group by **language feature**; each row must be reproducible with **CTest** (and document stdin/stdout/files).
+- **Team runbooks:** `../teams/<TEAM>-RUNBOOK.md` — every delivery that changes a mapped team-owned folder must update the corresponding runbook when the ownership surface, workflow, gates, handoff, or recovery knowledge changes. Ordinary team runbooks must follow `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md`; the enforcement entrypoint is `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` and `python3 scripts/team-docs-gate.py`.
 - **Runbook statistics:** `../teams/DOC-STATS.md` — refresh this file in the same delivery when any team runbook or `COORDINATION-RUNBOOK.md` changes.
 
 ---
@@ -656,10 +682,10 @@ Agents working on specific areas should consult:
 
 | Task | Primary Reference |
 |------|-------------------|
-| Adding syntax | `../design/Styio-EBNF.md` (grammar), `../design/Styio-Symbol-Reference.md` (tokens) |
+| Adding syntax | `../design/syntax/features/<feature-id>.md` (feature SSOT), `../design/Styio-EBNF.md` (shared grammar), `../design/Styio-Symbol-Reference.md` (shared tokens) |
 | Active syntax map | `../design/syntax/ACTIVE-SYNTAX.md` (compact authoring surface) |
-| Topology v2 (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
-| Implementing `@` propagation | `../design/Styio-Language-Design.md` §3.4 (Undefined type) |
+| resource topology (`@name : Type|n|`, `@name : Type|..n|`, `T..`, `expr -> @name`) | `../design/Styio-Resource-Topology.md`, `../design/syntax/ACTIVE-SYNTAX.md`, `../rollups/NEXT-STAGE-GAP-LEDGER.md` |
+| Implementing tagged runtime absence | `../design/Styio-Language-Design.md` §3.5 (Runtime Absence) |
 | Reserved wave tokens `<~` / `~>` | `../design/Styio-Symbol-Reference.md` §3 (reserved tokens) |
 | Stream sync `&` / `<<` | `../design/Styio-Language-Design.md` §9 (Stream Synchronization) |
 | Intrinsic algorithms | `../design/Styio-StdLib-Intrinsics.md` (all algorithms with pseudocode) |
@@ -672,25 +698,47 @@ Agents working on specific areas should consult:
 
 Agents MUST NOT:
 
-1. **Introduce keywords.** Styio uses symbols, not words like `if`, `while`, `for`, `return`, `fn`, `let`. The only text tokens allowed are type names (`i32`, `f64`, etc.), `schema`, `true`, `false`, and user identifiers.
+1. **Introduce keywords or word-headed grammar.** Styio reserves no word as a
+   keyword and defines no keyword token kind. Every word-shaped token remains
+   `NAME`; type names resolve in type position, `true` and `false` are
+   expression-context literal spellings, and a symbol-anchored family such as
+   top-level `@import` may inspect a following `NAME` without reserving it
+   elsewhere. Do not add bare declaration or control heads such as `type`,
+   `record`, `variant`, `protocol`, `impl`, `if`, `while`, `return`, `fn`, or
+   `let`. The historical word-based `schema` declaration is not an exception.
 
-2. **Break the Golden Cross example.** See §12.3. This example is the language's "constitution."
+2. **Introduce authored generic binders, call-site specialization, or
+   polymorphic recursion on callables.** Do not parse, document, or generate
+   `# name[T] ...`, and never reinterpret value-position `name[T](...)` as a
+   generic call. `[]` after a value remains an ordinary selector/index.
+   Non-recursive callables infer their relation at the definition site.
+   Recursive call-graph components are solved together with one provisional
+   monotype per member and may be generalized only after the component has a
+   stable solution; reject an internal recursive edge that requires a member
+   at a different instantiation. Compiler-generated type-variable names belong
+   to diagnostics and module-interface metadata, not author source. Instantiate
+   calls only from ordinary arguments and concrete expected context; reject
+   underconstrained calls instead of accepting authored type arguments. A
+   source annotation such as `: T` must resolve an existing type and must not
+   declare `T`.
 
-3. **Allocate heap memory in generated code.** All runtime state must be stack-allocated or in the pre-allocated contiguous ledger. No `malloc`, no `new`, no GC.
+3. **Break the Golden Cross example.** See §12.3. This example is the language's "constitution."
 
-4. **Modify vendored files.** `src/include/cxxopts.hpp` is third-party. Do not edit it.
+4. **Allocate heap memory in generated code.** All runtime state must be stack-allocated or in the pre-allocated contiguous ledger. No `malloc`, no `new`, no GC.
 
-5. **Use historical implementation code.** Historical implementation snapshots from Git history are reference-only. Do not include, call, or copy from them without promoting the current rule through the active implementation path.
+5. **Modify vendored files.** `src/include/cxxopts.hpp` is third-party. Do not edit it.
 
-6. **Skip visitor registration.** Every new AST node MUST be added to ALL visitor template lists. Partial registration causes hard-to-debug template errors.
+6. **Use historical implementation code.** Historical implementation snapshots from Git history are reference-only. Do not include, call, or copy from them without promoting the current rule through the active implementation path.
 
-7. **Add dependencies without justification.** New external libraries require explicit approval. Prefer header-only or vendored solutions.
+7. **Skip visitor registration.** Every new AST node MUST be added to ALL visitor template lists. Partial registration causes hard-to-debug template errors.
 
-8. **Break existing tests.** All tests must pass before and after any change. If a test must change, document why.
+8. **Add dependencies without justification.** New external libraries require explicit approval. Prefer header-only or vendored solutions.
 
-9. **Generate binary or hash content.** Never output binary blobs, extremely long hashes, or non-textual content.
+9. **Break existing tests.** All tests must pass before and after any change. If a test must change, document why.
 
-10. **Commit build artifacts or IDE-specific files.** Respect `.gitignore`.
+10. **Generate binary or hash content.** Never output binary blobs, extremely long hashes, or non-textual content.
+
+11. **Commit build artifacts or IDE-specific files.** Respect `.gitignore`.
 
 ---
 
@@ -716,8 +764,8 @@ Agents must work on the **current active front** and not skip ahead. Start from 
 
 ### What Requires Human Approval
 
-- **Any new symbol or syntax** — must be discussed and added to design docs first
-- **Changes to `@` propagation semantics** — this is a core language invariant
+- **Any new symbol or syntax** — must start in an owning feature SSOT, record the language-owner decision, and reach `accepted` with derived readiness `ready` before delivery advances beyond `not_started`
+- **Changes to tagged `@` absence semantics** — this is a core language invariant
 - **Changes to the compilation pipeline stages** — the 6-stage flow is architectural
 - **New external dependencies**
 - **Removing or renaming existing tokens/AST nodes** — may break downstream agents
@@ -726,16 +774,16 @@ Agents must work on the **current active front** and not skip ahead. Start from 
 ### Conflict Resolution
 
 If two agents propose conflicting changes to the same file:
-1. The change that preserves backward compatibility wins
-2. If both are backward-compatible, the change with tests wins
-3. If still tied, the human project owner decides
+1. Apply the priority order in [Principles and Objectives](./PRINCIPLES-AND-OBJECTIVES.md).
+2. Compare the proposed behavior, compatibility effect and verification evidence against the owning contract.
+3. Refer unresolved language or architecture choices to the project owner; compatibility alone does not override an approved design.
 
 ---
 
 ## Appendix A: Quick-Start Checklist for New Agents
 
 1. Read this file (`AGENT-SPEC.md`) completely
-2. Read `DOCUMENTATION-POLICY.md` and `../assets/workflow/TEST-CATALOG.md` for where to log work and how tests are named
+2. Read `DOCUMENTATION-POLICY.md` and `../../workflows/TEST-CATALOG.md` for where to log work and how tests are named
 3. Read `../design/Styio-Language-Design.md` for the full language picture
 4. Read `../design/Styio-Symbol-Reference.md` to understand the symbol system
 5. Examine `src/main.cpp` to understand the pipeline flow
@@ -745,9 +793,9 @@ If two agents propose conflicting changes to the same file:
 9. Make your change
 10. Run `clang-format` on modified files
 11. Verify all existing tests still pass (`ctest --test-dir build/default -L language_feature` plus `styio_test` when the build allows)
-12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../assets/workflow/TEST-CATALOG.md`
+12. Add new tests for your change; register in `tests/CMakeLists.txt` and `../../workflows/TEST-CATALOG.md`
 13. Update the mapped team runbook using `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` and refresh `../teams/DOC-STATS.md` when the change affects owned folders or team maintenance knowledge
-14. Update `docs/history/YYYY-MM-DD.md` for non-trivial work; update design docs if syntax or semantics change
+14. Update the owning active documents; use a temporary recovery note only when unfinished work needs it, following `DOCUMENTATION-POLICY.md`.
 15. Run `python3 scripts/team-docs-gate.py` and `python3 scripts/docs-audit.py` before delivery
 
 ## Appendix B: Compilation Pipeline Debug Flags
@@ -761,34 +809,17 @@ If two agents propose conflicting changes to the same file:
 | `--all` | Enable all of the above |
 | `--file <path>` | Specify input `.styio` file (also accepts positional arg) |
 
-## Appendix C: Feature Implementation Status
+## Appendix C: Current Feature State
 
-Features from the design documents and their current implementation state:
+Feature state is maintained in the distributed
+[feature SSOTs](../design/syntax/features/README.md) and their generated
+[feature graph](../design/syntax/SYNTAX-FEATURE-GRAPH.json). Read the owning
+feature's accepted surface, delivery state, prerequisites and evidence before
+changing behavior. The [active syntax map](../design/syntax/ACTIVE-SYNTAX.md)
+is the compact source-form entrypoint.
 
-| Feature | Design Doc Section | Lexer | Parser | AST | TypeInfer | IR | CodeGen | Status |
-|---------|-------------------|:-----:|:------:|:---:|:---------:|:--:|:-------:|--------|
-| Basic expressions (arithmetic, logic) | §8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Functions (`#`) | §4 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Pattern matching (`?=`) | §5.1 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Pipe / Iterate (`>>`) | §5.4 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Print (`>_`) | §11 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Resources (`@`) | §7 | ✅ | ✅ | ✅ | Partial | Partial | — | **In Progress** |
-| Bindings (`:=`, `=`) | §— | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Collections (list, tuple, set) | §10 | ✅ | ✅ | ✅ | Partial | Partial | Partial | **In Progress** |
-| Format strings (`$"..."`) | §11.3 | ✅ | ✅ | ✅ | ✅ | ✅ | via string concat | **Working** |
-| Reserved wave tokens (`<~`, `~>`) | §3 reserved tokens | ✅ | Rejects active use | — | — | — | — | **Reserved** |
-| Retired state-resource state families | §8.2 | — | Rejects active use | — | — | — | — | **Retired** |
-| Resource topology selectors | §8.4 | ✅ | ✅ | Partial | Partial | Partial | Partial | **In Progress** |
-| Pulse Frame Lock | §8.5 | — | — | — | Partial | Partial | — | **In Progress** |
-| Break (`^...`) | §5.5 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Continue (`>>>`) | §5.6 | — | — | — | — | — | — | **Not Started** |
-| Stream Zip (`&`) | §9.1 | — | — | — | — | — | — | **Not Started** |
-| Snapshot Pull (`<< @res`) | §9.2 | — | — | — | — | — | — | **Not Started** |
-| Selector intrinsics (`[avg,n]`) | Intrinsics §2 | — | — | — | — | — | — | **Not Started** |
-| Diagnostic `??` | §12.3 | — | — | — | — | — | — | **Not Started** |
-| Anonymous Ledger | §8.6 | — | — | — | — | — | — | **Not Started** |
-| Context capture `$(...)` | §4.3 | — | — | — | — | — | — | **Not Started** |
-| Yield `<|` | §5.7 | — | — | — | — | — | — | **Not Started** |
-| Infinite generator `[...]` | §5.2 | — | — | — | — | — | — | **Not Started** |
-| Guard `?(expr)` | §5.3 | — | — | — | — | — | — | **Not Started** |
-| Resource drivers (C++ interface) | Driver Spec | — | — | — | — | — | — | **Not Started** |
+Implementation limits beyond individual feature states are summarized in the
+[compiler capability review](../rollups/COMPILER-CAPABILITY-REVIEW.md) and
+[next-stage gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md). Executable fixture
+paths and test selections live in [TEST-CATALOG](../../workflows/TEST-CATALOG.md).
+This appendix does not maintain a second per-stage status matrix.

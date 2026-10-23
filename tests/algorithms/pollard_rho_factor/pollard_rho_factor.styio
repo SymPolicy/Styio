@@ -1,0 +1,26 @@
+/* Least prime factor (C++ Pollard Rho; Styio: trial division).
+   Input: [n]. n<=1 -> -1; primes return n. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n <= 1) => {
+        answer = 0 - 1
+    } | {
+        found = 0
+        p = 2
+        [...] >> ?(found == 0 && p * p <= n) => {
+            ?(n - (n / p) * p == 0) => {
+                answer = p
+                found = 1
+            }
+            p = p + 1
+        }
+        ?(found == 0) => {
+            answer = n
+        }
+    }
+}
+
+>_(answer)

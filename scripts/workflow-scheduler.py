@@ -53,6 +53,41 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "tests/workflow_scheduler_test.py"),
     ),
     Tool(
+        "tool-skill-registry",
+        7,
+        "Docs / Ecosystem",
+        "Validate current repo-local skills, maintenance tools, release wiring, and module coverage.",
+        ("python3", "scripts/tool-skill-registry-gate.py"),
+    ),
+    Tool(
+        "local-info-leak-worktree",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information in Git-visible worktree files.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "worktree"),
+    ),
+    Tool(
+        "local-info-leak-tracked",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information in tracked files.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "tracked"),
+    ),
+    Tool(
+        "local-info-leak-staged",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information in staged files.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "staged"),
+    ),
+    Tool(
+        "local-info-leak-push",
+        8,
+        "Docs / Ecosystem",
+        "Warn and fail on developer-machine or server-specific information introduced by the incoming revision range.",
+        ("python3", "scripts/local-info-leak-gate.py", "--mode", "push", "--range", "{range}"),
+    ),
+    Tool(
         "repo-hygiene-worktree",
         10,
         "Docs / Ecosystem",
@@ -79,6 +114,20 @@ TOOLS: tuple[Tool, ...] = (
         "Docs / Ecosystem",
         "Reject forbidden artifacts introduced by the incoming revision range.",
         ("python3", "scripts/repo-hygiene-gate.py", "--mode", "push", "--range", "{range}"),
+    ),
+    Tool(
+        "monolith-line-ratchet",
+        14,
+        "CLI / Nano",
+        "Prevent the compiler entry file from growing beyond its measured migration ceiling.",
+        ("python3", "scripts/monolith-line-ratchet-gate.py"),
+    ),
+    Tool(
+        "syntax-feature-state",
+        15,
+        "Language / Docs",
+        "Validate distributed syntax-feature SSOT documents, lifecycle guards, dependency closure, and generated graph freshness.",
+        ("python3", "scripts/syntax-feature-state-gate.py"),
     ),
     Tool(
         "runtime-surface",
@@ -135,99 +184,129 @@ TOOLS: tuple[Tool, ...] = (
 WORKFLOW_DOCS: tuple[WorkflowDoc, ...] = (
     WorkflowDoc(
         "add-repo-file",
-        "docs/assets/workflow/ADD-REPO-FILE.md",
+        "workflows/ADD-REPO-FILE.md",
         15,
         "Repository file creation with metadata, indexes, ownership, and gates.",
     ),
     WorkflowDoc(
         "add-resource-identifier",
-        "docs/assets/workflow/ADD-RESOURCE-IDENTIFIER.md",
+        "workflows/ADD-RESOURCE-IDENTIFIER.md",
         25,
         "Resource identifier syntax, capability, lifecycle, and fail-closed rollout.",
     ),
     WorkflowDoc(
         "correct-syntax-contract",
-        "docs/assets/workflow/CORRECT-SYNTAX-CONTRACT.md",
+        "workflows/CORRECT-SYNTAX-CONTRACT.md",
         25,
         "Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates.",
     ),
     WorkflowDoc(
         "change-bootstrap-env",
-        "docs/assets/workflow/CHANGE-BOOTSTRAP-ENV.md",
+        "workflows/CHANGE-BOOTSTRAP-ENV.md",
         20,
         "Bootstrap environment dependency, version, path, and documentation changes.",
     ),
     WorkflowDoc(
         "checkpoint-health",
-        "docs/assets/workflow/CHECKPOINT-HEALTH.md",
+        "workflows/CHECKPOINT-HEALTH.md",
         70,
         "Repository build/test health entrypoint for checkpoint delivery.",
     ),
     WorkflowDoc(
         "checkpoint",
-        "docs/assets/workflow/CHECKPOINT-WORKFLOW.md",
+        "workflows/CHECKPOINT-WORKFLOW.md",
         50,
         "Recovery-oriented checkpoint scope control and interruption handling.",
     ),
     WorkflowDoc(
         "delivery-gate",
-        "docs/assets/workflow/DELIVERY-GATE.md",
+        "workflows/DELIVERY-GATE.md",
         60,
         "Common delivery-floor entrypoint and health-gate handoff.",
     ),
     WorkflowDoc(
         "docs-maintenance",
-        "docs/assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md",
+        "workflows/DOCS-MAINTENANCE-WORKFLOW.md",
         30,
         "Documentation metadata, generated indexes, and archive lifecycle.",
     ),
     WorkflowDoc(
+        "performance-research",
+        "workflows/PERFORMANCE-RESEARCH-WORKFLOW.md",
+        25,
+        "Separate Benchmark research, Modification implementation, and independent performance evaluation.",
+    ),
+    WorkflowDoc(
         "docs-gate",
-        "docs/assets/workflow/DOCS-GATE.md",
+        "workflows/DOCS-GATE.md",
         35,
         "Common docs/process gate entrypoint and composition boundary.",
     ),
     WorkflowDoc(
         "five-layer-pipeline",
-        "docs/assets/workflow/FIVE-LAYER-PIPELINE.md",
+        "workflows/FIVE-LAYER-PIPELINE.md",
         45,
         "Layered compiler golden coverage from lexer through runtime output.",
     ),
     WorkflowDoc(
         "repo-hygiene",
-        "docs/assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md",
+        "workflows/REPO-HYGIENE-COMMIT-STANDARD.md",
         10,
         "Repository cleanliness, commit, push, and history rewriting standards.",
     ),
     WorkflowDoc(
-        "promote-nightly-parser-subset",
-        "docs/assets/workflow/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
-        25,
-        "Nightly parser subset promotion with parity, fallback, and error-boundary tests.",
+        "feature-cutover",
+        "workflows/FEATURE-CUTOVER-WORKFLOW.md",
+        15,
+        "Pre-test self-check for complete migration to the new canonical feature path.",
     ),
     WorkflowDoc(
-        "syntax-addition",
-        "docs/assets/workflow/SYNTAX-ADDITION-WORKFLOW.md",
+        "functional-commit-readiness",
+        "workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md",
+        55,
+        "Pre-commit self-check for targeted feature validation and upstream/downstream adaptation.",
+    ),
+    WorkflowDoc(
+        "promote-nightly-parser-subset",
+        "workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md",
+        25,
+        "Authoritative nightly parser coverage with no accepted-grammar fallback.",
+    ),
+    WorkflowDoc(
+        "add-syntax-with-skills",
+        "workflows/ADD-SYNTAX-WITH-SKILLS.md",
         25,
         "Ordered syntax-change chain from language SSOT through runtime registration.",
     ),
     WorkflowDoc(
         "team-runbook-maintenance",
-        "docs/assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md",
+        "workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md",
         30,
         "Team runbook ownership and update requirements for touched surfaces.",
     ),
     WorkflowDoc(
         "test-catalog",
-        "docs/assets/workflow/TEST-CATALOG.md",
+        "workflows/TEST-CATALOG.md",
         45,
         "Named test inventory, fixtures, labels, and automation evidence.",
     ),
     WorkflowDoc(
         "workflow-orchestration",
-        "docs/assets/workflow/WORKFLOW-ORCHESTRATION.md",
+        "workflows/WORKFLOW-ORCHESTRATION.md",
         5,
         "Tool registry, workflow separation, profile ordering, and scheduler usage.",
+    ),
+    WorkflowDoc(
+        "tool-skill-registry-gate",
+        "workflows/TOOL-SKILL-REGISTRY-GATE.md",
+        7,
+        "Current repo-local skill and maintenance-tool inventory, release wiring, and module coverage.",
+    ),
+    WorkflowDoc(
+        "local-info-leak-gate",
+        "workflows/LOCAL-INFO-LEAK-GATE.md",
+        8,
+        "Developer-machine and server-specific information leakage scan across repository-owned files.",
     ),
 )
 
@@ -237,7 +316,11 @@ PROFILES: tuple[Profile, ...] = (
         "delivery-checkpoint",
         "Common worktree process gates for checkpoint delivery before optional checkpoint-health.",
         (
+            "tool-skill-registry",
+            "local-info-leak-worktree",
             "repo-hygiene-worktree",
+            "monolith-line-ratchet",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-worktree",
             "docs-audit",
@@ -248,7 +331,11 @@ PROFILES: tuple[Profile, ...] = (
         "delivery-staged",
         "Common staged-index process gates for commit hooks and staged handoff.",
         (
+            "tool-skill-registry",
+            "local-info-leak-staged",
             "repo-hygiene-staged",
+            "monolith-line-ratchet",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-staged",
             "docs-audit",
@@ -259,7 +346,11 @@ PROFILES: tuple[Profile, ...] = (
         "delivery-push",
         "Common process gates for branch handoff against a base ref and incoming revision range.",
         (
+            "tool-skill-registry",
+            "local-info-leak-push",
             "repo-hygiene-push",
+            "monolith-line-ratchet",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-base",
             "docs-audit",
@@ -272,7 +363,11 @@ PROFILES: tuple[Profile, ...] = (
         (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
+            "tool-skill-registry",
+            "local-info-leak-worktree",
             "repo-hygiene-tracked",
+            "monolith-line-ratchet",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-worktree",
             "docs-audit",
@@ -285,8 +380,13 @@ PROFILES: tuple[Profile, ...] = (
         (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
+            "tool-skill-registry",
+            "local-info-leak-tracked",
+            "local-info-leak-push",
             "repo-hygiene-tracked",
             "repo-hygiene-push",
+            "monolith-line-ratchet",
+            "syntax-feature-state",
             "runtime-surface",
             "team-docs-base",
             "ecosystem-cli-docs-workspace",
@@ -309,9 +409,53 @@ TOOLS_BY_KEY = by_key(TOOLS)
 DOCS_BY_KEY = by_key(WORKFLOW_DOCS)
 PROFILES_BY_KEY = by_key(PROFILES)
 
+ECOSYSTEM_WORKSPACE_GATE_TRIGGERS: tuple[str, ...] = (
+    "docs/external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md",
+    "docs/external/for-pafio/",
+    "scripts/ecosystem-cli-doc-gate.py",
+)
+
 
 def run_git(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", *args], cwd=ROOT, text=True, capture_output=True)
+
+
+def parse_changed_paths(text: str) -> list[str]:
+    paths: list[str] = []
+    for line in text.splitlines():
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 3 and parts[0].startswith(("R", "C")):
+            paths.append(parts[2])
+        elif len(parts) >= 2:
+            paths.append(parts[1])
+    return sorted(set(paths))
+
+
+def changed_paths_for_range(revision_range: str) -> list[str]:
+    args = ["diff", "--name-status", "--find-renames"]
+    if revision_range == "HEAD":
+        args.append("HEAD")
+    else:
+        args.append(revision_range)
+    proc = run_git(args)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        raise ValueError(f"cannot inspect changed paths for {revision_range}: {detail}")
+    return parse_changed_paths(proc.stdout)
+
+
+def matches_trigger(path: str, trigger: str) -> bool:
+    return path.startswith(trigger) if trigger.endswith("/") else path == trigger
+
+
+def ecosystem_workspace_gate_required(changed_paths: Sequence[str]) -> bool:
+    return any(
+        matches_trigger(path, trigger)
+        for path in changed_paths
+        for trigger in ECOSYSTEM_WORKSPACE_GATE_TRIGGERS
+    )
 
 
 def default_upstream_base() -> str:
@@ -381,14 +525,14 @@ def validate_registry() -> list[str]:
 
     active_docs = {
         path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "docs/assets/workflow").glob("*.md")
+        for path in (ROOT / "workflows").glob("*.md")
         if path.name not in {"README.md", "INDEX.md"}
     }
     registered_docs = {doc.path for doc in WORKFLOW_DOCS}
     for path in sorted(active_docs - registered_docs):
         errors.append(f"workflow doc is not registered in scripts/workflow-scheduler.py: {path}")
     for path in sorted(registered_docs - active_docs):
-        errors.append(f"registered workflow doc does not exist in docs/assets/workflow: {path}")
+        errors.append(f"registered workflow doc does not exist in workflows/: {path}")
 
     for profile in PROFILES:
         phases: list[int] = []
@@ -402,7 +546,7 @@ def validate_registry() -> list[str]:
         if phases != sorted(phases):
             errors.append(f"profile {profile.key} tool phases are not ordered: {profile.tools}")
 
-    orchestration_doc = ROOT / "docs/assets/workflow/WORKFLOW-ORCHESTRATION.md"
+    orchestration_doc = ROOT / "workflows/WORKFLOW-ORCHESTRATION.md"
     if orchestration_doc.exists() and markdown_table() not in orchestration_doc.read_text(encoding="utf-8"):
         errors.append("WORKFLOW-ORCHESTRATION.md audit table is not synchronized with workflow-scheduler.py")
 
@@ -452,28 +596,74 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    profile = PROFILES_BY_KEY.get(args.profile)
+    # These profiles contain read-only checks. Reuse is deliberately confined to
+    # this invocation: no persistent cache, tree hashing, or cross-machine claim.
+    profiles = args.profile if isinstance(args.profile, list) else [args.profile]
+    completed: set[tuple[tuple[str, ...], bool]] = set()
+    for profile_name in profiles:
+        result = run_profile(args, profile_name, completed)
+        if result:
+            return result
+    return 0
+
+
+def run_profile(
+    args: argparse.Namespace,
+    profile_name: str,
+    completed: set[tuple[tuple[str, ...], bool]],
+) -> int:
+    profile = PROFILES_BY_KEY.get(profile_name)
     if profile is None:
-        print(f"unknown profile: {args.profile}", file=sys.stderr)
+        print(f"unknown profile: {profile_name}", file=sys.stderr)
         return 2
     assert isinstance(profile, Profile)
 
     skip = set(args.skip_tool or [])
+    team_docs_passed = False
     for key in profile.tools:
         if key in skip:
             print(f"[workflow-scheduler] skip {key}")
             continue
         tool = TOOLS_BY_KEY[key]
         assert isinstance(tool, Tool)
+        if key == "ecosystem-cli-docs-workspace":
+            try:
+                revision_range = resolve_range(args)
+                changed_paths = changed_paths_for_range(revision_range)
+            except ValueError as exc:
+                print(f"[workflow-scheduler] {key}: {exc}", file=sys.stderr)
+                return 2
+            if not ecosystem_workspace_gate_required(changed_paths):
+                print(
+                    "[workflow-scheduler] skip ecosystem-cli-docs-workspace "
+                    "(no ecosystem CLI contract files changed)"
+                )
+                continue
         try:
             command = materialize_command(tool, args)
         except ValueError as exc:
             print(f"[workflow-scheduler] {key}: {exc}", file=sys.stderr)
             return 2
-        print(f"[workflow-scheduler] {key}: {' '.join(command)}", flush=True)
-        proc = subprocess.run(command, cwd=ROOT)
-        if proc.returncode != 0:
-            return proc.returncode
+        # docs-audit embeds a default worktree team-docs check. The profile
+        # already owns the correctly scoped check; suppress only that duplicate
+        # after it succeeded, never merely because it was listed or skipped.
+        reuse_team_docs = key == "docs-audit" and team_docs_passed
+        identity = (tuple(command), reuse_team_docs)
+        if identity in completed:
+            print(f"[workflow-scheduler] reuse {key} (passed in this invocation)", flush=True)
+        else:
+            print(f"[workflow-scheduler] {key}: {' '.join(command)}", flush=True)
+            env = os.environ.copy()
+            if key == "docs-audit":
+                env.pop("STYIO_SKIP_TEAM_DOC_GATE", None)
+                if reuse_team_docs:
+                    env["STYIO_SKIP_TEAM_DOC_GATE"] = "1"
+            proc = subprocess.run(command, cwd=ROOT, env=env)
+            if proc.returncode != 0:
+                return proc.returncode
+            completed.add(identity)
+        if key in {"team-docs-worktree", "team-docs-staged", "team-docs-base"}:
+            team_docs_passed = True
     print(f"[workflow-scheduler] profile {profile.key} passed")
     return 0
 
@@ -490,7 +680,8 @@ def parse_args() -> argparse.Namespace:
     list_cmd.set_defaults(func=cmd_list)
 
     run = sub.add_parser("run", help="Run a registered workflow profile.")
-    run.add_argument("--profile", required=True, choices=sorted(PROFILES_BY_KEY))
+    run.add_argument("--profile", required=True, action="append", choices=sorted(PROFILES_BY_KEY),
+                     help="Repeat to compose read-only profiles, reusing identical successful checks.")
     run.add_argument("--base", default=os.environ.get("STYIO_WORKFLOW_BASE", ""))
     run.add_argument("--range", default=os.environ.get("STYIO_WORKFLOW_RANGE", ""))
     run.add_argument("--event-name", default=os.environ.get("GITHUB_EVENT_NAME", ""))

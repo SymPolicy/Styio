@@ -1,0 +1,41 @@
+{
+  "delivery_status": "completed",
+  "full_regression": {
+    "commands": [
+      {
+        "command": "cmake --build build/default --target styio_lspd styio_ide_test -j2",
+        "outcome": "passed"
+      },
+      {
+        "command": "ctest --test-dir build/default -L ide --output-on-failure --no-tests=error",
+        "outcome": "passed"
+      },
+      {
+        "command": "python3 tests/lsp_stdio_framing_test.py",
+        "outcome": "passed"
+      },
+      {
+        "command": "nightly CI for merge commit 5d4ebe497b1741fa83573b113222c89dc584a7f9",
+        "outcome": "passed"
+      }
+    ],
+    "passed": true,
+    "recorded_at": "2026-09-09T23:41:55Z"
+  },
+  "plan": "PLAN-007",
+  "revision": 1,
+  "schema": "better-plan.checkpoints/v3",
+  "tasks": [
+    {
+      "code": "TASK-001",
+      "evidence": [
+        {
+          "kind": "focused_regression",
+          "passed": true,
+          "recorded_at": "2026-09-09T23:41:55Z"
+        }
+      ],
+      "status": "completed"
+    }
+  ]
+}

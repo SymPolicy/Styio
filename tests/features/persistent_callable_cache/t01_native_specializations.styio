@@ -1,0 +1,6 @@
+# identity := (value) => value
+# composed := (value) => identity(identity(value))
+# label := (value) => "cached"
+
+>_(composed(7))
+>_(label(0))

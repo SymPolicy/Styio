@@ -6,7 +6,7 @@ usage() {
 Usage: scripts/delivery-gate.sh [options]
 
 Run the common Styio delivery floor through the workflow scheduler, then run
-external audit and checkpoint health when requested.
+checkpoint health when requested.
 
 Options:
   --mode <auto|checkpoint|staged|push|release>
@@ -14,13 +14,15 @@ Options:
   --base <ref>              Base ref for team-docs-gate branch checks
   --range <rev-range>       Explicit revision range for repo-hygiene push mode
   --skip-health             Skip checkpoint-health (docs/process-only deliveries)
-  --skip-audit              Skip external styio-audit gate
-  --audit-bin <path>        Explicit styio-audit executable
   --with-asan               Include the ASan/UBSan leg in checkpoint-health
   --with-fuzz               Include the fuzz-smoke leg in checkpoint-health
   --build-dir <dir>         Forwarded to checkpoint-health
   --asan-build-dir <dir>    Forwarded to checkpoint-health; also enables ASan
   --fuzz-build-dir <dir>    Forwarded to checkpoint-health; also enables fuzz
+  --coverage-build-dir <dir>
+                            Forwarded to checkpoint-health coverage gate
+  --coverage-threshold <percent>
+                            Minimum line coverage percentage (default: 95)
   -h, --help                Show this help
 USAGE
 }
@@ -32,6 +34,47 @@ log() {
 run_cmd() {
   log "$*"
   "$@"
+}
+
+commit_readiness_prompt() {
+  log "commit readiness: read workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md before committing functional changes."
+  log "commit readiness self-check: verify targeted feature behavior, upstream/downstream adaptation, and version-style naming against existing evidence."
+  log "commit readiness self-check: repair ordinary in-scope defects before final regression; a final regression failure requires the developer's repair and verification decision."
+  log "commit readiness self-check: record objective blockers and unverified acceptance; a blocker record does not make verification complete."
+  log "commit readiness self-check: this is the committer's evidence attestation, not a request for new user approval or permission to commit."
+}
+
+confirm_commit_readiness_if_needed() {
+  local answer
+
+  commit_readiness_prompt
+
+  if [[ "$MODE" != "staged" ]]; then
+    return 0
+  fi
+
+  if [[ "${STYIO_COMMIT_READINESS_CONFIRMED:-}" == "1" ]]; then
+    log "commit readiness confirmation: STYIO_COMMIT_READINESS_CONFIRMED=1"
+    return 0
+  fi
+
+  if [[ "${STYIO_COMMIT_READINESS_REQUIRE:-}" != "1" ]]; then
+    log "commit readiness confirmation: reminder only; set STYIO_COMMIT_READINESS_REQUIRE=1 to require confirmation."
+    return 0
+  fi
+
+  if [[ -t 0 ]]; then
+    read -r -p "[delivery-gate] Type yes if this is not a functional change, or targeted feature validation, upstream/downstream checks, and version-style naming checks are done, or objective blockers are recorded: " answer
+    if [[ "$answer" == "yes" ]]; then
+      return 0
+    fi
+    echo "[delivery-gate] commit readiness evidence not attested; complete the self-check before this commit." >&2
+    exit 2
+  fi
+
+  echo "[delivery-gate] non-interactive commit requires the committer's evidence attestation." >&2
+  echo "[delivery-gate] After checking existing evidence or recording objective blockers, an agent may set STYIO_COMMIT_READINESS_CONFIRMED=1 for the already-authorized commit; do not request user approval merely to supply this attestation." >&2
+  exit 2
 }
 
 default_upstream_base() {
@@ -47,7 +90,7 @@ ref_exists() {
 }
 
 has_worktree_changes() {
-  [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]
+  [[ -n "$(git status --porcelain --untracked-files=all)" ]]
 }
 
 rev_count() {
@@ -131,40 +174,6 @@ resolve_delivery_base() {
   return 1
 }
 
-resolve_audit_bin() {
-  if [[ -n "$AUDIT_BIN" ]]; then
-    echo "$AUDIT_BIN"
-    return 0
-  fi
-  if [[ -n "${STYIO_AUDIT_BIN:-}" ]]; then
-    echo "$STYIO_AUDIT_BIN"
-    return 0
-  fi
-  if [[ -n "${STYIO_AUDIT_HOME:-}" && -x "${STYIO_AUDIT_HOME}/bin/styio-audit" ]]; then
-    echo "${STYIO_AUDIT_HOME}/bin/styio-audit"
-    return 0
-  fi
-  if command -v styio-audit >/dev/null 2>&1; then
-    command -v styio-audit
-    return 0
-  fi
-  return 1
-}
-
-run_audit_gate() {
-  local audit_bin
-  audit_bin="$(resolve_audit_bin || true)"
-  if [[ -z "$audit_bin" ]]; then
-    echo "styio-audit executable not found; set --audit-bin, STYIO_AUDIT_BIN, or use --skip-audit" >&2
-    exit 2
-  fi
-  if [[ -x "$audit_bin" ]]; then
-    run_cmd "$audit_bin" gate --repo . --project styio
-  else
-    run_cmd python3 "$audit_bin" gate --repo . --project styio
-  fi
-}
-
 run_scheduler_profile() {
   local profile
   profile="$1"
@@ -193,13 +202,13 @@ MODE="auto"
 BASE_REF=""
 REV_RANGE="${STYIO_DELIVERY_RANGE:-}"
 RUN_HEALTH=1
-RUN_AUDIT=1
-AUDIT_BIN=""
 RUN_ASAN=0
 RUN_FUZZ=0
 BUILD_DIR=""
 ASAN_BUILD_DIR=""
 FUZZ_BUILD_DIR=""
+COVERAGE_BUILD_DIR=""
+COVERAGE_THRESHOLD=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -218,14 +227,6 @@ while [[ $# -gt 0 ]]; do
     --skip-health)
       RUN_HEALTH=0
       shift
-      ;;
-    --skip-audit)
-      RUN_AUDIT=0
-      shift
-      ;;
-    --audit-bin)
-      AUDIT_BIN="$2"
-      shift 2
       ;;
     --with-asan)
       RUN_ASAN=1
@@ -247,6 +248,14 @@ while [[ $# -gt 0 ]]; do
     --fuzz-build-dir)
       FUZZ_BUILD_DIR="$2"
       RUN_FUZZ=1
+      shift 2
+      ;;
+    --coverage-build-dir)
+      COVERAGE_BUILD_DIR="$2"
+      shift 2
+      ;;
+    --coverage-threshold)
+      COVERAGE_THRESHOLD="$2"
       shift 2
       ;;
     -h|--help)
@@ -287,6 +296,12 @@ fi
 if [[ -n "$FUZZ_BUILD_DIR" ]]; then
   HEALTH_CMD+=(--fuzz-build-dir "$FUZZ_BUILD_DIR")
 fi
+if [[ -n "$COVERAGE_BUILD_DIR" ]]; then
+  HEALTH_CMD+=(--coverage-build-dir "$COVERAGE_BUILD_DIR")
+fi
+if [[ -n "$COVERAGE_THRESHOLD" ]]; then
+  HEALTH_CMD+=(--coverage-threshold "$COVERAGE_THRESHOLD")
+fi
 if [[ "$RUN_ASAN" -eq 0 ]]; then
   HEALTH_CMD+=(--no-asan)
 fi
@@ -295,11 +310,13 @@ if [[ "$RUN_FUZZ" -eq 0 ]]; then
 fi
 
 log "mode: ${MODE}"
+confirm_commit_readiness_if_needed
 
 case "$MODE" in
   auto)
+    SCHEDULER_PROFILES=()
     if has_worktree_changes; then
-      run_scheduler_profile delivery-checkpoint
+      SCHEDULER_PROFILES+=(--profile delivery-checkpoint)
     else
       log "worktree: nothing to check"
     fi
@@ -315,9 +332,13 @@ case "$MODE" in
       if [[ -z "$REV_RANGE" ]]; then
         REV_RANGE="${BASE_REF}..HEAD"
       fi
-      run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
+      SCHEDULER_PROFILES+=(--profile delivery-push)
     else
       log "push range ${BASE_REF}..HEAD: nothing to check"
+    fi
+    if [[ ${#SCHEDULER_PROFILES[@]} -gt 0 ]]; then
+      run_cmd python3 scripts/workflow-scheduler.py run "${SCHEDULER_PROFILES[@]}" \
+        --base "$BASE_REF" --range "$REV_RANGE"
     fi
     ;;
   checkpoint)
@@ -355,12 +376,6 @@ case "$MODE" in
     run_scheduler_profile delivery-checkpoint
     ;;
 esac
-
-if [[ "$RUN_AUDIT" -eq 1 ]]; then
-  run_audit_gate
-else
-  log "styio-audit skipped"
-fi
 
 if [[ "$RUN_HEALTH" -eq 1 ]]; then
   run_cmd "${HEALTH_CMD[@]}"

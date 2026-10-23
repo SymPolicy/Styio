@@ -1,0 +1,37 @@
+#pragma once
+#ifndef STYIO_RUNTIME_RUNTIME_STATE_HPP_
+#define STYIO_RUNTIME_RUNTIME_STATE_HPP_
+
+#include <string>
+
+using StyioRuntimeLogSink = void (*)(const char* stream, const char* message);
+
+namespace styio::runtime {
+
+// RuntimeState owns error/log state only.
+// Task scheduler queue policy lives behind ReadyQueue and the extern runtime.
+struct RuntimeErrorSnapshot
+{
+  bool has_error = false;
+  std::string message;
+  std::string subcode;
+};
+
+void clear_error_state();
+void set_error_once(const char* subcode, const std::string& message);
+bool has_error();
+const char* last_error();
+const char* last_error_subcode();
+bool error_matches_effect(const char* effect_name);
+RuntimeErrorSnapshot take_error();
+/* Make the calling thread's error slot hold exactly this snapshot again; the
+   nested-run guard restores the caller's pending error after an inline task
+   settles only its own. */
+void restore_error(RuntimeErrorSnapshot snapshot);
+
+void set_log_sink(StyioRuntimeLogSink sink);
+void log_to_sink(const char* stream, const char* message);
+
+} // namespace styio::runtime
+
+#endif // STYIO_RUNTIME_RUNTIME_STATE_HPP_

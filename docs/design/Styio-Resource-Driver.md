@@ -2,11 +2,13 @@
 
 **Purpose:** `@protocol(...)` **资源驱动** 的 C++ 接口、生命周期与线程约定；与语言侧 `@` 语义、拓扑目标见 `Styio-Language-Design.md`、`Styio-Resource-Topology.md`。
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
 **Target Audience:** Driver plugin developers, runtime engineers
+
+**Status:** Proposed resource-driver interface and research target. The `ResourceIntent`, `IStyioDriver`, and `STYIO_REGISTER_DRIVER` examples below are not implemented interfaces in the current compiler tree. Dedicated driver threads, field-projection pushdown, and performance examples must not be read as delivered capabilities or measured results. Current executable file I/O and native interop are narrower contracts; use their implementation/tests for behavior and the [source-proximal research agenda](./Styio-Research-Innovations.md#source-proximal-acquisition-and-processing-research) for evaluation obligations.
 
 ---
 
@@ -31,8 +33,8 @@ Every driver instance passes through exactly three phases:
 
 | Phase | Trigger | Responsibility |
 |-------|---------|----------------|
-| **Subscribe** | `<-` handle acquisition or `>>` pipeline start | Establish physical connection, validate schema, report capabilities |
-| **Pump** | Continuous, driven by data source or consumer demand | Push new data ticks into Styio pipeline, or receive data from `<<`/`->` writes |
+| **Subscribe** | `<-` handle acquisition or `>>` iterative pulse subscription | Establish physical connection, validate schema, report capabilities |
+| **Pump** | Continuous, driven by data source or consumer demand | Push new data ticks one at a time into the Styio pulse pipeline, or receive data from `<<`/`->` writes |
 | **Release** | Scope exit, `^^` break, program termination | Flush buffers, close connections, release file descriptors |
 
 ---
@@ -188,7 +190,7 @@ Some drivers support both `>>` and `<<`:
 
 ```
 db <- @mysql("localhost:3306/trades")
-db >> #(row) => { ... }        // read
+db >> #(row) => { ... }        // iterate rows/ticks one pulse at a time
 "new_row_data" << db           // write
 ```
 
@@ -249,12 +251,18 @@ When the `agent_assist` flag is enabled in the Styio config:
 ```toml
 [runtime]
 agent_assist = true
-agent_endpoint = "https://example.invalid/ai/probe"
+agent_endpoint = "https://ai.styio.dev/probe"
 ```
 
-The runtime can send resource metadata (file name, first 1KB of content, network headers) to a remote AI agent for classification. This allows Styio to handle novel or proprietary data formats without bundling every possible parser.
+The runtime may send an allowlisted classification request to a remote AI agent. The request contains only:
 
-In production builds, this feature is disabled and has zero overhead.
+1. The declared resource protocol and file extension — never file paths or names
+2. Byte count and driver probe results — never source bytes
+3. The caller-provided resource label, if any
+
+Source content, file names and paths, credentials, cookies, and authentication or other arbitrary network headers are never transmitted. Enabling the feature requires explicit opt-in consent per endpoint; the request schema is fixed, redacted before send, and the endpoint's retention and provider constraints must be declared in the receipt. This allows Styio to approach novel or proprietary data formats without bundling every possible parser, without shipping payload data to a third party.
+
+In production builds, this feature is disabled and has zero overhead. Conformance tests must prove the redaction boundary before the mode can ship.
 
 ---
 
@@ -271,8 +279,8 @@ If `on_subscribe` returns false, the runtime:
 
 If a driver encounters an error during streaming (network timeout, corrupt data):
 1. Emit a tick with `is_undefined = true` and a `reason_code`
-2. The Styio pipeline receives `@` with tainted metadata
-3. The pipeline continues operating (graceful degradation via `@` propagation)
+2. The Styio pipeline receives an explicitly tagged `@` value with the available reason metadata
+3. The pipeline may persist or format that tagged absence, or recover it through value fallback before ordinary scalar computation
 
 ### 10.3 Reason Codes
 

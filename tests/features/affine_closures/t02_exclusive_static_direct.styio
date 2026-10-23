@@ -1,0 +1,7 @@
+counter: i64 = 0
+# next : i64 $(counter) := () => {
+    counter = counter + 1
+    <| counter
+}
+>_(next())
+>_(next())

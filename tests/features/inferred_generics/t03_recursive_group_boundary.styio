@@ -1,0 +1,8 @@
+# echo := (value, depth: i64) => {
+    depth ?= {
+        0 => { <| value }
+        _ => { <| echo(value, depth - 1) }
+    }
+}
+>_(echo(7, 2))
+>_(echo("ok", 2))

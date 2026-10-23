@@ -1,0 +1,33 @@
+/* nth Catalan number C_n (CLRS Ch.15 parenthesization / BST count companion).
+   Input: [n, then (n+1) DP workspace zeros]
+   Output: C_n (n<0 -> 0; tests keep n<=15). */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + 1
+
+    ?(n < 0) => {
+        answer = 0
+    } | {
+        ?(n <= 1) => {
+            answer = 1
+        } | {
+            ?(values.length >= need) => {
+                base = 1
+                values[base] = 1
+                [1..n] >> #(i) => {
+                    sum = 0
+                    [0..i-1] >> #(j) => {
+                        sum = sum + values[base + j] * values[base + i - 1 - j]
+                    }
+                    values[base + i] = sum
+                }
+                answer = values[base + n]
+            }
+        }
+    }
+}
+
+>_(answer)

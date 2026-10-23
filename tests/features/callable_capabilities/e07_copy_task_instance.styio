@@ -1,0 +1,5 @@
+# duplicate := (value) => [value, value]
+job = ||> {
+    <| 1
+}
+>_(duplicate(job))

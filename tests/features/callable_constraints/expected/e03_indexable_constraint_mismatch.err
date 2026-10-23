@@ -1,0 +1,1 @@
+constraint `indexable('0,'1,'2)` is not satisfied by type `i64`

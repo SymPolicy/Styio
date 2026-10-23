@@ -2,7 +2,7 @@
 
 **Purpose:** Define the copyable standard format for ordinary team runbooks under `docs/teams/`.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-05-22
 
 ## Copying Rules
 
@@ -12,7 +12,7 @@
 4. Use H3 headings inside a required section if team-specific detail is needed.
 5. Link to owning SSOT documents instead of copying full specs, test tables, or language semantics.
 
-`COORDINATION-RUNBOOK.md` uses the coordinator-specific structure documented in [../workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md).
+`COORDINATION-RUNBOOK.md` uses the coordinator-specific structure documented in [../../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md](../../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md).
 
 ## Copyable Skeleton
 

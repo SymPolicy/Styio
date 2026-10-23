@@ -1,7 +1,6 @@
 // M11 / T11.01: C ABI inline native block compiled, linked, and called through JIT
 
-@export { fast_add }
-@extern(c) => {
+# fast_add := @ extern(c) {
 int fast_add(int a, int b) { return a + b; }
 }
 

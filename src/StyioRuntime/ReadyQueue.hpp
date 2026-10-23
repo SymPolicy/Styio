@@ -1,0 +1,233 @@
+#pragma once
+#ifndef STYIO_RUNTIME_READY_QUEUE_HPP_
+#define STYIO_RUNTIME_READY_QUEUE_HPP_
+
+#include <condition_variable>
+#include <cstddef>
+#include <mutex>
+#include <vector>
+
+namespace styio::runtime {
+
+enum class ReadyQueueKind {
+  BoundedWait = 1,
+};
+
+enum class ReadyQueuePushResult {
+  Accepted,
+  Closed,
+  Full,
+};
+
+struct ReadyQueueSnapshot {
+  std::size_t capacity = 0;
+  std::size_t current_depth = 0;
+  std::size_t peak_depth = 0;
+  std::size_t accepted_pushes = 0;
+  std::size_t pops = 0;
+  std::size_t pressure_events = 0;
+  std::size_t producer_waits = 0;
+  std::size_t consumer_waits = 0;
+  std::size_t close_wake_ups = 0;
+  bool closed = false;
+};
+
+struct ReadyQueueObservationHooks {
+  void (*on_pressure)(void* ctx, std::size_t depth, std::size_t capacity) = nullptr;
+  void (*on_producer_wait_begin)(void* ctx, std::size_t depth, std::size_t capacity) = nullptr;
+  void (*on_producer_wait_end)(void* ctx, bool closed) = nullptr;
+  void (*on_consumer_wait_begin)(void* ctx) = nullptr;
+  void (*on_consumer_wait_end)(void* ctx, bool got_item) = nullptr;
+  void (*on_close)(void* ctx) = nullptr;
+  void* ctx = nullptr;
+};
+
+/// The task scheduler's single ready-queue owner.
+///
+/// Storage, lifecycle, and counters are protected by one mutex. A closed queue
+/// rejects new pushes but continues to return accepted items until drained.
+class BoundedReadyQueue {
+public:
+  static constexpr std::size_t kDefaultCapacity = 4096;
+
+  explicit BoundedReadyQueue(std::size_t capacity = kDefaultCapacity)
+    : capacity_(valid_capacity(capacity) ? capacity : kDefaultCapacity),
+      slots_(capacity_, nullptr) {
+  }
+
+  BoundedReadyQueue(const BoundedReadyQueue&) = delete;
+  BoundedReadyQueue& operator=(const BoundedReadyQueue&) = delete;
+
+  static constexpr bool valid_capacity(std::size_t capacity) {
+    return capacity > 0 && capacity <= kDefaultCapacity;
+  }
+
+  ReadyQueueKind kind() const { return ReadyQueueKind::BoundedWait; }
+
+  void set_observation_hooks(ReadyQueueObservationHooks hooks) {
+    hooks_ = hooks;
+  }
+
+  ReadyQueuePushResult try_push(void* task) {
+    return push(task, false);
+  }
+
+  ReadyQueuePushResult push(void* task, bool wait = true) {
+    std::unique_lock<std::mutex> lock(mu_);
+    if (closed_) {
+      return ReadyQueuePushResult::Closed;
+    }
+    if (size_ == capacity_ && !wait) {
+      return ReadyQueuePushResult::Full;
+    }
+    if (size_ == capacity_) {
+      ++pressure_events_;
+      ++producer_waits_;
+      if (hooks_.on_pressure != nullptr) {
+        hooks_.on_pressure(hooks_.ctx, size_, capacity_);
+      }
+      if (hooks_.on_producer_wait_begin != nullptr) {
+        hooks_.on_producer_wait_begin(hooks_.ctx, size_, capacity_);
+      }
+      ++waiting_producers_;
+      not_full_.wait(lock, [this]() {
+        return closed_ || size_ < capacity_;
+      });
+      --waiting_producers_;
+      if (hooks_.on_producer_wait_end != nullptr) {
+        hooks_.on_producer_wait_end(hooks_.ctx, closed_);
+      }
+      if (closed_) {
+        return ReadyQueuePushResult::Closed;
+      }
+    }
+    slots_[tail_] = task;
+    if (++tail_ == capacity_) {
+      tail_ = 0;
+    }
+    ++size_;
+    ++accepted_pushes_;
+    if (size_ > peak_depth_) {
+      peak_depth_ = size_;
+    }
+    lock.unlock();
+    not_empty_.notify_one();
+    return ReadyQueuePushResult::Accepted;
+  }
+
+  /// Returns no item only once the queue is both closed and drained.
+  void* wait_pop() {
+    std::unique_lock<std::mutex> lock(mu_);
+    if (size_ == 0 && !closed_) {
+      ++consumer_waits_;
+      if (hooks_.on_consumer_wait_begin != nullptr) {
+        hooks_.on_consumer_wait_begin(hooks_.ctx);
+      }
+      ++waiting_consumers_;
+      not_empty_.wait(lock, [this]() { return closed_ || size_ != 0; });
+      --waiting_consumers_;
+      if (hooks_.on_consumer_wait_end != nullptr) {
+        hooks_.on_consumer_wait_end(hooks_.ctx, size_ != 0);
+      }
+    }
+    if (size_ == 0) {
+      return nullptr;
+    }
+    return take_locked(lock);
+  }
+
+  /// Removes one item without blocking; returns nullptr when empty.
+  ///
+  /// The task scheduler calls this from a thread that is already executing a
+  /// task body and must keep its own ready queue moving, so single-worker
+  /// configurations cannot strand dependency-satisfied work. Like wait_pop,
+  /// the pop claims the returned item exactly once.
+  void* try_pop() {
+    std::unique_lock<std::mutex> lock(mu_);
+    return take_locked(lock);
+  }
+
+  void close() {
+    std::unique_lock<std::mutex> lock(mu_);
+    if (closed_) {
+      return;
+    }
+    closed_ = true;
+    close_wake_ups_ += waiting_producers_ + waiting_consumers_;
+    lock.unlock();
+    if (hooks_.on_close != nullptr) {
+      hooks_.on_close(hooks_.ctx);
+    }
+    not_empty_.notify_all();
+    not_full_.notify_all();
+  }
+
+  ReadyQueueSnapshot snapshot() const {
+    std::lock_guard<std::mutex> lock(mu_);
+    return ReadyQueueSnapshot{
+      capacity_,
+      size_,
+      peak_depth_,
+      accepted_pushes_,
+      pops_,
+      pressure_events_,
+      producer_waits_,
+      consumer_waits_,
+      close_wake_ups_,
+      closed_,
+    };
+  }
+
+  void reset_counters() {
+    std::lock_guard<std::mutex> lock(mu_);
+    peak_depth_ = size_;
+    accepted_pushes_ = 0;
+    pops_ = 0;
+    pressure_events_ = 0;
+    producer_waits_ = 0;
+    consumer_waits_ = 0;
+    close_wake_ups_ = 0;
+  }
+
+private:
+  /// Pops one item while `mu_` is held; nullptr when the queue is empty.
+  void* take_locked(std::unique_lock<std::mutex>& lock) {
+    if (size_ == 0) {
+      return nullptr;
+    }
+    void* task = slots_[head_];
+    slots_[head_] = nullptr;
+    if (++head_ == capacity_) {
+      head_ = 0;
+    }
+    --size_;
+    ++pops_;
+    lock.unlock();
+    not_full_.notify_one();
+    return task;
+  }
+
+  const std::size_t capacity_;
+  mutable std::mutex mu_;
+  std::condition_variable not_empty_;
+  std::condition_variable not_full_;
+  std::vector<void*> slots_;
+  std::size_t head_ = 0;
+  std::size_t tail_ = 0;
+  std::size_t size_ = 0;
+  bool closed_ = false;
+  std::size_t peak_depth_ = 0;
+  std::size_t accepted_pushes_ = 0;
+  std::size_t pops_ = 0;
+  std::size_t pressure_events_ = 0;
+  std::size_t producer_waits_ = 0;
+  std::size_t consumer_waits_ = 0;
+  std::size_t close_wake_ups_ = 0;
+  std::size_t waiting_producers_ = 0;
+  std::size_t waiting_consumers_ = 0;
+  ReadyQueueObservationHooks hooks_{};
+};
+
+} // namespace styio::runtime
+
+#endif // STYIO_RUNTIME_READY_QUEUE_HPP_

@@ -2,13 +2,21 @@
 #ifndef STYIO_EXCEPTION_H_
 #define STYIO_EXCEPTION_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <string>
+
+#include "../StyioServices/DiagnosticContract.hpp"
 
 class StyioBaseException : public std::exception
 {
 private:
   std::string message;
+  styio::services::diagnostics::DiagnosticCode code_ =
+    styio::services::diagnostics::DiagnosticCode::InternalError;
+  std::size_t offset_ = static_cast<std::size_t>(-1);
+  std::size_t length_ = 0;
 
 public:
   StyioBaseException() :
@@ -17,11 +25,35 @@ public:
   StyioBaseException(std::string msg) :
       message("Styio.BaseException: " + msg) {}
 
+  StyioBaseException(
+    std::string msg,
+    styio::services::diagnostics::DiagnosticCode code,
+    std::size_t offset = static_cast<std::size_t>(-1),
+    std::size_t length = 0
+  ) :
+      message("Styio.BaseException: " + msg),
+      code_(code),
+      offset_(offset),
+      length_(length) {}
+
   ~StyioBaseException() throw() {}
 
   virtual const char* what() const throw() {
     return message.c_str();
   }
+
+  styio::services::diagnostics::DiagnosticCode diagnostic_code() const noexcept {
+    return code_;
+  }
+
+  std::size_t error_offset() const noexcept { return offset_; }
+  std::size_t error_length() const noexcept { return length_; }
+
+  void set_diagnostic_code(styio::services::diagnostics::DiagnosticCode c) noexcept {
+    code_ = c;
+  }
+  void set_error_offset(std::size_t o) noexcept { offset_ = o; }
+  void set_error_length(std::size_t l) noexcept { length_ = l; }
 };
 
 class StyioSyntaxError : public StyioBaseException
@@ -37,6 +69,16 @@ public:
     std::string meta_info,
     std::string msg
   ) :
+      message("\n" + meta_info + "\nStyio.SyntaxError:\n" + msg + "\n") {}
+
+  StyioSyntaxError(
+    std::string meta_info,
+    std::string msg,
+    styio::services::diagnostics::DiagnosticCode code,
+    std::size_t offset = static_cast<std::size_t>(-1),
+    std::size_t length = 0
+  ) :
+      StyioBaseException("", code, offset, length),
       message("\n" + meta_info + "\nStyio.SyntaxError:\n" + msg + "\n") {}
 
   StyioSyntaxError(std::string msg) :
@@ -76,6 +118,15 @@ public:
   StyioParseError(std::string msg) :
       message("\nStyio.ParseError:\n" + msg) {}
 
+  StyioParseError(
+    std::string msg,
+    styio::services::diagnostics::DiagnosticCode code,
+    std::size_t offset = static_cast<std::size_t>(-1),
+    std::size_t length = 0
+  ) :
+      StyioBaseException("", code, offset, length),
+      message("\nStyio.ParseError:\n" + msg) {}
+
   ~StyioParseError() throw() {}
 
   virtual const char* what() const throw() {
@@ -95,6 +146,15 @@ public:
   StyioLexError(std::string msg) :
       message("\nStyio.LexError:\n" + msg) {}
 
+  StyioLexError(
+    std::string msg,
+    styio::services::diagnostics::DiagnosticCode code,
+    std::size_t offset = static_cast<std::size_t>(-1),
+    std::size_t length = 0
+  ) :
+      StyioBaseException("", code, offset, length),
+      message("\nStyio.LexError:\n" + msg) {}
+
   ~StyioLexError() throw() {}
 
   virtual const char* what() const throw() {
@@ -112,6 +172,15 @@ public:
       message("\nStyio.TypeError: Undefined.") {}
 
   StyioTypeError(std::string msg) :
+      message("\nStyio.TypeError:\n" + msg) {}
+
+  StyioTypeError(
+    std::string msg,
+    styio::services::diagnostics::DiagnosticCode code,
+    std::size_t offset = static_cast<std::size_t>(-1),
+    std::size_t length = 0
+  ) :
+      StyioBaseException("", code, offset, length),
       message("\nStyio.TypeError:\n" + msg) {}
 
   ~StyioTypeError() throw() {}

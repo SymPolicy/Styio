@@ -1,0 +1,40 @@
+/* Longest increasing subsequence length (strict), O(n^2) DP.
+   Input: [n, a1..an, then n DP workspace zeros]
+   Output: LIS length (0 if empty). */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            base = 1 + n
+            [0..n-1] >> #(i) => {
+                values[base + i] = 1
+            }
+            [0..n-1] >> #(i) => {
+                [0..i-1] >> #(j) => {
+                    ?(values[1 + j] < values[1 + i]) => {
+                        cand = values[base + j] + 1
+                        ?(cand > values[base + i]) => {
+                            values[base + i] = cand
+                        }
+                    }
+                }
+            }
+            best = 0
+            [0..n-1] >> #(i) => {
+                ?(values[base + i] > best) => {
+                    best = values[base + i]
+                }
+            }
+            answer = best
+        }
+    }
+}
+
+>_(answer)

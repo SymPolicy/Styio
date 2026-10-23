@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "review_input": "site.json",
+  "output": "../review-output",
+  "sources": [
+    {
+      "repo": "../compiler-checkout",
+      "repository_url": "https://example.invalid/compiler",
+      "ref": "refs/heads/nightly",
+      "classification": "current",
+      "fetch": false,
+      "facts_output": "facts.json",
+      "status_output": "facts-status.json"
+    }
+  ]
+}

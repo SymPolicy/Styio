@@ -1,0 +1,44 @@
+/* CLRS quicksort: iterative Lomuto partition with local stack arrays. */
+l <- @stdin: list[i32]
+n = l.length
+
+?(n > 1) => {
+    stack_lo := [0..n-1]
+    stack_hi := [0..n-1]
+    stack_lo[0] = 0
+    stack_hi[0] = n - 1
+    top = 1
+    [...] >> ?(top > 0) => {
+        top = top - 1
+        lo = stack_lo[top]
+        hi = stack_hi[top]
+        ?(lo < hi) => {
+            pivot = l[hi]
+            i = lo
+            [lo..hi-1] >> #(j) => {
+                ?(l[j] <= pivot) => {
+                    t = l[i]
+                    l[i] = l[j]
+                    l[j] = t
+                    i = i + 1
+                }
+            }
+            t = l[i]
+            l[i] = l[hi]
+            l[hi] = t
+            p = i
+            ?(p - 1 > lo) => {
+                stack_lo[top] = lo
+                stack_hi[top] = p - 1
+                top = top + 1
+            }
+            ?(p + 1 < hi) => {
+                stack_lo[top] = p + 1
+                stack_hi[top] = hi
+                top = top + 1
+            }
+        }
+    }
+}
+
+>_(l)

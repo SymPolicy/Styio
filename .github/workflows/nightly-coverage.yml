@@ -1,0 +1,54 @@
+name: styio-nightly-coverage
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-coverage-report:
+    name: observability / coverage-report
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install LLVM 18 coverage dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            clang-18 \
+            libclang-rt-18-dev \
+            lld-18 \
+            llvm-18-dev \
+            libicu-dev \
+            python3
+          python3 -m pip install "cmake==3.31.6"
+
+      - name: Generate source coverage report
+        run: |
+          mkdir -p build/coverage
+          scripts/coverage-gate.sh \
+            --build-dir build/coverage \
+            --threshold 95 \
+            --llvm-prefix /usr/lib/llvm-18 \
+            2>&1 | tee build/coverage/coverage-gate.log
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: nightly-coverage-report
+          path: |
+            build/coverage/coverage-gate.log
+            build/coverage/styio-coverage-summary.json
+            build/coverage/styio-coverage.profdata
+          if-no-files-found: warn

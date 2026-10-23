@@ -1,49 +1,54 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
-
 @styio_str = private unnamed_addr constant [35 x i8] c"/tmp/styio_pipeline_auto_input.txt\00", align 1
-
 define i32 @main() {
 main_entry:
-  %0 = call i64 @styio_file_open_auto(ptr @styio_str)
-  %f = alloca i64, align 8
-  store i64 %0, ptr %f, align 8
-  %1 = load i64, ptr %f, align 8
-  call void @styio_file_rewind(i64 %1)
-  br label %fline_hdr
-
-fline_hdr:                                        ; preds = %fline_body, %main_entry
-  %2 = load i64, ptr %f, align 8
-  %3 = call ptr @styio_file_read_line(i64 %2)
-  %4 = icmp eq ptr %3, null
-  br i1 %4, label %fline_exit, label %fline_body
-
-fline_body:                                       ; preds = %fline_hdr
   %line = alloca ptr, align 8
-  store ptr %3, ptr %line, align 8
-  %5 = load ptr, ptr %line, align 8
-  call void @styio_stdout_write_cstr(ptr %5)
+  %f = alloca i64, align 8
+  %tmp = call i64 @styio_file_open_auto(ptr @styio_str)
+  store i64 %tmp, ptr %f, align 8
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail, label %runtime_ok
+runtime_fail:                                     ; preds = %main_entry
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
+  store i64 0, ptr %f, align 8
+  ret i32 0
+runtime_ok:                                       ; preds = %main_entry
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_rewind(i64 %tmp)
   br label %fline_hdr
-
-fline_exit:                                       ; preds = %fline_hdr
-  %6 = load i64, ptr %f, align 8
-  call void @styio_file_close(i64 %6)
+fline_hdr:                                        ; preds = %fline_body, %runtime_ok
+  %tmp = load i64, ptr %f, align 8
+  %tmp = call ptr @styio_file_read_line(i64 %tmp)
+  %tmp = icmp eq ptr %tmp, null
+  br i1 %tmp, label %fline_maybe_done, label %fline_body
+fline_body:                                       ; preds = %fline_hdr
+  store ptr %tmp, ptr %line, align 8
+  %tmp = load ptr, ptr %line, align 8
+  ; STYIO_STDOUT_CSTR %tmp
+  br label %fline_hdr
+fline_maybe_done:                                 ; preds = %fline_hdr
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail1, label %runtime_ok2
+fline_exit:                                       ; preds = %runtime_ok2
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
+  store i64 0, ptr %f, align 8
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail3, label %runtime_ok4
+runtime_fail1:                                    ; preds = %fline_maybe_done
+  %tmp = load i64, ptr %f, align 8
+  call void @styio_file_close(i64 %tmp)
+  store i64 0, ptr %f, align 8
+  ret i32 0
+runtime_ok2:                                      ; preds = %fline_maybe_done
+  br label %fline_exit
+runtime_fail3:                                    ; preds = %fline_exit
+  ret i32 0
+runtime_ok4:                                      ; preds = %fline_exit
   ret i32 0
 }
-
-declare i64 @styio_file_open_auto(ptr)
-
-declare i64 @styio_file_open(ptr)
-
-declare ptr @styio_file_read_line(i64)
-
-declare void @styio_file_rewind(i64)
-
-declare void @styio_stdout_write_cstr(ptr)
-
-declare ptr @styio_i64_dec_cstr(i64)
-
-declare ptr @styio_f64_dec_cstr(double)
-
-declare void @styio_file_close(i64)

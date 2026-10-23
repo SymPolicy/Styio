@@ -2,7 +2,15 @@ name: styio-audit
 
 on:
   pull_request:
+    branches:
+      - nightly
+      - stable
+      - release
   push:
+    branches:
+      - nightly
+      - stable
+      - release
   merge_group:
   workflow_dispatch:
 
@@ -13,38 +21,19 @@ jobs:
   audit:
     name: styio-audit
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      STYIO_PYTHON_VERSION: "3.13.5"
-
     steps:
-      - name: Checkout Styio
-        uses: actions/checkout@v5
+      - name: Check out this repository at the event commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # immutable action revision
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
           fetch-depth: 0
-          path: Styio
+          persist-credentials: false
 
-      - name: Checkout released styio-audit policy
-        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # immutable action revision
         with:
-          repository: SymPolicy/styio-audit
-          ref: stable
-          path: styio-audit
+          python-version: '3.12'
 
-      - name: Set up standardized Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.STYIO_PYTHON_VERSION }}
-
-      - name: Fetch managed branch evidence
-        working-directory: Styio
-        run: |
-          for branch in release stable nightly; do
-            git fetch --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" || true
-          done
-
-      - name: Run released styio-audit gate
-        working-directory: Styio
-        run: |
-          git -C ../styio-audit rev-parse HEAD
-          python3 ../styio-audit/bin/styio-audit gate --repo . --project styio
+      - name: Run the repository-internal local info leak audit
+        working-directory: .
+        run: python3 scripts/local-info-leak-gate.py --mode tracked

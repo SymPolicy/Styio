@@ -19,13 +19,13 @@ include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
-  "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 option(STYIO_USE_ICU "Enable ICU-backed Unicode handling for StyioUnicode and CLI option text" OFF)
 option(STYIO_BUILD_NANO "Build the profile-pruned styio-nano compiler target" ON)
 option(STYIO_NANO_OPTIMIZE_FOR_SIZE "Compile styio-nano with size-oriented optimization flags when supported" ON)
 option(STYIO_ENABLE_TREE_SITTER "Enable the generated Tree-sitter syntax backend for styio_ide_core" ON)
+option(STYIO_ENABLE_COVERAGE "Build Styio targets with LLVM source-based coverage instrumentation" OFF)
 option(STYIO_INSTALL_NATIVE_TOOLCHAIN
        "Install a clang+LLVM bundle next to styio so @extern(c/c++) works without user compiler configuration"
        OFF)
@@ -40,6 +40,21 @@ set(STYIO_NATIVE_TOOLCHAIN_RELATIVE_DIR "native-toolchain" CACHE STRING
     "Relative clang+LLVM bundle directory searched next to the styio executable")
 set(STYIO_NANO_PROFILE "${CMAKE_SOURCE_DIR}/configs/styio-nano-default.toml" CACHE FILEPATH
     "Path to the styio-nano profile TOML used to configure the styio-nano target")
+
+function(styio_cxx_string_define_path out_var value)
+  file(TO_CMAKE_PATH "${value}" _styio_define_value)
+  string(REPLACE "\"" "\\\"" _styio_define_value "${_styio_define_value}")
+  set(${out_var} "${_styio_define_value}" PARENT_SCOPE)
+endfunction()
+
+if(STYIO_ENABLE_COVERAGE)
+  if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang"
+      OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+    message(FATAL_ERROR "STYIO_ENABLE_COVERAGE requires Clang/AppleClang and llvm-cov/llvm-profdata")
+  endif()
+  add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+  add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+endif()
 
 string(TOLOWER "${STYIO_NATIVE_TOOLCHAIN_MODE}" STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED)
 if(NOT STYIO_NATIVE_TOOLCHAIN_MODE_NORMALIZED MATCHES "^(auto|bundled|system)$")
@@ -69,6 +84,12 @@ include(StyioLLVM)
 include(StyioNativeToolchain)
 include(StyioTreeSitter)
 include(StyioNanoProfile)
+
+styio_cxx_string_define_path(STYIO_DEFINE_LLVM_DIR "${LLVM_DIR}")
+styio_cxx_string_define_path(STYIO_DEFINE_SOURCE_DIR "${CMAKE_SOURCE_DIR}")
+styio_cxx_string_define_path(STYIO_DEFINE_CMAKE_C_COMPILER "${CMAKE_C_COMPILER}")
+styio_cxx_string_define_path(STYIO_DEFINE_CMAKE_CXX_COMPILER "${CMAKE_CXX_COMPILER}")
+styio_cxx_string_define_path(STYIO_DEFINE_CMAKE_MAKE_PROGRAM "${CMAKE_MAKE_PROGRAM}")
 
 add_subdirectory(src)
 
@@ -102,4 +123,22 @@ install(
     PATTERN "*.sh"
     PATTERN "*.out"
     PATTERN "README.md"
+)
+
+install(
+  DIRECTORY "${CMAKE_SOURCE_DIR}/library/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/styio/library"
+  COMPONENT Runtime
+  FILES_MATCHING
+    PATTERN "*.json"
+    PATTERN "*.md"
+    PATTERN "*.styio"
+)
+
+install(
+  DIRECTORY "${CMAKE_SOURCE_DIR}/share/styio/prelude/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/styio/prelude"
+  COMPONENT Runtime
+  FILES_MATCHING
+    PATTERN "*.styio"
 )

@@ -1,0 +1,2 @@
+# identity[T] := (value: T) => value
+>_(identity(1))

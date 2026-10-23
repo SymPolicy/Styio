@@ -1,0 +1,3 @@
+@import { cycles/a }
+
+>_(cycle_a(1))

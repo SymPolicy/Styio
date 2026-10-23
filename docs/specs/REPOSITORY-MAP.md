@@ -1,8 +1,8 @@
 # Styio Repository Map
 
-**Purpose:** 记录 Styio 官方仓库生态、各仓库的预期职责边界、以及文档应当落在哪个仓库；本文件用于说明“谁负责什么”，**不**负责追踪实时开发进度、版本发布状态或逐仓库完成度。
+**Purpose:** Define repository responsibilities and documentation ownership across the Styio ecosystem; use this map to route work, not to track release status or implementation completeness.
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-10-01
 
 ---
 
@@ -37,27 +37,28 @@ Styio 当前采用“主仓库 + 配件仓库”的生态结构：
 
 当前项目共识是：**主仓库之外的关键配件仓库已经有了清晰职责边界，但实现成熟度和交付闭合度仍不一致。** 因此，本文件优先解决“仓库角色识别”和“文档归属”，而不是给出实时状态看板。
 
-**Inventory refresh:** 2026-04-24 使用 `gh repo list SymPolicy --limit 200`
-与 `gh search repos 'styio org:SymPolicy'` 核对组织仓库。仓库的每周活跃度、
-issue 状态和发布进度不在本文件维护。
+**Inventory refresh:** The Styio, developer-docs, book, and examples repository
+names and canonical URLs below were verified against SymPolicy on 2026-10-01.
+Other accessory links retain their prior inventory entries pending individual
+verification. Downstream development repositories keep their own boundaries.
 
 ---
 
-## 3. 官方仓库清单
+## 3. Repository Inventory
 
 | Repository | Role | Owns What | Does Not Own |
 |------------|------|-----------|--------------|
-| [`Styio`](https://github.com/SymPolicy/Styio) / 当前开发镜像 [`README.md`](../../README.md) | 主语言与编译器仓库 | 语言设计、形式文法、编译器实现、CLI、测试、主文档入口 | 包管理器、编辑器插件、产品白皮书、示例工程生态 |
-| [`pafio`](https://github.com/SymPolicy/Pafio) | 平台级产品/hosted surface 整合入口 | 平台产品壳层、hosted surface 占位、未来跨仓平台入口与产品整合说明 | 语言语义、编译器实现、包解析规则 |
-| [`styio-pafio`](https://github.com/SymPolicy/styio-pafio) | 包管理器、registry/cloud backend、repo-hosted control console | 包格式、包解析/安装/发布、依赖解析、仓库源协议、仓库托管与云平台后台、仓库托管的管控台前端、跨仓 hosted API 合同包 | Styio 核心语言语义与编译器实现 |
-| [`styio-audit`](https://github.com/SymPolicy/styio-audit) | 集中审计框架 | auditable-code 框架、默认审计模块、Styio 专用审计模块与外部审计入口 | 编译器语义真相、语言接受测试、仓库本地代码实现 |
-| [`styio-dev-doc`](https://github.com/SymPolicy/styio-dev-doc) | 开发者文档仓库 | 跨仓库开发手册、搭建流程、协作说明、外部开发者上手指南 | 语言权威语义、编译器测试验收、产品白皮书 |
-| [`styio-dev-env`](https://github.com/SymPolicy/styio-dev-env) | 标准开发环境 | devcontainer、toolchain bootstrap、统一环境脚本、CI/本地环境约定 | 语言设计、产品定义、示例工程内容 |
-| [`styio-book`](https://github.com/SymPolicy/styio-book) | 产品白皮书 | 产品愿景、定位、理念叙事、对外说明材料 | 编译器行为细节、测试接受标准、工程实现规范 |
-| [`styio-view`](https://github.com/SymPolicy/styio-view) | 面向用户的编辑与运行视图前端 | 用户界面、编辑器壳层、运行视窗、面向人的工作区与交互；通过 adapter 消费工具链后端 | 编译器主实现、语言 SSOT、包管理规则、仓库/云平台后端语义 |
-| [`styio-example`](https://github.com/SymPolicy/styio-example) | 示例工程集合 | 可运行样例、模板项目、可复用示例模式 | 语言规范正文、编译器验收标准 |
-| [`styio-ext-vsc`](https://github.com/SymPolicy/styio-ext-vsc) | VS Code 插件 | 语法高亮、片段、编辑器交互、未来可能的语言服务集成 | 语言语义权威定义、编译器主行为 |
-| [`styio-deprecated`](https://github.com/SymPolicy/styio-deprecated) | 旧实现历史归档 | 历史代码、迁移参照、考古材料 | 当前语言语义、当前测试验收、活跃开发入口 |
+| [`Styio`](https://github.com/SymPolicy/Styio) / development mirror [README.md](../../README.md) | Language and compiler | Language design, grammar, compiler, CLI, tests, primary technical docs, this repository's own compiler-pinned toolchain bootstrap and devcontainer | Package-manager product, editor UI, standalone teaching corpus |
+| [`styio-platform`](https://github.com/eBioRing/styio-platform) | Registry and hosted platform | Registry/control plane, hosted workspace, cloud job, worker and hosted API; workers invoke `pafio build` | Language semantics, compiler implementation, Pafio client state |
+| [`pafio-nightly`](https://github.com/Unka-Malloc/pafio-nightly) | Package and project build entry | Manifest/lock, resolution, cache, offline reproduction, metadata, sync/check/build/run/test, vendor/pack/publish client | Language semantics, compiler, registry server or hosted workers |
+| [`styio-audit`](../../.github/workflows/styio-audit.yml) | Repository-internal audit gate | Local/server info-leak scan over the tracked tree | Language semantics, acceptance tests, compiler implementation |
+| [`styio-dev-doc`](https://github.com/SymPolicy/styio-dev-doc) | Contributor documentation | Cross-repository development guides, setup and collaboration | Independent language semantics or compiler acceptance criteria |
+| [`styio-dev-env`](https://github.com/eBioRing/styio-dev-env) | Development environment | Shared and multi-repo development environment, reusable CI/local setup | Language design or example programs |
+| [`styio-book`](https://github.com/SymPolicy/styio-book) | Learning material and language narrative | Tutorials and explanatory chapters, each tied to its applicable language version | Authoritative current syntax, compiler internals or acceptance rules |
+| [`vityo-nightly`](https://github.com/Unka-Malloc/vityo-nightly) | Visual IDE and execution presentation | Editor/workspace UI, runtime views and toolchain adapters | Compiler semantics, package rules or platform backend |
+| [`styio-examples`](https://github.com/SymPolicy/styio-examples) | Generated algorithm gallery | Presentation and indexing of versioned source examples | A second syntax definition or independent compiler test oracle |
+| [`styio-ext-vsc`](https://github.com/eBioRing/styio-ext-vsc) | VS Code extension | Highlighting, snippets, editor interaction and language-service integration | Language semantics or compiler behavior |
+| [`styio-deprecated`](https://github.com/eBioRing/styio-deprecated) | Historical implementation archive | Historical code and migration references | Active syntax, current tests or development entrypoints |
 
 ---
 
@@ -73,7 +74,8 @@ issue 状态和发布进度不在本文件维护。
 
 ### 4.2 应该放到配件仓库自身的内容
 
-- 包管理器命令、配置格式、包源协议与解析策略。
+- Pafio 命令、manifest/lock、依赖解析、离线状态与 publish 客户端合同。
+- Styio Platform 的 registry/control-plane、hosted workspace、cloud job、worker 与控制台合同。
 - 标准开发环境的镜像、依赖安装脚本、环境 bootstrap。
 - VS Code 插件的命令、设置项、快捷键、发布说明。
 - 可视化页面的前端交互、部署方式、页面信息架构。
@@ -81,13 +83,29 @@ issue 状态和发布进度不在本文件维护。
 - 产品白皮书与对外叙述材料。
 - 平台产品壳层、hosted surface、审计框架与外部审计执行说明。
 
-### 4.3 可以双向链接，但不要双写的内容
+### 4.3 Cross-Links and Source Authority
 
-- `styio-dev-doc` 可以解释如何开发 `styio`，但不应重新定义语言语义。
-- `styio-example` 可以展示语法如何使用，但不应维护另一份语言规范。
-- `styio-ext-vsc` 可以说明编辑器如何支持 Styio，但不应给出独立的语法真相版本。
-- `styio-book` 可以叙述“为什么需要 Styio”，但不应替代编译器与设计文档的技术定义。
-- `styio-audit` 可以执行外部审计和提供审计模块，但发现项进入当前仓库后仍要回到本仓源码、测试和 docs SSOT 落地。
+- `styio-dev-doc` explains contributor workflows and links to compiler contracts.
+- `styio-examples` presents code from a declared source revision and preserves
+  its source links rather than maintaining a separate algorithm corpus.
+- `styio-ext-vsc` documents editor integration and consumes the language grammar.
+- `styio-book` provides explanations and tutorials. A chapter identifies its
+  compiler version and executable evidence; historical chapters are not an
+  active-syntax authority.
+- The repository-internal audit gate owns audit execution. Accepted findings return to the
+  owning compiler source, tests, and technical documents.
+
+### 4.4 Maintenance and Programming Skills
+
+Compiler-maintenance skills live in `workflows/skills/`, use `skill.toml`, and
+are checked by `scripts/tool-skill-registry-gate.py`. They route contributors
+to source owners, feature contracts, tests, and delivery workflows.
+
+An installable Styio programming skill belongs in a separate repository. It
+teaches application authors accepted syntax, idioms, composition, diagnostics,
+and compiler-version compatibility. Its examples use version-pinned language
+contracts and executable fixtures. Distribution location and publication policy
+are decisions of that repository, not compiler runtime capabilities.
 
 ---
 
@@ -107,9 +125,13 @@ issue 状态和发布进度不在本文件维护。
 
 ---
 
-## 6. 维护规则
+## 6. Maintenance
 
-1. 新增、重命名、归档 Styio 官方仓库时，先用 `gh repo list SymPolicy --limit 200` 核对组织清单，再更新本文件和根目录 [`../../README.md`](../../README.md) 的生态列表。
-2. 如果某个配件仓库开始承担稳定、可持续维护的文档权威边界，应同时更新 [`./DOCUMENTATION-POLICY.md`](./DOCUMENTATION-POLICY.md) 的 SSOT 表。
-3. 如果某个仓库仍只处于占位或严重滞后状态，可以在其自身仓库中写状态说明，但不要在主仓库里维护实时进度表。
-4. 本文件记录的是“结构与边界”，不是项目管理看板；不要把逐周进度、issue 清单、燃尽信息写进来。
+1. Verify a repository's canonical name and URL before changing its entry; use
+   the current SymPolicy inventory and preserve downstream development links.
+2. Update the [documentation policy](./DOCUMENTATION-POLICY.md) authority table
+   when a repository assumes a maintained documentation responsibility.
+3. Keep implementation and publication status in the owning repository. This
+   map records stable responsibilities rather than a live delivery dashboard.
+4. Change repository roles explicitly when relocating content; a new teaching
+   or tooling package does not become a language-semantics authority.

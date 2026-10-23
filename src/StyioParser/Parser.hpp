@@ -3,6 +3,7 @@
 #define STYIO_PARSER_H_
 
 #include <algorithm>
+#include <cstdlib>
 #include <regex>
 
 #include "../StyioAST/AST.hpp"
@@ -26,6 +27,11 @@ using std::unique_ptr;
 class StyioContext;
 class StyioParser;
 
+// MIGRATION-NEEDED: M-PARSER-01 (docs/rollups/MIGRATION-LEDGER.md)
+// Legacy/New are retained while the parser engine migration to Nightly
+// completes. Closure: drop Legacy and the New=Nightly alias once no
+// production caller selects Legacy and the bridge counters above are zero
+// across the supported test surface.
 enum class StyioParserEngine
 {
   Legacy,
@@ -43,9 +49,20 @@ struct StyioParserRouteStats
 {
   size_t nightly_subset_statements = 0;
   size_t nightly_declined_statements = 0;
+  // MIGRATION-NEEDED: M-PARSER-02 (docs/rollups/MIGRATION-LEDGER.md)
+  // legacy_fallback_statements and nightly_internal_legacy_bridges instrument
+  // the in-flight engine migration; they are dropped together with the
+  // Legacy enum value once M-PARSER-01 closes.
   size_t legacy_fallback_statements = 0;
   size_t nightly_internal_legacy_bridges = 0;
+  size_t expression_token_visits = 0;
+  size_t expression_operator_probes = 0;
+  size_t expression_ast_nodes = 0;
+  size_t expression_scratch_allocations = 0;
+  size_t expression_max_depth = 0;
 };
+
+inline constexpr size_t kStyioExprMaxDepth = 128;
 
 struct StyioParseDiagnostic
 {
@@ -57,6 +74,14 @@ struct StyioParseDiagnostic
 class StyioContext
 {
 private:
+  struct TokenNesting
+  {
+    int paren = 0;
+    int bracket = 0;
+    int brace = 0;
+    int bounded = 0;
+  };
+
   static StyioToken* eof_fallback_token() {
     static StyioToken* tok = StyioToken::CreatePersistent(StyioTokenType::TOK_EOF, "EOF");
     return tok;
@@ -87,7 +112,34 @@ private:
   std::vector<StyioParseDiagnostic> parse_diagnostics_;
   std::vector<size_t> nightly_internal_legacy_bridge_counts_;
 
+  // Route cache: maps start cursor → route scan result (TASK-06).
+  // Key: (start_index << 8) | route_kind. Value: bool (supported).
+  mutable std::unordered_map<size_t, bool> route_cache_;
+
+  // Cache statistics counters (TASK-06).
+  mutable size_t route_scan_count_ = 0;
+  mutable size_t route_cache_hit_count_ = 0;
+  mutable size_t route_cache_miss_count_ = 0;
+  mutable size_t route_cache_disabled_count_ = 0;
+
+  // Check whether route cache is enabled via env (default: enabled).
+  static bool route_cache_enabled() {
+    const char* env = std::getenv("STYIO_PARSER_ROUTE_CACHE");
+    // Disabled only when explicitly set to "0".
+    return env == nullptr || std::string(env) != "0";
+  }
+
+  // Check whether route cache stats dumping is enabled via env.
+  static bool route_cache_stats_enabled() {
+    const char* env = std::getenv("STYIO_PARSER_ROUTE_CACHE_STATS");
+    return env != nullptr && std::string(env) == "1";
+  }
+
   bool debug_mode = false;
+
+  /// Optional SymbolInterner for session-local identifier deduplication.
+  /// Set by CompilationSession::attach_context before parsing begins.
+  styio::session::SymbolInterner* symbol_interner_ = nullptr;
 
   std::vector<std::vector<std::pair<size_t, size_t>>> token_segmentation; /* offset, length */
   std::vector<std::pair<size_t, size_t>> token_coordinates;               /* row, col */
@@ -95,6 +147,9 @@ private:
   std::vector<size_t> token_cursor_positions;                             /* token index -> cur_pos */
   std::vector<size_t> next_non_trivia_index;                              /* token index -> next non-trivia */
   std::vector<size_t> next_non_space_no_linebreak_index;                  /* token index -> next non-space */
+  std::vector<TokenNesting> token_nesting_prefix;                         /* nesting before token index */
+  mutable size_t token_nesting_query_count_ = 0;
+  size_t token_nesting_prefix_steps_ = 0;
   bool diagnostic_cache_ready = false;
 
   StyioRepr* ast_repr = nullptr;
@@ -120,6 +175,43 @@ private:
       }
       next_non_trivia_index[i] = next_non_trivia;
       next_non_space_no_linebreak_index[i] = next_non_space;
+    }
+
+    // Delimiter-budget checks run for every expression.  Store the same
+    // clamped prefix state once so nested-chain parsing remains O(tokens)
+    // instead of rescanning the entire prefix for each expression.
+    token_nesting_prefix.assign(tokens.size() + 1, TokenNesting{});
+    token_nesting_prefix_steps_ = tokens.size();
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      token_nesting_prefix[i + 1] = token_nesting_prefix[i];
+      switch (tokens[i]->type) {
+        case StyioTokenType::TOK_LPAREN:
+          token_nesting_prefix[i + 1].paren += 1;
+          break;
+        case StyioTokenType::TOK_RPAREN:
+          token_nesting_prefix[i + 1].paren = std::max(0, token_nesting_prefix[i + 1].paren - 1);
+          break;
+        case StyioTokenType::TOK_LBOXBRAC:
+          token_nesting_prefix[i + 1].bracket += 1;
+          break;
+        case StyioTokenType::TOK_RBOXBRAC:
+          token_nesting_prefix[i + 1].bracket = std::max(0, token_nesting_prefix[i + 1].bracket - 1);
+          break;
+        case StyioTokenType::TOK_LCURBRAC:
+          token_nesting_prefix[i + 1].brace += 1;
+          break;
+        case StyioTokenType::TOK_RCURBRAC:
+          token_nesting_prefix[i + 1].brace = std::max(0, token_nesting_prefix[i + 1].brace - 1);
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_OPEN:
+          token_nesting_prefix[i + 1].bounded += 1;
+          break;
+        case StyioTokenType::BOUNDED_BUFFER_CLOSE:
+          token_nesting_prefix[i + 1].bounded = std::max(0, token_nesting_prefix[i + 1].bounded - 1);
+          break;
+        default:
+          break;
+      }
     }
   }
 
@@ -224,48 +316,12 @@ private:
     cur_pos = token_cursor_position_at(target);
   }
 
-  struct TokenNesting
-  {
-    int paren = 0;
-    int bracket = 0;
-    int brace = 0;
-    int bounded = 0;
-  };
-
   TokenNesting token_nesting_before(size_t index) const {
-    TokenNesting nesting;
-    const size_t limit = std::min(index, tokens.size());
-    for (size_t i = 0; i < limit; ++i) {
-      switch (tokens[i]->type) {
-        case StyioTokenType::TOK_LPAREN:
-          nesting.paren += 1;
-          break;
-        case StyioTokenType::TOK_RPAREN:
-          nesting.paren = std::max(0, nesting.paren - 1);
-          break;
-        case StyioTokenType::TOK_LBOXBRAC:
-          nesting.bracket += 1;
-          break;
-        case StyioTokenType::TOK_RBOXBRAC:
-          nesting.bracket = std::max(0, nesting.bracket - 1);
-          break;
-        case StyioTokenType::TOK_LCURBRAC:
-          nesting.brace += 1;
-          break;
-        case StyioTokenType::TOK_RCURBRAC:
-          nesting.brace = std::max(0, nesting.brace - 1);
-          break;
-        case StyioTokenType::BOUNDED_BUFFER_OPEN:
-          nesting.bounded += 1;
-          break;
-        case StyioTokenType::BOUNDED_BUFFER_CLOSE:
-          nesting.bounded = std::max(0, nesting.bounded - 1);
-          break;
-        default:
-          break;
-      }
+    ++token_nesting_query_count_;
+    if (token_nesting_prefix.empty()) {
+      return {};
     }
-    return nesting;
+    return token_nesting_prefix[std::min(index, token_nesting_prefix.size() - 1)];
   }
 
 public:
@@ -310,6 +366,35 @@ public:
     return code;
   }
 
+  const string&
+  get_file_name() const {
+    return file_name;
+  }
+
+  /// Attach a session-local SymbolInterner for identifier deduplication.
+  void set_symbol_interner(styio::session::SymbolInterner& si) {
+    symbol_interner_ = &si;
+  }
+
+  /// Returns the attached SymbolInterner, or nullptr if none is set.
+  styio::session::SymbolInterner* symbol_interner() {
+    return symbol_interner_;
+  }
+
+  /// Returns the attached SymbolInterner (const overload).
+  const styio::session::SymbolInterner* symbol_interner() const {
+    return symbol_interner_;
+  }
+
+  /// Create a NameAST with the given spelling, interning it if a SymbolInterner is attached.
+  NameAST* interned_name(std::string_view spelling) {
+    styio::session::SymbolId sid = styio::session::kInvalidSymbolId;
+    if (symbol_interner_) {
+      sid = symbol_interner_->intern(spelling);
+    }
+    return NameAST::Create(std::string(spelling), sid);
+  }
+
   /*
     === Token Start
   */
@@ -323,6 +408,30 @@ public:
 
   StyioTokenType cur_tok_type() {
     return cur_tok()->type;
+  }
+
+  std::string_view curLexeme() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->lexeme();
+  }
+
+  std::string_view curRawText() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->rawText();
+  }
+
+  std::string_view curDecodedString() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->decodedString();
+  }
+
+  bool curTextIs(std::string_view expected) const {
+    return curLexeme() == expected;
+  }
+
+  std::string curTextString() const {
+    if (index_of_token >= tokens.size()) return {};
+    return tokens[index_of_token]->textString();
   }
 
   const std::vector<StyioToken*>&
@@ -380,6 +489,76 @@ public:
   clear_parse_diagnostics() {
     parse_diagnostics_.clear();
   }
+
+  // Route cache (TASK-06): avoids redundant scan_subset_route_tokens_latest() calls.
+  enum RouteKind : uint8_t {
+    kRouteHashLetMatch = 0,
+    kRouteHashStmt = 1,
+    kRouteStmtSubset = 2,
+    kRouteExprUntil = 3,
+    kRouteMax = 4,
+  };
+
+  bool get_route_cache(size_t start, RouteKind kind) const {
+    if (!route_cache_enabled()) {
+      route_cache_disabled_count_++;
+      return false;
+    }
+    size_t key = (start << 8) | static_cast<uint8_t>(kind);
+    auto it = route_cache_.find(key);
+    if (it != route_cache_.end()) {
+      route_cache_hit_count_++;
+      return it->second;
+    }
+    return false;
+  }
+
+  bool has_route_cache(size_t start, RouteKind kind) const {
+    if (!route_cache_enabled()) {
+      route_cache_disabled_count_++;
+      return false;
+    }
+    size_t key = (start << 8) | static_cast<uint8_t>(kind);
+    return route_cache_.find(key) != route_cache_.end();
+  }
+
+  void set_route_cache(size_t start, RouteKind kind, bool supported) const {
+    if (!route_cache_enabled()) {
+      return;
+    }
+    size_t key = (start << 8) | static_cast<uint8_t>(kind);
+    route_cache_[key] = supported;
+  }
+
+  void clear_route_cache() {
+    if (route_cache_stats_enabled()) {
+      std::cerr
+        << "[route-cache] scan=" << route_scan_count_
+        << " hit=" << route_cache_hit_count_
+        << " miss=" << route_cache_miss_count_
+        << " disabled=" << route_cache_disabled_count_
+        << " size=" << route_cache_.size()
+        << std::endl;
+    }
+    route_cache_.clear();
+    route_scan_count_ = 0;
+    route_cache_hit_count_ = 0;
+    route_cache_miss_count_ = 0;
+    route_cache_disabled_count_ = 0;
+  }
+
+  // Public accessors for cache statistics (benchmark / test inspection).
+  size_t route_scan_count() const { return route_scan_count_; }
+  size_t route_cache_hit_count() const { return route_cache_hit_count_; }
+  size_t route_cache_miss_count() const { return route_cache_miss_count_; }
+  size_t route_cache_disabled_count() const { return route_cache_disabled_count_; }
+
+  size_t token_nesting_query_count() const { return token_nesting_query_count_; }
+  size_t token_nesting_prefix_steps() const { return token_nesting_prefix_steps_; }
+
+  // Increment counters (called from const refs in parser route functions).
+  void note_route_scan() const { route_scan_count_++; }
+  void note_route_cache_miss() const { route_cache_miss_count_++; }
 
   const std::vector<StyioParseDiagnostic>&
   parse_diagnostics() const {
@@ -692,42 +871,11 @@ public:
       cout << "find_line_index(), starts with position: " << p << " current character: " << get_curr_char() << "\ninitial: line [" << line_index << "]" << endl;
     }
 
-    bool binary_search = false;
-    if (binary_search) {
-      line_index = total_lines / 2;
-
-      for (size_t i = 0; i < total_lines; i++) {
-        if (debug_mode) {
-          cout << "[" << line_index << "] is ";
-        }
-
-        if (p < line_seps[line_index].first) {
-          line_index = line_index / 2;
-          if (debug_mode) {
-            cout << "too large, go to: [" << line_index << "]" << endl;
-          }
-        }
-        else if (p > (line_seps[line_index].first + line_seps[line_index].second)) {
-          line_index = (line_index + total_lines) / 2;
-          if (debug_mode) {
-            cout << "too small, go to: [" << line_index << "]" << endl;
-          }
-        }
-        else {
-          if (debug_mode) {
-            cout << "result: [" << line_index << "]" << endl;
-          }
-          break;
-        }
-      }
-    }
-    else {
-      size_t pos = static_cast<size_t>(p);
-      for (size_t curr_line_index = 0; curr_line_index < total_lines; curr_line_index += 1) {
-        if (line_seps[curr_line_index].first <= pos
-            && pos <= (line_seps[curr_line_index].first + line_seps[curr_line_index].second)) {
-          return curr_line_index;
-        }
+    size_t pos = static_cast<size_t>(p);
+    for (size_t curr_line_index = 0; curr_line_index < total_lines; curr_line_index += 1) {
+      if (line_seps[curr_line_index].first <= pos
+          && pos <= (line_seps[curr_line_index].first + line_seps[curr_line_index].second)) {
+        return curr_line_index;
       }
     }
 
@@ -1203,10 +1351,6 @@ public:
         return true;
       }
     }
-    else if (code[cur_pos] == '%') {
-      return true;
-    }
-
     return false;
   }
 
@@ -1392,6 +1536,13 @@ parse_binop_item(StyioContext& context);
 StyioAST*
 parse_binop_rhs(StyioContext& context, StyioAST* lhs_ast, StyioOpType curr_tok);
 
+StyioAST*
+parse_expr_after_consumed_arithmetic_operator_latest(
+  StyioContext& context,
+  StyioAST* lhs,
+  StyioOpType operation
+);
+
 /*
   parse_cond_item
 */
@@ -1426,6 +1577,9 @@ parse_cond_flow(StyioContext& context);
 */
 StyioAST*
 parse_index_op(StyioContext& context, StyioAST* theList);
+
+StyioAST*
+parse_index_suffix_nightly(StyioContext& context, StyioAST* base);
 
 /*
   parse_var_tuple
@@ -1482,6 +1636,15 @@ StyioAST*
 parse_resource_file_atom_latest(StyioContext& context);
 
 StyioAST*
+parse_resource_zip_collection_atom_latest(StyioContext& context);
+
+bool
+parse_terminal_handle_latest(StyioContext& context);
+
+StyioAST*
+parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind = StdStreamKind::Stdout);
+
+StyioAST*
 parse_instant_pull_resource_atom_latest(StyioContext& context, const std::string& diagnostic);
 
 StyioAST*
@@ -1491,12 +1654,6 @@ parse_parenthesized_instant_pull_latest(
   const std::string& diagnostic,
   const std::string& close_diagnostic
 );
-
-bool
-parse_terminal_handle_latest(StyioContext& context);
-
-StyioAST*
-parse_resource_target_latest(StyioContext& context, StdStreamKind terminal_kind = StdStreamKind::Stdout);
 
 StyioAST*
 try_parse_resource_write_tail_latest(StyioContext& context, StyioAST* data);
@@ -1523,6 +1680,9 @@ parse_double_right_continuation_latest(
 
 StyioAST*
 parse_after_at_common(StyioContext& context, bool file_only_resource);
+
+StyioAST*
+parse_at_expr_atom_latest(StyioContext& context);
 
 TypeAST*
 parse_styio_type(StyioContext& context);
@@ -1659,6 +1819,12 @@ parse_cases_only_latest(StyioContext& context);
 
 StyioAST*
 parse_at_stmt_or_expr_latest(StyioContext& context);
+
+ExternBlockAST*
+parse_bound_extern_after_at_latest(
+  StyioContext& context,
+  std::vector<std::string> exported_symbols
+);
 
 StyioAST*
 parse_state_decl_after_at_latest(StyioContext& context);

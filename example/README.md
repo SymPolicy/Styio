@@ -1,7 +1,21 @@
 # Examples
 
+**Purpose:** List runnable repository-local examples and their checked outputs.
+
+**Last updated:** 2026-06-25
+
 The active examples in this directory are runnable with
 `build/default/bin/styio` and are covered by CTest.
+
+These examples are smoke coverage and user-facing samples. They do not define
+standard-library APIs or compiler-intrinsic behavior; promotion requires the
+manifest, IM-D8, and test-catalog evidence path.
+
+In examples, `iterable >> #(x) => { ... }` means the left iterable or stream is
+advanced one item at a time, with each item pushed as a pulse into the right
+closure. A standalone `>>`, `>>>`, or longer `>>...` statement is different:
+it is continue for the current pulse/session domain, and the number of `>`
+characters does not change the meaning.
 
 ## Hello World
 
@@ -37,6 +51,18 @@ Expected output:
 
 ```text
 [1,2,3]
+```
+
+## Eight Queens
+
+```bash
+build/default/bin/styio --file example/algorithms/eight_queens.styio
+```
+
+Expected output:
+
+```text
+92
 ```
 
 ## CLI Calculator

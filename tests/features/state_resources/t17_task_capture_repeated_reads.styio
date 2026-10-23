@@ -1,0 +1,9 @@
+@x : i64|..2|
+[7] >> #(v) => { v -> @x }
+job = ||> {
+  snap = @x[-1]
+  <| snap + @x[-1]
+}
+[9] >> #(v) => { v -> @x }
+?| job -> captured: i64
+>_(captured)

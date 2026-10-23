@@ -2,37 +2,44 @@
 
 **Purpose:** Define how IDE hosts should launch and talk to `styio_lspd`, and record the currently supported request and notification surface.
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-10-11
 
 ## Transport
 
 1. Binary: `build/default/bin/styio_lspd`
 2. Protocol: LSP 3.17 over stdio
 3. Lifetime: one long-lived local daemon per workspace root
+4. Windows transport: `styio_lspd` switches stdin/stdout to binary mode before serving frames so `Content-Length: N\r\n\r\n` boundaries stay byte-exact.
 
 ## Supported Methods
 
 1. `initialize`
-2. `textDocument/didOpen`
-3. `textDocument/didChange`
-4. `textDocument/didClose`
-5. `textDocument/completion`
-6. `textDocument/hover`
-7. `textDocument/definition`
-8. `textDocument/references`
-9. `textDocument/documentSymbol`
-10. `workspace/symbol`
-11. `textDocument/semanticTokens/full`
-12. `textDocument/publishDiagnostics` notification
-13. `$/cancelRequest`
+2. `initialized` notification
+3. `textDocument/didOpen`
+4. `textDocument/didChange`
+5. `textDocument/didClose`
+6. `textDocument/completion`
+7. `textDocument/hover`
+8. `textDocument/definition`
+9. `textDocument/references`
+10. `textDocument/documentSymbol`
+11. `workspace/symbol`
+12. `textDocument/semanticTokens/full`
+13. `textDocument/publishDiagnostics` notification
+14. `$/cancelRequest`
+15. `workspace/didChangeWatchedFiles` notification
+16. `textDocument/rename` (resolved-identity edit set)
+17. `textDocument/codeAction` (diagnostic-backed fixes and disabled actions)
+18. `textDocument/inlayHint` (call-argument parameter hints)
 
 ## Startup Sequence
 
 1. Launch `styio_lspd` with the workspace root available to the client.
 2. Send `initialize` with `rootUri`.
-3. Open editor buffers via `didOpen`.
-4. Forward buffer changes via `didChange`.
-5. Query completion, hover, definition, references, symbols, and semantic tokens against the open document state.
+3. Send `initialized` as a notification after the initialize response; the server does not return a JSON-RPC response for this notification.
+4. Open editor buffers via `didOpen`.
+5. Forward buffer changes via `didChange`.
+6. Query completion, hover, definition, references, symbols, and semantic tokens against the open document state.
 
 ## Minimal Message Flow
 
@@ -69,11 +76,22 @@ Explicit imports come from top-level `@import { ... }` declarations. Source acce
 3. Debounced semantic publication replaces the earlier syntax-only list with the full merged diagnostic set for the latest visible snapshot.
 4. Stale semantic runs are dropped by snapshot/version guards instead of being published.
 5. In recovery mode, malformed statements are reported while later statements in the same file can still contribute hover, completion, and symbol data.
+6. Every `publishDiagnostics` notification includes `params.version` from the exact immutable snapshot used to produce its diagnostics. Immediate syntax publications use the `didOpen` or `didChange` snapshot; delayed semantic publications use the snapshot attached to that semantic result.
+7. `didSave` currently has no dedicated handler and does not change document text,
+   version or diagnostics. A save refers to the last synchronized open/change
+   snapshot. The stdio loop still performs its usual request-driven drain after
+   the notification; clients must not interpret receipt of a save as compiler
+   validation or assume a new publication is emitted.
 
 ## Current Limits
 
 1. The server is local-only and single-workspace for now.
-2. `rename`, `codeAction`, and `inlayHint` are intentionally not implemented yet.
+2. `rename`, `codeAction`, and `inlayHint` have conservative implementations. Rename uses resolved definitions/references and returns null when a valid edit set is unavailable. Code actions use matching cached diagnostics on open documents; parameter hints use resolved call-site context. Pending semantic or background work returns null for rename and an empty list for actions/hints. Broader refactor support is outside these narrow contracts.
 3. Debounced semantic publication is request-driven in the stdio loop: `Server::run()` drains runtime diagnostics after each processed request.
 4. `workspace/didChangeWatchedFiles` schedules background reindex work; because the stdio runtime has no separate idle thread, `Server::run()` advances one background task as a request-driven fallback only after foreground responses and semantic diagnostic drains are clear. Embedders can call `IdeService::run_idle_tasks()` for the same semantic-first idle slice.
 5. Stale foreground and semantic work is guarded by snapshot/version checks and counted instead of being published after a newer visible snapshot.
+
+Focused acceptance for these methods is registered in
+[TEST-CATALOG](../../../workflows/TEST-CATALOG.md) under the conservative public
+LSP surface tests. Capability advertisement and handler presence do not imply
+that an edit or hint is available for every source form.

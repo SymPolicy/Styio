@@ -1,0 +1,11 @@
+@letter : char|..3|
+['a', 'b', 'c', 'd'] >> #(v) => {
+  v -> @letter
+}
+>_(@letter[-1])
+>_(@letter[-2..])
+>_(@letter[...])
+letters << @letter[...]
+recent << @letter[-2..]
+>_(letters)
+>_(recent)

@@ -1,0 +1,211 @@
+# IM-D8 Standard Library And Domain Library Inventory
+
+**Purpose:** Record the accepted language-core, compiler-intrinsic, standard-library, example, benchmark, and domain-library ownership decisions for IM-D8.
+
+**Last updated:** 2026-10-01
+
+## Scope
+
+IM-D8 owns the library-boundary contract for Styio:
+
+- what belongs to language-core,
+- what may become a compiler intrinsic,
+- what belongs to the standard library,
+- how standard-library implementation is maintained now,
+- how standard-library distribution moves to official packages later,
+- how build-time trimming interacts with standard-library loading,
+- what must be migrated to `styio-example`, `styio-benchmark`, or domain package repositories, and
+- how external packages avoid becoming implicit language commitments.
+
+IM-D8 does not define project/package workflows, registry service operation,
+lockfiles, vendoring, or dependency resolution. Those remain IM-D10 concerns
+owned by Pafio and Styio Platform.
+
+## Current State
+
+Styio already has several library-like surfaces:
+
+- language-core type-system design in [Styio Language Design](../design/Styio-Language-Design.md),
+- compiler intrinsic design in [Styio Standard Library - Compiler Intrinsics Specification](../design/Styio-StdLib-Intrinsics.md),
+- runtime helper surfaces in `src/StyioExtern/`, `src/StyioRuntime/`, and the ORC registration path,
+- feature and algorithm tests under `tests/`, and
+- benchmark/probe wrappers that point to the external `styio-benchmark` repository.
+
+The maturity gap is not that every useful library must live in the compiler repository. The gap is to keep the three retained layers explicit and migrate all other library-like material to its owning project.
+
+## Current Implementation Evidence
+
+| Surface | Layer | Current evidence | Boundary |
+|---------|-------|------------------|----------|
+| `std.resource` compatibility prelude | standard library compatibility module | `library/manifest.json`, `library/resource/README.md`, `share/styio/prelude/resources.styio`, `stdlib_manifest_gate`, file/stdin/stdout feature suites, and `StyioSecurityNightlyParserStmt.ParsesResourcePreludeSourceFile` | Active only as the compatibility prelude. It does not broaden resource semantics or activate the other planned `std.*` modules. |
+| `std.core`, `std.collections`, `std.io`, `std.math`, `std.path`, `std.process`, `std.stream`, `std.test`, `std.text`, `std.time` | planned standard-library modules | Directory README files and manifest entries reserve ownership boundaries | Planned modules are not accepted APIs until manifest source, tests, diagnostics, and catalog evidence are added. |
+| Series selectors `series[avg, n]` and `series[max, n]` | compiler-intrinsic | Parser recognition, `SeriesIntrinsicAST`, `SGSeriesAvgStep` / `SGSeriesMaxStep` lowering, pulse codegen, and focused security/codegen tests | Active only for the current i64 pulse/state path. `[min]`, `[std]`, `[ema]`, `[rsi]`, crossover helpers, and broader time-series algorithms remain deferred. |
+| Matrix helper calls `mat_*`, `matmul`, `transpose`, `dot`, `norm` | compiler-intrinsic | Sema shape/element checks, typed lowering/runtime-helper selection, matrix runtime helpers, `StyioSamples.MatrixOperationsAndIntrinsics`, and matrix type/lowering/security tests | Compiler-owned because type shape, runtime helper choice, and fail-closed diagnostics depend on compiler analysis. They are not `std.math` or `std.collections` APIs without a promotion record. |
+| Typed stdin helper routing | compiler/runtime helper | `src/StyioUtil/IOIntrinsics.hpp`, typed stdin feature tests, and diagnostics for unsupported targets | This is an implementation route for accepted stdin syntax, not a public `std.io` API. |
+
+## Accepted Layer Model
+
+Styio keeps exactly three retained layers.
+
+| Layer | Owner | Meaning |
+|-------|-------|---------|
+| language-core | `styio` compiler repository | Type-system and minimal semantic facts required for the language to exist |
+| compiler-intrinsic | `styio` compiler repository | Operations the compiler must recognize for typing, lowering, optimization, resource/effect reasoning, or code generation |
+| standard library | temporarily in `styio`, later official packages | Small, necessary, commonly loaded library capabilities that should remain trimmable and package-manageable |
+
+Everything else is migrated out:
+
+| Surface | Owner |
+|---------|-------|
+| examples | `styio-example` |
+| performance workloads, baselines, reports, and comparisons | `styio-benchmark` |
+| domain libraries | independent package/domain repositories published by Pafio and hosted by Styio Platform |
+| package lifecycle and registry UX | Pafio client / Styio Platform service |
+
+External projects do not become language commitments merely because they exist in the Styio ecosystem.
+
+## Language-Core
+
+Accepted decision:
+
+- Language-core is basically the type system and the minimal semantic facts required to make source code meaningful.
+- Language-core stays in this compiler repository.
+- Language-core includes primitive and structural type rules, type annotations, function type facts, resource/effect type facts that are part of the language, and diagnostics needed to reject invalid language forms.
+- Language-core does not include domain helpers, benchmark workloads, sample programs, or convenience APIs that can be expressed as ordinary library code.
+
+If a feature can be removed without changing the meaning of the language's type system or core semantic rules, it is not language-core.
+
+## Compiler Intrinsics
+
+Accepted decision:
+
+Compiler intrinsics are allowed only when ordinary library implementation is not enough.
+
+A capability may become a compiler intrinsic only when at least one of these is required:
+
+1. parser or syntax recognition,
+2. type inference that cannot be expressed through ordinary function signatures,
+3. direct StyioIR lowering,
+4. codegen specialization,
+5. optimizer visibility,
+6. resource/effect reasoning,
+7. frame/snapshot/commit participation, or
+8. a stable performance contract that depends on compiler-owned representation.
+
+Ordinary convenience functions, domain formulas, examples, and benchmark cases must not be promoted to compiler intrinsics just because they are useful.
+
+Intrinsic acceptance requires:
+
+1. design specification,
+2. type and absence/resource/effect rules,
+3. positive tests,
+4. negative diagnostics,
+5. lowering or runtime evidence, and
+6. performance evidence when the intrinsic is justified by performance.
+
+## Standard Library
+
+Accepted decision:
+
+- The standard library is small, necessary, and commonly loaded.
+- For now, standard-library contracts and any current implementation may remain in this repository.
+- The repository-local standard-library envelope is `library/manifest.json`; it records active source-backed modules and planned module directories.
+- Long term, the standard library should become official package content maintained separately from the compiler implementation.
+- The standard library must be usable through Pafio project/package workflows and Styio Platform distribution when that package path is ready.
+- Builds must support trimming/dead-code elimination so standard-library availability does not force thick artifacts.
+- Standard-library APIs need named contracts, schema markers, tests, diagnostics, and manifest-gate coverage before being treated as stable.
+
+This preserves the "thick library, thin artifact" model: development can load a useful standard library, while production builds can remove unused code. The current `std.resource` manifest entry points at `share/styio/prelude/resources.styio` as compatibility source until it can move to a package-aware library location. Runtime installs include `share/styio/library/manifest.json`, module README files, and `share/styio/prelude/resources.styio` so the installed manifest can be validated even when repository test evidence is not installed with the runtime component.
+
+## External Examples
+
+[styio-examples](https://github.com/SymPolicy/styio-examples) presents a generated
+gallery sourced from compiler examples and algorithm fixtures. Repository-local
+programs remain executable compiler-test and documentation evidence; the gallery
+preserves source-revision links rather than maintaining an independent corpus.
+
+Teaching material explains the applicable language version and links to the
+owning feature. An example does not define new language or standard-library
+behavior. Proposed behavior enters the accepted feature and test process first.
+
+## Benchmark Workloads
+
+Workloads, runners, baselines, reports and performance comparisons belong in
+`styio-benchmark`. The compiler repository retains probes and the explicit
+optional CMake integration described in [benchmark/README.md](../../benchmark/README.md).
+Without a configured external benchmark root, the normal build does not
+register benchmark targets. No local `benchmark/core/` corpus or redirect-wrapper
+layer is part of that contract.
+
+A benchmark finding can motivate a library or compiler change, but it does not
+make a new API accepted. Language-core, intrinsic and standard-library proposals
+retain their own contract, diagnostic and acceptance process.
+
+## Domain Libraries
+
+Accepted decision:
+
+- Domain libraries do not merge into the language.
+- Finance, IoT, exchange, model, analytics, and other domain-specific libraries are independent packages or projects.
+- Domain packages are published through Pafio and distributed by Styio Platform when that package path is ready.
+- Domain libraries may depend on language-core, compiler intrinsics, and standard-library APIs, but they do not define those APIs.
+- A domain library may propose promotion of a general capability, but promotion requires a separate language-core, compiler-intrinsic, or standard-library decision.
+
+This keeps the compiler repository from becoming a domain application repository.
+
+## Promotion And Migration Rules
+
+Accepted decision:
+
+| From | To | Required evidence |
+|------|----|-------------------|
+| external example | standard library | spec, stable API, positive/negative tests, schema-marker note |
+| benchmark workload | compiler intrinsic | proof that compiler-owned representation is required, lowering/codegen evidence, perf evidence |
+| benchmark workload | standard library | stable non-benchmark API, tests, docs, no benchmark-only assumptions |
+| domain library | standard library | general-purpose API, ecosystem justification, named contract |
+| standard library | compiler intrinsic | one of the intrinsic admission reasons plus compiler tests |
+| compiler intrinsic | language-core | type-system or core semantic dependency |
+
+Migration in the other direction is also allowed. If a capability no longer needs compiler ownership, it should move from intrinsic to standard library or package form.
+
+## Standard Library Acceptance Checklist
+
+Every standard-library capability needs:
+
+1. purpose and API contract,
+2. type signature,
+3. resource/effect behavior when applicable,
+4. absence/default behavior when applicable,
+5. versioning status,
+6. positive tests,
+7. negative diagnostics,
+8. build trimming behavior,
+9. package/distribution note when moved out of this repository, and
+10. benchmark evidence when a capability record includes performance statements.
+
+## Stop Condition
+
+IM-D8 can close only when:
+
+1. the three retained layers are documented as language-core, compiler-intrinsic, and standard library;
+2. examples, benchmarks, and domain libraries are documented as external surfaces;
+3. standard-library contracts in this repository are identified as current temporary ownership or future official package ownership;
+4. compiler-intrinsic admission rules are recorded and used by future intrinsic additions;
+5. benchmark and example repositories are not treated as language API SSOTs;
+6. domain-library publication and distribution are delegated to Pafio and Styio Platform instead of this compiler repo;
+7. every accepted library capability is in a test catalog, standard-library contract, intrinsic spec, or external handoff record; and
+8. deferred library capabilities are explicitly marked deferred rather than implied by examples or benchmark workloads.
+
+## Decision Closure
+
+No IM-D8 design decision remains open in this inventory. Remaining work is implementation and migration: classify existing library-like content into language-core, compiler-intrinsic, standard-library, example, benchmark, or domain package ownership; then move non-retained surfaces to their owning repositories when the package/project path is ready.
+
+## Source Documents
+
+- [NEXT-STAGE-GAP-LEDGER.md](./NEXT-STAGE-GAP-LEDGER.md)
+- [Styio Language Design](../design/Styio-Language-Design.md)
+- [Styio Standard Library - Compiler Intrinsics Specification](../design/Styio-StdLib-Intrinsics.md)
+- [Styio Performance Testing Route](../design/performance-testing.md)
+- [Docs / Ecosystem Runbook](../teams/DOCS-ECOSYSTEM-RUNBOOK.md)
+- `styio-benchmark`: <https://github.com/eBioRing/styio-benchmark>
+- `styio-example`: <https://github.com/eBioRing/styio-example>

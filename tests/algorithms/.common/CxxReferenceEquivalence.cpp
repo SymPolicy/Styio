@@ -1,15 +1,12 @@
 #include "CxxReferenceEquivalence.hpp"
 
+#include "StyioPlatform/Platform.hpp"
+
 #include <atomic>
 #include <chrono>
-#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-
-#ifndef _WIN32
-#include <sys/wait.h>
-#endif
 
 #ifndef STYIO_SOURCE_DIR
 #define STYIO_SOURCE_DIR "."
@@ -23,38 +20,6 @@ namespace fs = std::filesystem;
 
 namespace styio::testing::algorithms {
 namespace {
-
-int
-decode_wait_status(int status) {
-#ifdef _WIN32
-  return status;
-#else
-  if (status == -1) {
-    return -1;
-  }
-  if (WIFEXITED(status)) {
-    return WEXITSTATUS(status);
-  }
-  if (WIFSIGNALED(status)) {
-    return 128 + WTERMSIG(status);
-  }
-  return status;
-#endif
-}
-
-std::string
-shell_quote(const std::string& value) {
-  std::string out = "'";
-  for (char ch : value) {
-    if (ch == '\'') {
-      out += "'\\''";
-    } else {
-      out += ch;
-    }
-  }
-  out += "'";
-  return out;
-}
 
 std::string
 compiler_path() {
@@ -103,6 +68,19 @@ read_text_file(const fs::path& path) {
 }
 
 std::string
+normalize_newlines(std::string text) {
+  std::string out;
+  out.reserve(text.size());
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    if (text[i] == '\r' && i + 1 < text.size() && text[i + 1] == '\n') {
+      continue;
+    }
+    out.push_back(text[i]);
+  }
+  return out;
+}
+
+std::string
 format_i32_list(const std::vector<int>& values) {
   std::ostringstream out;
   out << '[';
@@ -121,6 +99,7 @@ run_styio_program(const fs::path& source, const std::string& stdin_text) {
   CommandResult result;
   const fs::path temp_dir = make_temp_dir();
   const fs::path input_path = temp_dir / "stdin.txt";
+  const fs::path stdout_path = temp_dir / "stdout.txt";
   const fs::path stderr_path = temp_dir / "stderr.txt";
 
   {
@@ -135,23 +114,21 @@ run_styio_program(const fs::path& source, const std::string& stdin_text) {
     return result;
   }
 
-  const std::string command = shell_quote(compiler) + " --file " +
-    shell_quote(source.string()) + " < " + shell_quote(input_path.string()) +
-    " 2> " + shell_quote(stderr_path.string());
-
-  FILE* pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) {
-    result.stderr_text = "failed to start styio command";
-    fs::remove_all(temp_dir);
-    return result;
+  const styio::platform::ProcessResult process =
+    styio::platform::run_process_to_logs(
+      {compiler, "--file", source.generic_string()},
+      input_path,
+      stdout_path,
+      stderr_path);
+  result.exit_code = process.exit_code;
+  result.stdout_text = normalize_newlines(read_text_file(stdout_path));
+  result.stderr_text = normalize_newlines(read_text_file(stderr_path));
+  if (!process.launch_error.empty()) {
+    if (!result.stderr_text.empty() && result.stderr_text.back() != '\n') {
+      result.stderr_text.push_back('\n');
+    }
+    result.stderr_text += process.launch_error;
   }
-
-  char buffer[4096];
-  while (fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
-    result.stdout_text += buffer;
-  }
-  result.exit_code = decode_wait_status(pclose(pipe));
-  result.stderr_text = read_text_file(stderr_path);
 
   fs::remove_all(temp_dir);
   return result;

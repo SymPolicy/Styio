@@ -1,0 +1,3 @@
+# identity := (value) => value
+# discard : i64 := (value: i64) => 0
+>_(discard(identity))

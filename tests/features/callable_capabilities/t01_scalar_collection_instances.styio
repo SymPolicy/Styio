@@ -1,0 +1,4 @@
+# identity := (value) => value
+>_(identity(true))
+>_(identity([1, 2]))
+>_(identity(dict {"answer": 42}))

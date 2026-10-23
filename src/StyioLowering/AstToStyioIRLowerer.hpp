@@ -2,12 +2,17 @@
 #ifndef STYIO_AST_TO_STYIO_IR_LOWERER_H_
 #define STYIO_AST_TO_STYIO_IR_LOWERER_H_
 
+#include <cstdint>
+
 #include "../StyioSema/SemaContext.hpp"
+#include "StyioIROptimizer.hpp"
 
 class AstToStyioIRLowerer : public StyioSemaContext
 {
 public:
-  AstToStyioIRLowerer() {}
+  AstToStyioIRLowerer() : StyioSemaContext() {}
+  explicit AstToStyioIRLowerer(styio::semantic_identity::Scope scope) :
+      StyioSemaContext(std::move(scope)) {}
   ~AstToStyioIRLowerer() override {}
 
   StyioIR* toStyioIR(CommentAST* ast) override;
@@ -53,6 +58,7 @@ public:
   StyioIR* toStyioIR(HandleAcquireAST* ast) override;
   StyioIR* toStyioIR(ResourceWriteAST* ast) override;
   StyioIR* toStyioIR(ResourceRedirectAST* ast) override;
+  StyioIR* toStyioIR(ResourceEffectAST* ast) override;
   StyioIR* lowerResourceSinkWriteLatest(StyioAST* data, StyioAST* resource, bool redirect_mode);
   StyioIR* toStyioIR(BinOpAST* ast) override;
   StyioIR* toStyioIR(FmtStrAST* ast) override;
@@ -108,12 +114,91 @@ public:
   StyioIR* toStyioIR(MainBlockAST* ast) override;
   StyioAST* resolveResourceReceiverExprLatest(StyioAST* expr) const;
 
+  /* Push/pop the per-name `=>` edge counts prescanned from a block's direct
+     statements; the displaced map is returned for restoration. */
+  std::unordered_map<std::string, int> push_task_order_scope(
+    const std::vector<StyioAST*>& stmts,
+    const std::vector<StyioAST*>& followings);
+  void restore_task_order_scope(std::unordered_map<std::string, int> saved);
+  bool is_task_order_after_target(const std::string& name) const noexcept;
+  /* Consume one `=>` edge for `name`; returns true when this was the final
+     edge declared for the target in the current block. */
+  bool consume_task_order_edge(const std::string& name);
+
+  void enable_pipeline_profile(bool enabled) noexcept {
+    pipeline_profile_enabled_ = enabled;
+  }
+
+  bool pipeline_profile_enabled() const noexcept {
+    return pipeline_profile_enabled_;
+  }
+
+  styio::lowering::StyioIRPassPipelineResult* pipeline_profile_sink() noexcept {
+    return pipeline_profile_enabled_ ? &pipeline_profile_result_ : nullptr;
+  }
+
+  const styio::lowering::StyioIRPassPipelineResult& pipeline_profile_result() const noexcept {
+    return pipeline_profile_result_;
+  }
+
+  std::uint64_t lowering_statement_duration_ns() const noexcept {
+    return lowering_statement_duration_ns_;
+  }
+
+  std::uint64_t lowering_statement_count() const noexcept {
+    return lowering_statement_count_;
+  }
+
+  std::uint64_t resource_validation_duration_ns() const noexcept {
+    return resource_validation_duration_ns_;
+  }
+
+  void record_resource_validation_duration(std::uint64_t duration_ns) noexcept override {
+    resource_validation_duration_ns_ += duration_ns;
+  }
+
+  std::uint64_t resource_validation_skipped() const noexcept {
+    return resource_validation_skipped_;
+  }
+
+  void record_resource_validation_skipped() noexcept override {
+    ++resource_validation_skipped_;
+  }
+
+  std::uint64_t resource_fast_path_probe_duration_ns() const noexcept {
+    return resource_fast_path_probe_duration_ns_;
+  }
+
+  void record_resource_fast_path_probe_duration(std::uint64_t duration_ns) noexcept override {
+    resource_fast_path_probe_duration_ns_ += duration_ns;
+  }
+
+  void record_lowering_statement_duration(std::uint64_t duration_ns) noexcept {
+    lowering_statement_duration_ns_ += duration_ns;
+    ++lowering_statement_count_;
+  }
+
+protected:
+  bool resource_topology_profile_enabled() const noexcept override {
+    return pipeline_profile_enabled_;
+  }
+
 private:
+  std::unordered_set<std::string> active_function_parameter_names_;
+  /* Per-name count of `=>` edges prescanned in the block currently being
+     lowered; task binds matching a name with unconsumed edges spawn held, and
+     the final edge statement for a name emits the launch request. */
+  std::unordered_map<std::string, int> task_order_after_counts_;
   std::unordered_map<std::string, FileResourceAST*> file_resource_bindings_;
   std::unordered_map<std::string, std::unordered_map<std::string, ResourceMethodDefAST*>> resource_method_body_defs_;
   std::unordered_map<std::string, StyioAST*> resource_receiver_expr_bindings_;
+  styio::lowering::StyioIRPassPipelineResult pipeline_profile_result_;
+  bool pipeline_profile_enabled_ = false;
+  std::uint64_t lowering_statement_duration_ns_ = 0;
+  std::uint64_t lowering_statement_count_ = 0;
+  std::uint64_t resource_validation_duration_ns_ = 0;
+  std::uint64_t resource_validation_skipped_ = 0;
+  std::uint64_t resource_fast_path_probe_duration_ns_ = 0;
 };
-
-using StyioAnalyzer = AstToStyioIRLowerer;
 
 #endif

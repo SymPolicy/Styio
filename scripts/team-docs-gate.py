@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -11,6 +12,31 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def generated_plan_roots() -> tuple[Path, ...]:
+    manifest_path = ROOT / "docs" / "plan" / "Manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+    if not isinstance(manifest, dict):
+        return ()
+    roots: list[Path] = []
+    for entry in manifest.get("plans", []):
+        if not isinstance(entry, dict):
+            continue
+        directory = entry.get("directory")
+        if not isinstance(directory, str):
+            continue
+        relative = Path(directory)
+        if len(relative.parts) != 1 or relative.parts[0] in {"", ".", ".."}:
+            continue
+        roots.append(Path("docs/plan") / relative)
+    return tuple(roots)
+
+
+GENERATED_PLAN_ROOTS = generated_plan_roots()
 
 
 @dataclass(frozen=True)
@@ -23,14 +49,25 @@ class TeamRule:
 
 TEAM_RULES: tuple[TeamRule, ...] = (
     TeamRule(
+        "coordination",
+        "Coordination",
+        Path("docs/teams/COORDINATION-RUNBOOK.md"),
+        (),
+    ),
+    TeamRule(
         "frontend",
         "Frontend",
         Path("docs/teams/FRONTEND-RUNBOOK.md"),
         (
             "src/StyioToken/",
             "src/StyioUnicode/",
+            "src/StyioPlatform/",
+            "src/StyioUtil/SourceMap.cpp",
+            "src/StyioUtil/SourceMap.hpp",
             "src/StyioParser/",
             "src/Deprecated/",
+            "scripts/parser-legacy-entry-audit.py",
+            "scripts/parser-legacy-entry-audit.sh",
         ),
     ),
     TeamRule(
@@ -39,14 +76,16 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/SEMA-IR-RUNBOOK.md"),
         (
             "src/StyioAST/",
-            "src/StyioAnalyzer/",
             "src/StyioSema/",
             "src/StyioLowering/",
             "src/StyioIR/",
             "src/StyioResourceTopology/",
             "src/StyioToString/",
             "src/StyioSession/",
-            "src/cmake/StyioFrontendSources.cmake",
+            "src/StyioServices/StyioObservable/",
+            "src/StyioServices/StyioObservableProducer/",
+            "src/StyioUtil/SemanticIdentity.hpp",
+            "src/StyioUtil/SemanticIdentity.cpp",
         ),
     ),
     TeamRule(
@@ -58,6 +97,9 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "src/StyioJIT/",
             "src/StyioExtern/",
             "src/StyioRuntime/",
+            "src/StyioNative/",
+            "src/StyioServices/StyioObservable/RuntimeCorrelation.hpp",
+            "src/StyioServices/StyioObservable/RuntimeCorrelation.cpp",
             "scripts/runtime-surface-gate.py",
         ),
     ),
@@ -67,7 +109,9 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/CLI-NANO-RUNBOOK.md"),
         (
             "src/main.cpp",
-            "src/StyioConfig/",
+            "src/StyioServices/StyioCLI/",
+            "src/StyioServices/StyioConfig/",
+            "src/StyioServices/StyioObservableProducer/",
             "configs/",
             "scripts/gen-styio-nano-profile.py",
             "scripts/source-build-minimal.sh",
@@ -79,8 +123,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         "IDE / LSP",
         Path("docs/teams/IDE-LSP-RUNBOOK.md"),
         (
-            "src/StyioIDE/",
-            "src/StyioLSP/",
+            "src/StyioServices/StyioIDE/",
+            "src/StyioServices/StyioLSP/",
             "docs/external/for-ide/",
             "tests/ide/",
         ),
@@ -91,8 +135,8 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/GRAMMAR-RUNBOOK.md"),
         (
             "grammar/tree-sitter-styio/",
-            "src/StyioIDE/TreeSitterBackend.cpp",
-            "src/StyioIDE/TreeSitterBackend.hpp",
+            "src/StyioServices/StyioIDE/TreeSitterBackend.cpp",
+            "src/StyioServices/StyioIDE/TreeSitterBackend.hpp",
         ),
     ),
     TeamRule(
@@ -102,10 +146,10 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "tests/",
             "src/StyioTesting/",
-            "extend_tests.py",
             "tests/workflow_scheduler_test.py",
-            "scripts/parser-shadow-suite-gate.sh",
+            "tests/gates/parser-shadow-suite-gate.py",
             "scripts/fuzz-regression-pack.sh",
+            "scripts/coverage-gate.sh",
             "scripts/checkpoint-health.sh",
         ),
     ),
@@ -115,6 +159,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         Path("docs/teams/PERF-STABILITY-RUNBOOK.md"),
         (
             "benchmark/",
+            "src/StyioProfiler/",
         ),
     ),
     TeamRule(
@@ -124,6 +169,7 @@ TEAM_RULES: tuple[TeamRule, ...] = (
         (
             "README.md",
             "docs/",
+            "library/",
             "workflows/",
             "templates/",
             "scripts/docs-index.py",
@@ -132,11 +178,49 @@ TEAM_RULES: tuple[TeamRule, ...] = (
             "scripts/docs_config.py",
             "scripts/docs-lifecycle.py",
             "scripts/delivery-gate.sh",
+            "scripts/stdlib-manifest-gate.py",
             "scripts/workflow-scheduler.py",
             "scripts/team-docs-gate.py",
         ),
     ),
 )
+
+# Source fragments follow their maintainers; target modules follow the target's
+# contract. Transitive consumers do not become maintainers merely by linking it.
+# Only actual shared composition/helpers require several roles. The entry point
+# (and any not-yet-mapped CMake file) requires Coordination to assign ownership.
+CMAKE_ROLES: dict[str, tuple[str, ...]] = {
+    "src/CMakeLists.txt": ("coordination",),
+    "src/cmake/StyioTargetHelpers.cmake": ("frontend", "sema_ir", "codegen_runtime", "cli_nano", "ide_lsp"),
+    "src/cmake/StyioSymbolSources.cmake": ("frontend",),
+    "src/cmake/StyioFrontendFoundationSources.cmake": ("frontend",),
+    "src/cmake/StyioFrontendProfilerSources.cmake": ("perf_stability",),
+    "src/cmake/StyioSemaIRSources.cmake": ("sema_ir",),
+    "src/cmake/StyioNativeInteropSources.cmake": ("codegen_runtime",),
+    "src/cmake/StyioFrontendSources.cmake": ("frontend", "sema_ir", "codegen_runtime", "perf_stability"),
+    "src/cmake/StyioBackendSources.cmake": ("codegen_runtime",),
+    "src/cmake/StyioRuntimeSources.cmake": ("codegen_runtime",),
+    "src/cmake/StyioTestingSources.cmake": ("test_quality",),
+    "src/cmake/StyioCoreSources.cmake": ("codegen_runtime", "test_quality"),
+    "src/cmake/StyioRuntimeCorrelationSources.cmake": ("sema_ir", "codegen_runtime"),
+    "src/cmake/StyioObservableSources.cmake": ("sema_ir", "codegen_runtime"),
+    "src/cmake/StyioObservableProducerSources.cmake": ("sema_ir", "cli_nano"),
+    "src/cmake/StyioCLIContractSources.cmake": ("sema_ir", "cli_nano"),
+    "src/cmake/StyioIDESources.cmake": ("ide_lsp",),
+    "src/cmake/StyioLSPSources.cmake": ("ide_lsp",),
+    "src/cmake/StyioNanoCoreSources.cmake": ("cli_nano",),
+    "src/cmake/targets/StyioSymbolCore.cmake": ("frontend",),
+    "src/cmake/targets/StyioFrontendCore.cmake": ("frontend", "sema_ir", "codegen_runtime", "perf_stability"),
+    "src/cmake/targets/StyioRuntimeCore.cmake": ("codegen_runtime",),
+    "src/cmake/targets/StyioCore.cmake": ("codegen_runtime", "test_quality"),
+    "src/cmake/targets/StyioObservableCore.cmake": ("sema_ir", "codegen_runtime"),
+    "src/cmake/targets/StyioCLIContractCore.cmake": ("sema_ir", "cli_nano"),
+    "src/cmake/targets/StyioIDECore.cmake": ("ide_lsp", "grammar"),
+    "src/cmake/targets/StyioLSPD.cmake": ("ide_lsp",),
+    "src/cmake/targets/Styio.cmake": ("cli_nano",),
+    "src/cmake/targets/StyioNanoCore.cmake": ("cli_nano",),
+    "src/cmake/targets/StyioNano.cmake": ("cli_nano",),
+}
 
 TEAM_RUNBOOKS = {
     Path("docs/teams/CLI-NANO-RUNBOOK.md"),
@@ -192,7 +276,7 @@ def normalize_path(path: str) -> Path:
 
 
 def changed_from_worktree() -> List[Path]:
-    proc = run_git(["status", "--porcelain=v1", "--untracked-files=all"])
+    proc = run_git(["status", "--porcelain", "--untracked-files=all"])
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout).strip()
         raise RuntimeError(f"git status failed: {detail}")
@@ -203,7 +287,9 @@ def changed_from_worktree() -> List[Path]:
             continue
         raw = line[3:]
         if " -> " in raw:
-            raw = raw.split(" -> ", 1)[1]
+            previous, raw = raw.split(" -> ", 1)
+            if "R" in line[:2]:
+                paths.append(normalize_path(previous))
         paths.append(normalize_path(raw))
     return sorted(set(paths), key=lambda p: p.as_posix())
 
@@ -237,6 +323,8 @@ def parse_name_status(text: str) -> List[Path]:
         parts = line.split("\t")
         status = parts[0]
         if status.startswith(("R", "C")) and len(parts) >= 3:
+            if status.startswith("R"):
+                paths.append(normalize_path(parts[1]))
             paths.append(normalize_path(parts[2]))
         elif len(parts) >= 2:
             paths.append(normalize_path(parts[1]))
@@ -254,6 +342,10 @@ def is_ignored_trigger(path: Path) -> bool:
         return True
     if path.as_posix().startswith("docs/teams/"):
         return True
+    if any(path == root or root in path.parents for root in GENERATED_PLAN_ROOTS):
+        return True
+    if path == Path("docs/plan/.better-plan.lock"):
+        return True
     return False
 
 
@@ -269,8 +361,11 @@ def required_team_updates(changed_paths: Iterable[Path]) -> Dict[TeamRule, List[
     for path in changed_paths:
         if is_ignored_trigger(path):
             continue
+        cmake_roles = CMAKE_ROLES.get(path.as_posix(), ())
+        if not cmake_roles and path.as_posix().startswith("src/cmake/") and path.suffix == ".cmake":
+            cmake_roles = ("coordination",)
         for rule in TEAM_RULES:
-            if any(matches_prefix(path, prefix) for prefix in rule.prefixes):
+            if rule.key in cmake_roles or any(matches_prefix(path, prefix) for prefix in rule.prefixes):
                 required.setdefault(rule, []).append(path)
     return required
 

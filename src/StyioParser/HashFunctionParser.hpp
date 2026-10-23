@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -17,6 +18,7 @@ class HashFunctionOwnedState
 private:
   std::unique_ptr<NameAST> tag_name_;
   std::vector<std::unique_ptr<ParamAST>> params_;
+  std::vector<std::unique_ptr<NameAST>> captures_;
   std::unique_ptr<TypeAST> ret_type_;
   std::unique_ptr<TypeTupleAST> ret_tuple_;
   bool ret_is_tuple_ = false;
@@ -56,6 +58,21 @@ public:
     return params;
   }
 
+  void set_captures(std::vector<std::unique_ptr<NameAST>> captures) {
+    captures_ = std::move(captures);
+  }
+
+  std::vector<NameAST*>
+  release_captures() {
+    std::vector<NameAST*> captures;
+    captures.reserve(captures_.size());
+    for (auto& capture : captures_) {
+      captures.push_back(capture.release());
+    }
+    captures_.clear();
+    return captures;
+  }
+
   void set_ret_type(std::variant<TypeAST*, TypeTupleAST*> ret_type) {
     ret_type_.reset();
     ret_tuple_.reset();
@@ -79,6 +96,55 @@ public:
 
 } // namespace styio_hash_parser_detail
 
+inline std::vector<std::unique_ptr<NameAST>>
+parse_hash_capture_list_common_latest(StyioContext& context) {
+  context.match_panic(StyioTokenType::TOK_DOLLAR);
+  context.skip();
+  if (context.cur_tok_type() != StyioTokenType::TOK_LPAREN) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok("expected '(' after '$' in callable capture list")
+    );
+  }
+  context.move_forward(1, "hash_capture_open");
+  context.skip();
+
+  std::vector<std::unique_ptr<NameAST>> captures;
+  std::unordered_set<std::string> seen;
+  if (context.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok("callable capture list requires at least one name")
+    );
+  }
+
+  while (true) {
+    if (context.cur_tok_type() != StyioTokenType::NAME) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected a name in callable capture list")
+      );
+    }
+    std::unique_ptr<NameAST> capture(parse_name_unsafe(context));
+    if (!seen.insert(capture->getAsStr()).second) {
+      throw StyioSyntaxError(
+        "duplicate callable capture `" + capture->getAsStr() + "`"
+      );
+    }
+    captures.push_back(std::move(capture));
+    context.skip();
+    if (context.cur_tok_type() == StyioTokenType::TOK_RPAREN) {
+      context.move_forward(1, "hash_capture_close");
+      break;
+    }
+    if (context.cur_tok_type() != StyioTokenType::TOK_COMMA) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected ',' or ')' in callable capture list")
+      );
+    }
+    context.move_forward(1, "hash_capture_comma");
+    context.skip();
+  }
+  return captures;
+}
+
 struct StyioHashFunctionParserOps
 {
   bool require_name = false;
@@ -97,6 +163,66 @@ struct StyioHashFunctionParserOps
   CasesAST* (*parse_cases)(StyioContext& context) = nullptr;
   StyioAST* (*parse_iterator)(StyioContext& context, StyioAST* collection) = nullptr;
 };
+
+inline bool
+try_parse_hash_extern_binding_common_latest(StyioContext& context, StyioAST*& out) {
+  const auto saved = context.save_cursor();
+
+  if (!context.try_match(StyioTokenType::TOK_HASH)) {
+    context.restore_cursor(saved);
+    return false;
+  }
+  context.skip();
+
+  std::vector<std::string> exported_symbols;
+  if (context.cur_tok_type() != StyioTokenType::NAME) {
+    context.restore_cursor(saved);
+    return false;
+  }
+  exported_symbols.push_back(context.curTextString());
+  context.move_forward(1, "hash_extern_binding_name");
+  context.skip();
+
+  while (context.cur_tok_type() == StyioTokenType::TOK_COMMA) {
+    context.move_forward(1, "hash_extern_binding_comma");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::NAME) {
+      context.restore_cursor(saved);
+      return false;
+    }
+    exported_symbols.push_back(context.curTextString());
+    context.move_forward(1, "hash_extern_binding_name");
+    context.skip();
+  }
+
+  if (context.cur_tok_type() != StyioTokenType::WALRUS
+      && context.cur_tok_type() != StyioTokenType::TOK_EQUAL) {
+    context.restore_cursor(saved);
+    return false;
+  }
+  context.move_forward(1, "hash_extern_binding_assign");
+  context.skip();
+
+  if (context.cur_tok_type() != StyioTokenType::TOK_AT) {
+    context.restore_cursor(saved);
+    return false;
+  }
+
+  const auto at_saved = context.save_cursor();
+  context.move_forward(1, "hash_extern_binding_at_probe");
+  context.skip();
+  const bool is_extern =
+    context.cur_tok_type() == StyioTokenType::NAME
+    && context.curLexeme() == "extern";
+  context.restore_cursor(at_saved);
+  if (!is_extern) {
+    context.restore_cursor(saved);
+    return false;
+  }
+
+  out = parse_bound_extern_after_at_latest(context, std::move(exported_symbols));
+  return true;
+}
 
 inline std::variant<TypeAST*, TypeTupleAST*>
 parse_hash_return_type_common_latest(
@@ -133,10 +259,20 @@ parse_hash_function_common_latest(
   StyioContext& context,
   const StyioHashFunctionParserOps& ops
 ) {
+  StyioAST* extern_binding = nullptr;
+  if (try_parse_hash_extern_binding_common_latest(context, extern_binding)) {
+    return extern_binding;
+  }
+
   context.match_panic(StyioTokenType::TOK_HASH);
   context.skip();
 
   styio_hash_parser_detail::HashFunctionOwnedState state;
+  auto finish_definition = [&](auto* definition) -> StyioAST*
+  {
+    definition->setCaptureNames(state.release_captures());
+    return definition;
+  };
   if (context.cur_tok_type() == StyioTokenType::NAME) {
     state.set_name(parse_name_unsafe(context));
   }
@@ -157,14 +293,20 @@ parse_hash_function_common_latest(
   }
 
   context.skip();
+  if (context.cur_tok_type() == StyioTokenType::TOK_DOLLAR) {
+    state.set_captures(
+      parse_hash_capture_list_common_latest(context));
+  }
+
+  context.skip();
   if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
     std::unique_ptr<StyioAST> body(ops.parse_block(context));
-    return FunctionAST::Create(
+    return finish_definition(FunctionAST::Create(
       state.release_name(),
       false,
       state.release_params(),
       state.release_ret_type(),
-      body.release());
+      body.release()));
   }
 
   if (context.cur_tok_type() == StyioTokenType::MATCH) {
@@ -172,12 +314,12 @@ parse_hash_function_common_latest(
     context.skip();
     if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
       std::unique_ptr<StyioAST> body(ops.parse_cases(context));
-      return FunctionAST::Create(
+      return finish_definition(FunctionAST::Create(
         state.release_name(),
         true,
         state.release_params(),
         state.release_ret_type(),
-        body.release());
+        body.release()));
     }
 
     std::vector<StyioAST*> rvals;
@@ -191,12 +333,12 @@ parse_hash_function_common_latest(
       rvals.push_back(rval.release());
     }
     std::unique_ptr<StyioAST> body(CheckEqualAST::Create(rvals));
-    return FunctionAST::Create(
+    return finish_definition(FunctionAST::Create(
       state.release_name(),
       true,
       state.release_params(),
       state.release_ret_type(),
-      body.release());
+      body.release()));
   }
 
   context.skip();
@@ -206,14 +348,14 @@ parse_hash_function_common_latest(
         context.mark_cur_tok("Confusing: The iterator (>>) can not be applied to multiple objects.")
       );
     }
-    std::unique_ptr<NameAST> iter_collection(NameAST::Create(state.param_at(0)->getName()));
+    std::unique_ptr<NameAST> iter_collection(context.interned_name(state.param_at(0)->getName()));
     std::unique_ptr<StyioAST> body(ops.parse_iterator(context, iter_collection.release()));
-    return FunctionAST::Create(
+    return finish_definition(FunctionAST::Create(
       state.release_name(),
       true,
       state.release_params(),
       state.release_ret_type(),
-      body.release());
+      body.release()));
   }
 
   context.skip();
@@ -236,6 +378,23 @@ parse_hash_function_common_latest(
   if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_LPAREN) {
     state.set_params(parse_params(context));
   }
+  else if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_HASH) {
+    context.move_forward(1, "hash_callable_rhs");
+    context.skip();
+    if (context.cur_tok_type() != StyioTokenType::TOK_LPAREN) {
+      throw StyioSyntaxError(
+        context.mark_cur_tok("expected #(param...) callable body after hash binding operator")
+      );
+    }
+    state.set_params(parse_params(context));
+  }
+
+  context.skip();
+  if (saw_assign && context.cur_tok_type() == StyioTokenType::TOK_AT) {
+    throw StyioSyntaxError(
+      context.mark_cur_tok("resource atoms must stay in @ resource syntax; # bindings require callable bodies")
+    );
+  }
 
   context.skip();
   if (saw_assign && context.cur_tok_type() == StyioTokenType::MATCH) {
@@ -252,17 +411,17 @@ parse_hash_function_common_latest(
         context.mark_cur_tok("expected case block after function match sugar ?=")
       );
     }
-    std::unique_ptr<NameAST> scrutinee(NameAST::Create(scrutinee_name));
+    std::unique_ptr<NameAST> scrutinee(context.interned_name(scrutinee_name));
     std::unique_ptr<CasesAST> cases(ops.parse_cases(context));
     std::unique_ptr<StyioAST> body(MatchCasesAST::make(scrutinee.get(), cases.get()));
     scrutinee.release();
     cases.release();
-    return FunctionAST::Create(
+    return finish_definition(FunctionAST::Create(
       state.release_name(),
       is_unique,
       state.release_params(),
       state.release_ret_type(),
-      body.release());
+      body.release()));
   }
 
   context.skip();
@@ -271,31 +430,31 @@ parse_hash_function_common_latest(
     context.skip();
     if (context.cur_tok_type() == StyioTokenType::TOK_LCURBRAC) {
       std::unique_ptr<StyioAST> body(ops.parse_block(context));
-      return FunctionAST::Create(
+      return finish_definition(FunctionAST::Create(
         state.release_name(),
         is_unique,
         state.release_params(),
         state.release_ret_type(),
-        body.release());
+        body.release()));
     }
     std::unique_ptr<StyioAST> statement(ops.parse_statement(context));
-    return SimpleFuncAST::Create(
+    return finish_definition(SimpleFuncAST::Create(
       state.release_name(),
       is_unique,
       state.release_params(),
       state.release_ret_type(),
-      statement.release());
+      statement.release()));
   }
 
   if (saw_assign) {
     context.skip();
     std::unique_ptr<StyioAST> expression(ops.parse_expression(context));
-    return SimpleFuncAST::Create(
+    return finish_definition(SimpleFuncAST::Create(
       state.release_name(),
       is_unique,
       state.release_params(),
       state.release_ret_type(),
-      expression.release());
+      expression.release()));
   }
 
   throw StyioSyntaxError(context.mark_cur_tok("expected => or expression body in hash function"));

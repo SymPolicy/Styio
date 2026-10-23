@@ -2,13 +2,25 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of repository documentation, generated indexes, archive/rollup lifecycle, templates, and external Styio ecosystem handoff material.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-06
+
+Delivery auto composes worktree and push profiles in one read-only scheduler invocation. Shared successful checks run once; scope-specific hygiene and team-docs checks remain distinct. See [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md#composing-local-profiles) for reuse boundaries.
+
+File coverage discovery and final CI evidence reporting are advisory, automatically routed from Git paths, and do not add a per-file manifest or merge gate. Keep this boundary aligned with [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md#automatic-advisory-inventory-and-final-report).
+
+Authorship documentation is maintained in [Authorship policy](../AUTHORSHIP.md). Preserve the policy requirements and keep contributor guidance aligned with its draft, human re-authorship, and review process; documentation maintenance does not waive those requirements.
 
 ## Mission
 
-Own documentation structure and cross-repository clarity. This team protects SSOT discipline, generated indexes, archive provenance, external repository boundaries, handoff notes, and reusable templates. It does not redefine language semantics, accepted tests, or package-manager ownership.
+Maintain current documentation, generated inventories, lifecycle metadata,
+workflow entrypoints, and cross-repository handoffs. Language features, public
+interfaces, tests, and repository roles retain their own authoritative documents.
+Use this runbook to find the owner and verification path for a documentation
+change.
 
 ## Owned Surface
+
+Target-scoped CMake maintenance routing is authoritative in `scripts/team-docs-gate.py` (`CMAKE_ROLES`) and described in `workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md`. Preserve exact positive and negative assertions in `tests/cmake_ownership_test.py`. Do not reinstate the old blanket service-manifest mapping or treat transitive consumers as maintainers; source membership, target configuration, shared composition, and the Coordination entry point have distinct review boundaries.
 
 Primary paths:
 
@@ -24,73 +36,146 @@ Primary paths:
 10. `scripts/team-docs-gate.py`
 11. `scripts/workflow-scheduler.py`
 12. `scripts/delivery-gate.sh`
+13. `scripts/manifest_tool.py`
 
 Key SSOTs:
 
 1. [../specs/DOCUMENTATION-POLICY.md](../specs/DOCUMENTATION-POLICY.md)
 2. [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md)
-3. [../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md](../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md)
+3. [../../workflows/DOCS-MAINTENANCE-WORKFLOW.md](../../workflows/DOCS-MAINTENANCE-WORKFLOW.md)
+4. [../design/Styio-Observable-Language.md](../design/Styio-Observable-Language.md)
 
 ## Daily Workflow
 
-1. Check whether the content already has an owning SSOT before adding a new file.
-2. Prefer linking and short summaries over copying rules across documents.
-3. Add `Purpose` and `Last updated` metadata to every active docs file.
-4. Use [../assets/templates/TEAM-RUNBOOK-TEMPLATE.md](../assets/templates/TEAM-RUNBOOK-TEMPLATE.md) for team runbook structure changes.
-5. Regenerate `INDEX.md` files after collection changes.
-6. Use `python3 scripts/docs-scaffold.py ...` for new docs files or new docs collection directories so metadata, collection registration, and generated indexes are created together.
-7. Keep repository-level bootstrap/build entrypoints under `docs/BUILD-AND-DEV-ENV.md`, and push subsystem-only details back down into the owning docs collection instead of overloading `README.md` or `docs/external/for-ide/`.
-8. Run the team runbook maintenance gate before delivery so source/test/docs folder changes cannot land without the mapped runbook update or required runbook format.
-9. Use archive lifecycle tooling for raw history/review metadata and cleanup rather than manually moving provenance.
-10. Use the default unified delivery gate for docs/process deliveries so worktree hygiene, branch-range hygiene, runbook maintenance, docs audit, and external audit stay coupled behind one command.
-11. When refactoring `scripts/delivery-gate.sh`, keep literal scheduler profile invocations visible for `delivery-checkpoint` and `delivery-push` so released `styio-audit` can verify that the unified entrypoint still delegates to the approved scheduler profiles.
-12. Keep the ecosystem CLI contract mirror and cross-repo doc gate aligned whenever `styio-pafio` or `styio-view` handoff docs change.
-13. When a compiler-side machine contract grows, update the owner SSOT and both consumer handoff docs in the same checkpoint instead of leaving one side on preview wording.
-14. Keep generated `INDEX.md` files deterministic for empty collections by deriving fallback timestamps from collection metadata instead of local wall-clock date.
-15. When CI validates sibling ecosystem repositories, resolve the sibling checkout to the PR target branch when it is `release`, `stable`, or `nightly`; otherwise use `nightly` as the shared temporary-branch baseline.
-16. When syntax-delivery rules change, update the workflow asset, gate scripts, and delivery entrypoints in the same checkpoint; workflow-only prose is not enough.
-17. Keep `docs/assets/workflow/WORKFLOW-ORCHESTRATION.md` and `scripts/workflow-scheduler.py` as the registry for workflow separation; new workflow assets must be registered and pass scheduler validation before delivery.
-18. Keep repository-level build bootstrap docs aligned with the standardized shared baseline: Debian 13, LLVM 18.1.x, CMake/CTest 3.31.6, Python 3.13.5, and Node.js v24.15.0 LTS where Node-backed tooling exists; when CI mirrors differ by host OS, document the mirror explicitly instead of drifting the toolchain version text.
-19. Keep `docs/external/for-pafio/` aligned with the current `binary` vs `build` split: `--machine-info=json` remains the binary handshake, while `--source-build-info=json` owns the official source-layout contract for `pafio build`.
-20. When a compiler/runtime/contract adjustment spans multiple checkpoints, add or update an explicit `docs/plans/` implementation plan instead of leaving the execution order only in handoff or runbook prose.
-21. When the compiler-side source-build helper changes, keep `scripts/source-build-minimal.sh`, `docs/BUILD-AND-DEV-ENV.md`, and the `--source-build-info=json` handoff wording aligned in the same checkpoint.
-22. When a plan remains in `docs/plans/` after one stage closes, make the file say whether it is still `Active`, `Repo-local baseline completed`, or ready for deletion after promotion; do not force readers to infer status from scattered stage tables.
-23. Keep repository entry docs honest about maturity: if repo-local baselines are complete but ecosystem closure is still open, say that explicitly instead of leaving stale `early stage` wording in top-level entrypoints.
-24. When an evidence-backed closure retires a gap, move it out of the open gap table, add the smallest closed-evidence note, update the matching checkpoint tree entry, and regenerate affected generated indexes.
-25. Keep [../specs/POST-COMMIT-CI-CHECKS.md](../specs/POST-COMMIT-CI-CHECKS.md) aligned with actual GitHub Actions monitoring practice whenever commit, push, or CI handoff rules change.
-26. Keep GitHub Actions sibling checkouts for `styio-pafio` and `styio-view` pinned to the same branch ref as `styio-nightly` when a workflow runs cross-repository gates.
-27. Keep compact syntax references under `docs/design/syntax/` short and defer semantic detail to the owning design SSOT.
-28. When syntax tokens change, update the compact syntax page, EBNF, and symbol reference together before regenerating indexes.
-29. When standard-stream or resource identifier declarations change, keep `src/StyioPrelude/resources.styio`, `docs/design/syntax/RESOURCE_IDENTIFIERS.md`, `docs/design/syntax/CONTINUATION_TRANSFER.md`, EBNF, symbol reference, and the language design aligned on accepted source forms, canonical/compatibility status, and parser-implementation status.
-30. Keep root `workflows/`, `workflows/skills/`, `workflows/workflows.toml`, generated workflow indexes, and `docs/assets/workflow/` mirrors aligned whenever reusable workflows or repo-local skills are added.
-31. Keep repo-local skills concise: workflow docs own sequencing, while `skill.toml` owns reusable execution discipline and references.
-32. Workflow and skill machine-readable definitions must use TOML (`*.toml`, `skill.toml`, and `agents/openai.toml`); Markdown remains explanatory only.
-33. When test coverage changes require `docs/assets/workflow/TEST-CATALOG.md`, keep the catalog as an evidence index and point behavior ownership back to the implementation or test-quality runbook instead of embedding new language semantics there.
-34. When language SSOT docs change token-count semantics, update the design page, EBNF, symbol reference, and test catalog in one checkpoint so docs readers do not see conflicting operator depth rules.
-35. When syntax is retired, document the cutover in active SSOT docs and tests. Do not keep retired examples as runnable acceptance cases or recreate old milestone pages in the current tree.
-36. When the SymPolicy Styio repository set changes, refresh the inventory with `gh repo list SymPolicy --limit 200`, then update root `README.md`, [../specs/REPOSITORY-MAP.md](../specs/REPOSITORY-MAP.md), and any active ecosystem plan that names the old repository set.
-37. Keep [../specs/TECHNOLOGY-COMPONENT-INVENTORY.md](../specs/TECHNOLOGY-COMPONENT-INVENTORY.md) aligned with `styio-audit` whenever the technology stack, internal components, open-source components, dependency manifests, Apache-2.0 evidence, or commercial-risk boundaries change.
-38. Keep external `styio-audit` execution wired through the repository delivery gate and dedicated GitHub Actions workflow whenever audit policy or cross-repo CI ownership changes.
-39. Maintain GitHub merge gates through Rulesets rather than legacy classic branch protection; audit effective branch rules when required status-check governance changes.
-40. Keep `docs/audit/defects/` ignored and out of tracked commits; promote audit findings into an approved docs collection or issue before they become repository-owned records.
-41. When compiler source directories are renamed or split, update active path references across `AGENT-SPEC`, technology inventory, workflow mirrors, rollups, audit findings, and team-runbook mappings in the same checkpoint; old paths remain recoverable through Git history.
-42. When C++ reference equivalence tests add algorithm cases, keep `docs/assets/workflow/TEST-CATALOG.md` as the concise evidence index and leave case layout details in `tests/algorithms/README.md` plus the Test Quality runbook.
-43. When a user-driven syntax correction exposes a compiler/spec mismatch, record the reusable closure path in the workflow directory and make the workflow entrypoint tell agents to read the applicable workflow before editing.
-44. Keep CMake build output conventions under `build/<variant>` across scripts, GitHub Actions, workflow docs, and external handoff docs; root `build-*` directories are legacy generated artifacts only and should not be introduced by new commands.
-45. When a typed syntax addition changes design SSOTs and test catalogs together, keep the docs update concise: record the accepted source form, point catalog entries to evidence coverage, refresh generated indexes, and update team stats in the same delivery.
-46. When source spellings are declared canonically equivalent, keep the ADR, design SSOT, workflow mirror, and test catalog aligned while leaving behavior ownership in parser, Sema / IR, Codegen / Runtime, and Test Quality runbooks.
-47. When a milestone test catalog changes for new resource-management syntax, update only the evidence index there and keep lifecycle rules in the owning team runbooks; then refresh `DOC-STATS.md` before rerunning the team-docs gate.
-48. Keep the Styio / `styio-benchmark` boundary explicit: Styio docs may describe probes and compatibility wrappers, but benchmark workloads, runners, baselines, reports, and regression records must point to `styio-benchmark`.
-49. When compiler-owned resource topology code changes, keep the design SSOT, test catalog, Sema / IR runbook, Test Quality runbook, and `DOC-STATS.md` aligned in the same delivery so source, evidence, and ownership do not drift.
-50. When retired syntax is removed from active compiler examples, keep active design docs, EBNF, symbol reference, language design, standard-library notes, implementation plans, and test catalogs aligned on the same retired/negative-test wording.
-51. When the compiler-side native artifact command changes, keep root README usage, the ecosystem CLI contract matrix, and the `styio-benchmark` boundary language aligned: `styio build <file_path> -o <artifact_name>` owns artifact production, while benchmark workloads and scoreboards remain in `styio-benchmark`.
-52. Public resource-management statements must cite primary language or platform sources and map each borrowed practice to Styio's actual compiler evidence. Keep the wording at "modern resource-management language" unless formal proof, async/task stress evidence, and driver-family validation justify a stronger statement.
-53. Keep public wording concise and evidence-scoped. Do not speculate about companies, organizations, individuals, projects, products, or their capabilities; do not use absolute marketing superlatives or unsupported superiority language in repository docs.
-54. README showcase examples must point to repository-local Styio source that can be run from the repository root, and the documented command/output pair must be verified before publication.
-55. Root community files such as `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, and release-policy documents are approved public docs only when `scripts/docs-audit.py` classifies them explicitly and their wording stays evidence-scoped.
-56. Active `example/` and `tests/` directories must not carry non-runnable language drafts. Delete drafts from the current tree after durable rules are promoted, and keep active README links pointed at CTest-covered examples.
-57. Do not describe Styio as equivalent to another language's resource model. State the exact compiler evidence Styio has, then list external practices only as references.
-58. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
+### 1. Select the authority and change scope
+
+1. Start from [CURRENT-STATE](../rollups/CURRENT-STATE.md), then the
+   [documentation authority table](../specs/DOCUMENTATION-POLICY.md#04-常见单一事实来源ssot速查)
+   and [change-routing workflow](../../workflows/DOCS-MAINTENANCE-WORKFLOW.md#change-routing).
+2. Update the existing owner document. Create a new document only after the
+   reuse check, using `scripts/docs-scaffold.py --reuse-reviewed`. Keep English
+   authoritative and translation companions explicit.
+3. Distinguish accepted semantics, implemented capability scope, research
+   proposals, and unverified evidence. Update statements in place rather than
+   appending a dated correction below a contradictory statement. Apply the
+   [public wording rules](../specs/DOCUMENTATION-POLICY.md#012-public-wording-discipline).
+4. Route behavior review to the affected source owner through the
+   [coordination matrix](./COORDINATION-RUNBOOK.md#review-matrix). Documentation
+   review does not replace compiler or consumer acceptance.
+
+### 2. Maintain documents, generated views, and tracked assets
+
+1. Maintain `Purpose` and `Last updated`, relative links, and the standard
+   [runbook headings](../assets/templates/TEAM-RUNBOOK-TEMPLATE.md). Replace
+   developer-machine details with documented placeholders.
+2. Regenerate indexes with `scripts/docs-index.py --write`. The generator derives
+   dates from collection entries, then collection metadata for empty directories;
+   UTC today is a fallback. Do not hand-edit generated inventories.
+3. Refresh [DOC-STATS](./DOC-STATS.md) from the docs-audit JSON export whenever
+   runbooks change. Counts describe maintenance scope, not document quality.
+4. Keep installed shared assets tracked even when broad ignore rules match them.
+   The resource prelude lives at `share/styio/prelude/resources.styio`; its
+   ownership is defined by [library/manifest.json](../../library/manifest.json)
+   and the [library guide](../../library/README.md).
+5. Follow [repository hygiene](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md)
+   for approved document roots, ignored audit output, generated files, and
+   residue checks. Current examples reference executable source and test oracles.
+6. Keep public host contract pages, including [LSP Usage](../external/for-ide/LSP.md),
+   aligned with owner sources and deterministic tests. Regenerate their collection
+   index when the page metadata changes.
+
+### 3. Synchronize language contracts and evidence
+
+| Change | Owner to update first | Supporting documents |
+|---|---|---|
+| Syntax, tokens, inference, capabilities or callable behavior | The owning [syntax feature SSOT](../design/syntax/features/README.md) | Its declared grammar, token, semantics, diagnostics, compatibility, teaching, implementation and evidence roles |
+| Language model and program views | [Language Design](../design/Styio-Language-Design.md#24-visual-design-intent) | The single `toml design-intent` block, concise README descriptions, research evaluation criteria |
+| Resource definitions, state, selectors and transfer | [Resource Topology](../design/Styio-Resource-Topology.md) and the owning feature | [Resource identifiers](../design/syntax/RESOURCE_IDENTIFIERS.md), shared grammar and accepted/compatibility/retired fixtures |
+| Snapshot, delta, query, identity or runtime-event fields | [Observable decoder contract](../../src/StyioServices/StyioObservable/README.md) | [Observable semantics](../design/Styio-Observable-Language.md), producer/consumer fixtures, CLI/Runtime/IDE handoffs as affected |
+| Test registration, labels and oracles | [Test Catalog](../../workflows/TEST-CATALOG.md) and [Test Quality](./TEST-QUALITY-RUNBOOK.md) | CMake registration and the feature evidence map; focused CTest examples must select a registered test or label and use `--no-tests=error`; algorithm layout stays in [tests/algorithms/README.md](../../tests/algorithms/README.md) |
+
+Use [Add Syntax](../../workflows/ADD-SYNTAX-WITH-SKILLS.md) or
+[Correct Syntax Contract](../../workflows/CORRECT-SYNTAX-CONTRACT.md) for language
+changes. Accepted decisions, delivery state and derived readiness remain
+separate. Update feature documents before regenerating their graph; prerequisite
+convergence alone does not activate a deferred feature.
+
+Compact syntax pages and runbooks link to the owning feature instead of copying
+callable schemes, effect rows, usage facts, closure lifetimes, interface schemas,
+or cache formats. Proposed source forms remain outside executable examples.
+Runtime observation completeness and default-enablement limits come from the
+current contract and [observable follow-up register](../rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md).
+
+### 4. Maintain build, workflow, and ecosystem entrypoints
+
+1. Keep common setup in [BUILD-AND-DEV-ENV](../BUILD-AND-DEV-ENV.md), subsystem
+   build details with their owner, and dependencies in [THIRD-PARTY](../specs/THIRD-PARTY.md).
+   Use `build/<variant>` paths and portable toolchain discovery. Validate documented
+   versions against actual configuration instead of copying a frozen tool list.
+2. Register workflow changes through [Workflow Orchestration](../../workflows/WORKFLOW-ORCHESTRATION.md)
+   and `scripts/workflow-scheduler.py`. When editing `delivery-gate.sh`, preserve
+   literal `delivery-checkpoint` and `delivery-push` scheduler invocations; the
+   `styio-audit` CI job checks those entrypoints. The audit gate runs the
+   repository-internal `scripts/local-info-leak-gate.py`.
+3. Maintain repo-local skills through [workflows/skills/README.md](../../workflows/skills/README.md)
+   and the [tool/skill registry](../../workflows/TOOL-SKILL-REGISTRY-GATE.md).
+   `skill.toml` owns discovery metadata and declared workflow references;
+   a skill's detailed execution instructions have one documented owner.
+   The performance skill uses `SKILL.md` for execution and TOML for registry metadata.
+   The [review-page skill](../../workflows/skills/styio-research-review-page/SKILL.md)
+   uses the same registration model. Its portable generator separates each
+   repository's current facts, proposed work, verification evidence, and Draft PR.
+   Refresh committed EBNF, document paths, and static build declarations through
+   the extractor; display stale or unavailable status when refresh fails.
+4. Preserve [Performance Research](../../workflows/PERFORMANCE-RESEARCH-WORKFLOW.md)
+   role separation: Benchmark owns workload/evidence and independent evaluation;
+   Modification owns authorized compiler changes. Workloads, measurements, and
+   dossiers stay in `styio-benchmark`; this repository owns compiler probes.
+   Treat agent observation windows as progress checkpoints, rely on host
+   completion notifications, and use bounded waits with progress updates only
+   when that host cannot notify.
+5. Route repository roles and external teaching material through the
+   [repository map](../specs/REPOSITORY-MAP.md). Compiler-maintenance and user
+   programming skills have different audiences and repositories.
+6. Maintain compiler/Pafio/Vityo handoffs through the [machine-contract matrix](../external/for-pafio/Styio-Ecosystem-Machine-Contract-Matrix.md)
+   and [nano coordination contract](../external/for-pafio/Styio-Nano-Pafio-Coordination.md).
+   These consumer documents reference the owner schema; they do not duplicate it.
+7. Follow [Post-Commit CI Checks](../specs/POST-COMMIT-CI-CHECKS.md) for sibling
+   checkout refs, evidence reuse, required checks and CI handoffs. Preserve an
+   explicitly scoped single-repository release boundary in its owning plan;
+   cross-repository capability does not expand that release scope.
+
+### 5. Maintain current state and remove absorbed history
+
+1. Keep open gaps with owner, evidence and closure condition in the
+   [gap ledger](../rollups/NEXT-STAGE-GAP-LEDGER.md). Link current implementation
+   inventories rather than repeating historical test counts or old stage status.
+2. Follow [plan state ownership](../plan/README.md#state-ownership): the semantic
+   plan, execution checkpoints and rendered projection have separate writers.
+   Update plan inventory only from verified acceptance; keep external blockers
+   explicit. Do not hand-edit generated plan projections during docs cleanup.
+3. Retain interrupted recovery information only while it is needed. Promote
+   surviving decisions to their owner, unresolved work to the gap ledger, and
+   use `docs-lifecycle.py mark` / `cleanup` for supported history/review/audit
+   families. Git history retains exact old prose; archive directories retain
+   lifecycle metadata rather than duplicate content.
+4. Preserve [local divergence migration](../rollups/LOCAL-DIVERGENCE-MIGRATION-2026-07-04.md)
+   until its remaining checkpoints close. A date in a filename is not evidence
+   that an active migration or unresolved design decision can be removed.
+5. Review current rollups separately: remove absorbed narrative, correct stale
+   facts from source/test evidence, and preserve still-open constraints. The
+   lifecycle tool does not classify ordinary rollups as dated history.
+
+### 6. Verify and hand off
+
+1. Run the focused contract or tool regression, then the Required Gates below.
+2. Include source revision, affected owners, commands and passed/failed/not-run
+   results. An absent external audit, consumer repository or platform is an
+   explicit verification limit, not a passing result.
+3. Before a commit, use [Functional Commit Readiness](../../workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md)
+   and the applicable staged delivery gate. A committer self-check reuses
+   existing authorization and evidence; separate publication decisions retain
+   their own scope.
 
 ## Change Classes
 
@@ -105,6 +190,7 @@ Documentation gates:
 ```bash
 python3 scripts/docs-index.py --write
 python3 scripts/workflow-scheduler.py check
+python3 scripts/syntax-feature-state-gate.py
 python3 scripts/team-docs-gate.py
 python3 scripts/docs-lifecycle.py validate
 python3 scripts/ecosystem-cli-doc-gate.py
@@ -149,6 +235,18 @@ Record unfinished docs/ecosystem work with:
 5. External repository or handoff owner affected.
 6. Archive/rollup lifecycle action still pending.
 
-### Staged upstream validation (2026-09-28)
+For observable work, resume from the [current delivery sequence](../rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence) and owning contracts, not earlier milestone deferrals. The [follow-up register](../rollups/OBSERVABLE-DELIVERY-FOLLOW-UPS.md) records gaps, not authorization to implement them or enable runtime observation by default.
 
-Keep convergence fixtures and golden-standard commands aligned with tests/features. Preserve every convergence record and require its output oracle. Historical sibling pins document the existing v1 contract; they do not certify the latest sibling versions.
+### Syntax source-read regression (2026-09-28)
+
+Syntax-only checking reports source I/O failures with CLI-error status and the
+service diagnostic phase rather than accepting a failed read as empty input.
+Empty regular files remain valid. `services_syntax_source_io` exercises the
+public CLI for directories, missing sources, empty files, escaped paths, and
+read-buffer boundaries. The check is part of the existing `styio_pipeline`
+gate; it does not require extra services.
+
+The cross-platform source-read check explicitly rejects directories (including
+symlink targets) before opening: some platforms report directory reads as EOF.
+Regular-file symlinks remain accepted; status-query errors still use the existing
+open/read error handling. The public CLI regression covers both symlink cases.

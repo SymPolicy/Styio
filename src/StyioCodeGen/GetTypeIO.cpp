@@ -20,15 +20,18 @@
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOPath* node) {
-  return theBuilder->getInt64Ty();
+  (void)node;
+  return llvm::PointerType::get(*theContext, 0);
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIOPrint* node) {
-  return theBuilder->getInt64Ty();
+  (void)node;
+  return theBuilder->getVoidTy();
 };
 
 llvm::Type*
 StyioToLLVM::toLLVMType(SIORead* node) {
-  return theBuilder->getInt64Ty();
+  (void)node;
+  return theBuilder->getVoidTy();
 };

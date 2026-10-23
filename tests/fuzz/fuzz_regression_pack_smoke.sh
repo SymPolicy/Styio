@@ -15,6 +15,14 @@ printf 'seed-lexer\n' > "$ARTIFACT_ROOT/lexer/crash-lexer-001"
 printf 'seed-parser\n' > "$ARTIFACT_ROOT/parser/timeout-parser-001"
 printf '[lexer log]\n' > "$ARTIFACT_ROOT/lexer.log"
 printf '[parser log]\n' > "$ARTIFACT_ROOT/parser.log"
+cat > "$ARTIFACT_ROOT/lexer/replay-options.json" <<'EOF'
+{"target":"lexer","seed":1,"timeout":10,"max_len":65536,"dict":"tests/fuzz/styio.dict"}
+EOF
+cat > "$ARTIFACT_ROOT/parser/replay-options.json" <<'EOF'
+{"target":"parser","seed":2,"timeout":10,"max_len":65536,"dict":"tests/fuzz/styio.dict"}
+EOF
+printf 'replay lexer\n' > "$ARTIFACT_ROOT/lexer/replay-command.txt"
+printf 'replay parser\n' > "$ARTIFACT_ROOT/parser/replay-command.txt"
 
 "$ROOT/scripts/fuzz-regression-pack.sh" \
   --artifacts-root "$ARTIFACT_ROOT" \
@@ -39,3 +47,19 @@ manifest_lines="$(wc -l < "$CASE_DIR/manifest.tsv" | tr -d ' ')"
 
 [[ -n "$(find "$CORPUS_ROOT/lexer" -type f -name '*.seed' -print -quit)" ]]
 [[ -n "$(find "$CORPUS_ROOT/parser" -type f -name '*.seed' -print -quit)" ]]
+[[ -f "$CASE_DIR/lexer/replay-options.json" ]]
+[[ -f "$CASE_DIR/parser/replay-options.json" ]]
+[[ -f "$CASE_DIR/lexer/replay-command.txt" ]]
+[[ -f "$CASE_DIR/parser/replay-command.txt" ]]
+
+DICT="$ROOT/tests/fuzz/styio.dict"
+[[ -f "$DICT" ]]
+[[ -f "$ROOT/tests/fuzz/corpus/lexer/seed-repeated-source-lifetime.styio" ]]
+[[ -f "$ROOT/tests/fuzz/corpus/parser/seed-iterator-no-progress.styio" ]]
+[[ -f "$ROOT/tests/fuzz/corpus/parser/seed-empty-input.styio" ]]
+
+LEXER_CACHE="fuzz-work/lexer/corpus"
+PARSER_CACHE="fuzz-work/parser/corpus"
+[[ "$LEXER_CACHE" != "$PARSER_CACHE" ]]
+[[ "$LEXER_CACHE" == *"/lexer/"* ]]
+[[ "$PARSER_CACHE" == *"/parser/"* ]]

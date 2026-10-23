@@ -1,0 +1,52 @@
+/* CLRS 8.2 Counting Sort.
+   Input/output: list[i32] (non-negative). k = max(values) (or 0).
+   Styio: textbook counting sort with local count[] + out[]
+   (range-materialized); stable right-to-left placement.
+   Index guards may use short-circuit && where useful. */
+l <- @stdin: list[i32]
+n = l.length
+
+?(n > 0) => {
+    k = 0
+    [0..n-1] >> #(i) => {
+        ?(l[i] > k) => {
+            k = l[i]
+        }
+    }
+
+    count := [0..k]
+    [0..k] >> #(i) => {
+        count[i] = 0
+    }
+    [0..n-1] >> #(j) => {
+        v = l[j]
+        ?(v >= 0 && v <= k) => {
+            count[v] = count[v] + 1
+        }
+    }
+    [1..k] >> #(i) => {
+        count[i] = count[i] + count[i - 1]
+    }
+
+    out := [0..n-1]
+    [0..n-1] >> #(i) => {
+        out[i] = 0
+    }
+    j = n - 1
+    [...] >> ?(j >= 0) => {
+        v = l[j]
+        ?(v >= 0 && v <= k) => {
+            pos = count[v] - 1
+            ?(pos >= 0 && pos < n) => {
+                out[pos] = v
+                count[v] = count[v] - 1
+            }
+        }
+        j = j - 1
+    }
+    [0..n-1] >> #(i) => {
+        l[i] = out[i]
+    }
+}
+
+>_(l)

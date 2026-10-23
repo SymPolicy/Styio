@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of LLVM codegen, JIT integration, external runtime helpers, handle tables, and runtime safety contracts.
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-10-16
 
 ## Mission
 
@@ -10,20 +10,29 @@ Own StyioIR-to-LLVM lowering and the runtime surface that compiled programs call
 
 ## Owned Surface
 
+Build membership: edit `src/cmake/StyioBackendSources.cmake`, `StyioRuntimeSources.cmake`, or `StyioNativeInteropSources.cmake` for their owned units. `targets/StyioRuntimeCore.cmake` owns runtime links, including its public Observable dependency. `StyioCoreSources.cmake` and `targets/StyioCore.cmake` are joint with Test Quality because the core also contains PipelineCheck. RuntimeCorrelation manifests and the public Observable target remain joint with Sema / IR; unrelated IDE and CLI target lists do not trigger this runbook.
+
 Primary paths:
 
 1. `src/StyioCodeGen/`
 2. `src/StyioJIT/`
-3. `src/StyioExtern/`
-4. `src/StyioRuntime/`
-5. Runtime-facing parts of `src/main.cpp`
+3. `src/StyioNative/`
+4. `src/StyioExtern/`
+5. `src/StyioRuntime/`
+6. Runtime-facing parts of `src/main.cpp`
+7. Event semantics in `src/StyioServices/StyioObservable/RuntimeCorrelation.*`, jointly reviewed with Sema / IR
+8. The Runtime-owned source and target modules listed above, with joint composition only at their declared boundaries
 
 Related docs:
 
 1. [../design/Styio-Handle-Capability-Type-System.md](../design/Styio-Handle-Capability-Type-System.md)
 2. [../design/Styio-StdLib-Intrinsics.md](../design/Styio-StdLib-Intrinsics.md)
-3. [../assets/workflow/FIVE-LAYER-PIPELINE.md](../assets/workflow/FIVE-LAYER-PIPELINE.md)
-4. [../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md](../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md)
+3. [../../workflows/FIVE-LAYER-PIPELINE.md](../../workflows/FIVE-LAYER-PIPELINE.md)
+4. [../../workflows/ADD-SYNTAX-WITH-SKILLS.md](../../workflows/ADD-SYNTAX-WITH-SKILLS.md)
+
+Runtime correlation uses the [observable semantic boundary](../design/Styio-Observable-Language.md#8-static-and-runtime-separation)
+and [public decoder contract](../../src/StyioServices/StyioObservable/README.md).
+The runtime reports execution instances; it does not reconstruct compiler facts.
 
 ## Daily Workflow
 
@@ -33,11 +42,11 @@ Related docs:
 4. Update security, five-layer, and soak coverage before accepting a runtime contract change.
 5. Use benchmark routes for hot paths, not terminal timing impressions.
 6. Preserve the current legacy bounded final-bind compatibility contract until an explicit final-binding/Topology checkpoint changes it: final-bind lowers to `[n x i64] + head`, reads return the latest slot, same-name flex after final bind is rejected, and function-parameter ring semantics remain incomplete.
-7. Treat `runtime-events.jsonl` as a published artifact: changes to `compile.* / run.* / thread.* / unit.* / unit.test.* / state.* / transition.fired / log.emitted / diagnostic.emitted` require same-checkpoint tests and consumer doc updates.
+7. Treat `runtime-events.jsonl` as a published artifact: v2 `event_kind` records (`compile.*` / `run.*` / `thread.*` / `unit.*` / `unit.test.*` / `state.changed` / `transition.fired` / `log.emitted` / `diagnostic.emitted` plus opt-in task/scheduler overlay) require same-checkpoint tests and consumer doc updates. Do not emit v1 `eventKind` or raw `message`/`file` payloads.
 8. Keep `stdout/stderr` helper hooks lossless: runtime log replay may enrich the artifact stream, but must not change observable program output semantics.
 9. Keep the ORC JIT symbol registry aligned with the full `src/StyioExtern/ExternLib.hpp` export surface and every runtime helper that codegen emits; when a new `getOrInsertFunction("styio_*")` call or extern export appears, update `src/StyioJIT/StyioJIT_ORC.hpp` in the same delivery.
 10. Treat `python3 scripts/runtime-surface-gate.py` as the static blocker for syntax/runtime deliveries; do not rely on manual review to spot a missing export or ORC registration.
-11. Keep native extern JIT registration intact when resolving upstream merges: `StyioJIT_ORC::defineAbsoluteSymbol` is the bridge used by `StyioCodeGen` to expose compiled C/C++ extern blocks to ORC, and it must stay aligned with native interop tests.
+11. Keep native extern JIT registration intact when resolving upstream merges: `StyioJIT_ORC::defineAbsoluteSymbol` is the bridge used by `StyioCodeGen` to expose compiled C/C++ extern blocks to ORC, and absolute symbols must stay both `Callable` and `Exported` so native interop lookup remains stable.
 12. Matrix runtime helpers own the flat row-major storage contract. When adding or changing matrix lowering, keep `ExternLib.hpp`, `ExternLib.cpp`, `HandleTable.hpp`, ORC registrations, direct-data helpers, release paths, and security/codegen tests in the same checkpoint.
 13. Empty lexical scopes must not emit unused runtime declarations; exact LLVM IR comparison tests protect StyioIR optimizer canonicalization from backend-only drift.
 14. Matrix/list/dict/string runtime resources stored in dynamic slots must release through the same RAII path on overwrite, normal scope exit, and runtime-error early return. Any new runtime guard that emits `ret` must first run active scope cleanup.
@@ -48,6 +57,25 @@ Related docs:
 19. Typed stdin pulls lower from `InstantPull` to `SIOStdStreamPull::result_type` for scalar i64/f64/string and typed list pulls. Untyped collect-bind stdin may still use `SIOListReadStdin`. String pulls must clone the borrowed stdin buffer before binding, and `list[f64]` stdin pulls must use the f64 list reader rather than falling through to i64 parsing. String concatenation should route non-string operands through `promote_to_cstr` so f64 formatting uses the same runtime decimal helper as other output paths.
 20. Dynamic-slot stores must fail closed on mismatched LLVM value families. Do not replace invalid integer, floating, or pointer fields with zero/null sentinels unless the IR node explicitly represents an undefined value.
 21. Internal IR operator dispatch must fail closed. Unknown binary or logical operators are typed diagnostics, not zero/left-operand fallbacks, and each new operator family needs a focused security/codegen regression before it can reach LLVM emission.
+21a. `SGCond` `Logic_AND` / `Logic_OR` must short-circuit like C/C++ boolean `&&` / `||`: evaluate the RHS only when the LHS does not already determine the result. Emit branch+phi (not eager `and`/`or` of both sides) so guards such as `i < n && xs[i]` never evaluate an out-of-bounds index when the bound check fails. Keep `Logic_XOR` eager; preserve the legacy mixed i1/i64 AND select shape with the same short-circuit control flow. Golden evidence: `tests/features/scalar_expressions/t22_logic_and_short_circuit.styio`, `t23_logic_or_short_circuit.styio`, `t24_logic_and_evaluates_rhs.styio`.
+22. Native interop platform compatibility belongs with runtime ownership: keep dynamic-library load/unload/symbol lookup paths portable across `dlopen` and Windows `LoadLibrary`, and pair loader changes with the smallest native interop or LSP build smoke that exercises the affected binary.
+23. Standalone continue codegen targets the innermost active loop. Do not reintroduce multi-depth continue dispatch in LLVM emission unless Sema and IR grow a new explicit continuation-domain contract first.
+24. Inferred callable schemes have no runtime representation. Lower only fully resolved, demand-driven specializations under deterministic compiler symbols, deduplicate equal concrete relations, and keep function parameter/result LLVM types synchronized with the active specialization. Do not add boxing, runtime type dictionaries, heap allocation, or GC to implement rank-1 callable instances.
+25. Comparison StyioIR must carry both operand types into LLVM emission. Use scalar integer/floating comparison for scalar families and lexical C-string comparison for string equality and ordering; never use pointer identity as string value equality.
+26. Treat callable specializations as a lazy mono-item graph. Give each reachable content digest one local definition owner, keep output ordered by the full SHA-256 digest, and include canonical relation/constraints/usage requirements, the canonical effect row derived from sorted labels plus an optional open tail, portable semantic body, transitive callable dependencies, module facts, target, pointer width, compiler channel/edition, dictionary implementation, and backend ABI in identity. Schema, effect-identity, usage-identity, or portable-body changes must bump the specialization fingerprint namespace instead of dual-reading old identity. Reuse exact recursion, but retain the 64-active-instance and 4,096-item hard ceilings with concrete instance paths. Do not add an ordinary warning threshold without telemetry or imply stable callable addresses.
+27. Monomorphic callable values lower only from a typed `SGResId` function reference and an indirect `SGCall` carrying the complete canonical `#(...): ...` signature. Map the value to an allocation-free LLVM function pointer, derive the indirect ABI from that signature, and keep callable bindings outside C-string ownership and cleanup. Never infer an indirect ABI in codegen or reinterpret an ordinary pointer, integer, native symbol address, or generalized scheme as a callable value.
+28. The affine static-capture slice lowers each Sema-approved captured scalar binding to one internal LLVM program-static slot initialized from the corresponding top-level binding. Load/store lookup must additionally require the name in the current `SGFunc::capture_names`, so a same-spelled local in another function remains local. Callable values retain the existing allocation-free function-pointer ABI because only shared program-static environments may escape. Never synthesize a closure box, copy a resource handle into scalar storage, publish the slot as module ABI, or codegen a capture that lacks the checked capture-name contract.
+29. Persistent callable caching is opt-in and object-level. Keep the cache-disabled path on the original single LLVM module with no cache hashing or filesystem work. When enabled, partition only functions carrying a verified full specialization digest, sort partitions by digest, retain private constants with their owner, leave inter-specialization/runtime references external, and verify every partition plus the residual main module. `CallableSpecializationObjectCache` must bind an object to the fresh full digest and compiler/LLVM/codegen/target/backend namespace, structurally verify bounded entries before ORC sees them, use owner-only atomic same-directory writes, and turn every cache corruption or I/O failure into recompilation rather than a language/runtime error.
+30. Keep raw `SGEntry` and hand-built `SGMainEntry` on default-strict StyioIR verification before LLVM emission. Codegen may reuse the final verifier result only when `require_default_styio_ir_pass_pipeline(...)` certified the same complete, non-deferred `SGMainEntry`; a new pass-manager run invalidates that certificate and the certified tree is immutable until emission. Direct `SGBlock` codegen may enable only `defer_unresolved_loop_control` while `loop_stack_` is nonempty, because the active codegen loop supplies that fragment's enclosing-loop context; keep every other structural check enabled and never apply this exception to a raw final root.
+31. Structured tuple results are generation-checked runtime handles. Keep tuple declarations, definitions, ORC registrations, and codegen calls synchronized; make tuple storage own nested string/list/dict/matrix handles, make projections clone returned resource handles, and release every owned element deterministically when the tuple handle is released.
+32. Before JIT execution, require the current LLVM module to define its own non-declaration `main`; never satisfy an entrypoint lookup from the host process symbol table. Preserve the existing `styio: main not found` diagnostic for entrypoint-free modules.
+33. Resource-effect cleanup must be emitted only on control-flow paths dominated by the matching allocation. Treat non-dominating release verification failures as one codegen-family defect and preserve focused pipeline evidence for every affected container and matrix case.
+34. Verify emitted LLVM IR before optimization. With callable caching disabled, run the host-target O2 module pipeline before ORC execution; with caching enabled, partition first and optimize every specialization plus the residual main module independently so optimization cannot erase cache identities. Set the module data layout and target triple from the detected host target machine, and place fixed-size local storage in the function entry block; loop bodies must not grow the stack with repeated `alloca` instructions.
+35. Keep runtime hot loops allocation-light and row-major. Matrix kernels should dispatch element storage once outside the element loop and use cache-blocked multiplication without reordering any individual result's reduction sequence; task readiness should use the fixed-capacity ring queue, and scheduler workers should grow with submitted work without changing the explicit worker-count API contract.
+36. Treat top-level binding cardinality as a compile-time optimization fact, not a language change. Sema should reserve symbol/type tables from the known statement count and use the direct scalar path for a new unannotated bool/i64/f64 binding. Keep mutable `=` bindings addressable during emission and let the verified LLVM O2 pipeline perform mem2reg; do not add a second whole-IR write analysis that duplicates the optimizer and risks missing structured control-flow writes.
+37. Keep runtime absence out of raw scalar bit patterns. Absence-capable `i64` paths use the explicit `{defined, payload}` LLVM value ABI, pulse ledgers persist definition tags beside current/history payloads, and value fallback unwraps lazily before ordinary operators or callable/runtime argument ABIs. Raw `i64` arithmetic must accept the complete signed domain. A compile-time integer divisor proven nonzero and not `-1` emits `sdiv`/`srem` directly; every other integer division or remainder must branch around zero and `INT64_MIN / -1` before the instruction and report the stable arithmetic runtime error. Owned resource temporaries must clean up through entry-block handle slots whose runtime zeroing makes branch transfer dominance-safe and idempotent; cleanup calls must be guarded by a nonzero handle test so a transferred tuple cannot turn a successful return into a stale-handle failure. Runtime release treats handle zero as the empty ownership state while retaining diagnostics for stale nonzero tuple handles.
+
+38. The i64 list indexed-load fast path may cache a data pointer and length in a loop preheader only while the handle and backing storage remain current. List push, insert, set, pop, and list-handle rebinding must refresh cached views after mutation; keep a focused loop regression for each mutation shape before changing the cache policy.
 
 ## Change Classes
 
@@ -61,24 +89,34 @@ Minimum local commands:
 
 ```bash
 python3 scripts/runtime-surface-gate.py
-ctest --test-dir build/default -L styio_pipeline
-ctest --test-dir build/default -L security
-ctest --test-dir build/default -L language_feature
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L language_feature --output-on-failure --no-tests=error
 ```
+
+When runtime event producers, correlation or observation modes change:
+
+```bash
+ctest --test-dir build/default -L observable_runtime --output-on-failure --no-tests=error
+```
+
+Also use the [Test Quality runtime correlation selection](./TEST-QUALITY-RUNBOOK.md#required-gates)
+for compact codegen descriptors and disabled/static ABI evidence; the runtime
+label alone does not select every lowering, codegen or CLI test.
 
 Runtime stability:
 
 ```bash
-ctest --test-dir build/default -L soak_smoke
-STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
+ctest --test-dir build/default -L soak_smoke --output-on-failure --no-tests=error
+/path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --quick
 ```
 
 For deeper runtime or allocation work:
 
 ```bash
-ctest --test-dir build/default -L soak_deep
+ctest --test-dir build/default -L soak_deep --output-on-failure --no-tests=error
 STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
-  ./benchmark/perf-route.sh --phase-iters 5000 --micro-iters 5000 --execute-iters 20
+  /path/to/styio-benchmark/tools/perf-route.sh --styio-root "$PWD" --phase-iters 5000 --micro-iters 5000 --execute-iters 20
 ```
 
 ## Cross-Team Dependencies
@@ -87,7 +125,7 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
 2. Test Quality must review five-layer or security golden updates.
 3. Perf / Stability must review benchmark matrix, RSS thresholds, or long-loop behavior.
 4. CLI / Nano must review runtime capability output exposed through machine-info.
-5. `pafio` / `view` consumers must review published runtime-event family additions or payload-shape changes.
+5. Pafio and Vityo consumers must review published runtime-event family additions or payload-shape changes. Styio owns v2 semantics; consumers map fields only.
 
 ## Handoff / Recovery
 
@@ -99,3 +137,49 @@ Record unfinished codegen/runtime work with:
 4. Failing security, pipeline, soak, or benchmark command.
 5. Known rollback point and whether generated goldens are intentionally stale.
 6. Runtime-event family changes and the exact consumer docs/gates updated with them.
+
+### Task/resource compiler candidate (2026-10-11)
+
+Task history captures snapshot committed rings at creation. Numeric arrays use
+bulk copies without changing storage ownership; strings and container graphs
+export owned packets and import into the worker table. Nested pending writes use
+lazy per-scope storage. Runtime task edges synchronize registration and launch,
+reject reachability cycles and retain executor lifetime through completion;
+worker queue saturation uses work-first execution. Wait episodes are session
+owned. Preserve the permanent `TaskOrder*`, `TaskCapture*` and session-order cases
+when changing these helpers; performance evidence is in the candidate handoff.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Ready-constructed tasks are excluded from the launch claim, so a demand pull of
+a settled i64/f64/cstr task can no longer enqueue and rerun it over its result
+fields; the externlib internal ready-pull test pins the scheduler counters and
+the rejected repeat pull. Scope-owned cstr bindings keep a name-based ownership
+record: an escaping task capture exports a clone of the owned string, the worker
+imports it into its own cleanup slot, a nested escaping capture exports again,
+and function-pointer bindings are never selected. The scope-escaping t12 fixture
+and the security-suite IR assertion cover the capture repair.
+
+The scheduler also keeps single-worker forward progress when a running task
+waits on a nested task it did not spawn: a non-blocking ready-queue claim takes
+a task exactly once, and the wait path assists one ready task only from a thread
+that is already executing a task body, saving and restoring the thread's
+running-task context so nested assisted runs cannot clobber the parent's wait
+correlation. No timeout, cancellation or replay is introduced; the assist runs
+the ready task to completion like the existing queue-full work-first path. The
+permanent `NestedTaskWaitsKeepSingleWorkerForwardProgress` case pins
+spawned/enqueued/started/completed counters, queue depth, handle balance and
+error propagation under one configured worker, and the t13/t14 fixtures cover
+nested waits from the CLI.
+
+A nested task run also preserves its caller's error accounting: `run()` captures
+the calling body's pending runtime error through `ParentTaskErrorGuard` before
+the inline execution clears the thread slot and restores it through
+`styio::runtime::restore_error` on every exit path, so the child's own error
+settles only to the child. A parent that raised before the wait assist or the
+queue-full work-first dispatch keeps its own subcode instead of settling as
+success once the child runs inline. The guard is inactive for a top-level run,
+whose thread slot is fresh by contract.

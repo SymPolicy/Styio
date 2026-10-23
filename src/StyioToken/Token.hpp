@@ -3,9 +3,13 @@
 #define STYIO_TOKEN_H_
 
 #include <cstdint>
+#include <memory>
 #include <new>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "../StyioSession/SessionAllocation.hpp"
@@ -82,6 +86,7 @@ enum class StyioValueFamily : std::uint8_t
   StreamHandle,
   TaskHandle,
   UserDefined,
+  Char,
 };
 
 enum class StyioTypeCapability : std::uint32_t
@@ -130,6 +135,9 @@ struct StyioDataType
   std::string resource_value_type_name;
   StyioResourceShapeKind resource_shape = StyioResourceShapeKind::None;
   std::size_t resource_shape_bound = 0;
+  std::shared_ptr<const std::vector<StyioDataType>> tuple_elements;
+  std::shared_ptr<const std::vector<StyioDataType>> callable_params;
+  std::shared_ptr<const StyioDataType> callable_result;
 
   bool isUndefined() const {
     return option == StyioDataTypeOption::Undefined;
@@ -143,34 +151,276 @@ struct StyioDataType
     return option == StyioDataTypeOption::Float;
   }
 
-  bool equals(const StyioDataType other) const {
-    return option == other.option
-      && name == other.name
-      && num_of_bit == other.num_of_bit
-      && handle_family == other.handle_family
-      && state == other.state
-      && capabilities == other.capabilities
-      && item_type_name == other.item_type_name
-      && key_type_name == other.key_type_name
-      && has_std_stream_kind == other.has_std_stream_kind
-      && std_stream_kind == other.std_stream_kind
-      && value_family == other.value_family
-      && item_value_family == other.item_value_family
-      && key_value_family == other.key_value_family
-      && is_resource_type == other.is_resource_type
-      && resource_value_type_name == other.resource_value_type_name
-      && resource_shape == other.resource_shape
-      && resource_shape_bound == other.resource_shape_bound;
+  struct CanonicalView
+  {
+    StyioDataTypeOption option;
+    std::string_view name;
+    size_t num_of_bit;
+    StyioHandleFamily handle_family;
+    StyioTypeState state;
+    std::uint32_t capabilities;
+    std::string_view item_type_name;
+    std::string_view key_type_name;
+    bool has_std_stream_kind;
+    int std_stream_kind;
+    StyioValueFamily value_family;
+    StyioValueFamily item_value_family;
+    StyioValueFamily key_value_family;
+    bool is_resource_type;
+    std::string_view resource_value_type_name;
+    StyioResourceShapeKind resource_shape;
+    std::size_t resource_shape_bound;
+
+    bool operator==(const CanonicalView&) const = default;
+  };
+
+  CanonicalView canonical_view() const noexcept {
+    return CanonicalView{
+      option,
+      name,
+      num_of_bit,
+      handle_family,
+      state,
+      capabilities,
+      item_type_name,
+      key_type_name,
+      has_std_stream_kind,
+      std_stream_kind,
+      value_family,
+      item_value_family,
+      key_value_family,
+      is_resource_type,
+      resource_value_type_name,
+      resource_shape,
+      resource_shape_bound
+    };
+  }
+
+  bool equals(const StyioDataType& other) const {
+    if (canonical_view() != other.canonical_view()) {
+      return false;
+    }
+    const auto vectors_equal = [](const auto& lhs, const auto& rhs) {
+      if (static_cast<bool>(lhs) != static_cast<bool>(rhs)) {
+        return false;
+      }
+      if (!lhs) {
+        return true;
+      }
+      if (lhs->size() != rhs->size()) {
+        return false;
+      }
+      for (std::size_t i = 0; i < lhs->size(); ++i) {
+        if (!(*lhs)[i].equals((*rhs)[i])) {
+          return false;
+        }
+      }
+      return true;
+    };
+    if (!vectors_equal(tuple_elements, other.tuple_elements)) {
+      return false;
+    }
+    // Callable metadata is a lossless cache for signatures constructed from
+    // AST types, while older/name-parsed callable values carry only the same
+    // canonical signature in `name`.  Preserve that established identity:
+    // compare cached structure when both sides have it, but do not make cache
+    // presence itself part of type equality.  Tuple shape metadata remains
+    // strict above because an unshaped tuple is invalid after Sema.
+    if (callable_params && other.callable_params
+        && !vectors_equal(callable_params, other.callable_params)) {
+      return false;
+    }
+    return !callable_result || !other.callable_result
+      || callable_result->equals(*other.callable_result);
   }
 };
 
+inline StyioDataType::CanonicalView
+styio_canonical_type_view(const StyioDataType& type) noexcept {
+  return type.canonical_view();
+}
+
 inline bool styio_is_list_type(const StyioDataType& type);
 inline bool styio_is_dict_type(const StyioDataType& type);
+inline bool styio_is_callable_type(const StyioDataType& type);
 inline std::string styio_list_elem_type_name(const StyioDataType& type);
 inline std::string styio_dict_key_type_name(const StyioDataType& type);
 inline std::string styio_dict_value_type_name(const StyioDataType& type);
+inline std::vector<std::string> styio_callable_param_type_names(
+  const StyioDataType& type);
+inline std::string styio_callable_result_type_name(
+  const StyioDataType& type);
 inline StyioValueFamily styio_value_family_for_type(const StyioDataType& type);
 inline StyioDataType styio_data_type_from_name(const std::string& type_name);
+
+inline StyioDataType
+styio_make_callable_type(
+  const std::vector<StyioDataType>& params,
+  const StyioDataType& result
+) {
+  std::string name = "#(";
+  for (std::size_t i = 0; i < params.size(); ++i) {
+    if (i != 0) {
+      name += ",";
+    }
+    name += params[i].name;
+  }
+  name += "):";
+  name += result.name;
+  StyioDataType type{
+    StyioDataTypeOption::Func,
+    std::move(name),
+    0
+  };
+  type.callable_params =
+    std::make_shared<const std::vector<StyioDataType>>(params);
+  type.callable_result = std::make_shared<const StyioDataType>(result);
+  return type;
+}
+
+inline StyioDataType
+styio_make_tuple_type(std::vector<StyioDataType> elements) {
+  std::string name = "(";
+  for (std::size_t i = 0; i < elements.size(); ++i) {
+    if (i != 0) {
+      name += ",";
+    }
+    name += elements[i].name;
+  }
+  name += ")";
+  StyioDataType type{
+    StyioDataTypeOption::Tuple,
+    std::move(name),
+    0};
+  type.capabilities =
+    styio_caps(StyioTypeCapability::Indexable)
+    | styio_caps(StyioTypeCapability::Sized)
+    | styio_caps(StyioTypeCapability::Cloneable);
+  type.tuple_elements =
+    std::make_shared<const std::vector<StyioDataType>>(
+      std::move(elements));
+  return type;
+}
+
+inline bool
+styio_is_shaped_tuple_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Tuple
+    && type.tuple_elements != nullptr;
+}
+
+inline bool
+styio_is_callable_type(const StyioDataType& type) {
+  return type.option == StyioDataTypeOption::Func
+         && type.name.rfind("#(", 0) == 0;
+}
+
+inline std::optional<std::size_t>
+styio_callable_signature_close(const std::string& name) {
+  if (name.rfind("#(", 0) != 0) {
+    return std::nullopt;
+  }
+  std::size_t paren_depth = 1;
+  std::size_t bracket_depth = 0;
+  for (std::size_t i = 2; i < name.size(); ++i) {
+    switch (name[i]) {
+      case '(':
+        ++paren_depth;
+        break;
+      case ')':
+        if (paren_depth == 0) {
+          return std::nullopt;
+        }
+        --paren_depth;
+        if (paren_depth == 0) {
+          return i;
+        }
+        break;
+      case '[':
+        ++bracket_depth;
+        break;
+      case ']':
+        if (bracket_depth == 0) {
+          return std::nullopt;
+        }
+        --bracket_depth;
+        break;
+      default:
+        break;
+    }
+  }
+  return std::nullopt;
+}
+
+inline std::vector<std::string>
+styio_callable_param_type_names(const StyioDataType& type) {
+  if (!styio_is_callable_type(type)) {
+    return {};
+  }
+  const auto close = styio_callable_signature_close(type.name);
+  if (!close.has_value()
+      || *close + 2 > type.name.size()
+      || type.name[*close + 1] != ':') {
+    return {};
+  }
+  const std::string inner = type.name.substr(2, *close - 2);
+  if (inner.empty()) {
+    return {};
+  }
+
+  std::vector<std::string> params;
+  std::size_t start = 0;
+  std::size_t paren_depth = 0;
+  std::size_t bracket_depth = 0;
+  for (std::size_t i = 0; i <= inner.size(); ++i) {
+    const bool at_end = i == inner.size();
+    const char ch = at_end ? '\0' : inner[i];
+    if (!at_end) {
+      if (ch == '(') {
+        ++paren_depth;
+      }
+      else if (ch == ')') {
+        if (paren_depth == 0) {
+          return {};
+        }
+        --paren_depth;
+      }
+      else if (ch == '[') {
+        ++bracket_depth;
+      }
+      else if (ch == ']') {
+        if (bracket_depth == 0) {
+          return {};
+        }
+        --bracket_depth;
+      }
+    }
+    if (at_end || (ch == ',' && paren_depth == 0 && bracket_depth == 0)) {
+      if (i == start) {
+        return {};
+      }
+      params.push_back(inner.substr(start, i - start));
+      start = i + 1;
+    }
+  }
+  if (paren_depth != 0 || bracket_depth != 0) {
+    return {};
+  }
+  return params;
+}
+
+inline std::string
+styio_callable_result_type_name(const StyioDataType& type) {
+  if (!styio_is_callable_type(type)) {
+    return {};
+  }
+  const auto close = styio_callable_signature_close(type.name);
+  if (!close.has_value()
+      || *close + 2 >= type.name.size()
+      || type.name[*close + 1] != ':') {
+    return {};
+  }
+  return type.name.substr(*close + 2);
+}
 
 inline StyioDataType
 styio_make_list_type(const std::string& elem_name) {
@@ -550,6 +800,8 @@ styio_value_family_for_type(const StyioDataType& type) {
   switch (type.option) {
     case StyioDataTypeOption::Bool:
       return StyioValueFamily::Bool;
+    case StyioDataTypeOption::Char:
+      return StyioValueFamily::Char;
     case StyioDataTypeOption::Integer:
       return StyioValueFamily::Integer;
     case StyioDataTypeOption::Float:
@@ -604,7 +856,7 @@ static std::unordered_map<std::string, StyioDataType> const DTypeTable = {
   {"f32", StyioDataType{StyioDataTypeOption::Float, "f32", 32}},
   {"f64", StyioDataType{StyioDataTypeOption::Float, "f64", 64}},
 
-  {"char", StyioDataType{StyioDataTypeOption::Char, "char", 0}},
+  {"char", StyioDataType{StyioDataTypeOption::Char, "char", 8}},
 
   {"string", StyioDataType{StyioDataTypeOption::String, "string", 0}},
   {"str", StyioDataType{StyioDataTypeOption::String, "string", 0}},
@@ -657,53 +909,6 @@ enum class StyioOpType
 
   Comment_SingleLine,  // // Like This
   Comment_MultiLine,   // /* Like This */
-};
-
-/* Token Precedence Map */
-static std::unordered_map<StyioOpType, int> const TokenPrecedenceMap = {
-  {StyioOpType::Unary_Positive, 999},  // + a
-  {StyioOpType::Unary_Negative, 999},  // - a
-  {StyioOpType::Bitwise_NOT, 999},     // ~ a
-  {StyioOpType::Logic_NOT, 999},       // ! a
-
-  {StyioOpType::Binary_Pow, 704},  // a ** b
-
-  {StyioOpType::Binary_Mul, 703},  // a * b
-  {StyioOpType::Binary_Div, 703},  // a / b
-  {StyioOpType::Binary_Mod, 703},  // a % b
-
-  {StyioOpType::Binary_Add, 702},  // a + b
-  {StyioOpType::Binary_Sub, 702},  // a - b
-
-  {StyioOpType::Bitwise_Left_Shift, 701},   // shl(x, y)
-  {StyioOpType::Bitwise_Right_Shift, 701},  // shr(x, y)
-
-  {StyioOpType::Greater_Than, 502},        // a > b
-  {StyioOpType::Less_Than, 502},           // a < b
-  {StyioOpType::Greater_Than_Equal, 502},  // a >= b
-  {StyioOpType::Less_Than_Equal, 502},     // a <= b
-
-  {StyioOpType::Equal, 501},      // a == b
-  {StyioOpType::Not_Equal, 501},  // a != b
-
-  {StyioOpType::Bitwise_AND, 303},  // a & b
-  {StyioOpType::Bitwise_XOR, 302},  // a ^ b
-  {StyioOpType::Bitwise_OR, 301},   // a | b
-
-  {StyioOpType::Logic_AND, 203},  // a && b
-  {StyioOpType::Logic_XOR, 202},  // a ⊕ b
-  {StyioOpType::Logic_OR, 201},   // a || b
-
-  {StyioOpType::If_Else_Flow, 101},  // ?() => a : b
-
-  {StyioOpType::Self_Add_Assign, 1},  // a += b
-  {StyioOpType::Self_Sub_Assign, 1},  // a -= b
-  {StyioOpType::Self_Mul_Assign, 1},  // a *= b
-  {StyioOpType::Self_Div_Assign, 1},  // a /= b
-  {StyioOpType::Self_Mod_Assign, 1},  // a %= b
-
-  {StyioOpType::Undefined, 0},    // Undefined
-  {StyioOpType::End_Of_File, 0},  // Undefined
 };
 
 static std::unordered_map<StyioOpType, std::string> const TokenStrMap = {
@@ -925,6 +1130,7 @@ enum class StyioNodeType
   // List Operation
   Access,           // [id]
   Access_By_Index,  // [index]
+  Access_By_Slice,  // [start..end]
   Access_By_Name,   // ["name"]
 
   Get_Index_By_Value,          // [?= value]
@@ -937,7 +1143,7 @@ enum class StyioNodeType
   Remove_Item_By_Index,          // [-: index]
   Remove_Items_By_Many_Indices,  // [-: (i0, i1, ...)]
   Remove_Item_By_Value,          // [-: ?= value]
-  Remove_Items_By_Many_Values,   // [-: ?^ (v0, v1, ...)]
+  Remove_Items_By_Many_Values,   // [-: ?^ (x0, x_next, ...)]
 
   Get_Reversed,                  // [<]
   Get_Index_By_Item_From_Right,  // [[<] ?= value]
@@ -1016,6 +1222,7 @@ enum class StyioNodeType
   HandleAcquire,
   ResourceWrite,
   ResourceRedirect,
+  ResourceEffect,
   TaskBlock,
   TaskGroupLaunch,
   FlowBind,
@@ -1127,6 +1334,22 @@ styio_data_type_from_name(const std::string& type_name) {
   if (it != DTypeTable.end()) {
     return it->second;
   }
+  if (type_name.rfind("#(", 0) == 0) {
+    StyioDataType callable{
+      StyioDataTypeOption::Func,
+      type_name,
+      0
+    };
+    const auto close = styio_callable_signature_close(type_name);
+    const auto result = styio_callable_result_type_name(callable);
+    if (close.has_value() && !result.empty()) {
+      const std::string inner = type_name.substr(2, *close - 2);
+      const auto params = styio_callable_param_type_names(callable);
+      if (inner.empty() || !params.empty()) {
+        return callable;
+      }
+    }
+  }
   if (type_name.rfind("list[", 0) == 0) {
     return styio_make_list_type(styio_list_elem_type_name(
       StyioDataType{StyioDataTypeOption::List, type_name, 0}));
@@ -1166,6 +1389,29 @@ styio_data_type_from_name(const std::string& type_name) {
       styio_value_family_for_type(styio_data_type_from_name(elem))};
   }
   return StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
+}
+
+inline std::vector<StyioDataType>
+styio_callable_param_types(const StyioDataType& type) {
+  if (type.callable_params != nullptr) {
+    return *type.callable_params;
+  }
+  std::vector<StyioDataType> params;
+  for (const auto& name : styio_callable_param_type_names(type)) {
+    params.push_back(styio_data_type_from_name(name));
+  }
+  return params;
+}
+
+inline StyioDataType
+styio_callable_result_type(const StyioDataType& type) {
+  if (type.callable_result != nullptr) {
+    return *type.callable_result;
+  }
+  const std::string name = styio_callable_result_type_name(type);
+  return name.empty()
+    ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+    : styio_data_type_from_name(name);
 }
 
 inline StyioValueFamily
@@ -1241,7 +1487,8 @@ styio_value_family_is_runtime_handle(StyioValueFamily family) {
 inline bool
 styio_type_supports_runtime_list_elem(const StyioDataType& type) {
   StyioValueFamily family = styio_value_family_for_type(type);
-  return styio_value_family_is_runtime_scalar(family)
+  return family == StyioValueFamily::Char
+    || styio_value_family_is_runtime_scalar(family)
     || styio_value_family_is_runtime_handle(family);
 }
 
@@ -1362,7 +1609,7 @@ enum class IterOverWhat
   /*
    * Accept: 2 [Two Variables]
    */
-  Dict,  // {k0: v0, k1: v1, kn: vn}
+  Dict,  // {key0: value0, key1: value1, keyN: valueN}
 
   /*
    * Accept: n [Any]
@@ -1497,7 +1744,7 @@ enum class StyioTokenType
   ELLIPSIS,       // ...
   INFINITE_LIST,  // [...]
 
-  /* Topology v2: bounded ring buffer type [| n |] — paired delimiters (distinct from [ ... ]). */
+  /* resource topology: bounded ring buffer type [| n |] — paired delimiters (distinct from [ ... ]). */
   BOUNDED_BUFFER_OPEN,   // [|
   BOUNDED_BUFFER_CLOSE,  // |]
 
@@ -1517,19 +1764,140 @@ enum class StyioTokenType
   UNKNOWN,
 };
 
+enum class StyioExprAssociativity : std::uint8_t { Left, Right };
+
+enum class StyioExprOperatorKind : std::uint8_t {
+  Apply,
+  Fallback,
+  Logic,
+  Comparison,
+  Arithmetic,
+};
+
+struct StyioExprOperatorInfo {
+  StyioTokenType token;
+  int precedence;
+  StyioExprAssociativity associativity;
+  StyioExprOperatorKind kind;
+  StyioOpType ast_op;
+};
+
+inline constexpr StyioExprOperatorInfo kStyioExprOperators[] = {
+  {StyioTokenType::YIELD_PIPE, 10, StyioExprAssociativity::Left, StyioExprOperatorKind::Apply, StyioOpType::Undefined},
+  {StyioTokenType::TOK_PIPE, 20, StyioExprAssociativity::Left, StyioExprOperatorKind::Fallback, StyioOpType::Undefined},
+  {StyioTokenType::LOGIC_OR, 30, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_OR},
+  {StyioTokenType::LOGIC_AND, 40, StyioExprAssociativity::Left, StyioExprOperatorKind::Logic, StyioOpType::Logic_AND},
+  {StyioTokenType::BINOP_EQ, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Equal},
+  {StyioTokenType::BINOP_NE, 50, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Not_Equal},
+  {StyioTokenType::BINOP_GT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+  {StyioTokenType::TOK_RANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than},
+  {StyioTokenType::BINOP_GE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Greater_Than_Equal},
+  {StyioTokenType::BINOP_LT, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+  {StyioTokenType::TOK_LANGBRAC, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than},
+  {StyioTokenType::BINOP_LE, 60, StyioExprAssociativity::Left, StyioExprOperatorKind::Comparison, StyioOpType::Less_Than_Equal},
+  {StyioTokenType::TOK_PLUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Add},
+  {StyioTokenType::TOK_MINUS, 70, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Sub},
+  {StyioTokenType::TOK_STAR, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mul},
+  {StyioTokenType::TOK_SLASH, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Div},
+  {StyioTokenType::TOK_PERCENT, 80, StyioExprAssociativity::Left, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Mod},
+  {StyioTokenType::BINOP_POW, 90, StyioExprAssociativity::Right, StyioExprOperatorKind::Arithmetic, StyioOpType::Binary_Pow},
+};
+
+inline constexpr const StyioExprOperatorInfo*
+styio_expr_operator_info(StyioTokenType token) {
+  for (const auto& info : kStyioExprOperators) {
+    if (info.token == token) return &info;
+  }
+  return nullptr;
+}
+
 class StyioToken
 {
-private:
-  StyioToken(
-    StyioTokenType token_type,
-    std::string token_literal
-  ) :
-      type(token_type), original(token_literal) {
-  }
-
 public:
   StyioTokenType type;
+
+  // ---- Source span accessors ----
+
+  uint32_t begin() const { return begin_; }
+  uint32_t end() const { return begin_ + length_; }
+  uint32_t len() const { return length_; }
+
+  // True when this token has a source span (including zero-width tokens like EOF).
+  bool hasSourceSpan() const { return source_data_ != nullptr; }
+  // True when the token's span has zero width (e.g. EOF).
+  bool isZeroWidth() const { return source_data_ != nullptr && length_ == 0; }
+  // True when source_data_ is valid for constructing string_view (non-null, any length).
+  bool usesSourceView() const { return source_data_ != nullptr; }
+
+  // ---- Text accessors ----
+
+  /*
+    lexeme() — zero-copy view of the token's raw spelling.
+    PRIORITY: source span view (zero-copy) > owned text (fallback).
+    Returns "" for zero-width tokens (EOF).
+    Valid only while the source buffer outlives the token.
+    Complexity: O(1).
+  */
+  std::string_view lexeme() const {
+    if (source_data_ != nullptr) {
+      return {source_data_ + begin_, length_};
+    }
+    if (owned_text_.has_value()) {
+      return {owned_text_->data(), owned_text_->size()};
+    }
+    return {};
+  }
+
+  /*
+    rawText() — same as lexeme(): the raw source spelling including
+    delimiters (quotes for STRING tokens).
+  */
+  std::string_view rawText() const { return lexeme(); }
+
+  /*
+    textString() — explicit owned copy.
+    Allocates ONLY when called, not in the tokenizer hot path.
+    Use only when AST node, diagnostic, or API needs an owned std::string.
+  */
+  std::string textString() const { return std::string(lexeme()); }
+
+  /*
+    hasOwnedText() — true when the token carries independently allocated
+    text (synthetic/manual tokens, NOT tokenizer-produced span tokens).
+    Always false for CreateFromSpan() tokens.
+  */
+  bool hasOwnedText() const { return owned_text_.has_value(); }
+
+  /*
+    decodedString() — for STRING tokens: the decoded semantic value after
+    escape processing. Returns lexeme() if no separate decoded value exists.
+  */
+  std::string_view decodedString() const {
+    if (decoded_text_.has_value()) {
+      return {decoded_text_->data(), decoded_text_->size()};
+    }
+    return lexeme();
+  }
+
+  // True when a separate decoded value exists.
+  bool hasDecodedText() const { return decoded_text_.has_value(); }
+
+  // ---- DEPRECATED ----
+
+  /*
+    DEPRECATED: kept for transitional parser compatibility only.
+    EMPTY for all tokenizer-produced tokens (CreateFromSpan never populates it).
+    Only non-empty for:
+    - tokens created via the legacy Create() factory (synthetic/manual)
+    - tokens created via CreateOwned() (NAME/INTEGER/DECIMAL owner text)
+    - tokens created via CreateString() (STRING raw quoted form)
+
+    New code MUST use lexeme(), textString(), or decodedString().
+    Production parser must not add new direct ->original reads.
+  */
   std::string original;
+
+  // ---- Factory methods ----
 
   static void*
   operator new(std::size_t sz) {
@@ -1541,20 +1909,85 @@ public:
     styio::session_alloc::free_object(ptr);
   }
 
-  static StyioToken* Create(StyioTokenType token_type, std::string original_string) {
-    return new StyioToken(token_type, original_string);
+  /*
+    CreateFromSpan — TRUE zero-copy span token.
+    ZERO text allocation. ZERO string construction.
+    O(1) time, O(1) space beyond the token object itself.
+    source_data must outlive the token.
+  */
+  /*
+    CreateFromSpan — TRUE zero-copy. ZERO text allocation.
+    O(1). Only stores type + begin_ + length_ + source_data_.
+    lexeme() returns source view. original is left EMPTY.
+  */
+  static StyioToken* CreateFromSpan(
+    StyioTokenType token_type,
+    const char* source_data,
+    size_t begin,
+    size_t length
+  ) {
+    return new StyioToken(token_type, source_data, begin, length);
   }
 
-  static StyioToken* CreatePersistent(StyioTokenType token_type, std::string original_string) {
+  /*
+    CreateString — STRING token. Raw text is source span (zero-copy).
+    decoded_value is stored in decoded_text_ for semantic use.
+    original is NOT populated.
+  */
+  static StyioToken* CreateString(
+    const char* source_data,
+    size_t begin,
+    size_t length,
+    std::string decoded_value
+  ) {
+    auto* t = new StyioToken(StyioTokenType::STRING, source_data, begin, length);
+    t->decoded_text_ = std::move(decoded_value);
+    return t;
+  }
+
+  /*
+    Legacy factory: synthetic/manual token with owned text, no source span.
+    NOT for tokenizer hot path.
+  */
+  static StyioToken* Create(StyioTokenType token_type, std::string text) {
+    auto* t = new StyioToken(token_type, nullptr, 0, 0);
+    t->owned_text_ = std::move(text);
+    return t;
+  }
+
+  static StyioToken* CreatePersistent(StyioTokenType token_type, std::string text) {
     void* mem = ::operator new(sizeof(StyioToken));
-    return ::new(mem) StyioToken(token_type, original_string);
+    auto* t = ::new(mem) StyioToken(token_type, nullptr, 0, 0);
+    t->owned_text_ = std::move(text);
+    return t;
   }
 
   static std::string getTokName(StyioTokenType type);
-
   size_t length();
-
   std::string as_str();
+
+private:
+  // Default-constructible for arena allocation
+  StyioToken() = default;
+
+  // Owned-text constructor
+  StyioToken(StyioTokenType tt, std::string text) :
+      type(tt), owned_text_(std::move(text)) {
+    if (owned_text_.has_value()) original = *owned_text_;
+  }
+
+  // Pure span constructor — ZERO allocation
+  StyioToken(StyioTokenType tt, const char* sd, size_t b, size_t len) :
+      type(tt),
+      begin_(static_cast<uint32_t>(b)),
+      length_(static_cast<uint32_t>(len)),
+      source_data_(sd) {}
+
+  uint32_t begin_{0};
+  uint32_t length_{0};
+  const char* source_data_{nullptr};
+  std::optional<std::string> owned_text_;
+  std::optional<std::string> decoded_text_;
 };
 
 static std::unordered_map<StyioTokenType, std::vector<StyioTokenType> > const

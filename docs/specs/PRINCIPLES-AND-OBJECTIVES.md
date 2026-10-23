@@ -4,9 +4,9 @@
 
 [CN] 目标：定义 Styio 在规划、设计、开发、测试与审核中的项目级原则与目标；当取舍理由或文档发生冲突时，本文件定义 Styio 的优先级顺序与重写边界。
 
-[EN] Last updated: 2026-04-16
+[EN] Last updated: 2026-10-01
 
-[CN] 更新日期：2026-04-16
+[CN] 更新日期： 2026-10-01
 
 [EN] Status: Active project-governance SSOT
 
@@ -60,7 +60,7 @@
 ### [CN] 与其他文档的关系
 
 1. 语言语义仍以 `../design/` 为准；本文件不替代语义 SSOT。
-2. 具体流程仍以 `../assets/workflow/` 为准；本文件只定义优先级顺序与项目目标。
+2. 具体流程仍以 `../../workflows/` 为准；本文件只定义优先级顺序与项目目标。
 3. 计划、里程碑、测试与审核在解释某个取舍为何成立时，都应把本文件作为共同基线。
 
 ---
@@ -108,10 +108,17 @@
 | 5 | Preserve the ability to execute large architectural change | Compatibility-breaking migration and clean-room rewrite remain valid options as long as auditability and recovery discipline are preserved. |
 | 6 | Make the project easier to maintain as it grows | Each delivery should leave the next maintainer with clearer ownership boundaries, verification paths, and recovery instructions; growth must not push hidden complexity onto future maintainers. |
 
+### [EN] Language Identity
+
+Styio is a general-purpose visual programming language with symbolic syntax for
+expressing data flow. The [language design](../design/Styio-Language-Design.md#24-visual-design-intent)
+defines the program-view model and its machine-readable requirements; the
+observable contract records current compiler capabilities.
+
 ### [EN] Relationship To Other Documents
 
 1. Language semantics remain in `../design/`; this file does not replace semantic SSOT.
-2. Workflow details remain in `../assets/workflow/`; this file only defines priority order and objectives.
+2. Workflow details remain in `../../workflows/`; this file only defines priority order and objectives.
 3. Plans, checkpoints, tests, and reviews must use this file as the common baseline when explaining why a tradeoff is acceptable.
 
 ---

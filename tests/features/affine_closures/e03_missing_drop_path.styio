@@ -1,0 +1,6 @@
+prefix: string := "v"
+# emit : i64 $(prefix) := (value: i64) => {
+    >_(prefix)
+    <| value
+}
+emit(1)

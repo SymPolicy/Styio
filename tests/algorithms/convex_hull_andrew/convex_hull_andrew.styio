@@ -1,0 +1,89 @@
+/* Convex hull points (C++ Andrew monotone chain; Styio: Jarvis gift wrapping).
+   Input: [n, x1,y1,...,xn,yn, then n used + n out-x + n out-y zeros]
+   Output: multi-line x,y pairs CCW from leftmost (no close repeat). Empty -> empty. */
+values <- @stdin: list[i32]
+hout = 0
+ok = 0
+ox_base = 0
+oy_base = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n * 2 + n + n + n
+    ?(n > 0 && values.length >= need) => {
+        a_base = 1
+        used_base = 1 + n * 2
+        ox_base = used_base + n
+        oy_base = ox_base + n
+        // leftmost (then lowest) start
+        start = 0
+        [1..n-1] >> #(i) => {
+            xi = values[a_base + i * 2]
+            yi = values[a_base + i * 2 + 1]
+            sx = values[a_base + start * 2]
+            sy = values[a_base + start * 2 + 1]
+            ?(xi < sx || (xi == sx && yi < sy)) => {
+                start = i
+            }
+        }
+        [0..n-1] >> #(i) => {
+            values[used_base + i] = 0
+        }
+        cur = start
+        hout = 0
+        running = 1
+        [...] >> ?(running == 1) => {
+            values[ox_base + hout] = values[a_base + cur * 2]
+            values[oy_base + hout] = values[a_base + cur * 2 + 1]
+            hout = hout + 1
+            values[used_base + cur] = 1
+            // pick next: candidate that is most CCW from cur
+            nxt = 0 - 1
+            [0..n-1] >> #(i) => {
+                ?(i != cur) => {
+                    ?(nxt < 0) => {
+                        nxt = i
+                    } | {
+                        // cross (nxt-cur) x (i-cur); prefer i if to the left of cur->nxt
+                        ax = values[a_base + nxt * 2] - values[a_base + cur * 2]
+                        ay = values[a_base + nxt * 2 + 1] - values[a_base + cur * 2 + 1]
+                        bx = values[a_base + i * 2] - values[a_base + cur * 2]
+                        by = values[a_base + i * 2 + 1] - values[a_base + cur * 2 + 1]
+                        cross = ax * by - ay * bx
+                        ?(cross > 0) => {
+                            nxt = i
+                        } | {
+                            ?(cross == 0) => {
+                                // farther collinear point (strict hull drops middle; keep farthest)
+                                dn = ax * ax + ay * ay
+                                di = bx * bx + by * by
+                                ?(di > dn) => {
+                                    nxt = i
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ?(nxt < 0 || nxt == start) => {
+                running = 0
+            } | {
+                cur = nxt
+                ?(hout >= n) => {
+                    running = 0
+                }
+            }
+        }
+        // If we stopped because nxt==start, hull is complete.
+        // Drop interior collinear: Jarvis with farthest keeps extremes only when we
+        // always prefer left turns; collinear farthest is OK for hull vertices.
+        ok = 1
+    }
+}
+
+?(ok == 1) => {
+    [0..hout-1] >> #(i) => {
+        >_(values[ox_base + i])
+        >_(values[oy_base + i])
+    }
+}

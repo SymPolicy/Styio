@@ -82,7 +82,7 @@ styio_apply_llvm_compile_settings(styio_fuzz_ide_completion_smoke)
 
 add_executable(styio_fuzz_ide_lsp_sync
   fuzz_ide_lsp_sync.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioServices/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_fuzz_ide_lsp_sync PRIVATE styio_ide_core ${LLVM_LIBS})
 styio_apply_llvm_compile_settings(styio_fuzz_ide_lsp_sync)
@@ -92,7 +92,7 @@ target_link_options(styio_fuzz_ide_lsp_sync PRIVATE ${STYIO_FUZZ_FLAGS})
 add_executable(styio_fuzz_ide_lsp_sync_smoke
   fuzz_smoke_main.cpp
   fuzz_ide_lsp_sync.cpp
-  "${CMAKE_SOURCE_DIR}/src/StyioLSP/Server.cpp"
+  "${CMAKE_SOURCE_DIR}/src/StyioServices/StyioLSP/Server.cpp"
 )
 target_link_libraries(styio_fuzz_ide_lsp_sync_smoke PRIVATE styio_ide_core ${LLVM_LIBS})
 styio_apply_llvm_compile_settings(styio_fuzz_ide_lsp_sync_smoke)
@@ -168,3 +168,27 @@ set_tests_properties(
   fuzz_regression_pack_smoke
   PROPERTIES
     LABELS "fuzz;fuzz_smoke;fuzz_regression")
+
+add_test(
+  NAME fuzz_harness_contract_check
+  COMMAND bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_harness_contract_check.sh
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  fuzz_harness_contract_check
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke")
+
+add_test(
+  NAME fuzz_lifetime_replay
+  COMMAND
+    bash ${CMAKE_CURRENT_LIST_DIR}/fuzz_lifetime_replay.sh
+    $<TARGET_FILE:styio_fuzz_lexer_smoke>
+    $<TARGET_FILE:styio_fuzz_parser_smoke>
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(
+  fuzz_lifetime_replay
+  PROPERTIES
+    LABELS "fuzz;fuzz_smoke"
+    ENVIRONMENT "ASAN_OPTIONS=detect_container_overflow=0")

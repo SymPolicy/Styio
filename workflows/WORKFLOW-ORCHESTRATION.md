@@ -1,0 +1,140 @@
+# Workflow Orchestration
+
+**Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
+
+**Last updated:** 2026-10-03
+
+## Separation Rules
+
+1. Every active `workflows/*.md` file, except `README.md` and generated `INDEX.md`, must be registered in `scripts/workflow-scheduler.py`.
+2. Each workflow document owns exactly one responsibility boundary. A new workflow must not restate another workflow's gate details; it links to the owner instead.
+3. Each tool owns exactly one validation responsibility. Profiles may reuse a tool, but two tools must not check the same responsibility.
+4. Profiles must run tools in ascending phase order. Earlier phases may prepare evidence; later phases must not redefine earlier checks.
+5. A delivery workflow is not complete until the scheduler registry, workflow docs, CI entrypoint, and delivery entrypoint agree.
+6. Each workflow markdown is paired with a machine-readable `<NAME>.toml` registered in `workflows/workflows.toml`.
+7. Current repo-local skills and maintenance tools must pass [TOOL-SKILL-REGISTRY-GATE.md](./TOOL-SKILL-REGISTRY-GATE.md) before delivery.
+8. Developer-machine and server-specific information must pass [LOCAL-INFO-LEAK-GATE.md](./LOCAL-INFO-LEAK-GATE.md) before repo hygiene, docs, or delivery gates treat the tree as clean.
+
+## Audit Table
+
+The generated source of truth is:
+
+```bash
+python3 scripts/workflow-scheduler.py list --format markdown
+```
+
+Current registered table:
+
+| Type | Key | Phase | Owner | Responsibility | Command / Path |
+|------|-----|-------|-------|----------------|----------------|
+| Workflow | `workflow-orchestration` | 5 | docs | Tool registry, workflow separation, profile ordering, and scheduler usage. | `workflows/WORKFLOW-ORCHESTRATION.md` |
+| Workflow | `tool-skill-registry-gate` | 7 | docs | Current repo-local skill and maintenance-tool inventory, release wiring, and module coverage. | `workflows/TOOL-SKILL-REGISTRY-GATE.md` |
+| Workflow | `local-info-leak-gate` | 8 | docs | Developer-machine and server-specific information leakage scan across repository-owned files. | `workflows/LOCAL-INFO-LEAK-GATE.md` |
+| Workflow | `repo-hygiene` | 10 | docs | Repository cleanliness, commit, push, and history rewriting standards. | `workflows/REPO-HYGIENE-COMMIT-STANDARD.md` |
+| Workflow | `add-repo-file` | 15 | docs | Repository file creation with metadata, indexes, ownership, and gates. | `workflows/ADD-REPO-FILE.md` |
+| Workflow | `feature-cutover` | 15 | docs | Pre-test self-check for complete migration to the new canonical feature path. | `workflows/FEATURE-CUTOVER-WORKFLOW.md` |
+| Workflow | `change-bootstrap-env` | 20 | docs | Bootstrap environment dependency, version, path, and documentation changes. | `workflows/CHANGE-BOOTSTRAP-ENV.md` |
+| Workflow | `add-resource-identifier` | 25 | docs | Resource identifier syntax, capability, lifecycle, and fail-closed rollout. | `workflows/ADD-RESOURCE-IDENTIFIER.md` |
+| Workflow | `add-syntax-with-skills` | 25 | docs | Ordered syntax-change chain from language SSOT through runtime registration. | `workflows/ADD-SYNTAX-WITH-SKILLS.md` |
+| Workflow | `correct-syntax-contract` | 25 | docs | Syntax-contract correction from minimal repro through parser/Sema boundary, SSOT docs, and gates. | `workflows/CORRECT-SYNTAX-CONTRACT.md` |
+| Workflow | `performance-research` | 25 | docs | Separate Benchmark research, Modification implementation, and independent performance evaluation. | `workflows/PERFORMANCE-RESEARCH-WORKFLOW.md` |
+| Workflow | `promote-nightly-parser-subset` | 25 | docs | Authoritative nightly parser coverage with no accepted-grammar fallback. | `workflows/PROMOTE-NIGHTLY-PARSER-SUBSET.md` |
+| Workflow | `docs-maintenance` | 30 | docs | Documentation metadata, generated indexes, and archive lifecycle. | `workflows/DOCS-MAINTENANCE-WORKFLOW.md` |
+| Workflow | `team-runbook-maintenance` | 30 | docs | Team runbook ownership and update requirements for touched surfaces. | `workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` |
+| Workflow | `docs-gate` | 35 | docs | Common docs/process gate entrypoint and composition boundary. | `workflows/DOCS-GATE.md` |
+| Workflow | `five-layer-pipeline` | 45 | docs | Layered compiler golden coverage from lexer through runtime output. | `workflows/FIVE-LAYER-PIPELINE.md` |
+| Workflow | `test-catalog` | 45 | docs | Named test inventory, fixtures, labels, and automation evidence. | `workflows/TEST-CATALOG.md` |
+| Workflow | `checkpoint` | 50 | docs | Recovery-oriented checkpoint scope control and interruption handling. | `workflows/CHECKPOINT-WORKFLOW.md` |
+| Workflow | `functional-commit-readiness` | 55 | docs | Pre-commit self-check for targeted feature validation and upstream/downstream adaptation. | `workflows/FUNCTIONAL-COMMIT-READINESS-WORKFLOW.md` |
+| Workflow | `delivery-gate` | 60 | docs | Common delivery-floor entrypoint and health-gate handoff. | `workflows/DELIVERY-GATE.md` |
+| Workflow | `checkpoint-health` | 70 | docs | Repository build/test health entrypoint for checkpoint delivery. | `workflows/CHECKPOINT-HEALTH.md` |
+| Tool | `workflow-scheduler-check` | 5 | Docs / Ecosystem | Validate workflow registry, separation, ordering, and discoverability. | `python3 scripts/workflow-scheduler.py check` |
+| Tool | `workflow-scheduler-tests` | 6 | Test Quality | Run scheduler unit tests for range resolution and registry invariants. | `python3 tests/workflow_scheduler_test.py` |
+| Tool | `tool-skill-registry` | 7 | Docs / Ecosystem | Validate current repo-local skills, maintenance tools, release wiring, and module coverage. | `python3 scripts/tool-skill-registry-gate.py` |
+| Tool | `local-info-leak-push` | 8 | Docs / Ecosystem | Warn and fail on developer-machine or server-specific information introduced by the incoming revision range. | `python3 scripts/local-info-leak-gate.py --mode push --range {range}` |
+| Tool | `local-info-leak-staged` | 8 | Docs / Ecosystem | Warn and fail on developer-machine or server-specific information in staged files. | `python3 scripts/local-info-leak-gate.py --mode staged` |
+| Tool | `local-info-leak-tracked` | 8 | Docs / Ecosystem | Warn and fail on developer-machine or server-specific information in tracked files. | `python3 scripts/local-info-leak-gate.py --mode tracked` |
+| Tool | `local-info-leak-worktree` | 8 | Docs / Ecosystem | Warn and fail on developer-machine or server-specific information in Git-visible worktree files. | `python3 scripts/local-info-leak-gate.py --mode worktree` |
+| Tool | `repo-hygiene-push` | 10 | Docs / Ecosystem | Reject forbidden artifacts introduced by the incoming revision range. | `python3 scripts/repo-hygiene-gate.py --mode push --range {range}` |
+| Tool | `repo-hygiene-staged` | 10 | Docs / Ecosystem | Reject forbidden staged artifacts before checkpoint delivery. | `python3 scripts/repo-hygiene-gate.py --mode staged` |
+| Tool | `repo-hygiene-tracked` | 10 | Docs / Ecosystem | Reject forbidden tracked artifacts and repository cleanliness drift. | `python3 scripts/repo-hygiene-gate.py --mode tracked` |
+| Tool | `repo-hygiene-worktree` | 10 | Docs / Ecosystem | Reject forbidden worktree artifacts before local delivery. | `python3 scripts/repo-hygiene-gate.py --mode worktree` |
+| Tool | `monolith-line-ratchet` | 14 | CLI / Nano | Prevent the compiler entry file from growing beyond its measured migration ceiling. | `python3 scripts/monolith-line-ratchet-gate.py` |
+| Tool | `syntax-feature-state` | 15 | Language / Docs | Validate distributed syntax-feature SSOT documents, lifecycle guards, dependency closure, and generated graph freshness. | `python3 scripts/syntax-feature-state-gate.py` |
+| Tool | `runtime-surface` | 20 | Codegen / Runtime | Keep codegen helper calls, ExternLib exports, implementations, and ORC registrations aligned. | `python3 scripts/runtime-surface-gate.py` |
+| Tool | `team-docs-base` | 30 | Docs / Ecosystem | Require runbook updates for branch changes against a base ref. | `python3 scripts/team-docs-gate.py --base {base}` |
+| Tool | `team-docs-staged` | 30 | Docs / Ecosystem | Require runbook updates for staged checkpoint changes. | `python3 scripts/team-docs-gate.py --mode staged` |
+| Tool | `team-docs-worktree` | 30 | Docs / Ecosystem | Require runbook updates for owned worktree changes. | `python3 scripts/team-docs-gate.py` |
+| Tool | `docs-audit` | 35 | Docs / Ecosystem | Validate docs metadata, links, lifecycle state, and generated-index freshness. | `python3 scripts/docs-audit.py` |
+| Tool | `ecosystem-cli-docs` | 40 | Docs / Ecosystem | Validate local ecosystem CLI contract documentation. | `python3 scripts/ecosystem-cli-doc-gate.py` |
+| Tool | `ecosystem-cli-docs-workspace` | 40 | Docs / Ecosystem | Validate ecosystem CLI contract docs against checked-out sibling repositories. | `python3 scripts/ecosystem-cli-doc-gate.py --require-workspace --json` |
+
+## Profiles
+
+| Profile | Scope | Ordered Call Chain |
+|---------|-------|--------------------|
+| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tool/skill registry -> local-info scan -> tracked hygiene -> line ratchet -> syntax-feature state -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-checkpoint` | Worktree process gates before checkpoint health. | tool/skill registry -> local-info scan -> worktree hygiene -> line ratchet -> syntax-feature state -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | tool/skill registry -> staged local-info scan -> staged hygiene -> line ratchet -> syntax-feature state -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
+| `delivery-push` | Branch handoff against a base ref. | tool/skill registry -> push local-info scan -> push hygiene -> line ratchet -> syntax-feature state -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
+| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tool/skill registry -> tracked local-info scan -> incoming local-info scan -> tracked hygiene -> incoming history hygiene -> line ratchet -> syntax-feature state -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
+
+## Required Commands
+
+Validate registry and ordering:
+
+```bash
+python3 scripts/workflow-scheduler.py check
+```
+
+Validate tool and skill inventory:
+
+```bash
+python3 scripts/tool-skill-registry-gate.py
+```
+
+Run local syntax workflow checks:
+
+```bash
+python3 scripts/workflow-scheduler.py run --profile syntax-local
+```
+
+Run branch delivery checks:
+
+```bash
+python3 scripts/workflow-scheduler.py run --profile delivery-push --base origin/main --range origin/main..HEAD
+```
+
+## Composing Local Profiles
+
+Repeat `--profile` to compose read-only profiles in one invocation:
+
+```bash
+python3 scripts/workflow-scheduler.py run --profile delivery-checkpoint --profile delivery-push --base origin/nightly --range origin/nightly..HEAD
+```
+
+`delivery-gate.sh --mode auto` uses this composition when both worktree changes
+and outgoing commits exist. Identical successful commands run once: the two
+nine-tool profiles execute twelve distinct commands rather than eighteen.
+Worktree and incoming-range hygiene/info scans and team ownership checks remain
+separate because they inspect different inputs. Each profile keeps its ordering.
+The docs audit's embedded default team-docs check is suppressed only after that
+profile's correctly scoped team-docs check succeeds; standalone docs audit keeps
+its check. A skipped team check provides no evidence.
+
+Reuse lasts only for the current process, for identical commands and audit
+context. Failure aborts immediately and a new invocation starts fresh. No files,
+logs, hashes, or reusable success tokens are written. Run against a stable
+checkout and environment; do not edit inputs or run mutating tools concurrently.
+If inputs change during the run, discard the affected evidence and rerun. These
+profiles must stay read-only; a future mutating tool needs an explicit invalidation
+boundary before it may participate in composition. Cross-invocation local test
+reuse follows [Post-Commit CI Checks](../docs/specs/POST-COMMIT-CI-CHECKS.md).
+
+## Adding A Workflow
+
+1. Search `workflows/` and this registry before creating a new workflow.
+2. If no existing workflow owns the responsibility, add the new document plus its paired `.toml` definition and register them in `WORKFLOW_DOCS`.
+3. Add or reuse tools in `TOOLS`, preserving one responsibility per tool.
+4. Add the tool to a profile only where the profile's scope requires it.
+5. Run `python3 scripts/workflow-scheduler.py check`, `python3 scripts/tool-skill-registry-gate.py`, `python3 tests/workflow_scheduler_test.py`, and `python3 scripts/docs-index.py --write`.

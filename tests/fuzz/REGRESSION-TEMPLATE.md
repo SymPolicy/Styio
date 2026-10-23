@@ -19,7 +19,8 @@ cmake -S . -B build/fuzz -DSTYIO_ENABLE_FUZZ=ON
 cmake --build build/fuzz --target styio_fuzz_lexer styio_fuzz_parser
 
 # 2) Replay one artifact
-./build/fuzz/bin/<fuzz-target> <artifact-file> -runs=1
+./build/fuzz/bin/<fuzz-target> <artifact-file> \
+  -runs=1 -timeout=10 -max_len=65536 -dict=tests/fuzz/styio.dict -use_value_profile=1
 ```
 
 - Platform / compiler:

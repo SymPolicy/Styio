@@ -2,20 +2,25 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "../EnvTestUtil.hpp"
 #include "StyioAST/AST.hpp"
-#include "StyioIDE/CompilerBridge.hpp"
-#include "StyioIDE/HIR.hpp"
-#include "StyioIDE/Service.hpp"
-#include "StyioIDE/Syntax.hpp"
-#include "StyioLSP/Server.hpp"
+#include "StyioServices/StyioIDE/CompilerBridge.hpp"
+#include "StyioServices/StyioIDE/HIR.hpp"
+#include "StyioServices/StyioIDE/Index.hpp"
+#include "StyioServices/StyioIDE/Service.hpp"
+#include "StyioServices/StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioLSP/Server.hpp"
 #include "StyioException/Exception.hpp"
 #include "StyioParser/Parser.hpp"
 #include "StyioParser/Tokenizer.hpp"
@@ -156,6 +161,80 @@ has_location(
       return location.path == path && location.range.start == start;
     });
 }
+
+struct DecodedSemanticToken
+{
+  std::size_t line = 0;
+  std::size_t character = 0;
+  std::size_t length = 0;
+};
+
+std::vector<DecodedSemanticToken>
+decode_semantic_tokens(const std::vector<std::uint32_t>& data) {
+  std::vector<DecodedSemanticToken> decoded;
+  std::size_t line = 0;
+  std::size_t character = 0;
+
+  for (std::size_t i = 0; i + 4 < data.size(); i += 5) {
+    line += data[i];
+    character = data[i] == 0 ? character + data[i + 1] : data[i + 1];
+    decoded.push_back(DecodedSemanticToken{line, character, data[i + 2]});
+  }
+  return decoded;
+}
+
+bool
+has_semantic_token_at(
+  const std::vector<DecodedSemanticToken>& tokens,
+  std::size_t line,
+  std::size_t character,
+  std::size_t length
+) {
+  return std::any_of(
+    tokens.begin(),
+    tokens.end(),
+    [&](const DecodedSemanticToken& token)
+    {
+      return token.line == line
+        && token.character == character
+        && token.length == length;
+    });
+}
+
+class EnvVarGuard
+{
+public:
+  explicit EnvVarGuard(std::string name) :
+      name_(std::move(name)) {
+    const char* value = std::getenv(name_.c_str());
+    if (value != nullptr) {
+      had_value_ = true;
+      old_value_ = value;
+    }
+  }
+
+  ~EnvVarGuard() {
+    if (had_value_) {
+      styio_test_setenv(name_.c_str(), old_value_.c_str(), 1);
+    }
+    else {
+      styio_test_unsetenv(name_.c_str());
+    }
+  }
+
+  void set(const std::string& value) {
+    styio_test_setenv(name_.c_str(), value.c_str(), 1);
+  }
+
+  void unset() {
+    styio_test_unsetenv(name_.c_str());
+  }
+
+private:
+  std::string name_;
+  bool had_value_ = false;
+  std::string old_value_;
+};
 
 std::vector<std::size_t>
 syntax_statement_starts(const styio::ide::SyntaxSnapshot& syntax) {
@@ -445,6 +524,19 @@ find_hir_symbol(
 
 }  // namespace
 
+TEST(StyioTextBuffer, CopiesRemainImmutableAfterReset) {
+  styio::ide::TextBuffer original("alpha\nbeta");
+  const styio::ide::TextBuffer snapshot = original;
+
+  original.reset("changed");
+
+  EXPECT_EQ(original.text(), "changed");
+  EXPECT_EQ(snapshot.text(), "alpha\nbeta");
+  const styio::ide::Position position = snapshot.position_at(8);
+  EXPECT_EQ(position.line, 1u);
+  EXPECT_EQ(position.character, 2u);
+}
+
 TEST(StyioVfs, AppliesSequentialTextEdits) {
   styio::ide::VirtualFileSystem vfs;
   const std::string path = make_temp_dir() + "/vfs_multi_edit.styio";
@@ -470,6 +562,118 @@ TEST(StyioVfs, AppliesSequentialTextEdits) {
   ASSERT_NE(invalid_result.snapshot, nullptr);
   EXPECT_TRUE(invalid_result.needs_full_resync);
   EXPECT_EQ(invalid_result.snapshot->buffer.text(), "ONE TWO THREE");
+}
+
+TEST(StyioIdeProject, EnvironmentFallbacksAndWorkspaceSkipsStayExplicit) {
+  EnvVarGuard xdg_cache_home("XDG_CACHE_HOME");
+  EnvVarGuard home("HOME");
+
+  const std::filesystem::path root = make_temp_project_dir("ide-project-env");
+  write_text_file((root / "main.styio").string(), "value: i32 := 1\n");
+  std::filesystem::create_directories(root / ".git");
+  std::filesystem::create_directories(root / "build");
+  std::filesystem::create_directories(root / "build-codex");
+  write_text_file((root / ".git" / "hidden.styio").string(), "hidden: i32 := 1\n");
+  write_text_file((root / "build" / "hidden.styio").string(), "hidden: i32 := 1\n");
+  write_text_file((root / "build-codex" / "hidden.styio").string(), "hidden: i32 := 1\n");
+
+  const std::filesystem::path cache = root / "cache-home";
+  xdg_cache_home.set(cache.string());
+  home.set((root / "home").string());
+  styio::ide::Project project;
+  project.set_root(root.string());
+  EXPECT_EQ(project.project_id(), 1u);
+  EXPECT_NE(
+    project.cache_root().find((cache / "styio" / "ide").string()),
+    std::string::npos);
+  const std::string cache_leaf =
+    std::filesystem::path(project.cache_root()).filename().string();
+  EXPECT_EQ(cache_leaf.rfind("root-", 0), 0u);
+  EXPECT_EQ(
+    cache_leaf.find_first_not_of("root-0123456789abcdef"),
+    std::string::npos);
+  EXPECT_EQ(project.workspace_scan_error_count(), 0u);
+  ASSERT_EQ(project.workspace_files().size(), 1u);
+  EXPECT_EQ(
+    std::filesystem::path(project.workspace_files()[0]).filename(),
+    "main.styio");
+
+  styio::ide::Project same_root;
+  same_root.set_root(root.string());
+  EXPECT_EQ(same_root.cache_root(), project.cache_root());
+
+  styio::ide::Project missing_root;
+  EXPECT_NO_THROW(missing_root.set_root((root / "missing").string()));
+  EXPECT_TRUE(missing_root.workspace_files().empty());
+  EXPECT_GT(missing_root.workspace_scan_error_count(), 0u);
+
+  xdg_cache_home.unset();
+  home.unset();
+  styio::ide::Project fallback;
+  fallback.set_root("");
+  EXPECT_TRUE(fallback.workspace_files().empty());
+  EXPECT_NE(fallback.cache_root().find("styio-ide-cache"), std::string::npos);
+}
+
+TEST(StyioIdeService, WatchFileRefreshFiltersAndCoalescesChangedPaths) {
+  const std::filesystem::path root =
+    make_temp_project_dir("ide-service-watch-filter");
+  const std::filesystem::path watched_path = root / "watched.styio";
+  const std::filesystem::path deleted_path = root / "deleted.styio";
+  const std::filesystem::path open_path = root / "open.styio";
+  const std::filesystem::path ignored_text_path = root / "ignored.txt";
+  const std::filesystem::path outside_path =
+    std::filesystem::path(make_temp_dir()) / "outside_watch.styio";
+  write_text_file(watched_path.string(), "# watched := (x: i32) => x\n");
+  write_text_file(
+    deleted_path.string(),
+    "# stale_deleted := (x: i32) => x\n");
+  write_text_file(open_path.string(), "# open_file := (x: i32) => x\n");
+  write_text_file(ignored_text_path.string(), "ignored\n");
+  write_text_file(
+    outside_path.string(),
+    "# outside_watch := (x: i32) => x\n");
+
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(root.string()));
+  ASSERT_TRUE(has_indexed_symbol(
+    service.workspace_symbols("stale_deleted"),
+    "stale_deleted",
+    deleted_path.string()));
+
+  const std::string open_uri = styio::ide::uri_from_path(open_path.string());
+  service.did_open(
+    open_uri,
+    "# open_file := (x: i32) => x\n"
+    "open_result: i32 := open_file(1)\n",
+    1);
+  service.drain_semantic_diagnostics();
+  std::filesystem::remove(deleted_path);
+  service.reset_runtime_counters();
+
+  const std::vector<std::string> changed_paths{
+    watched_path.string(),
+    watched_path.string(),
+    deleted_path.string(),
+    ignored_text_path.string(),
+    outside_path.string(),
+    open_path.string()};
+  EXPECT_EQ(
+    service.schedule_background_index_refresh_for_paths(changed_paths),
+    2u);
+  EXPECT_EQ(service.pending_background_task_count(), 2u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 2u);
+  EXPECT_EQ(
+    service.schedule_background_index_refresh_for_paths(changed_paths),
+    0u);
+  EXPECT_EQ(service.pending_background_task_count(), 2u);
+  EXPECT_EQ(service.runtime_counters().background_tasks_enqueued, 2u);
+
+  EXPECT_EQ(service.run_background_tasks(10), 2u);
+  EXPECT_FALSE(has_indexed_symbol(
+    service.workspace_symbols("stale_deleted"),
+    "stale_deleted",
+    deleted_path.string()));
 }
 
 TEST(StyioIdeService, DocumentSymbolsHoverDefinitionAndCompletion) {
@@ -543,6 +747,180 @@ TEST(StyioSyntaxParser, UsesTreeSitterBackendWhenAvailable) {
 
   EXPECT_FALSE(syntax.folding_ranges.empty());
   EXPECT_TRUE(syntax.diagnostics.empty());
+}
+
+TEST(StyioSyntaxParser, VariableLengthContinueTokenStaysSingleIteratorToken) {
+  styio::ide::SyntaxParser parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.file_id = 2;
+  snapshot.snapshot_id = 1;
+  snapshot.path = "memory://long_continue.styio";
+  snapshot.version = 1;
+  snapshot.buffer = styio::ide::TextBuffer{
+    "[1] >> #(i) => {\n"
+    "  >>>>\n"
+    "}\n"};
+
+  const auto syntax = parser.parse(snapshot);
+  const auto it = std::find_if(
+    syntax.tokens.begin(),
+    syntax.tokens.end(),
+    [](const styio::ide::SyntaxToken& token)
+    {
+      return token.lexeme == ">>>>";
+    });
+
+  ASSERT_NE(it, syntax.tokens.end());
+  EXPECT_EQ(it->type, StyioTokenType::ITERATOR);
+  EXPECT_EQ(it->range.length(), 4u);
+}
+
+class StyioTaskResourceSyntax : public testing::TestWithParam<const char*> {};
+
+TEST_P(StyioTaskResourceSyntax, AuthoritativeFixtureUsesActualTreeSitter) {
+#ifndef STYIO_HAS_TREE_SITTER
+  GTEST_SKIP() << "Requires the Tree-sitter-enabled IDE build.";
+#endif
+  const std::string path = std::string("tests/features/") + GetParam();
+  const std::string source = read_text_file(path);
+  ASSERT_FALSE(source.empty()) << path;
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::SyntaxParser parser;
+  const auto syntax = parser.parse(*vfs.open(path, source, 1));
+  ASSERT_EQ(syntax.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+  EXPECT_TRUE(syntax.diagnostics.empty());
+  EXPECT_TRUE(std::none_of(syntax.nodes.begin(), syntax.nodes.end(), [](const auto& node) {
+    return node.kind == styio::ide::SyntaxNodeKind::Error;
+  }));
+  for (const auto* label : {"task_expr", "await_stmt"}) {
+    EXPECT_TRUE(std::any_of(syntax.nodes.begin(), syntax.nodes.end(), [&](const auto& node) {
+      return node.label == label;
+    })) << label;
+  }
+
+  // Failure fixtures are syntax-valid; their semantic/runtime result is separate.
+  const auto compiler = styio::ide::analyze_document(path, source);
+  EXPECT_TRUE(compiler.parse_success);
+  EXPECT_FALSE(compiler.used_recovery);
+  const auto compiler_tokens = StyioTokenizer::tokenizeOwned(source);
+  std::vector<const styio::ide::SyntaxToken*> editor_tokens;
+  for (const auto& token : syntax.tokens) {
+    if (!token.is_trivia() && token.type != StyioTokenType::TOK_EOF) {
+      editor_tokens.push_back(&token);
+    }
+  }
+  std::size_t index = 0;
+  for (const auto* token : compiler_tokens.tokens()) {
+    const styio::ide::SyntaxToken comparable{token->type, std::string(token->lexeme()), {token->begin(), token->end()}};
+    if (comparable.is_trivia() || token->type == StyioTokenType::TOK_EOF) {
+      continue;
+    }
+    ASSERT_LT(index, editor_tokens.size());
+    const auto& editor = *editor_tokens[index++];
+    EXPECT_EQ(editor.type, token->type) << token->lexeme();
+    EXPECT_EQ(editor.lexeme, token->lexeme());
+    EXPECT_EQ(editor.range.start, token->begin());
+    EXPECT_EQ(editor.range.end, token->end());
+  }
+  EXPECT_EQ(index, editor_tokens.size());
+  for (const auto& node : syntax.nodes) {
+    if (node.label == "block" && source.substr(node.range.start, node.range.length()).find('\n') != std::string::npos) {
+      EXPECT_TRUE(std::any_of(syntax.folding_ranges.begin(), syntax.folding_ranges.end(), [&](const auto& fold) {
+        return fold.range.start == node.range.start && fold.range.end == node.range.end;
+      }));
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(SharedPrograms, StyioTaskResourceSyntax, testing::Values(
+  "state_resources/t13_task_history_capture.styio",
+  "state_resources/t22_task_capture_failure_cleanup.styio",
+  "state_resources/t23_task_f64_history_precision.styio",
+  "state_resources/e06_task_capture_failure_no_fallback.styio",
+  "task_resources/e06_task_order_non_task.styio"));
+
+TEST(StyioSyntaxParser, TaskHistoryMalformedEditsRecoverIncrementally) {
+#ifndef STYIO_HAS_TREE_SITTER
+  GTEST_SKIP() << "Requires the Tree-sitter-enabled IDE build.";
+#endif
+  const std::string path = "tests/features/state_resources/t13_task_history_capture.styio";
+  const std::string source = read_text_file(path);
+  ASSERT_FALSE(source.empty());
+  const std::vector<std::pair<std::string, std::string>> edits{
+    {"..2|", "..)|"}, {"||> {", "||> ) {"}, {"[-1]", "[)]"},
+    {"captured: i64", "captured! i64"}, {"#(v)", "#(v]"}, {">_(captured)", ">_(captured]"}};
+  styio::ide::SyntaxParser incremental_parser;
+  styio::ide::DocumentSnapshot snapshot;
+  snapshot.path = path;
+  snapshot.file_id = 12;
+  snapshot.version = snapshot.snapshot_id = 1;
+  snapshot.buffer = styio::ide::TextBuffer{source};
+  ASSERT_TRUE(incremental_parser.parse(snapshot).diagnostics.empty());
+  for (const auto& [before, after] : edits) {
+    SCOPED_TRACE(before);
+    const auto offset = source.find(before);
+    ASSERT_NE(offset, std::string::npos);
+    std::string malformed = source;
+    malformed.replace(offset, before.size(), after);
+    for (const bool restore : {false, true}) {
+      snapshot.version += 1;
+      snapshot.snapshot_id += 1;
+      snapshot.buffer = styio::ide::TextBuffer{restore ? source : malformed};
+      snapshot.applied_edits = {{{offset, offset + (restore ? after.size() : before.size())}, restore ? before : after}};
+      const auto incremental = incremental_parser.parse(snapshot);
+      styio::ide::SyntaxParser full_parser;
+      auto full_snapshot = snapshot;
+      full_snapshot.applied_edits.clear();
+      full_snapshot.from_full_sync = true;
+      const auto full = full_parser.parse(full_snapshot);
+      ASSERT_EQ(incremental.backend, styio::ide::SyntaxBackendKind::TreeSitter);
+      EXPECT_TRUE(incremental.reused_incremental_tree);
+      EXPECT_EQ(incremental.diagnostics.empty(), restore);
+      EXPECT_EQ(std::any_of(incremental.nodes.begin(), incremental.nodes.end(), [](const auto& node) {
+        return node.kind == styio::ide::SyntaxNodeKind::Error;
+      }), !restore);
+      ASSERT_EQ(incremental.diagnostics.size(), full.diagnostics.size());
+      for (std::size_t i = 0; i < full.diagnostics.size(); ++i) {
+        EXPECT_EQ(incremental.diagnostics[i].code, full.diagnostics[i].code);
+        EXPECT_EQ(incremental.diagnostics[i].range.start, full.diagnostics[i].range.start);
+        EXPECT_EQ(incremental.diagnostics[i].range.end, full.diagnostics[i].range.end);
+      }
+      ASSERT_EQ(incremental.nodes.size(), full.nodes.size());
+      for (std::size_t i = 0; i < full.nodes.size(); ++i) {
+        EXPECT_EQ(incremental.nodes[i].label, full.nodes[i].label);
+        EXPECT_EQ(incremental.nodes[i].range.start, full.nodes[i].range.start);
+        EXPECT_EQ(incremental.nodes[i].range.end, full.nodes[i].range.end);
+        EXPECT_EQ(incremental.nodes[i].children, full.nodes[i].children);
+      }
+      ASSERT_EQ(incremental.tokens.size(), full.tokens.size());
+      for (std::size_t i = 0; i < full.tokens.size(); ++i) {
+        EXPECT_EQ(incremental.tokens[i].type, full.tokens[i].type);
+        EXPECT_EQ(incremental.tokens[i].lexeme, full.tokens[i].lexeme);
+        EXPECT_EQ(incremental.tokens[i].range.start, full.tokens[i].range.start);
+        EXPECT_EQ(incremental.tokens[i].range.end, full.tokens[i].range.end);
+      }
+      EXPECT_EQ(incremental.matching_tokens, full.matching_tokens);
+      ASSERT_EQ(incremental.folding_ranges.size(), full.folding_ranges.size());
+      for (std::size_t i = 0; i < full.folding_ranges.size(); ++i) {
+        EXPECT_EQ(incremental.folding_ranges[i].range.start, full.folding_ranges[i].range.start);
+        EXPECT_EQ(incremental.folding_ranges[i].range.end, full.folding_ranges[i].range.end);
+      }
+    }
+  }
+}
+
+TEST(StyioCompletionEngine, TaskHistoryMalformedAwaitRetainsLaterBinding) {
+  std::string source = read_text_file("tests/features/state_resources/t13_task_history_capture.styio");
+  const auto colon = source.find("captured:");
+  ASSERT_NE(colon, std::string::npos);
+  source[colon + std::string("captured").size()] = '!';
+  source += "editor_tail = 1\neditor_t";
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(make_temp_project_dir("task-history-recovery")));
+  const std::string uri = temp_uri("task_history_recovery.styio");
+  EXPECT_FALSE(service.did_open(uri, source, 1).empty());
+  const auto position = styio::ide::TextBuffer{source}.position_at(source.size());
+  EXPECT_TRUE(has_completion_label(service.completion(uri, position), "editor_tail"));
 }
 
 TEST(StyioSyntaxParser, ReusesIncrementalTreeForSubsequentParses) {
@@ -1379,6 +1757,20 @@ TEST(StyioWorkspaceIndex, PersistentIndexClearsDeletedSymbolsOnNewSession) {
   EXPECT_TRUE(has_indexed_symbol(warmed_service.workspace_symbols("live_symbol"), "live_symbol", path));
 }
 
+TEST(StyioWorkspaceIndex, PersistentIndexSaveSkipsInvalidCachePath) {
+  const std::filesystem::path root = make_temp_project_dir("ide_invalid_cache");
+  const std::filesystem::path cache_parent = root / "cache-parent";
+  write_text_file(cache_parent.string(), "occupied");
+
+  styio::ide::PersistentIndex index((cache_parent / "nested").string());
+  styio::ide::IndexedSymbol symbol;
+  symbol.path = (root / "main.styio").string();
+  symbol.name = "symbol";
+
+  EXPECT_NO_THROW(index.save_symbols({symbol}));
+  EXPECT_TRUE(index.load_symbols().empty());
+}
+
 TEST(StyioWorkspaceIndex, ClosedFileRefreshesFromDiskBeforeBackgroundIndexing) {
   const std::string root = make_temp_project_dir("ide_closed_file_refresh");
   const std::string path = (std::filesystem::path(root) / "refresh.styio").string();
@@ -1561,6 +1953,49 @@ TEST(StyioSemanticDb, DropsOpenFileQueryStateOnClose) {
   EXPECT_EQ(after_reopen_query.document_symbols.misses, after_close_query.document_symbols.misses + 1);
 }
 
+TEST(StyioSemanticDb, SemanticTokensUseUtf16PositionsAndLengths) {
+  styio::ide::VirtualFileSystem vfs;
+  styio::ide::Project project;
+  styio::ide::SemanticDB semdb(vfs, project);
+  const std::string path = make_temp_dir() + "/semantic_utf16_tokens.styio";
+  const std::string emoji = "\xF0\x9F\x98\x80";
+  const std::string source = "emoji = \"" + emoji + "\" value = 1\n";
+  vfs.open(path, source, 1);
+
+  const std::vector<DecodedSemanticToken> tokens =
+    decode_semantic_tokens(semdb.semantic_tokens_for(path));
+  ASSERT_FALSE(tokens.empty());
+
+  const styio::ide::TextBuffer buffer(source);
+  const std::size_t value_offset = source.find("value");
+  ASSERT_NE(value_offset, std::string::npos);
+  const styio::ide::Position value_byte_pos = buffer.position_at(value_offset);
+  const styio::ide::Position value_utf16_pos =
+    buffer.utf16_position_at(value_offset);
+  EXPECT_EQ(value_utf16_pos.line, 0U);
+  EXPECT_GT(value_byte_pos.character, value_utf16_pos.character);
+  EXPECT_TRUE(has_semantic_token_at(
+    tokens,
+    value_utf16_pos.line,
+    value_utf16_pos.character,
+    5U));
+  EXPECT_FALSE(has_semantic_token_at(
+    tokens,
+    value_byte_pos.line,
+    value_byte_pos.character,
+    5U));
+
+  const std::size_t string_offset = source.find('"');
+  ASSERT_NE(string_offset, std::string::npos);
+  const styio::ide::Position string_pos =
+    buffer.utf16_position_at(string_offset);
+  EXPECT_TRUE(has_semantic_token_at(
+    tokens,
+    string_pos.line,
+    string_pos.character,
+    4U));
+}
+
 TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
   const std::string source =
     "# broken := (a: i32, b: i32) => {\n"
@@ -1577,6 +2012,27 @@ TEST(StyioSemanticBridge, RecoversNightlyParseForLaterStatements) {
   const auto it = summary.function_signatures.find("stable");
   ASSERT_NE(it, summary.function_signatures.end());
   EXPECT_NE(it->second.find("stable"), std::string::npos);
+}
+
+TEST(StyioSemanticBridge, ResourceTopologyDiagnosticRemainsCompilerOwned) {
+  const std::string source =
+    "series = 1\n"
+    "value = series[avg, 5]\n";
+
+  const auto summary =
+    styio::ide::analyze_document("memory://topology_diagnostic.styio", source);
+
+  ASSERT_TRUE(summary.parse_success);
+  ASSERT_EQ(summary.diagnostics.size(), 1u);
+  const auto& diagnostic = summary.diagnostics.front();
+  EXPECT_EQ(diagnostic.source, "styio-compiler");
+  EXPECT_EQ(diagnostic.phase, "type");
+  EXPECT_EQ(
+    diagnostic.message,
+    "\nStyio.TypeError:\n"
+    "sema-resource-topology: series intrinsic must be owned by a state declaration");
+  EXPECT_EQ(diagnostic.message.find("memory://"), std::string::npos);
+  EXPECT_EQ(diagnostic.message.find("0x"), std::string::npos);
 }
 
 TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
@@ -1604,6 +2060,9 @@ TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
     {"params", std::move(open_params)}});
   ASSERT_EQ(open_messages.size(), 1u);
   EXPECT_EQ(open_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+  const auto* open_diagnostic_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(open_diagnostic_params, nullptr);
+  EXPECT_EQ(open_diagnostic_params->getInteger("version").value_or(-1), 1);
 
   auto completion_messages = server.handle(llvm::json::Object{
     {"jsonrpc", "2.0"},
@@ -1625,6 +2084,14 @@ TEST(StyioLspServer, HandlesInitializeOpenAndCompletion) {
     }
   }
   EXPECT_TRUE(found_add);
+}
+
+TEST(StyioLspServer, InitializedNotificationReturnsNoResponse) {
+  styio::lsp::Server server;
+  auto messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "initialized"}});
+  EXPECT_TRUE(messages.empty());
 }
 
 TEST(StyioLspServer, SkipsMalformedFramesAndHandlesLargeStringIds) {
@@ -1687,6 +2154,9 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
           {"version", 1},
           {"text", "# ad := (a: i32, b: i32) => a + b\nresult: i32 := ad\n"}}}}}});
   ASSERT_EQ(open_messages.size(), 1u);
+  const auto* open_diagnostic_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(open_diagnostic_params, nullptr);
+  EXPECT_EQ(open_diagnostic_params->getInteger("version").value_or(-1), 1);
 
   llvm::json::Array changes;
   changes.push_back(llvm::json::Object{
@@ -1704,6 +2174,9 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
        {"contentChanges", std::move(changes)}}}});
   ASSERT_EQ(change_messages.size(), 1u);
   EXPECT_EQ(change_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
+  const auto* change_diagnostic_params = change_messages[0].payload.getObject("params");
+  ASSERT_NE(change_diagnostic_params, nullptr);
+  EXPECT_EQ(change_diagnostic_params->getInteger("version").value_or(-1), 2);
 
   auto symbol_messages = server.handle(llvm::json::Object{
     {"jsonrpc", "2.0"},
@@ -1717,6 +2190,106 @@ TEST(StyioLspServer, AppliesMultipleIncrementalChangesInOrder) {
   const auto* first_symbol = (*symbols)[0].getAsObject();
   ASSERT_NE(first_symbol, nullptr);
   EXPECT_EQ(first_symbol->getString("name").value_or(""), "add");
+}
+
+TEST(StyioLspServer, WatchFileChangesFilterAndCoalesceBackgroundRefresh) {
+  styio::lsp::Server server;
+  const std::string root = make_temp_project_dir("server_watch_filter");
+  const std::string watched_path =
+    (std::filesystem::path(root) / "watched.styio").string();
+  const std::string open_path =
+    (std::filesystem::path(root) / "open.styio").string();
+  const std::string ignored_text_path =
+    (std::filesystem::path(root) / "ignored.txt").string();
+  const std::string outside_path =
+    (std::filesystem::path(make_temp_dir()) / "outside_lsp_watch.styio")
+      .string();
+  write_text_file(watched_path, "# watched := (x: i32) => x\n");
+  write_text_file(open_path, "# open_file := (x: i32) => x\n");
+  write_text_file(ignored_text_path, "ignored\n");
+  write_text_file(
+    outside_path,
+    "# outside_lsp_watch := (x: i32) => x\n");
+
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 1},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{
+        {"rootUri", styio::ide::uri_from_path(root)}}}}).size(),
+    1u);
+  ASSERT_EQ(
+    server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"method", "textDocument/didOpen"},
+      {"params", llvm::json::Object{
+        {"textDocument", llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(open_path)},
+          {"version", 1},
+          {"text",
+           "# open_file := (x: i32) => x\n"
+           "open_result: i32 := open_file(1)\n"}}}}}}).size(),
+    1u);
+  (void)server.drain_runtime();
+
+  auto watched_changes = [&]() -> llvm::json::Array
+  {
+    return llvm::json::Array{
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(watched_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(watched_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(open_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(ignored_text_path)},
+        {"type", 2}},
+      llvm::json::Object{
+        {"uri", styio::ide::uri_from_path(outside_path)},
+        {"type", 2}}};
+  };
+  auto background_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", watched_changes()}}}});
+  EXPECT_TRUE(background_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  auto duplicate_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", watched_changes()}}}});
+  EXPECT_TRUE(duplicate_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  auto empty_messages = server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}});
+  EXPECT_TRUE(empty_messages.empty());
+  EXPECT_EQ(server.runtime_counters().background_tasks_enqueued, 1u);
+
+  styio::lsp::Server empty_change_server;
+  ASSERT_EQ(
+    empty_change_server.handle(llvm::json::Object{
+      {"jsonrpc", "2.0"},
+      {"id", 2},
+      {"method", "initialize"},
+      {"params", llvm::json::Object{
+        {"rootUri", styio::ide::uri_from_path(root)}}}}).size(),
+    1u);
+  EXPECT_TRUE(empty_change_server.handle(llvm::json::Object{
+    {"jsonrpc", "2.0"},
+    {"method", "workspace/didChangeWatchedFiles"},
+    {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}})
+    .empty());
+  EXPECT_EQ(
+    empty_change_server.runtime_counters().background_tasks_enqueued,
+    0u);
 }
 
 TEST(StyioLspRuntime, DropsStaleCompletionResponses) {
@@ -1767,6 +2340,9 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
           {"version", 1},
           {"text", "# add := (a: i32, b: i32) => a + b\nresult: i32 := add(1, 2)\n"}}}}}});
   ASSERT_EQ(open_messages.size(), 1u);
+  const auto* open_diagnostic_params = open_messages[0].payload.getObject("params");
+  ASSERT_NE(open_diagnostic_params, nullptr);
+  EXPECT_EQ(open_diagnostic_params->getInteger("version").value_or(-1), 1);
 
   llvm::json::Array invalid_changes;
   invalid_changes.push_back(llvm::json::Object{
@@ -1778,6 +2354,9 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
        {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 2}}},
        {"contentChanges", std::move(invalid_changes)}}}});
   ASSERT_EQ(invalid_messages.size(), 1u);
+  const auto* invalid_diagnostic_params = invalid_messages[0].payload.getObject("params");
+  ASSERT_NE(invalid_diagnostic_params, nullptr);
+  EXPECT_EQ(invalid_diagnostic_params->getInteger("version").value_or(-1), 2);
 
   llvm::json::Array invalid_changes_2;
   invalid_changes_2.push_back(llvm::json::Object{
@@ -1789,6 +2368,9 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
        {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 3}}},
        {"contentChanges", std::move(invalid_changes_2)}}}});
   ASSERT_EQ(invalid_messages_2.size(), 1u);
+  const auto* invalid_diagnostic_params_2 = invalid_messages_2[0].payload.getObject("params");
+  ASSERT_NE(invalid_diagnostic_params_2, nullptr);
+  EXPECT_EQ(invalid_diagnostic_params_2->getInteger("version").value_or(-1), 3);
 
   llvm::json::Array final_changes;
   final_changes.push_back(llvm::json::Object{
@@ -1800,17 +2382,54 @@ TEST(StyioLspRuntime, DebouncesSemanticDiagnostics) {
        {"textDocument", llvm::json::Object{{"uri", uri}, {"version", 4}}},
        {"contentChanges", std::move(final_changes)}}}});
   ASSERT_EQ(final_messages.size(), 1u);
+  const auto* final_diagnostic_params = final_messages[0].payload.getObject("params");
+  ASSERT_NE(final_diagnostic_params, nullptr);
+  EXPECT_EQ(final_diagnostic_params->getInteger("version").value_or(-1), 4);
 
   const auto runtime_messages = server.drain_runtime();
   ASSERT_EQ(runtime_messages.size(), 1u);
   EXPECT_EQ(runtime_messages[0].payload.getString("method").value_or(""), "textDocument/publishDiagnostics");
   const auto* params = runtime_messages[0].payload.getObject("params");
   ASSERT_NE(params, nullptr);
+  EXPECT_EQ(params->getInteger("version").value_or(-1), 4);
   const auto* diagnostics = params->getArray("diagnostics");
   ASSERT_NE(diagnostics, nullptr);
   EXPECT_TRUE(diagnostics->empty());
   EXPECT_EQ(server.runtime_counters().semantic_diagnostic_runs, 1u);
   EXPECT_EQ(server.runtime_counters().semantic_diagnostic_debounces, 3u);
+}
+
+TEST(StyioLspRuntime, TaskHistoryCoalescesToLatestSnapshot) {
+  const std::string source = read_text_file("tests/features/state_resources/t13_task_history_capture.styio");
+  ASSERT_FALSE(source.empty());
+  std::string malformed = source;
+  const auto selector = malformed.find("[-1]");
+  ASSERT_NE(selector, std::string::npos);
+  malformed.replace(selector, 4, "[)]");
+  styio::ide::IdeService service;
+  service.initialize(styio::ide::uri_from_path(make_temp_project_dir("task-history-versions")));
+  const auto uri = temp_uri("task_history_versions.styio");
+  EXPECT_TRUE(service.did_open(uri, source, 1).empty());
+  auto publications = service.drain_semantic_diagnostics();
+  ASSERT_EQ(publications.size(), 1u);
+  EXPECT_EQ(publications.front().snapshot->version, 1);
+  EXPECT_TRUE(publications.front().includes_semantic);
+  EXPECT_TRUE(publications.front().diagnostics.empty());
+
+  EXPECT_FALSE(service.did_change(uri, malformed, 2).empty());
+  const auto old_snapshot = service.snapshot_for_uri(uri);
+  EXPECT_TRUE(service.did_change(uri, source, 3).empty());
+  EXPECT_EQ(old_snapshot->version, 2);
+  EXPECT_EQ(old_snapshot->buffer.text(), malformed);
+  EXPECT_EQ(service.pending_semantic_diagnostic_count(), 1u);
+  publications = service.drain_semantic_diagnostics();
+  ASSERT_EQ(publications.size(), 1u);
+  EXPECT_EQ(publications.front().snapshot->version, 3);
+  EXPECT_EQ(publications.front().snapshot->buffer.text(), source);
+  EXPECT_TRUE(publications.front().includes_semantic);
+  EXPECT_TRUE(publications.front().diagnostics.empty());
+  EXPECT_EQ(service.runtime_counters().semantic_diagnostic_debounces, 1u);
+  EXPECT_TRUE(service.drain_semantic_diagnostics().empty());
 }
 
 TEST(StyioLspRuntime, RuntimeDrainCanBeBudgetedForScheduling) {
@@ -1925,8 +2544,12 @@ TEST(StyioLspServer, RunDrainsRuntimeDiagnostics) {
 TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
   styio::lsp::Server server;
   const std::string root = make_temp_project_dir("ide_request_driven_background");
-  write_text_file((std::filesystem::path(root) / "lib_bg.styio").string(), "# lib_bg := (x: i32) => x\n");
-  write_text_file((std::filesystem::path(root) / "other_bg.styio").string(), "# other_bg := (x: i32) => x\n");
+  const std::string lib_path =
+    (std::filesystem::path(root) / "lib_bg.styio").string();
+  const std::string other_path =
+    (std::filesystem::path(root) / "other_bg.styio").string();
+  write_text_file(lib_path, "# lib_bg := (x: i32) => x\n");
+  write_text_file(other_path, "# other_bg := (x: i32) => x\n");
 
   const std::string uri = temp_uri("runtime_request_driven_fallback.styio");
   const std::vector<llvm::json::Object> requests = {
@@ -1946,7 +2569,14 @@ TEST(StyioLspRuntime, RunAdvancesBackgroundWorkAsRequestDrivenFallback) {
     llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"method", "workspace/didChangeWatchedFiles"},
-      {"params", llvm::json::Object{{"changes", llvm::json::Array{}}}}},
+      {"params", llvm::json::Object{{"changes", llvm::json::Array{
+        llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(lib_path)},
+          {"type", 2}},
+        llvm::json::Object{
+          {"uri", styio::ide::uri_from_path(other_path)},
+          {"type", 2}},
+      }}}}},
     llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"id", 2},
@@ -2160,7 +2790,7 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
     cases.push_back(DriftCase{
       path,
       {"binding:items", "binding:count"},
-      {"binding:items"},
+      {"binding:items", "binding:count"},
       {0, source.find("count")},
       {},
       {
@@ -2172,8 +2802,8 @@ TEST(StyioSyntaxDrift, CorpusMatchesApprovedEnvelope) {
       },
       0,
       21,
-      true,
-      "nightly recovery currently keeps the first typed binding but may drop the later member-access binding in this typed list case"});
+      false,
+      ""});
   }
 
   {

@@ -1,0 +1,85 @@
+/* CLRS 26.2 Edmonds-Karp max s-t flow (BFS augmenting paths).
+   Input: [n, m, s, t, u1,v1,c1,..., then n*n residual + n parent + n queue zeros]
+   n<=6 in tests. Parallel capacities accumulate. Malformed -> -1. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 4) => {
+    n = values[0]
+    m = values[1]
+    s = values[2]
+    t = values[3]
+    edge_end = 4 + m * 3
+    need = edge_end + n * n + n + n
+    ?(n <= 0 || s < 0 || s >= n || t < 0 || t >= n || s == t) => {
+        answer = -1
+    } | {
+        ?(values.length >= need) => {
+            res_base = edge_end
+            parent_base = edge_end + n * n
+            queue_base = edge_end + n * n + n
+
+            [0..n-1] >> #(i) => {
+                [0..n-1] >> #(j) => {
+                    values[res_base + i * n + j] = 0
+                }
+            }
+            [0..m-1] >> #(e) => {
+                u = values[4 + e * 3]
+                v = values[4 + e * 3 + 1]
+                c = values[4 + e * 3 + 2]
+                ?(u >= 0 && u < n && v >= 0 && v < n && c >= 0 && u != v) => {
+                    values[res_base + u * n + v] = values[res_base + u * n + v] + c
+                }
+            }
+
+            flow = 0
+            running = 1
+            [...] >> ?(running == 1) => {
+                [0..n-1] >> #(i) => {
+                    values[parent_base + i] = 0 - 1
+                }
+                values[parent_base + s] = s
+                values[queue_base] = s
+                qh = 0
+                qt = 1
+                [...] >> ?(qh < qt && values[parent_base + t] == 0 - 1) => {
+                    u = values[queue_base + qh]
+                    qh = qh + 1
+                    [0..n-1] >> #(v) => {
+                        ?(values[parent_base + v] == 0 - 1 && values[res_base + u * n + v] > 0) => {
+                            values[parent_base + v] = u
+                            values[queue_base + qt] = v
+                            qt = qt + 1
+                        }
+                    }
+                }
+                ?(values[parent_base + t] == 0 - 1) => {
+                    running = 0
+                } | {
+                    bottleneck = 2000000000
+                    v = t
+                    [...] >> ?(v != s) => {
+                        u = values[parent_base + v]
+                        c = values[res_base + u * n + v]
+                        ?(c < bottleneck) => {
+                            bottleneck = c
+                        }
+                        v = u
+                    }
+                    v = t
+                    [...] >> ?(v != s) => {
+                        u = values[parent_base + v]
+                        values[res_base + u * n + v] = values[res_base + u * n + v] - bottleneck
+                        values[res_base + v * n + u] = values[res_base + v * n + u] + bottleneck
+                        v = u
+                    }
+                    flow = flow + bottleneck
+                }
+            }
+            answer = flow
+        }
+    }
+}
+
+>_(answer)

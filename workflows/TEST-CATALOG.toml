@@ -1,7 +1,7 @@
 id = "test-catalog"
 title = "Styio Test Catalog"
 purpose = "Map language feature tests to inputs, goldens, side effects, and CTest commands."
-last_updated = "2026-05-10"
+last_updated = "2026-06-25"
 doc = "TEST-CATALOG.md"
 
 primary_command = "ctest --test-dir build/default -L language_feature"
@@ -16,10 +16,13 @@ domains = [
   "stream processing",
   "final bindings",
   "standard stream input/output",
+  "standard library manifest",
+  "compiler intrinsics",
   "native interop",
   "task resources",
   "algorithm equivalence",
   "security",
   "five-layer pipeline",
+  "source coverage gate",
   "soak",
 ]

@@ -1,22 +1,22 @@
 id = "promote-nightly-parser-subset"
-title = "Promote Nightly Parser Subset"
-purpose = "Move a grammar slice into the nightly parser while keeping legacy parity and shadow gates intact."
-last_updated = "2026-04-23"
+title = "Promote Nightly Parser Coverage"
+purpose = "Move grammar coverage into the authoritative nightly parser while keeping accepted syntax no-fallback."
+last_updated = "2026-05-20"
 doc = "PROMOTE-NIGHTLY-PARSER-SUBSET.md"
 skill = "skills/styio-parser-subset/skill.toml"
 
 steps = [
-  "freeze representative source samples and expected legacy behavior",
+  "freeze representative accepted and rejected source samples",
   "extend token/start gates before parser consumption",
   "implement nightly expr or stmt parsing with existing helpers",
   "preserve line-boundary and statement-boundary behavior",
-  "add AST repr parity, fallback budget, and error-boundary tests",
+  "add no-fallback, parser-entry, and error-boundary tests",
 ]
 
 required_evidence = [
-  "legacy and nightly AST repr match for accepted samples",
+  "accepted samples parse through the hand-written nightly parser without fallback",
   "rejected samples fail with stable parser or semantic errors",
-  "shadow route stats do not regress the fallback budget",
+  "shadow route stats report zero accepted-grammar fallback",
   "parser entry audit still passes",
 ]
 
@@ -25,6 +25,7 @@ gates = [
   "ctest --test-dir build/default -R ^StyioParserEngine\\. --output-on-failure",
   "ctest --test-dir build/default -R ^parser_shadow_gate_ --output-on-failure",
   "ctest --test-dir build/default -R ^parser_legacy_entry_audit$ --output-on-failure",
+  "ctest --test-dir build/default -R '^(StyioDiagnostics\\.SyntaxCheckRejectsNonAuthoritativeParserEngine|StyioSemanticBridge\\.RejectsMalformedInputWithoutRecovery)$' --output-on-failure",
   "git diff --check",
 ]
 
@@ -32,6 +33,6 @@ gates = [
 report = [
   "accepted samples",
   "rejected samples",
-  "fallback/internal-bridge budget",
+  "no-fallback evidence",
   "changed parser surfaces",
 ]

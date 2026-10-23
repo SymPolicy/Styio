@@ -1,0 +1,117 @@
+/* Undirected bridge count (CLRS Ch.22 articulation/bridge exercises).
+   Input: [n, m, u1,v1,..., then n parent workspace zeros]
+   Styio: for each edge, UF components with that edge skipped vs baseline. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 2
+    need = edge_end + n
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            parent_base = edge_end
+
+            // helper inline: compute components skipping edge skip (-1 = none)
+            // baseline
+            [0..n-1] >> #(i) => {
+                values[parent_base + i] = i
+            }
+            [0..m-1] >> #(e) => {
+                u = values[2 + e * 2]
+                v = values[2 + e * 2 + 1]
+                ?(u >= 0 && u < n && v >= 0 && v < n && u != v) => {
+                    x = u
+                    [0..n-1] >> #(t) => {
+                        p = values[parent_base + x]
+                        ?(p != x) => {
+                            x = p
+                        }
+                    }
+                    y = v
+                    [0..n-1] >> #(t) => {
+                        p = values[parent_base + y]
+                        ?(p != y) => {
+                            y = p
+                        }
+                    }
+                    ?(x != y) => {
+                        values[parent_base + x] = y
+                    }
+                }
+            }
+            base = 0
+            [0..n-1] >> #(i) => {
+                x = i
+                [0..n-1] >> #(t) => {
+                    p = values[parent_base + x]
+                    ?(p != x) => {
+                        x = p
+                    }
+                }
+                ?(x == i) => {
+                    base = base + 1
+                }
+            }
+
+            bridges = 0
+            [0..m-1] >> #(skip) => {
+                u0 = values[2 + skip * 2]
+                v0 = values[2 + skip * 2 + 1]
+                ?(u0 >= 0 && u0 < n && v0 >= 0 && v0 < n && u0 != v0) => {
+                    [0..n-1] >> #(i) => {
+                        values[parent_base + i] = i
+                    }
+                    [0..m-1] >> #(e) => {
+                        ?(e != skip) => {
+                            u = values[2 + e * 2]
+                            v = values[2 + e * 2 + 1]
+                            ?(u >= 0 && u < n && v >= 0 && v < n && u != v) => {
+                                x = u
+                                [0..n-1] >> #(t) => {
+                                    p = values[parent_base + x]
+                                    ?(p != x) => {
+                                        x = p
+                                    }
+                                }
+                                y = v
+                                [0..n-1] >> #(t) => {
+                                    p = values[parent_base + y]
+                                    ?(p != y) => {
+                                        y = p
+                                    }
+                                }
+                                ?(x != y) => {
+                                    values[parent_base + x] = y
+                                }
+                            }
+                        }
+                    }
+                    comps = 0
+                    [0..n-1] >> #(i) => {
+                        x = i
+                        [0..n-1] >> #(t) => {
+                            p = values[parent_base + x]
+                            ?(p != x) => {
+                                x = p
+                            }
+                        }
+                        ?(x == i) => {
+                            comps = comps + 1
+                        }
+                    }
+                    ?(comps > base) => {
+                        bridges = bridges + 1
+                    }
+                }
+            }
+            answer = bridges
+        }
+    }
+}
+
+>_(answer)

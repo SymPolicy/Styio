@@ -1,10 +1,10 @@
 # Styio
 
-**Styio is an experimental symbolic language for stream processing, resource
-topology, and intent-oriented execution.**
+**Styio is an experimental general-purpose visual programming language with
+symbolic syntax for expressing data flow.**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/styio-org/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/styio-org/styio-nightly/actions/workflows/styio-ci-gate.yml)
-[![License](https://img.shields.io/github/license/styio-org/styio-nightly?style=flat-square)](https://github.com/styio-org/styio-nightly/blob/nightly/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Unka-Malloc/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/Unka-Malloc/styio-nightly/actions/workflows/styio-ci-gate.yml)
+[![License](https://img.shields.io/github/license/Unka-Malloc/styio-nightly?style=flat-square)](https://github.com/Unka-Malloc/styio-nightly/blob/nightly/LICENSE)
 
 [Simplified Chinese](README_zh.md) | [Build guide](docs/BUILD-AND-DEV-ENV.md) | [Repository docs](docs/README.md) | [Examples](example/README.md)
 
@@ -12,6 +12,17 @@ This repository carries the nightly compiler, CLI, resource-topology runtime
 model, tests, and repository-local documentation. It is intended for source
 builds and active development. Public binary release artifacts are not part of
 this branch contract.
+
+## Language Design
+
+Styio represents sources, transformations, branches, and destinations with
+symbolic syntax. Its visual environment is designed to combine compiler-generated
+structure and flow views with runtime execution overlays.
+
+The compiler currently exports validated resource topology through an opt-in
+observable interface. See the [language design](docs/design/Styio-Language-Design.md#24-visual-design-intent)
+for the broader program-view model and the [observable contract](docs/design/Styio-Observable-Language.md#3-current-compiler-foundation)
+for implemented capabilities.
 
 ## A Glimpse of Styio
 
@@ -50,14 +61,19 @@ parallel signal: spread=7.000000, midpoint=97.500000
 ## Build From Source
 
 Install the documented dependencies, configure the default build directory, and
-run the main local gates:
+run the main local gates. The bootstrap supports Debian/Ubuntu and macOS; the
+macOS Homebrew LLVM configure recipe is in the build guide.
 
 ```bash
 scripts/bootstrap-dev-env.sh --help
 cmake -S . -B build/default -DCMAKE_BUILD_TYPE=Debug
-cmake --build build/default --target styio styio_test styio_security_test styio_resource_topology_test -j"$(nproc)"
-ctest --test-dir build/default -L security --output-on-failure
-ctest --test-dir build/default -L styio_pipeline --output-on-failure
+cmake --build build/default --parallel --target \
+  styio styio_nano styio_test styio_security_test \
+  styio_resource_topology_test styio_algorithm_equivalence_test \
+  styio_newparser_internal_test styio_parser_internal_test \
+  styio_platform_internal_test styio_native_interop_internal_test
+ctest --test-dir build/default -L security --output-on-failure --no-tests=error
+ctest --test-dir build/default -L styio_pipeline --output-on-failure --no-tests=error
 ```
 
 For the full environment contract, see
@@ -71,11 +87,19 @@ printf '[3, 1, 2]\n' | build/default/bin/styio --file example/algorithms/bubble_
 STYIO_BIN=build/default/bin/styio ./example/cli_calculator.sh "1 + 2 * (3 + 4)"
 ```
 
+The examples include classic algorithms and stream-oriented applications. They
+also provide executable cases for evaluating inference, composition, and
+source-code verbosity.
+
 The active examples under `example/` are covered by CTest. Draft language ideas
 that do not currently run should stay out of the active tree after their durable
 rules are promoted into docs.
 
 ## Project Boundaries
+
+Repository homes: this checkout is the active downstream `Unka-Malloc/styio-nightly`;
+the upstream repository is `SymPolicy/Styio` (formerly `eBioRing/Styio`). The badges
+above point at the downstream repository that runs the advertised checks.
 
 Styio is developed alongside related repositories, but this repository owns the
 compiler, language tests, resource-topology semantics, and CLI contracts. Package
@@ -89,7 +113,3 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
 [SUPPORT.md](SUPPORT.md) before filing issues or proposing changes. Release and
 dependency rules are tracked in [RELEASE-POLICY.md](RELEASE-POLICY.md) and
 [DEPENDENCY-USAGE.md](DEPENDENCY-USAGE.md).
-
-## License
-
-Apache-2.0. See [LICENSE](LICENSE).

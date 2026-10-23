@@ -8,6 +8,9 @@ on:
       - nightly
       - stable
 
+permissions:
+  contents: read
+
 jobs:
   styio-ci-gate:
     name: platform-adaptation / linux-ci-gate
@@ -20,6 +23,7 @@ jobs:
         with:
           fetch-depth: 0
           path: styio-nightly
+          persist-credentials: false
 
       - name: Resolve ecosystem lane
         id: lane
@@ -43,20 +47,21 @@ jobs:
           echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
           echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Check out styio-pafio sibling repository
+      - name: Check out pafio-nightly sibling repository
         uses: actions/checkout@v5
         with:
-          repository: SymPolicy/Pafio
-          # Freeze the existing v1 docs contract during staged compiler promotion.
-          ref: 813dd24ed1b7a527c928333e22aac5d5fde129f4
-          path: styio-pafio
+          repository: Unka-Malloc/pafio-nightly
+          ref: ${{ steps.lane.outputs.ecosystem_ref }}
+          path: pafio-nightly
+          persist-credentials: false
 
-      - name: Check out styio-view sibling repository
+      - name: Check out Vityo sibling repository
         uses: actions/checkout@v5
         with:
           repository: Unka-Malloc/vityo-nightly
-          ref: 6adfa4c2b2d11ba01a74f321cfebb6323ebac6ea
-          path: styio-view
+          ref: ${{ steps.lane.outputs.ecosystem_ref }}
+          path: vityo-nightly
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -87,6 +92,7 @@ jobs:
             llvm-18-dev \
             libicu-dev \
             python3
+          python3 -m pip install "cmake==3.31.6"
 
       - name: Configure
         working-directory: styio-nightly
@@ -97,14 +103,37 @@ jobs:
           -DCMAKE_CXX_COMPILER=clang++-18
           -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
           -DSTYIO_ENABLE_FUZZ=ON
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build
+        id: build
         working-directory: styio-nightly
         run: >
           cmake --build build/ci --target
           styio styio_test styio_algorithm_equivalence_test
-          styio_security_test styio_resource_topology_test styio_ide_test
-          styio_soak_test styio_fuzz_suite
+          styio_lspd styio_security_test styio_resource_topology_test styio_ide_test
+          styio_newparser_internal_test styio_parser_internal_test
+          styio_platform_internal_test styio_native_interop_internal_test
+          styio_fuzz_suite
+
+      - name: Report tracked files and compilation evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        working-directory: styio-nightly
+        run: >
+          python3 scripts/verification-report.py inventory
+          --compile-commands build/ci/compile_commands.json
+          --build-outcome '${{ steps.build.outcome }}'
+          --output build/reports/file-inventory.json
+
+      - name: Upload advisory file inventory
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-file-inventory
+          path: styio-nightly/build/reports/file-inventory.*
+          if-no-files-found: warn
 
       - name: Docs audit
         working-directory: styio-nightly
@@ -114,21 +143,29 @@ jobs:
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L security --output-on-failure --no-tests=error
 
+      - name: Tree-sitter IDE tests
+        working-directory: styio-nightly
+        run: ctest --test-dir build/ci -L ide --output-on-failure --no-tests=error
+
       - name: Five-layer pipeline tests
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L styio_pipeline --output-on-failure --no-tests=error
+
+      - name: LSP transport smoke
+        working-directory: styio-nightly
+        run: ctest --test-dir build/ci -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
 
       - name: Parser shadow gate (scalar expressions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
+          python3 tests/gates/parser-shadow-suite-gate.py ./build/ci/bin/styio ./tests/features/scalar_expressions ./build/ci/parser-shadow-artifacts
 
       - name: Parser shadow gate (functions suite + artifacts)
         working-directory: styio-nightly
         run: |
           mkdir -p build/ci/parser-shadow-artifacts-m2
-          ./benchmark/parser-shadow-suite-gate.sh ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
+          python3 tests/gates/parser-shadow-suite-gate.py ./build/ci/bin/styio ./tests/features/functions ./build/ci/parser-shadow-artifacts-m2
 
       - name: Upload parser shadow artifacts
         if: failure()
@@ -140,10 +177,6 @@ jobs:
             styio-nightly/build/ci/parser-shadow-artifacts-m2
           if-no-files-found: ignore
 
-      - name: Soak smoke tests
-        working-directory: styio-nightly
-        run: ctest --test-dir build/ci -L soak_smoke --output-on-failure --no-tests=error
-
       - name: Language feature smoke
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
@@ -151,6 +184,86 @@ jobs:
       - name: Fuzz smoke
         working-directory: styio-nightly
         run: ctest --test-dir build/ci -L fuzz_smoke --output-on-failure --no-tests=error
+
+  macos-ci-gate:
+    name: platform-adaptation / macos-ci-gate
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
+
+      - name: Install pinned build dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install llvm@18 icu4c@78 ninja
+          python3 -m pip install "cmake==3.31.6"
+
+      - name: Resolve and validate the macOS toolchain
+        id: toolchain
+        shell: bash
+        run: |
+          LLVM_PREFIX="$(brew --prefix llvm@18)"
+          ICU_PREFIX="$(brew --prefix icu4c@78)"
+          LLVM_VERSION="$("$LLVM_PREFIX/bin/llvm-config" --version)"
+
+          if [[ "$LLVM_VERSION" != 18.1.* ]]; then
+            echo "Styio requires LLVM 18.1.x; found $LLVM_VERSION" >&2
+            exit 1
+          fi
+
+          echo "llvm_prefix=$LLVM_PREFIX" >> "$GITHUB_OUTPUT"
+          echo "icu_prefix=$ICU_PREFIX" >> "$GITHUB_OUTPUT"
+          echo "sdk_path=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure native macOS build
+        run: |
+          cmake -S . -B build/macos-ci -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER="${{ steps.toolchain.outputs.llvm_prefix }}/bin/clang" \
+            -DCMAKE_CXX_COMPILER="${{ steps.toolchain.outputs.llvm_prefix }}/bin/clang++" \
+            -DCMAKE_OSX_SYSROOT="${{ steps.toolchain.outputs.sdk_path }}" \
+            -DLLVM_DIR="${{ steps.toolchain.outputs.llvm_prefix }}/lib/cmake/llvm" \
+            -DCMAKE_PREFIX_PATH="${{ steps.toolchain.outputs.llvm_prefix }};${{ steps.toolchain.outputs.icu_prefix }}" \
+            -DICU_ROOT="${{ steps.toolchain.outputs.icu_prefix }}" \
+            -DSTYIO_USE_ICU=ON \
+            -DSTYIO_ENABLE_TREE_SITTER=ON
+
+      - name: Build native macOS targets
+        run: >
+          cmake --build build/macos-ci --parallel 4 --target
+          styio styio_nano styio_lspd styio_test styio_security_test
+          styio_resource_topology_test styio_ide_test
+          styio_algorithm_equivalence_test styio_newparser_internal_test
+          styio_parser_internal_test styio_platform_internal_test
+          styio_native_interop_internal_test
+
+      - name: Run macOS platform and native interop tests
+        run: |
+          ctest --test-dir build/macos-ci -R '^styio_platform_internal_test$' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^native_interop_' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^styio_build_native_executable_stdin_echo$' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^bootstrap_dev_env_dependency_scope$' --output-on-failure --no-tests=error
+
+      - name: Run macOS compiler and service gates
+        run: |
+          ctest --test-dir build/macos-ci -L docs --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L security --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L styio_pipeline --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L resource_topology --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L algorithm_equivalence --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -L ide --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^styio_lspd_stdio_framing$' --output-on-failure --no-tests=error
+          ctest --test-dir build/macos-ci -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --output-on-failure --no-tests=error
 
   test-smoke:
     name: test / smoke
@@ -160,11 +273,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
 
       - name: Install smoke dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+          python3 -m pip install "cmake==3.31.6"
 
       - name: Configure smoke build
         run: >
@@ -192,11 +313,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.5"
 
       - name: Install golden-standard dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build clang-18 libclang-rt-18-dev lld-18 llvm-18-dev libicu-dev python3
+          python3 -m pip install "cmake==3.31.6"
 
       - name: Configure golden-standard build
         run: >
@@ -210,13 +339,14 @@ jobs:
         run: >
           cmake --build build/golden --target
           styio styio_test styio_algorithm_equivalence_test
-          styio_resource_topology_test
+          styio_resource_topology_test styio_newparser_internal_test
+          styio_parser_internal_test styio_platform_internal_test
 
-      - name: Run syntax convergence gate
-        run: python3 scripts/syntax-convergence-gate.py
+      - name: Run syntax feature document-state gate
+        run: python3 scripts/syntax-feature-state-gate.py
 
       - name: Run milestone goldens
-        run: ctest --test-dir build/golden -L language_feature --output-on-failure --no-tests=error
+        run: ctest --test-dir build/golden -L golden_standard --output-on-failure --no-tests=error
 
       - name: Run five-layer and convergence goldens
         run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure --no-tests=error
@@ -228,25 +358,90 @@ jobs:
         run: ctest --test-dir build/golden -R '^parser_legacy_entry_audit$' --output-on-failure --no-tests=error
 
   required-ci-gate:
+    # Keep this check name stable: upstream branch protection requires it.
     name: styio-ci-gate
     if: ${{ always() }}
-    needs: [styio-ci-gate, test-smoke, test-golden-standard]
+    needs: [styio-ci-gate, macos-ci-gate, test-smoke, test-golden-standard]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
+
     steps:
-      - name: Require every existing CI lane to succeed
+      - name: Require every CI lane to succeed
         shell: bash
         env:
           LINUX_RESULT: ${{ needs.styio-ci-gate.result }}
+          MACOS_RESULT: ${{ needs.macos-ci-gate.result }}
           SMOKE_RESULT: ${{ needs.test-smoke.result }}
           GOLDEN_RESULT: ${{ needs.test-golden-standard.result }}
         run: |
           set -euo pipefail
-          for name in LINUX_RESULT SMOKE_RESULT GOLDEN_RESULT; do
-            result="${!name:-missing}"
-            printf '%s=%s\n' "$name" "$result"
-            if [[ "$result" != success ]]; then
+          printf 'linux=%s macos=%s smoke=%s golden=%s\n' \
+            "$LINUX_RESULT" "$MACOS_RESULT" "$SMOKE_RESULT" "$GOLDEN_RESULT"
+          for result in "$LINUX_RESULT" "$MACOS_RESULT" "$SMOKE_RESULT" "$GOLDEN_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::All required CI lanes must succeed; failed, cancelled, skipped, or missing results block this gate."
               exit 1
             fi
           done
+
+  verification-report:
+    name: observability / verification-report
+    if: ${{ always() }}
+    needs: [styio-ci-gate, macos-ci-gate, test-smoke, test-golden-standard, required-ci-gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+
+    steps:
+      - name: Checkout report tool
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Test report tool in isolation
+        continue-on-error: true
+        run: python3 tests/verification_report_test.py
+
+      - name: Collect existing evidence without rerunning tests
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p build/reports
+          gh run download "$RUN_ID" --name verification-file-inventory --dir build/reports || true
+          gh api --paginate "repos/$GH_REPO/commits/$CANDIDATE/check-runs?per_page=100" \
+            --jq '.check_runs[] | {name,status,conclusion,head_sha,html_url}' \
+            | jq -s . > build/reports/checks.json
+          gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | {name,status,conclusion,head_sha,html_url,steps}' \
+            | jq -s . > build/reports/jobs.json
+
+      - name: Write final advisory verification report
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          STYIO_CI_RESULTS: ${{ toJSON(needs) }}
+          STYIO_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >
+          python3 scripts/verification-report.py final
+          --inventory build/reports/file-inventory.json
+          --checks build/reports/checks.json
+          --jobs build/reports/jobs.json
+          --output build/reports/verification-report.json
+
+      - name: Upload final verification report
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-report
+          path: build/reports/verification-report.*
+          if-no-files-found: warn

@@ -1,0 +1,4 @@
+@bucket : i64|..2|
+# identity := (value) => value
+values: list[i64] := identity(@bucket)
+>_(values)

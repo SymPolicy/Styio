@@ -1,6 +1,6 @@
 styio.ast.main {
 |- styio.ast.bind.flex {
-  |- var : styio.ast.var { x : int }
+  |- var : styio.ast.var { x : i64 }
   |- val = { 42 : int }}
 |- styio.ast.resource.redirect  {
   |- data: x

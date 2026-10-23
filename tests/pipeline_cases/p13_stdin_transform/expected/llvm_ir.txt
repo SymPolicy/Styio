@@ -1,67 +1,29 @@
 ; ModuleID = 'styio'
 source_filename = "styio"
-target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
-
-@styio_print_at = private unnamed_addr constant [2 x i8] c"@\00", align 1
-
 define i32 @main() {
 main_entry:
   %result = alloca i64, align 8
-  br label %stdin_hdr
-
-stdin_hdr:                                        ; preds = %print_done, %main_entry
-  %0 = call ptr @styio_stdin_read_line()
-  %1 = icmp eq ptr %0, null
-  br i1 %1, label %stdin_exit, label %stdin_body
-
-stdin_body:                                       ; preds = %stdin_hdr
   %line = alloca ptr, align 8
-  store ptr %0, ptr %line, align 8
-  %2 = load ptr, ptr %line, align 8
-  %3 = call i64 @styio_cstr_to_i64(ptr %2)
-  %4 = call i32 @styio_runtime_has_error()
-  %5 = icmp ne i32 %4, 0
-  br i1 %5, label %runtime_fail, label %runtime_ok
-
+  br label %stdin_hdr
+stdin_hdr:                                        ; preds = %runtime_ok, %main_entry
+  %tmp = call ptr @styio_stdin_read_line()
+  %tmp = icmp eq ptr %tmp, null
+  br i1 %tmp, label %stdin_exit, label %stdin_body
+stdin_body:                                       ; preds = %stdin_hdr
+  store ptr %tmp, ptr %line, align 8
+  %tmp = load ptr, ptr %line, align 8
+  %tmp = call i64 @styio_cstr_to_i64(ptr %tmp)
+  %tmp = call i32 @styio_runtime_has_error()
+  %tmp = icmp ne i32 %tmp, 0
+  br i1 %tmp, label %runtime_fail, label %runtime_ok
 stdin_exit:                                       ; preds = %stdin_hdr
   ret i32 0
-
 runtime_fail:                                     ; preds = %stdin_body
   ret i32 0
-
 runtime_ok:                                       ; preds = %stdin_body
-  %6 = icmp eq i64 %3, -9223372036854775808
-  %7 = or i1 %6, false
-  %8 = mul i64 %3, 2
-  %9 = select i1 %7, i64 -9223372036854775808, i64 %8
-  store i64 %9, ptr %result, align 8
-  %10 = load i64, ptr %result, align 8
-  %11 = icmp eq i64 %10, -9223372036854775808
-  br i1 %11, label %print_at, label %print_i64
-
-print_at:                                         ; preds = %runtime_ok
-  call void @styio_stdout_write_cstr(ptr @styio_print_at)
-  br label %print_done
-
-print_i64:                                        ; preds = %runtime_ok
-  %12 = call ptr @styio_i64_dec_cstr(i64 %10)
-  call void @styio_stdout_write_cstr(ptr %12)
-  br label %print_done
-
-print_done:                                       ; preds = %print_i64, %print_at
+  %tmp = mul i64 %tmp, 2
+  store i64 %tmp, ptr %result, align 8
+  %tmp = load i64, ptr %result, align 8
+  ; STYIO_STDOUT_I64 %tmp
   br label %stdin_hdr
 }
-
-declare ptr @styio_stdin_read_line()
-
-declare i64 @styio_cstr_to_i64(ptr)
-
-declare i32 @styio_runtime_has_error()
-
-declare void @styio_stdout_write_cstr(ptr)
-
-declare ptr @styio_i64_dec_cstr(i64)
-
-declare ptr @styio_f64_dec_cstr(double)
-
-declare void @styio_file_close(i64)

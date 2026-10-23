@@ -2,9 +2,9 @@
 
 **Purpose:** 说明 **Lexer → Parser(AST) → StyioIR → LLVM IR → 进程 stdout** 的分层 golden 比对框架、目录约定与维护方式；与里程碑 **仅比最终 stdout** 的 `styio_stdout_golden_test` 互补。
 
-**Last updated:** 2026-04-08
+**Last updated:** 2026-05-22
 
-**实现入口：** `src/StyioTesting/PipelineCheck.cpp`（`styio::testing::run_pipeline_case`）
+**实现入口：** `src/StyioTesting/PipelineCheck.cpp`（`styio::testing::run_pipeline_case`）  
 **自动化：** `styio_test`（GoogleTest，`ctest --test-dir build/default -L styio_pipeline`）
 
 ---
@@ -59,10 +59,11 @@ tests/pipeline_cases/<case_name>/
 - `p15_stdin_mixed_output`
 
 其中 `p12_stdin_echo`、`p13_stdin_transform`、`p15_stdin_mixed_output` **刻意使用**
-`>> @stdout/@stderr`，用于冻结“标准流资源写入 shorthand 仍被接受”的兼容行为；里程碑冻结文档中的 canonical 教学写法仍是 `-> @stdout/@stderr`。
+`[line] >> @stdout` / `["..."] >> @stderr`，用于冻结“标准流资源写入 iterable shorthand 仍被接受”的兼容行为；标量标准流写入的 canonical 教学写法仍是 `expr -> @stdout/@stderr`。
 
-`p14_stdin_pull` 则冻结了另一条不同契约：`(<< @stdin)` 当前仍沿用旧 `InstantPullAST`
+`p14_stdin_pull` 则冻结了另一条不同契约：legacy `(<< @stdin)` 仍沿用旧 `InstantPullAST`
 标量路径，会经过 `styio_cstr_to_i64()`，因此该 case 使用数值 stdin fixture，而不是字符串回显。
+当前设计 spelling 是 `(<- @stdin)`；若迁移该 golden，需要同时保留 legacy 兼容覆盖。
 
 ---
 

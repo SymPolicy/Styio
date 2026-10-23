@@ -1,0 +1,86 @@
+/* Min-cost max-flow (SSP Bellman-Ford). Bounded n.
+   Input: [n, m, s, t, u,v,cap,cost,..., then n*n residual + n*n cost + n dist + n parent zeros]
+   Malformed -> -1. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+INF = 1000000000
+
+?(values.length >= 4) => {
+    n = values[0]
+    m = values[1]
+    s = values[2]
+    t = values[3]
+    need = 4 + m * 4 + n * n + n * n + n + n
+    ?(n <= 0 || s < 0 || t < 0 || s >= n || t >= n || s == t) => {
+        answer = 0 - 1
+    } | {
+        ?(values.length >= need) => {
+            cap_base = 4 + m * 4
+            cost_base = cap_base + n * n
+            dist_base = cost_base + n * n
+            parent_base = dist_base + n
+            [0..n*n-1] >> #(i) => {
+                values[cap_base + i] = 0
+                values[cost_base + i] = 0
+            }
+            [0..m-1] >> #(e) => {
+                u = values[4 + e * 4]
+                v = values[4 + e * 4 + 1]
+                c = values[4 + e * 4 + 2]
+                w = values[4 + e * 4 + 3]
+                ?(u >= 0 && v >= 0 && u < n && v < n && u != v && c >= 0) => {
+                    values[cap_base + u * n + v] = values[cap_base + u * n + v] + c
+                    values[cost_base + u * n + v] = w
+                    values[cost_base + v * n + u] = 0 - w
+                }
+            }
+            total = 0
+            alive = 1
+            [...] >> ?(alive == 1) => {
+                [0..n-1] >> #(i) => {
+                    values[dist_base + i] = INF
+                    values[parent_base + i] = 0 - 1
+                }
+                values[dist_base + s] = 0
+                [1..n] >> #(it) => {
+                    [0..n-1] >> #(u) => {
+                        ?(values[dist_base + u] < INF) => {
+                            [0..n-1] >> #(v) => {
+                                ?(values[cap_base + u * n + v] > 0) => {
+                                    nd = values[dist_base + u] + values[cost_base + u * n + v]
+                                    ?(nd < values[dist_base + v]) => {
+                                        values[dist_base + v] = nd
+                                        values[parent_base + v] = u
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                ?(values[parent_base + t] < 0) => {
+                    alive = 0
+                } | {
+                    add = INF
+                    v = t
+                    [...] >> ?(v != s) => {
+                        u = values[parent_base + v]
+                        c = values[cap_base + u * n + v]
+                        ?(c < add) => { add = c }
+                        v = u
+                    }
+                    v = t
+                    [...] >> ?(v != s) => {
+                        u = values[parent_base + v]
+                        values[cap_base + u * n + v] = values[cap_base + u * n + v] - add
+                        values[cap_base + v * n + u] = values[cap_base + v * n + u] + add
+                        v = u
+                    }
+                    total = total + add * values[dist_base + t]
+                }
+            }
+            answer = total
+        }
+    }
+}
+
+>_(answer)

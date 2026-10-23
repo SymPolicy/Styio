@@ -1,0 +1,1 @@
+inferred callable `identity` cannot be used as a value; inferred schemes are available only to direct named calls, and a value-position boundary requires one concrete monomorphic callable type

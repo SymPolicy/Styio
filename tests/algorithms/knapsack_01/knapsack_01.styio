@@ -1,0 +1,40 @@
+/* Classic 0-1 knapsack (DP companion to CLRS DP chapter).
+   Input: [n, W, w1..wn, v1..vn, then (W+1) DP workspace zeros].
+   Output: maximum value. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 2) => {
+    n = values[0]
+    W = values[1]
+    need = 2 + n + n + W + 1
+
+    ?(n < 0 || W < 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            base = 2 + n + n
+
+            ?(n > 0 && W >= 0) => {
+                [0..n-1] >> #(i) => {
+                    w = values[2 + i]
+                    v = values[2 + n + i]
+                    ?(w > 0 && w <= W) => {
+                        c = W
+                        [...] >> ?(c >= w) => {
+                            cand = values[base + c - w] + v
+                            ?(cand > values[base + c]) => {
+                                values[base + c] = cand
+                            }
+                            c = c - 1
+                        }
+                    }
+                }
+            }
+
+            answer = values[base + W]
+        }
+    }
+}
+
+>_(answer)

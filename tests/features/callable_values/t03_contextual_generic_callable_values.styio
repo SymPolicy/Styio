@@ -1,0 +1,5 @@
+# identity := (value) => value
+integer_identity: #(i64): i64 := identity
+string_identity: #(string): string := identity
+>_(integer_identity(9))
+>_(string_identity("mono"))

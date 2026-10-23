@@ -11,6 +11,8 @@
 #include "../StyioIR/StyioIR.hpp"
 #include "../StyioParser/Parser.hpp"
 #include "SessionAllocation.hpp"
+#include "SymbolInterner.hpp"
+#include "TypeTable.hpp"
 #include "../StyioToken/Token.hpp"
 
 enum class CompilationPhase
@@ -28,6 +30,10 @@ enum class CompilationPhase
 /**
  * Checkpoint C.1/C.2 shell:
  * Own compiler graph lifetimes in one place so each migration step can be merged safely.
+ *
+ * MIGRATION-NEEDED: M-RUNTIME-02 (docs/rollups/MIGRATION-LEDGER.md)
+ * Remove the "shell" wording and consolidate ownership when the runtime/
+ * session migration plan reports closure.
  */
 class CompilationSession
 {
@@ -40,6 +46,11 @@ private:
   styio::session_alloc::SessionArena token_arena_;
   styio::session_alloc::SessionArena* previous_ast_arena_ = nullptr;
   styio::session_alloc::SessionArena* previous_token_arena_ = nullptr;
+  styio::session_alloc::SessionArena ir_arena_;
+  styio::session_alloc::SessionArena* previous_ir_arena_ = nullptr;
+  styio::session_alloc::SessionAllocationStats ir_allocation_stats_;
+  styio::session::SymbolInterner symbols_;
+  styio::session::TypeTable types_;
   CompilationPhase phase_ = CompilationPhase::Empty;
 
   static int phase_rank(CompilationPhase phase) {
@@ -124,6 +135,17 @@ private:
     previous_token_arena_ = nullptr;
   }
 
+  void activate_ir_arena() {
+    previous_ir_arena_ = styio::session_alloc::set_current_ir_arena(&ir_arena_);
+    styio::session_alloc::set_current_ir_stats(&ir_allocation_stats_);
+  }
+
+  void deactivate_ir_arena() {
+    styio::session_alloc::set_current_ir_arena(previous_ir_arena_);
+    styio::session_alloc::set_current_ir_stats(nullptr);
+    previous_ir_arena_ = nullptr;
+  }
+
   void clear_tokens() {
     for (auto* t : tokens_) {
       delete t;
@@ -138,7 +160,8 @@ private:
 public:
   CompilationSession() :
       ast_arena_(256u * 1024u),
-      token_arena_(64u * 1024u) {
+      token_arena_(64u * 1024u),
+      ir_arena_(256u * 1024u) {
     activate_session_arenas();
   }
 
@@ -150,7 +173,19 @@ public:
     deactivate_session_arenas();
   }
 
+  static const char* phase_name_for_diagnostics(CompilationPhase phase) {
+    return phase_name(phase);
+  }
+
+  static bool phase_at_least(CompilationPhase current, CompilationPhase minimum) {
+    if (current == CompilationPhase::Failed) {
+      return false;
+    }
+    return phase_rank(current) >= phase_rank(minimum);
+  }
+
   void reset() {
+    deactivate_ir_arena();
     if (ir_ != nullptr) {
       delete ir_;
       ir_ = nullptr;
@@ -167,6 +202,8 @@ public:
     clear_tokens();
     ast_arena_.release();
     token_arena_.release();
+    ir_arena_.release();
+    ir_allocation_stats_.reset();
     phase_ = CompilationPhase::Empty;
   }
 
@@ -195,6 +232,7 @@ public:
       delete context_;
     }
     context_ = ctx;
+    context_->set_symbol_interner(symbols_);
     return context_;
   }
 
@@ -272,6 +310,27 @@ public:
   std::size_t token_arena_bytes() const {
     return token_arena_.bytes_used();
   }
+
+  /// Access the IR arena.
+  styio::session_alloc::SessionArena& ir_arena() noexcept { return ir_arena_; }
+  const styio::session_alloc::SessionArena& ir_arena() const noexcept { return ir_arena_; }
+
+  /// Access and manage IR allocation statistics.
+  styio::session_alloc::SessionAllocationStats& ir_allocation_stats() noexcept {
+    return ir_allocation_stats_;
+  }
+  const styio::session_alloc::SessionAllocationStats& ir_allocation_stats() const noexcept {
+    return ir_allocation_stats_;
+  }
+  void reset_ir_allocation_stats() noexcept { ir_allocation_stats_.reset(); }
+
+  /// Symbol interning: deduplicates identifier strings across the session.
+  styio::session::SymbolInterner& symbols() noexcept { return symbols_; }
+  const styio::session::SymbolInterner& symbols() const noexcept { return symbols_; }
+
+  /// Canonical type table: O(1) type equality via TypeId.
+  styio::session::TypeTable& types() noexcept { return types_; }
+  const styio::session::TypeTable& types() const noexcept { return types_; }
 };
 
 #endif // STYIO_COMPILATION_SESSION_HPP_

@@ -1,0 +1,50 @@
+n = 8
+board = [-1, -1, -1, -1, -1, -1, -1, -1]
+
+# abs_i32 := (value: i32) => {
+    ?(value < 0) => {
+        <| 0 - value
+    } | {
+        <| value
+    }
+}
+
+# is_safe := (row: i32, col: i32) => {
+    ok = 1
+
+    ?(row > 0) => {
+        [0..row-1] >> #(prev_row) => {
+            prev_col = board[prev_row]
+
+            ?(prev_col == col) => {
+                ok = 0
+            }
+
+            ?(row - prev_row == abs_i32(col - prev_col)) => {
+                ok = 0
+            }
+        }
+    }
+
+    <| ok
+}
+
+# search := (row: i32) => {
+    row ?= {
+        8 => { <| 1 }
+        _ => {
+            count = 0
+
+            [0..n-1] >> #(col) => {
+                ?(is_safe(row, col) == 1) => {
+                    board[row] = col
+                    count += search(row + 1)
+                }
+            }
+
+            <| count
+        }
+    }
+}
+
+>_(search(0))

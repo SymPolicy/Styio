@@ -1,0 +1,7 @@
+prefix := 1
+# retain := (value) => {
+    unused := prefix
+    <| value
+}
+retain(7)
+retain("no")

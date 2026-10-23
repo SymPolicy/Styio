@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the repeatable verification commands for the IDE-facing build, syntax backend, LSP server, and documentation inventory.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-10-11
 
 ## Recommended Commands
 
@@ -20,7 +20,7 @@ bash scripts/ide-quality-gate.sh --skip-fuzz --waiver 'skip fuzz on machines wit
 1. Syntax/LSP only: `ctest --test-dir build/default --output-on-failure -L 'ide|lsp'`
 2. One IDE unit test: `ctest --test-dir build/default --output-on-failure -R 'StyioSyntaxParser.UsesTreeSitterBackendWhenAvailable'`
 3. Incremental syntax reuse: `ctest --test-dir build/default --output-on-failure -R 'StyioSyntaxParser.ReusesIncrementalTreeForSubsequentParses'`
-4. Recovery-mode semantic bridge: `ctest --test-dir build/default --output-on-failure -R 'StyioSemanticBridge.RecoversNightlyParseForLaterStatements'`
+4. Strict semantic bridge rejection: `ctest --test-dir build/default --output-on-failure -R 'StyioSemanticBridge.RejectsMalformedInputWithoutRecovery'`
 5. Service integration test: `ctest --test-dir build/default --output-on-failure -R 'StyioIdeService.DocumentSymbolsHoverDefinitionAndCompletion'`
 6. Semantic query cache tests: `ctest --test-dir build/default --output-on-failure -R 'StyioSemanticDb'`
 7. Stable HIR identity tests: `ctest --test-dir build/default --output-on-failure -R 'StyioHirBuilder'`
@@ -31,12 +31,22 @@ bash scripts/ide-quality-gate.sh --skip-fuzz --waiver 'skip fuzz on machines wit
 12. Syntax drift corpus: `ctest --test-dir build/default --output-on-failure -R 'StyioSyntaxDrift.CorpusMatchesApprovedEnvelope'`
 13. Release perf gate: `bash scripts/ide-perf-gate.sh`
 14. Fuzz smoke gate: `bash scripts/ide-fuzz-gate.sh`
+15. Task/history editor parity: `ctest --test-dir build/default --output-on-failure -R 'SharedPrograms/StyioTaskResourceSyntax|TaskHistory|styio_lspd_task_resource_parity'`. The C++ cases read the five authoritative language fixtures and require Tree-sitter; the stdio case copies t13 and runs the selected built LSP through good, malformed and restored document versions.
+
+For retained raw stdio evidence, run the existing transport asset with
+`python3 tests/lsp_stdio_framing_test.py --binary build/default/bin/styio_lspd --task-resource-parity --evidence-dir build/lsp-task-resource-evidence`.
+It records both immediate and merged diagnostics, request barriers, saves and
+the actual server exit. The generated transcript contains local paths and
+document contents and belongs only in ignored build output. Save notifications
+refer to the last synchronized version; they do not create a new diagnostic
+contract. The in-process `TaskHistoryCoalescesToLatestSnapshot` case additionally
+holds semantic work pending across a repair to verify obsolete work is replaced.
 
 ## Expected Outcomes
 
 1. `styio_lspd` builds and starts without missing symbol errors.
 2. `StyioSyntaxParser.UsesTreeSitterBackendWhenAvailable` passes when Tree-sitter is enabled.
 3. IDE/LSP tests keep passing when the grammar or syntax adapter changes.
-4. `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` keeps the approved parser drift envelope explicit.
+4. `StyioSyntaxDrift.CorpusMatchesApprovedEnvelope` keeps editor snapshot differences explicit without making Tree-sitter or fallback snapshots accepted-grammar authorities.
 5. `StyioIdePerf.EnforcesFrozenLatencyBudgets` is enforced through the dedicated Release perf gate, while Debug IDE/LSP regression runs may skip it.
 6. `docs-index.py --check` and `docs-audit.py` stay green after doc changes.

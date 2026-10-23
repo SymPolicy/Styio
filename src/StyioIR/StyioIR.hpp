@@ -3,6 +3,9 @@
 #define STYIO_IR_BASE_H_
 
 // [C++ STL]
+#include <algorithm>
+#include <cstddef>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -11,23 +14,78 @@
 #include "llvm/IR/Value.h"
 
 // [Styio]
+#include "../StyioSession/SessionAllocation.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
-#include "../StyioCodeGen/CodeGenVisitor.hpp"
 #include "IRDecl.hpp"
+
+template <typename... Types>
+class CodeGenVisitor;
+
+template <typename T>
+class CodeGenVisitor<T>
+{
+public:
+  virtual ~CodeGenVisitor() = default;
+  virtual llvm::Type* toLLVMType(T* node) = 0;
+  virtual llvm::Value* toLLVMIR(T* node) = 0;
+};
+
+template <typename T, typename... Types>
+class CodeGenVisitor<T, Types...> : public CodeGenVisitor<Types...>
+{
+public:
+  using CodeGenVisitor<Types...>::toLLVMType;
+  using CodeGenVisitor<Types...>::toLLVMIR;
+
+  virtual llvm::Type* toLLVMType(T* node) = 0;
+  virtual llvm::Value* toLLVMIR(T* node) = 0;
+};
+
+using StyioCodeGenVisitor = CodeGenVisitor<
+  SGResId, SGType, SGNoOp, SGConstBool, SGConstInt, SGConstFloat,
+  SGConstChar, SGConstString, SGFormatString, SGStruct, SGTupleCreate,
+  SGTupleGet, SGCast, SGBinOp, SGCond, SGVar, SGFlexBind, SGFinalBind,
+  SGDynLoad, SGFuncArg, SGFunc, SGCall, SGExportDecl, SGExternBlock,
+  SGReturn, SGLoop, SGForEach, SCListLiteral, SCDictLiteral,
+  SCMatrixLiteral, SGRangeFor, SGIf, SGStateSnapLoad, SGStateHistLoad,
+  SGSeriesAvgStep, SGSeriesMaxStep, SGMatch, SGBreak, SGContinue,
+  SGUndef, SGFallback, SGWaveMerge, SGWaveDispatch, SGGuardSelect,
+  SGEqProbe, SIOHandleAcquire, SIOHandleRelease, SIOFileLineIter,
+  SIOStreamZip, SGSnapshotDecl, SGSnapshotShadowLoad, SIOInstantPull,
+  SIOListReadStdin, SCListClone, SCMatrixClone, SCListLen, SCListGet,
+  SCListSlice, SCListSet, SCListToString, SCMatrixGet, SCMatrixRow,
+  SCMatrixRowsSlice, SCMatrixToString, SCDictClone, SCDictLen,
+  SCDictGet, SCDictSet, SCDictKeys, SCDictValues, SCDictToString,
+  SIOResourceWriteToFile, SIOStdStreamWrite, SIOResourceEffect,
+  SIOStdStreamLineIter, SIOStdStreamPull, SIOTaskCreate, SIOFlowBind,
+  SIOTaskOrder,
+  SGBlock, SGEntry, SGMainEntry, SIOPath, SIOPrint, SIORead>;
 
 class StyioIR
 {
 public:
-  virtual ~StyioIR() {}
+  virtual ~StyioIR() {
+    // Track destructor invocations for allocation-count verification.
+    if (auto* stats = styio::session_alloc::current_ir_stats) {
+      stats->destructor_calls++;
+    }
+  }
 
   /* StyioAST to String */
   virtual std::string toString(StyioRepr* visitor, int indent = 0) = 0;
 
   /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(StyioToLLVM* visitor) = 0;
+  virtual llvm::Type* toLLVMType(StyioCodeGenVisitor* visitor) = 0;
 
   /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(StyioToLLVM* visitor) = 0;
+  virtual llvm::Value* toLLVMIR(StyioCodeGenVisitor* visitor) = 0;
+
+  /* True when this node belongs to the active StyioIR surface. */
+  virtual bool is_active() const = 0;
+
+  /* Collect direct child IR node pointers for non-recursive traversal/destruction.
+     Default: no children (leaf nodes). Override in non-leaf IR node classes. */
+  virtual void collect_children(std::vector<StyioIR*>& out) {}
 };
 
 template <class T>
@@ -39,6 +97,79 @@ styio_delete_ir_nodes(std::vector<T*>& nodes) noexcept {
   nodes.clear();
 }
 
+/// Non-recursive iterative IR subtree deletion — avoids stack overflow
+/// on deep IR trees. Uses collect_children() to enumerate all nodes
+/// in pre-order, then deletes in reverse (post-order).
+template <class T>
+inline void
+styio_delete_ir_nodes_iterative(std::vector<T*>& nodes) noexcept {
+  if (nodes.empty()) return;
+
+  // Phase 1: collect all reachable nodes (pre-order via explicit stack)
+  std::vector<StyioIR*> all;
+  for (auto* root : nodes) {
+    if (!root) continue;
+    std::vector<StyioIR*> stack;
+    stack.push_back(root);
+    while (!stack.empty()) {
+      StyioIR* n = stack.back();
+      stack.pop_back();
+      all.push_back(n);
+      // Push children for continued traversal
+      size_t before = stack.size();
+      n->collect_children(stack);
+      // Reverse children so left-to-right order is preserved
+      std::reverse(stack.begin() + before, stack.end());
+    }
+  }
+
+  // Phase 2: delete in reverse (post-order equivalent)
+  for (auto it = all.rbegin(); it != all.rend(); ++it) {
+    delete *it;
+  }
+  nodes.clear();
+}
+
+/// Non-recursive IR subtree destruction (TASK-08).
+/// Uses collect_children() to walk the tree without recursion,
+/// calls destructors in post-order, then frees memory.
+/// When an IR arena is active, individual deallocations are no-ops.
+inline void destroy_ir_subtree(StyioIR* root) {
+  if (!root) return;
+
+  // Phase 1: collect all reachable nodes in pre-order
+  std::vector<StyioIR*> all;
+  std::vector<StyioIR*> stack;
+  stack.push_back(root);
+  while (!stack.empty()) {
+    StyioIR* n = stack.back();
+    stack.pop_back();
+    all.push_back(n);
+    size_t before = stack.size();
+    n->collect_children(stack);
+    std::reverse(stack.begin() + before, stack.end());
+  }
+
+  // Phase 2: call destructors in reverse (post-order)
+  for (auto it = all.rbegin(); it != all.rend(); ++it) {
+    (*it)->~StyioIR();
+  }
+
+  // Phase 3: free memory (no-op when arena is active)
+  if (all.empty()) return;
+  auto* header = reinterpret_cast<styio::session_alloc::AllocationHeader*>(
+    static_cast<std::byte*>(static_cast<void*>(all[0])) - sizeof(styio::session_alloc::AllocationHeader));
+  if (header->arena == nullptr) {
+    // Heap-allocated: free each node individually
+    for (auto* n : all) {
+      auto* h = reinterpret_cast<styio::session_alloc::AllocationHeader*>(
+        static_cast<std::byte*>(static_cast<void*>(n)) - sizeof(styio::session_alloc::AllocationHeader));
+      ::operator delete(static_cast<void*>(h));
+    }
+  }
+  // Arena-allocated: arena reset handles bulk cleanup later
+}
+
 template <class Derived>
 class StyioIRTraits : public StyioIR
 {
@@ -47,12 +178,16 @@ public:
     return visitor->toString(static_cast<Derived*>(this), indent);
   }
 
-  llvm::Type* toLLVMType(StyioToLLVM* visitor) override {
+  llvm::Type* toLLVMType(StyioCodeGenVisitor* visitor) override {
     return visitor->toLLVMType(static_cast<Derived*>(this));
   }
 
-  llvm::Value* toLLVMIR(StyioToLLVM* visitor) override {
+  llvm::Value* toLLVMIR(StyioCodeGenVisitor* visitor) override {
     return visitor->toLLVMIR(static_cast<Derived*>(this));
+  }
+
+  bool is_active() const override {
+    return true;
   }
 };
 
