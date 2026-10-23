@@ -58,6 +58,7 @@ using StyioCodeGenVisitor = CodeGenVisitor<
   SCDictGet, SCDictSet, SCDictKeys, SCDictValues, SCDictToString,
   SIOResourceWriteToFile, SIOStdStreamWrite, SIOResourceEffect,
   SIOStdStreamLineIter, SIOStdStreamPull, SIOTaskCreate, SIOFlowBind,
+  SIOTaskOrder,
   SGBlock, SGEntry, SGMainEntry, SIOPath, SIOPrint, SIORead>;
 
 class StyioIR

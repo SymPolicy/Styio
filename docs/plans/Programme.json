@@ -1,0 +1,223 @@
+{
+  "schema": "better-plan.programme",
+  "id": "PROGRAMME-STYIO",
+  "title": "Styio usable language ecosystem",
+  "goal": "Deliver complete usable improvements; research supports concrete implementation and does not create a parallel delivery programme.",
+  "success": [
+    "Each activated milestone preserves supported product functionality and has current engineering evidence.",
+    "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data."
+  ],
+  "deliveries": [
+    {
+      "id": "DELIVERY-STYIO-TASK-RESOURCE",
+      "title": "Usable task resources through the current toolchain",
+      "tree": "task-resource-delivery/Tree.json",
+      "requires": []
+    },
+    {
+      "id": "DELIVERY-STYIO-PACKAGE-GRAPH",
+      "title": "Reliable asynchronous diagnostics and coherent package snapshots",
+      "requires": [],
+      "goal": "Publish version-correct diagnostics and semantic queries with idle progress, cancellation and one coherent package/source snapshot model.",
+      "success": [
+        "One bounded usable capability is independently reviewed, integrated and verified without removing supported functionality."
+      ],
+      "requirements": [
+        {
+          "statement": "Publish version-correct diagnostics and semantic queries with idle progress, cancellation and one coherent package/source snapshot model.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-PACKAGE-GRAPH"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the next concrete capability and its measured acceptance before elaboration.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "DELIVERY-STYIO-LANGUAGE-SERVICES",
+      "title": "Complete cross-file navigation and refactoring edits",
+      "requires": [
+        "DELIVERY-STYIO-PACKAGE-GRAPH"
+      ],
+      "goal": "Deliver one supported language-service capability at a time, with complete versioned edits and negative cases.",
+      "success": [
+        "One bounded usable capability is independently reviewed, integrated and verified without removing supported functionality."
+      ],
+      "requirements": [
+        {
+          "statement": "Deliver one supported language-service capability at a time, with complete versioned edits and negative cases.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-LANGUAGE-SERVICES"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the next concrete capability and its measured acceptance before elaboration.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "DELIVERY-STYIO-OBSERVABLE",
+      "title": "Authoritative read-only program facts",
+      "requires": [],
+      "goal": "Extend missing control/module/dependency facts with source anchors and lineage. Runtime correlation stays opt-in until its approved budget passes.",
+      "success": [
+        "One bounded usable capability is independently reviewed, integrated and verified without removing supported functionality."
+      ],
+      "requirements": [
+        {
+          "statement": "Extend missing control/module/dependency facts with source anchors and lineage. Runtime correlation stays opt-in until its approved budget passes.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-OBSERVABLE"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the next concrete capability and its measured acceptance before elaboration.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "DELIVERY-STYIO-OPTIMIZATION",
+      "title": "Measured compiler and runtime improvements",
+      "requires": [],
+      "goal": "Use correct semantic baselines and actual workloads to select one independently useful optimization with unchanged behavior.",
+      "success": [
+        "One bounded usable capability is independently reviewed, integrated and verified without removing supported functionality."
+      ],
+      "requirements": [
+        {
+          "statement": "Use correct semantic baselines and actual workloads to select one independently useful optimization with unchanged behavior.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-OPTIMIZATION"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the next concrete capability and its measured acceptance before elaboration.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "DELIVERY-STYIO-TYPES-NANO",
+      "title": "One useful type or lightweight-target capability",
+      "requires": [],
+      "goal": "Resolve a concrete existing callable or capability requirement, then implement and measure a bounded supported capability.",
+      "success": [
+        "One bounded usable capability is independently reviewed, integrated and verified without removing supported functionality."
+      ],
+      "requirements": [
+        {
+          "statement": "Resolve a concrete existing callable or capability requirement, then implement and measure a bounded supported capability.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-TYPES-NANO"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the next concrete capability and its measured acceptance before elaboration.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "DELIVERY-STYIO-EXAMPLES",
+      "title": "Runnable ecosystem examples and maintenance",
+      "requires": [],
+      "goal": "Keep supported language examples, owner contracts and migration guidance executable and current.",
+      "success": [
+        "One bounded usable capability is independently reviewed, integrated and verified without removing supported functionality."
+      ],
+      "requirements": [
+        {
+          "statement": "Keep supported language examples, owner contracts and migration guidance executable and current.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-EXAMPLES"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the next concrete capability and its measured acceptance before elaboration.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "DELIVERY-STYIO-CORE-CAPABILITY",
+      "title": "One complete next language-core capability",
+      "requires": [],
+      "goal": "Select one documented missing value, stream, resource or task capability from the gap ledger and deliver its complete semantic, diagnostic and runtime path without regressing existing features.",
+      "success": [
+        "The selected legal and rejected programs have actual compiler/runtime coverage and compatible toolchain consumption."
+      ],
+      "requirements": [
+        {
+          "statement": "Select one documented missing value, stream, resource or task capability from the gap ledger and deliver its complete semantic, diagnostic and runtime path without regressing existing features.",
+          "source_ids": [
+            "REQ-STYIO-FUTURE-CORE-CAPABILITY"
+          ]
+        },
+        {
+          "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+          "source_ids": [
+            "REQ-STYIO-INTEGRITY"
+          ]
+        }
+      ],
+      "open_decisions": [
+        {
+          "title": "Select the finite capability from existing W1/W2/W6 requirements after the current milestone; do not activate the entire gap ledger.",
+          "status": "open"
+        }
+      ]
+    }
+  ]
+}

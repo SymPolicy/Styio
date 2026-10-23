@@ -1,0 +1,133 @@
+{
+  "schema": "better-plan.requirements",
+  "requirements": [
+    {
+      "id": "REQ-STYIO-BASELINE",
+      "title": "Current-source evidence",
+      "statement": "Build the selected working tree, including uncommitted changes, before interpreting old reports. Record source revision, changed paths, build configuration and actual executable; reuse valid incremental builds.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-REPAIR",
+      "title": "Finite defect closure",
+      "statement": "Close confirmed in-scope defects before integration. Classify each reported issue as repaired, not reproduced with current evidence, or a concrete unresolved semantic decision. An unresolved defect affecting supported behavior prevents delivery.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-E2E",
+      "title": "Real product integration",
+      "statement": "Use the same source-built Styio and Pafio candidates through actual Vityo production services and vityod; cover success, compile failure, repaired success, task settlement and stale-result isolation. Mocks alone cannot establish this claim.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-REGRESSION",
+      "title": "Existing functionality",
+      "statement": "After scoped fixes and source review, run each applicable complete engineering suite once. Reuse still-valid results; repair ordinary failures and rerun affected checks. Skipped, unavailable and unexecuted checks are not passes.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-BOUNDARY",
+      "title": "Finite engineering delivery",
+      "statement": "Stop at engineering completion. No automatic next milestone, publication, installation, real Agent development task, graphical source editing or deletion of Prototype. Text is the authoring surface; graphs are read-only.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-RESEARCH",
+      "title": "Research feeds implementation",
+      "statement": "Each investigation must name one source-level behavior, compiler optimization or toolchain change, its closest existing method, an executable counterexample and acceptance evidence. Novelty is not a prerequisite to useful engineering; no measured benefit means no optimization claim.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-SNAPSHOT",
+      "title": "Creation-time resource history",
+      "statement": "A task reading bounded i64 history sees the committed history at task creation. Parent writes after creation do not change the captured version. Preserve history order, lifetime, failure settlement and supported alias behavior.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-ORDER",
+      "title": "Submission and commit semantics",
+      "statement": "Confirm nested pending-write ownership and explicit task-order behavior against existing D4/D5 contracts. Repair violations throughout semantic analysis, lowering and runtime; do not invent multiwriter merge or rollback of external I/O.",
+      "status": "active",
+      "priority": "high",
+      "source": "Approved product delivery scope (2026-10-11); repository owner contracts"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-PACKAGE-GRAPH",
+      "title": "Reliable asynchronous language services",
+      "statement": "Publish version-correct diagnostics and semantic queries with idle progress, cancellation and one coherent package/source snapshot model.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing product roadmap and owner contracts; future outline only"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-LANGUAGE-SERVICES",
+      "title": "Complete cross-file navigation and refactoring edits",
+      "statement": "Deliver one supported language-service capability at a time, with complete versioned edits and negative cases.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing product roadmap and owner contracts; future outline only"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-OBSERVABLE",
+      "title": "Authoritative read-only program facts",
+      "statement": "Extend missing control/module/dependency facts with source anchors and lineage. Runtime correlation stays opt-in until its approved budget passes.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing product roadmap and owner contracts; future outline only"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-OPTIMIZATION",
+      "title": "Measured compiler and runtime improvements",
+      "statement": "Use correct semantic baselines and actual workloads to select one independently useful optimization with unchanged behavior.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing product roadmap and owner contracts; future outline only"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-TYPES-NANO",
+      "title": "One useful type or lightweight-target capability",
+      "statement": "Resolve a concrete existing callable or capability requirement, then implement and measure a bounded supported capability.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing product roadmap and owner contracts; future outline only"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-EXAMPLES",
+      "title": "Runnable ecosystem examples and maintenance",
+      "statement": "Keep supported language examples, owner contracts and migration guidance executable and current.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing product roadmap and owner contracts; future outline only"
+    },
+    {
+      "id": "REQ-STYIO-FUTURE-CORE-CAPABILITY",
+      "title": "Continued complete language-core capabilities",
+      "statement": "Select one documented missing value, stream, resource or task capability from the gap ledger and deliver its complete semantic, diagnostic and runtime path without regressing existing features.",
+      "status": "active",
+      "priority": "normal",
+      "source": "Existing language feature contracts and NEXT-STAGE-GAP-LEDGER W1/W2/W6; remaining long-term scope outside the current finite delivery"
+    },
+    {
+      "id": "REQ-STYIO-INTEGRITY",
+      "title": "Complete usable milestone",
+      "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data.",
+      "status": "active",
+      "priority": "high",
+      "source": "Existing approved product preservation and complete migration requirements; milestone clarification (2026-10-11)"
+    }
+  ]
+}

@@ -254,9 +254,15 @@ agent_assist = true
 agent_endpoint = "https://ai.styio.dev/probe"
 ```
 
-The runtime can send resource metadata (file name, first 1KB of content, network headers) to a remote AI agent for classification. This allows Styio to handle novel or proprietary data formats without bundling every possible parser.
+The runtime may send an allowlisted classification request to a remote AI agent. The request contains only:
 
-In production builds, this feature is disabled and has zero overhead.
+1. The declared resource protocol and file extension — never file paths or names
+2. Byte count and driver probe results — never source bytes
+3. The caller-provided resource label, if any
+
+Source content, file names and paths, credentials, cookies, and authentication or other arbitrary network headers are never transmitted. Enabling the feature requires explicit opt-in consent per endpoint; the request schema is fixed, redacted before send, and the endpoint's retention and provider constraints must be declared in the receipt. This allows Styio to approach novel or proprietary data formats without bundling every possible parser, without shipping payload data to a third party.
+
+In production builds, this feature is disabled and has zero overhead. Conformance tests must prove the redaction boundary before the mode can ship.
 
 ---
 

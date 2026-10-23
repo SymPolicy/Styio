@@ -1,0 +1,82 @@
+{
+  "checks": [],
+  "delivery": {
+    "result": {
+      "evidence": [
+        "../vityo-nightly/build/task-resource-integration/ (E2E inputs and per-scenario results on the current candidate)",
+        "../vityo-nightly/build/task-resource-integration/ (gate report: 35 scenarios + 4 contract cases accepted; inputs.json records the current styio/pafio/vityod binary identities)",
+        "../pafio-nightly/build-codex/join-20261015/ (Pafio joined gate log; retention probe evidence)",
+        "build/task-resource-final/ (styio FINAL runs and close evidence, unchanged)",
+        "docs/plans/task-resource-delivery/HANDOFF.md#coordinator-join-and-delivery-closure--2026-10-15"
+      ],
+      "exceptions": [
+        "macOS arm64 Debug only; Linux/Windows, Release/sanitizers, installed-client UI, real Agent/provider conversations and unadvertised didSave semantics remain unverified.",
+        "Five distinct recorded first-run skips remain unverified (see registered_regression in NODE-FINAL).",
+        "This record covers the join and delivery closure; publication/landing is a separate step."
+      ],
+      "summary": "Coordinator join recorded 2026-10-15 on the current three-repository candidate (styio ba37f64, pafio 62636ea, vityo cb8883de; all three worktrees clean). The milestone's external join is closed on the current candidate: the Vityo E2E through real production services and vityod passed with 35 required real cases and 4 deterministic contract cases accepted (ok=true, failure_category null) using the current styio CLI (74959128 bytes), styio_lspd, Pafio with bounded per-invocation retention and vityod with the zero-deadline fix; the expanded Pafio integration gate passed on the same binaries (ok=true, validation_errors empty); vityod crate tests passed 56/0; the bounded-retention probe confirmed the documented bound (newest 8 plus current plus referenced parent owner). Styio production source is unchanged since the accepted FINAL result; the relinked CLI identity is reconciled by the current-candidate E2E inputs instead of the earlier byte-identical reuse claim. NODE-FINAL and NODE-CLOSE are completed, review items invalidated by NODE-REPAIR's result change were resolved against the joined evidence, and the registered CLOSE review check executed as host. The hosted execution is closed."
+    },
+    "review": []
+  },
+  "draft_pr": null,
+  "id": "TASK-001",
+  "integration_owner": "reviewer",
+  "outcome": "A usable, reviewed repository candidate joined to the same three-repository scenario and final regression; not merely a passing snapshot printout.",
+  "requirements": [
+    {
+      "source_ids": [
+        "REQ-STYIO-BASELINE"
+      ],
+      "statement": "Build the selected working tree, including uncommitted changes, before interpreting old reports. Record source revision, changed paths, build configuration and actual executable; reuse valid incremental builds."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-REPAIR"
+      ],
+      "statement": "Close confirmed in-scope defects before integration. Classify each reported issue as repaired, not reproduced with current evidence, or a concrete unresolved semantic decision. An unresolved defect affecting supported behavior prevents delivery."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-E2E"
+      ],
+      "statement": "Use the same source-built Styio and Pafio candidates through actual Vityo production services and vityod; cover success, compile failure, repaired success, task settlement and stale-result isolation. Mocks alone cannot establish this claim."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-REGRESSION"
+      ],
+      "statement": "After scoped fixes and source review, run each applicable complete engineering suite once. Reuse still-valid results; repair ordinary failures and rerun affected checks. Skipped, unavailable and unexecuted checks are not passes."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-BOUNDARY"
+      ],
+      "statement": "Stop at engineering completion. No automatic next milestone, publication, installation, real Agent development task, graphical source editing or deletion of Prototype. Text is the authoring surface; graphs are read-only."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-RESEARCH"
+      ],
+      "statement": "Each investigation must name one source-level behavior, compiler optimization or toolchain change, its closest existing method, an executable counterexample and acceptance evidence. Novelty is not a prerequisite to useful engineering; no measured benefit means no optimization claim."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-SNAPSHOT"
+      ],
+      "statement": "A task reading bounded i64 history sees the committed history at task creation. Parent writes after creation do not change the captured version. Preserve history order, lifetime, failure settlement and supported alias behavior."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-ORDER"
+      ],
+      "statement": "Confirm nested pending-write ownership and explicit task-order behavior against existing D4/D5 contracts. Repair violations throughout semantic analysis, lowering and runtime; do not invent multiwriter merge or rollback of external I/O."
+    },
+    {
+      "source_ids": [
+        "REQ-STYIO-INTEGRITY"
+      ],
+      "statement": "Each delivered milestone leaves the integrated product buildable and usable, preserves every previously supported capability in the declared support scope, and delivers the selected new behavior end to end. Complete all affected producers, consumers, entrypoints, contracts and tests together. A partial migration, disabled existing feature, temporary broken interface or deferred required wiring is not a delivered milestone. Preserve independently retained assets and user data."
+    }
+  ],
+  "title": "Working task/resource toolchain candidate"
+}

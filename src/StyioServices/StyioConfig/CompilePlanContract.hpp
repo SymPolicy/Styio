@@ -58,10 +58,14 @@ struct CompilePlanRequest
   std::optional<CompilationUnit> compilation_unit;
 };
 
+/* One read and one parse serve both optional output locations; each field is
+   accepted only as a present, non-empty, absolute path. True when at least
+   one location was extracted. */
 bool
-probe_compile_plan_diag_dir(
+probe_compile_plan_output_paths(
   const std::filesystem::path& plan_path,
-  std::filesystem::path& out_diag_dir
+  std::filesystem::path& out_diag_dir,
+  std::filesystem::path& out_build_root
 );
 
 bool

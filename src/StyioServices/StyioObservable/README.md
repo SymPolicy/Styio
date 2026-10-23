@@ -2,7 +2,7 @@
 
 **Purpose:** Own the incubating public observable topology contracts: schema-v1 static snapshots, producer-owned snapshot delta and lineage, bounded query evaluation, and per-scope retention. This README plus `tests/fixtures/observable-topology/` and `tests/fixtures/observable_static_snapshot/v1/` is the decoder SSOT.
 
-**Last updated:** 2026-09-05
+**Last updated:** 2026-10-11
 
 **Status:** Incubating. Snapshot schema v1 and S2 delta, lineage, and bounded query contracts at `0.1` are implemented. Runtime-events schema v2 is implemented behind an explicit compile-plan request and remains unapproved for default enablement. Private editor transports and Vityo UI remain out of scope.
 
@@ -50,7 +50,7 @@ Rules:
 2. Only `schema_version`, `required_capabilities`, and the optional `parent_snapshot_path` are allowed. Any other field is `observable_static_snapshot_malformed`.
 3. `schema_version` must be the integer `1`.
 4. `required_capabilities` is an array of unique non-empty strings drawn from the closed set below. An empty array is admitted and still publishes the full closed set. The S2 optional capabilities (`snapshot-delta`, `producer-lineage`, `bounded-query`) are negotiated independently and are `observable_static_snapshot_unsupported_capability` when listed here.
-5. Admission requires `generated_by.tool = "pafio"`, exactly one package record matching `entry.package_id`, a namespaced package `name`, absolute package `root` and `manifest`, and canonical package-relative slash paths for the manifest and entry file.
+5. Admission requires `generated_by.tool = "pafio"`, exactly one package record matching `entry.package_id`, a package `name` in Pafio's canonical `namespace/name` form (each segment starts with a lowercase ASCII letter or digit, then lowercase letters, digits, `_`, or `-`, joined by exactly one `/`), absolute package `root_dir` and `manifest_path`, and canonical package-relative slash paths for the manifest and entry file.
 6. Direct-file `generated_by.tool = "styio"` is `observable_static_snapshot_direct_file`. Any other producer is `observable_static_snapshot_styio_produced`.
 7. `parent_snapshot_path`, when present, must be a non-empty string naming the previous snapshot artifact of the same compilation unit (Pafio writes the absolute, lexically normalized path it received from `pafio check --emit-observable-static-snapshot --observable-parent-snapshot <path>`). It is a transport input only: it never participates in admission, snapshot identity, or snapshot bytes, and it is read only after the snapshot has been published. An empty string or a non-string value is `observable_static_snapshot_malformed`. When the field is absent, no delta stage runs, no parent file is read, and no delta material is allocated.
 
@@ -431,7 +431,7 @@ Contract `styio.observable.runtime-events`, schema version `2`, stability `incub
 Rules:
 
 1. The object is optional. If absent, compile-plan runs still write v2 controller JSONL with mode `disabled` and allocate no S3 runtime buffers, drain owner, or observed ABI.
-2. Observation requires an admitted qualified compilation unit (package name, root, manifest), matching static-snapshot admission.
+2. Observation requires an admitted qualified compilation unit (package name, root_dir, manifest_path), matching static-snapshot admission.
 3. `mode` is the closed set `disabled`, `aggregate` (explicit-request default), `sampled` (default 1/16, seed 0), `detailed`.
 4. Lane capacity must be a power of two in `[64, 4096]`. Default capacity 256 with 32 priority-reserved slots. These are protocol-visible resource settings; they do not mean loss cannot occur.
 5. Cancellation and cooperative suspend/resume kinds exist in the schema and fixtures. Producer capabilities stay false until an accepted runtime transition exists. Tests serialize those kinds without treating elapsed time as cancellation.

@@ -90,6 +90,61 @@ struct Session
 thread_local std::uint32_t t_lane = kControllerLane;
 std::unique_ptr<Session> g_session;
 std::atomic<bool> g_active{false};
+std::atomic<std::uint64_t> g_session_epoch{0};
+// Producers register here before dereferencing g_session; end_session waits
+// for the count to reach zero after closing the active gate, so no producer
+// can race the reset.
+std::atomic<std::uint32_t> g_inflight_producers{0};
+
+bool
+acquire_producer() noexcept {
+  // Capture the session epoch first: if teardown and a new begin interleave
+  // between the two checks, the epoch change unmasks the stale admission and
+  // the record cannot leak into a successor session.
+  const std::uint64_t epoch = g_session_epoch.load(std::memory_order_acquire);
+  if (!g_active.load(std::memory_order_acquire)) {
+    return false;
+  }
+  // Sequentially-consistent order with the gate close and the teardown's
+  // producer read in end_session: either the teardown observes this
+  // registration and waits, or this load observes the closed gate.
+  g_inflight_producers.fetch_add(1, std::memory_order_seq_cst);
+  if (g_active.load(std::memory_order_seq_cst)
+      && g_session_epoch.load(std::memory_order_acquire) == epoch) {
+    return true;
+  }
+  g_inflight_producers.fetch_sub(1, std::memory_order_release);
+  return false;
+}
+
+void
+release_producer() noexcept {
+  g_inflight_producers.fetch_sub(1, std::memory_order_release);
+}
+
+class ProducerGuard
+{
+public:
+  ProducerGuard() noexcept
+    : held_(acquire_producer()) {
+  }
+  ~ProducerGuard() {
+    if (held_) {
+      release_producer();
+    }
+  }
+  ProducerGuard(const ProducerGuard&) = delete;
+  ProducerGuard&
+  operator=(const ProducerGuard&) = delete;
+
+  explicit
+  operator bool() const noexcept {
+    return held_;
+  }
+
+private:
+  bool held_;
+};
 
 SessionCapability capability_record_from(const Session& session) {
   SessionCapability cap;
@@ -366,6 +421,34 @@ void drain_loop(Session* session) {
   }
 }
 
+SessionAccounting
+accounting_snapshot_for(const Session& session) {
+  SessionAccounting out;
+  out.lane_capacity = session.config.lane_capacity;
+  out.priority_reserved = session.config.priority_reserved;
+  out.producer_lanes = session.config.producer_lanes;
+  out.exporter_failed = session.exporter_failed.load(std::memory_order_relaxed);
+  for (const auto& lane : session.lanes) {
+    for (std::size_t i = 0; i < out.families.size(); ++i) {
+      const auto& src = lane->local[i];
+      auto& dst = out.families[i];
+      dst.observed += src.observed.load(std::memory_order_relaxed);
+      dst.emitted += src.emitted.load(std::memory_order_relaxed);
+      dst.aggregated += src.aggregated.load(std::memory_order_relaxed);
+      dst.sampled_out += src.sampled_out.load(std::memory_order_relaxed);
+      dst.buffer_dropped += src.buffer_dropped.load(std::memory_order_relaxed);
+      dst.exporter_dropped += src.exporter_dropped.load(std::memory_order_relaxed);
+      dst.summary_updates += src.summary_updates.load(std::memory_order_relaxed);
+    }
+    const std::uint64_t high = lane->occupancy_high.load(std::memory_order_relaxed);
+    if (high > out.high_water_occupancy) {
+      out.high_water_occupancy = high;
+    }
+  }
+  out.completeness = styio::observable::completeness_from_accounting(out);
+  return out;
+}
+
 Session::~Session() {
   drain_stop.store(true, std::memory_order_release);
   if (drain_thread.joinable()) {
@@ -378,6 +461,11 @@ Session::~Session() {
 bool
 session_active() noexcept {
   return g_active.load(std::memory_order_acquire);
+}
+
+std::uint64_t
+session_epoch() noexcept {
+  return g_session_epoch.load(std::memory_order_acquire);
 }
 
 bool
@@ -426,6 +514,7 @@ begin_session(SessionConfig config) {
   (void)write_line(*session, styio::observable::serialize_session_capability(cap));
   session->capability_written = true;
   g_session = std::move(session);
+  g_session_epoch.fetch_add(1, std::memory_order_release);
   g_active.store(true, std::memory_order_release);
   t_lane = kControllerLane;
   try {
@@ -445,36 +534,44 @@ end_session() {
   }
   // Stop hook-driven emissions first so the final drain observes a quiescent
   // session, then stop and join the drain owner before teardown.
-  g_active.store(false, std::memory_order_release);
+  g_active.store(false, std::memory_order_seq_cst);
   g_session->drain_stop.store(true, std::memory_order_release);
   if (g_session->drain_thread.joinable()) {
     g_session->drain_thread.join();
   }
-  std::lock_guard<std::mutex> lock(g_session->drain_mu);
-  drain_all_locked(*g_session);
-  for (auto& lane : g_session->lanes) {
-    flush_aggregates(*g_session, *lane);
+  // Producers that registered before the gate closed run bounded emit paths;
+  // wait for them so the final drain sees their records and the reset below
+  // cannot destroy state they still dereference.
+  while (g_inflight_producers.load(std::memory_order_seq_cst) != 0) {
+    std::this_thread::yield();
   }
-  SessionSummary summary;
-  summary.mode = g_session->config.mode;
-  summary.execution_id = g_session->config.execution_id;
-  summary.accounting = accounting_snapshot();
-  summary.accounting.completeness =
-    styio::observable::completeness_from_accounting(summary.accounting);
-  // A wait begin whose end never entered the stream (e.g. a worker still
-  // parked on the ready queue at session end) is an unresolved reference:
-  // the summary must not claim the stream is complete. Loss and exporter
-  // failure stay the stronger partial reasons.
-  const std::uint64_t open_waits = g_session->open_waits.load(std::memory_order_relaxed);
-  if (open_waits > 0
-      && (summary.accounting.completeness == styio::observable::Completeness::Complete
-          || summary.accounting.completeness == styio::observable::Completeness::PartialSampling
-          || summary.accounting.completeness == styio::observable::Completeness::PartialAggregation)) {
-    summary.accounting.completeness = styio::observable::Completeness::PartialUnresolved;
-  }
-  if (!g_session->exporter_failed.load(std::memory_order_relaxed)) {
-    (void)write_line(*g_session, styio::observable::serialize_session_summary(summary));
-    g_session->summary_written = true;
+  {
+    std::lock_guard<std::mutex> lock(g_session->drain_mu);
+    drain_all_locked(*g_session);
+    for (auto& lane : g_session->lanes) {
+      flush_aggregates(*g_session, *lane);
+    }
+    SessionSummary summary;
+    summary.mode = g_session->config.mode;
+    summary.execution_id = g_session->config.execution_id;
+    summary.accounting = accounting_snapshot_for(*g_session);
+    summary.accounting.completeness =
+      styio::observable::completeness_from_accounting(summary.accounting);
+    // A wait begin whose end never entered the stream (e.g. a worker still
+    // parked on the ready queue at session end) is an unresolved reference:
+    // the summary must not claim the stream is complete. Loss and exporter
+    // failure stay the stronger partial reasons.
+    const std::uint64_t open_waits = g_session->open_waits.load(std::memory_order_relaxed);
+    if (open_waits > 0
+        && (summary.accounting.completeness == styio::observable::Completeness::Complete
+            || summary.accounting.completeness == styio::observable::Completeness::PartialSampling
+            || summary.accounting.completeness == styio::observable::Completeness::PartialAggregation)) {
+      summary.accounting.completeness = styio::observable::Completeness::PartialUnresolved;
+    }
+    if (!g_session->exporter_failed.load(std::memory_order_relaxed)) {
+      (void)write_line(*g_session, styio::observable::serialize_session_summary(summary));
+      g_session->summary_written = true;
+    }
   }
   g_session.reset();
   t_lane = kControllerLane;
@@ -482,7 +579,8 @@ end_session() {
 
 void
 register_table(std::uint32_t generation, std::vector<Descriptor> descriptors) {
-  if (!g_session) {
+  ProducerGuard guard;
+  if (!guard) {
     return;
   }
   g_session->generation = generation == 0 ? 1 : generation;
@@ -495,20 +593,30 @@ register_table(std::uint32_t generation, std::vector<Descriptor> descriptors) {
 
 bool
 table_registered() noexcept {
-  return g_session && !g_session->descriptors.empty();
+  ProducerGuard guard;
+  return guard && !g_session->descriptors.empty();
 }
 
 std::uint32_t
 table_generation() noexcept {
-  return g_session ? g_session->generation : 0;
+  ProducerGuard guard;
+  return guard ? g_session->generation : 0;
 }
 
-const Descriptor*
-descriptor_at(std::uint32_t index) noexcept {
-  if (!g_session || index >= g_session->descriptors.size()) {
-    return nullptr;
+bool
+descriptor_at(std::uint32_t index, Descriptor& out) noexcept {
+  ProducerGuard guard;
+  if (!guard || index >= g_session->descriptors.size()) {
+    return false;
   }
-  return &g_session->descriptors[index];
+  // Return a copy made while the producer slot is still held: callers must
+  // never hold a reference into session-owned storage across teardown.
+  try {
+    out = g_session->descriptors[index];
+  } catch (...) {
+    return false;
+  }
+  return true;
 }
 
 void
@@ -525,7 +633,8 @@ PackedInstance
 allocate_instance() {
   PackedInstance id;
   id.lane = t_lane;
-  if (!session_active()) {
+  ProducerGuard guard;
+  if (!guard) {
     return id;
   }
   Lane* lane = lane_by_id(*g_session, t_lane);
@@ -540,7 +649,8 @@ EventReference
 next_event_ref() {
   EventReference ref;
   ref.lane = t_lane;
-  if (!session_active()) {
+  ProducerGuard guard;
+  if (!guard) {
     return ref;
   }
   Lane* lane = lane_by_id(*g_session, t_lane);
@@ -555,7 +665,8 @@ PackedInstance
 next_wait_id() {
   PackedInstance id;
   id.lane = t_lane;
-  if (!session_active()) {
+  ProducerGuard guard;
+  if (!guard) {
     return id;
   }
   Lane* lane = lane_by_id(*g_session, t_lane);
@@ -568,7 +679,8 @@ next_wait_id() {
 
 bool
 emit(Record record) {
-  if (!session_active()) {
+  ProducerGuard guard;
+  if (!guard) {
     return false;
   }
   Lane* lane = lane_by_id(*g_session, t_lane);
@@ -646,7 +758,8 @@ emit(Record record) {
 
 void
 drain() {
-  if (!g_session) {
+  ProducerGuard guard;
+  if (!guard) {
     return;
   }
   std::lock_guard<std::mutex> lock(g_session->drain_mu);
@@ -656,38 +769,18 @@ drain() {
 SessionAccounting
 accounting_snapshot() {
   SessionAccounting out;
-  if (!g_session) {
+  ProducerGuard guard;
+  if (!guard) {
     return out;
   }
-  out.lane_capacity = g_session->config.lane_capacity;
-  out.priority_reserved = g_session->config.priority_reserved;
-  out.producer_lanes = g_session->config.producer_lanes;
-  out.exporter_failed = g_session->exporter_failed.load(std::memory_order_relaxed);
-  for (const auto& lane : g_session->lanes) {
-    for (std::size_t i = 0; i < out.families.size(); ++i) {
-      const auto& src = lane->local[i];
-      auto& dst = out.families[i];
-      dst.observed += src.observed.load(std::memory_order_relaxed);
-      dst.emitted += src.emitted.load(std::memory_order_relaxed);
-      dst.aggregated += src.aggregated.load(std::memory_order_relaxed);
-      dst.sampled_out += src.sampled_out.load(std::memory_order_relaxed);
-      dst.buffer_dropped += src.buffer_dropped.load(std::memory_order_relaxed);
-      dst.exporter_dropped += src.exporter_dropped.load(std::memory_order_relaxed);
-      dst.summary_updates += src.summary_updates.load(std::memory_order_relaxed);
-    }
-    const std::uint64_t high = lane->occupancy_high.load(std::memory_order_relaxed);
-    if (high > out.high_water_occupancy) {
-      out.high_water_occupancy = high;
-    }
-  }
-  out.completeness = styio::observable::completeness_from_accounting(out);
-  return out;
+  return accounting_snapshot_for(*g_session);
 }
 
 SessionCapability
 capability_record() {
   SessionCapability cap;
-  if (!g_session) {
+  ProducerGuard guard;
+  if (!guard) {
     cap.mode = ObservationMode::Disabled;
     return cap;
   }
@@ -696,22 +789,26 @@ capability_record() {
 
 std::string
 execution_id() {
-  return g_session ? g_session->config.execution_id : std::string();
+  ProducerGuard guard;
+  return guard ? g_session->config.execution_id : std::string();
 }
 
 ObservationMode
 mode() noexcept {
-  return g_session ? g_session->config.mode : ObservationMode::Disabled;
+  ProducerGuard guard;
+  return guard ? g_session->config.mode : ObservationMode::Disabled;
 }
 
 bool
 exporter_failed() noexcept {
-  return g_session && g_session->exporter_failed.load(std::memory_order_relaxed);
+  ProducerGuard guard;
+  return guard && g_session->exporter_failed.load(std::memory_order_relaxed);
 }
 
 bool
 allocated_runtime_state() noexcept {
-  return g_session != nullptr;
+  ProducerGuard guard;
+  return static_cast<bool>(guard);
 }
 
 bool

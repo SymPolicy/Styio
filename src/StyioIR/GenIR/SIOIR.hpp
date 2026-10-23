@@ -462,6 +462,10 @@ public:
   SGBlock* body = nullptr;
   StyioDataType result_type{StyioDataTypeOption::Integer, "i64", 64};
   ObservationSiteRef observation;
+  /* Set when the binding is the after-target of an explicit `=>` edge: the
+     task spawns held and enqueues only once its declared predecessors
+     settle (or a pull/release demands it). */
+  bool defer_launch = false;
 
   static SIOTaskCreate* Create(SGBlock* b, StyioDataType result) {
     auto* x = new SIOTaskCreate();
@@ -517,6 +521,46 @@ public:
 
 private:
   SIOFlowBind() = default;
+};
+
+/*
+  Explicit task happens-before edge `before => after`: registers `after` as a
+  successor of `before` so a held task enqueues only after `before` settles.
+*/
+class SIOTaskOrder : public StyioIRTraits<SIOTaskOrder>
+{
+public:
+  StyioIR* before_expr = nullptr;
+  StyioIR* after_expr = nullptr;
+  /* Emit `styio_task_launch(after)` at this site: true on the last `=>`
+     statement for the target in its declaring block so all registered
+     predecessors gate the launch. */
+  bool emit_launch = true;
+
+  static SIOTaskOrder* Create(StyioIR* before, StyioIR* after) {
+    auto* x = new SIOTaskOrder();
+    styio::session_alloc::track_raw_allocation(x);
+    x->before_expr = before;
+    x->after_expr = after;
+    return x;
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override {
+    if (before_expr != nullptr) {
+      out.push_back(before_expr);
+    }
+    if (after_expr != nullptr) {
+      out.push_back(after_expr);
+    }
+  }
+
+  ~SIOTaskOrder() override {
+    delete before_expr;
+    delete after_expr;
+  }
+
+private:
+  SIOTaskOrder() = default;
 };
 
 /*

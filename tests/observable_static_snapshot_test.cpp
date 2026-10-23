@@ -30,6 +30,7 @@
 #include "StyioServices/StyioObservableProducer/StaticSnapshotContract.hpp"
 
 #include "llvm/Support/JSON.h"
+#include "llvm/Support/raw_ostream.h"
 
 #ifndef STYIO_SOURCE_DIR
 #define STYIO_SOURCE_DIR "."
@@ -65,6 +66,16 @@ fs::path fixture_root() {
   return fs::path(STYIO_SOURCE_DIR) / "tests/fixtures/observable_static_snapshot/v1";
 }
 
+void expect_no_host_paths(const std::string& bytes) {
+  if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
+    EXPECT_EQ(bytes.find(home), std::string::npos);
+    EXPECT_EQ(bytes.find(fs::path(home).parent_path().string()), std::string::npos);
+  }
+  const fs::path tmp_root = fs::temp_directory_path();
+  EXPECT_EQ(bytes.find(tmp_root.string()), std::string::npos);
+  EXPECT_EQ(bytes.find(fs::weakly_canonical(tmp_root).string()), std::string::npos);
+}
+
 std::vector<std::pair<size_t, size_t>> line_seps(const std::string& src) {
   std::vector<std::pair<size_t, size_t>> seps;
   size_t begin = 0;
@@ -85,7 +96,7 @@ void free_tokens(std::vector<StyioToken*>& tokens) {
 }
 
 cfg::CompilationUnit example_unit(
-  std::string package = "example.app",
+  std::string package = "example/app",
   std::string manifest = "Styio.toml",
   std::string entry = "src/main.styio"
 ) {
@@ -175,10 +186,12 @@ std::string compile_plan_json(
     << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
     << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
     << "  \"packages\": [{\"id\": \"" << package_id << "\",\"name\": \"" << package_name
-    << "\",\"root\": \"" << json_escape(package_root.string())
-    << "\",\"manifest\": \"" << json_escape(manifest.string()) << "\"}"
+    << "\",\"version\":\"1\",\"root_dir\": \"" << json_escape(package_root.string())
+    << "\",\"manifest_path\": \"" << json_escape(manifest.string())
+    << "\",\"source_kind\":\"workspace\",\"targets\":{\"lib\":null,\"bins\":[{\"name\":\"demo\",\"path\":\""
+    << json_escape(entry.string()) << "\"}]},\"dependency_aliases\":{}}"
     << extra_packages << "],\n"
-    << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"" << package_id << "\"]},\n"
+    << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"" << package_id << "\"]},\n"
     << "  \"outputs\": {\"build_root\": \"" << json_escape(build_root.string())
     << "\", \"artifact_dir\": \"" << json_escape(artifact_dir.string())
     << "\", \"diag_dir\": \"" << json_escape(diag_dir.string()) << "\"},\n"
@@ -350,10 +363,10 @@ TEST(StyioObservableStaticSnapshot, CanonicalProducerIsByteIdenticalAndComplete)
 TEST(StyioObservableStaticSnapshot, IdentityDomainsChangeWithLogicalComponents) {
   const std::string source = read_text(fixture_root() / "package/src/main.styio");
   const auto baseline = publish_source(source, example_unit());
-  const auto package_changed = publish_source(source, example_unit("other.app"));
-  const auto manifest_changed = publish_source(source, example_unit("example.app", "Alt.toml"));
+  const auto package_changed = publish_source(source, example_unit("other/app"));
+  const auto manifest_changed = publish_source(source, example_unit("example/app", "Alt.toml"));
   const auto entry_changed = publish_source(
-    source, example_unit("example.app", "Styio.toml", "src/alt.styio"));
+    source, example_unit("example/app", "Styio.toml", "src/alt.styio"));
   ASSERT_TRUE(baseline.ok) << baseline.error;
   ASSERT_TRUE(package_changed.ok);
   ASSERT_TRUE(manifest_changed.ok);
@@ -387,7 +400,7 @@ TEST(StyioObservableStaticSnapshot, IdentityDomainsChangeWithLogicalComponents) 
 
 TEST(StyioObservableStaticSnapshot, ScalarNoopIsCompleteWithoutGraph) {
   const std::string source = read_text(fixture_root() / "scalar/src/main.styio");
-  const auto published = publish_source(source, example_unit("example.scalar"));
+  const auto published = publish_source(source, example_unit("example/scalar"));
   ASSERT_TRUE(published.ok) << published.error;
   llvm::Expected<llvm::json::Value> parsed = llvm::json::parse(published.json);
   const auto* root = parsed->getAsObject();
@@ -422,14 +435,11 @@ TEST(StyioObservableStaticSnapshot, PrivacyScanRejectsForbiddenTokens) {
   const std::string source = read_text(fixture_root() / "package/src/main.styio");
   const auto published = publish_source(source, example_unit());
   ASSERT_TRUE(published.ok) << published.error;
-  EXPECT_EQ(published.json.find("/Users/"), std::string::npos);
-  EXPECT_EQ(published.json.find("/home/"), std::string::npos);
-  EXPECT_EQ(published.json.find("/private/"), std::string::npos);
-  EXPECT_EQ(published.json.find("/tmp/"), std::string::npos);
+  expect_no_host_paths(published.json);
   EXPECT_EQ(published.json.find("content_hash"), std::string::npos);
   EXPECT_EQ(published.json.find("raw_source"), std::string::npos);
   EXPECT_EQ(published.json.find("0x"), std::string::npos);
-  EXPECT_NE(published.json.find("example.app"), std::string::npos);
+  EXPECT_NE(published.json.find("example/app"), std::string::npos);
   EXPECT_NE(published.json.find("src/main.styio"), std::string::npos);
   EXPECT_EQ(published.json.find("data/lines.txt"), std::string::npos);
 }
@@ -484,7 +494,7 @@ TEST(StyioObservableStaticSnapshot, AnonymousArtifactCarriesNoPublicationMateria
 TEST(StyioObservableStaticSnapshotAdmission, ValidPafioPackageIsAdmitted) {
   const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-admit";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
   const fs::path plan = tmp / "plan.json";
   write_text(
@@ -492,8 +502,8 @@ TEST(StyioObservableStaticSnapshotAdmission, ValidPafioPackageIsAdmitted) {
     compile_plan_json(
       "pafio",
       tmp,
-      "example.app@1",
-      "example.app",
+      "example/app@1",
+      "example/app",
       tmp / "pkg",
       tmp / "pkg/Styio.toml",
       tmp / "pkg/src/main.styio",
@@ -507,7 +517,7 @@ TEST(StyioObservableStaticSnapshotAdmission, ValidPafioPackageIsAdmitted) {
   ASSERT_TRUE(cfg::parse_compile_plan(plan, request, error, subcode)) << error;
   EXPECT_TRUE(request.emit_observable_static_snapshot);
   ASSERT_TRUE(request.compilation_unit.has_value());
-  EXPECT_EQ(request.compilation_unit->package_name, "example.app");
+  EXPECT_EQ(request.compilation_unit->package_name, "example/app");
   EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
   EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
   EXPECT_TRUE(request.observable_static_snapshot_parent_snapshot_path.empty());
@@ -516,14 +526,14 @@ TEST(StyioObservableStaticSnapshotAdmission, ValidPafioPackageIsAdmitted) {
 TEST(StyioObservableStaticSnapshotAdmission, ParentSnapshotPathIsTransportOnly) {
   const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-admit-parent";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
   const fs::path parent = tmp / "previous/demo.observable-static-snapshot.json";
   const fs::path plan = tmp / "plan.json";
   write_text(
     plan,
     compile_plan_json(
-      "pafio", tmp, "example.app@1", "example.app", tmp / "pkg",
+      "pafio", tmp, "example/app@1", "example/app", tmp / "pkg",
       tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
       tmp / "build", tmp / "artifacts", tmp / "diag",
       "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":\""
@@ -535,7 +545,7 @@ TEST(StyioObservableStaticSnapshotAdmission, ParentSnapshotPathIsTransportOnly) 
   EXPECT_TRUE(request.emit_observable_static_snapshot);
   EXPECT_EQ(request.observable_static_snapshot_parent_snapshot_path, parent);
   ASSERT_TRUE(request.compilation_unit.has_value());
-  EXPECT_EQ(request.compilation_unit->package_name, "example.app");
+  EXPECT_EQ(request.compilation_unit->package_name, "example/app");
   EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
   EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
   EXPECT_TRUE(request.observable_static_snapshot_required_capabilities.empty());
@@ -544,7 +554,7 @@ TEST(StyioObservableStaticSnapshotAdmission, ParentSnapshotPathIsTransportOnly) 
 TEST(StyioObservableStaticSnapshotAdmission, RequestMatrixFailsBeforeSema) {
   const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-admit-fail";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
 
   auto expect_fail = [&](
@@ -576,72 +586,72 @@ TEST(StyioObservableStaticSnapshotAdmission, RequestMatrixFailsBeforeSema) {
   const std::string snapshot =
     "{\"schema_version\":1,\"required_capabilities\":[\"static-topology-nodes\"]}";
   expect_fail(
-    "direct-file", "styio", "example.app@1", "example.app",
+    "direct-file", "styio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     snapshot, "", "observable_static_snapshot_direct_file");
   expect_fail(
-    "unsupported-version", "pafio", "example.app@1", "example.app",
+    "unsupported-version", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "{\"schema_version\":2,\"required_capabilities\":[]}",
     "", "observable_static_snapshot_unsupported_version");
   expect_fail(
-    "unsupported-capability", "pafio", "example.app@1", "example.app",
+    "unsupported-capability", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "{\"schema_version\":1,\"required_capabilities\":[\"delta-query\"]}",
     "", "observable_static_snapshot_unsupported_capability");
   expect_fail(
-    "malformed", "pafio", "example.app@1", "example.app",
+    "malformed", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "true", "", "observable_static_snapshot_malformed");
   expect_fail(
-    "unknown-field", "pafio", "example.app@1", "example.app",
+    "unknown-field", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_id\":\"s1_00\"}",
     "", "observable_static_snapshot_malformed");
   expect_fail(
-    "empty-parent-path", "pafio", "example.app@1", "example.app",
+    "empty-parent-path", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":\"\"}",
     "", "observable_static_snapshot_malformed");
   expect_fail(
-    "non-string-parent-path", "pafio", "example.app@1", "example.app",
+    "non-string-parent-path", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":7}",
     "", "observable_static_snapshot_malformed");
   expect_fail(
-    "optional-capability-as-required", "pafio", "example.app@1", "example.app",
+    "optional-capability-as-required", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     "{\"schema_version\":1,\"required_capabilities\":[\"snapshot-delta\"]}",
     "", "observable_static_snapshot_unsupported_capability");
   expect_fail(
-    "anonymous", "pafio", "example.app@1", "",
+    "anonymous", "pafio", "example/app@1", "",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     snapshot, "", "observable_static_snapshot_anonymous");
   expect_fail(
-    "escaping", "pafio", "example.app@1", "example.app",
+    "escaping", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "outside.styio",
     snapshot, "", "observable_static_snapshot_escaping_path");
   expect_fail(
-    "duplicate", "pafio", "example.app@1", "example.app",
+    "duplicate", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     snapshot,
-    ",{\"id\":\"example.app@1\",\"name\":\"example.app\",\"root\":\""
-      + json_escape((tmp / "pkg").string()) + "\",\"manifest\":\""
+    ",{\"id\":\"example/app@1\",\"name\":\"example/app\",\"root_dir\":\""
+      + json_escape((tmp / "pkg").string()) + "\",\"manifest_path\":\""
       + json_escape((tmp / "pkg/Styio.toml").string()) + "\"}",
     "observable_static_snapshot_duplicate");
   expect_fail(
-    "ambiguous", "pafio", "example.app@1", "example.app",
+    "ambiguous", "pafio", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     snapshot,
-    ",{\"id\":\"example.app@1\",\"name\":\"example.app\",\"root\":\""
-      + json_escape((tmp / "pkg").string()) + "\",\"manifest\":\""
+    ",{\"id\":\"example/app@1\",\"name\":\"example/app\",\"root_dir\":\""
+      + json_escape((tmp / "pkg").string()) + "\",\"manifest_path\":\""
       + json_escape((tmp / "pkg/Styio.toml").string()) + "\"}"
-      + ",{\"id\":\"example.app@1\",\"name\":\"example.app\",\"root\":\""
-      + json_escape((tmp / "pkg").string()) + "\",\"manifest\":\""
+      + ",{\"id\":\"example/app@1\",\"name\":\"example/app\",\"root_dir\":\""
+      + json_escape((tmp / "pkg").string()) + "\",\"manifest_path\":\""
       + json_escape((tmp / "pkg/Styio.toml").string()) + "\"}",
     "observable_static_snapshot_ambiguous");
   expect_fail(
-    "styio-produced", "other-builder", "example.app@1", "example.app",
+    "styio-produced", "other-builder", "example/app@1", "example/app",
     tmp / "pkg", tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
     snapshot, "", "observable_static_snapshot_styio_produced");
 }
@@ -649,7 +659,7 @@ TEST(StyioObservableStaticSnapshotAdmission, RequestMatrixFailsBeforeSema) {
 TEST(StyioObservableStaticSnapshotAdmission, UnmatchedPackageFailsClosed) {
   const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-unmatched";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
   std::ostringstream plan;
   plan
@@ -658,14 +668,14 @@ TEST(StyioObservableStaticSnapshotAdmission, UnmatchedPackageFailsClosed) {
     << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0\"},\n"
     << "  \"intent\": \"check\",\n"
     << "  \"workspace_root\": \"" << json_escape(tmp.string()) << "\",\n"
-    << "  \"entry\": {\"package_id\": \"missing.app@1\", \"target_kind\": \"bin\", \"target_name\": \"demo\", \"file\": \""
+    << "  \"entry\": {\"package_id\": \"missing/app@1\", \"target_kind\": \"bin\", \"target_name\": \"demo\", \"file\": \""
     << json_escape((tmp / "pkg/src/main.styio").string()) << "\"},\n"
     << "  \"toolchain\": {\"channel\": \"stable\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
     << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
-    << "  \"packages\": [{\"id\": \"example.app@1\",\"name\":\"example.app\",\"root\":\""
-    << json_escape((tmp / "pkg").string()) << "\",\"manifest\":\""
+    << "  \"packages\": [{\"id\": \"example/app@1\",\"name\":\"example/app\",\"root_dir\":\""
+    << json_escape((tmp / "pkg").string()) << "\",\"manifest_path\":\""
     << json_escape((tmp / "pkg/Styio.toml").string()) << "\"}],\n"
-    << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"example.app@1\"]},\n"
+    << "  \"resolution\": {\"resolver\": \"single-package\", \"package_order\": [\"example/app@1\"]},\n"
     << "  \"outputs\": {\"build_root\": \"" << json_escape((tmp / "build").string())
     << "\", \"artifact_dir\": \"" << json_escape((tmp / "artifacts").string())
     << "\", \"diag_dir\": \"" << json_escape((tmp / "diag").string()) << "\"},\n"
@@ -678,6 +688,190 @@ TEST(StyioObservableStaticSnapshotAdmission, UnmatchedPackageFailsClosed) {
   std::string subcode;
   EXPECT_FALSE(cfg::parse_compile_plan(plan_path, request, error, subcode));
   EXPECT_EQ(subcode, "observable_static_snapshot_unmatched") << error;
+}
+
+TEST(StyioObservableStaticSnapshotAdmission, CanonicalPackageFieldsAreRequired) {
+  const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-canonical-fields";
+  fs::create_directories(tmp / "pkg/src");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
+  write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
+
+  auto write_plan = [&](
+    const fs::path& path, const std::string& packages, std::string_view emit_object) {
+    std::ostringstream plan;
+    plan
+      << "{\n"
+      << "  \"plan_version\": 1,\n"
+      << "  \"generated_by\": {\"tool\": \"pafio\", \"version\": \"0.1.0\"},\n"
+      << "  \"intent\": \"check\",\n"
+      << "  \"workspace_root\": \"" << json_escape(tmp.string()) << "\",\n"
+      << "  \"entry\": {\"package_id\": \"example/app@1\", \"target_kind\": \"lib\", \"target_name\": \"example/app\", \"file\": \""
+      << json_escape((tmp / "pkg/src/main.styio").string()) << "\"},\n"
+      << "  \"toolchain\": {\"channel\": \"unbound\", \"edition\": \"2026\", \"implicit_std\": true, \"std_package_id\": \"styio/std@2026\"},\n"
+      << "  \"profile\": {\"name\": \"dev\", \"opt_level\": 0, \"debug\": true, \"lto\": false},\n"
+      << "  \"packages\": [" << packages << "],\n"
+      << "  \"resolution\": {\"resolver\": \"single-version-v1\", \"package_order\": [\"example/app@1\"]},\n"
+      << "  \"outputs\": {\"build_root\": \"" << json_escape((tmp / "build").string())
+      << "\", \"artifact_dir\": \"" << json_escape((tmp / "artifacts").string())
+      << "\", \"diag_dir\": \"" << json_escape((tmp / "diag").string()) << "\"},\n"
+      << "  \"emit\": {\"error_format\": \"jsonl\", \"ast\": false, \"styio_ir\": false, \"llvm_ir\": false"
+      << emit_object << "}\n}\n";
+    write_text(path, plan.str());
+  };
+
+  const std::string canonical_full_package =
+    "{\"id\":\"example/app@1\",\"name\":\"example/app\",\"version\":\"1\",\"root_dir\":\""
+    + json_escape((tmp / "pkg").string()) + "\",\"manifest_path\":\""
+    + json_escape((tmp / "pkg/Styio.toml").string())
+    + "\",\"source_kind\":\"workspace\",\"targets\":{\"lib\":\""
+    + json_escape((tmp / "pkg/src/main.styio").string())
+    + "\",\"bins\":[]},\"dependency_aliases\":{}}";
+  const std::string snapshot_emit =
+    ", \"observable_static_snapshot\": {\"schema_version\":1,\"required_capabilities\":[]}";
+  const std::string observation_emit =
+    ", \"runtime_observation\": {\"version\":2,\"mode\":\"aggregate\"}";
+
+  cfg::CompilePlanRequest request;
+  std::string error;
+  std::string subcode;
+
+  write_plan(tmp / "canonical-snapshot.json", canonical_full_package, snapshot_emit);
+  ASSERT_TRUE(cfg::parse_compile_plan(tmp / "canonical-snapshot.json", request, error, subcode))
+    << error;
+  ASSERT_TRUE(request.compilation_unit.has_value());
+  EXPECT_EQ(request.compilation_unit->package_name, "example/app");
+  EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
+  EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
+
+  write_plan(tmp / "canonical-observation.json", canonical_full_package, observation_emit);
+  request = cfg::CompilePlanRequest{};
+  ASSERT_TRUE(cfg::parse_compile_plan(tmp / "canonical-observation.json", request, error, subcode))
+    << error;
+  EXPECT_TRUE(request.emit_runtime_observation);
+  EXPECT_FALSE(request.emit_observable_static_snapshot);
+  ASSERT_TRUE(request.compilation_unit.has_value());
+  EXPECT_EQ(request.compilation_unit->package_name, "example/app");
+  EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
+  EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
+
+  write_plan(tmp / "canonical-unobserved.json", canonical_full_package, "");
+  request = cfg::CompilePlanRequest{};
+  ASSERT_TRUE(cfg::parse_compile_plan(tmp / "canonical-unobserved.json", request, error, subcode))
+    << error;
+  EXPECT_FALSE(request.compilation_unit.has_value());
+
+  // Mutate one canonical identity field at a time: root failure must not hide
+  // manifest failure. Both observation paths use the same admission contract.
+  for (const std::string& emit : {snapshot_emit, observation_emit}) {
+    SCOPED_TRACE(emit);
+    for (const std::string field : {"root_dir", "manifest_path"}) {
+      SCOPED_TRACE(field);
+      const std::string value = json_escape(
+        (field == "root_dir" ? tmp / "pkg" : tmp / "pkg/Styio.toml").string());
+      const std::string member = "\"" + field + "\":\"" + value + "\"";
+      const auto position = canonical_full_package.find(member);
+      ASSERT_NE(position, std::string::npos);
+      const std::string legacy = field == "root_dir" ? "root" : "manifest";
+      for (const std::string& replacement : {
+             "\"" + legacy + "\":\"" + value + "\"",
+             "\"" + field + "\":7",
+             "\"" + field + "\":\"\"",
+             "\"" + field + "\":\"relative\""}) {
+        std::string package = canonical_full_package;
+        package.replace(position, member.size(), replacement);
+        write_plan(tmp / "invalid.json", package, emit);
+        request = cfg::CompilePlanRequest{};
+        EXPECT_FALSE(cfg::parse_compile_plan(tmp / "invalid.json", request, error, subcode));
+        EXPECT_EQ(subcode, "observable_static_snapshot_anonymous") << error;
+        EXPECT_NE(error.find("packages[]." + field), std::string::npos) << error;
+        EXPECT_FALSE(request.compilation_unit.has_value());
+      }
+    }
+    std::string escaping = canonical_full_package;
+    const std::string manifest = json_escape((tmp / "pkg/Styio.toml").string());
+    escaping.replace(escaping.find(manifest), manifest.size(),
+                     json_escape((tmp / "outside.toml").string()));
+    write_plan(tmp / "escaping-manifest.json", escaping, emit);
+    request = cfg::CompilePlanRequest{};
+    EXPECT_FALSE(cfg::parse_compile_plan(tmp / "escaping-manifest.json", request, error, subcode));
+    EXPECT_EQ(subcode, "observable_static_snapshot_escaping_path") << error;
+    EXPECT_NE(error.find("packages[].manifest_path"), std::string::npos) << error;
+    EXPECT_FALSE(request.compilation_unit.has_value());
+  }
+
+  write_plan(tmp / "unobserved.json", "{\"id\":\"example/app@1\"}", "");
+  request = cfg::CompilePlanRequest{};
+  ASSERT_TRUE(cfg::parse_compile_plan(tmp / "unobserved.json", request, error, subcode)) << error;
+  EXPECT_FALSE(request.emit_observable_static_snapshot);
+  EXPECT_FALSE(request.emit_runtime_observation);
+  EXPECT_FALSE(request.compilation_unit.has_value());
+}
+
+TEST(StyioObservableStaticSnapshotAdmission, PackageNameGrammarForBothObservationModes) {
+  const fs::path tmp = fs::temp_directory_path() / "styio-snapshot-name-grammar";
+  fs::create_directories(tmp / "pkg/src");
+  // Keep the package ID independent of the name being tested. The consumer
+  // matches this opaque ID and must preserve the canonical name unchanged.
+  const std::string source_plan = compile_plan_json(
+    "pafio", tmp, "example.app@1", "example/app", tmp / "pkg",
+    tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
+    tmp / "build", tmp / "artifacts", tmp / "diag",
+    "{\"schema_version\":1,\"required_capabilities\":[]}");
+  for (bool runtime_only : {false, true}) {
+    SCOPED_TRACE(runtime_only ? "runtime-only" : "static-snapshot");
+    auto parsed = llvm::json::parse(source_plan);
+    ASSERT_TRUE(static_cast<bool>(parsed));
+    auto* root = parsed->getAsObject();
+    ASSERT_NE(root, nullptr);
+    if (runtime_only) {
+      auto* emit = root->getObject("emit");
+      emit->erase("observable_static_snapshot");
+      (*emit)["runtime_observation"] = llvm::json::Object{
+        {"version", 2}, {"mode", "aggregate"}};
+    }
+    auto* package = (*root->getArray("packages"))[0].getAsObject();
+    const auto check_name = [&](const std::string& name, bool valid) {
+      SCOPED_TRACE(name);
+      (*package)["name"] = name;
+      std::string json;
+      llvm::raw_string_ostream stream(json);
+      stream << *parsed;
+      write_text(tmp / "plan.json", json);
+      cfg::CompilePlanRequest request;
+      std::string error;
+      std::string subcode;
+      ASSERT_EQ(cfg::parse_compile_plan(tmp / "plan.json", request, error, subcode), valid)
+        << error;
+      if (valid) {
+        ASSERT_TRUE(request.compilation_unit.has_value());
+        EXPECT_EQ(request.compilation_unit->package_name, name);
+        EXPECT_EQ(request.entry_package_id, "example.app@1");
+        EXPECT_EQ(request.compilation_unit->manifest_relative_path, "Styio.toml");
+        EXPECT_EQ(request.compilation_unit->entry_relative_path, "src/main.styio");
+        EXPECT_EQ(request.emit_runtime_observation, runtime_only);
+        EXPECT_EQ(request.emit_observable_static_snapshot, !runtime_only);
+      } else {
+        EXPECT_EQ(subcode, "observable_static_snapshot_anonymous") << error;
+        EXPECT_FALSE(request.compilation_unit.has_value());
+        // Empty names use the existing required-string diagnostic.
+        if (!name.empty()) {
+          EXPECT_EQ(error, "compile-plan package name must match namespace/name");
+        }
+      }
+    };
+    for (const char* name : {"a/b", "0/9", "a1/9z", "example-/app-name_2", "a_b/c-d"}) {
+      check_name(name, true);
+    }
+    for (const char* name : {
+           "", "example", "/app", "example/", "example//app", "example/app/extra",
+           "-example/app", "_example/app", "example/-app", "example/_app",
+           "Example/app", "example/App", "example.app/pkg", "example/app.",
+           "example\\app", "example/app\\x", "example app/x", "example/app x",
+           "example\t/app", "example/app\n", "example/app@1",
+           "\xc3\xa9/app", "example/\xc3\xa9"}) {
+      check_name(name, false);
+    }
+  }
 }
 
 TEST(StyioObservableStaticSnapshotCli, RelocatedRootsProduceIdenticalBytes) {
@@ -696,8 +890,8 @@ TEST(StyioObservableStaticSnapshotCli, RelocatedRootsProduceIdenticalBytes) {
       compile_plan_json(
         "pafio",
         root,
-        "example.app@1",
-        "example.app",
+        "example/app@1",
+        "example/app",
         root / "pkg",
         root / "pkg/Styio.toml",
         root / "pkg/src/main.styio",
@@ -721,13 +915,13 @@ TEST(StyioObservableStaticSnapshotCli, AbsentRequestKeepsDisabledPath) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
   const fs::path tmp = fs::temp_directory_path() / "styio-snap-disabled";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
   const fs::path plan = tmp / "plan.json";
   write_text(
     plan,
     compile_plan_json(
-      "pafio", tmp, "example.app@1", "example.app", tmp / "pkg",
+      "pafio", tmp, "example/app@1", "example/app", tmp / "pkg",
       tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
       tmp / "build", tmp / "artifacts", tmp / "diag", ""));
   const CommandResult result = run_command(
@@ -799,7 +993,7 @@ TEST(StyioObservableStaticSnapshotCli, ProfilerCountsMatchSerializedBytes) {
   write_text(
     plan,
     compile_plan_json(
-      "pafio", tmp, "example.app@1", "example.app", tmp / "pkg",
+      "pafio", tmp, "example/app@1", "example/app", tmp / "pkg",
       tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
       tmp / "build", tmp / "artifacts", tmp / "diag",
       "{\"schema_version\":1,\"required_capabilities\":[]}"));
@@ -829,13 +1023,13 @@ TEST(StyioObservableStaticSnapshotCli, AdmissionFailsBeforeSourceParse) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
   const fs::path tmp = fs::temp_directory_path() / "styio-snap-admit-cli";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "this is not valid styio source !!!\n");
   const fs::path plan = tmp / "plan.json";
   write_text(
     plan,
     compile_plan_json(
-      "pafio", tmp, "example.app@1", "example.app", tmp / "pkg",
+      "pafio", tmp, "example/app@1", "example/app", tmp / "pkg",
       tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
       tmp / "build", tmp / "artifacts", tmp / "diag",
       "{\"schema_version\":2,\"required_capabilities\":[]}"));
@@ -852,7 +1046,7 @@ TEST(StyioObservableStaticSnapshotCli, WriteFailureEmitsNoPartialArtifact) {
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
   const fs::path tmp = fs::temp_directory_path() / "styio-snap-write-fail";
   fs::create_directories(tmp / "pkg/src");
-  write_text(tmp / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(tmp / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(tmp / "pkg/src/main.styio", "x = 1\n>_(x)\n");
   const fs::path artifact_dir = tmp / "artifacts";
   fs::create_directories(artifact_dir);
@@ -861,7 +1055,7 @@ TEST(StyioObservableStaticSnapshotCli, WriteFailureEmitsNoPartialArtifact) {
   write_text(
     plan,
     compile_plan_json(
-      "pafio", tmp, "example.app@1", "example.app", tmp / "pkg",
+      "pafio", tmp, "example/app@1", "example/app", tmp / "pkg",
       tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
       tmp / "build", artifact_dir, tmp / "diag",
       "{\"schema_version\":1,\"required_capabilities\":[]}"));
@@ -882,7 +1076,7 @@ TEST(StyioObservableStaticSnapshotCli, ScalarNoopCompleteness) {
   write_text(
     plan,
     compile_plan_json(
-      "pafio", tmp, "example.scalar@1", "example.scalar", tmp / "pkg",
+      "pafio", tmp, "example/scalar@1", "example/scalar", tmp / "pkg",
       tmp / "pkg/Styio.toml", tmp / "pkg/src/main.styio",
       tmp / "build", tmp / "artifacts", tmp / "diag",
       "{\"schema_version\":1,\"required_capabilities\":[]}"));
@@ -1026,7 +1220,7 @@ TEST(StyioObservableDeltaPublicationCli, ParentSnapshotProducesCanonicalReconstr
   const std::string edited = fixture_source_without_file_handle();
   ASSERT_NE(original, edited);
 
-  const auto first = compile_package_cli(root_a, "example.app", original, {});
+  const auto first = compile_package_cli(root_a, "example/app", original, {});
   ASSERT_EQ(first.command.exit_code, 0) << first.command.output;
   ASSERT_TRUE(fs::is_regular_file(first.snapshot_path));
   EXPECT_FALSE(fs::exists(first.delta_path));
@@ -1036,7 +1230,7 @@ TEST(StyioObservableDeltaPublicationCli, ParentSnapshotProducesCanonicalReconstr
   EXPECT_TRUE(artifact_listed(first_receipt, first.snapshot_path));
   EXPECT_FALSE(artifact_suffix_listed(first_receipt, obs::kDeltaArtifactSuffix));
 
-  const auto second = compile_package_cli(root_b, "example.app", edited, first.snapshot_path, true);
+  const auto second = compile_package_cli(root_b, "example/app", edited, first.snapshot_path, true);
   ASSERT_EQ(second.command.exit_code, 0) << second.command.output;
   const std::string snapshot_a = read_text(first.snapshot_path);
   const std::string snapshot_b = read_text(second.snapshot_path);
@@ -1080,9 +1274,7 @@ TEST(StyioObservableDeltaPublicationCli, ParentSnapshotProducesCanonicalReconstr
   EXPECT_EQ(receipt_text.find(parent_path), std::string::npos);
   EXPECT_EQ(delta_text.find(root_a.filename().string()), std::string::npos);
   EXPECT_EQ(delta_text.find(root_b.filename().string()), std::string::npos);
-  EXPECT_EQ(delta_text.find("/Users/"), std::string::npos);
-  EXPECT_EQ(delta_text.find("/tmp/"), std::string::npos);
-  EXPECT_EQ(delta_text.find("/private/"), std::string::npos);
+  expect_no_host_paths(delta_text);
 
   const std::string profile_json = read_text(second.profile_path);
   EXPECT_NE(profile_json.find("observable_static_snapshot"), std::string::npos);
@@ -1097,7 +1289,7 @@ TEST(StyioObservableDeltaPublicationCli, MissingParentDegradesToFullSnapshotRequ
   const fs::path root = fs::temp_directory_path() / "styio-delta-missing-parent";
   const fs::path parent = root / "nowhere/demo.observable-static-snapshot.json";
   const auto outcome = compile_package_cli(
-    root, "example.app", read_text(fixture_root() / "package/src/main.styio"), parent);
+    root, "example/app", read_text(fixture_root() / "package/src/main.styio"), parent);
   ASSERT_EQ(outcome.command.exit_code, 0) << outcome.command.output;
   EXPECT_TRUE(fs::is_regular_file(outcome.snapshot_path));
   EXPECT_FALSE(fs::exists(outcome.delta_path));
@@ -1118,11 +1310,11 @@ TEST(StyioObservableDeltaPublicationCli, ForeignPackageParentIsMismatch) {
   const std::string source = read_text(fixture_root() / "package/src/main.styio");
   const fs::path root_other = fs::temp_directory_path() / "styio-delta-other-package";
   const fs::path root = fs::temp_directory_path() / "styio-delta-mismatch";
-  const auto other = compile_package_cli(root_other, "other.app", source, {});
+  const auto other = compile_package_cli(root_other, "other/app", source, {});
   ASSERT_EQ(other.command.exit_code, 0) << other.command.output;
   ASSERT_TRUE(fs::is_regular_file(other.snapshot_path));
 
-  const auto outcome = compile_package_cli(root, "example.app", source, other.snapshot_path);
+  const auto outcome = compile_package_cli(root, "example/app", source, other.snapshot_path);
   ASSERT_EQ(outcome.command.exit_code, 0) << outcome.command.output;
   EXPECT_TRUE(fs::is_regular_file(outcome.snapshot_path));
   EXPECT_FALSE(fs::exists(outcome.delta_path));
@@ -1138,7 +1330,7 @@ TEST(StyioObservableDeltaPublicationCli, UndecodableOrNonCanonicalParentIsInvali
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
   const std::string source = read_text(fixture_root() / "package/src/main.styio");
   const fs::path root_seed = fs::temp_directory_path() / "styio-delta-invalid-seed";
-  const auto seed = compile_package_cli(root_seed, "example.app", source, {});
+  const auto seed = compile_package_cli(root_seed, "example/app", source, {});
   ASSERT_EQ(seed.command.exit_code, 0) << seed.command.output;
   const std::string canonical = read_text(seed.snapshot_path);
   ASSERT_FALSE(canonical.empty());
@@ -1148,7 +1340,7 @@ TEST(StyioObservableDeltaPublicationCli, UndecodableOrNonCanonicalParentIsInvali
   const fs::path root_malformed = fs::temp_directory_path() / "styio-delta-invalid-malformed";
   const fs::path malformed_parent = parents / "malformed.json";
   write_text(malformed_parent, "{\"contract\":\"styio.observable.static-snapshot\",");
-  const auto malformed = compile_package_cli(root_malformed, "example.app", source, malformed_parent);
+  const auto malformed = compile_package_cli(root_malformed, "example/app", source, malformed_parent);
   ASSERT_EQ(malformed.command.exit_code, 0) << malformed.command.output;
   EXPECT_TRUE(fs::is_regular_file(malformed.snapshot_path));
   EXPECT_FALSE(fs::exists(malformed.delta_path));
@@ -1162,7 +1354,7 @@ TEST(StyioObservableDeltaPublicationCli, UndecodableOrNonCanonicalParentIsInvali
   const fs::path root_pretty = fs::temp_directory_path() / "styio-delta-invalid-noncanonical";
   const fs::path pretty_parent = parents / "non-canonical.json";
   write_text(pretty_parent, "{\n " + canonical.substr(1));
-  const auto pretty = compile_package_cli(root_pretty, "example.app", source, pretty_parent);
+  const auto pretty = compile_package_cli(root_pretty, "example/app", source, pretty_parent);
   ASSERT_EQ(pretty.command.exit_code, 0) << pretty.command.output;
   EXPECT_FALSE(fs::exists(pretty.delta_path));
   const ReceiptView pretty_receipt = read_receipt(pretty.receipt_path);
@@ -1175,7 +1367,7 @@ TEST(StyioObservableDeltaPublicationCli, DeltaWriteFailureKeepsSnapshotPublished
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
   const std::string source = read_text(fixture_root() / "package/src/main.styio");
   const fs::path root_seed = fs::temp_directory_path() / "styio-delta-write-seed";
-  const auto seed = compile_package_cli(root_seed, "example.app", source, {});
+  const auto seed = compile_package_cli(root_seed, "example/app", source, {});
   ASSERT_EQ(seed.command.exit_code, 0) << seed.command.output;
 
   const fs::path root = fs::temp_directory_path() / "styio-delta-write-fail";
@@ -1184,14 +1376,14 @@ TEST(StyioObservableDeltaPublicationCli, DeltaWriteFailureKeepsSnapshotPublished
   fs::create_directories(root / "artifacts/demo.observable-delta.json");
   fs::create_directories(root / "pkg/src");
   fs::create_directories(root / "pkg/data");
-  write_text(root / "pkg/Styio.toml", "name = \"example.app\"\n");
+  write_text(root / "pkg/Styio.toml", "name = \"example/app\"\n");
   write_text(root / "pkg/src/main.styio", fixture_source_without_file_handle());
   write_text(root / "pkg/data/lines.txt", read_text(fixture_root() / "package/data/lines.txt"));
   const fs::path plan = root / "plan.json";
   write_text(
     plan,
     compile_plan_json(
-      "pafio", root, "example.app@1", "example.app", root / "pkg",
+      "pafio", root, "example/app@1", "example/app", root / "pkg",
       root / "pkg/Styio.toml", root / "pkg/src/main.styio",
       root / "build", root / "artifacts", root / "diag",
       "{\"schema_version\":1,\"required_capabilities\":[],\"parent_snapshot_path\":\""
@@ -1213,7 +1405,7 @@ TEST(StyioObservableDeltaPublicationCli, AbsentParentPathKeepsGoldenBytesAndRece
   ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
   const fs::path root = fs::temp_directory_path() / "styio-delta-absent";
   const auto outcome = compile_package_cli(
-    root, "example.app", read_text(fixture_root() / "package/src/main.styio"), {});
+    root, "example/app", read_text(fixture_root() / "package/src/main.styio"), {});
   ASSERT_EQ(outcome.command.exit_code, 0) << outcome.command.output;
   EXPECT_EQ(read_text(outcome.snapshot_path), read_text(fixture_root() / "canonical.json"));
   EXPECT_FALSE(fs::exists(outcome.delta_path));

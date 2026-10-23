@@ -148,7 +148,7 @@ jobs:
         run: |
           ./scripts/fuzz-regression-pack.sh \
             --artifacts-root ./fuzz-artifacts \
-            --out-dir ./fuzz-regressions \
+            --out-dir ./build/fuzz-regressions \
             --run-id "gh-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target }}"
 
       - name: Upload fuzz artifacts
@@ -164,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: weekly-fuzz-regressions-${{ matrix.target }}
-          path: fuzz-regressions/
+          path: build/fuzz-regressions/
           if-no-files-found: ignore
 
       - name: Fail job on fuzz crash

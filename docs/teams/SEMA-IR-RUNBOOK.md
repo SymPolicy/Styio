@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of AST lifecycle, semantic analysis, type inference, StyioIR lowering, string representation, and compilation session ownership.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-11
 
 ## Mission
 
@@ -188,3 +188,27 @@ Record unfinished middle-layer work with:
 5. Whether Codegen has already been adapted.
 6. Any future unsupported-lowering handler or placeholder-retirement follow-up, including the owning negative matrix and whether Codegen has already been adapted.
 7. For observable changes: contract/schema and capability scope, static snapshot/site identity, completeness, independent consumer fixture, disabled-path evidence, and the CLI/runtime/IDE reviewer affected. Record unsupported producer coverage in the gap ledger, not as a new grammar rule.
+
+### Task/resource compiler candidate (2026-10-11)
+
+Explicit task order lowers to `SIOTaskOrder`, with walker, verifier, type and
+printer handling. Same-block task after-targets are held until declared edges
+can settle; unsupported late ordering is diagnosed rather than silently dropped.
+Sema requires task handles and retains resource-topology cycle diagnostics.
+Creation-time capture is independent of deferred execution. Preserve reverse
+order, non-task operands, integer-handle collisions and two-/three-node cycle
+negative fixtures when changing this path.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+An order prescan now treats a name as a pending after-target only while it has
+unconsumed `=>` edges: once the final edge of a block is lowered, the name
+stops holding later binds, so a task re-created under the same name launches
+normally instead of inheriting the exhausted target's held spawn with no
+launch site. The lowering case pins the first target's held flag, the final
+edge's launch emission and the re-created task's normal launch; the codegen
+case pins the `_spawn_held` versus plain spawn call selection at the bind
+sites.

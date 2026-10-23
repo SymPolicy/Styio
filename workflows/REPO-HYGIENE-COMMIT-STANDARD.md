@@ -78,7 +78,7 @@ git status --short
 git diff --cached --name-only
 python3 scripts/local-info-leak-gate.py --mode staged
 python3 scripts/repo-hygiene-gate.py --mode residue
-./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit
+./scripts/delivery-gate.sh --mode staged --skip-health
 ```
 
 统一入口（含 docs/runbook/checkpoint floor）：
@@ -134,7 +134,7 @@ gh pr create --draft --base nightly --head codex/<topic>
 1. 提交说明能说清本次保存的目的；
 2. 不包含明显垃圾文件、大 blob、构建产物或本地 IDE 状态；
 3. 至少通过 `git diff --check` 和 `python3 scripts/repo-hygiene-gate.py --mode worktree`；
-4. 若改动已经 staged，优先通过 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`；
+4. 若改动已经 staged，优先通过 `./scripts/delivery-gate.sh --mode staged --skip-health`；
 5. 对于正在抢救但尚未完整闭环的状态，提交消息使用 `checkpoint: preserve <scope>`，并只推送到 Draft PR 工作分支。
 
 长任务中任何有价值的改动都不应只停留在工作树或对话上下文中。每完成一个上述工程切片，就形成一次最小推送单位；如果上下文、虚拟机或本地进程崩溃，恢复点应以远端 Draft PR 分支为准。
@@ -275,7 +275,7 @@ fix: <行为修复>
 
 安装后：
 
-1. `pre-commit` 会带 `STYIO_COMMIT_READINESS_REQUIRE=1` 调用 `./scripts/delivery-gate.sh --mode staged --skip-health --skip-audit`，检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。提交者依据已有证据自检本次不是功能改动，或功能验证、upstream/downstream 调试与 version-style naming check 已完成，或客观阻塞已记录。已获提交授权的智能体可以在首次非交互调用前完成自检，并仅对该次调用设置 `STYIO_COMMIT_READINESS_CONFIRMED=1`；无需先失败重跑，也无需为自检另请用户确认。该声明不替代明确批准、可执行门禁或仍未完成的验收。
+1. `pre-commit` 会带 `STYIO_COMMIT_READINESS_REQUIRE=1` 调用 `./scripts/delivery-gate.sh --mode staged --skip-health`，检查暂存区路径、二进制、本机产物、runtime surface 和 staged docs/runbook 责任。提交者依据已有证据自检本次不是功能改动，或功能验证、upstream/downstream 调试与 version-style naming check 已完成，或客观阻塞已记录。已获提交授权的智能体可以在首次非交互调用前完成自检，并仅对该次调用设置 `STYIO_COMMIT_READINESS_CONFIRMED=1`；无需先失败重跑，也无需为自检另请用户确认。该声明不替代明确批准、可执行门禁或仍未完成的验收。
 2. `pre-push` 会通过 `./scripts/delivery-gate.sh --mode push --skip-health` 检查待推送历史里的禁止路径、大 blob、docs/runbook 分支责任和 external audit。
 3. GitHub Actions `repo-hygiene` 会在所有 `push` 与 `pull_request` 上快速检查 tracked tree 与 incoming history range。
 4. GitHub Actions `styio-ci-gate` 会在受管分支的 `push` 与所有 `pull_request` 上通过 workflow scheduler 重复执行完整交付门禁。

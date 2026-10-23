@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the repeatable verification commands for the IDE-facing build, syntax backend, LSP server, and documentation inventory.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-10-11
 
 ## Recommended Commands
 
@@ -31,6 +31,16 @@ bash scripts/ide-quality-gate.sh --skip-fuzz --waiver 'skip fuzz on machines wit
 12. Syntax drift corpus: `ctest --test-dir build/default --output-on-failure -R 'StyioSyntaxDrift.CorpusMatchesApprovedEnvelope'`
 13. Release perf gate: `bash scripts/ide-perf-gate.sh`
 14. Fuzz smoke gate: `bash scripts/ide-fuzz-gate.sh`
+15. Task/history editor parity: `ctest --test-dir build/default --output-on-failure -R 'SharedPrograms/StyioTaskResourceSyntax|TaskHistory|styio_lspd_task_resource_parity'`. The C++ cases read the five authoritative language fixtures and require Tree-sitter; the stdio case copies t13 and runs the selected built LSP through good, malformed and restored document versions.
+
+For retained raw stdio evidence, run the existing transport asset with
+`python3 tests/lsp_stdio_framing_test.py --binary build/default/bin/styio_lspd --task-resource-parity --evidence-dir build/lsp-task-resource-evidence`.
+It records both immediate and merged diagnostics, request barriers, saves and
+the actual server exit. The generated transcript contains local paths and
+document contents and belongs only in ignored build output. Save notifications
+refer to the last synchronized version; they do not create a new diagnostic
+contract. The in-process `TaskHistoryCoalescesToLatestSnapshot` case additionally
+holds semantic work pending across a repair to verify obsolete work is replaced.
 
 ## Expected Outcomes
 

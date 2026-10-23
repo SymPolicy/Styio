@@ -160,7 +160,7 @@ inline obs::SnapshotEvidence make_evidence(
 inline obs::Snapshot base_parent() {
   obs::Snapshot snapshot;
   snapshot.producer = {"styio", "0.0.1"};
-  snapshot.compilation_unit = {"example.app", "Styio.toml", "src/main.styio"};
+  snapshot.compilation_unit = {"example/app", "Styio.toml", "src/main.styio"};
   snapshot.completeness = std::string(obs::kCompletenessValidatedTopology);
   snapshot.root = kProgram;
   snapshot.anchors.push_back({kAnchor, "src/main.styio", "file"});
@@ -367,7 +367,7 @@ inline obs::Snapshot child_merge_ties() {
 inline obs::Snapshot partial_snapshot() {
   obs::Snapshot snapshot;
   snapshot.producer = {"styio", "0.0.1"};
-  snapshot.compilation_unit = {"example.app", "Styio.toml", "src/main.styio"};
+  snapshot.compilation_unit = {"example/app", "Styio.toml", "src/main.styio"};
   snapshot.completeness = std::string(obs::kCompletenessProvenScalarNoop);
   snapshot.root_is_null = true;
   return obs::finalize_snapshot(snapshot).snapshot;

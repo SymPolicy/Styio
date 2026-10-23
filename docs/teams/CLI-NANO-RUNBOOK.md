@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-16
 
 ## Mission
 
@@ -151,3 +151,31 @@ The cross-platform source-read check explicitly rejects directories (including
 symlink targets) before opening: some platforms report directory reads as EOF.
 Regular-file symlinks remain accepted; status-query errors still use the existing
 open/read error handling. The public CLI regression covers both symlink cases.
+
+### Task/resource compiler candidate (2026-10-11)
+
+Compile-plan invocations invalidate the previous receipt before diagnostics
+setup and truncate the current diagnostics stream; only success writes a receipt.
+Recoverable admission errors follow the same rule. Invalid plans without a known
+output root require consumer-side invocation invalidation. The permanent
+`CompilePlanDiagnosticsAndReceiptStayFreshPerInvocation` and directory-failure
+cases protect this path; package/nano publication behavior is unchanged.
+
+See [the current handoff](../plans/task-resource-delivery/HANDOFF.md) for
+source provenance, executed selections and downstream conditions.
+
+### Delivery-branch audit repairs (2026-10-16)
+
+Both compile-plan early output-location probes (`diag_dir`, `build_root`) share
+one private implementation so the field shapes cannot drift apart; the
+malformed-schema table covers both fields on the same rejection edges and the
+invocation-freshness receipt regression is retained. Plan node provenance
+strings were rephrased to repository-local terminology; the compile-plan JSON
+contract is unchanged.
+
+Compile-plan output preparation (receipt removal, diagnostics directory and
+diagnostics stream reset) is converged into one helper shared by the accepted
+and rejection paths, so a rejected plan whose output preparation fails now
+reports the output error instead of ignoring it. The permanent freshness
+regression extends to an unremovable receipt, a diagnostics file that is a
+directory and a diagnostics directory under a file.
