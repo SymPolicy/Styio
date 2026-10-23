@@ -1,0 +1,8 @@
+/* true || <OOB index> must not evaluate the RHS (short-circuit). */
+xs = [10, 20, 30]
+i = 99
+?(true || xs[i] > 0) => {
+    >_("safe")
+} | {
+    >_("dead")
+}

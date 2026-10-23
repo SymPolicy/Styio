@@ -2,7 +2,7 @@
 name = "styio-resource-identifier-change"
 display_name = "Styio Resource Identifier Change"
 description = "Use when adding or changing `@name` resource identifiers, built-in resource symbols, capabilities, lifetimes, or resource syntax docs/tests."
-last_updated = "2026-05-04"
+last_updated = "2026-06-28"
 
 workflow = [
   "add or update the internal Styio resource declaration",
@@ -20,6 +20,7 @@ constraints = [
   "C++ may provide substrate behavior but must not be the resource definition source of truth",
   "prefer fail-closed diagnostics over partially lowered resources",
   "keep resource prelude declarations compact and machine-readable",
+  "do not record developer-machine or server-machine paths, account names, private endpoints, or deployment roots; use placeholders such as <workspace-root>, <user-home>, <server-host>, or environment variables",
 ]
 
 completion_report = [
@@ -27,6 +28,7 @@ completion_report = [
   "accepted source forms",
   "lifecycle behavior",
   "docs updated",
+  "local/server info placeholder check",
   "tests and gates run",
 ]
 

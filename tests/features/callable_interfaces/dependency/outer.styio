@@ -1,0 +1,4 @@
+@import { leaf }
+@export { outer_identity }
+
+# outer_identity := (value) => leaf_identity(value)

@@ -1,0 +1,12 @@
+@name : string|..3|
+names_src = ["Ada", "Lin", "Moe", "Zoe"]
+names_src >> #(v) => {
+  v -> @name
+}
+>_(@name[-1])
+>_(@name[-2..])
+>_(@name[...])
+names << @name[...]
+recent << @name[-2..]
+>_(names)
+>_(recent)

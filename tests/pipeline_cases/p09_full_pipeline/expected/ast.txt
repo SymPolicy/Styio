@@ -11,7 +11,7 @@ styio.ast.main {
         |- LHS: x
         |- OP : <Mul>
         |- RHS: { 2 : int }}}
-    |- styio.ast.resource.write  {
+    |- styio.ast.resource.redirect  {
       |- data: result
       |- resource: styio.ast.resource.file  {
         |- auto_detect: false

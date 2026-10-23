@@ -2,13 +2,15 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the repository-local Tree-sitter grammar and edit-time syntax backend contract.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-11
 
 ## Mission
 
-Own edit-time CST structure, Tree-sitter error-node behavior, generated grammar artifacts, and the grammar-to-`SyntaxSnapshot` adapter contract. This team does not own compiler parser semantics or type truth.
+Own edit-time CST structure, Tree-sitter error-node behavior, generated grammar artifacts, and the grammar-to-`SyntaxSnapshot` adapter contract. This team does not own compiler parser semantics, accepted grammar, or type truth.
 
 ## Owned Surface
+
+The Tree-sitter integration settings for the existing IDE target live in `src/cmake/targets/StyioIDECore.cmake` and are jointly reviewed with IDE / LSP. Generated grammar sources and TreeSitterBackend source edits retain their existing dual routing; unrelated service manifests do not trigger Grammar.
 
 Primary paths:
 
@@ -16,7 +18,7 @@ Primary paths:
 2. `grammar/tree-sitter-styio/src/parser.c`
 3. `grammar/tree-sitter-styio/src/grammar.json`
 4. `grammar/tree-sitter-styio/src/node-types.json`
-5. `src/StyioIDE/TreeSitterBackend.*`
+5. `src/StyioServices/StyioIDE/TreeSitterBackend.*`
 6. [../external/for-ide/TREE-SITTER.md](../external/for-ide/TREE-SITTER.md)
 
 ## Daily Workflow
@@ -26,9 +28,21 @@ Primary paths:
 3. Regenerate artifacts from `grammar/tree-sitter-styio/`.
 4. Review generated diffs for suspicious broad churn.
 5. Run IDE tests with `STYIO_ENABLE_TREE_SITTER=ON`; when relevant, also configure with it OFF to preserve tolerant fallback.
-6. For token repetitions such as `^...`, keep edit-time recognition tolerant while following the language SSOT for semantics; caret count is not a Tree-sitter-owned break-depth contract.
+6. For token repetitions such as `^...` and standalone `>>...`, keep edit-time recognition tolerant while following the language SSOT for semantics; token count is not a Tree-sitter-owned break/continue-depth contract.
 7. When conditional-loop syntax changes, keep compiler parser tests, [../design/Styio-EBNF.md](../design/Styio-EBNF.md), language design docs, and symbol reference aligned; the active form is `[...] >> ?(condition) => { ... }`.
 8. Generated support headers may be edited only for repository-public wording cleanup or regenerated artifact hygiene; keep those edits narrow and rerun grammar/IDE gates when behavior changes.
+9. Tree-sitter and fallback syntax snapshots are non-authoritative editor aids. Accepted grammar must be proven through the hand-written nightly compiler parser and [../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md](../rollups/IM-D2-PARSER-AUTHORITY-INVENTORY.md), not by Tree-sitter success.
+10. Range editing support must distinguish naked `start..end` as `range_expr` from bracketed `[start..end]` as `materialized_range`; do not let `[start..end]` collapse to a one-element `list_literal`, and keep `[start..end..step]` reserved rather than an active editor grammar form.
+11. Keep Tree-sitter snapshot range helpers single-pass on the source buffer. A newline-range check performs one lookup and reuses its result; verify adapter behavior with the IDE suite and retain the Tree-sitter ON/OFF fallback contract.
+12. For the task/history milestone, trace resource declarations/selectors in
+    `Parser.cpp` and task/await/iterator/sink/order/print rules in `NewParserExpr.cpp`
+    before changing the edit-time grammar. Read the authoritative state-resource
+    t13/t22/t23/e06 and task-resource e06 fixtures in permanent IDE tests. Require
+    actual Tree-sitter and retain malformed-edit errors, incremental/full equivalence,
+    folding, token boundaries and completion. Syntactically valid failure programs
+    retain their separate semantic/runtime contract. Use the pinned generator above
+    on the repository Node.js 24 baseline; do not claim complete language coverage
+    from this bounded fixture set.
 
 ## Change Classes
 
@@ -64,7 +78,7 @@ ctest --test-dir build-no-tree-sitter -L ide
 ## Cross-Team Dependencies
 
 1. IDE / LSP must review every syntax snapshot or adapter behavior change.
-2. Frontend must review grammar changes that assert alignment with compiler parser behavior.
+2. Frontend must review grammar changes that assert alignment with compiler parser behavior or accepted syntax.
 3. Test Quality must review IDE regression coverage for error recovery and incremental reuse.
 4. Docs / Ecosystem must review `docs/external/for-ide/` updates.
 
@@ -76,4 +90,4 @@ Record unfinished grammar work with:
 2. Whether generated artifacts are up to date.
 3. IDE behavior expected from the CST change.
 4. Tree-sitter ON/OFF test status.
-5. Known parser semantic mismatch, if any.
+5. Known parser semantic mismatch, if any, with the compiler parser authority result named explicitly.

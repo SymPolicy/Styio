@@ -1,0 +1,8 @@
+@x : string|..2|
+src = ["old"]
+src >> #(v) => { v -> @x }
+t = ||> { <| @x[-1] }
+next = ["new","last"]
+next >> #(v) => { v -> @x }
+?| t -> s: string
+>_(s)

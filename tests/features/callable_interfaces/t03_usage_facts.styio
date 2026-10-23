@@ -1,0 +1,4 @@
+@import { modules/usages }
+
+>_(identity("ok"))
+>_(forward(3)[1])

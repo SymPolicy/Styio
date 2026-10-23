@@ -1,8 +1,8 @@
 # Styio Language Design Specification
 
-**Purpose:** Styio 语言的 **权威语义与特性说明**（正文规格）；形式文法见 [`Styio-EBNF.md`](./Styio-EBNF.md)，符号与 token 名见 [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md)，`@` **目标**拓扑见 [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md)，当前实现缺口见 [`../rollups/NEXT-STAGE-GAP-LEDGER.md`](../rollups/NEXT-STAGE-GAP-LEDGER.md)。
+**Purpose:** Define Styio's cross-feature semantic principles and composed language specification; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), formal grammar lives in [`Styio-EBNF.md`](./Styio-EBNF.md), token names live in [`Styio-Symbol-Reference.md`](./Styio-Symbol-Reference.md), `@` topology lives in [`Styio-Resource-Topology.md`](./Styio-Resource-Topology.md), and observable semantic facts and consumer boundaries live in [`Styio-Observable-Language.md`](./Styio-Observable-Language.md).
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28  
@@ -12,7 +12,16 @@
 
 ## 1. Introduction
 
-Styio is an **intent-aware, symbol-driven stream processing language** designed for high-performance resource dispatching, with an initial target domain of **financial quantitative analysis**. It compiles through LLVM to native code, achieving C++-level performance with a fraction of the syntactic overhead.
+Styio is an **experimental general-purpose visual programming language with
+symbolic syntax for expressing data flow**. Sources, transformations, choices,
+and destinations describe how data moves. The compiler uses LLVM for native
+execution.
+
+The visual environment is designed to present program structure, data and
+control flow, and execution state using compiler-generated facts and correlated
+runtime observations. Section [2.4](#24-visual-design-intent) defines this model;
+the [observable contract](./Styio-Observable-Language.md) describes the current
+compiler interface and its coverage.
 
 The name encodes the language's identity:
 - **St** — Stream Computing
@@ -23,10 +32,39 @@ The name encodes the language's identity:
 
 | Pillar | Description |
 |--------|-------------|
-| **Pure Symbolism** | Replace natural-language keywords (`if`, `while`, `for`, `def`) with unambiguous symbolic operators (`?=`, `>>`, `#`, `@`). |
-| **Intent Awareness** | The compiler statically analyzes field access patterns and pushes intent down to resource drivers (e.g., only fetch needed database columns). |
+| **Visual Streaming Model** | Symbolic text expresses the same program relationships that a visual environment should reveal. Compiler-owned facts support that view through an explicit service boundary; ordinary compiler stages retain their own responsibilities. |
+| **Keyword-Free Pure Symbolism** | Styio reserves no word as a keyword. Symbols and structural position open grammar roles; word-shaped source text remains an identifier, a literal spelling, or a name resolved in a namespace. |
+| **Intent Awareness** | Design target: derive safe source-access intent and pass it to capable drivers. Whole-program pushdown is not an implemented guarantee; see the [research scope](./Styio-Research-Innovations.md#source-proximal-acquisition-and-processing-research) and [proposed driver interface](./Styio-Resource-Driver.md). |
 | **Honest Missing** | Runtime absence is represented as `@` in diagnostics and stream algebra. Source-level bare `@` is retired from active syntax; current code should obtain absence from resources or intrinsics instead of authoring it directly. |
 | **Thick Library, Thin Artifact** | Development uses a rich standard library with protocol detection and AI-assisted probing. Production builds perform dead-code elimination to produce minimal binaries. |
+
+#### 1.1.1 Keyword-Free Lexical Contract
+
+Styio has no reserved or contextual keyword token class. Every word-shaped
+source token is emitted as `NAME`. Its meaning is selected only by one of these
+already-open contexts:
+
+1. a symbol-anchored grammar family may inspect an exact `NAME` spelling after
+   the leading symbol has selected that family; for example, top-level
+   `@` + `NAME("import")` opens the import form, while `import` remains an
+   ordinary identifier everywhere that form is not open;
+2. expression context may recognize a literal spelling such as `true` or
+   `false` from `NAME`, without creating a keyword token; or
+3. a namespace-specific position may resolve an identifier as a type, value,
+   module member, completion family, resource family, or another declared name.
+
+A fixed word must never be the unanchored head of a declaration, control form,
+or operator. In particular, proposals headed by words such as `type`, `record`,
+`variant`, `protocol`, `impl`, `if`, `while`, `fn`, or `let` are outside the
+language. Quoted alphabetic spellings in the EBNF are spelling predicates over
+`NAME` inside an already symbol-anchored production; they do not reserve those
+spellings globally.
+
+Every syntax proposal must identify its symbolic opener or existing structural
+context and must include a negative example proving that any inspected word
+spelling remains an ordinary identifier outside that context. The historical
+word-based `schema` declaration is not active syntax and must not be used as
+precedent for a new declaration family.
 
 ### 1.2 Compiler Toolchain
 
@@ -41,12 +79,12 @@ The name encodes the language's identity:
 
 ### 2.1 Everything Is a Flow
 
-Styio has no explicit loop constructs (`for`, `while`). Instead, data sources emit **pulses** into **closures** via the pipe operator `>>`. The closure executes once per pulse. Loops emerge naturally from infinite or finite data generators.
+Styio has no explicit loop constructs (`for`, `while`). Instead, data sources emit **pulses** into **closures** via the pipe operator `>>`. In `left >> right`, the left side is an iterable or pulse source; `>>` advances it one item at a time and pushes each item as a pulse into the right-side channel, closure, resource sink, or pipeline stage. The closure executes once per pulse. Loops emerge naturally from infinite or finite data generators.
 
 ### 2.2 Progressive Performance
 
 The language follows a "write less, get convenience; write more, get speed" model:
-- Omit type annotations → compiler infers defaults (`i32` for integers, `f64` for floats)
+- Omit type annotations → compiler infers defaults (`i64` for integers, `f64` for floats)
 - Add explicit types → compiler generates optimized, specialized instructions
 - Omit resource protocol → runtime probes automatically
 - Specify protocol (e.g., `@file`, `@mysql`) → static dispatch without runtime probing
@@ -54,6 +92,142 @@ The language follows a "write less, get convenience; write more, get speed" mode
 ### 2.3 Expression-Oriented
 
 All control flow constructs (match, conditional wave, loops) are **expressions** that produce values. There are no void statements — everything flows.
+
+### 2.4 Visual Design Intent
+
+#### Program views
+
+The visual environment is designed to provide three related views: program
+structure, data and control flow, and runtime execution. Structure views expose
+modules and nested operations; flow views expose supported dependencies and
+branch or loop structure; execution views correlate observed events with static
+program sites. Large programs require expandable views that preserve connections
+across collapsed boundaries.
+
+The compiler currently exposes resource-oriented facts and a scoped runtime
+overlay. Broader program views are a delivery target. Comprehension, navigation,
+and authoring benefits are evaluated through the [research tasks](./Styio-Research-Innovations.md#research-questions-and-acceptance-evidence).
+
+#### Why symbols
+
+The notation uses familiar associations to express direction, decisions, and
+resource relationships across natural-language backgrounds. Arrows make data
+movement visible in textual programs. Readability still depends on context and
+learning, and is evaluated empirically.
+
+| Symbol family | Design motivation |
+|---|---|
+| Arrows such as `->`, `<-`, `>>`, and `=>` | Direction, movement, or a connection. |
+| `?` | An unresolved question or decision. |
+| `!` | Attention or an exceptional condition. |
+| `...` and related dot runs | Continuation, unbounded extent, or an intentionally unfilled position, depending on structure. |
+| `@` | Pointing to a named object, motivating resource definition. |
+
+These associations motivate the notation. Exact meanings depend on grammatical
+context and are defined by the [symbol reference](./Styio-Symbol-Reference.md),
+[EBNF](./Styio-EBNF.md), and owning [feature contracts](./syntax/features/README.md).
+
+#### Mapping text to a visual view
+
+1. Export supported semantic relationships from compiler representations. A
+   displayed relationship must resolve to producer evidence or an explicit
+   incomplete/unavailable status.
+2. Map analyzed constructs, scopes, directions, and evidence to visual elements.
+   A glyph need not correspond to one node or edge; a construct may contribute
+   several facts, and several text forms may express the same relation.
+3. Preserve connections and dependencies when modules or operations are collapsed
+   and expanded. Current resource snapshots cover only part of this hierarchy.
+4. Keep static sites separate from runtime instances. A loop site may have many
+   iterations; branch structure describes alternatives while an execution takes
+   one path. Runtime-dependent relationships carry observed or incomplete status.
+5. Give textual and visual views consistent meanings for their shared facts.
+   Bidirectional graph editing and complete static resolution of dynamic
+   dependencies require separate contracts and are outside the current scope.
+
+#### Compiler and IDE responsibilities
+
+Lexer, parser, semantic analysis, lowering, code generation, and runtime retain
+their existing responsibilities. The observable service exports supported facts
+from those stages through explicit contracts. Compiler-only adapters translate
+owned representations into the public model. The IDE owns layout, hierarchy,
+navigation, and execution presentation.
+
+Compilation runs independently of the IDE. Artifact export and runtime
+observation are explicit options. Their capability, privacy, and cost boundaries
+are documented in the [observable contract](./Styio-Observable-Language.md#3-current-compiler-foundation)
+and [decoder contract](../../src/StyioServices/StyioObservable/README.md).
+
+### 2.5 Machine-Readable Design Intent
+
+The single `toml design-intent` block records design requirements and current
+compiler capabilities. A `true` requirement declares a design constraint; it
+does not assert completed implementation or prove a research hypothesis.
+`affected_capabilities` routes changes to the relevant delivery surfaces;
+identity and research-method entries may have none. Each capability separately
+records its implementation scope, owner, contract, evidence, and remaining gap.
+
+`partial` means that the stated slice exists but the target is broader.
+`implemented` applies only to the named scope. Update capability records with
+their owning contract and evidence. Syntax and wire formats retain their
+existing authorities.
+
+`scripts/docs-audit.py` validates schema, references, repository paths, Markdown
+anchors, and the presence of implementation/test evidence. Reviewers check
+whether that evidence supports the stated scope. No generated copy is maintained.
+
+```toml design-intent
+schema_version = 1
+kind = "design-intent"
+
+[requirements]
+general_purpose_language = true
+visual_programming_language = true
+symbol_motivation_is_not_semantics = true
+compiler_owns_semantic_facts = true
+ordinary_compiler_layers = true
+independent_visual_ide = true
+static_runtime_separation = true
+hierarchical_program_view = true
+traceable_visual_explanations = true
+research_claims_need_evidence = true
+
+[traceability]
+general_purpose_language = { authority = "docs/design/Styio-Language-Design.md#1-introduction", affected_capabilities = [] }
+visual_programming_language = { authority = "docs/design/Styio-Language-Design.md#program-views", affected_capabilities = [] }
+symbol_motivation_is_not_semantics = { authority = "docs/design/Styio-Language-Design.md#why-symbols", affected_capabilities = [] }
+compiler_owns_semantic_facts = { authority = "docs/design/Styio-Observable-Language.md#2-authority-and-layer-boundaries", affected_capabilities = ["program_structure", "observable_service"] }
+ordinary_compiler_layers = { authority = "docs/design/Styio-Language-Design.md#compiler-and-ide-responsibilities", affected_capabilities = ["observable_service"] }
+independent_visual_ide = { authority = "docs/design/Styio-Language-Design.md#compiler-and-ide-responsibilities", affected_capabilities = ["observable_service"] }
+static_runtime_separation = { authority = "docs/design/Styio-Observable-Language.md#8-static-and-runtime-separation", affected_capabilities = ["runtime_correlation"] }
+hierarchical_program_view = { authority = "docs/design/Styio-Language-Design.md#mapping-text-to-a-visual-view", affected_capabilities = ["program_structure"] }
+traceable_visual_explanations = { authority = "docs/design/Styio-Language-Design.md#mapping-text-to-a-visual-view", affected_capabilities = ["program_structure", "runtime_correlation"] }
+
+research_claims_need_evidence = { authority = "docs/design/Styio-Research-Innovations.md#research-questions-and-acceptance-evidence", affected_capabilities = [] }
+
+[capabilities.program_structure]
+status = "partial"
+scope = "Compiler-owned validated resource topology; not a complete hierarchical module/control-flow graph."
+owner = "docs/teams/SEMA-IR-RUNBOOK.md"
+contract = "docs/design/Styio-Observable-Language.md#3-current-compiler-foundation"
+evidence = ["src/StyioResourceTopology/ResourceTopology.hpp", "src/StyioResourceTopology/ResourceTopology.cpp", "tests/resource_topology_test.cpp"]
+gap = "docs/rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence"
+
+[capabilities.observable_service]
+status = "implemented"
+scope = "Incubating opt-in qualified static snapshot, delta and bounded query contracts; no UI or round-trip editing guarantee."
+owner = "docs/teams/SEMA-IR-RUNBOOK.md"
+contract = "src/StyioServices/StyioObservable/README.md"
+evidence = ["src/StyioServices/StyioObservable/Snapshot.cpp", "tests/observable_static_snapshot_test.cpp", "tests/observable_topology_consumer_test.cpp"]
+gap = "docs/rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence"
+
+[capabilities.runtime_correlation]
+status = "partial"
+scope = "Explicit runtime-events v2 overlay; missing producers and unapproved default-enablement budgets remain explicit."
+owner = "docs/teams/CODEGEN-RUNTIME-RUNBOOK.md"
+contract = "docs/design/Styio-Observable-Language.md#8-static-and-runtime-separation"
+evidence = ["src/StyioServices/StyioObservable/RuntimeCorrelation.cpp", "tests/observable_runtime_test.cpp"]
+gap = "docs/rollups/NEXT-STAGE-GAP-LEDGER.md#81-observable-language-delivery-sequence"
+```
 
 ---
 
@@ -73,7 +247,7 @@ All control flow constructs (match, conditional wave, loops) are **expressions**
 ### 3.2 Default Types
 
 When type annotations are omitted:
-- Integer literals default to `i32`, including negative literals such as `-1`
+- Integer literals default to `i64`, including negative literals such as `-1`
 - Floating-point literals default to `f64`, including negative literals such as `-1.5`
 
 ### 3.3 Type Annotations
@@ -134,10 +308,16 @@ active source language. Historical fixtures such as `x = @`, `x + @`,
 `@` remains visible as an absence marker produced by resources/intrinsics and in
 diagnostics.
 
-**Propagation rules:**
-- absence produced by resource/intrinsic execution propagates through supported
-  arithmetic and logical operators
-- absence short-circuits through expressions until explicitly intercepted
+**Representation and use rules:**
+- absence-producing resource and pulse intrinsics carry an explicit
+  `(is_defined, value)` tag in compiler IR and the native value ABI
+- ordinary `i64` remains an untagged machine integer and includes the complete
+  signed 64-bit domain, including `-9223372036854775808`
+- absence-carrying values may be bound, persisted, or formatted as `@`, but
+  must be intercepted with value fallback before ordinary arithmetic,
+  comparison, logical operators, or a callable/runtime argument ABI
+- `value | fallback` evaluates the fallback lazily only when the left value is
+  absent; it never evaluates the fallback for an ordinary scalar value
 
 **Diagnostic tainting (debug mode):**
 In debug builds, `@` carries metadata (reason code, source location) enabling root-cause tracing via `.reason()`.
@@ -173,22 +353,393 @@ Import resolution remains explicit:
 - `.styio` is tried when the import candidate does not already name a Styio file
 - unresolved imports stay unresolved instead of binding to unrelated same-text symbols elsewhere in the workspace
 
+For executable callable imports in the current compiler, each slash-form path
+is resolved relative to the source that contains the declaration. The source
+must have a sibling `.styioi` callable interface produced explicitly from that
+module:
+
+```text
+styio --file=math/core.styio \
+      --module-id=math/core \
+      --emit-module-interface=math/core.styioi
+```
+
+The compiler never creates missing dependency interfaces while compiling a
+consumer. Build orchestration publishes dependencies first and then compiles
+the importing source.
+
+### 4.3 Callable Interface Contract
+
+Callable interface schema v4 publishes compiler-owned semantic facts rather
+than new source syntax. For each checked callable needed by the module it
+records either a canonical inferred relation with normalized constraints or a
+complete concrete signature, plus its canonical effect row, sorted
+per-variable usage requirements. A separate canonical
+`styio.portable-styioir` payload records each required local body. An effect row
+stores sorted known labels and a nullable compiler-owned open tail. Usage
+requirements store the closed `consume`, `copy`, `exclusive_borrow`, and
+`shared_borrow` vocabulary. Neither identity has a serialized bit mask or
+trusted cached canonical string. Public contract, target-independent typed
+bodies, source, direct dependencies, compiler ABI, and the combined interface
+ABI carry SHA-256 digests.
+
+Loading is fail-closed. The compiler validates the schema version, canonical
+module identity, target/compiler ABI, source digest, direct dependency set and
+digest, the public contract digest, every portable-body digest, the aggregate
+typed-body digest, and the recomputed interface ABI before installing a
+callable. Payload nodes are type-recomputed and must be canonical, bound, and
+topologically ordered. Missing or stale metadata is a type-phase error.
+
+Imported source is read only to validate its digest. Dependency discovery and
+body reconstruction come from the validated interface, so the compiler does
+not tokenize or parse imported source and has no source-text or schema-v3 body
+fallback.
+
+Only exported callables from a direct import are visible to the importing
+source. A published body may still use its own private helpers and exported
+callables from its direct dependencies; those facts do not become transitive
+names in the consumer. Duplicate imports and unqualified callable-name
+collisions are rejected.
+
+The current separate-compilation slice rejects a module dependency cycle
+before Sema. This conservatively enforces the accepted rule that recursive
+callable SCCs may not cross module boundaries. Non-generic exports retain
+concrete parameter/result facts; exported inferred callables are specialized
+from the published relation in the consuming compilation.
+
+### 4.4 Persistent Native Specialization Cache
+
+Persistent specialization reuse is compiler optimization state and has no
+source form. An invocation opts in with `--callable-cache-dir`. The compiler
+recomputes the existing full specialization digest from the concrete callable
+contract, portable body, transitive callable dependencies, direct module
+facts, and backend ABI, then queries one compiler/LLVM/codegen/target/channel
+namespace for the matching native object.
+
+Every hit validates the entry schema, full key, namespace, length, object
+checksum, target architecture, and defined specialization symbol before ORC
+materialization. Missing, expired, corrupt, or inaccessible entries compile
+normally. Consequently cache state and cache placement cannot alter typing,
+linkage identity, diagnostics, output, or program meaning.
+
+Retention defaults to seven days, 256 MiB, and 4,096 files and may be narrowed
+with `--callable-cache-max-age-seconds`,
+`--callable-cache-max-bytes`, and `--callable-cache-max-files`.
+`--callable-cache-stats` emits path-free explicit performance evidence; cache
+details are absent from normal output.
+
 ---
 
-## 5. Functions
+## 5. Callable / Operation-Channel Bindings
 
-### 5.1 Definition Syntax
+### 5.1 Unified Binding Syntax
 
-Functions are declared with `#`:
+Styio binds names to targets. A target may be an ordinary value, a callable, a
+resource, a channel endpoint, a processor, or a continuation. The binding
+operator carries mutability:
 
 ```
-# add := (a, b) => { <| a + b }    // block form with explicit yield
-# add := (a, b) => a + b            // expression form (implicit yield)
-# add := (a: i32, b: i32) => a + b  // with type annotations
-# add : i32 = (a: i32, b: i32) => a + b  // with return type
+value = 1                            // mutable ordinary value binding
+value := 1                           // final ordinary value binding
+# add = (a, b) => { <| a + b }        // mutable callable binding
+# add := (a, b) => a + b              // final callable binding
+# add := (a: i32, b: i32) => a + b    // parameter annotations
+# add : i32 = (a: i32, b: i32) => a + b  // return type
+# transform = #(x: i64) => x * 2      // explicit callable-body marker
 ```
 
-### 5.2 Anonymous Closures
+`#` is the callable/operation-channel binding prefix. It tells readers and the
+compiler that the binding target must be callable or operable. It is not a plain
+function-declaration keyword: `# f = ...` is rebindable because `=` is mutable,
+and `# f := ...` is final because `:=` is final.
+
+`f = expr` does not promise that `expr` is callable. `# f = (...) => expr`
+does make that promise, enters the callable/operation-channel binding path, and
+allows later `# f = ...` replacement until a final `# f := ...` definition is
+used. A final callable binding cannot be redefined by `=` or `:=`.
+
+#### 5.1.1 Inferred Generic Relations for Non-Recursive Callables
+
+A non-recursive callable has one type authority: its definition, including any
+concrete parameter or result annotations. Authors never declare a generic
+parameter list after the callable name:
+
+```styio
+# identity := (value) => value       // generic relation is inferred
+# identity[T] := (value: T) => value // invalid: callable generic binders are not source syntax
+```
+
+For this rule, a callable is non-recursive when it is not part of a recursive
+strongly connected component in the call graph. An eligible final,
+non-recursive callable is inferred at its definition site to one stable
+principal rank-1 type relation. The compiler may serialize that relation in
+canonical module-interface metadata and freshly instantiate it at each use.
+Names used for inferred type variables in metadata, diagnostics, or IDE views
+are compiler-owned explanations; they are not declarations copied from source.
+
+Concrete annotations remain valid when the author wants a monomorphic
+contract:
+
+```styio
+# increment : i64 := (value: i64) => value + 1
+```
+
+An annotation name such as `T` must resolve to an existing type in the type
+namespace. It does not introduce a generic variable. If the compiler cannot
+derive one unique, stable principal relation, the definition is rejected; the
+author is not asked to repair it by adding `[T]`.
+
+#### 5.1.2 Recursive Callable Groups
+
+Recursive callables also have no authored generic parameter list. A recursive
+group is one strongly connected component of the call graph, including direct
+self-recursion and mutual recursion. While checking that group, the compiler
+assigns one provisional monotype to each member and every reference from inside
+the group reuses the same provisional type variables. All constraints for the
+group are solved together.
+
+This checking rule still permits an inferred generic result. For example, these
+are compiler type models, not Styio source syntax:
+
+```text
+accepted: length(list[A]) calls length(list[A])
+accepted: even(i64) -> bool and odd(i64) -> bool call each other
+```
+
+After the group has one stable solution, each eligible final binding is
+generalized at the group boundary and its principal rank-1 relation may be
+published in module-interface metadata. External uses then receive fresh
+instances, so the accepted `length` relation may be used once with `list[i64]`
+and elsewhere with `list[string]`.
+
+An internal recursive edge that requires a group member at a different
+instantiation is polymorphic recursion and is rejected:
+
+```text
+rejected: reshape(A) calls reshape(list[A])
+```
+
+The rejection is about changing type during the unfinished recursive
+definition, not about preventing the successfully inferred callable from being
+generic afterward. Diagnostics must report the conflicting recursive
+instantiations and must not suggest adding `[T]`.
+
+#### 5.1.3 Context-Driven Call Instantiation
+
+Callable calls never accept authored type arguments. Each use is instantiated
+only from ordinary arguments, the concrete expected type supplied by its
+surrounding expression or binding, and the callable relation published by the
+compiler:
+
+```styio
+value := identity(1)        // inferred instance: i64 -> i64
+text := identity("hello")   // inferred instance: string -> string
+value := identity[i64](1)   // invalid: not callable specialization
+```
+
+In value position, `[]` keeps its selector/index meaning. The parser and
+semantic analyzer must never reinterpret `identity[i64](1)` as a generic call;
+it is an ordinary selector followed by a call and is rejected when the target
+is not indexable or the selector expression is otherwise invalid.
+
+When only the expected result type can determine an instance, a surrounding
+concrete annotation supplies that constraint. For a callable whose inferred
+relation is `make_empty: () -> list[A]`, for example:
+
+```styio
+numbers: list[i64] := make_empty()       // valid: expected type determines A
+numbers := make_empty[i64]()             // invalid: no call-site type arguments
+```
+
+If arguments and expected context do not determine one unique instance, the
+call is rejected as underconstrained. Diagnostics may request a concrete
+surrounding annotation, but must not suggest a callable type-argument list.
+
+#### 5.1.4 Effect-Aware Generalization
+
+Definition-site generalization is available only to a final callable whose
+free environment is closed and whose reachable body is proven pure. Sema
+computes one canonical effect row for each final callable. Its closed label
+vocabulary is `capture`, `handler`, `native`, `output`, `resource`, `task`, and
+`unknown`; labels are sorted and deduplicated, then propagated through direct
+call dependencies. An unsupported operation or unresolved callee contributes
+`unknown`, never implicit purity.
+
+A checked invocation through a callable parameter introduces one
+compiler-owned open tail variable such as `'e0` (canonically `{|'e0}` when no
+known labels are present). Propagation unions known labels and normalizes
+compatible tails to the caller's local variable. Ordinary captures produce the
+closed label `{capture}`; capture names are diagnostic context, not part of row
+identity.
+
+An effectful or capture-dependent callable remains monomorphic. Its first
+checked concrete argument relation fixes the callable instance, and a later
+conflicting use is rejected with the callable's canonical effect row before
+lowering. This retains deterministic execution without duplicating effects
+behind silently inferred polymorphism.
+
+The row is compiler-owned semantic metadata and is carried by callable
+interfaces, specialization identity, and typed `SGFunc` nodes. Generalization
+still requires the closed empty row `{}`. Styio currently has no source
+effect-row syntax, purity annotation, native-purity assertion, or user-defined
+effect label; those require their own feature decisions.
+
+Resources keep their visible `@` identity. A direct resource atom is not a
+valid right side for a `#` binding:
+
+```
+# sink = @stdout     // invalid: @stdout is a resource, not a callable binding body
+```
+
+Use `expr -> @stdout` or `items >> @stdout` for resource writes. Resource-family
+definitions use the `@family::member` forms described in the resource section.
+
+#### 5.1.5 Compiler-Owned Callable Constraints
+
+Plain equality between relation variables is not enough for operator-bearing
+callables. Sema derives a closed compiler-owned vocabulary from ordinary source
+expressions: `numeric`, `comparable`, `indexable`, `iterable`, and `cloneable`.
+There is no source constraint clause, trait declaration, user-defined instance,
+or orphan-instance rule.
+
+Arithmetic, comparison, and index expressions currently emit the corresponding
+`numeric`, `comparable`, and `indexable` constraints. Called inferred schemes
+propagate their constraints with fresh variables. Sema normalizes and solves
+the resulting set to a fixed point at each use before generating a concrete
+specialization. A list index is `i64`; a dictionary index follows its key type;
+both produce their container element/value type. An unsupported concrete type
+fails at the constraint-bearing call rather than reaching lowering.
+
+`iterable` and `cloneable` remain closed compiler capability predicates. Their
+source emitters are not active in the current pure principal-relation subset;
+iterator and clone features must provide their own inference and execution
+evidence before extending that subset.
+
+#### 5.1.6 Numeric and Empty-Collection Defaulting
+
+Unannotated numeric literals enter semantic inference as the canonical scalar
+types `i64` and `f64`. Equality and callable constraints are solved first. Only
+then may a still-unresolved relation variable default to `i64`, and only when
+all remaining facts about it are numeric. Defaulting is local to the smallest
+enclosing expression; it never runs during unification or uses later
+statements.
+
+Empty collections do not default. `[]` and `dict {}` require a concrete
+surrounding `list[T]` or `dict[K,V]` context:
+
+```styio
+numbers: list[i64] := []                 // accepted
+counts: dict[string, i64] := dict {}     // accepted
+unknown := []                            // rejected: no element type
+```
+
+The missing-context diagnostic identifies the empty literal that needs an
+annotation and remains distinct from an unsatisfied operator constraint.
+
+#### 5.1.7 Monomorphic Callable Value Boundary
+
+Writing a callable name as an ordinary value never carries its generalized
+relation into runtime storage. A final noncapturing callable item must first
+freeze under one complete concrete callable type:
+
+```styio
+# identity := (value) => value
+answer := identity(42)       // accepted direct named call
+stored := identity           // rejected generalized callable value
+stored: #(i64): i64 := identity
+answer := stored(42)         // accepted indirect call
+```
+
+The canonical type spelling is `#(T1, T2): R`; zero-argument and nested
+callable signatures are valid. Callable types are invariant, and no numeric,
+variance, optional-parameter, or variadic signature adaptation occurs. The
+runtime value is an allocation-free function reference carrying the declared
+parameter/result ABI. It may be bound only with final `:=`, then passed,
+returned, or invoked through a name.
+
+Contextual freezing of an inferred item creates the same deterministic
+compiler-owned specialization used by direct calls. A concrete callable item
+uses its checked symbol directly. Implicit captures remain rejected at this
+boundary. A final callable with an exact explicit `$(...)` environment follows
+the affine static-capture rules in section 5.3. Function pointers remain
+distinct from strings, native addresses, and resource handles.
+
+This boundary is deliberately narrower than higher-rank polymorphism. Affine
+closure environments, rank-2 callbacks, polymorphic fields, callable
+containers, and address equality require separate child features.
+
+#### 5.1.8 Capability and Usage Boundary for Generalized Variables
+
+An inferred relation variable ranges only over the closed plain-value domain:
+immutable scalar families and recursively plain materialized `list` and `dict`
+types. A concrete resource, stream, file, task, matrix, topology resource,
+range handle, or other ownership- or representation-sensitive type cannot bind
+that variable:
+
+```styio
+# identity := (value) => value
+plain := identity([1, 2])          // accepted materialized list
+m: matrix := [[1, 2], [3, 4]]
+shaped := identity(m)              // rejected capability-sensitive instance
+```
+
+Sema checks the original concrete type before normalizing its callable
+relation shape. Resource topology, protocol state, handle family, capabilities,
+and nested element types therefore remain visible to the decision. A topology
+sequence cannot be normalized into an ordinary list to bypass the boundary,
+and a `list[matrix[...]]` remains rejected recursively.
+
+Each normalized relation variable also carries a sorted compiler-owned usage
+set. Reads derive `shared_borrow`, repeated use derives `copy`, and returned or
+stored values derive `consume`. Exact parameter-to-parameter direct calls
+propagate these facts to a fixed point. `exclusive_borrow` is part of the
+closed metadata and validation vocabulary, but no mutation form in the current
+pure principal-relation subset emits it.
+
+Concrete instantiation revalidates these facts against the original
+`StyioDataType`, before callable normalization. Diagnostics name the relation
+variable, complete required usage set, candidate type, and first incompatible
+fact. The stable failure families distinguish copy, consume, exclusive borrow,
+task transfer, resource state, topology identity, and materialized shape
+instead of reporting an LLVM representation mismatch.
+
+A callable may still use a concretely annotated handle parameter as a
+monomorphic contract. Generalized handle variables wait for schemes that can
+carry enabled task-transfer, resource-state-family, and canonical matrix-shape
+facts. The current usage metadata does not admit those handle families by
+itself.
+
+#### 5.1.9 Reachable Callable Specialization
+
+An inferred scheme has no runtime value. A normal compilation starts from
+concrete direct calls and collects only the mono items reachable while checking
+those instances. Repeated calls at the same canonical relation reuse one item;
+an inferred callable with no reachable concrete call emits no generic body.
+Imported concrete helpers likewise remain available for checked imported
+bodies but emit only when a reachable imported body uses them.
+
+Each item has one deterministic owner within the compiler invocation and a
+full SHA-256 content identity. The identity covers the concrete canonical
+relation and constraints, normalized effects, portable semantic body,
+transitive
+callable dependencies, module-interface or entry dependency facts, and
+compiler/backend ABI facts. Recursive dependency groups are fingerprinted as
+one strongly connected component, so a reachable callee-body change also
+invalidates its callers without depending on source order or call order.
+
+The compiler reuses exact same-instance recursion. It fails closed when active
+specialization expansion exceeds 64 instances or the compilation collects
+more than 4,096 mono items, and the diagnostic prints the concrete instance
+path. These are safety ceilings, not ordinary code-size guidance. A normal
+warning threshold awaits profiling data.
+
+Specialized code keeps concrete LLVM value families and introduces no box,
+witness table, runtime type dictionary, generic heap, or garbage collector.
+There is no source explicit-instantiation form. Disk/distributed caches,
+profile-guided eager instances, cross-invocation linker ownership, and stable
+callable-address identity require separate decisions.
+
+### 5.2 Pulse Closures
 
 Used within stream pipes:
 
@@ -200,13 +751,32 @@ prices >> #(p) => { <| p * 2 }
 
 ### 5.3 Context Capture with `$(...)`
 
-Functions can explicitly capture external variables by reference:
+Final callable bindings can explicitly capture external variables by
+reference. The capture list follows the callable signature and precedes the
+binding/body operator:
 
-```
-trade $(bal, is_open) := my_strategy <| bal <| is_open
+```styio
+seed: i64 := 4
+# add_seed : i64 $(seed) := (value: i64) => value + seed
+operation: #(i64): i64 := add_seed
 ```
 
-The `$(...)` list declares a **reactive binding** — the function re-evaluates whenever captured variables change.
+The `$(...)` list is explicit and exact: duplicate, unused, or missing free
+names are errors. Sema derives ownership from the body. Reading a capture is a
+`shared_borrow`, rebinding a captured mutable value is an
+`exclusive_borrow`, and a destroy/acquire transfer is `consume`; authors do
+not spell these modes.
+
+The executable environment slice is reactive program-static storage for
+`bool`, integer, floating-point, and `char` values. A shared-borrow closure may
+be frozen under one complete monomorphic callable type and may escape. An
+exclusive-borrow closure remains direct-call-only. Consume captures and
+string, collection, resource, stream, task, matrix, topology, or imported
+environments fail before lowering until their unique transfer,
+representation, initialization, and drop paths are proven.
+
+No hidden copy, reference count, heap box, authored lifetime, or garbage
+collector is introduced.
 
 ---
 
@@ -245,6 +815,10 @@ the same arm. AST lowering emits ordinary StyioIR, then the StyioIR optimizer
 canonicalizes equivalent match shapes before LLVM codegen so accepted source
 spellings can produce identical switch-shaped LLVM IR.
 
+Current executable match expression and function match sugar result families are
+`i64`, `f64`, `bool`, `char`, and `string`; tuple/container result families fail
+closed until their value IR and merge semantics are defined.
+
 ### 6.2 Infinite Loop
 
 ```
@@ -260,41 +834,57 @@ spellings can produce identical switch-shaped LLVM IR.
 ```
 
 - `[...]` — infinite generator
-- `>>` — pipe the generator into the workflow
+- `>>` — pulse the generator one item at a time into the workflow
 - `?(expr) =>` — guard / valve: only passes pulses into the body when `expr` is truthy
 
 ### 6.4 Collection Iteration (For-each-equivalent)
 
 ```
 [1, 2, 3] >> #(item) => { /* body */ }
+[start..end] >> #(i) => { /* body */ }
 ```
 
-The collection becomes a finite pulse source. Each element is bound to `item`.
+The collection becomes a finite pulse source. `>>` advances the collection one element at a time and pushes each element as a pulse into the closure; each pulse binds one element to `item`.
 
-### 6.5 Break: `^...` (Immediate Loop)
+`start..end` is the naked expression-level range form. It is not a list literal.
+`[start..end]` is the materialized range form: the brackets materialize the
+range as an iterable `list[i64]` source. Therefore `[0..n] >> #(i) => { ... }`
+pushes each materialized integer into the consumer one by one; `[0..n]` is not
+parsed as a normal list containing one range expression. Step range spellings
+such as `[start..end..step]` or `[0..n..2]` are reserved and are not active
+syntax.
+
+### 6.5 Break: `^^...` (Immediate Loop)
 
 ```
-^       // break out of the nearest enclosing loop
-^^      // same as ^
-^^^^    // same as ^
+^       // invalid: at least two consecutive carets are required
+^^      // shortest legal spelling; break out of the nearest enclosing loop
+^^^     // conventional spelling
+^^^^    // same nearest-loop break; longer runs remain legal
 ```
 
 Rules:
-- `^` characters must be **contiguous** (no spaces)
-- any contiguous run of `^` is one break statement
+- a break contains at least two **contiguous** `^` characters
+- `^^^` is the conventional authored spelling, while `^^` is the minimum
+- any longer contiguous run of `^` is also one break statement, with no maximum length
 - the count of `^` characters has no semantic depth and is normalized to 1
-- `^^ ^^` is **illegal** — it is two adjacent break statements, not a deeper break
+- `^ ^` and `^/*gap*/^` are invalid; trivia never joins separate runs
+- `^^ ^^` and `^^/*gap*/^^` are **illegal** in one logical statement — they are two adjacent break statements, not a deeper break
+- a newline or explicit statement separator may separate two break statements
 - a break outside an enclosing loop is rejected by code generation
 
-### 6.6 Continue: `>>` (Variable Length, ≥2)
+### 6.6 Continue: `>>...` (Standalone, Variable Length, >=2)
 
 ```
->>      // skip current iteration (1 level)
->>>     // skip 2 levels
->>>>    // skip 3 levels
+>>       // skip the rest of the current block for this pulse/session
+>>>      // same as >>
+>>>>     // same as >>
+>>>>>>   // same as >>
 ```
 
-The base continue is 2 characters (`>>`). Each additional `>` skips one more nesting level. Context distinguishes continue from pipe: continue appears as a **standalone statement** (not connecting source to consumer).
+The base continue spelling is 2 characters (`>>`), and any longer contiguous run of `>` characters has the same meaning when it is a standalone statement. The count of `>` characters has no semantic depth and is normalized to one continue operation.
+
+Context distinguishes continue from pipe: the pipe form connects a left iterable or pulse source to a right channel/consumer (`left >> right`). The continue form is a standalone statement: aside from horizontal whitespace, the `>>...` token is the whole line/statement and is followed by a newline, statement separator, block end, or EOF. In a pulse/session domain, it skips the remaining statements in the current block and resumes at the next pulse/session of the nearest continue-capable domain. Outside such a domain, current code generation rejects it as `continue outside enclosing loop`.
 
 ### 6.7 Yield / Return: `<|`
 
@@ -313,7 +903,30 @@ For compressed one-line blocks, `|<| value |;` is the inline return spelling. `|
 
 When multiple branches yield (e.g., in `?=`), the compiler generates LLVM `phi` nodes at the merge point.
 
-### 6.8 Tasks and Await: `||>` / `?|`
+### 6.8 Block-Entry Snapshot / Commit
+
+Every language form that enters a `{ ... }` block creates a resource snapshot context at the
+block-entry operator and commits resource effects at the matching `}`. This is a general block
+semantics rule, not a special case for resource loops.
+
+Covered block-entry surfaces include `>>`, `=>`, `?=`, active `||>`, and the reserved `|>` family
+if it later becomes an active block-entry form. The rule applies to resource state and resource
+effects; ordinary lexical values keep their normal scoping rules.
+
+Chained stages commit once per block. For example:
+
+```styio
+a => { 1 } => { 2 } => { 3 }
+```
+
+creates three snapshot/commit units. The second block starts from the state committed by the first
+block, and the third starts from the state committed by the second.
+
+If a block-entry operation supports recovery, recovery must wrap the
+block-entry operation with `?| block_entry_operation | fallback`. A trailing
+`} | fallback` is not resource fallback.
+
+### 6.9 Tasks, Resource Effects, and Await: `||>` / `?|`
 
 `||> { ... }` constructs one scheduled task. `||> [ name := { ... } ... ]`
 launches a group of independent task blocks and binds each name to its task handle.
@@ -326,12 +939,91 @@ launches a group of independent task blocks and binds each name to its task hand
 
 ?| price -> p: f64
 ?| risk -> r: f64 | 0.0
+?| @("log.txt").close()
+?| @("archive.log").close() | cleanup_failure => report_cleanup()
 ```
 
 `?| task -> value: T` awaits or pulls a task/future handle and declares `value`
-with type `T`. `?| task -> value: T | fallback` evaluates `fallback` only when
-the task pull reports runtime failure or absence. The fallback separator is the
-ordinary `|`; `??` remains diagnostic extraction, not async fallback syntax.
+with type `T`. Without fallback, a failed pull settles at that source site and
+raises a structured error immediately. `?| task -> value: T | fallback` evaluates
+`fallback` only when the task pull reports runtime failure or absence.
+
+The same marker is the uniform resource-effect evaluation form:
+`?| resource_operation` settles the resource operation in place, while
+`?| resource_operation | fallback` recovers through normal type inference. The
+successful operation value and fallback value must match the surrounding use-site
+type. Current statement forms include file writes, file acquire/rebind,
+direct file line iteration such as
+`?| @file("data.txt") >> #(line) => { ... } | fallback`, and resource method
+calls; file iterator open failures recover through catch-all fallback or matched
+`io` handlers, while non-file iterators remain rejected under `?|`. Current
+value-producing forms include file/stdin instant pulls,
+acquired file-handle instant pulls after a checked file acquire, materialized
+container bounds reads, including ordered dict value slices that lower through
+`d.values` plus list-slice bounds recovery, and user-defined resource methods
+whose body is a single `<| expr` return, a statement-only preface followed by a
+final `<| expr` return, or scalar local `=` / `:=` value-binding prefaces or local list/dict/matrix `=` / `:=`
+prefaces followed by a final scalar/string or local list/dict/matrix container `<| expr` return. Method-local
+scalar/list/dict/matrix `=` and `:=` bindings are scoped to the inlined method body;
+returning a local list/dict/matrix container clones the handle before method-scope cleanup, while local resource bindings and
+capture-dependent method bodies remain rejected until those scope semantics are implemented. A
+bare `resource_operation | fallback` is not a resource fallback form.
+Effect-specific handlers use the same boundary:
+`?| resource_operation | effect_name => handler` handles only the named typed
+effect family. For example, `?| res -> msg_queue | backpressure => do_something()`
+is a pressure handler, not a `?=` match and not a catch-all fallback.
+Handlers may be chained: `?| op | e1 => handler1 | e2 => handler2`.
+The current statement implementation covers file acquire/rebind, direct file
+iterators, direct file release to `@()`, file resource-method settlement, and
+file writes under this boundary, while value-producing recovery remains limited
+to the explicitly listed instant-pull, container-bounds, and value-returning
+resource-method slices.
+`?| resource_operation | ...` is an audited discard form, but only as a
+standalone statement. It executes and settles the resource operation, discards
+business recovery for any effects at that site, produces no value, and continues
+with the next statement. It is illegal anywhere a value is required, such as
+assignment, argument position, or branch expression. `?| resource_operation |
+effect => @()` is rejected: `@()` is an empty resource / destroy sink, not an
+executable empty action.
+`?=` remains value/pattern matching; it can match `backpressure` only after an
+operation explicitly materializes a normal result value, not as an implicit catch
+for unsettled resource effects.
+`??` remains diagnostic extraction, not async or resource fallback syntax.
+
+Backpressure is a resource pressure signal before it is a failure. A pressured
+write may wait, stay pending, or be scheduled by the resource family. Only an
+escalated pressure condition, such as a closed channel, failed transport,
+timeout, or exceeded backlog limit, becomes a `ResourceBackpressureFailure` for
+`?| ... | fallback`.
+
+Resource families may expose pressure as an ordinary observable effect stream:
+
+```styio
+?| res -> msg_queue | backpressure => do_something()
+?| res -> msg_queue | ...
+
+channel.pressure >> #(p) => {
+    ?(p.pending > 10000) => {
+        ||> {
+            ?| channel.inspect()
+              | inspection_failed => report_pressure_probe(p)
+        }
+    }
+}
+```
+
+This form is side-effecting resource code, not implicit error handling. The
+observer can count, log, spawn a task, or invoke recovery operations, and those
+operations still obey normal resource capabilities and fallback rules.
+The current compiler recognizes the observer syntax and rejects every current
+resource family in Sema with `STYIO_SEMA_RESOURCE_PRESSURE_OBSERVER_UNSUPPORTED`
+until a family declares a pressure payload and runtime stream.
+
+This pressure model is a core Styio design choice. The compiler may do additional
+effect inference when that preserves a valuable language feature: useful resource
+effects should not be collapsed into failures merely because they require more
+static reasoning. Backpressure is useful precisely because it can remain
+observable and mostly harmless until a resource-family policy escalates it.
 
 `?| -> value: T` is reserved as the bare "freeze here" continuation point. The
 parser accepts the shape, but semantic analysis currently fails closed until
@@ -406,6 +1098,8 @@ f <- @file("readme.txt")
 f >> #(chunk: [byte; 4096]) => { buf += chunk }
 ```
 
+For resource reads, `>>` treats the left resource handle as an iterable source and pushes each produced chunk or line as a pulse into the right-side closure.
+
 ### 8.4 Writing: `<<`
 
 ```
@@ -414,7 +1108,19 @@ f >> #(chunk: [byte; 4096]) => { buf += chunk }
 
 ### 8.5 Lifecycle: Scope-based RAII
 
-Resources are automatically released when their enclosing scope ends. The compiler inserts cleanup code at every exit path (including `^^` breaks and `<|` returns).
+Resources are automatically released when their enclosing scope ends. The
+compiler inserts cleanup code at every exit path, including normal scope exit,
+loop `^` / `>>` control-flow exits, and `<|` returns. Current implementation
+evidence covers tracked file handles for those paths. It also covers the
+default file flex-rebind cleanup boundary: before `name = @file(...)`
+overwrites an existing tracked file handle, codegen closes the old handle,
+checks the cleanup error channel, and stops before the new acquire or later
+statements if cleanup failed. Statement-shaped file rebind can now install an
+explicit settlement site with `?| name = @file(...) | fallback` or named
+handlers; under that wrapper, the old-handle cleanup error remains on the
+resource-effect channel instead of continuing into the replacement open.
+Broader resource-family cleanup and source-level fallback recovery for implicit
+cleanup remain staged implementation work.
 
 ### 8.6 Persistence via Redirection: `->`
 
@@ -450,9 +1156,9 @@ bracketed terminal-handle spelling `[>_]` is canonical:
 | Operation | Canonical symbolic form | Compatibility form | Unix fd | Semantics |
 |-----------|--------------------------|--------------------|---------|-----------|
 | Scalar write | `x -> [>_]` | `x -> (>_)` | fd 1 | Write one scalar/text value to stdout |
-| Iterable write | `xs >> [>_]` | `xs >> (>_)` | fd 1 | Serialize an iterable value to stdout |
+| Iterable write | `xs >> [>_]` | `xs >> (>_)` | fd 1 | Advance `xs` item by item; write each item as a pulse to stdout |
 | Scalar error write | `!(x) -> [>_]` | `!(x) -> (>_)` | fd 2 | Write one scalar/text value to stderr (unbuffered) |
-| Iterable error write | `!(xs) >> [>_]` | `!(xs) >> (>_)` | fd 2 | Serialize an iterable value to stderr (unbuffered) |
+| Iterable error write | `!(xs) >> [>_]` | `!(xs) >> (>_)` | fd 2 | Advance `xs` item by item; write each item as an unbuffered pulse to stderr |
 | Read stream shorthand | `<\|[>_]` | `<\|(>_)` | fd 0 | Return the terminal input stream |
 | Read stream expanded | `<\| <- [>_]` | `<\| <- (>_)` | fd 0 | Pull the terminal input stream, then return it |
 
@@ -463,7 +1169,7 @@ data goes to fd 2 (stderr). The compiler disambiguates from logical NOT by conte
 `expr -> [>_]` and `expr -> @stdout` are scalar/text redirects to stdout. `items >> [>_]`
 and `items >> @stdout` are narrower: the left side
 must be an iterable value whose items can be serialized to text, such as `list[T]`, `dict[string,T]`,
-or an explicitly produced line list. Plain `string >> [>_]` and `string >> @stdout` are rejected so the compiler never has
+or an explicitly produced line list. `>>` serializes and writes each item as a separate pulse into the stream sink. Plain `string >> [>_]` and `string >> @stdout` are rejected so the compiler never has
 to guess between character iteration and newline splitting. Use `string -> [>_]` for scalar text,
 or `string.lines() >> [>_]` / `string.lines() >> @stdout` when newline splitting is intended.
 
@@ -497,18 +1203,19 @@ pull; treat that as a compatibility artifact, not the canonical read/pull spelli
 ```
 
 Feature test catalog use `-> @stdout` / `-> @stderr` as the **canonical spelling**.
-The current compiler also accepts iterable stream-sink writes:
+The current compiler also accepts iterable sink writes:
 
 ```
 values >> @stdout
 text.lines() >> @stdout
 warnings >> @stderr
+records >> @file("out.txt")
 ```
 
-When `>>` is followed by a standard-stream resource atom (`@stdout` / `@stderr`), the parser
-builds a `resource_write` node. The semantic rule matches terminal-handle `>> [>_]`: the left
-side must be iterable and text-serializable. Use `->` for scalar values and `>>` only where
-stream-sink style is intentional.
+When `>>` is followed by a writable resource atom (`@stdout`, `@stderr`, or `@file(...)`), the
+parser builds a `resource_write` node. The semantic rule matches terminal-handle `>> [>_]`:
+the left side must be iterable and text-serializable. Use `->` for scalar values and `>>` only
+where sink-pulse style is intentional.
 
 **Direction constraints:**
 
@@ -517,10 +1224,12 @@ stream-sink style is intentional.
 - Standard streams need no repeated user-authored declarations; `f <- @stdout` is a semantic error
 
 **Compiler recognition:** The compiler recognizes `@stdout`, `@stderr`, `@stdin` directly at
-parse/lowering time and emits direct FFI-backed standard-stream IR (`printf`/`puts` for
-stdout, `fprintf(stderr, ...)` for stderr, `fgets(stdin)` for stdin). Scalar `expr -> @stdout`
-and iterable `items >> @stdout` both lower through the standard-stream write IR family, with
-the `>>` route requiring text-serializable iterable input before lowering.
+parse/lowering time and emits FFI-backed standard-stream runtime-helper IR (`styio_stdout_write_cstr`
+for stdout writes, `styio_stderr_write_cstr` for stderr writes, and `styio_stdin_read_line` for
+stdin line reads). Scalar `expr -> @stdout` lowers directly through the standard-stream write
+IR family. Iterable `items >> @stdout` and `items >> @file(...)` first expand into a per-item
+pulse loop, and the loop body writes each item through the matching sink-write IR family. The
+`>>` route requires text-serializable iterable input before lowering.
 
 ---
 
@@ -532,7 +1241,7 @@ Stream processing requires **memory across pulses**. A simple local variable res
 
 ### 9.2 Resource Object State
 
-Topology v2 treats named state as a resource object:
+resource topology treats named state as a resource object:
 
 ```styio
 @price : f64|..10| := { ... }
@@ -587,7 +1296,7 @@ expr -> @price
 snapshot << @price[...]
 ```
 
-`->` writes a produced value into a resource sink. `>>` iterates the resource object. `<<` makes an explicit copy or snapshot.
+`->` writes a produced value into a resource sink. `>>` enters a snapshot-backed block or iteration and commits resource effects at block exit. `<<` makes an explicit copy or snapshot.
 
 Resource acquisition uses `<-` only at resource-entry boundaries:
 
@@ -632,6 +1341,18 @@ The old state-resource history-probe selector family is not active syntax.
 ```
 
 Both streams must deliver a pulse before the closure executes. The trigger frequency is `min(freq_A, freq_B)`.
+Finite zip also applies to the standard input line stream when the other side is a materialized
+list or an `@file` stream:
+
+```styio
+@stdin >> #(label) & prices >> #(price) => {
+    >_(label + " " + price)
+}
+```
+
+This consumes at most one stdin line per matched frame and terminates at stdin EOF or the
+shorter finite peer. Zipping `@stdin` with itself is not active syntax until duplicate
+consumption of the same external stream has a driver-level decision.
 
 Optional tolerance window:
 
@@ -701,12 +1422,15 @@ blocks for equality-style branching.
 ### 11.4 Plugin Operators: `[op, n]`
 
 ```
-prices[avg, 20]    // 20-period moving average (compiler intrinsic)
-prices[max, 14]    // 14-period rolling maximum
-prices[std, 20]    // 20-period standard deviation
+prices[avg, 20]    // moving average compiler intrinsic in the pulse/state path
+prices[max, 14]    // rolling maximum compiler intrinsic in the pulse/state path
 ```
 
-These are **compiler intrinsics** — the compiler inlines optimized algorithms (O(1) sliding sum, monotonic queue, Welford's algorithm) directly into the generated code.
+Current compiler-owned series intrinsics are limited to `avg` and `max`, with the
+implementation and limits recorded in
+[Styio-StdLib-Intrinsics.md](./Styio-StdLib-Intrinsics.md). Other proposed
+operators such as `min`, `std`, `ema`, and `rsi` are deferred until they have
+parser, Sema, lowering, runtime/codegen, and test evidence.
 
 ### 11.5 Retired History Probe Family
 
@@ -744,7 +1468,7 @@ complete resource definitions and usage patterns.
 @stdin >> #(line) => { >_(line) }     // >_ used as stream source under the hood
 ```
 
-**Type formatting rules** (applies to `>_()`, scalar `-> @stdout`, and iterable `>> @stdout` after serialization):
+**Type formatting rules** (applies to `>_()`, scalar `-> @stdout`, and each item emitted by iterable `>> @stdout` / `>> @file(...)`):
 
 | Type | Output format |
 |------|---------------|
@@ -791,27 +1515,35 @@ $"Price is {p}, Volume is {v}" -> @stdout
 
 If a resource schema mismatch is detected (e.g., accessing a non-existent database column), the program terminates immediately at connection time — **before** the first data pulse. No silent degradation.
 
-### 13.2 Algebraic Propagation for Data Errors
+### 13.2 Tagged Absence for Data Errors
 
-Missing data within a stream becomes runtime absence, displayed as `@` in diagnostics and terminal formatting. It propagates through supported downstream computations; user code should not manufacture this state with a standalone `@` literal.
+Missing data within a stream becomes explicitly tagged runtime absence and is
+displayed as `@` in diagnostics and terminal formatting. It does not reserve a
+scalar bit pattern and does not implicitly enter ordinary arithmetic. A value
+fallback must recover it before scalar computation; user code cannot
+manufacture absence with a standalone `@` literal.
 
 ### 13.3 Diagnostic Tracing
 
-In debug mode, `@` values carry tainted metadata:
+Design target: in debug mode, `@` values may carry tainted metadata:
 
 ```
 last_signal ?? reason    // "DataSource(@binance) timeout at 14:22:05.123"
 ```
 
-The `??` operator extracts the diagnostic context from a tainted `@`.
+The `??` operator is deferred until the absence-metadata contract, parser surface,
+type behavior, and runtime route are implemented.
 
 ### 13.4 Guard-based Recovery
 
 ```
-safe_price = price | @last_valid_price[-1]    // fallback if price carries runtime absence
+safe_price = price | @last_valid_price[-1]    // value fallback if price carries runtime absence
 ```
 
-The `|` operator provides a fallback value when the left side carries runtime absence.
+The `|` operator provides lazy value fallback when the left side carries the
+compiler's tagged runtime-absence representation. The current native value ABI
+covers absence-producing `i64` pulse/state values. Resource failures do not use
+bare `|`; they use `?| resource_operation | fallback`.
 
 ---
 

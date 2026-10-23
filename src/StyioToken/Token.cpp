@@ -144,6 +144,10 @@ reprASTType(StyioNodeType type, std::string extra) {
       output += std::string("access.by_index");
     } break;
 
+    case StyioNodeType::Access_By_Slice: {
+      output += std::string("access.by_slice");
+    } break;
+
     case StyioNodeType::Get_Index_By_Value: {
       output += std::string("get_index.by_value");
     } break;
@@ -413,6 +417,10 @@ reprASTType(StyioNodeType type, std::string extra) {
 
     case StyioNodeType::ResourceRedirect: {
       output += std::string("resource.redirect");
+    } break;
+
+    case StyioNodeType::ResourceEffect: {
+      output += std::string("resource.effect");
     } break;
 
     case StyioNodeType::TaskBlock: {
@@ -917,7 +925,7 @@ StyioToken::getTokName(StyioTokenType type) {
 
 size_t
 StyioToken::length() {
-  return original.length();
+  return lexeme().size();
 }
 
 std::string
@@ -931,10 +939,10 @@ StyioToken::as_str() {
   else if (type == StyioTokenType::NAME
            || type == StyioTokenType::INTEGER
            || type == StyioTokenType::DECIMAL) {
-    return getTokName(this->type) + " = " + this->original;
+    return getTokName(this->type) + " = " + this->textString();
   }
   else if (type == StyioTokenType::STRING) {
-    return "\"" + this->original + "\"";
+    return "\"" + this->textString() + "\"";
   }
   else {
     return getTokName(this->type);

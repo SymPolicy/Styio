@@ -12,6 +12,7 @@
 
 // [Styio]
 #include "../../StyioToken/Token.hpp"
+#include "../CallableEffectRow.hpp"
 #include "../IRDecl.hpp"
 #include "../StyioIR.hpp"
 
@@ -32,23 +33,35 @@ private:
 public:
   bool has_history_selector = false;
   int history_offset = 0;
+  bool function_reference = false;
 
-  SGResId(std::string id, bool has_history_selector = false, int history_offset = 0) :
+  SGResId(
+    std::string id,
+    bool has_history_selector = false,
+    int history_offset = 0,
+    bool function_reference = false
+  ) :
       id(id),
       has_history_selector(has_history_selector),
-      history_offset(history_offset) {
+      history_offset(history_offset),
+      function_reference(function_reference) {
   }
 
   static SGResId* Create() {
-    return new SGResId("");
+    return styio::session_alloc::make_ir<SGResId>("");
   }
 
   static SGResId* Create(std::string id) {
-    return new SGResId(id);
+    return styio::session_alloc::make_ir<SGResId>(id);
   }
 
   static SGResId* CreateHistory(std::string id, int offset) {
-    return new SGResId(id, true, offset);
+    return styio::session_alloc::make_ir<SGResId>(id, true, offset);
+  }
+
+  static SGResId* CreateFunctionRef(std::string id) {
+    return styio::session_alloc::make_ir<SGResId>(
+      std::move(id), false, 0, true);
   }
 
   const std::string& as_str() {
@@ -66,7 +79,15 @@ public:
   }
 
   static SGType* Create(StyioDataType data_type) {
-    return new SGType(data_type);
+    return styio::session_alloc::make_ir<SGType>(data_type);
+  }
+};
+
+class SGNoOp : public StyioIRTraits<SGNoOp>
+{
+public:
+  static SGNoOp* Create() {
+    return styio::session_alloc::make_ir<SGNoOp>();
   }
 };
 
@@ -80,7 +101,7 @@ public:
   }
 
   static SGConstBool* Create(bool value) {
-    return new SGConstBool(value);
+    return styio::session_alloc::make_ir<SGConstBool>(value);
   }
 };
 
@@ -104,15 +125,15 @@ public:
   }
 
   static SGConstInt* Create(long value) {
-    return new SGConstInt(std::to_string(value), 64);
+    return styio::session_alloc::make_ir<SGConstInt>(std::to_string(value), 64);
   }
 
   static SGConstInt* Create(std::string value) {
-    return new SGConstInt(value, 64);
+    return styio::session_alloc::make_ir<SGConstInt>(value, 64);
   }
 
   static SGConstInt* Create(std::string value, size_t numbits) {
-    return new SGConstInt(value, numbits);
+    return styio::session_alloc::make_ir<SGConstInt>(value, numbits);
   }
 };
 
@@ -126,7 +147,7 @@ public:
   }
 
   static SGConstFloat* Create(std::string value) {
-    return new SGConstFloat(value);
+    return styio::session_alloc::make_ir<SGConstFloat>(value);
   }
 };
 
@@ -140,7 +161,7 @@ public:
   }
 
   static SGConstChar* Create(char value) {
-    return new SGConstChar(value);
+    return styio::session_alloc::make_ir<SGConstChar>(value);
   }
 };
 
@@ -154,7 +175,7 @@ public:
   }
 
   static SGConstString* Create(std::string value) {
-    return new SGConstString(value);
+    return styio::session_alloc::make_ir<SGConstString>(value);
   }
 };
 
@@ -169,7 +190,7 @@ public:
   }
 
   static SGFormatString* Create(std::vector<string> fragments, std::vector<StyioIR*> expressions) {
-    return new SGFormatString(fragments, expressions);
+    return styio::session_alloc::make_ir<SGFormatString>(fragments, expressions);
   };
 };
 
@@ -188,31 +209,107 @@ public:
   }
 
   static SGStruct* Create(std::vector<SGVar*> elements) {
-    return new SGStruct(elements);
+    return styio::session_alloc::make_ir<SGStruct>(elements);
   }
 
   static SGStruct* Create(SGResId* name, std::vector<SGVar*> elements) {
-    return new SGStruct(name, elements);
+    return styio::session_alloc::make_ir<SGStruct>(name, elements);
+  }
+};
+
+class SGTupleCreate : public StyioIRTraits<SGTupleCreate>
+{
+public:
+  std::vector<StyioIR*> elements;
+  std::vector<StyioDataType> element_types;
+
+  SGTupleCreate(
+    std::vector<StyioIR*> values,
+    std::vector<StyioDataType> types) :
+      elements(std::move(values)),
+      element_types(std::move(types)) {
+  }
+
+  ~SGTupleCreate() override {
+    styio_delete_ir_nodes(elements);
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override {
+    out.insert(out.end(), elements.begin(), elements.end());
+  }
+
+  static SGTupleCreate* Create(
+    std::vector<StyioIR*> values,
+    std::vector<StyioDataType> types) {
+    return styio::session_alloc::make_ir<SGTupleCreate>(
+      std::move(values), std::move(types));
+  }
+};
+
+class SGTupleGet : public StyioIRTraits<SGTupleGet>
+{
+public:
+  StyioIR* tuple;
+  std::size_t index;
+  StyioDataType element_type;
+  StyioDataType tuple_type;
+
+  SGTupleGet(
+    StyioIR* value,
+    std::size_t position,
+    StyioDataType type,
+    StyioDataType source_type) :
+      tuple(value),
+      index(position),
+      element_type(std::move(type)),
+      tuple_type(std::move(source_type)) {
+  }
+
+  ~SGTupleGet() override {
+    delete tuple;
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override {
+    out.push_back(tuple);
+  }
+
+  static SGTupleGet* Create(
+    StyioIR* value,
+    std::size_t position,
+    StyioDataType type,
+    StyioDataType source_type = StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0}) {
+    return styio::session_alloc::make_ir<SGTupleGet>(
+      value,
+      position,
+      std::move(type),
+      std::move(source_type));
   }
 };
 
 class SGCast : public StyioIRTraits<SGCast>
 {
 public:
+  StyioIR* value = nullptr;
   SGType* from_type;
   SGType* to_type;
 
-  SGCast(SGType* from_type, SGType* to_type) :
-      from_type(from_type), to_type(to_type) {
+  SGCast(StyioIR* value, SGType* from_type, SGType* to_type) :
+      value(value), from_type(from_type), to_type(to_type) {
   }
 
   ~SGCast() override {
+    delete value;
     delete from_type;
     delete to_type;
   }
 
+  static SGCast* Create(StyioIR* value, SGType* from_type, SGType* to_type) {
+    return styio::session_alloc::make_ir<SGCast>(value, from_type, to_type);
+  };
+
   static SGCast* Create(SGType* from_type, SGType* to_type) {
-    return new SGCast(from_type, to_type);
+    return styio::session_alloc::make_ir<SGCast>(nullptr, from_type, to_type);
   };
 };
 
@@ -247,6 +344,7 @@ public:
       rhs_type(std::move(rhs_data_type)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGBinOp() override {
     delete data_type;
     delete lhs_expr;
@@ -254,7 +352,7 @@ public:
   }
 
   static SGBinOp* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op, SGType* data_type) {
-    return new SGBinOp(lhs, rhs, op, data_type);
+    return styio::session_alloc::make_ir<SGBinOp>(lhs, rhs, op, data_type);
   }
 
   static SGBinOp* Create(
@@ -265,7 +363,7 @@ public:
     StyioDataType lhs_data_type,
     StyioDataType rhs_data_type
   ) {
-    return new SGBinOp(lhs, rhs, op, data_type, std::move(lhs_data_type), std::move(rhs_data_type));
+    return styio::session_alloc::make_ir<SGBinOp>(lhs, rhs, op, data_type, std::move(lhs_data_type), std::move(rhs_data_type));
   }
 };
 
@@ -280,13 +378,14 @@ public:
       lhs_expr(std::move(lhs)), rhs_expr(std::move(rhs)), operand(op) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGCond() override {
     delete lhs_expr;
     delete rhs_expr;
   }
 
   static SGCond* Create(StyioIR* lhs, StyioIR* rhs, StyioOpType op) {
-    return new SGCond(lhs, rhs, op);
+    return styio::session_alloc::make_ir<SGCond>(lhs, rhs, op);
   }
 };
 
@@ -307,6 +406,7 @@ public:
       var_name(id), var_type(type), val_init(value) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGVar() override {
     delete var_name;
     delete var_type;
@@ -314,11 +414,11 @@ public:
   }
 
   static SGVar* Create(SGResId* id, SGType* type) {
-    return new SGVar(id, type);
+    return styio::session_alloc::make_ir<SGVar>(id, type);
   }
 
   static SGVar* Create(SGResId* id, SGType* type, StyioIR* value) {
-    return new SGVar(id, type, value);
+    return styio::session_alloc::make_ir<SGVar>(id, type, value);
   }
 };
 
@@ -333,13 +433,14 @@ public:
       var(var), value(value), pending_resource_write(pending) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGFlexBind() override {
     delete var;
     delete value;
   }
 
   static SGFlexBind* Create(SGVar* id, StyioIR* value, bool pending = false) {
-    return new SGFlexBind(id, value, pending);
+    return styio::session_alloc::make_ir<SGFlexBind>(id, value, pending);
   }
 };
 
@@ -353,13 +454,14 @@ public:
       var(var), value(value) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGFinalBind() override {
     delete var;
     delete value;
   }
 
   static SGFinalBind* Create(SGVar* id, StyioIR* value) {
-    return new SGFinalBind(id, value);
+    return styio::session_alloc::make_ir<SGFinalBind>(id, value);
   }
 };
 
@@ -386,7 +488,7 @@ public:
   }
 
   static SGDynLoad* Create(std::string name, SGDynLoadKind kind) {
-    return new SGDynLoad(std::move(name), kind);
+    return styio::session_alloc::make_ir<SGDynLoad>(std::move(name), kind);
   }
 };
 
@@ -405,7 +507,7 @@ public:
   }
 
   static SGFuncArg* Create(std::string id, SGType* type) {
-    return new SGFuncArg(id, type);
+    return styio::session_alloc::make_ir<SGFuncArg>(id, type);
   }
 };
 
@@ -416,43 +518,123 @@ public:
   SGResId* func_name;
   std::vector<SGFuncArg*> func_args;
   SGBlock* func_block;
+  styio::ir::CallableEffectRow effect_row;
+  std::vector<std::string> capture_names;
+  std::string specialization_content_digest;
 
   SGFunc(
     SGType* ret_type,
     SGResId* func_name,
     std::vector<SGFuncArg*> func_args,
-    SGBlock* func_block
+    SGBlock* func_block,
+    styio::ir::CallableEffectRow effect_row,
+    std::vector<std::string> capture_names,
+    std::string specialization_content_digest
   ) :
       ret_type(ret_type),
       func_name(func_name),
       func_args(func_args),
-      func_block(func_block) {
+      func_block(func_block),
+      effect_row(std::move(effect_row)),
+      capture_names(std::move(capture_names)),
+      specialization_content_digest(
+        std::move(specialization_content_digest)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGFunc() override;
 
-  static SGFunc* Create(SGType* ret_type, SGResId* func_name, std::vector<SGFuncArg*> func_args, SGBlock* func_block) {
-    return new SGFunc(ret_type, func_name, func_args, func_block);
+  static SGFunc* Create(
+    SGType* ret_type,
+    SGResId* func_name,
+    std::vector<SGFuncArg*> func_args,
+    SGBlock* func_block,
+    styio::ir::CallableEffectRow effect_row =
+      styio::ir::CallableEffectRow::unknown(),
+    std::vector<std::string> capture_names = {},
+    std::string specialization_content_digest = {}
+  ) {
+    return styio::session_alloc::make_ir<SGFunc>(
+      ret_type,
+      func_name,
+      func_args,
+      func_block,
+      std::move(effect_row),
+      std::move(capture_names),
+      std::move(specialization_content_digest));
   }
 };
 
 class SGCall : public StyioIRTraits<SGCall>
 {
 public:
-  SGResId* func_name;
+  SGResId* func_name = nullptr;
+  StyioIR* indirect_callee = nullptr;
+  StyioDataType callable_type{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  StyioDataType result_type{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
   std::vector<StyioIR*> func_args;
 
-  SGCall(SGResId* func_name, std::vector<StyioIR*> func_args) :
-      func_name(std::move(func_name)), func_args(std::move(func_args)) {
+  SGCall(
+    SGResId* func_name,
+    std::vector<StyioIR*> func_args,
+    StyioDataType result_type = {
+      StyioDataTypeOption::Undefined, "undefined", 0
+    }
+  ) :
+      func_name(std::move(func_name)),
+      result_type(std::move(result_type)),
+      func_args(std::move(func_args)) {
+  }
+
+  SGCall(
+    StyioIR* indirect_callee,
+    StyioDataType callable_type,
+    std::vector<StyioIR*> func_args
+  ) :
+      indirect_callee(indirect_callee),
+      callable_type(std::move(callable_type)),
+      result_type(styio_callable_result_type(this->callable_type)),
+      func_args(std::move(func_args)) {
   }
 
   ~SGCall() override {
     delete func_name;
+    delete indirect_callee;
     styio_delete_ir_nodes(func_args);
   }
 
-  static SGCall* Create(SGResId* func_name, std::vector<StyioIR*> func_args) {
-    return new SGCall(std::move(func_name), std::move(func_args));
+  bool is_indirect() const {
+    return indirect_callee != nullptr;
+  }
+
+  void collect_children(std::vector<StyioIR*>& out) override;
+
+  static SGCall* Create(
+    SGResId* func_name,
+    std::vector<StyioIR*> func_args,
+    StyioDataType result_type = {
+      StyioDataTypeOption::Undefined, "undefined", 0
+    }
+  ) {
+    return styio::session_alloc::make_ir<SGCall>(
+      std::move(func_name),
+      std::move(func_args),
+      std::move(result_type));
+  }
+
+  static SGCall* CreateIndirect(
+    StyioIR* callee,
+    StyioDataType callable_type,
+    std::vector<StyioIR*> func_args
+  ) {
+    return styio::session_alloc::make_ir<SGCall>(
+      callee,
+      std::move(callable_type),
+      std::move(func_args));
   }
 };
 
@@ -466,7 +648,7 @@ public:
   }
 
   static SGExportDecl* Create(std::vector<std::string> symbols) {
-    return new SGExportDecl(std::move(symbols));
+    return styio::session_alloc::make_ir<SGExportDecl>(std::move(symbols));
   }
 };
 
@@ -475,14 +657,32 @@ class SGExternBlock : public StyioIRTraits<SGExternBlock>
 public:
   std::string abi;
   std::string body;
+  std::vector<std::string> source_paths;
+  std::vector<std::string> exported_symbols;
 
-  SGExternBlock(std::string abi, std::string body) :
+  SGExternBlock(
+    std::string abi,
+    std::string body,
+    std::vector<std::string> source_paths = {},
+    std::vector<std::string> exported_symbols = {}
+  ) :
       abi(std::move(abi)),
-      body(std::move(body)) {
+      body(std::move(body)),
+      source_paths(std::move(source_paths)),
+      exported_symbols(std::move(exported_symbols)) {
   }
 
-  static SGExternBlock* Create(std::string abi, std::string body) {
-    return new SGExternBlock(std::move(abi), std::move(body));
+  static SGExternBlock* Create(
+    std::string abi,
+    std::string body,
+    std::vector<std::string> source_paths = {},
+    std::vector<std::string> exported_symbols = {}
+  ) {
+    return styio::session_alloc::make_ir<SGExternBlock>(
+      std::move(abi),
+      std::move(body),
+      std::move(source_paths),
+      std::move(exported_symbols));
   }
 };
 
@@ -490,17 +690,27 @@ class SGReturn : public StyioIRTraits<SGReturn>
 {
 public:
   StyioIR* expr;
+  StyioDataType result_type;
 
-  SGReturn(StyioIR* expr) :
-      expr(expr) {
+  SGReturn(StyioIR* expr, StyioDataType type) :
+      expr(expr), result_type(std::move(type)) {
   }
 
   ~SGReturn() override {
     delete expr;
   }
 
-  static SGReturn* Create(StyioIR* expr) {
-    return new SGReturn(expr);
+  void collect_children(std::vector<StyioIR*>& out) override {
+    if (expr) out.push_back(expr);
+  }
+
+  static SGReturn* Create(
+    StyioIR* expr,
+    StyioDataType type = StyioDataType{
+      StyioDataTypeOption::Undefined, "undefined", 0}) {
+    return styio::session_alloc::make_ir<SGReturn>(
+      expr,
+      std::move(type));
   }
 };
 
@@ -513,12 +723,13 @@ public:
       stmts(std::move(stmts)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGBlock() override {
     styio_delete_ir_nodes(stmts);
   }
 
   static SGBlock* Create(std::vector<StyioIR*> stmts) {
-    return new SGBlock(std::move(stmts));
+    return styio::session_alloc::make_ir<SGBlock>(std::move(stmts));
   }
 };
 
@@ -538,12 +749,13 @@ public:
       stmts(std::move(stmts)) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGEntry() override {
     styio_delete_ir_nodes(stmts);
   }
 
   static SGEntry* Create(std::vector<StyioIR*> stmts) {
-    return new SGEntry(std::move(stmts));
+    return styio::session_alloc::make_ir<SGEntry>(std::move(stmts));
   }
 };
 
@@ -551,17 +763,22 @@ class SGMainEntry : public StyioIRTraits<SGMainEntry>
 {
 public:
   std::vector<StyioIR*> stmts;
+  // Set only by the complete lowering pass boundary after its final
+  // ownership/structure verification.  Codegen consumes the root without
+  // repeating the same full-tree walk; hand-built IR remains untrusted.
+  bool verified_for_codegen = false;
 
   SGMainEntry(std::vector<StyioIR*> stmts) :
       stmts(stmts) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGMainEntry() override {
     styio_delete_ir_nodes(stmts);
   }
 
   static SGMainEntry* Create(std::vector<StyioIR*> stmts) {
-    return new SGMainEntry(stmts);
+    return styio::session_alloc::make_ir<SGMainEntry>(stmts);
   }
 };
 
@@ -582,17 +799,18 @@ public:
       tag(t), cond(c), body(b) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGLoop() override {
     delete cond;
     delete body;
   }
 
   static SGLoop* CreateInfinite(SGBlock* b) {
-    return new SGLoop(SGLoopTag::Infinite, nullptr, b);
+    return styio::session_alloc::make_ir<SGLoop>(SGLoopTag::Infinite, nullptr, b);
   }
 
   static SGLoop* CreateWhile(StyioIR* c, SGBlock* b) {
-    return new SGLoop(SGLoopTag::WhileCond, c, b);
+    return styio::session_alloc::make_ir<SGLoop>(SGLoopTag::WhileCond, c, b);
   }
 };
 
@@ -628,13 +846,14 @@ class SGStateSnapLoad : public StyioIRTraits<SGStateSnapLoad>
 {
 public:
   int slot_id = 0;
+  bool carries_absence = false;
 
-  explicit SGStateSnapLoad(int s) :
-      slot_id(s) {
+  SGStateSnapLoad(int s, bool absence) :
+      slot_id(s), carries_absence(absence) {
   }
 
-  static SGStateSnapLoad* Create(int s) {
-    return new SGStateSnapLoad(s);
+  static SGStateSnapLoad* Create(int s, bool carries_absence = false) {
+    return styio::session_alloc::make_ir<SGStateSnapLoad>(s, carries_absence);
   }
 };
 
@@ -645,13 +864,23 @@ public:
   int depth = 1;
   /* >=0: load from finalized pulse ledger after matching SGForEach/SIOFileLineIter exit */
   int pulse_region_id = -1;
+  bool carries_absence = false;
 
-  SGStateHistLoad(int s, int d, int region = -1) :
-      slot_id(s), depth(d), pulse_region_id(region) {
+  SGStateHistLoad(int s, int d, int region, bool absence) :
+      slot_id(s), depth(d), pulse_region_id(region), carries_absence(absence) {
   }
 
-  static SGStateHistLoad* Create(int s, int d, int region = -1) {
-    return new SGStateHistLoad(s, d, region);
+  static SGStateHistLoad* Create(
+    int s,
+    int d,
+    int region = -1,
+    bool carries_absence = false
+  ) {
+    return styio::session_alloc::make_ir<SGStateHistLoad>(
+      s,
+      d,
+      region,
+      carries_absence);
   }
 };
 
@@ -670,7 +899,7 @@ public:
   }
 
   static SGSeriesAvgStep* Create(int s, StyioIR* xi) {
-    return new SGSeriesAvgStep(s, xi);
+    return styio::session_alloc::make_ir<SGSeriesAvgStep>(s, xi);
   }
 };
 
@@ -684,12 +913,13 @@ public:
       slot_id(s), x(xi) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGSeriesMaxStep() override {
     delete x;
   }
 
   static SGSeriesMaxStep* Create(int s, StyioIR* xi) {
-    return new SGSeriesMaxStep(s, xi);
+    return styio::session_alloc::make_ir<SGSeriesMaxStep>(s, xi);
   }
 };
 
@@ -707,13 +937,14 @@ public:
       iterable(it), var(std::move(v)), elem_type(std::move(et)), body(b) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGForEach() override {
     delete iterable;
     delete body;
   }
 
   static SGForEach* Create(StyioIR* it, std::string v, std::string elem_type, SGBlock* b) {
-    return new SGForEach(it, std::move(v), std::move(elem_type), b);
+    return styio::session_alloc::make_ir<SGForEach>(it, std::move(v), std::move(elem_type), b);
   }
 
   void set_pulse_plan(std::unique_ptr<SGPulsePlan> p) {
@@ -734,6 +965,7 @@ public:
       start(s), end(e), step(st), var(std::move(v)), body(b) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGRangeFor() override {
     delete start;
     delete end;
@@ -742,7 +974,7 @@ public:
   }
 
   static SGRangeFor* Create(StyioIR* s, StyioIR* e, StyioIR* st, std::string v, SGBlock* b) {
-    return new SGRangeFor(s, e, st, std::move(v), b);
+    return styio::session_alloc::make_ir<SGRangeFor>(s, e, st, std::move(v), b);
   }
 };
 
@@ -757,6 +989,7 @@ public:
       cond(c), then_block(t), else_block(e) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGIf() override {
     delete cond;
     delete then_block;
@@ -764,7 +997,7 @@ public:
   }
 
   static SGIf* Create(StyioIR* cond, SGBlock* then_block, SGBlock* else_block = nullptr) {
-    return new SGIf(cond, then_block, else_block);
+    return styio::session_alloc::make_ir<SGIf>(cond, then_block, else_block);
   }
 };
 
@@ -773,6 +1006,8 @@ enum class SGMatchReprKind
   Stmt,
   ExprInt,
   ExprFloat,
+  ExprBool,
+  ExprChar,
   ExprMixed,
 };
 
@@ -796,6 +1031,7 @@ public:
       repr_kind(k) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGMatch() override {
     delete scrutinee;
     for (auto& arm : int_arms) {
@@ -811,7 +1047,7 @@ public:
     SGBlock* d,
     SGMatchReprKind k
   ) {
-    return new SGMatch(s, std::move(arms), d, k);
+    return styio::session_alloc::make_ir<SGMatch>(s, std::move(arms), d, k);
   }
 };
 
@@ -826,21 +1062,18 @@ public:
   }
 
   static SGBreak* Create(unsigned d = 1) {
-    return new SGBreak(d);
+    return styio::session_alloc::make_ir<SGBreak>(d);
   }
 };
 
 class SGContinue : public StyioIRTraits<SGContinue>
 {
 public:
-  unsigned depth = 1;
-
-  explicit SGContinue(unsigned d) :
-      depth(d) {
+  SGContinue() {
   }
 
-  static SGContinue* Create(unsigned d = 1) {
-    return new SGContinue(d);
+  static SGContinue* Create() {
+    return styio::session_alloc::make_ir<SGContinue>();
   }
 };
 
@@ -848,7 +1081,7 @@ class SGUndef : public StyioIRTraits<SGUndef>
 {
 public:
   static SGUndef* Create() {
-    return new SGUndef();
+    return styio::session_alloc::make_ir<SGUndef>();
   }
 };
 
@@ -868,7 +1101,7 @@ public:
   }
 
   static SGFallback* Create(StyioIR* p, StyioIR* a) {
-    return new SGFallback(p, a);
+    return styio::session_alloc::make_ir<SGFallback>(p, a);
   }
 };
 
@@ -883,6 +1116,7 @@ public:
       cond(c), true_val(t), false_val(f) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGWaveMerge() override {
     delete cond;
     delete true_val;
@@ -890,7 +1124,7 @@ public:
   }
 
   static SGWaveMerge* Create(StyioIR* c, StyioIR* t, StyioIR* f) {
-    return new SGWaveMerge(c, t, f);
+    return styio::session_alloc::make_ir<SGWaveMerge>(c, t, f);
   }
 };
 
@@ -905,6 +1139,7 @@ public:
       cond(c), true_arm(t), false_arm(f) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGWaveDispatch() override {
     delete cond;
     delete true_arm;
@@ -912,7 +1147,7 @@ public:
   }
 
   static SGWaveDispatch* Create(StyioIR* c, StyioIR* t, StyioIR* f) {
-    return new SGWaveDispatch(c, t, f);
+    return styio::session_alloc::make_ir<SGWaveDispatch>(c, t, f);
   }
 };
 
@@ -926,13 +1161,14 @@ public:
       base(b), guard_cond(c) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGGuardSelect() override {
     delete base;
     delete guard_cond;
   }
 
   static SGGuardSelect* Create(StyioIR* b, StyioIR* c) {
-    return new SGGuardSelect(b, c);
+    return styio::session_alloc::make_ir<SGGuardSelect>(b, c);
   }
 };
 
@@ -946,13 +1182,14 @@ public:
       base(b), probe(p) {
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGEqProbe() override {
     delete base;
     delete probe;
   }
 
   static SGEqProbe* Create(StyioIR* b, StyioIR* p) {
-    return new SGEqProbe(b, p);
+    return styio::session_alloc::make_ir<SGEqProbe>(b, p);
   }
 };
 
@@ -964,11 +1201,13 @@ public:
 
   static SGSnapshotDecl* Create(std::string v, StyioIR* p) {
     auto* x = new SGSnapshotDecl();
+    styio::session_alloc::track_raw_allocation(x);
     x->var_name = std::move(v);
     x->path_expr = p;
     return x;
   }
 
+  void collect_children(std::vector<StyioIR*>& out) override;
   ~SGSnapshotDecl() override {
     delete path_expr;
   }
@@ -984,8 +1223,120 @@ public:
   }
 
   static SGSnapshotShadowLoad* Create(std::string v) {
-    return new SGSnapshotShadowLoad(std::move(v));
+    return styio::session_alloc::make_ir<SGSnapshotShadowLoad>(std::move(v));
   }
 };
+
+
+// --- out-of-line collect_children() (TASK-08) ---
+inline void SGBinOp::collect_children(std::vector<StyioIR*>& out) {
+  if (data_type) out.push_back(static_cast<StyioIR*>(data_type));
+  if (lhs_expr) out.push_back(static_cast<StyioIR*>(lhs_expr));
+  if (rhs_expr) out.push_back(static_cast<StyioIR*>(rhs_expr));
+}
+
+inline void SGCond::collect_children(std::vector<StyioIR*>& out) {
+  if (lhs_expr) out.push_back(static_cast<StyioIR*>(lhs_expr));
+  if (rhs_expr) out.push_back(static_cast<StyioIR*>(rhs_expr));
+}
+
+inline void SGVar::collect_children(std::vector<StyioIR*>& out) {
+  if (var_name) out.push_back(static_cast<StyioIR*>(var_name));
+  if (var_type) out.push_back(static_cast<StyioIR*>(var_type));
+  if (val_init) out.push_back(static_cast<StyioIR*>(val_init));
+}
+
+inline void SGFlexBind::collect_children(std::vector<StyioIR*>& out) {
+  if (var) out.push_back(static_cast<StyioIR*>(var));
+  if (value) out.push_back(static_cast<StyioIR*>(value));
+}
+
+inline void SGFinalBind::collect_children(std::vector<StyioIR*>& out) {
+  if (var) out.push_back(static_cast<StyioIR*>(var));
+  if (value) out.push_back(static_cast<StyioIR*>(value));
+}
+
+inline void SGFunc::collect_children(std::vector<StyioIR*>& out) {
+  if (func_name) out.push_back(static_cast<StyioIR*>(func_name));
+  for (auto* c : func_args) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SGCall::collect_children(std::vector<StyioIR*>& out) {
+  if (func_name) out.push_back(static_cast<StyioIR*>(func_name));
+  if (indirect_callee) out.push_back(indirect_callee);
+  for (auto* c : func_args) out.push_back(c);
+}
+
+inline void SGBlock::collect_children(std::vector<StyioIR*>& out) {
+  for (auto* c : stmts) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SGEntry::collect_children(std::vector<StyioIR*>& out) {
+  for (auto* c : stmts) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SGMainEntry::collect_children(std::vector<StyioIR*>& out) {
+  for (auto* c : stmts) out.push_back(static_cast<StyioIR*>(c));
+}
+
+inline void SGLoop::collect_children(std::vector<StyioIR*>& out) {
+  if (cond) out.push_back(static_cast<StyioIR*>(cond));
+  if (body) out.push_back(static_cast<StyioIR*>(body));
+}
+
+inline void SGSeriesMaxStep::collect_children(std::vector<StyioIR*>& out) {
+  if (x) out.push_back(static_cast<StyioIR*>(x));
+}
+
+inline void SGForEach::collect_children(std::vector<StyioIR*>& out) {
+  if (iterable) out.push_back(static_cast<StyioIR*>(iterable));
+  if (body) out.push_back(static_cast<StyioIR*>(body));
+}
+
+inline void SGRangeFor::collect_children(std::vector<StyioIR*>& out) {
+  if (start) out.push_back(static_cast<StyioIR*>(start));
+  if (end) out.push_back(static_cast<StyioIR*>(end));
+  if (step) out.push_back(static_cast<StyioIR*>(step));
+  if (body) out.push_back(static_cast<StyioIR*>(body));
+}
+
+inline void SGIf::collect_children(std::vector<StyioIR*>& out) {
+  if (cond) out.push_back(static_cast<StyioIR*>(cond));
+  if (then_block) out.push_back(static_cast<StyioIR*>(then_block));
+  if (else_block) out.push_back(static_cast<StyioIR*>(else_block));
+}
+
+inline void SGMatch::collect_children(std::vector<StyioIR*>& out) {
+  if (scrutinee) out.push_back(static_cast<StyioIR*>(scrutinee));
+  for (auto& p : int_arms) out.push_back(static_cast<StyioIR*>(p.second));
+  if (default_arm) out.push_back(static_cast<StyioIR*>(default_arm));
+}
+
+inline void SGWaveMerge::collect_children(std::vector<StyioIR*>& out) {
+  if (cond) out.push_back(static_cast<StyioIR*>(cond));
+  if (true_val) out.push_back(static_cast<StyioIR*>(true_val));
+  if (false_val) out.push_back(static_cast<StyioIR*>(false_val));
+}
+
+inline void SGWaveDispatch::collect_children(std::vector<StyioIR*>& out) {
+  if (cond) out.push_back(static_cast<StyioIR*>(cond));
+  if (true_arm) out.push_back(static_cast<StyioIR*>(true_arm));
+  if (false_arm) out.push_back(static_cast<StyioIR*>(false_arm));
+}
+
+inline void SGGuardSelect::collect_children(std::vector<StyioIR*>& out) {
+  if (base) out.push_back(static_cast<StyioIR*>(base));
+  if (guard_cond) out.push_back(static_cast<StyioIR*>(guard_cond));
+}
+
+inline void SGEqProbe::collect_children(std::vector<StyioIR*>& out) {
+  if (base) out.push_back(static_cast<StyioIR*>(base));
+  if (probe) out.push_back(static_cast<StyioIR*>(probe));
+}
+
+inline void SGSnapshotDecl::collect_children(std::vector<StyioIR*>& out) {
+  if (path_expr) out.push_back(static_cast<StyioIR*>(path_expr));
+}
+
 
 #endif

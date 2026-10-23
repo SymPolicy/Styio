@@ -2,7 +2,7 @@
 
 **Purpose:** Describe how to configure, build, and launch the IDE-facing targets `styio_ide_core` and `styio_lspd`, including the optional Tree-sitter syntax backend, after the repository-level toolchain is already in place.
 
-**Last updated:** 2026-04-19
+**Last updated:** 2026-10-01
 
 ## Targets
 
@@ -18,11 +18,16 @@ For repository-level bootstrap, common compiler commands, and docs tooling, star
 2. A C++20 compiler and CMake / CTest `3.31.6` on the standardized toolchain; repository compatibility floor is CMake `3.20`.
 3. Node.js `v24.15.0` LTS when regenerating the Tree-sitter grammar.
 
-For a fresh Debian/Ubuntu container or VM, bootstrap the toolchain first:
+For a fresh Debian/Ubuntu container, VM, or macOS host, bootstrap the toolchain first:
 
 ```bash
 ./scripts/bootstrap-dev-env.sh
 ```
+
+On macOS, install Xcode Command Line Tools and Homebrew first. The bootstrap
+selects the versioned Homebrew LLVM, ICU, Python, and Node formulae; follow the
+native configure recipe in [../../BUILD-AND-DEV-ENV.md](../../BUILD-AND-DEV-ENV.md)
+so Homebrew Clang receives the active macOS SDK explicitly.
 
 ## Configure
 
@@ -32,19 +37,19 @@ cmake -S . -B build/default \
   -DSTYIO_USE_ICU=OFF
 ```
 
-`STYIO_ENABLE_TREE_SITTER=ON` is the default. Set it to `OFF` if you need a pure tolerant syntax build with no FetchContent network step.
+`STYIO_ENABLE_TREE_SITTER=ON` is the default. Set it to `OFF` if you need the repository-local edit-time snapshot backend with no FetchContent network step. Both modes are editor-support modes; syntax validity is still owned by the hand-written nightly compiler parser.
 
 ## Build
 
 ```bash
-cmake --build build/default --target styio_lspd styio_ide_test -j4
+cmake --build build/default --parallel 4 --target styio_lspd styio_ide_test
 ```
 
 Useful target sets:
 
-1. Runtime only: `cmake --build build/default --target styio_lspd -j4`
-2. Full compiler + IDE: `cmake --build build/default --target styio styio_lspd -j4`
-3. IDE tests only: `cmake --build build/default --target styio_ide_test -j4`
+1. Runtime only: `cmake --build build/default --parallel 4 --target styio_lspd`
+2. Full compiler + IDE: `cmake --build build/default --parallel 4 --target styio styio_lspd`
+3. IDE tests only: `cmake --build build/default --parallel 4 --target styio_ide_test`
 
 ## Prune Old Build Directories
 
@@ -74,7 +79,7 @@ The server uses stdio JSON-RPC. Your IDE host is expected to launch it as a long
 
 1. Edit-time syntax goes through Tree-sitter when `STYIO_ENABLE_TREE_SITTER=ON`.
 2. `SyntaxParser` reuses the previous Tree-sitter tree for the same file path and applies a single incremental edit before reparsing.
-3. Semantic analysis uses the Nightly parser in `ParseMode::Recovery`, so malformed statements emit diagnostics but do not necessarily abort the rest of the file.
+3. Semantic analysis uses the authoritative Nightly compiler parser in recovery mode. Malformed source can retain later semantic items alongside diagnostics; callers must inspect `used_recovery` and diagnostics rather than treating a returned root or item as whole-program validation.
 
 ## Regenerate The Grammar
 

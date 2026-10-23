@@ -1,0 +1,2 @@
+# add_one := (value) => value + 1
+>_(add_one(1.5))

@@ -1,0 +1,2 @@
+# same := (left, right) => left == right
+>_(same([1], [1]))

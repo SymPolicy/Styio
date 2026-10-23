@@ -1,0 +1,70 @@
+/* CLRS 16.3 Huffman: min weighted external path length (sum of merge weights).
+   Input: [n, f1..fn, then n alive-flag + n freq-workspace zeros]
+   Styio: repeated pick of two smallest alive freqs. n<=1 -> 0. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n + n
+
+    ?(n <= 1) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            alive_base = 1 + n
+            work_base = 1 + n + n
+            alive = 0
+            [0..n-1] >> #(i) => {
+                f = values[1 + i]
+                ?(f > 0) => {
+                    values[alive_base + i] = 1
+                    values[work_base + i] = f
+                    alive = alive + 1
+                } | {
+                    values[alive_base + i] = 0
+                    values[work_base + i] = 0
+                }
+            }
+            cost = 0
+            ?(alive <= 1) => {
+                answer = 0
+            } | {
+                [0..n-1] >> #(round) => {
+                    ?(alive > 1) => {
+                        i1 = -1
+                        i2 = -1
+                        best1 = 1000000000
+                        best2 = 1000000000
+                        [0..n-1] >> #(i) => {
+                            ?(values[alive_base + i] == 1) => {
+                                f = values[work_base + i]
+                                ?(f < best1) => {
+                                    best2 = best1
+                                    i2 = i1
+                                    best1 = f
+                                    i1 = i
+                                } | {
+                                    ?(f < best2) => {
+                                        best2 = f
+                                        i2 = i
+                                    }
+                                }
+                            }
+                        }
+                        ?(i1 >= 0 && i2 >= 0) => {
+                            merged = best1 + best2
+                            cost = cost + merged
+                            values[alive_base + i2] = 0
+                            values[work_base + i1] = merged
+                            alive = alive - 1
+                        }
+                    }
+                }
+                answer = cost
+            }
+        }
+    }
+}
+
+>_(answer)

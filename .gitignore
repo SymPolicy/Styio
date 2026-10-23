@@ -24,19 +24,18 @@ output.ll
 
 # Local dev reports (scripts/dev-report.sh); 删除本行若需纳入版本库
 reports/
-benchmark/reports/*
-!benchmark/reports/
-!benchmark/reports/README.md
-benchmark/async-runtime/reports/
 
 # Visual Studio Code cache
 /.vscode/
 
 # Local IDE / agent metadata
 .cursor/
+/.commandcode/
 /.idea/
 /.clangd/
 /.cache/
+/docs/plan/.better-plan.lock
+docs/plans/**/.better-plan.lock
 /__pycache__/
 /.pytest_cache/
 /.mypy_cache/
@@ -88,6 +87,7 @@ build-*/
 
 # CI/local artifact staging
 fuzz-artifacts/
+fuzz-regressions/
 sanitizer-artifacts/
 soak-artifacts/
 parser-shadow-artifacts/
@@ -114,3 +114,4 @@ docs/audit/defects/
 !tests/**/tmp/**
 !tests/**/*.tmp
 !tests/**/*.log
+

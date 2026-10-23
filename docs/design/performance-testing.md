@@ -1,34 +1,112 @@
 # Styio Performance Testing Route
 
-**Purpose:** Provide a lightweight pointer from `docs/design/` to the external benchmark workflow, without duplicating the benchmark SSOT.
+**Purpose:** Point the compiler checkout at the external parity-v2 authority;
+workloads, runner, reports, and thresholds remain in `styio-benchmark`.
 
-**Last updated:** 2026-05-08
+**Last updated:** 2026-09-05
 
-这个文件只保留导航职责。性能/基准的权威说明已经统一收口到 `styio-benchmark`，后续不要在 Styio 仓库重复维护 workload、runner、报告或 baseline。
+The standards-derived contract is
+`styio-benchmark/workloads/parity-v2/contract.json`. It freezes independent
+CLBG and LLVM TestSuite-style families, official reference scales, equivalent
+work units, and the closed route set `compile-and-run`, `native-build`, and
+`native-run`. Reduced smoke/development inputs are never presented as official
+parity evidence.
 
-主入口：
-
-- 路线说明：`styio-benchmark/README.md`
-- 覆盖矩阵：`styio-benchmark/docs/COVERAGE-MATRIX.md`
-- 一键脚本：`styio-benchmark/tools/perf-route.sh`
-- 二分最小化：`styio-benchmark/tools/soak-minimize.sh`
-- Styio 本仓库仅保留 C++ probe、parser shadow gate 和兼容 wrapper
-
-推荐直接使用：
+Validate the contract from the benchmark checkout:
 
 ```bash
-/path/to/styio-benchmark/tools/perf-route.sh \
-  --styio-root /path/to/styio \
-  --phase-iters 5000 \
-  --micro-iters 5000 \
-  --execute-iters 20 \
-  --error-iters 50
+python3 tools/standard_parity_gate.py catalog-check \
+  --contract workloads/parity-v2/contract.json
+python3 tools/standard_parity_gate.py cpp-strength \
+  --contract workloads/parity-v2/contract.json
 ```
 
-兼容入口仍可用于本仓库内操作，但它只会转发到 `styio-benchmark`：
+Run bounded family shards with the current Styio build, then merge and verify
+only complete reference-scale reports:
 
 ```bash
-STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/perf-route.sh --quick
+python3 tools/standard_parity_gate.py run \
+  --contract workloads/parity-v2/contract.json \
+  --family llvm-scalar-chain --scale smoke \
+  --styio-root /path/to/styio-nightly --build-dir /path/to/styio-nightly/build \
+  --out-dir reports/standard-parity/shards/llvm-scalar-chain \
+  --warmups 3 --repetitions 11
+python3 tools/standard_parity_gate.py merge \
+  --contract workloads/parity-v2/contract.json \
+  --reports-dir reports/standard-parity/shards \
+  --out-dir reports/standard-parity/final
+python3 tools/standard_parity_gate.py verify \
+  --contract workloads/parity-v2/contract.json \
+  --report reports/standard-parity/final/results.json \
+  --require-all --privacy strict
 ```
 
-结构化结果应落在 `styio-benchmark/reports/<timestamp>/` 或显式 `--out-dir` 指向的 benchmark 仓库目录。
+The compiler checkout supplies the Styio executable and existing phase probe;
+it does not maintain a second benchmark workload catalog or a compatibility
+route. Reports are privacy-safe and must not contain host identity, private
+paths, commands, endpoints, secrets, or raw subprocess text.
+
+For compiler-owned native-build attribution, `styio build` may reuse runtime
+and generated user objects through the configured
+`STYIO_NATIVE_RUNTIME_CACHE_DIR`; set `STYIO_NATIVE_CACHE=0` for a cold
+diagnostic. Cache keys include compiler identity, target, ABI, complete flags,
+runtime/header inputs, and generated IR/wrapper content. Invalid or failed
+entries are discarded and the original source-link route remains the fallback.
+Set `STYIO_NATIVE_BUILD_PROFILE_OUT` or `STYIO_NATIVE_PROFILE_OUT` only for
+diagnostic runs outside timed parity samples; their JSON is phase attribution,
+not parity evidence.
+
+Compiler-phase attribution should keep generated straight-line programs linear
+in their binding count. Pre-size top-level semantic/codegen tables, use the
+direct scalar semantic path for new unannotated bool/i64/f64 bindings, share
+the narrow resource-free scalar proof between Sema and lowering, and let a
+complete non-deferred StyioIR boundary carry its final verifier result directly
+into LLVM emission. Hand-built or deferred IR remains untrusted. Rely on the
+verified LLVM O2 pipeline to promote eligible stack slots to SSA instead of
+adding a second whole-IR write-analysis pass. Use the `semantic-analysis` and
+`llvm-emission` reference cells to measure these paths; do not infer a win from
+total compile-and-run time alone.
+
+Observable S2 measurements stay with `styio-benchmark`. This checkout supplies
+`tests/fixtures/observable-topology/` plus path-free service counters
+(`input_records`, `changed_records`, `delta_bytes`, `visited_records`,
+`reused_shards`, `rebuilt_shards`, `retained_snapshot_bytes`,
+`retained_index_bytes`, `reference_fallbacks`). Suggested modes are cold full
+scan, cold index build, warm retained query, small-delta invalidation, full
+fallback after cache drop, and retention pressure. Do not add a local
+threshold or a second workload catalog here.
+
+## Observable runtime-events v2 budget seam
+
+This repository owns the measurement seam and budget enforcement:
+
+- `styio_observable_runtime_perf_test` (`ctest` name `styio_observable_runtime_perf`)
+- `styio_observable_runtime_budget_contract_test` (`ctest` name `styio_observable_runtime_budget_contract`)
+
+Comparable Release modes are `disabled`, `static-only`, `aggregate`, `sampled`,
+and `detailed`. Required fields are wall and CPU time, allocations, peak RSS,
+binary/artifact size, produced/aggregated/emitted bytes and records, lane
+occupancy, sampling, and every loss class. Disabled and static-only structural
+acceptance is zero S3 runtime callsites, allocations, buffers, worker/drain
+threads, instance/event atomics, and exporter work.
+
+`styio-benchmark` owns workloads, reports, baseline identity, and approved
+numeric ceilings. The budget reader rejects missing, stale, pending,
+incomparable, or failed result contracts. Do not encode guessed percentage
+thresholds in this tree. V2 remains opt-in until those approved green results
+exist.
+
+Proposed unapproved local Release seam sample (`styio_observable_runtime_perf`,
+status `pending`, 2026-09-05). These figures are a measurement handoff, not a
+budget gate:
+
+| mode | wall_ns | cpu_ns | allocations | occupancy_high | sampled_out | buffer_dropped | exporter_dropped | S3 structural zeros |
+| disabled | 452500 | 561000 | 0 | 0 | 0 | 0 | 0 | yes |
+| static-only | 78417 | 112000 | 0 | 0 | 0 | 0 | 0 | yes |
+| aggregate | 541500 | 561000 | 56 | 82 | 0 | 0 | 0 | no |
+| sampled | 310458 | 332000 | 56 | 88 | 8 | 0 | 0 | no |
+| detailed | 331667 | 352000 | 56 | 98 | 0 | 0 | 0 | no |
+
+Do not enable `emit.runtime_observation` by default until
+`approved-result.json` exists and `styio_observable_runtime_budget_contract`
+exits zero against it.

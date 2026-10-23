@@ -1,0 +1,46 @@
+/* CLRS Ch.31 modular multiplicative inverse via Extended-Euclid.
+   Input: [a, m]
+   Output: a^{-1} mod m in [0,m), or -1 if none / m<=0. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 2) => {
+    a = values[0]
+    m = values[1]
+    ?(m <= 0) => {
+        answer = -1
+    } | {
+        aa = a
+        ?(aa < 0) => {
+            aa = 0 - aa
+        }
+        old_r = aa
+        r = m
+        old_s = 1
+        s = 0
+        [...] >> ?(r != 0) => {
+            q = old_r / r
+            next_r = old_r - q * r
+            old_r = r
+            r = next_r
+            next_s = old_s - q * s
+            old_s = s
+            s = next_s
+        }
+        ?(old_r != 1) => {
+            answer = -1
+        } | {
+            inv = old_s
+            ?(a < 0) => {
+                inv = 0 - inv
+            }
+            inv = inv % m
+            ?(inv < 0) => {
+                inv = inv + m
+            }
+            answer = inv
+        }
+    }
+}
+
+>_(answer)

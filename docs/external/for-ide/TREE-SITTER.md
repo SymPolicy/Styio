@@ -2,14 +2,14 @@
 
 **Purpose:** Explain how the repository-local Tree-sitter grammar plugs into `styio_ide_core`, and how to evolve it without breaking the IDE contracts.
 
-**Last updated:** 2026-04-14
+**Last updated:** 2026-10-11
 
 ## Ownership
 
 1. Grammar source: [../../../grammar/tree-sitter-styio/grammar.js](../../../grammar/tree-sitter-styio/grammar.js)
 2. Generated sources: `grammar/tree-sitter-styio/src/parser.c`, `src/grammar.json`, `src/node-types.json`
-3. Runtime adapter: [../../../src/StyioIDE/TreeSitterBackend.cpp](../../../src/StyioIDE/TreeSitterBackend.cpp)
-4. Snapshot façade: [../../../src/StyioIDE/Syntax.hpp](../../../src/StyioIDE/Syntax.hpp)
+3. Runtime adapter: [../../../src/StyioServices/StyioIDE/TreeSitterBackend.cpp](../../../src/StyioServices/StyioIDE/TreeSitterBackend.cpp)
+4. Snapshot façade: [../../../src/StyioServices/StyioIDE/Syntax.hpp](../../../src/StyioServices/StyioIDE/Syntax.hpp)
 
 ## What Tree-sitter Owns Today
 
@@ -17,13 +17,21 @@
 2. Error-node detection and additional syntax diagnostics
 3. Folding-oriented structural ranges
 4. Incremental tree reuse for repeated parses of the same file path
+5. Edit-time distinction between `range_expr` (`start..end`) and `materialized_range` (`[start..end]`); reserved step ranges still rely on the nightly compiler parser for authoritative rejection.
+6. The existing task/history milestone slice: bounded resource declarations,
+   negative integer history selectors, task blocks, typed await with optional
+   fallback, parameterized stream iteration into a block, resource sink writes,
+   named resource ordering and print statements. This is fixture-scoped editor
+   parity, not a claim of complete language coverage. Grammar rules follow
+   `Parser.cpp` and `NewParserExpr.cpp`; compiler syntax authority is unchanged.
 
 ## What It Does Not Own
 
 1. Token spans used by HIR and semantic tokens
 2. Bracket matching maps used by the fallback HIR builder
-3. Nightly parser semantic truth
-4. Completion ranking and type-aware filtering
+3. Accepted Styio grammar or syntax validity
+4. Nightly parser semantic truth
+5. Completion ranking and type-aware filtering
 
 ## Update Workflow
 
@@ -32,11 +40,24 @@
 3. Rebuild `styio_ide_core` or `styio_lspd`.
 4. Run [TESTING.md](./TESTING.md) before landing the change.
 
+Use the repository Node.js 24 baseline (the macOS bootstrap permits the 24.x
+compatible line). Keep the tolerant tokenizer's multi-character boundaries in
+sync with the compiler tokenizer, including `||>`, `?|`, `..` and `>_`.
+
+Permanent task/history coverage reads the authoritative language fixtures:
+state-resource t13, t22, t23 and e06, plus task-resource e06. The two failure
+programs are syntactically valid; semantic and runtime failure contracts do not
+require an editor syntax error. `SharedPrograms/StyioTaskResourceSyntax` requires
+actual Tree-sitter, compares compiler token spans, and checks compiler parsing
+without recovery. Malformed-edit tests compare incremental and fresh trees,
+tokens, diagnostics, bracket matching and folds through repair. No error-node
+suppression or fixture-specific grammar branch is used.
+
 ## Build Toggle
 
 `STYIO_ENABLE_TREE_SITTER=ON` links the generated parser and upstream runtime into `styio_ide_core`.
 
-`STYIO_ENABLE_TREE_SITTER=OFF` keeps the old tolerant backend as the only syntax source. This mode is valid for bring-up or offline builds, but it should not be the default path for IDE development.
+`STYIO_ENABLE_TREE_SITTER=OFF` keeps the old edit-time snapshot backend available for bring-up or offline builds. Neither backend is a grammar authority: editor snapshots may expose tokens, nodes, ranges, and diagnostics, but accepted syntax must still be proven by the hand-written nightly compiler parser through the compiler-owned syntax service.
 
 ## Incremental Reuse Contract
 

@@ -1,0 +1,84 @@
+/* CLRS 23.2 Prim MST/forest total weight (undirected; all components).
+   Input: [n, m, u1,v1,w1, ..., then n in_mst + n key workspace zeros]
+   Styio: dense Prim over components (C++ ignores workspace). */
+values <- @stdin: list[i32]
+answer = 0
+INF = 1000000000
+
+?(values.length >= 2) => {
+    n = values[0]
+    m = values[1]
+    edge_end = 2 + m * 3
+    need = edge_end + n + n
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            in_base = edge_end
+            key_base = edge_end + n
+            [0..n-1] >> #(i) => {
+                values[in_base + i] = 0
+            }
+            total = 0
+            remaining = n
+
+            [0..n-1] >> #(comp) => {
+                ?(remaining > 0) => {
+                    start = -1
+                    [0..n-1] >> #(i) => {
+                        ?(start < 0 && values[in_base + i] == 0) => {
+                            start = i
+                        }
+                    }
+                    ?(start >= 0) => {
+                        [0..n-1] >> #(i) => {
+                            values[key_base + i] = INF
+                        }
+                        values[key_base + start] = 0
+
+                        [0..n-1] >> #(iter) => {
+                            ?(remaining > 0) => {
+                                u = -1
+                                best = INF
+                                [0..n-1] >> #(i) => {
+                                    ?(values[in_base + i] == 0) => {
+                                        k = values[key_base + i]
+                                        ?(k < best) => {
+                                            best = k
+                                            u = i
+                                        }
+                                    }
+                                }
+                                ?(u >= 0 && best < INF) => {
+                                    values[in_base + u] = 1
+                                    remaining = remaining - 1
+                                    ?(best > 0) => {
+                                        total = total + best
+                                    }
+                                    // relax neighbors via scanning edges both ways
+                                    [0..m-1] >> #(e) => {
+                                        a = values[2 + e * 3]
+                                        b = values[2 + e * 3 + 1]
+                                        w = values[2 + e * 3 + 2]
+                                        ?(a >= 0 && a < n && b >= 0 && b < n && a != b) => {
+                                            ?(a == u && values[in_base + b] == 0 && w < values[key_base + b]) => {
+                                                values[key_base + b] = w
+                                            }
+                                            ?(b == u && values[in_base + a] == 0 && w < values[key_base + a]) => {
+                                                values[key_base + a] = w
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            answer = total
+        }
+    }
+}
+
+>_(answer)

@@ -1,0 +1,4 @@
+# identity := (value) => value
+job = ||> {
+    <| identity
+}

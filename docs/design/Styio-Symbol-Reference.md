@@ -1,13 +1,34 @@
 # Styio Symbol Reference
 
-**Purpose:** 各符号的 **lexer token 名与物理含义速查表**；完整语义与章节论证见 [`Styio-Language-Design.md`](./Styio-Language-Design.md)。实现 `enum class TokenKind` 时以本文与 EBNF 对照。
+**Purpose:** Define the shared symbol-to-lexer-token lookup and physical symbol meanings; feature-specific decisions and lifecycle state live in the distributed [syntax feature SSOT collection](./syntax/features/README.md), while cross-feature semantics live in [`Styio-Language-Design.md`](./Styio-Language-Design.md).
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-10-01
 
 **Version:** 1.0-draft  
 **Date:** 2026-03-28
 
 This document serves as the definitive lookup table for all symbols in Styio. It is the primary reference for implementing `enum class TokenKind` in the C++ lexer.
+
+For why these symbols were chosen, see the [visual design intent](./Styio-Language-Design.md#why-symbols). Those everyday mnemonics motivate the notation; the contextual rules below define its actual meaning.
+
+## 0. Keyword-Free Token Contract
+
+Styio has no keyword token kind. Symbols receive dedicated token kinds;
+word-shaped source text receives `NAME`.
+
+| Source shape | Tokenization | Resolution rule |
+|--------------|--------------|-----------------|
+| ordinary word | `NAME(spelling)` | Resolve in the namespace selected by its structural position. |
+| `@import`, `@export`, `@extern` | `TOK_AT` + `NAME(spelling)` | The top-level `@` family may inspect the following name; the spelling remains an ordinary identifier outside that family. Executable callable imports require a validated sibling `.styioi`; the declaration itself carries no inline signature, generic body, or type arguments. |
+| `true`, `false` | `NAME(spelling)` | Expression parsing recognizes Boolean literal spellings; no keyword token is created. |
+| primitive or user type name | `NAME(spelling)` | Type position selects the type namespace; the lexer does not classify the word. |
+
+A fixed word cannot head a declaration, control form, or operator. New language
+surfaces must start from a symbol or an already-open structural context and
+must not add token kinds for words such as `type`, `record`, `variant`,
+`protocol`, or `impl`. The normative language rule is
+[Styio-Language-Design.md](./Styio-Language-Design.md) section 1.1.1; the formal
+lexer mirror is [Styio-EBNF.md](./Styio-EBNF.md) section 2.0.
 
 ---
 
@@ -15,7 +36,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Physical Semantics |
 |--------|------|----------------|-------------------|
-| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** Topology v2 resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Source-level bare `@` is not an authoring form. |
+| `@` | Resource Anchor | `TOK_AT` | **Before identifier + `:`:** resource topology resource declaration. **Before identifier + `(`:** resource with protocol. **Before `()` / `{...}`:** anonymous or empty resource. **Before `[`:** retired state-resource prefix, parse error. Source-level bare `@` is not an authoring form. |
 | `@stdout` | Standard Output | `TOK_AT` + `NAME("stdout")` | Built-in write-only stream resource (fd 1). Scalar write: `expr -> @stdout`; iterable write: `items >> @stdout`. |
 | `@stderr` | Standard Error | `TOK_AT` + `NAME("stderr")` | Built-in write-only stream resource (fd 2, unbuffered). Scalar write: `expr -> @stderr`; iterable write: `items >> @stderr`. |
 | `@stdin` | Standard Input | `TOK_AT` + `NAME("stdin")` | Built-in read-only stream resource (fd 0). Iterate via `@stdin >> #(line) => {...}`. Internal declaration forms use `@ stdin := #() => { ... }` with `{ <\|[>_] }`, `{ <\|(>_) }`, and expanded `{ <\| <- [>_] }`. Legacy `(<< @stdin)` is compatibility-only, not canonical design spelling. |
@@ -27,9 +48,9 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics | Example |
 |--------|------|----------------|-----------|---------|
-| `>>` | Pipe / Iterate / Resource-Write Shorthand | `TOK_PIPE` | **Before iterator tail:** push pulse from source into consumer. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, or `@stderr`:** iterable text serialization only; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
-| `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block. **Before `[`:** launch independent task blocks and bind each entry name to a task handle. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
-| `?\|` | Await / Freeze | `AWAIT_PIPE` | **With source:** await or pull a task/future handle into a newly declared typed local, with optional `\| fallback` on runtime failure or absence. **Without source:** reserved bare continuation freeze; parsed but fail-closed until continuation lowering lands. | `?\| job -> value: i64`, `?\| job -> value: i64 \| 0`, `?\| -> input: i64` |
+| `>>` | Pipe / Iterate / Resource-Write Shorthand | `ITERATOR` | **Before iterator tail:** treat the left side as an iterable or pulse source, advance it one item at a time, and push each item as a pulse into the right-side channel/consumer; enter a block-entry snapshot when the consumer is a block. **Before resource atom (`@file(...)`, `@stdout`, `@stderr`, `@stdin`)**: parse as `resource_write` shorthand. **Before `[>_]`, `@stdout`, `@stderr`, or `@file(...)`:** iterable text serialization only, one item per pulse; plain strings must use `->` or explicit `text.lines() >> ...`. `@stdin` remains semantically read-only for data flow. | `prices >> #(p) => { ... }`, `items >> @stdout`, `text.lines() >> [>_]` |
+| `\|\|>` | Task Launch / Task Group | `TASK_LAUNCH` | **Before `{`:** construct one scheduled task block and enter a task snapshot context. **Before `[`:** launch independent task blocks and bind each entry name to a task handle; each entry block is its own snapshot/commit stage. | `job = \|\|> { <\| 42 }`, `\|\|> [ t1 := { <\| 1 } ]` |
+| `?\|` | Resource Eval / Await / Freeze | `AWAIT_PIPE` | **Before resource operation:** settle the resource effect at that source site; without fallback, failure raises immediately; with `\| fallback`, recovery enters normal type inference; with `\| effect => handler`, only the named typed effect is handled. Handler chains are allowed. `\| ...` is an audited discard only for standalone statements: it settles the resource operation, discards business recovery, produces no value, and continues with the next statement. `\| effect => @()` is rejected because `@()` is a resource sink, not an executable empty action. **With task source:** await or pull a task/future handle into a newly declared typed local through the same effect-evaluation rule. **Without source:** reserved bare continuation freeze; parsed but fail-closed until continuation lowering lands. | `?\| @("log.txt").close()`, `?\| res -> msg_queue \| backpressure => do_something()`, `?\| res -> msg_queue \| ...`, `?\| close_log() \| cleanup_failure => report_cleanup()`, `?\| job -> value: i64`, `?\| job -> value: i64 \| 0`, `?\| -> input: i64` |
 | `->` | Forward / Redirect / Resource Sink | `TOK_ARROW_RIGHT` | Redirect data to a physical destination or flow a produced value into a named resource sink | `ma5 -> @database(...)`, `price -> @prices` |
 | `<-` | Acquire / Pull | `TOK_ARROW_LEFT` | Extract or acquire from a resource; used in expanded stdin symbolic definition as `<\| <- [>_]`. | `f <- @file("data.txt")` |
 | `<<` | Copy / Snapshot / Compatibility Pull | `TOK_SHIFT_BACK` | Explicit resource copy or snapshot, e.g. `snapshot << @price[...]`. Retired history-probe selector families remain rejected. **`(<< @res)`:** compatibility instant pull only. |
@@ -46,7 +67,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 |--------|------|----------------|-----------|-----------|
 | `<~` | Reserved Wave Left | `TOK_WAVE_LEFT` | Reserved | Tokenized for future reassignment; parser rejects active use |
 | `~>` | Reserved Wave Right | `TOK_WAVE_RIGHT` | Reserved | Tokenized for future reassignment; parser rejects active use |
-| `\|` | Fallback / Else | `TOK_PIPE_SINGLE` | — | Else-branch for guard conditionals; fallback for runtime absence recovery |
+| `\|` | Value Fallback / Else | `TOK_PIPE_SINGLE` | — | Else-branch for guard conditionals and value-level runtime absence recovery. It is not resource fallback; resource fallback is `?\| operation \| fallback`. |
 
 ---
 
@@ -62,11 +83,14 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `[?, cond]` | Retired Predicate Guard | Inactive old syntax | Use `?(cond) => value \| fallback` or `?(cond) => { ... }` |
 | `[?=, val]` | Retired Equality Probe | Inactive old syntax | Use `?=` match blocks |
 | Retired history-probe selector | Retired History Probe | Inactive old syntax | Use resource-object selectors such as `@price[-1]` and `@price[-3..]` |
-| `[avg, n]` | Moving Average | Postfix on stream | Compiler intrinsic: O(1) sliding sum |
-| `[max, n]` | Rolling Maximum | Postfix on stream | Compiler intrinsic: monotonic queue |
-| `[min, n]` | Rolling Minimum | Postfix on stream | Compiler intrinsic: monotonic queue |
-| `[std, n]` | Rolling Std Dev | Postfix on stream | Compiler intrinsic: Welford's algorithm |
-| `[rsi, n]` | RSI Oscillator | Postfix on stream | Compiler intrinsic: Wilder SMMA |
+| `[avg, n]` | Moving Average | Postfix on stream/state input | Active compiler intrinsic for the i64 pulse-ledger path; see `Styio-StdLib-Intrinsics.md` for limits |
+| `[max, n]` | Rolling Maximum | Postfix on stream/state input | Active compiler intrinsic for the i64 pulse-ledger path; see `Styio-StdLib-Intrinsics.md` for limits |
+| `[min, n]`, `[std, n]`, `[ema, n]`, `[rsi, n]` | Deferred series intrinsics | Not active syntax contract | Design candidates only until parser, Sema, lowering, runtime/codegen, and tests land |
+
+`x[a..b]` is a postfix slice selector because it has a left-hand receiver. By
+contrast, naked `a..b` is an expression-level range, and `[a..b]` with no
+left-hand receiver is a materialized range source rather than a list literal
+containing one range expression.
 
 ---
 
@@ -74,12 +98,14 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics |
 |--------|------|----------------|-----------|
-| `?=` | Pattern Match | `TOK_MATCH` | Trigger pattern matching block |
-| `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **As an expression:** `?(expr) => value \| fallback`. **As a statement:** `?(expr) => { ... }` with optional fallback `\| { ... }`. **After `[...] >>`:** `?(expr) =>` → conditioned loop (`InfiniteLoopAST`). |
-| `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body |
-| `^` ... `^^^^` | Break | `BREAK_TOKEN` | Exit the nearest enclosing loop; count is normalized to 1 |
-| `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN(n)` | Skip to next iteration, `n-1` levels up |
+| `?=` | Pattern Match | `TOK_MATCH` | Trigger pattern matching block; the match body and selected arm block follow block-entry snapshot/commit semantics |
+| `?(expr)` | Guard / Paren marker | `TOK_QUEST` + `(` | **As an expression:** `?(expr) => value \| fallback`. **As a statement:** `?(expr) => { ... }` with optional fallback `\| { ... }`; block branches follow block-entry snapshot/commit semantics. **After `[...] >>`:** `?(expr) =>` → conditioned loop (`InfiniteLoopAST`). |
+| `=>` | Map / Then | `TOK_FAT_ARROW` | Connects pattern/param to result/body; when the result is a block, it creates a snapshot/commit block stage |
+| `^^`, conventionally `^^^`, or longer | Break | `BREAK_TOKEN` | At least two contiguous carets; exit the nearest enclosing loop; count is normalized to 1 |
+| `>>` ... `>>>>` | Continue | `CONTINUE_TOKEN` | Standalone statement only. Skip the rest of the current block for this pulse/session and resume at the next pulse/session of the nearest continue-capable domain; token length is ignored. |
 | `[...]` | Infinite Generator / All Selector | `[` + dot run + `]` | Without a left side, produces an infinite pulse stream. After a value/resource, selects all currently enumerable values. |
+| `start..end` | Range Expression | `ELLIPSIS` | Naked expression-level range. It is not a list literal. Step range spelling is reserved and not active syntax. |
+| `[start..end]` | Materialized Range | `[` + `ELLIPSIS` + `]` | Materializes `start..end` as an iterable `list[i64]` source. `[start..end] >> #(x) => { ... }` pushes each element into the consumer one at a time. |
 | `&` | Stream Zip | `TOK_AMPERSAND` | Align two streams (both must deliver) |
 
 ---
@@ -88,8 +114,8 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | C++ Token Kind | Semantics |
 |--------|------|----------------|-----------|
-| `=` | Assignment | `TOK_ASSIGN` | Bind value (overwrite per pulse in stream context) |
-| `:=` | State Binding | `TOK_BIND` | Establish reactive/persistent binding |
+| `=` | Mutable Binding | `TOK_ASSIGN` | Bind or rebind a mutable name. Under `#`, rebinds a callable or operation-channel endpoint. |
+| `:=` | Final Binding | `TOK_BIND` | Bind a final name. Under `#`, binds a final callable or operation-channel endpoint that cannot be redefined. |
 | `+=` | Aggregate Assign | `TOK_PLUS_ASSIGN` | Accumulate (semi-ring fold in stream context) |
 | `-=` | Subtract Assign | `TOK_MINUS_ASSIGN` | Subtract-accumulate |
 | `*=` | Multiply Assign | `TOK_STAR_ASSIGN` | Multiply-accumulate |
@@ -101,14 +127,45 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 
 | Symbol | Name | Semantics |
 |--------|------|-----------|
-| `#` | Function Prefix | Introduces function/closure definition |
+| `#` | Callable / Operation-Channel Binding Prefix | Marks the binding target as callable or operable and combines with `=` or `:=`. It is not a resource prefix; resource identities stay in the `@` family. |
+| `#(T1, T2): R` | Monomorphic Callable Type | In type position, denotes one invariant callable value signature. A final noncapturing item, or a final explicit shared-borrow static closure, may freeze to this type only when every parameter and result type is concrete. |
 | `:` | Type Annotation | Binds a type to identifier (`a: i32`, `# f : f32 = ...`) |
-| `[]` | Type Argument List | In type position, applies type arguments: `list[i64]`, `dict[string, string]` |
+| `[]` | Type Application / Value Selector | In type position, applies type arguments: `list[i64]`, `dict[string, string]`. In value position, it remains a selector/index. It is neither a generic-binder suffix for callable names nor call-site specialization: `# name[T] ...` and `name[T](...)` are invalid as callable-generic forms. |
 | `__ : T := U` | Type Rewrite Rule | Two or more underscores define a type-pattern rewrite, e.g. `__ : list[T] := T..` |
 | `T\|n\|` | Exact Length Type | Sequence/cardinality type with exactly `n` values of `T` |
 | `T\|..n\|` | Recent Length Type | Recent-window type that keeps the latest `n` values of `T` |
 | `T..` / `T...` | Infinite Repetition Type | Unbounded repetition of `T`; two or more dots are equivalent |
 | `_` | Wildcard | Default/catch-all in pattern matching |
+
+`#` introduces a callable binding; it does not make the binding's inferred
+scheme itself a first-class value. A generalized callable name is valid at a
+direct named call such as `identity(1)`, or it may freeze under a complete
+monomorphic type such as
+`operation: #(i64): i64 := identity`. Without that context, bare storage,
+argument, return, collection, or capture positions remain rejected.
+
+The `#` in `#(T): R` is interpreted as a callable type head only in type
+position. It does not declare a callable, capture an environment, introduce a
+generic binder, or select a native address. Callable values are final,
+allocation-free function references; callable types are invariant.
+
+`$(name, ...)` is declaration-context syntax, not a callable type modifier.
+Its list follows the callable signature and precedes the binding/body operator.
+Sema requires an exact capture set and derives shared-borrow,
+exclusive-borrow, or consume. The active static scalar slice permits shared
+capture escape, keeps exclusive capture direct-call-only, and rejects missing
+transfer, representation, or drop facts.
+
+No symbol introduces handle polymorphism. Inferred relation variables admit
+plain scalars and recursively plain materialized `list`/`dict` values only.
+`@` resources, streams, files, tasks, matrices, topology resources, and other
+capability-sensitive handles stay concrete and monomorphic.
+
+No symbol selects or owns a callable specialization. Ordinary direct calls
+create reachable compiler-owned mono items, and full content digests make
+their symbols deterministic across repeated compilation and call ordering.
+Source-level explicit instantiation, generic ownership annotations, and
+callable-address identity are not active syntax.
 
 ---
 
@@ -148,7 +205,7 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | Input | Resolution |
 |-------|------------|
 | `@` alone | Retired source-level undefined value |
-| `@ident : Type` | Topology v2 resource declaration |
+| `@ident : Type` | resource topology resource declaration |
 | `@ident(...)` | Resource with explicit protocol |
 | `@ident{...}` | Invalid explicit-resource spelling |
 | `@{...}` or `@(...)` | Anonymous resource (auto-detect) |
@@ -157,19 +214,22 @@ This document serves as the definitive lookup table for all symbols in Styio. It
 | `$(...)` | Capture list (function context) |
 | `$"..."` | Format string |
 | `>>` after expr, before `#`/`{`/ident | Pipe operator |
-| `>>` as standalone statement | Continue (1 level) |
-| `>>>` standalone | Continue (2 levels) |
+| `>>`, `>>>`, `>>>>`, ... as standalone statement | Continue; token length is ignored |
 | Retired history-probe selector family inside brackets | Use `@name[-1]`, `@name[-3..]`, or `@name[...]` |
 | `list[T]` in type position | Type argument list |
 | `x[i]` / `x[a..b]` after indexable value | Index or slice selector |
+| `start..end` without a left-hand receiver | Range expression |
+| `[start..end]` without a left-hand receiver | Materialized range source, not a single-element list literal |
+| `[start..end..step]` | Reserved step range spelling; rejected by active syntax |
 | `T..` / `T...` in type position | Infinite repetition type suffix |
 | `T|n|` / `T|..n|` in type position | Exact-length or recent-window type suffix |
 | `(<- @res)` in parens | Immediate pull |
 | `(<< @res)` in parens | Legacy compatibility pull |
 | `<~` | Reserved token (always 2-char token); parser rejects active use |
 | `~>` | Reserved token (always 2-char token); parser rejects active use |
-| `^` contiguous | Break (count ignored; always nearest loop) |
-| `^^ ^^` with space | **Illegal** — two separate breaks, rejected by parser |
+| `^` alone | **Illegal** — use at least `^^`; `^^^` is conventional |
+| `^^` or a longer contiguous run | Break (count ignored; always nearest loop) |
+| `^ ^`, `^/*gap*/^`, `^^ ^^`, or `^^/*gap*/^^` | **Illegal** — trivia never joins runs and adjacent same-statement breaks are rejected |
 
 ---
 
@@ -200,5 +260,5 @@ TOK_DOLLAR_STRING,   // $"..."
 TOK_DBQUESTION,      // ??
 TOK_AMPERSAND,       // & (stream zip)
 TOK_BREAK,           // ^...^ normalized to nearest-loop break
-TOK_CONTINUE(int n), // >>...> with depth
+TOK_CONTINUE,        // >>...> standalone continue; count ignored
 ```

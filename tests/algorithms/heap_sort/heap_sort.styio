@@ -1,0 +1,53 @@
+/* CLRS heapsort: in-place max-heap sift-down.
+   Bounds checks use short-circuit `&&` so `right < n && l[right]` is safe. */
+l <- @stdin: list[i32]
+n = l.length
+
+?(n > 1) => {
+    start = n / 2 - 1
+    [...] >> ?(start >= 0) => {
+        root = start
+        [...] >> ?(root + root + 1 < n) => {
+            child = root + root + 1
+            right = child + 1
+            ?(right < n && l[right] > l[child]) => {
+                child = right
+            }
+            ?(l[child] > l[root]) => {
+                t = l[root]
+                l[root] = l[child]
+                l[child] = t
+                root = child
+            } | {
+                root = n
+            }
+        }
+        start = start - 1
+    }
+
+    end = n - 1
+    [...] >> ?(end > 0) => {
+        t = l[0]
+        l[0] = l[end]
+        l[end] = t
+        root = 0
+        [...] >> ?(root + root + 1 < end) => {
+            child = root + root + 1
+            right = child + 1
+            ?(right < end && l[right] > l[child]) => {
+                child = right
+            }
+            ?(l[child] > l[root]) => {
+                t2 = l[root]
+                l[root] = l[child]
+                l[child] = t2
+                root = child
+            } | {
+                root = end
+            }
+        }
+        end = end - 1
+    }
+}
+
+>_(l)

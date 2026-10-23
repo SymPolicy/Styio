@@ -1,0 +1,33 @@
+/* LCP of suffixes i and j (C++ SA+Kasai; Styio: naive compare).
+   Input: [n, i, j, s0..s{n-1}]
+   Malformed -> -1; i==j -> n-i. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 3) => {
+    n = values[0]
+    i = values[1]
+    j = values[2]
+    ?(n > 0 && i >= 0 && j >= 0 && i < n && j < n && values.length >= 3 + n) => {
+        ?(i == j) => {
+            answer = n - i
+        } | {
+            L = 0
+            matching = 1
+            [...] >> ?(matching == 1) => {
+                ?(i + L < n && j + L < n) => {
+                    ?(values[3 + i + L] == values[3 + j + L]) => {
+                        L = L + 1
+                    } | {
+                        matching = 0
+                    }
+                } | {
+                    matching = 0
+                }
+            }
+            answer = L
+        }
+    }
+}
+
+>_(answer)

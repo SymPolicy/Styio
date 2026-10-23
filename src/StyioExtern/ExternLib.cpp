@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -7,12 +9,13 @@
 #include <atomic>
 #include <condition_variable>
 #include <cmath>
-#include <deque>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,33 +23,39 @@
 #include <vector>
 
 #include "ExternLib.hpp"
-#include "StyioConfig/NanoProfile.hpp"
+#include "StyioServices/StyioConfig/NanoProfile.hpp"
 #include "StyioRuntime/HandleTable.hpp"
+#include "StyioRuntime/ObservationBuffer.hpp"
+#include "StyioRuntime/ReadyQueue.hpp"
+#include "StyioRuntime/TaskWorkerCount.hpp"
 
 namespace {
 
+constexpr std::size_t kStyioLineBufferSize = 65536;
+using StyioFileReadBuffers =
+  std::array<std::array<char, kStyioLineBufferSize>, 2>;
+
 /* Alternating buffers so two consecutive reads (e.g. zip of two files) keep both lines valid. */
-thread_local char g_read_line_bufs[2][65536];
+thread_local std::unique_ptr<StyioFileReadBuffers> g_read_line_bufs;
 thread_local int g_read_line_buf_which = 0;
 thread_local StyioHandleTable g_handle_table;
 thread_local std::unordered_set<const void*> g_owned_cstr_ptrs;
-thread_local bool g_runtime_error = false;
-thread_local std::string g_runtime_error_message;
-thread_local std::string g_runtime_error_subcode;
-thread_local StyioRuntimeLogSink g_runtime_log_sink = nullptr;
 
 constexpr const char* kRuntimeSubcodeInvalidFileHandle = "STYIO_RUNTIME_INVALID_FILE_HANDLE";
 constexpr const char* kRuntimeSubcodeFilePathNull = "STYIO_RUNTIME_FILE_PATH_NULL";
 constexpr const char* kRuntimeSubcodeFileOpenRead = "STYIO_RUNTIME_FILE_OPEN_READ";
 constexpr const char* kRuntimeSubcodeFileOpenWrite = "STYIO_RUNTIME_FILE_OPEN_WRITE";
+constexpr const char* kRuntimeSubcodeFileCleanupFailure = "STYIO_RUNTIME_FILE_CLEANUP_FAILURE";
 constexpr const char* kRuntimeSubcodeInvalidListHandle = "STYIO_RUNTIME_INVALID_LIST_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidDictHandle = "STYIO_RUNTIME_INVALID_DICT_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidMatrixHandle = "STYIO_RUNTIME_INVALID_MATRIX_HANDLE";
+constexpr const char* kRuntimeSubcodeInvalidTupleHandle = "STYIO_RUNTIME_INVALID_TUPLE_HANDLE";
 constexpr const char* kRuntimeSubcodeInvalidTaskHandle = "STYIO_RUNTIME_INVALID_TASK_HANDLE";
 constexpr const char* kRuntimeSubcodeTaskConsumed = "STYIO_RUNTIME_TASK_CONSUMED";
 constexpr const char* kRuntimeSubcodeListParse = "STYIO_RUNTIME_LIST_PARSE";
 constexpr const char* kRuntimeSubcodeListIndex = "STYIO_RUNTIME_LIST_INDEX";
 constexpr const char* kRuntimeSubcodeListElemKind = "STYIO_RUNTIME_LIST_ELEM_KIND";
+constexpr const char* kRuntimeSubcodeAllocation = "STYIO_RUNTIME_ALLOCATION";
 constexpr const char* kRuntimeSubcodeDictKey = "STYIO_RUNTIME_DICT_KEY";
 constexpr const char* kRuntimeSubcodeMatrixIndex = "STYIO_RUNTIME_MATRIX_INDEX";
 constexpr const char* kRuntimeSubcodeMatrixShape = "STYIO_RUNTIME_MATRIX_SHAPE";
@@ -61,6 +70,8 @@ enum class StyioListElemKind : std::uint8_t
   String = 3,
   ListHandle = 4,
   DictHandle = 5,
+  Char = 6,
+  MatrixHandle = 7,
 };
 
 struct StyioListBase
@@ -90,6 +101,15 @@ struct StyioListBool : public StyioListBase
   }
 
   std::vector<int64_t> elems;
+};
+
+struct StyioListChar : public StyioListBase
+{
+  StyioListChar() :
+      StyioListBase(StyioListElemKind::Char) {
+  }
+
+  std::vector<int8_t> elems;
 };
 
 struct StyioListF64 : public StyioListBase
@@ -123,6 +143,15 @@ struct StyioListDictHandle : public StyioListBase
 {
   StyioListDictHandle() :
       StyioListBase(StyioListElemKind::DictHandle) {
+  }
+
+  std::vector<int64_t> elems;
+};
+
+struct StyioListMatrixHandle : public StyioListBase
+{
+  StyioListMatrixHandle() :
+      StyioListBase(StyioListElemKind::MatrixHandle) {
   }
 
   std::vector<int64_t> elems;
@@ -167,6 +196,92 @@ struct StyioMatrixF64 : public StyioMatrixBase
   std::vector<double> elems;
 };
 
+template <typename Function>
+void
+with_matrix_f64_elements(const StyioMatrixBase* matrix, Function&& function) {
+  if (matrix->elem_kind == StyioMatrixElemKind::F64) {
+    function(static_cast<const StyioMatrixF64*>(matrix)->elems);
+  }
+  else {
+    function(static_cast<const StyioMatrixI64*>(matrix)->elems);
+  }
+}
+
+template <typename Function>
+void
+with_matrix_f64_element_pair(
+  const StyioMatrixBase* left,
+  const StyioMatrixBase* right,
+  Function&& function
+) {
+  with_matrix_f64_elements(
+    left,
+    [&](const auto& left_elements)
+    {
+      with_matrix_f64_elements(
+        right,
+        [&](const auto& right_elements)
+        {
+          function(left_elements, right_elements);
+        });
+    });
+}
+
+template <typename Left, typename Right, typename Output>
+void
+matrix_multiply_blocked(
+  const std::vector<Left>& left,
+  const std::vector<Right>& right,
+  std::vector<Output>& output,
+  std::size_t rows,
+  std::size_t inner,
+  std::size_t columns
+) {
+  constexpr std::size_t kRowBlock = 4;
+  constexpr std::size_t kColumnBlock = 64;
+  for (std::size_t row_base = 0; row_base < rows; row_base += kRowBlock) {
+    const std::size_t row_end = std::min(rows, row_base + kRowBlock);
+    for (std::size_t column_base = 0;
+         column_base < columns;
+         column_base += kColumnBlock) {
+      const std::size_t column_end =
+        std::min(columns, column_base + kColumnBlock);
+      for (std::size_t k = 0; k < inner; ++k) {
+        const Right* right_row = right.data() + k * columns;
+        for (std::size_t row = row_base; row < row_end; ++row) {
+          Output* output_row = output.data() + row * columns;
+          const Output left_value =
+            static_cast<Output>(left[row * inner + k]);
+          for (std::size_t column = column_base;
+               column < column_end;
+               ++column) {
+            output_row[column] +=
+              left_value * static_cast<Output>(right_row[column]);
+          }
+        }
+      }
+    }
+  }
+}
+
+struct StyioTransparentStringHash
+{
+  using is_transparent = void;
+
+  std::size_t operator()(std::string_view value) const noexcept {
+    return std::hash<std::string_view>{}(value);
+  }
+};
+
+struct StyioTransparentStringEqual
+{
+  using is_transparent = void;
+
+  bool operator()(std::string_view left, std::string_view right) const noexcept {
+    return left == right;
+  }
+};
+
 enum class StyioTaskValueKind : std::uint8_t
 {
   I64 = 1,
@@ -187,7 +302,6 @@ struct StyioTaskSchedulerProfileCounters
   std::atomic<int64_t> blocking_pulls{0};
   std::atomic<int64_t> failed_pulls{0};
   std::atomic<int64_t> invalid_pulls{0};
-  std::atomic<int64_t> max_queue_depth{0};
 
   void reset() {
     ready_tasks.store(0, std::memory_order_relaxed);
@@ -201,7 +315,6 @@ struct StyioTaskSchedulerProfileCounters
     blocking_pulls.store(0, std::memory_order_relaxed);
     failed_pulls.store(0, std::memory_order_relaxed);
     invalid_pulls.store(0, std::memory_order_relaxed);
-    max_queue_depth.store(0, std::memory_order_relaxed);
   }
 };
 
@@ -215,13 +328,7 @@ task_scheduler_profile_enabled() {
 
 void
 clear_runtime_error_state() {
-  g_runtime_error = false;
-  if (!g_runtime_error_message.empty()) {
-    g_runtime_error_message.clear();
-  }
-  if (!g_runtime_error_subcode.empty()) {
-    g_runtime_error_subcode.clear();
-  }
+  styio::runtime::clear_error_state();
 }
 
 void
@@ -231,20 +338,49 @@ task_profile_inc(std::atomic<int64_t>& counter) {
   }
 }
 
-void
-task_profile_update_max(std::atomic<int64_t>& counter, int64_t value) {
-  if (!task_scheduler_profile_enabled()) {
-    return;
+struct StyioTask;
+/* Defined after StyioTaskScheduler below. */
+void styio_task_complete(StyioTask* task);
+std::mutex g_task_graph_mu;
+void styio_task_request_launch(StyioTask* task, bool demand = false);
+int64_t stash_task(StyioTask* task);
+thread_local StyioTask* t_running_task = nullptr;
+// One outstanding wait episode per thread; a blocking thread cannot nest a
+// second wait, so a thread-local id pairs begin/end without writing shared
+// task state from arbitrary pulling threads.
+thread_local styio::observable::PackedInstance t_wait_id{};
+thread_local std::uint64_t t_wait_session = 0;
+void observe_started(StyioTask* task);
+void observe_completion(StyioTask* task, bool failed);
+void observe_enqueued(StyioTask* task);
+
+/* Restores the calling thread's runtime error slot around a nested run. A
+   nested task executes inline on its caller's thread (wait assist or the
+   queue-full work-first dispatch); without this guard the child's own error
+   handling would clear the caller's not-yet-propagated error, so a failing
+   parent could settle as success depending on scheduling. Inactive for a
+   top-level run, whose thread slot is fresh by contract. */
+struct ParentTaskErrorGuard
+{
+  explicit ParentTaskErrorGuard(bool nested) :
+      nested_(nested) {
+    if (nested_) {
+      saved_ = styio::runtime::take_error();
+    }
   }
-  int64_t observed = counter.load(std::memory_order_relaxed);
-  while (observed < value
-         && !counter.compare_exchange_weak(
-              observed,
-              value,
-              std::memory_order_relaxed,
-              std::memory_order_relaxed)) {
+
+  ~ParentTaskErrorGuard() {
+    if (nested_) {
+      styio::runtime::restore_error(std::move(saved_));
+    }
   }
-}
+
+  ParentTaskErrorGuard(const ParentTaskErrorGuard&) = delete;
+  ParentTaskErrorGuard& operator=(const ParentTaskErrorGuard&) = delete;
+
+  bool nested_;
+  styio::runtime::RuntimeErrorSnapshot saved_;
+};
 
 struct StyioTask
 {
@@ -266,11 +402,37 @@ struct StyioTask
   void* ctx = nullptr;
   std::atomic<bool> ready{false};
   std::atomic<bool> consumed{false};
+  /* Explicit `t1 => t2` happens-before edges hold `t2` out of the ready queue
+     until every registered predecessor has settled. `pending_deps` counts
+     edges declared at runtime; `launch_requested` marks that the task may run
+     as soon as the count drains (edge site, pull, or scope-end backstop). */
+  // Graph state is protected by g_task_graph_mu; task bodies run independently.
+  int64_t pending_deps = 0;
+  bool launch_requested = false;
+  bool enqueued = false;
+  std::atomic<unsigned> references{1};
+  std::vector<StyioTask*> successors;
+  std::vector<StyioTask*> predecessors;
   bool failed = false;
   std::string error_message;
   std::string error_subcode;
+  bool observation_live = false;
+  std::uint32_t descriptor_index = styio::observable::kInvalidDescriptorIndex;
+  styio::observable::PackedInstance instance{};
+  styio::observable::EventReference created_event{};
+  styio::observable::EventReference enqueue_event{};
+  styio::observable::EventReference completion_event{};
+  styio::observable::PackedInstance runnable_wait_id{};
+  std::uint64_t wait_begin_ns = 0;
 
   void run() noexcept {
+    StyioTask* previous_task = t_running_task;
+    t_running_task = this;
+    /* Nested execution shares this thread with the calling task body: capture
+       the caller's pending error before this task clears the slot, and let
+       this task's own error settle only to itself. */
+    ParentTaskErrorGuard caller_error(previous_task != nullptr);
+    observe_started(this);
     task_profile_inc(g_task_scheduler_profile_counters.started_tasks);
     int64_t local_i64 = 0;
     double local_f64 = 0.0;
@@ -297,17 +459,19 @@ struct StyioTask
             const char* raw = cstr_fn(ctx);
             if (raw != nullptr) {
               local_str = raw;
+              styio_free_cstr(raw);
             }
           }
           break;
       }
-      if (g_runtime_error) {
+      const styio::runtime::RuntimeErrorSnapshot runtime_error =
+        styio::runtime::take_error();
+      if (runtime_error.has_error) {
         local_failed = true;
-        local_error = !g_runtime_error_message.empty()
-          ? g_runtime_error_message
+        local_error = !runtime_error.message.empty()
+          ? runtime_error.message
           : std::string("task runtime error");
-        local_subcode = g_runtime_error_subcode;
-        clear_runtime_error_state();
+        local_subcode = runtime_error.subcode;
       }
     }
     catch (const std::exception& ex) {
@@ -332,17 +496,257 @@ struct StyioTask
     failed = local_failed;
     error_message = std::move(local_error);
     error_subcode = std::move(local_subcode);
-    ready.store(true, std::memory_order_release);
+    observe_completion(this, local_failed);
     task_profile_inc(g_task_scheduler_profile_counters.completed_tasks);
-    ready.notify_all();
+    styio_task_complete(this);
+    t_running_task = previous_task;
+    // The executor owns a reference through its final access, including notify.
+    if (references.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      delete this;
+    }
   }
 };
+
+/* Defined below StyioTaskScheduler; declared here so the wait path can help
+   drain ready work without depending on the class definition order. */
+bool styio_scheduler_assist_one_ready_task();
 
 void
 wait_until_task_ready(StyioTask* task) {
   while (!(*task).ready.load(std::memory_order_acquire)) {
+    /* A thread that is itself executing a task body must never stall its own
+       ready queue. With one configured worker the blocked thread is the only
+       executor, so waiting without helping would strand every
+       dependency-satisfied task behind the waiter and the awaited result could
+       never arrive. Executing one queued ready task inline is the same
+       work-first policy enqueue already applies when the queue is full. */
+    if (t_running_task != nullptr && styio_scheduler_assist_one_ready_task()) {
+      continue;
+    }
     (*task).ready.wait(false, std::memory_order_acquire);
   }
+}
+
+bool observation_live() {
+  return styio::runtime::observation::session_active();
+}
+
+void emit_obs(styio::runtime::observation::EmitBuilder builder) {
+  if (!observation_live()) {
+    return;
+  }
+  (void)styio::runtime::observation::emit_event(builder);
+}
+
+void prepare_task_observation(StyioTask* task, std::uint32_t descriptor_index) {
+  if (!observation_live() || task == nullptr) {
+    return;
+  }
+  task->observation_live = true;
+  task->descriptor_index = descriptor_index;
+  task->instance = styio::runtime::observation::allocate_instance();
+  task->created_event = styio::runtime::observation::next_event_ref();
+  styio::runtime::observation::EmitBuilder created;
+  created.kind = styio::observable::EventKind::TaskCreated;
+  created.descriptor_index = descriptor_index;
+  created.instance = task->instance;
+  created.event_ref = task->created_event;
+  emit_obs(created);
+}
+
+void observe_enqueued(StyioTask* task) {
+  if (!observation_live() || task == nullptr || !task->observation_live) {
+    return;
+  }
+  task->enqueue_event = styio::runtime::observation::next_event_ref();
+  styio::runtime::observation::EmitBuilder enqueued;
+  enqueued.kind = styio::observable::EventKind::TaskEnqueued;
+  enqueued.descriptor_index = task->descriptor_index;
+  enqueued.instance = task->instance;
+  enqueued.event_ref = task->enqueue_event;
+  enqueued.has_cause = true;
+  enqueued.cause = task->created_event;
+  enqueued.cause_subject = task->instance;
+  enqueued.cause_kind = styio::observable::CausalKind::Spawn;
+  emit_obs(enqueued);
+  task->runnable_wait_id = styio::runtime::observation::next_wait_id();
+  styio::runtime::observation::EmitBuilder wait_begin;
+  wait_begin.kind = styio::observable::EventKind::WaitBegin;
+  wait_begin.descriptor_index = task->descriptor_index;
+  wait_begin.instance = task->instance;
+  wait_begin.wait_id = task->runnable_wait_id;
+  wait_begin.waiter = task->instance;
+  wait_begin.wait_reason = styio::observable::WaitReason::Runnable;
+  emit_obs(wait_begin);
+}
+
+void observe_started(StyioTask* task) {
+  if (!observation_live() || task == nullptr || !task->observation_live) {
+    return;
+  }
+  styio::runtime::observation::EmitBuilder started;
+  started.kind = styio::observable::EventKind::TaskDequeued;
+  started.descriptor_index = task->descriptor_index;
+  started.instance = task->instance;
+  started.has_cause = true;
+  started.cause = task->enqueue_event.seq == 0 ? task->created_event : task->enqueue_event;
+  started.cause_subject = task->instance;
+  started.cause_kind = styio::observable::CausalKind::Dispatch;
+  emit_obs(started);
+  styio::runtime::observation::EmitBuilder running;
+  running.kind = styio::observable::EventKind::TaskStarted;
+  running.descriptor_index = task->descriptor_index;
+  running.instance = task->instance;
+  running.has_cause = true;
+  running.cause = started.cause;
+  running.cause_subject = task->instance;
+  running.cause_kind = styio::observable::CausalKind::Dispatch;
+  emit_obs(running);
+  styio::runtime::observation::EmitBuilder wait_end;
+  wait_end.kind = styio::observable::EventKind::WaitEnd;
+  wait_end.descriptor_index = task->descriptor_index;
+  wait_end.instance = task->instance;
+  wait_end.wait_id = task->runnable_wait_id;
+  wait_end.waiter = task->instance;
+  wait_end.wait_reason = styio::observable::WaitReason::Runnable;
+  wait_end.wait_resolution = styio::observable::WaitResolution::Ready;
+  wait_end.has_cause = true;
+  wait_end.cause = started.cause;
+  wait_end.cause_subject = task->instance;
+  wait_end.cause_kind = styio::observable::CausalKind::Dispatch;
+  emit_obs(wait_end);
+}
+
+void observe_completion(StyioTask* task, bool failed) {
+  if (!observation_live() || task == nullptr || !task->observation_live) {
+    return;
+  }
+  task->completion_event = styio::runtime::observation::next_event_ref();
+  styio::runtime::observation::EmitBuilder done;
+  done.kind = failed ? styio::observable::EventKind::TaskFailed
+                     : styio::observable::EventKind::TaskCompleted;
+  done.descriptor_index = task->descriptor_index;
+  done.instance = task->instance;
+  done.event_ref = task->completion_event;
+  done.has_cause = true;
+  done.cause = task->created_event;
+  done.cause_subject = task->instance;
+  done.cause_kind = failed ? styio::observable::CausalKind::Failure
+                           : styio::observable::CausalKind::Completion;
+  emit_obs(done);
+}
+
+styio::runtime::ReadyQueueObservationHooks make_queue_hooks() {
+  styio::runtime::ReadyQueueObservationHooks hooks;
+  hooks.on_pressure = [](void*, std::size_t depth, std::size_t capacity) {
+    if (!observation_live()) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder pressure;
+    pressure.kind = styio::observable::EventKind::QueuePressure;
+    pressure.queue_depth = static_cast<std::uint32_t>(depth);
+    pressure.queue_capacity = static_cast<std::uint32_t>(capacity);
+    emit_obs(pressure);
+  };
+  hooks.on_producer_wait_begin = [](void*, std::size_t depth, std::size_t capacity) {
+    t_wait_id = {};
+    t_wait_session = styio::runtime::observation::session_epoch();
+    if (!observation_live()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    const auto wait_id = styio::runtime::observation::next_wait_id();
+    t_wait_id = wait_id;
+    styio::runtime::observation::EmitBuilder begin;
+    begin.kind = styio::observable::EventKind::WaitBegin;
+    begin.wait_id = wait_id;
+    begin.waiter = waiter != nullptr ? waiter->instance : styio::observable::PackedInstance{};
+    begin.wait_reason = styio::observable::WaitReason::Backpressure;
+    begin.queue_depth = static_cast<std::uint32_t>(depth);
+    begin.queue_capacity = static_cast<std::uint32_t>(capacity);
+    if (waiter != nullptr) {
+      begin.descriptor_index = waiter->descriptor_index;
+      begin.instance = waiter->instance;
+    }
+    emit_obs(begin);
+  };
+  hooks.on_producer_wait_end = [](void*, bool closed) {
+    const auto wait_id = std::exchange(t_wait_id, {});
+    const auto wait_session = std::exchange(t_wait_session, 0);
+    if (!observation_live()
+        || wait_session != styio::runtime::observation::session_epoch()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    if (wait_id.seq == 0) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder end;
+    end.kind = styio::observable::EventKind::WaitEnd;
+    end.wait_id = wait_id;
+    end.wait_reason = styio::observable::WaitReason::Backpressure;
+    end.wait_resolution = closed ? styio::observable::WaitResolution::Closed
+                                 : styio::observable::WaitResolution::Ready;
+    if (waiter != nullptr) {
+      end.waiter = waiter->instance;
+      end.descriptor_index = waiter->descriptor_index;
+      end.instance = waiter->instance;
+    }
+    emit_obs(end);
+  };
+  hooks.on_consumer_wait_begin = [](void*) {
+    t_wait_id = {};
+    t_wait_session = styio::runtime::observation::session_epoch();
+    if (!observation_live()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    const auto wait_id = styio::runtime::observation::next_wait_id();
+    t_wait_id = wait_id;
+    styio::runtime::observation::EmitBuilder begin;
+    begin.kind = styio::observable::EventKind::WaitBegin;
+    begin.wait_id = wait_id;
+    begin.waiter = waiter != nullptr ? waiter->instance : styio::observable::PackedInstance{};
+    begin.wait_reason = styio::observable::WaitReason::Runnable;
+    if (waiter != nullptr) {
+      begin.descriptor_index = waiter->descriptor_index;
+      begin.instance = waiter->instance;
+    }
+    emit_obs(begin);
+  };
+  hooks.on_consumer_wait_end = [](void*, bool got_item) {
+    const auto wait_id = std::exchange(t_wait_id, {});
+    const auto wait_session = std::exchange(t_wait_session, 0);
+    if (!observation_live()
+        || wait_session != styio::runtime::observation::session_epoch()) {
+      return;
+    }
+    StyioTask* waiter = t_running_task;
+    if (wait_id.seq == 0) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder end;
+    end.kind = styio::observable::EventKind::WaitEnd;
+    end.wait_id = wait_id;
+    end.wait_reason = styio::observable::WaitReason::Runnable;
+    end.wait_resolution = got_item ? styio::observable::WaitResolution::Ready
+                                   : styio::observable::WaitResolution::Closed;
+    if (waiter != nullptr) {
+      end.waiter = waiter->instance;
+      end.descriptor_index = waiter->descriptor_index;
+      end.instance = waiter->instance;
+    }
+    emit_obs(end);
+  };
+  hooks.on_close = [](void*) {
+    if (!observation_live()) {
+      return;
+    }
+    styio::runtime::observation::EmitBuilder closed;
+    closed.kind = styio::observable::EventKind::QueueClosed;
+    emit_obs(closed);
+  };
+  return hooks;
 }
 
 class StyioTaskScheduler
@@ -354,45 +758,107 @@ public:
   }
 
   void enqueue(StyioTask* task) {
-    ensure_started();
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      queue_.push_back(task);
-      task_profile_update_max(
-        g_task_scheduler_profile_counters.max_queue_depth,
-        static_cast<int64_t>(queue_.size()));
+    // The executor owns a reference from enqueue through run's final access,
+    // including ready publication and successor dispatch. This must hold for
+    // every executed task, not only graph-claimed launches: a caller that
+    // enqueues an externally owned task releases its own reference, and run's
+    // terminal decrement may never free a task whose owner is still live.
+    task->references.fetch_add(1, std::memory_order_relaxed);
+    ensure_worker_for_enqueue();
+    observe_enqueued(task);
+    const auto pushed = t_running_task != nullptr
+      ? queue_.try_push(static_cast<void*>(task))
+      : queue_.push(static_cast<void*>(task));
+    if (pushed == styio::runtime::ReadyQueuePushResult::Full) {
+      // Work-first dispatch: a worker cannot block waiting on its own queue.
+      // Execute the ready task with the current execution context restored on return.
+      (*task).run();
+      return;
     }
-    task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
-    cv_.notify_one();
+    if (pushed
+        == styio::runtime::ReadyQueuePushResult::Accepted) {
+      task_profile_inc(g_task_scheduler_profile_counters.enqueued_tasks);
+      return;
+    }
+    // Shutdown is internal and has no cancellation ABI. If a late caller races
+    // with close, settle its task normally instead of leaking its context or
+    // leaving a handle that can never become ready.
+    (*task).run();
+  }
+
+  /// Executes one dependency-satisfied ready task inline on this thread.
+  ///
+  /// Used by wait_until_task_ready when a thread that already runs a task body
+  /// blocks on another task: waiting without helping would deadlock a single
+  /// configured worker, whose only executor is the blocked thread itself. The
+  /// pop claims the task exactly once, run() restores the previous running
+  /// task on return, and the ready queue only exposes tasks whose ordering
+  /// constraints are satisfied, so dependency gating, execution-once and
+  /// thread-local capture state are preserved.
+  bool assist_one_ready_task() {
+    auto* task = static_cast<StyioTask*>(queue_.try_pop());
+    if (task == nullptr) {
+      return false;
+    }
+    (*task).run();
+    return true;
   }
 
   std::size_t worker_count() {
     ensure_started();
-    std::lock_guard<std::mutex> lock(mu_);
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
     return workers_.size();
   }
 
   std::size_t current_worker_count() {
-    std::lock_guard<std::mutex> lock(mu_);
-    return workers_.size();
+    return worker_count_.load(std::memory_order_acquire);
+  }
+
+  styio::runtime::ReadyQueueKind ready_queue_kind() const {
+    return queue_.kind();
+  }
+
+  styio::runtime::ReadyQueueSnapshot ready_queue_snapshot() const {
+    return queue_.snapshot();
+  }
+
+  void reset_ready_queue_counters() {
+    queue_.reset_counters();
   }
 
 private:
-  std::mutex mu_;
-  std::condition_variable cv_;
-  std::deque<StyioTask*> queue_;
-  std::vector<std::thread> workers_;
-  std::atomic<bool> started_{false};
-  bool stopping_ = false;
+  static std::size_t configured_queue_capacity() {
+    const char* raw = std::getenv("STYIO_TASK_QUEUE_CAPACITY");
+    if (raw == nullptr || raw[0] < '0' || raw[0] > '9') {
+      return styio::runtime::BoundedReadyQueue::kDefaultCapacity;
+    }
+    char* end = nullptr;
+    errno = 0;
+    const unsigned long long parsed = std::strtoull(raw, &end, 10);
+    if (errno != 0 || end == raw || *end != '\0'
+        || parsed > styio::runtime::BoundedReadyQueue::kDefaultCapacity
+        || !styio::runtime::BoundedReadyQueue::valid_capacity(
+          static_cast<std::size_t>(parsed))) {
+      return styio::runtime::BoundedReadyQueue::kDefaultCapacity;
+    }
+    return static_cast<std::size_t>(parsed);
+  }
 
-  StyioTaskScheduler() = default;
+  std::mutex lifecycle_mu_;
+  styio::runtime::BoundedReadyQueue queue_{configured_queue_capacity()};
+  std::vector<std::thread> workers_;
+  const std::size_t max_worker_count_{styio::runtime::configured_task_worker_count()};
+  std::atomic<std::size_t> worker_count_{0};
+
+  StyioTaskScheduler() {
+    // The hooks are stateless and inert unless an observation session is live;
+    // install them once here so enqueue never mutates queue state outside the
+    // queue mutex.
+    queue_.set_observation_hooks(make_queue_hooks());
+  }
 
   ~StyioTaskScheduler() {
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      stopping_ = true;
-    }
-    cv_.notify_all();
+    queue_.close();
     for (std::thread& worker : workers_) {
       if (worker.joinable()) {
         worker.join();
@@ -401,63 +867,118 @@ private:
   }
 
   void ensure_started() {
-    if (started_.load(std::memory_order_acquire)) {
+    if (worker_count_.load(std::memory_order_acquire) == max_worker_count_) {
       return;
     }
-    std::lock_guard<std::mutex> lock(mu_);
-    if (!workers_.empty()) {
-      started_.store(true, std::memory_order_release);
-      return;
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
+    workers_.reserve(max_worker_count_);
+    while (workers_.size() < max_worker_count_) {
+      const std::uint32_t lane = static_cast<std::uint32_t>(workers_.size() + 1);
+      workers_.emplace_back([this, lane]() { worker_loop(lane); });
     }
-    std::size_t count = std::thread::hardware_concurrency();
-    if (const char* raw = std::getenv("STYIO_TASK_THREADS")) {
-      char* end = nullptr;
-      errno = 0;
-      const unsigned long parsed = std::strtoul(raw, &end, 10);
-      if (errno == 0 && end != raw && parsed > 0) {
-        count = static_cast<std::size_t>(parsed);
-      }
-    }
-    if (count == 0) {
-      count = 1;
-    }
-    if (count > 64) {
-      count = 64;
-    }
-    workers_.reserve(count);
-    for (std::size_t i = 0; i < count; ++i) {
-      workers_.emplace_back([this]() { worker_loop(); });
-    }
-    started_.store(true, std::memory_order_release);
+    worker_count_.store(workers_.size(), std::memory_order_release);
   }
 
-  void worker_loop() {
-    std::vector<StyioTask*> local_batch;
-    local_batch.reserve(64);
+  void ensure_worker_for_enqueue() {
+    if (worker_count_.load(std::memory_order_acquire) == max_worker_count_) {
+      return;
+    }
+    std::lock_guard<std::mutex> lock(lifecycle_mu_);
+    if (workers_.size() < max_worker_count_) {
+      workers_.reserve(max_worker_count_);
+      const std::uint32_t lane = static_cast<std::uint32_t>(workers_.size() + 1);
+      workers_.emplace_back([this, lane]() { worker_loop(lane); });
+      worker_count_.store(workers_.size(), std::memory_order_release);
+    }
+  }
+
+  void worker_loop(std::uint32_t lane) {
+    styio::runtime::observation::set_thread_lane(lane);
     for (;;) {
-      local_batch.clear();
-      {
-        std::unique_lock<std::mutex> lock(mu_);
-        cv_.wait(lock, [this]() { return stopping_ || !queue_.empty(); });
-        if (stopping_ && queue_.empty()) {
-          return;
-        }
-        const std::size_t batch_limit = queue_.size() > workers_.size() ? 64 : 1;
-        local_batch.push_back(queue_.front());
-        queue_.pop_front();
-        while (!queue_.empty() && local_batch.size() < batch_limit) {
-          local_batch.push_back(queue_.front());
-          queue_.pop_front();
-        }
+      auto* task = static_cast<StyioTask*>(queue_.wait_pop());
+      if (task == nullptr) {
+        return;
       }
-      for (StyioTask* task : local_batch) {
-        if (task != nullptr) {
-          (*task).run();
-        }
-      }
+      (*task).run();
     }
   }
 };
+
+bool
+styio_scheduler_assist_one_ready_task() {
+  return StyioTaskScheduler::instance().assist_one_ready_task();
+}
+
+// Called only under the graph lock. Scheduling takes place after unlocking:
+// enqueue may wait for queue space, and must never hold the graph lock.
+// A task that is already ready is never enqueued: `styio_task_*_ready`
+// settles the result at construction and has no body to run, and completing
+// tasks publish ready before their successors can be claimed. Enqueueing a
+// settled task would rerun `run()` over final, non-atomic result fields
+// while a pull already reads them.
+bool claim_task_launch(StyioTask* task) {
+  if (!task->launch_requested || task->pending_deps != 0 || task->enqueued
+      || task->ready.load(std::memory_order_acquire)) {
+    return false;
+  }
+  task->enqueued = true;
+  return true;
+}
+
+void styio_task_request_launch(StyioTask* task, bool demand) {
+  std::vector<StyioTask*> runnable;
+  bool launch_self = false;
+  {
+    std::lock_guard<std::mutex> lock(g_task_graph_mu);
+    task->launch_requested = true;
+    launch_self = claim_task_launch(task);
+    // Ordinary tasks do not allocate traversal state. Only an actual demand
+    // for an ordered held graph walks its live ancestors.
+    if (demand && !task->predecessors.empty()) {
+      std::vector<StyioTask*> pending(task->predecessors);
+      std::unordered_set<StyioTask*> visited;
+      while (!pending.empty()) {
+        StyioTask* current = pending.back();
+        pending.pop_back();
+        if (!visited.insert(current).second) continue;
+        current->launch_requested = true;
+        if (claim_task_launch(current)) runnable.push_back(current);
+        pending.insert(pending.end(), current->predecessors.begin(), current->predecessors.end());
+      }
+    }
+  }
+  if (launch_self) StyioTaskScheduler::instance().enqueue(task);
+  for (StyioTask* next : runnable) StyioTaskScheduler::instance().enqueue(next);
+}
+
+void styio_task_complete(StyioTask* task) {
+  std::vector<StyioTask*> runnable;
+  {
+    std::lock_guard<std::mutex> lock(g_task_graph_mu);
+    for (StyioTask* next : task->successors) {
+      --next->pending_deps;
+      auto it = std::find(next->predecessors.begin(), next->predecessors.end(), task);
+      if (it != next->predecessors.end()) next->predecessors.erase(it);
+      if (claim_task_launch(next)) runnable.push_back(next);
+    }
+    task->successors.clear();
+    task->ready.store(true, std::memory_order_release);
+  }
+  task->ready.notify_all();
+  for (StyioTask* next : runnable) StyioTaskScheduler::instance().enqueue(next);
+}
+
+int64_t
+stash_spawned_task(StyioTask* task, bool held) {
+  const int64_t handle = stash_task(task);
+  if (handle != 0) {
+    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
+    if (!held) {
+      styio_task_request_launch(task);
+    }
+  }
+  return handle;
+}
 
 enum class StyioDictValueKind : std::uint8_t
 {
@@ -484,10 +1005,10 @@ struct StyioDictBackendSpec
 
 constexpr StyioDictBackendSpec kStyioDictBackendRegistry[] = {
 #if STYIO_NANO_ENABLE_DICT_BACKEND_ORDERED_HASH
-  {StyioDictRuntimeImpl::OrderedHash, "ordered-hash", {"ordered_hash", "v2", nullptr}},
+  {StyioDictRuntimeImpl::OrderedHash, "ordered-hash", {"ordered_hash", nullptr, nullptr}},
 #endif
 #if STYIO_NANO_ENABLE_DICT_BACKEND_LINEAR
-  {StyioDictRuntimeImpl::Linear, "linear", {"v1", nullptr, nullptr}},
+  {StyioDictRuntimeImpl::Linear, "linear", {nullptr, nullptr, nullptr}},
 #endif
 };
 
@@ -518,7 +1039,11 @@ struct StyioDictStorage : public StyioDictBase
   }
 
   std::vector<std::pair<std::string, T>> entries;
-  std::unordered_map<std::string, size_t> index_by_key;
+  std::unordered_map<
+    std::string,
+    size_t,
+    StyioTransparentStringHash,
+    StyioTransparentStringEqual> index_by_key;
 };
 
 using StyioDictBool = StyioDictStorage<int64_t, StyioDictValueKind::Bool>;
@@ -532,17 +1057,111 @@ thread_local int64_t g_active_list_handles = 0;
 thread_local int64_t g_active_dict_handles = 0;
 thread_local int64_t g_active_matrix_handles = 0;
 thread_local int64_t g_active_task_handles = 0;
+thread_local int64_t g_active_tuple_handles = 0;
 thread_local StyioDictRuntimeImpl g_default_dict_runtime_impl = StyioDictRuntimeImpl::OrderedHash;
 
 void close_list(void* raw);
 void close_dict(void* raw);
 void close_matrix(void* raw);
 void close_task(void* raw);
-int64_t clone_list_handle_value(int64_t h);
-int64_t clone_dict_handle_value(int64_t h);
+int64_t clone_list_handle_value(int64_t h, StyioHandleTable* destination = nullptr);
+int64_t clone_dict_handle_value(int64_t h, StyioHandleTable* destination = nullptr);
+int64_t clone_matrix_handle_value(int64_t h, StyioHandleTable* destination = nullptr);
 void append_list_handle_repr(std::string& out, int64_t h);
 void append_dict_handle_repr(std::string& out, int64_t h);
 void append_matrix_handle_repr(std::string& out, int64_t h);
+
+enum class StyioTupleElemKind : std::uint8_t
+{
+  Unset = 0,
+  I64 = 1,
+  F64 = 2,
+  String = 3,
+  List = 4,
+  Dict = 5,
+  Matrix = 6,
+};
+
+struct StyioTuplePayload
+{
+  StyioTupleElemKind kind = StyioTupleElemKind::Unset;
+  int64_t i64 = 0;
+  double f64 = 0.0;
+  std::string string;
+};
+
+struct StyioTupleValue
+{
+  explicit StyioTupleValue(std::size_t arity) : elements(arity) {}
+  std::vector<StyioTuplePayload> elements;
+};
+
+class StyioTupleRegistry
+{
+  struct Slot {
+    std::uint32_t generation = 1;
+    std::unique_ptr<StyioTupleValue> value;
+  };
+  std::vector<Slot> slots_;
+  std::vector<std::uint32_t> free_;
+
+  static int64_t encode(std::uint32_t index, std::uint32_t generation) {
+    return static_cast<int64_t>(
+      (static_cast<std::uint64_t>(generation) << 32)
+      | (static_cast<std::uint64_t>(index) + 1));
+  }
+
+  static bool decode(int64_t handle, std::uint32_t& index, std::uint32_t& generation) {
+    const std::uint64_t bits = static_cast<std::uint64_t>(handle);
+    const std::uint32_t low = static_cast<std::uint32_t>(bits);
+    generation = static_cast<std::uint32_t>(bits >> 32);
+    if (low == 0 || generation == 0) {
+      return false;
+    }
+    index = low - 1;
+    return true;
+  }
+
+public:
+  int64_t acquire(std::unique_ptr<StyioTupleValue> value) {
+    if (!value) return 0;
+    std::uint32_t index = 0;
+    if (free_.empty()) {
+      index = static_cast<std::uint32_t>(slots_.size());
+      slots_.push_back(Slot{});
+    }
+    else {
+      index = free_.back();
+      free_.pop_back();
+    }
+    Slot& slot = slots_[index];
+    slot.value = std::move(value);
+    return encode(index, slot.generation);
+  }
+
+  StyioTupleValue* lookup(int64_t handle) {
+    std::uint32_t index = 0;
+    std::uint32_t generation = 0;
+    if (!decode(handle, index, generation) || index >= slots_.size()) return nullptr;
+    Slot& slot = slots_[index];
+    return slot.generation == generation ? slot.value.get() : nullptr;
+  }
+
+  std::unique_ptr<StyioTupleValue> take(int64_t handle) {
+    std::uint32_t index = 0;
+    std::uint32_t generation = 0;
+    if (!decode(handle, index, generation) || index >= slots_.size()) return {};
+    Slot& slot = slots_[index];
+    if (slot.generation != generation || !slot.value) return {};
+    auto value = std::move(slot.value);
+    ++slot.generation;
+    if (slot.generation == 0) ++slot.generation;
+    free_.push_back(index);
+    return value;
+  }
+};
+
+thread_local StyioTupleRegistry g_tuple_registry;
 
 thread_local struct HandleTableCleanup {
   ~HandleTableCleanup() {
@@ -625,11 +1244,7 @@ resolve_read_path(const char* path) {
 
 void
 set_runtime_error_once(const char* subcode, const std::string& message) {
-  g_runtime_error = true;
-  if (g_runtime_error_message.empty()) {
-    g_runtime_error_message = message;
-    g_runtime_error_subcode = (subcode != nullptr) ? subcode : "";
-  }
+  styio::runtime::set_error_once(subcode, message);
 }
 
 int64_t
@@ -642,9 +1257,20 @@ close_task(void* raw) {
   auto* task = static_cast<StyioTask*>(raw);
   if (task != nullptr) {
     if (!(*task).ready.load(std::memory_order_acquire)) {
+      /* Releasing a held task must not hang on a never-executed `=>` edge. */
+      styio_task_request_launch(task, true);
       wait_until_task_ready(task);
     }
-    delete task;
+    if (observation_live() && (*task).observation_live) {
+      styio::runtime::observation::EmitBuilder released;
+      released.kind = styio::observable::EventKind::TaskReleased;
+      released.descriptor_index = (*task).descriptor_index;
+      released.instance = (*task).instance;
+      emit_obs(released);
+    }
+    if (task->references.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+      delete task;
+    }
     task_profile_inc(g_task_scheduler_profile_counters.released_tasks);
     if (g_active_task_handles > 0) {
       --g_active_task_handles;
@@ -685,12 +1311,59 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
   if (task == nullptr) {
     return nullptr;
   }
+  /* A pull demands the result: request launch so a held task whose `=>`
+     edge never executed still runs. Declared pending deps still gate the
+     actual enqueue, so this cannot violate a live happens-before edge. */
+  styio_task_request_launch(task, true);
   if ((*task).ready.load(std::memory_order_acquire)) {
     task_profile_inc(g_task_scheduler_profile_counters.fast_ready_pulls);
   }
   else {
     task_profile_inc(g_task_scheduler_profile_counters.blocking_pulls);
+    /* The wait id is captured locally: while this thread waits it may help
+       execute nested ready tasks, and their observation ids must not
+       overwrite this wait's correlation. */
+    const bool wait_observed = observation_live() && (*task).observation_live;
+    const auto wait_id = wait_observed
+      ? styio::runtime::observation::next_wait_id()
+      : styio::observable::PackedInstance{};
+    if (wait_observed) {
+      t_wait_id = wait_id;
+      StyioTask* waiter = t_running_task;
+      styio::runtime::observation::EmitBuilder begin;
+      begin.kind = styio::observable::EventKind::WaitBegin;
+      begin.descriptor_index = waiter != nullptr ? waiter->descriptor_index : (*task).descriptor_index;
+      begin.instance = waiter != nullptr ? waiter->instance : (*task).instance;
+      begin.wait_id = wait_id;
+      begin.waiter = waiter != nullptr ? waiter->instance : (*task).instance;
+      begin.subject = (*task).instance;
+      begin.subject_present = true;
+      begin.wait_reason = styio::observable::WaitReason::Task;
+      emit_obs(begin);
+    }
     wait_until_task_ready(task);
+    if (observation_live() && (*task).observation_live) {
+      StyioTask* waiter = t_running_task;
+      styio::runtime::observation::EmitBuilder end;
+      end.kind = styio::observable::EventKind::WaitEnd;
+      end.descriptor_index = waiter != nullptr ? waiter->descriptor_index : (*task).descriptor_index;
+      end.instance = waiter != nullptr ? waiter->instance : (*task).instance;
+      end.waiter = waiter != nullptr ? waiter->instance : (*task).instance;
+      end.subject = (*task).instance;
+      end.subject_present = true;
+      end.wait_reason = styio::observable::WaitReason::Task;
+      end.wait_resolution = (*task).failed
+        ? styio::observable::WaitResolution::Failed
+        : styio::observable::WaitResolution::Completed;
+      end.wait_id = wait_id;
+      end.has_cause = true;
+      end.cause = (*task).completion_event;
+      end.cause_subject = (*task).instance;
+      end.cause_kind = (*task).failed
+        ? styio::observable::CausalKind::Failure
+        : styio::observable::CausalKind::Wake;
+      emit_obs(end);
+    }
   }
   if ((*task).failed) {
     task_profile_inc(g_task_scheduler_profile_counters.failed_pulls);
@@ -703,6 +1376,17 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
     set_runtime_error_once(kRuntimeSubcodeTaskConsumed, "task result has already been pulled");
     return nullptr;
   }
+  if (observation_live() && (*task).observation_live) {
+    styio::runtime::observation::EmitBuilder consumed;
+    consumed.kind = styio::observable::EventKind::TaskResultConsumed;
+    consumed.descriptor_index = (*task).descriptor_index;
+    consumed.instance = (*task).instance;
+    consumed.has_cause = true;
+    consumed.cause = (*task).completion_event;
+    consumed.cause_subject = (*task).instance;
+    consumed.cause_kind = styio::observable::CausalKind::Completion;
+    emit_obs(consumed);
+  }
   task_profile_inc(g_task_scheduler_profile_counters.pulled_tasks);
   return task;
 }
@@ -710,6 +1394,9 @@ as_task_for_pull(int64_t h, StyioTaskValueKind expected_kind) {
 FILE*
 as_file(int64_t h, bool diagnose_if_missing = false) {
   if (h == 0) {
+    if (diagnose_if_missing) {
+      set_runtime_error_once(kRuntimeSubcodeInvalidFileHandle, "invalid file handle: 0");
+    }
     return nullptr;
   }
   FILE* f = g_handle_table.lookup_as<FILE>(h, StyioHandleTable::HandleKind::File);
@@ -726,7 +1413,16 @@ close_file(void* raw) {
   if (raw == nullptr) {
     return;
   }
-  std::fclose(static_cast<FILE*>(raw));
+  errno = 0;
+  if (std::fclose(static_cast<FILE*>(raw)) != 0) {
+    const int saved_errno = errno;
+    std::string message = "file cleanup failed";
+    if (saved_errno != 0) {
+      message += ": ";
+      message += std::strerror(saved_errno);
+    }
+    set_runtime_error_once(kRuntimeSubcodeFileCleanupFailure, message);
+  }
 }
 
 int64_t
@@ -734,8 +1430,12 @@ stash_list(StyioListBase* list) {
   if (list == nullptr) {
     return 0;
   }
-  ++g_active_list_handles;
-  return g_handle_table.acquire(StyioHandleTable::HandleKind::List, list);
+  const int64_t handle =
+    g_handle_table.acquire(StyioHandleTable::HandleKind::List, list);
+  if (handle != 0) {
+    ++g_active_list_handles;
+  }
+  return handle;
 }
 
 StyioListBase*
@@ -784,6 +1484,23 @@ as_list_bool(int64_t h, bool diagnose_if_missing = false) {
     return nullptr;
   }
   return static_cast<StyioListBool*>(list);
+}
+
+StyioListChar*
+as_list_char(int64_t h, bool diagnose_if_missing = false) {
+  StyioListBase* list = as_list_base(h, diagnose_if_missing);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  if (list->elem_kind != StyioListElemKind::Char) {
+    if (diagnose_if_missing) {
+      set_runtime_error_once(
+        kRuntimeSubcodeListElemKind,
+        "list handle does not carry char elements: " + std::to_string(static_cast<long long>(h)));
+    }
+    return nullptr;
+  }
+  return static_cast<StyioListChar*>(list);
 }
 
 StyioListF64*
@@ -856,6 +1573,24 @@ as_list_dict_handle(int64_t h, bool diagnose_if_missing = false) {
   return static_cast<StyioListDictHandle*>(list);
 }
 
+StyioListMatrixHandle*
+as_list_matrix_handle(int64_t h, bool diagnose_if_missing = false) {
+  StyioListBase* list = as_list_base(h, diagnose_if_missing);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  if (list->elem_kind != StyioListElemKind::MatrixHandle) {
+    if (diagnose_if_missing) {
+      set_runtime_error_once(
+        kRuntimeSubcodeListElemKind,
+        "list handle does not carry matrix-handle elements: "
+          + std::to_string(static_cast<long long>(h)));
+    }
+    return nullptr;
+  }
+  return static_cast<StyioListMatrixHandle*>(list);
+}
+
 bool
 check_matrix_dims(int64_t rows, int64_t cols) {
   if (rows <= 0 || cols <= 0) {
@@ -874,8 +1609,12 @@ stash_matrix(StyioMatrixBase* matrix) {
   if (matrix == nullptr) {
     return 0;
   }
-  ++g_active_matrix_handles;
-  return g_handle_table.acquire(StyioHandleTable::HandleKind::Matrix, matrix);
+  const int64_t handle =
+    g_handle_table.acquire(StyioHandleTable::HandleKind::Matrix, matrix);
+  if (handle != 0) {
+    ++g_active_matrix_handles;
+  }
+  return handle;
 }
 
 StyioMatrixBase*
@@ -938,6 +1677,36 @@ check_matrix_index(const StyioMatrixBase* matrix, int64_t row, int64_t col) {
   return true;
 }
 
+bool
+check_matrix_row_slice_bounds(
+  const StyioMatrixBase* matrix,
+  int64_t start,
+  int64_t end_exclusive,
+  bool has_end,
+  int64_t& begin,
+  int64_t& finish
+) {
+  if (matrix == nullptr) {
+    return false;
+  }
+  if (start < 0) {
+    set_runtime_error_once(kRuntimeSubcodeMatrixIndex, "matrix row slice start out of bounds");
+    return false;
+  }
+  if (has_end && end_exclusive < 0) {
+    set_runtime_error_once(kRuntimeSubcodeMatrixIndex, "matrix row slice end out of bounds");
+    return false;
+  }
+  const int64_t stop = has_end ? end_exclusive : matrix->rows;
+  if (start > matrix->rows || stop > matrix->rows || stop < start) {
+    set_runtime_error_once(kRuntimeSubcodeMatrixIndex, "matrix row slice bounds out of range");
+    return false;
+  }
+  begin = start;
+  finish = stop;
+  return true;
+}
+
 size_t
 matrix_offset(const StyioMatrixBase* matrix, int64_t row, int64_t col) {
   return static_cast<size_t>(row * matrix->cols + col);
@@ -976,6 +1745,9 @@ close_list(void* raw) {
     case StyioListElemKind::Bool:
       delete static_cast<StyioListBool*>(list);
       break;
+    case StyioListElemKind::Char:
+      delete static_cast<StyioListChar*>(list);
+      break;
     case StyioListElemKind::I64:
       delete static_cast<StyioListI64*>(list);
       break;
@@ -996,6 +1768,13 @@ close_list(void* raw) {
       auto* handles = static_cast<StyioListDictHandle*>(list);
       for (int64_t elem : handles->elems) {
         (void)g_handle_table.release(elem, StyioHandleTable::HandleKind::Dict, close_dict);
+      }
+      delete handles;
+    } break;
+    case StyioListElemKind::MatrixHandle: {
+      auto* handles = static_cast<StyioListMatrixHandle*>(list);
+      for (int64_t elem : handles->elems) {
+        (void)g_handle_table.release(elem, StyioHandleTable::HandleKind::Matrix, close_matrix);
       }
       delete handles;
     } break;
@@ -1029,8 +1808,12 @@ stash_dict(StyioDictBase* dict) {
   if (dict == nullptr) {
     return 0;
   }
-  ++g_active_dict_handles;
-  return g_handle_table.acquire(StyioHandleTable::HandleKind::Dict, dict);
+  const int64_t handle =
+    g_handle_table.acquire(StyioHandleTable::HandleKind::Dict, dict);
+  if (handle != 0) {
+    ++g_active_dict_handles;
+  }
+  return handle;
 }
 
 StyioDictBase*
@@ -1358,6 +2141,12 @@ parse_i64_list_literal(const std::string& input, std::vector<int64_t>& out) {
     return pos == input.size();
   }
 
+  out.reserve(
+    out.size()
+    + 1
+    + static_cast<size_t>(
+        std::count(input.begin() + static_cast<std::ptrdiff_t>(pos), input.end(), ',')));
+
   while (pos < input.size()) {
     const char* begin = input.c_str() + pos;
     char* end = nullptr;
@@ -1401,6 +2190,12 @@ parse_f64_list_literal(const std::string& input, std::vector<double>& out) {
     skip_ws(input, pos);
     return pos == input.size();
   }
+
+  out.reserve(
+    out.size()
+    + 1
+    + static_cast<size_t>(
+        std::count(input.begin() + static_cast<std::ptrdiff_t>(pos), input.end(), ',')));
 
   while (pos < input.size()) {
     const char* begin = input.c_str() + pos;
@@ -1475,6 +2270,32 @@ escape_string_for_literal(const std::string& input) {
 }
 
 std::string
+escape_char_for_literal(int8_t raw) {
+  const unsigned char ch = static_cast<unsigned char>(raw);
+  switch (ch) {
+    case '\\':
+      return "\\\\";
+    case '\'':
+      return "\\'";
+    case '\n':
+      return "\\n";
+    case '\r':
+      return "\\r";
+    case '\t':
+      return "\\t";
+    case '\0':
+      return "\\0";
+    default:
+      if (std::isprint(ch)) {
+        return std::string(1, static_cast<char>(ch));
+      }
+      char buf[5];
+      std::snprintf(buf, sizeof(buf), "\\x%02X", static_cast<unsigned>(ch));
+      return std::string(buf);
+  }
+}
+
+std::string
 format_f64_literal(double value) {
   char buf[64];
   std::snprintf(buf, sizeof(buf), "%.6f", value);
@@ -1493,7 +2314,7 @@ copy_to_owned_cstr(const std::string& value) {
 }
 
 int64_t
-clone_list_handle_value(int64_t h) {
+clone_list_handle_value(int64_t h, StyioHandleTable* destination) {
   StyioListBase* src = as_list_base(h, true);
   if (src == nullptr) {
     return 0;
@@ -1502,82 +2323,160 @@ clone_list_handle_value(int64_t h) {
     case StyioListElemKind::Bool: {
       auto* clone = new StyioListBool();
       clone->elems = static_cast<StyioListBool*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
+    }
+    case StyioListElemKind::Char: {
+      auto* clone = new StyioListChar();
+      clone->elems = static_cast<StyioListChar*>(src)->elems;
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::I64: {
       auto* clone = new StyioListI64();
       clone->elems = static_cast<StyioListI64*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::F64: {
       auto* clone = new StyioListF64();
       clone->elems = static_cast<StyioListF64*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::String: {
       auto* clone = new StyioListString();
       clone->elems = static_cast<StyioListString*>(src)->elems;
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::ListHandle: {
       auto* clone = new StyioListListHandle();
       auto* handles = static_cast<StyioListListHandle*>(src);
       clone->elems.reserve(handles->elems.size());
       for (int64_t elem : handles->elems) {
-        clone->elems.push_back(clone_list_handle_value(elem));
+        clone->elems.push_back(clone_list_handle_value(elem, destination));
       }
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
     case StyioListElemKind::DictHandle: {
       auto* clone = new StyioListDictHandle();
       auto* handles = static_cast<StyioListDictHandle*>(src);
       clone->elems.reserve(handles->elems.size());
       for (int64_t elem : handles->elems) {
-        clone->elems.push_back(clone_dict_handle_value(elem));
+        clone->elems.push_back(clone_dict_handle_value(elem, destination));
       }
-      return stash_list(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
+    }
+    case StyioListElemKind::MatrixHandle: {
+      auto* clone = new StyioListMatrixHandle();
+      auto* handles = static_cast<StyioListMatrixHandle*>(src);
+      clone->elems.reserve(handles->elems.size());
+      for (int64_t elem : handles->elems) {
+        clone->elems.push_back(clone_matrix_handle_value(elem, destination));
+      }
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::List, clone) : stash_list(clone);
     }
   }
   return 0;
 }
 
 int64_t
-clone_dict_handle_value(int64_t h) {
+clone_matrix_handle_value(int64_t h, StyioHandleTable* destination) {
+  StyioMatrixBase* src = as_matrix_base(h, true);
+  if (src == nullptr) {
+    return 0;
+  }
+  switch (src->elem_kind) {
+    case StyioMatrixElemKind::I64:
+      {
+      auto* clone = new StyioMatrixI64(*static_cast<StyioMatrixI64*>(src));
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Matrix, clone) : stash_matrix(clone);
+    }
+    case StyioMatrixElemKind::F64:
+      {
+      auto* clone = new StyioMatrixF64(*static_cast<StyioMatrixF64*>(src));
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Matrix, clone) : stash_matrix(clone);
+    }
+  }
+  return 0;
+}
+
+int64_t
+clone_dict_handle_value(int64_t h, StyioHandleTable* destination) {
   StyioDictBase* src = as_dict_base(h, true);
   if (src == nullptr) {
     return 0;
   }
+  auto store = [&](StyioDictBase* clone) {
+    return destination ? destination->acquire(StyioHandleTable::HandleKind::Dict, clone) : stash_dict(clone);
+  };
   switch (src->value_kind) {
     case StyioDictValueKind::Bool:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictBool*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictBool*>(src), src->runtime_impl));
     case StyioDictValueKind::I64:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictI64*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictI64*>(src), src->runtime_impl));
     case StyioDictValueKind::F64:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictF64*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictF64*>(src), src->runtime_impl));
     case StyioDictValueKind::String:
-      return stash_dict(clone_dict_storage(static_cast<StyioDictString*>(src), src->runtime_impl));
+      return store(clone_dict_storage(static_cast<StyioDictString*>(src), src->runtime_impl));
     case StyioDictValueKind::ListHandle: {
       auto* clone = new StyioDictListHandle(src->runtime_impl);
       auto* values = static_cast<StyioDictListHandle*>(src);
       clone->entries.reserve(values->entries.size());
       for (const auto& entry : values->entries) {
-        clone->entries.emplace_back(entry.first, clone_list_handle_value(entry.second));
+        clone->entries.emplace_back(entry.first, clone_list_handle_value(entry.second, destination));
       }
       dict_after_clone(clone);
-      return stash_dict(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Dict, clone) : stash_dict(clone);
     }
     case StyioDictValueKind::DictHandle: {
       auto* clone = new StyioDictDictHandle(src->runtime_impl);
       auto* values = static_cast<StyioDictDictHandle*>(src);
       clone->entries.reserve(values->entries.size());
       for (const auto& entry : values->entries) {
-        clone->entries.emplace_back(entry.first, clone_dict_handle_value(entry.second));
+        clone->entries.emplace_back(entry.first, clone_dict_handle_value(entry.second, destination));
       }
       dict_after_clone(clone);
-      return stash_dict(clone);
+      return destination ? destination->acquire(StyioHandleTable::HandleKind::Dict, clone) : stash_dict(clone);
     }
   }
   return 0;
+}
+
+struct TaskResourceCapture {
+  StyioHandleTable handles;
+  int64_t root = 0;
+  StyioHandleTable::HandleKind kind;
+};
+
+int64_t adopt_task_resource(StyioHandleTable& source, int64_t handle,
+                           StyioHandleTable::HandleKind kind) {
+  using Kind = StyioHandleTable::HandleKind;
+  int64_t adopted = 0;
+  source.release(handle, kind, [&](void* raw) {
+    if (kind == Kind::List) {
+      auto* list = static_cast<StyioListBase*>(raw);
+      auto remap = [&](auto* values, Kind child_kind) {
+        for (auto& child : values->elems) child = adopt_task_resource(source, child, child_kind);
+      };
+      switch (list->elem_kind) {
+        case StyioListElemKind::ListHandle: remap(static_cast<StyioListListHandle*>(list), Kind::List); break;
+        case StyioListElemKind::DictHandle: remap(static_cast<StyioListDictHandle*>(list), Kind::Dict); break;
+        case StyioListElemKind::MatrixHandle: remap(static_cast<StyioListMatrixHandle*>(list), Kind::Matrix); break;
+        default: break;
+      }
+      adopted = stash_list(list);
+    } else if (kind == Kind::Dict) {
+      auto* dict = static_cast<StyioDictBase*>(raw);
+      if (dict->value_kind == StyioDictValueKind::ListHandle) {
+        for (auto& item : static_cast<StyioDictListHandle*>(dict)->entries)
+          item.second = adopt_task_resource(source, item.second, Kind::List);
+      } else if (dict->value_kind == StyioDictValueKind::DictHandle) {
+        for (auto& item : static_cast<StyioDictDictHandle*>(dict)->entries)
+          item.second = adopt_task_resource(source, item.second, Kind::Dict);
+      }
+      adopted = stash_dict(dict);
+    } else if (kind == Kind::Matrix) {
+      adopted = stash_matrix(static_cast<StyioMatrixBase*>(raw));
+    }
+  });
+  return adopted;
 }
 
 void
@@ -1593,6 +2492,17 @@ append_list_handle_repr(std::string& out, int64_t h) {
             text.push_back(',');
           }
           text += bools->elems[i] != 0 ? "true" : "false";
+        }
+      } break;
+      case StyioListElemKind::Char: {
+        auto* chars = static_cast<StyioListChar*>(list);
+        for (size_t i = 0; i < chars->elems.size(); ++i) {
+          if (i > 0) {
+            text.push_back(',');
+          }
+          text.push_back('\'');
+          text += escape_char_for_literal(chars->elems[i]);
+          text.push_back('\'');
         }
       } break;
       case StyioListElemKind::I64: {
@@ -1640,6 +2550,15 @@ append_list_handle_repr(std::string& out, int64_t h) {
             text.push_back(',');
           }
           append_dict_handle_repr(text, dicts->elems[i]);
+        }
+      } break;
+      case StyioListElemKind::MatrixHandle: {
+        auto* matrices = static_cast<StyioListMatrixHandle*>(list);
+        for (size_t i = 0; i < matrices->elems.size(); ++i) {
+          if (i > 0) {
+            text.push_back(',');
+          }
+          append_matrix_handle_repr(text, matrices->elems[i]);
         }
       } break;
     }
@@ -1831,10 +2750,17 @@ styio_file_read_line(int64_t h) {
   if (f == nullptr) {
     return nullptr;
   }
+  if (!g_read_line_bufs) {
+    g_read_line_bufs.reset(new (std::nothrow) StyioFileReadBuffers);
+    if (!g_read_line_bufs) {
+      set_runtime_error_once(kRuntimeSubcodeAllocation, "cannot allocate file line buffers");
+      return nullptr;
+    }
+  }
   int w = g_read_line_buf_which;
   g_read_line_buf_which = 1 - g_read_line_buf_which;
-  char* buf = g_read_line_bufs[w];
-  if (std::fgets(buf, static_cast<int>(sizeof(g_read_line_bufs[0])), f) == nullptr) {
+  char* buf = (*g_read_line_bufs)[static_cast<size_t>(w)].data();
+  if (std::fgets(buf, static_cast<int>(kStyioLineBufferSize), f) == nullptr) {
     return nullptr;
   }
   size_t n = std::strlen(buf);
@@ -1842,6 +2768,15 @@ styio_file_read_line(int64_t h) {
     buf[--n] = '\0';
   }
   return buf;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_file_read_i64line_from_handle(int64_t h) {
+  const char* line = styio_file_read_line(h);
+  if (line == nullptr) {
+    return 0;
+  }
+  return styio_cstr_to_i64(line);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -1932,6 +2867,11 @@ styio_strcat_ab(const char* a, const char* b) {
   return p;
 }
 
+extern "C" DLLEXPORT const char*
+styio_clone_cstr(const char* s) {
+  return copy_to_owned_cstr(s == nullptr ? std::string() : std::string(s));
+}
+
 extern "C" DLLEXPORT void
 styio_free_cstr(const char* s) {
   if (s == nullptr) {
@@ -1947,6 +2887,7 @@ styio_free_cstr(const char* s) {
 
 thread_local char g_i64_dec_buf[32];
 thread_local char g_f64_dec_buf[64];
+thread_local char g_char_cstr_buf[2];
 
 extern "C" DLLEXPORT const char*
 styio_i64_dec_cstr(int64_t v) {
@@ -1968,25 +2909,31 @@ styio_f64_dec_cstr(double v) {
   return g_f64_dec_buf;
 }
 
+extern "C" DLLEXPORT const char*
+styio_char_cstr(int64_t v) {
+  g_char_cstr_buf[0] = static_cast<char>(static_cast<unsigned char>(v & 0xff));
+  g_char_cstr_buf[1] = '\0';
+  return g_char_cstr_buf;
+}
+
 extern "C" DLLEXPORT int
 styio_runtime_has_error() {
-  return g_runtime_error ? 1 : 0;
+  return styio::runtime::has_error() ? 1 : 0;
 }
 
 extern "C" DLLEXPORT const char*
 styio_runtime_last_error() {
-  if (!g_runtime_error || g_runtime_error_message.empty()) {
-    return nullptr;
-  }
-  return g_runtime_error_message.c_str();
+  return styio::runtime::last_error();
 }
 
 extern "C" DLLEXPORT const char*
 styio_runtime_last_error_subcode() {
-  if (!g_runtime_error || g_runtime_error_subcode.empty()) {
-    return nullptr;
-  }
-  return g_runtime_error_subcode.c_str();
+  return styio::runtime::last_error_subcode();
+}
+
+extern "C" DLLEXPORT int
+styio_runtime_error_matches_effect(const char* effect_name) {
+  return styio::runtime::error_matches_effect(effect_name) ? 1 : 0;
 }
 
 extern "C" DLLEXPORT void
@@ -1995,8 +2942,21 @@ styio_runtime_clear_error() {
 }
 
 extern "C" DLLEXPORT void
+styio_runtime_report_integer_division_error(int kind) {
+  if (kind == 0) {
+    set_runtime_error_once(
+      "arithmetic.divide_by_zero",
+      "integer division or remainder by zero");
+    return;
+  }
+  set_runtime_error_once(
+    "arithmetic.signed_division_overflow",
+    "signed integer division overflow");
+}
+
+extern "C" DLLEXPORT void
 styio_runtime_set_log_sink(StyioRuntimeLogSink sink) {
-  g_runtime_log_sink = sink;
+  styio::runtime::set_log_sink(sink);
 }
 
 /* Standard streams: write a C-string to stdout with trailing newline and immediate flush.
@@ -2006,9 +2966,7 @@ styio_stdout_write_cstr(const char* s) {
   if (s != nullptr) {
     std::fprintf(stdout, "%s\n", s);
     std::fflush(stdout);
-    if (g_runtime_log_sink != nullptr) {
-      g_runtime_log_sink("stdout", s);
-    }
+    styio::runtime::log_to_sink("stdout", s);
   }
 }
 
@@ -2019,27 +2977,34 @@ styio_stderr_write_cstr(const char* s) {
   if (s != nullptr) {
     std::fprintf(stderr, "%s\n", s);
     std::fflush(stderr);
-    if (g_runtime_log_sink != nullptr) {
-      g_runtime_log_sink("stderr", s);
-    }
+    styio::runtime::log_to_sink("stderr", s);
   }
 }
 
 /* Stdio input: read one line from stdin into a thread-local buffer.
    Returns borrowed pointer (valid until next call on this thread).
    Returns nullptr on EOF. Strips trailing newline/CR. */
-thread_local char g_stdin_line_buf[65536];
+thread_local std::unique_ptr<std::array<char, kStyioLineBufferSize>> g_stdin_line_buf;
 
 extern "C" DLLEXPORT const char*
 styio_stdin_read_line() {
-  if (std::fgets(g_stdin_line_buf, static_cast<int>(sizeof(g_stdin_line_buf)), stdin) == nullptr) {
+  if (!g_stdin_line_buf) {
+    g_stdin_line_buf.reset(
+      new (std::nothrow) std::array<char, kStyioLineBufferSize>);
+    if (!g_stdin_line_buf) {
+      set_runtime_error_once(kRuntimeSubcodeAllocation, "cannot allocate stdin line buffer");
+      return nullptr;
+    }
+  }
+  char* buffer = g_stdin_line_buf->data();
+  if (std::fgets(buffer, static_cast<int>(kStyioLineBufferSize), stdin) == nullptr) {
     return nullptr;
   }
-  size_t n = std::strlen(g_stdin_line_buf);
-  while (n > 0 && (g_stdin_line_buf[n - 1] == '\n' || g_stdin_line_buf[n - 1] == '\r')) {
-    g_stdin_line_buf[--n] = '\0';
+  size_t n = std::strlen(buffer);
+  while (n > 0 && (buffer[n - 1] == '\n' || buffer[n - 1] == '\r')) {
+    buffer[--n] = '\0';
   }
-  return g_stdin_line_buf;
+  return buffer;
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2071,17 +3036,52 @@ styio_task_cstr_ready(const char* value) {
   return stash_task(task);
 }
 
+// Capture packets have no thread-local handle identity until adopted by the task.
+extern "C" DLLEXPORT int64_t
+styio_task_export_resource(int64_t handle, int32_t family) {
+  if (handle == 0) return 0;
+  auto packet = std::make_unique<TaskResourceCapture>();
+  using Kind = StyioHandleTable::HandleKind;
+  if (family == 0) {
+    packet->kind = Kind::List;
+    packet->root = clone_list_handle_value(handle, &packet->handles);
+  } else if (family == 1) {
+    packet->kind = Kind::Dict;
+    packet->root = clone_dict_handle_value(handle, &packet->handles);
+  } else {
+    packet->kind = Kind::Matrix;
+    packet->root = clone_matrix_handle_value(handle, &packet->handles);
+  }
+  return reinterpret_cast<int64_t>(packet.release());
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_import_resource(int64_t capture) {
+  if (capture == 0) return 0;
+  std::unique_ptr<TaskResourceCapture> packet(reinterpret_cast<TaskResourceCapture*>(capture));
+  return adopt_task_resource(packet->handles, packet->root, packet->kind);
+}
+
+extern "C" DLLEXPORT const char*
+styio_task_export_cstr(const char* value) {
+  const char* copy = styio_clone_cstr(value);
+  g_owned_cstr_ptrs.erase(copy);
+  return copy;
+}
+
+extern "C" DLLEXPORT const char*
+styio_task_import_cstr(const char* value) {
+  if (value) g_owned_cstr_ptrs.insert(value);
+  return value;
+}
+
 extern "C" DLLEXPORT int64_t
 styio_task_i64_spawn(int64_t (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::I64);
   (*task).i64_fn = fn;
   (*task).ctx = ctx;
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2089,12 +3089,8 @@ styio_task_f64_spawn(double (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::F64);
   (*task).f64_fn = fn;
   (*task).ctx = ctx;
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2102,12 +3098,8 @@ styio_task_cstr_spawn(const char* (*fn)(void*), void* ctx) {
   auto* task = new StyioTask(StyioTaskValueKind::String);
   (*task).cstr_fn = fn;
   (*task).ctx = ctx;
-  const int64_t handle = stash_task(task);
-  if (handle != 0) {
-    task_profile_inc(g_task_scheduler_profile_counters.spawned_tasks);
-    StyioTaskScheduler::instance().enqueue(task);
-  }
-  return handle;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, false);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2143,6 +3135,190 @@ styio_task_release(int64_t h) {
 }
 
 extern "C" DLLEXPORT int64_t
+styio_task_i64_spawn_observed(int64_t (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  (*task).i64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, false);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_f64_spawn_observed(double (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::F64);
+  (*task).f64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, false);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_cstr_spawn_observed(const char* (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::String);
+  (*task).cstr_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, false);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_pull_observed(int64_t h, uint32_t) {
+  return styio_task_i64_pull(h);
+}
+
+extern "C" DLLEXPORT double
+styio_task_f64_pull_observed(int64_t h, uint32_t) {
+  return styio_task_f64_pull(h);
+}
+
+extern "C" DLLEXPORT const char*
+styio_task_cstr_pull_observed(int64_t h, uint32_t) {
+  return styio_task_cstr_pull(h);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_spawn_held(int64_t (*fn)(void*), void* ctx) {
+  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  (*task).i64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_f64_spawn_held(double (*fn)(void*), void* ctx) {
+  auto* task = new StyioTask(StyioTaskValueKind::F64);
+  (*task).f64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_cstr_spawn_held(const char* (*fn)(void*), void* ctx) {
+  auto* task = new StyioTask(StyioTaskValueKind::String);
+  (*task).cstr_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, styio::observable::kInvalidDescriptorIndex);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_i64_spawn_held_observed(int64_t (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::I64);
+  (*task).i64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_f64_spawn_held_observed(double (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::F64);
+  (*task).f64_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_task_cstr_spawn_held_observed(const char* (*fn)(void*), void* ctx, uint32_t descriptor_index) {
+  auto* task = new StyioTask(StyioTaskValueKind::String);
+  (*task).cstr_fn = fn;
+  (*task).ctx = ctx;
+  prepare_task_observation(task, descriptor_index);
+  return stash_spawned_task(task, true);
+}
+
+extern "C" DLLEXPORT void
+styio_task_depend(int64_t before_h, int64_t after_h) {
+  StyioTask* before = g_handle_table.lookup_as<StyioTask>(
+    before_h,
+    StyioHandleTable::HandleKind::Task);
+  StyioTask* after = g_handle_table.lookup_as<StyioTask>(
+    after_h,
+    StyioHandleTable::HandleKind::Task);
+  if (before == nullptr || after == nullptr) {
+    task_profile_inc(g_task_scheduler_profile_counters.invalid_pulls);
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidTaskHandle,
+      "task order `=>` requires live task handles");
+    return;
+  }
+  if (before == after) {
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidTaskHandle,
+      "task order `=>` self-edge is not a valid happens-before edge");
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_task_graph_mu);
+  if (after->enqueued || after->ready.load(std::memory_order_acquire)) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTaskHandle,
+      "task order `=>` cannot order a task that already launched");
+    return;
+  }
+  // Adding before -> after is cyclic exactly when after already reaches before.
+  // Traverse live adjacency once; no repeated whole-graph sorting or cache.
+  std::vector<StyioTask*> pending{after};
+  std::unordered_set<StyioTask*> visited;
+  while (!pending.empty()) {
+    StyioTask* current = pending.back();
+    pending.pop_back();
+    if (current == before) {
+      set_runtime_error_once(kRuntimeSubcodeInvalidTaskHandle,
+        "task order `=>` cycle is not a valid happens-before graph");
+      return;
+    }
+    if (!visited.insert(current).second) continue;
+    pending.insert(pending.end(), current->successors.begin(), current->successors.end());
+  }
+  if (!before->ready.load(std::memory_order_acquire)) {
+    ++after->pending_deps;
+    before->successors.push_back(after);
+    after->predecessors.push_back(before);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_task_launch(int64_t h) {
+  StyioTask* task = g_handle_table.lookup_as<StyioTask>(
+    h,
+    StyioHandleTable::HandleKind::Task);
+  if (task == nullptr) {
+    task_profile_inc(g_task_scheduler_profile_counters.invalid_pulls);
+    set_runtime_error_once(
+      kRuntimeSubcodeInvalidTaskHandle,
+      "task launch requires a live task handle");
+    return;
+  }
+  styio_task_request_launch(task);
+}
+
+extern "C" DLLEXPORT void
+styio_observation_register_table(
+  uint32_t generation,
+  const StyioObservationDescriptor* table,
+  uint32_t count
+) {
+  std::vector<styio::runtime::observation::Descriptor> descriptors;
+  descriptors.reserve(count);
+  for (uint32_t i = 0; i < count; ++i) {
+    styio::runtime::observation::Descriptor desc;
+    if (table != nullptr) {
+      if (table[i].snapshot_id != nullptr) {
+        desc.snapshot_id = table[i].snapshot_id;
+      }
+      if (table[i].site_id != nullptr) {
+        desc.site_id = table[i].site_id;
+      }
+      desc.role = static_cast<styio::observable::SiteRole>(table[i].role);
+    }
+    descriptors.push_back(std::move(desc));
+  }
+  styio::runtime::observation::register_table(generation, std::move(descriptors));
+}
+
+extern "C" DLLEXPORT int64_t
 styio_task_active_count() {
   return g_active_task_handles;
 }
@@ -2155,6 +3331,7 @@ styio_task_worker_count() {
 extern "C" DLLEXPORT void
 styio_task_scheduler_profile_reset() {
   g_task_scheduler_profile_counters.reset();
+  StyioTaskScheduler::instance().reset_ready_queue_counters();
 }
 
 extern "C" DLLEXPORT void
@@ -2169,6 +3346,7 @@ styio_task_scheduler_profile_snapshot(StyioTaskSchedulerProfileSnapshot* out) {
   }
   out->enabled = task_scheduler_profile_enabled() ? 1 : 0;
   out->worker_count = static_cast<int64_t>(StyioTaskScheduler::instance().current_worker_count());
+  out->ready_queue_kind = static_cast<int64_t>(StyioTaskScheduler::instance().ready_queue_kind());
   out->active_tasks = g_active_task_handles;
   out->ready_tasks = g_task_scheduler_profile_counters.ready_tasks.load(std::memory_order_relaxed);
   out->spawned_tasks = g_task_scheduler_profile_counters.spawned_tasks.load(std::memory_order_relaxed);
@@ -2181,7 +3359,18 @@ styio_task_scheduler_profile_snapshot(StyioTaskSchedulerProfileSnapshot* out) {
   out->blocking_pulls = g_task_scheduler_profile_counters.blocking_pulls.load(std::memory_order_relaxed);
   out->failed_pulls = g_task_scheduler_profile_counters.failed_pulls.load(std::memory_order_relaxed);
   out->invalid_pulls = g_task_scheduler_profile_counters.invalid_pulls.load(std::memory_order_relaxed);
-  out->max_queue_depth = g_task_scheduler_profile_counters.max_queue_depth.load(std::memory_order_relaxed);
+  const styio::runtime::ReadyQueueSnapshot queue =
+    StyioTaskScheduler::instance().ready_queue_snapshot();
+  out->max_queue_depth = static_cast<int64_t>(queue.peak_depth);
+  out->queue_capacity = static_cast<int64_t>(queue.capacity);
+  out->queue_current_depth = static_cast<int64_t>(queue.current_depth);
+  out->queue_accepted_pushes = static_cast<int64_t>(queue.accepted_pushes);
+  out->queue_pops = static_cast<int64_t>(queue.pops);
+  out->queue_pressure_events = static_cast<int64_t>(queue.pressure_events);
+  out->queue_producer_waits = static_cast<int64_t>(queue.producer_waits);
+  out->queue_consumer_waits = static_cast<int64_t>(queue.consumer_waits);
+  out->queue_close_wake_ups = static_cast<int64_t>(queue.close_wake_ups);
+  out->queue_closed = queue.closed ? 1 : 0;
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2257,6 +3446,35 @@ styio_string_lines(const char* text) {
   return stash_list(list);
 }
 
+extern "C" DLLEXPORT int64_t
+styio_string_chars(const char* text) {
+  if (text == nullptr) {
+    set_runtime_error_once(
+      kRuntimeSubcodeAllocation,
+      "string.chars() received a null string");
+    return 0;
+  }
+  try {
+    auto* list = new StyioListChar();
+    std::unique_ptr<StyioListChar> owner(list);
+    const size_t length = std::strlen(text);
+    list->elems.reserve(length);
+    const auto* bytes = reinterpret_cast<const unsigned char*>(text);
+    for (size_t i = 0; i < length; ++i) {
+      list->elems.push_back(static_cast<int8_t>(bytes[i]));
+    }
+    const int64_t handle = stash_list(list);
+    owner.release();
+    return handle;
+  }
+  catch (const std::bad_alloc&) {
+    set_runtime_error_once(
+      kRuntimeSubcodeAllocation,
+      "string.chars() allocation failed");
+    return 0;
+  }
+}
+
 bool
 check_list_index(size_t size, int64_t idx, bool allow_end = false) {
   if (idx < 0) {
@@ -2272,6 +3490,38 @@ check_list_index(size_t size, int64_t idx, bool allow_end = false) {
       "list index out of range: " + std::to_string(static_cast<long long>(idx)));
     return false;
   }
+  return true;
+}
+
+bool
+check_list_slice_bounds(
+  size_t size,
+  int64_t start,
+  int64_t end_exclusive,
+  bool has_end,
+  size_t& begin,
+  size_t& finish
+) {
+  if (start < 0) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list slice start out of range: " + std::to_string(static_cast<long long>(start)));
+    return false;
+  }
+  if (has_end && end_exclusive < 0) {
+    set_runtime_error_once(
+      kRuntimeSubcodeListIndex,
+      "list slice end out of range: " + std::to_string(static_cast<long long>(end_exclusive)));
+    return false;
+  }
+  const size_t pos_start = static_cast<size_t>(start);
+  const size_t pos_end = has_end ? static_cast<size_t>(end_exclusive) : size;
+  if (pos_start > size || pos_end > size || pos_end < pos_start) {
+    set_runtime_error_once(kRuntimeSubcodeListIndex, "list slice bounds out of range");
+    return false;
+  }
+  begin = pos_start;
+  finish = pos_end;
   return true;
 }
 
@@ -2293,9 +3543,30 @@ list_set_value(ListT* list, int64_t idx, ValueT&& value) {
   list->elems[static_cast<size_t>(idx)] = std::forward<ValueT>(value);
 }
 
+template <typename ListT>
+int64_t
+slice_plain_list(ListT* list, int64_t start, int64_t end_exclusive, bool has_end) {
+  if (list == nullptr) {
+    return 0;
+  }
+  size_t begin = 0;
+  size_t finish = 0;
+  if (!check_list_slice_bounds(list->elems.size(), start, end_exclusive, has_end, begin, finish)) {
+    return 0;
+  }
+  auto* out = new ListT();
+  out->elems.assign(list->elems.begin() + begin, list->elems.begin() + finish);
+  return stash_list(out);
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_new_bool() {
   return stash_list(new StyioListBool());
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_new_char() {
+  return stash_list(new StyioListChar());
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2323,11 +3594,24 @@ styio_list_new_dict() {
   return stash_list(new StyioListDictHandle());
 }
 
+extern "C" DLLEXPORT int64_t
+styio_list_new_matrix() {
+  return stash_list(new StyioListMatrixHandle());
+}
+
 extern "C" DLLEXPORT void
 styio_list_push_bool(int64_t h, int64_t value) {
   StyioListBool* list = as_list_bool(h, true);
   if (list != nullptr) {
     list->elems.push_back(value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_push_char(int64_t h, int8_t value) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list != nullptr) {
+    list->elems.push_back(value);
   }
 }
 
@@ -2372,10 +3656,26 @@ styio_list_push_dict(int64_t h, int64_t value) {
 }
 
 extern "C" DLLEXPORT void
+styio_list_push_matrix(int64_t h, int64_t value) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list != nullptr) {
+    list->elems.push_back(clone_matrix_handle_value(value));
+  }
+}
+
+extern "C" DLLEXPORT void
 styio_list_insert_bool(int64_t h, int64_t idx, int64_t value) {
   StyioListBool* list = as_list_bool(h, true);
   if (list != nullptr) {
     list_insert_value(list, idx, value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_insert_char(int64_t h, int64_t idx, int8_t value) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list != nullptr) {
+    list_insert_value(list, idx, value);
   }
 }
 
@@ -2425,9 +3725,239 @@ styio_list_insert_dict(int64_t h, int64_t idx, int64_t value) {
     clone_dict_handle_value(value));
 }
 
+extern "C" DLLEXPORT void
+styio_list_insert_matrix(int64_t h, int64_t idx, int64_t value) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, true)) {
+    return;
+  }
+  list->elems.insert(
+    list->elems.begin() + static_cast<size_t>(idx),
+    clone_matrix_handle_value(value));
+}
+
 extern "C" DLLEXPORT int64_t
 styio_list_clone(int64_t h) {
   return clone_list_handle_value(h);
+}
+
+namespace {
+
+void release_tuple_payload(StyioTuplePayload& payload) {
+  if (payload.kind == StyioTupleElemKind::List) styio_list_release(payload.i64);
+  else if (payload.kind == StyioTupleElemKind::Dict) styio_dict_release(payload.i64);
+  else if (payload.kind == StyioTupleElemKind::Matrix) styio_matrix_release(payload.i64);
+  payload = StyioTuplePayload{};
+}
+
+void release_tuple_value(StyioTupleValue& tuple) {
+  for (auto& payload : tuple.elements) release_tuple_payload(payload);
+}
+
+StyioTuplePayload* tuple_payload(
+  int64_t handle, int64_t index, StyioTupleElemKind expected) {
+  StyioTupleValue* tuple = g_tuple_registry.lookup(handle);
+  if (tuple == nullptr) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
+    return nullptr;
+  }
+  if (index < 0 || static_cast<std::size_t>(index) >= tuple->elements.size()) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "tuple projection index is out of range");
+    return nullptr;
+  }
+  StyioTuplePayload& payload = tuple->elements[static_cast<std::size_t>(index)];
+  if (payload.kind != expected) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "tuple projection element kind mismatch");
+    return nullptr;
+  }
+  return &payload;
+}
+
+void tuple_store(int64_t handle, int64_t index, StyioTuplePayload payload) {
+  StyioTupleValue* tuple = g_tuple_registry.lookup(handle);
+  if (tuple == nullptr || index < 0
+      || static_cast<std::size_t>(index) >= tuple->elements.size()) {
+    release_tuple_payload(payload);
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid tuple construction target");
+    return;
+  }
+  StyioTuplePayload& destination = tuple->elements[static_cast<std::size_t>(index)];
+  release_tuple_payload(destination);
+  destination = std::move(payload);
+}
+
+}  // namespace
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_new(int64_t arity) {
+  if (arity < 2 || arity > static_cast<int64_t>(std::numeric_limits<std::uint32_t>::max())) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "tuple arity must be at least two");
+    return 0;
+  }
+  auto tuple = std::make_unique<StyioTupleValue>(static_cast<std::size_t>(arity));
+  const int64_t handle = g_tuple_registry.acquire(std::move(tuple));
+  if (handle != 0) ++g_active_tuple_handles;
+  return handle;
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_i64_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::I64;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_f64_owned(
+  int64_t h, int64_t index, double value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::F64;
+  payload.f64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_cstr_owned(
+  int64_t h, int64_t index, const char* value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::String;
+  if (value != nullptr) payload.string = value;
+  styio_free_cstr(value);
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_list_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::List;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_dict_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::Dict;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_set_matrix_owned(
+  int64_t h, int64_t index, int64_t value) {
+  StyioTuplePayload payload;
+  payload.kind = StyioTupleElemKind::Matrix;
+  payload.i64 = value;
+  tuple_store(h, index, std::move(payload));
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_i64(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::I64);
+  return payload == nullptr ? 0 : payload->i64;
+}
+
+extern "C" DLLEXPORT double
+styio_tuple_get_f64(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::F64);
+  return payload == nullptr ? 0.0 : payload->f64;
+}
+
+extern "C" DLLEXPORT const char*
+styio_tuple_get_cstr(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::String);
+  return payload == nullptr ? nullptr : styio_clone_cstr(payload->string.c_str());
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_list(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::List);
+  return payload == nullptr ? 0 : styio_list_clone(payload->i64);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_dict(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::Dict);
+  return payload == nullptr ? 0 : styio_dict_clone(payload->i64);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_get_matrix(int64_t h, int64_t index) {
+  auto* payload = tuple_payload(h, index, StyioTupleElemKind::Matrix);
+  return payload == nullptr ? 0 : styio_matrix_clone(payload->i64);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_clone(int64_t h) {
+  StyioTupleValue* source = g_tuple_registry.lookup(h);
+  if (source == nullptr) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
+    return 0;
+  }
+  const int64_t clone = styio_tuple_new(static_cast<int64_t>(source->elements.size()));
+  if (clone == 0) return 0;
+  for (std::size_t i = 0; i < source->elements.size(); ++i) {
+    const auto& payload = source->elements[i];
+    const int64_t index = static_cast<int64_t>(i);
+    switch (payload.kind) {
+      case StyioTupleElemKind::I64: styio_tuple_set_i64_owned(clone, index, payload.i64); break;
+      case StyioTupleElemKind::F64: styio_tuple_set_f64_owned(clone, index, payload.f64); break;
+      case StyioTupleElemKind::String:
+        styio_tuple_set_cstr_owned(clone, index, styio_clone_cstr(payload.string.c_str())); break;
+      case StyioTupleElemKind::List:
+        styio_tuple_set_list_owned(clone, index, styio_list_clone(payload.i64)); break;
+      case StyioTupleElemKind::Dict:
+        styio_tuple_set_dict_owned(clone, index, styio_dict_clone(payload.i64)); break;
+      case StyioTupleElemKind::Matrix:
+        styio_tuple_set_matrix_owned(clone, index, styio_matrix_clone(payload.i64)); break;
+      case StyioTupleElemKind::Unset:
+        styio_tuple_release(clone);
+        set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "cannot clone incomplete tuple");
+        return 0;
+    }
+  }
+  return clone;
+}
+
+extern "C" DLLEXPORT void
+styio_tuple_release(int64_t h) {
+  if (h == 0) {
+    return;
+  }
+  auto tuple = g_tuple_registry.take(h);
+  if (!tuple) {
+    set_runtime_error_once(kRuntimeSubcodeInvalidTupleHandle, "invalid or stale tuple handle");
+    return;
+  }
+  release_tuple_value(*tuple);
+  if (g_active_tuple_handles > 0) --g_active_tuple_handles;
+}
+
+extern "C" DLLEXPORT int64_t
+styio_tuple_active_count() {
+  return g_active_tuple_handles;
+}
+
+extern "C" DLLEXPORT const int64_t*
+styio_list_i64_data(int64_t h) {
+  StyioListI64* list = as_list_i64(h, false);
+  if (list == nullptr) {
+    return nullptr;
+  }
+  return list->elems.data();
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_i64_len(int64_t h) {
+  StyioListI64* list = as_list_i64(h, false);
+  if (list == nullptr) {
+    return 0;
+  }
+  return static_cast<int64_t>(list->elems.size());
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2438,6 +3968,9 @@ styio_list_len(int64_t h) {
   }
   if (list->elem_kind == StyioListElemKind::Bool) {
     return static_cast<int64_t>(static_cast<StyioListBool*>(list)->elems.size());
+  }
+  if (list->elem_kind == StyioListElemKind::Char) {
+    return static_cast<int64_t>(static_cast<StyioListChar*>(list)->elems.size());
   }
   if (list->elem_kind == StyioListElemKind::I64) {
     return static_cast<int64_t>(static_cast<StyioListI64*>(list)->elems.size());
@@ -2451,7 +3984,10 @@ styio_list_len(int64_t h) {
   if (list->elem_kind == StyioListElemKind::ListHandle) {
     return static_cast<int64_t>(static_cast<StyioListListHandle*>(list)->elems.size());
   }
-  return static_cast<int64_t>(static_cast<StyioListDictHandle*>(list)->elems.size());
+  if (list->elem_kind == StyioListElemKind::DictHandle) {
+    return static_cast<int64_t>(static_cast<StyioListDictHandle*>(list)->elems.size());
+  }
+  return static_cast<int64_t>(static_cast<StyioListMatrixHandle*>(list)->elems.size());
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2464,6 +4000,18 @@ styio_list_get_bool(int64_t h, int64_t idx) {
     return 0;
   }
   return list->elems[static_cast<size_t>(idx)] != 0 ? 1 : 0;
+}
+
+extern "C" DLLEXPORT int8_t
+styio_list_get_char(int64_t h, int64_t idx) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  if (!check_list_index(list->elems.size(), idx, false)) {
+    return 0;
+  }
+  return list->elems[static_cast<size_t>(idx)];
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2526,11 +4074,100 @@ styio_list_get_dict(int64_t h, int64_t idx) {
   return clone_dict_handle_value(list->elems[static_cast<size_t>(idx)]);
 }
 
+extern "C" DLLEXPORT int64_t
+styio_list_get_matrix(int64_t h, int64_t idx) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  if (!check_list_index(list->elems.size(), idx, false)) {
+    return 0;
+  }
+  return clone_matrix_handle_value(list->elems[static_cast<size_t>(idx)]);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_list_slice(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
+  StyioListBase* list = as_list_base(h, true);
+  if (list == nullptr) {
+    return 0;
+  }
+  const bool bounded_end = has_end != 0;
+  switch (list->elem_kind) {
+    case StyioListElemKind::Bool:
+      return slice_plain_list(
+        static_cast<StyioListBool*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::Char:
+      return slice_plain_list(
+        static_cast<StyioListChar*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::I64:
+      return slice_plain_list(
+        static_cast<StyioListI64*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::F64:
+      return slice_plain_list(
+        static_cast<StyioListF64*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::String:
+      return slice_plain_list(
+        static_cast<StyioListString*>(list), start, end_exclusive, bounded_end);
+    case StyioListElemKind::ListHandle: {
+      auto* src = static_cast<StyioListListHandle*>(list);
+      size_t begin = 0;
+      size_t finish = 0;
+      if (!check_list_slice_bounds(src->elems.size(), start, end_exclusive, bounded_end, begin, finish)) {
+        return 0;
+      }
+      auto* out = new StyioListListHandle();
+      out->elems.reserve(finish - begin);
+      for (size_t i = begin; i < finish; ++i) {
+        out->elems.push_back(clone_list_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+    case StyioListElemKind::DictHandle: {
+      auto* src = static_cast<StyioListDictHandle*>(list);
+      size_t begin = 0;
+      size_t finish = 0;
+      if (!check_list_slice_bounds(src->elems.size(), start, end_exclusive, bounded_end, begin, finish)) {
+        return 0;
+      }
+      auto* out = new StyioListDictHandle();
+      out->elems.reserve(finish - begin);
+      for (size_t i = begin; i < finish; ++i) {
+        out->elems.push_back(clone_dict_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+    case StyioListElemKind::MatrixHandle: {
+      auto* src = static_cast<StyioListMatrixHandle*>(list);
+      size_t begin = 0;
+      size_t finish = 0;
+      if (!check_list_slice_bounds(src->elems.size(), start, end_exclusive, bounded_end, begin, finish)) {
+        return 0;
+      }
+      auto* out = new StyioListMatrixHandle();
+      out->elems.reserve(finish - begin);
+      for (size_t i = begin; i < finish; ++i) {
+        out->elems.push_back(clone_matrix_handle_value(src->elems[i]));
+      }
+      return stash_list(out);
+    }
+  }
+  return 0;
+}
+
 extern "C" DLLEXPORT void
 styio_list_set_bool(int64_t h, int64_t idx, int64_t value) {
   StyioListBool* list = as_list_bool(h, true);
   if (list != nullptr) {
     list_set_value(list, idx, value != 0 ? 1 : 0);
+  }
+}
+
+extern "C" DLLEXPORT void
+styio_list_set_char(int64_t h, int64_t idx, int8_t value) {
+  StyioListChar* list = as_list_char(h, true);
+  if (list != nullptr) {
+    list_set_value(list, idx, value);
   }
 }
 
@@ -2583,6 +4220,18 @@ styio_list_set_dict(int64_t h, int64_t idx, int64_t value) {
 }
 
 extern "C" DLLEXPORT void
+styio_list_set_matrix(int64_t h, int64_t idx, int64_t value) {
+  StyioListMatrixHandle* list = as_list_matrix_handle(h, true);
+  if (list == nullptr || !check_list_index(list->elems.size(), idx, false)) {
+    return;
+  }
+  const size_t pos = static_cast<size_t>(idx);
+  int64_t stored = clone_matrix_handle_value(value);
+  (void)g_handle_table.release(list->elems[pos], StyioHandleTable::HandleKind::Matrix, close_matrix);
+  list->elems[pos] = stored;
+}
+
+extern "C" DLLEXPORT void
 styio_list_pop(int64_t h) {
   StyioListBase* list = as_list_base(h, true);
   if (list == nullptr) {
@@ -2592,6 +4241,14 @@ styio_list_pop(int64_t h) {
   switch (list->elem_kind) {
     case StyioListElemKind::Bool: {
       auto* values = static_cast<StyioListBool*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      values->elems.pop_back();
+      popped = true;
+    } break;
+    case StyioListElemKind::Char: {
+      auto* values = static_cast<StyioListChar*>(list);
       if (values->elems.empty()) {
         break;
       }
@@ -2640,6 +4297,16 @@ styio_list_pop(int64_t h) {
       int64_t removed = values->elems.back();
       values->elems.pop_back();
       (void)g_handle_table.release(removed, StyioHandleTable::HandleKind::Dict, close_dict);
+      popped = true;
+    } break;
+    case StyioListElemKind::MatrixHandle: {
+      auto* values = static_cast<StyioListMatrixHandle*>(list);
+      if (values->elems.empty()) {
+        break;
+      }
+      int64_t removed = values->elems.back();
+      values->elems.pop_back();
+      (void)g_handle_table.release(removed, StyioHandleTable::HandleKind::Matrix, close_matrix);
       popped = true;
     } break;
   }
@@ -2715,18 +4382,25 @@ styio_matrix_clone_i64(int64_t h) {
 }
 
 extern "C" DLLEXPORT int64_t
+styio_matrix_clone(int64_t h) {
+  return clone_matrix_handle_value(h);
+}
+
+extern "C" DLLEXPORT int64_t
 styio_matrix_clone_f64(int64_t h) {
   StyioMatrixBase* base = as_matrix_base(h, true);
   if (base == nullptr) {
     return 0;
   }
   auto* out = new StyioMatrixF64(base->rows, base->cols);
-  for (int64_t i = 0; i < base->rows * base->cols; ++i) {
-    out->elems[static_cast<size_t>(i)] =
-      base->elem_kind == StyioMatrixElemKind::F64
-        ? static_cast<StyioMatrixF64*>(base)->elems[static_cast<size_t>(i)]
-        : static_cast<double>(static_cast<StyioMatrixI64*>(base)->elems[static_cast<size_t>(i)]);
-  }
+  with_matrix_f64_elements(
+    base,
+    [&](const auto& elements)
+    {
+      for (size_t i = 0; i < elements.size(); ++i) {
+        out->elems[i] = static_cast<double>(elements[i]);
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -2813,9 +4487,67 @@ styio_matrix_row_f64(int64_t h, int64_t row) {
     return 0;
   }
   auto* out = new StyioListF64();
-  for (int64_t col = 0; col < m->cols; ++col) {
-    out->elems.push_back(styio_matrix_get_f64(h, row, col));
+  out->elems.reserve(static_cast<size_t>(m->cols));
+  const size_t row_offset = static_cast<size_t>(row * m->cols);
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (int64_t col = 0; col < m->cols; ++col) {
+        out->elems.push_back(
+          static_cast<double>(elements[row_offset + static_cast<size_t>(col)]));
+      }
+    });
+  return stash_list(out);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_matrix_rows_slice_i64(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
+  StyioMatrixI64* m = as_matrix_i64(h, true);
+  int64_t begin = 0;
+  int64_t finish = 0;
+  if (m == nullptr
+      || !check_matrix_row_slice_bounds(m, start, end_exclusive, has_end != 0, begin, finish)) {
+    return 0;
   }
+  auto* out = new StyioListListHandle();
+  out->elems.reserve(static_cast<size_t>(finish - begin));
+  for (int64_t row = begin; row < finish; ++row) {
+    auto* row_list = new StyioListI64();
+    row_list->elems.reserve(static_cast<size_t>(m->cols));
+    for (int64_t col = 0; col < m->cols; ++col) {
+      row_list->elems.push_back(m->elems[matrix_offset(m, row, col)]);
+    }
+    out->elems.push_back(stash_list(row_list));
+  }
+  return stash_list(out);
+}
+
+extern "C" DLLEXPORT int64_t
+styio_matrix_rows_slice_f64(int64_t h, int64_t start, int64_t end_exclusive, int32_t has_end) {
+  StyioMatrixBase* m = as_matrix_base(h, true);
+  int64_t begin = 0;
+  int64_t finish = 0;
+  if (m == nullptr
+      || !check_matrix_row_slice_bounds(m, start, end_exclusive, has_end != 0, begin, finish)) {
+    return 0;
+  }
+  auto* out = new StyioListListHandle();
+  out->elems.reserve(static_cast<size_t>(finish - begin));
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (int64_t row = begin; row < finish; ++row) {
+        auto* row_list = new StyioListF64();
+        row_list->elems.reserve(static_cast<size_t>(m->cols));
+        for (int64_t col = 0; col < m->cols; ++col) {
+          row_list->elems.push_back(
+            static_cast<double>(elements[matrix_offset(m, row, col)]));
+        }
+        out->elems.push_back(stash_list(row_list));
+      }
+    });
   return stash_list(out);
 }
 
@@ -2841,15 +4573,15 @@ styio_matrix_add_f64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixF64(a->rows, a->cols);
-  for (int64_t i = 0; i < a->rows * a->cols; ++i) {
-    double av = a->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(a)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(a)->elems[static_cast<size_t>(i)]);
-    double bv = b->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(b)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(b)->elems[static_cast<size_t>(i)]);
-    out->elems[static_cast<size_t>(i)] = av + bv;
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        out->elems[i] = static_cast<double>(left[i]) + static_cast<double>(right[i]);
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -2869,10 +4601,22 @@ styio_matrix_sub_i64(int64_t lhs, int64_t rhs) {
 
 extern "C" DLLEXPORT int64_t
 styio_matrix_sub_f64(int64_t lhs, int64_t rhs) {
-  int64_t neg = styio_matrix_scale_f64(rhs, -1.0);
-  int64_t out = styio_matrix_add_f64(lhs, neg);
-  styio_matrix_release(neg);
-  return out;
+  StyioMatrixBase* a = as_matrix_base(lhs, true);
+  StyioMatrixBase* b = as_matrix_base(rhs, true);
+  if (a == nullptr || b == nullptr || !same_matrix_shape(a, b)) {
+    return 0;
+  }
+  auto* out = new StyioMatrixF64(a->rows, a->cols);
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        out->elems[i] = static_cast<double>(left[i]) - static_cast<double>(right[i]);
+      }
+    });
+  return stash_matrix(out);
 }
 
 extern "C" DLLEXPORT int64_t
@@ -2897,15 +4641,15 @@ styio_matrix_hadamard_f64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixF64(a->rows, a->cols);
-  for (int64_t i = 0; i < a->rows * a->cols; ++i) {
-    double av = a->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(a)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(a)->elems[static_cast<size_t>(i)]);
-    double bv = b->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(b)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(b)->elems[static_cast<size_t>(i)]);
-    out->elems[static_cast<size_t>(i)] = av * bv;
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        out->elems[i] = static_cast<double>(left[i]) * static_cast<double>(right[i]);
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -2921,15 +4665,13 @@ styio_matrix_matmul_i64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixI64(a->rows, b->cols);
-  for (int64_t r = 0; r < a->rows; ++r) {
-    for (int64_t c = 0; c < b->cols; ++c) {
-      int64_t sum = 0;
-      for (int64_t k = 0; k < a->cols; ++k) {
-        sum += a->elems[matrix_offset(a, r, k)] * b->elems[matrix_offset(b, k, c)];
-      }
-      out->elems[matrix_offset(out, r, c)] = sum;
-    }
-  }
+  matrix_multiply_blocked(
+    a->elems,
+    b->elems,
+    out->elems,
+    static_cast<size_t>(a->rows),
+    static_cast<size_t>(a->cols),
+    static_cast<size_t>(b->cols));
   return stash_matrix(out);
 }
 
@@ -2945,15 +4687,19 @@ styio_matrix_matmul_f64(int64_t lhs, int64_t rhs) {
     return 0;
   }
   auto* out = new StyioMatrixF64(a->rows, b->cols);
-  for (int64_t r = 0; r < a->rows; ++r) {
-    for (int64_t c = 0; c < b->cols; ++c) {
-      double sum = 0.0;
-      for (int64_t k = 0; k < a->cols; ++k) {
-        sum += styio_matrix_get_f64(lhs, r, k) * styio_matrix_get_f64(rhs, k, c);
-      }
-      out->elems[matrix_offset(out, r, c)] = sum;
-    }
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      matrix_multiply_blocked(
+        left,
+        right,
+        out->elems,
+        static_cast<size_t>(a->rows),
+        static_cast<size_t>(a->cols),
+        static_cast<size_t>(b->cols));
+    });
   return stash_matrix(out);
 }
 
@@ -2977,12 +4723,14 @@ styio_matrix_scale_f64(int64_t h, double scalar) {
     return 0;
   }
   auto* out = new StyioMatrixF64(m->rows, m->cols);
-  for (int64_t i = 0; i < m->rows * m->cols; ++i) {
-    double v = m->elem_kind == StyioMatrixElemKind::F64
-      ? static_cast<StyioMatrixF64*>(m)->elems[static_cast<size_t>(i)]
-      : static_cast<double>(static_cast<StyioMatrixI64*>(m)->elems[static_cast<size_t>(i)]);
-    out->elems[static_cast<size_t>(i)] = v * scalar;
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (size_t i = 0; i < elements.size(); ++i) {
+        out->elems[i] = static_cast<double>(elements[i]) * scalar;
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3008,11 +4756,17 @@ styio_matrix_transpose_f64(int64_t h) {
     return 0;
   }
   auto* out = new StyioMatrixF64(m->cols, m->rows);
-  for (int64_t r = 0; r < m->rows; ++r) {
-    for (int64_t c = 0; c < m->cols; ++c) {
-      out->elems[matrix_offset(out, c, r)] = styio_matrix_get_f64(h, r, c);
-    }
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (int64_t r = 0; r < m->rows; ++r) {
+        for (int64_t c = 0; c < m->cols; ++c) {
+          out->elems[matrix_offset(out, c, r)] =
+            static_cast<double>(elements[matrix_offset(m, r, c)]);
+        }
+      }
+    });
   return stash_matrix(out);
 }
 
@@ -3038,11 +4792,15 @@ styio_matrix_dot_f64(int64_t lhs, int64_t rhs) {
     return 0.0;
   }
   double sum = 0.0;
-  for (int64_t r = 0; r < a->rows; ++r) {
-    for (int64_t c = 0; c < a->cols; ++c) {
-      sum += styio_matrix_get_f64(lhs, r, c) * styio_matrix_get_f64(rhs, r, c);
-    }
-  }
+  with_matrix_f64_element_pair(
+    a,
+    b,
+    [&](const auto& left, const auto& right)
+    {
+      for (size_t i = 0; i < left.size(); ++i) {
+        sum += static_cast<double>(left[i]) * static_cast<double>(right[i]);
+      }
+    });
   return sum;
 }
 
@@ -3066,11 +4824,14 @@ styio_matrix_sum_f64(int64_t h) {
     return 0.0;
   }
   double sum = 0.0;
-  for (int64_t r = 0; r < m->rows; ++r) {
-    for (int64_t c = 0; c < m->cols; ++c) {
-      sum += styio_matrix_get_f64(h, r, c);
-    }
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (const auto value : elements) {
+        sum += static_cast<double>(value);
+      }
+    });
   return sum;
 }
 
@@ -3081,12 +4842,15 @@ styio_matrix_norm(int64_t h) {
     return 0.0;
   }
   double sum = 0.0;
-  for (int64_t r = 0; r < m->rows; ++r) {
-    for (int64_t c = 0; c < m->cols; ++c) {
-      double v = styio_matrix_get_f64(h, r, c);
-      sum += v * v;
-    }
-  }
+  with_matrix_f64_elements(
+    m,
+    [&](const auto& elements)
+    {
+      for (const auto value : elements) {
+        const double converted = static_cast<double>(value);
+        sum += converted * converted;
+      }
+    });
   return std::sqrt(sum);
 }
 

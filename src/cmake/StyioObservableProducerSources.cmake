@@ -1,0 +1,6 @@
+set(STYIO_OBSERVABLE_PRODUCER_SOURCES
+  StyioServices/StyioObservableProducer/DeltaPublication.cpp
+  StyioServices/StyioObservableProducer/InstrumentationTable.cpp
+  StyioServices/StyioObservableProducer/StaticSnapshotContract.cpp
+  StyioServices/StyioObservableProducer/StaticSnapshotPublication.cpp
+)

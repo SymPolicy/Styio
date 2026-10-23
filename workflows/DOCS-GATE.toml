@@ -1,7 +1,7 @@
 id = "docs-gate"
 title = "Docs Gate"
 purpose = "Define the common docs/process gate entrypoint for styio-nightly."
-last_updated = "2026-04-19"
+last_updated = "2026-06-28"
 doc = "DOCS-GATE.md"
 
 commands = [
@@ -11,6 +11,8 @@ commands = [
 ]
 
 checks = [
+  "existing-document reuse and ADR current-decision policy",
+  "version-style naming rejection",
   "team docs gate",
   "docs audit",
   "ecosystem CLI contract consistency",

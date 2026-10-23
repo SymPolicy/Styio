@@ -4,9 +4,9 @@
 #include <filesystem>
 #include <string>
 
-#include "StyioIDE/Common.hpp"
-#include "StyioIDE/VFS.hpp"
-#include "StyioLSP/Server.hpp"
+#include "StyioServices/StyioIDE/Common.hpp"
+#include "StyioServices/StyioIDE/VFS.hpp"
+#include "StyioServices/StyioLSP/Server.hpp"
 #include "llvm/Support/JSON.h"
 #include "fuzz_ide_common.hpp"
 

@@ -1,0 +1,9 @@
+@bucket : matrix|..2|
+[1, 5] >> #(base) => {
+  cur: matrix = [[base, base + 1], [base + 2, base + 3]]
+  cur -> @bucket
+}
+@bucket >> #(m) & [10, 20] >> #(rank) => {
+  >_(rank)
+}
+>_("after")

@@ -1,0 +1,4 @@
+@import { a }
+@export { cycle_b }
+
+# cycle_b := (value) => cycle_a(value)

@@ -81,6 +81,7 @@ using StyioToStringVisitor = ToStringVisitor<
   class HandleAcquireAST,
   class ResourceWriteAST,
   class ResourceRedirectAST,
+  class ResourceEffectAST,
 
   class StateDeclAST,
   class StateRefAST,
@@ -253,6 +254,7 @@ public:
   std::string toString(HandleAcquireAST* ast, int indent = 0);
   std::string toString(ResourceWriteAST* ast, int indent = 0);
   std::string toString(ResourceRedirectAST* ast, int indent = 0);
+  std::string toString(ResourceEffectAST* ast, int indent = 0);
 
   std::string toString(StateDeclAST* ast, int indent = 0);
   std::string toString(StateRefAST* ast, int indent = 0);
@@ -341,6 +343,7 @@ public:
 
   std::string toString(SGResId* node, int indent = 0);
   std::string toString(SGType* node, int indent = 0);
+  std::string toString(SGNoOp* node, int indent = 0);
   
   std::string toString(SGConstBool* node, int indent = 0);
 
@@ -352,6 +355,8 @@ public:
   std::string toString(SGFormatString* node, int indent = 0);
   
   std::string toString(SGStruct* node, int indent = 0);
+  std::string toString(SGTupleCreate* node, int indent = 0);
+  std::string toString(SGTupleGet* node, int indent = 0);
 
   std::string toString(SGCast* node, int indent = 0);
 
@@ -386,6 +391,7 @@ public:
   std::string toString(SCMatrixLiteral* node, int indent = 0);
   std::string toString(SCMatrixGet* node, int indent = 0);
   std::string toString(SCMatrixRow* node, int indent = 0);
+  std::string toString(SCMatrixRowsSlice* node, int indent = 0);
   std::string toString(SCMatrixToString* node, int indent = 0);
   std::string toString(SGRangeFor* node, int indent = 0);
   std::string toString(SGIf* node, int indent = 0);
@@ -413,8 +419,10 @@ public:
   std::string toString(SIOInstantPull* node, int indent = 0);
   std::string toString(SIOListReadStdin* node, int indent = 0);
   std::string toString(SCListClone* node, int indent = 0);
+  std::string toString(SCMatrixClone* node, int indent = 0);
   std::string toString(SCListLen* node, int indent = 0);
   std::string toString(SCListGet* node, int indent = 0);
+  std::string toString(SCListSlice* node, int indent = 0);
   std::string toString(SCListSet* node, int indent = 0);
   std::string toString(SCListToString* node, int indent = 0);
   std::string toString(SCDictClone* node, int indent = 0);
@@ -426,10 +434,12 @@ public:
   std::string toString(SCDictToString* node, int indent = 0);
   std::string toString(SIOResourceWriteToFile* node, int indent = 0);
   std::string toString(SIOStdStreamWrite* node, int indent = 0);
+  std::string toString(SIOResourceEffect* node, int indent = 0);
   std::string toString(SIOStdStreamLineIter* node, int indent = 0);
   std::string toString(SIOStdStreamPull* node, int indent = 0);
   std::string toString(SIOTaskCreate* node, int indent = 0);
   std::string toString(SIOFlowBind* node, int indent = 0);
+  std::string toString(SIOTaskOrder* node, int indent = 0);
 
   std::string toString(SIOPath* node, int indent = 0);
   std::string toString(SIOPrint* node, int indent = 0);

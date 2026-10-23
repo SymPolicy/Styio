@@ -40,7 +40,7 @@ jobs:
       - name: Build sanitizer targets
         run: >
           cmake --build build/sanitizers --target
-          styio styio_test styio_security_test styio_soak_test
+          styio styio_test styio_security_test
 
       - name: Run sanitizer gates
         env:

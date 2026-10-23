@@ -1,0 +1,2 @@
+# increment : i64 := (value: i64) => value + 1
+operation: #(string): string := increment

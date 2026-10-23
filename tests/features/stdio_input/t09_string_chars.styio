@@ -1,0 +1,23 @@
+empty: string := (<< @stdin)
+ascii: string := (<< @stdin)
+utf8: string := (<< @stdin)
+
+empty_chars: list[char] := empty.chars()
+ascii_chars: list[char] := ascii.chars()
+utf8_bytes: list[char] := utf8.chars()
+
+# recognize_plus := (values: list[char]) => {
+    symbol = values[1]
+    ?(symbol == '+') => { 1 -> @stdout }
+    <| 0
+}
+
+>_(empty_chars)
+>_(ascii_chars)
+>_(ascii_chars[1])
+ascii_chars >> #(byte) => {
+    ?(byte == ' ') => { >_("<space>") } | { >_(byte) }
+}
+>_(utf8_bytes)
+>_(utf8_bytes.length)
+recognize_plus(ascii_chars)

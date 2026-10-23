@@ -199,6 +199,7 @@ void
 FrontendProfiler::set_async_scheduler_stats(
   std::int64_t enabled,
   std::int64_t worker_count,
+  std::int64_t ready_queue_kind,
   std::int64_t active_tasks,
   std::int64_t ready_tasks,
   std::int64_t spawned_tasks,
@@ -211,7 +212,16 @@ FrontendProfiler::set_async_scheduler_stats(
   std::int64_t blocking_pulls,
   std::int64_t failed_pulls,
   std::int64_t invalid_pulls,
-  std::int64_t max_queue_depth
+  std::int64_t max_queue_depth,
+  std::int64_t queue_capacity,
+  std::int64_t queue_current_depth,
+  std::int64_t queue_accepted_pushes,
+  std::int64_t queue_pops,
+  std::int64_t queue_pressure_events,
+  std::int64_t queue_producer_waits,
+  std::int64_t queue_consumer_waits,
+  std::int64_t queue_close_wake_ups,
+  std::int64_t queue_closed
 ) {
   if (!enabled_) {
     return;
@@ -219,6 +229,7 @@ FrontendProfiler::set_async_scheduler_stats(
   async_scheduler_.present = true;
   async_scheduler_.enabled = enabled;
   async_scheduler_.worker_count = worker_count;
+  async_scheduler_.ready_queue_kind = ready_queue_kind;
   async_scheduler_.active_tasks = active_tasks;
   async_scheduler_.ready_tasks = ready_tasks;
   async_scheduler_.spawned_tasks = spawned_tasks;
@@ -232,6 +243,15 @@ FrontendProfiler::set_async_scheduler_stats(
   async_scheduler_.failed_pulls = failed_pulls;
   async_scheduler_.invalid_pulls = invalid_pulls;
   async_scheduler_.max_queue_depth = max_queue_depth;
+  async_scheduler_.queue_capacity = queue_capacity;
+  async_scheduler_.queue_current_depth = queue_current_depth;
+  async_scheduler_.queue_accepted_pushes = queue_accepted_pushes;
+  async_scheduler_.queue_pops = queue_pops;
+  async_scheduler_.queue_pressure_events = queue_pressure_events;
+  async_scheduler_.queue_producer_waits = queue_producer_waits;
+  async_scheduler_.queue_consumer_waits = queue_consumer_waits;
+  async_scheduler_.queue_close_wake_ups = queue_close_wake_ups;
+  async_scheduler_.queue_closed = queue_closed;
 }
 
 void
@@ -323,6 +343,7 @@ FrontendProfiler::to_json() const {
     out << "{"
         << "\"enabled\": " << async_scheduler_.enabled
         << ", \"worker_count\": " << async_scheduler_.worker_count
+        << ", \"ready_queue_kind\": " << async_scheduler_.ready_queue_kind
         << ", \"active_tasks\": " << async_scheduler_.active_tasks
         << ", \"ready_tasks\": " << async_scheduler_.ready_tasks
         << ", \"spawned_tasks\": " << async_scheduler_.spawned_tasks
@@ -336,6 +357,15 @@ FrontendProfiler::to_json() const {
         << ", \"failed_pulls\": " << async_scheduler_.failed_pulls
         << ", \"invalid_pulls\": " << async_scheduler_.invalid_pulls
         << ", \"max_queue_depth\": " << async_scheduler_.max_queue_depth
+        << ", \"queue_capacity\": " << async_scheduler_.queue_capacity
+        << ", \"queue_current_depth\": " << async_scheduler_.queue_current_depth
+        << ", \"queue_accepted_pushes\": " << async_scheduler_.queue_accepted_pushes
+        << ", \"queue_pops\": " << async_scheduler_.queue_pops
+        << ", \"queue_pressure_events\": " << async_scheduler_.queue_pressure_events
+        << ", \"queue_producer_waits\": " << async_scheduler_.queue_producer_waits
+        << ", \"queue_consumer_waits\": " << async_scheduler_.queue_consumer_waits
+        << ", \"queue_close_wake_ups\": " << async_scheduler_.queue_close_wake_ups
+        << ", \"queue_closed\": " << async_scheduler_.queue_closed
         << "}\n";
   }
   else {

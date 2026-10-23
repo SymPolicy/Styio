@@ -1,0 +1,17 @@
+# spin := (n: i64) => {
+    s = 0
+    [0..n] >> #(i) => {
+        s = s + i
+    }
+    <| s
+}
+warmup = ||> { <| 0 }
+job = ||> { <| "initial" }
+[0] >> #(unused) => {
+    message: string := "capture" + "d"
+    warmup = ||> { <| spin(1000000) }
+    job = ||> { <| message }
+}
+?| warmup -> w: i64
+?| job -> value: string
+>_(value)

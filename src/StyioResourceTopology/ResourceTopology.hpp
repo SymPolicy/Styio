@@ -5,7 +5,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "../StyioUtil/SemanticIdentity.hpp"
 
 class BlockAST;
 class MainBlockAST;
@@ -60,6 +63,26 @@ enum class NodeKind : std::uint8_t
   Value,
 };
 
+enum class SemanticRole : std::uint8_t
+{
+  Program,
+  StandaloneBlock,
+  DriverSource,
+  ResourceSlot,
+  ResourceHandle,
+  ResourceMethod,
+  StreamOperation,
+  StateSlot,
+  Snapshot,
+  Value,
+  Sink,
+  Task,
+  StateWindowLedger,
+  SeriesLedger,
+  TaskFailureDomain,
+  ScopeExitDestroySink,
+};
+
 enum class EdgeKind : std::uint8_t
 {
   Flow,
@@ -89,6 +112,8 @@ struct Node
 {
   std::size_t id = 0;
   NodeKind kind = NodeKind::Value;
+  SemanticRole semantic_role = SemanticRole::Value;
+  styio::semantic_identity::SemanticIdentity semantic_id;
   std::string label;
   Capability capabilities = Capability::None;
   TypeState state = TypeState::Unknown;
@@ -103,6 +128,12 @@ struct Edge
   std::string label;
 };
 
+struct CycleInfo
+{
+  std::vector<std::size_t> node_ids;
+  std::vector<std::size_t> edge_ids;
+};
+
 class Graph
 {
   std::vector<Node> nodes_;
@@ -111,6 +142,8 @@ class Graph
 public:
   std::size_t add_node(
     NodeKind kind,
+    SemanticRole semantic_role,
+    styio::semantic_identity::SemanticIdentity semantic_id,
     std::string label,
     Capability capabilities,
     TypeState state,
@@ -131,6 +164,114 @@ public:
   std::size_t node_count(NodeKind kind) const;
   std::size_t edge_count(EdgeKind kind) const;
   std::string debug_string() const;
+
+  /// Detect cycles in the dependency graph (HappensBefore + Flow edges).
+  /// Uses Kahn's algorithm (O(V+E)). Returns empty vector if graph is acyclic.
+  std::vector<CycleInfo> detect_cycles() const;
+};
+
+/// The immutable proof produced by successful top-level topology validation.
+/// It exposes aggregate graph facts and opaque semantic descriptors; AST source
+/// pointers and mutable graph storage remain confined to the implementation.
+class ValidatedArtifact
+{
+  Graph graph_;
+  styio::semantic_identity::Scope scope_;
+
+public:
+  struct SemanticDescriptor
+  {
+    NodeKind kind;
+    SemanticRole role;
+    styio::semantic_identity::SemanticIdentity identity;
+    bool globally_comparable = false;
+  };
+
+  struct NodePublication
+  {
+    NodeKind kind = NodeKind::Value;
+    SemanticRole role = SemanticRole::Value;
+    styio::semantic_identity::SemanticIdentity identity;
+    Capability capabilities = Capability::None;
+    TypeState type_state = TypeState::Unknown;
+    bool source_owned = false;
+  };
+
+  struct RelationPublication
+  {
+    EdgeKind kind = EdgeKind::Flow;
+    std::size_t from = 0;
+    std::size_t to = 0;
+    std::string relation_key;
+  };
+
+private:
+  std::vector<SemanticDescriptor> descriptors_;
+  std::vector<NodePublication> node_publications_;
+  std::vector<RelationPublication> relation_publications_;
+  bool publication_complete_ = false;
+
+  explicit ValidatedArtifact(
+    Graph graph,
+    styio::semantic_identity::Scope scope);
+
+  friend ValidatedArtifact validate_or_throw(MainBlockAST*, std::string);
+  friend ValidatedArtifact validate_or_throw(
+    MainBlockAST*,
+    std::string,
+    styio::semantic_identity::Scope);
+
+public:
+  ValidatedArtifact(const ValidatedArtifact&) = delete;
+  ValidatedArtifact& operator=(const ValidatedArtifact&) = delete;
+  ValidatedArtifact(ValidatedArtifact&&) noexcept = default;
+  ValidatedArtifact& operator=(ValidatedArtifact&&) noexcept = default;
+
+  std::size_t node_count() const noexcept {
+    return graph_.nodes().size();
+  }
+
+  std::size_t edge_count() const noexcept {
+    return graph_.edges().size();
+  }
+
+  std::size_t node_count(NodeKind kind) const {
+    return graph_.node_count(kind);
+  }
+
+  std::size_t edge_count(EdgeKind kind) const {
+    return graph_.edge_count(kind);
+  }
+
+  const styio::semantic_identity::Scope& identity_scope() const noexcept {
+    return scope_;
+  }
+
+  const std::vector<SemanticDescriptor>& semantic_descriptors() const noexcept {
+    return descriptors_;
+  }
+
+  bool publication_complete() const noexcept {
+    return publication_complete_;
+  }
+
+  const std::vector<NodePublication>& node_publications() const noexcept {
+    return node_publications_;
+  }
+
+  const std::vector<RelationPublication>& relation_publications() const noexcept {
+    return relation_publications_;
+  }
+
+  struct SourceSiteBinding
+  {
+    const StyioAST* source = nullptr;
+    NodeKind kind = NodeKind::Value;
+    SemanticRole role = SemanticRole::Value;
+    styio::semantic_identity::SemanticIdentity identity;
+  };
+
+  std::vector<SourceSiteBinding> source_site_bindings() const;
 };
 
 struct ValidationError
@@ -155,6 +296,8 @@ struct BuildOptions
   std::string phase = "resource-topology";
   bool require_close_owner = true;
   bool validate_series_scope = true;
+  styio::semantic_identity::Scope identity_scope =
+    styio::semantic_identity::Scope::anonymous();
 };
 
 struct BuildResult
@@ -166,13 +309,24 @@ struct BuildResult
 BuildResult build(MainBlockAST* ast, BuildOptions options = {});
 BuildResult build(BlockAST* ast, BuildOptions options = {});
 
-void validate_or_throw(MainBlockAST* ast, std::string phase);
+/// Returns true only for the narrow top-level scalar subset that cannot
+/// introduce resource-topology nodes or edges.  Sema and lowering share this
+/// proof so neither phase rebuilds an empty topology graph.
+bool validation_is_noop_for_scalar_program(MainBlockAST* ast);
+
+ValidatedArtifact validate_or_throw(MainBlockAST* ast, std::string phase);
+ValidatedArtifact validate_or_throw(
+  MainBlockAST* ast,
+  std::string phase,
+  styio::semantic_identity::Scope scope);
 void validate_or_throw(BlockAST* ast, std::string phase);
 
 std::string to_string(NodeKind kind);
+std::string to_string(SemanticRole role);
 std::string to_string(EdgeKind kind);
 std::string to_string(TypeState state);
 std::string to_string(Capability capabilities);
+std::vector<std::string> capability_names(Capability capabilities);
 
 } // namespace styio::resource_topology
 

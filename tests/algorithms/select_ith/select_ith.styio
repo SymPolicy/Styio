@@ -1,0 +1,33 @@
+/* CLRS Ch.9 select i-th order statistic (0-based).
+   Input: [i, a1..an]. Output: a_{(i)} or -1 if invalid.
+   Styio: insertion-sort then index (same order statistic; C++ uses nth_element). */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 2) => {
+    i = values[0]
+    n = values.length - 1
+    ?(i >= 0 && i < n) => {
+        ?(n > 1) => {
+            [2..n] >> #(idx) => {
+                key = values[idx]
+                j = idx - 1
+                [1..idx-1] >> #(t) => {
+                    ?(j >= 1 && values[j] > key) => {
+                        values[j + 1] = values[j]
+                        j = j - 1
+                    }
+                }
+                values[j + 1] = key
+            }
+        }
+        answer = values[i + 1]
+    }
+}
+
+?(values.length == 1) => {
+    // [i] with empty payload
+    answer = -1
+}
+
+>_(answer)

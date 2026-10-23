@@ -35,7 +35,7 @@ jobs:
           -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm
 
       - name: Build soak targets
-        run: cmake --build build/soak --target styio styio_soak_test
+        run: cmake --build build/soak --target styio
 
       - name: Run deep soak
         run: |

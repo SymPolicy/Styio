@@ -16,6 +16,7 @@ using std::vector;
 // [Styio]
 #include "../StyioLowering/AstToStyioIRLowerer.hpp"
 #include "../StyioSession/SessionAllocation.hpp"
+#include "../StyioSession/SymbolInterner.hpp"
 #include "../StyioToString/ToStringVisitor.hpp"
 #include "../StyioToken/Token.hpp"
 #include "../StyioUtil/ResourceNames.hpp"
@@ -38,6 +39,10 @@ public:
   static void*
   operator new(std::size_t sz) {
     void* mem = styio::session_alloc::allocate_ast_object(sz);
+    ++live_node_count_;
+    if (live_node_count_ > peak_node_count_) {
+      peak_node_count_ = live_node_count_;
+    }
     if (!styio::session_alloc::ast_arena_active()) {
       tracked_nodes_.insert(static_cast<StyioAST*>(mem));
     }
@@ -47,6 +52,9 @@ public:
   static void
   operator delete(void* ptr) noexcept {
     if (ptr != nullptr) {
+      if (live_node_count_ > 0) {
+        --live_node_count_;
+      }
       tracked_nodes_.erase(static_cast<StyioAST*>(ptr));
     }
     styio::session_alloc::free_object(ptr);
@@ -62,6 +70,16 @@ public:
   static std::size_t
   tracked_node_count() noexcept {
     return tracked_nodes_.size();
+  }
+
+  static std::size_t
+  live_node_count() noexcept {
+    return live_node_count_;
+  }
+
+  static std::size_t
+  peak_node_count() noexcept {
+    return peak_node_count_;
   }
 
   /* Type Hint */
@@ -80,6 +98,8 @@ public:
 
 private:
   inline static thread_local std::unordered_set<StyioAST*> tracked_nodes_;
+  inline static thread_local std::size_t live_node_count_ = 0;
+  inline static thread_local std::size_t peak_node_count_ = 0;
 };
 
 /* ========================================================================== */
@@ -139,10 +159,22 @@ class NameAST : public StyioASTTraits<NameAST>
 {
 private:
   string name_str;
+  styio::session::SymbolId sid_ = styio::session::kInvalidSymbolId;
+  StyioDataType expected_callable_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  StyioDataType inferred_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  std::string lowered_callable_name_;
 
 public:
   NameAST(string name) :
-      name_str(name) {
+      name_str(std::move(name)) {
+  }
+
+  NameAST(string name, styio::session::SymbolId sid) :
+      name_str(std::move(name)), sid_(sid) {
   }
 
   static NameAST* Create() {
@@ -150,11 +182,53 @@ public:
   }
 
   static NameAST* Create(string name) {
-    return new NameAST(name);
+    return new NameAST(std::move(name));
+  }
+
+  static NameAST* Create(string name, styio::session::SymbolId sid) {
+    return new NameAST(std::move(name), sid);
+  }
+
+  /// Clone a NameAST, preserving its SymbolId.
+  static NameAST* Clone(NameAST* other) {
+    if (!other) return Create();
+    auto* clone = new NameAST(other->name_str, other->sid_);
+    clone->expected_callable_type_ = other->expected_callable_type_;
+    clone->inferred_type_ = other->inferred_type_;
+    clone->lowered_callable_name_ = other->lowered_callable_name_;
+    return clone;
   }
 
   const string& getAsStr() {
     return name_str;
+  }
+
+  styio::session::SymbolId getSymbolId() const {
+    return sid_;
+  }
+
+  void setSymbolId(styio::session::SymbolId sid) {
+    sid_ = sid;
+  }
+
+  void setExpectedCallableType(const StyioDataType& type) {
+    expected_callable_type_ = type;
+  }
+
+  const StyioDataType& getExpectedCallableType() const {
+    return expected_callable_type_;
+  }
+
+  void setInferredType(const StyioDataType& type) {
+    inferred_type_ = type;
+  }
+
+  void setLoweredCallableName(std::string name) {
+    lowered_callable_name_ = std::move(name);
+  }
+
+  const std::string& getLoweredCallableName() const {
+    return lowered_callable_name_;
   }
 
   const StyioNodeType getNodeType() const {
@@ -162,7 +236,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
   }
 };
 
@@ -180,13 +254,7 @@ public:
   TypeAST(
     string type_name
   ) {
-    auto it = DTypeTable.find(type_name);
-    if (it != DTypeTable.end()) {
-      type = it->second;
-    }
-    else {
-      type = StyioDataType{StyioDataTypeOption::Defined, type_name, 0};
-    }
+    type = styio_data_type_from_name(type_name);
   }
 
   static TypeAST* Create() {
@@ -202,7 +270,7 @@ public:
   }
 
   /*
-    Topology v2 bounded ring [|n|] in type position (name prefix bounded_ring:n).
+    resource topology bounded ring [|n|] in type position (name prefix bounded_ring:n).
     CodeGen: alloca [n x i64] + head cursor; reads return last written cell (see BoundedType.hpp).
   */
   static TypeAST* CreateBoundedRingBuffer(string capacity_digits) {
@@ -272,7 +340,15 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Tuple, "TypeTuple", 0};
+    std::vector<StyioDataType> elements;
+    elements.reserve(type_list.size());
+    for (auto* type : type_list) {
+      elements.push_back(
+        type == nullptr
+          ? StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0}
+          : type->getDataType());
+    }
+    return styio_make_tuple_type(std::move(elements));
   }
 };
 
@@ -394,7 +470,7 @@ class FloatAST : public StyioASTTraits<FloatAST>
 {
 public:
   string value;
-  TypeAST* data_type = TypeAST::Create(StyioDataType{StyioDataTypeOption::Float, "Float", 64});
+  TypeAST* data_type = TypeAST::Create(StyioDataType{StyioDataTypeOption::Float, "f64", 64});
 
   FloatAST(const string& value) :
       value(value) {
@@ -453,7 +529,7 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return StyioDataType{StyioDataTypeOption::Char, "char", 8};
   }
 };
 
@@ -650,19 +726,12 @@ public:
 
 class ContinueAST : public StyioASTTraits<ContinueAST>
 {
-  unsigned depth_ = 1;
-
 public:
-  explicit ContinueAST(unsigned d = 1) :
-      depth_(d) {
+  ContinueAST() {
   }
 
-  static ContinueAST* Create(unsigned d = 1) {
-    return new ContinueAST(d);
-  }
-
-  unsigned getDepth() const {
-    return depth_;
+  static ContinueAST* Create() {
+    return new ContinueAST();
   }
 
   const StyioNodeType getNodeType() const {
@@ -979,7 +1048,9 @@ public:
 class TypeConvertAST : public StyioASTTraits<TypeConvertAST>
 {
   std::unique_ptr<StyioAST> value_owner_;
+  std::unique_ptr<TypeAST> data_type_owner_;
   StyioAST* Value = nullptr;
+  TypeAST* data_type = nullptr;
   NumPromoTy PromoType;
 
 public:
@@ -987,7 +1058,11 @@ public:
     StyioAST* val,
     NumPromoTy promo_type
   ) :
-      value_owner_(val), Value(value_owner_.get()), PromoType(promo_type) {
+      value_owner_(val),
+      data_type_owner_(TypeAST::Create()),
+      Value(value_owner_.get()),
+      data_type(data_type_owner_.get()),
+      PromoType(promo_type) {
   }
 
   static TypeConvertAST* Create(
@@ -1005,12 +1080,16 @@ public:
     return PromoType;
   }
 
+  void setDataType(StyioDataType type) {
+    data_type->setType(type);
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::NumConvert;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return data_type->getDataType();
   }
 };
 
@@ -1262,6 +1341,18 @@ public:
 
   const StyioDataType getDataType() const {
     return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+  }
+
+  std::string toString(StyioRepr* visitor, int indent = 0) override {
+    return visitor->toString(this, indent);
+  }
+
+  void typeInfer(StyioSemaContext* visitor) override {
+    visitor->typeInfer(this);
+  }
+
+  StyioIR* toStyioIR(AstToStyioIRLowerer* visitor) override {
+    return visitor->toStyioIR(this);
   }
 };
 
@@ -1996,6 +2087,17 @@ public:
   StyioAST* func_callee = nullptr;
   NameAST* func_name = nullptr;
   vector<StyioAST*> func_args;
+  StyioDataType expected_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  StyioDataType inferred_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
+  std::string lowered_callee_name_;
+  bool indirect_callable_call_ = false;
+  StyioDataType indirect_callable_type_{
+    StyioDataTypeOption::Undefined, "undefined", 0
+  };
 
   FuncCallAST(
     NameAST* func_name,
@@ -2070,12 +2172,53 @@ public:
     return func_args;
   }
 
+  void setExpectedType(const StyioDataType& type) {
+    expected_type_ = type;
+  }
+
+  const StyioDataType& getExpectedType() const {
+    return expected_type_;
+  }
+
+  void setInferredType(const StyioDataType& type) {
+    inferred_type_ = type;
+  }
+
+  void setLoweredCalleeName(std::string name) {
+    lowered_callee_name_ = std::move(name);
+  }
+
+  const std::string& getLoweredCalleeName() const {
+    return lowered_callee_name_;
+  }
+
+  void setIndirectCallableType(const StyioDataType& type) {
+    indirect_callable_call_ = true;
+    indirect_callable_type_ = type;
+  }
+
+  bool isIndirectCallableCall() const {
+    return indirect_callable_call_;
+  }
+
+  const StyioDataType& getIndirectCallableType() const {
+    return indirect_callable_type_;
+  }
+
+  void copyInferenceMetadataFrom(const FuncCallAST& other) {
+    expected_type_ = other.expected_type_;
+    inferred_type_ = other.inferred_type_;
+    lowered_callee_name_ = other.lowered_callee_name_;
+    indirect_callable_call_ = other.indirect_callable_call_;
+    indirect_callable_type_ = other.indirect_callable_type_;
+  }
+
   const StyioNodeType getNodeType() const {
     return StyioNodeType::Call;
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
   }
 };
 
@@ -2106,6 +2249,9 @@ public:
     Access_By_Index
       [index]
 
+    Access_By_Slice
+      [start..end]
+
     Access_By_Name
       ["name"]
 
@@ -2128,7 +2274,7 @@ public:
       [-: (i0, i1, ...)]
 
     Remove_Items_By_Many_Values
-      [-: ?^ (v0, v1, ...)]
+      [-: ?^ (x0, x_next, ...)]
 
     Get_Index_By_Item_From_Right
       [[<] ?= value]
@@ -2137,7 +2283,7 @@ public:
       [[<] -: ?= value]
 
     Remove_Items_By_Many_Values_From_Right
-      [[<] -: ?^ (v0, v1, ...)]
+      [[<] -: ?^ (x0, x_next, ...)]
   */
   ListOpAST(StyioNodeType opType, StyioAST* theList, StyioAST* item) :
       list_owner_(theList),
@@ -3034,6 +3180,111 @@ public:
   }
 };
 
+class ResourceEffectAST : public StyioASTTraits<ResourceEffectAST>
+{
+public:
+  struct Handler {
+    std::string effect_name;
+    std::unique_ptr<StyioAST> body_owner;
+    StyioAST* body = nullptr;
+
+    Handler(std::string effect, StyioAST* handler_body) :
+        effect_name(std::move(effect)),
+        body_owner(handler_body),
+        body(body_owner.get()) {
+    }
+
+    Handler(Handler&&) noexcept = default;
+    Handler& operator=(Handler&&) noexcept = default;
+    Handler(const Handler&) = delete;
+    Handler& operator=(const Handler&) = delete;
+  };
+
+private:
+  std::unique_ptr<StyioAST> operation_owner_;
+  std::unique_ptr<StyioAST> fallback_owner_;
+  std::vector<Handler> handlers_;
+
+  StyioAST* operation_ = nullptr;
+  StyioAST* fallback_ = nullptr;
+  bool discard_ = false;
+  bool value_required_ = false;
+  StyioDataType result_type_{StyioDataTypeOption::Undefined, "undefined", 0};
+
+  ResourceEffectAST(
+    StyioAST* operation,
+    StyioAST* fallback,
+    bool discard,
+    std::vector<Handler> handlers,
+    bool value_required
+  ) :
+      operation_owner_(operation),
+      fallback_owner_(fallback),
+      handlers_(std::move(handlers)),
+      operation_(operation_owner_.get()),
+      fallback_(fallback_owner_.get()),
+      discard_(discard),
+      value_required_(value_required) {
+  }
+
+public:
+  static ResourceEffectAST* Create(
+    StyioAST* operation,
+    StyioAST* fallback = nullptr,
+    bool discard = false,
+    std::vector<Handler> handlers = {},
+    bool value_required = false
+  ) {
+    return new ResourceEffectAST(
+      operation,
+      fallback,
+      discard,
+      std::move(handlers),
+      value_required
+    );
+  }
+
+  StyioAST* getOperation() {
+    return operation_;
+  }
+
+  bool hasFallback() const {
+    return fallback_ != nullptr;
+  }
+
+  StyioAST* getFallback() {
+    return fallback_;
+  }
+
+  const std::vector<Handler>& getHandlers() const {
+    return handlers_;
+  }
+
+  bool hasHandlers() const {
+    return !handlers_.empty();
+  }
+
+  bool isDiscard() const {
+    return discard_;
+  }
+
+  bool isValueRequired() const {
+    return value_required_;
+  }
+
+  void setResultType(StyioDataType type) {
+    result_type_ = std::move(type);
+  }
+
+  const StyioNodeType getNodeType() const {
+    return StyioNodeType::ResourceEffect;
+  }
+
+  const StyioDataType getDataType() const {
+    return result_type_;
+  }
+};
+
 /* State resources: pulse state ledger */
 class StateRefAST : public StyioASTTraits<StateRefAST>
 {
@@ -3328,15 +3579,33 @@ class ExternBlockAST : public StyioASTTraits<ExternBlockAST>
 {
   string Abi;
   string Body;
+  vector<string> SourcePaths;
+  vector<string> ExportedSymbols;
 
 public:
-  ExternBlockAST(string abi, string body) :
+  ExternBlockAST(
+    string abi,
+    string body,
+    vector<string> source_paths = {},
+    vector<string> exported_symbols = {}
+  ) :
       Abi(std::move(abi)),
-      Body(std::move(body)) {
+      Body(std::move(body)),
+      SourcePaths(std::move(source_paths)),
+      ExportedSymbols(std::move(exported_symbols)) {
   }
 
-  static ExternBlockAST* Create(string abi, string body) {
-    return new ExternBlockAST(std::move(abi), std::move(body));
+  static ExternBlockAST* Create(
+    string abi,
+    string body,
+    vector<string> source_paths = {},
+    vector<string> exported_symbols = {}
+  ) {
+    return new ExternBlockAST(
+      std::move(abi),
+      std::move(body),
+      std::move(source_paths),
+      std::move(exported_symbols));
   }
 
   const string& getAbi() const {
@@ -3345,6 +3614,14 @@ public:
 
   const string& getBody() const {
     return Body;
+  }
+
+  const vector<string>& getSourcePaths() const {
+    return SourcePaths;
+  }
+
+  const vector<string>& getExportedSymbols() const {
+    return ExportedSymbols;
   }
 
   const StyioNodeType getNodeType() const {
@@ -3440,10 +3717,10 @@ public:
     For each step of iteration, typeInfer if the element match the value
   expression, if match case is true, then execute the branch.
 
-  MatchCases: Fill + Cases
-    >> Element(Single) ?= {
-      v0 => {}
-      v1 => {}
+    MatchCases: Fill + Cases
+      >> Element(Single) ?= {
+      value_first => {}
+      value_next => {}
       _  => {}
     }
 
@@ -3602,6 +3879,7 @@ class MatchCasesAST : public StyioASTTraits<MatchCasesAST>
 
   StyioAST* Value = nullptr;
   CasesAST* Cases = nullptr;
+  StyioDataType inferred_type_ = StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
 
 public:
   /* v ?= { _ => ... } */
@@ -3617,7 +3895,11 @@ public:
   }
 
   const StyioDataType getDataType() const {
-    return StyioDataType{StyioDataTypeOption::Undefined, "undefined", 0};
+    return inferred_type_;
+  }
+
+  void setDataType(StyioDataType type) {
+    inferred_type_ = std::move(type);
   }
 
   static MatchCasesAST* make(StyioAST* value, CasesAST* cases) {
@@ -4024,6 +4306,7 @@ class FunctionAST : public StyioASTTraits<FunctionAST>
 private:
   std::unique_ptr<NameAST> func_name_owner_;
   std::vector<std::unique_ptr<ParamAST>> params_owner_;
+  std::vector<std::unique_ptr<NameAST>> capture_names_owner_;
   std::unique_ptr<TypeAST> ret_type_owner_;
   std::unique_ptr<TypeTupleAST> ret_type_tuple_owner_;
   std::unique_ptr<StyioAST> func_body_owner_;
@@ -4036,6 +4319,17 @@ private:
     for (auto* param : owned_params) {
       params_owner_.emplace_back(param);
       params.push_back(params_owner_.back().get());
+    }
+  }
+
+  void adopt_capture_names(std::vector<NameAST*> owned_names) {
+    capture_names_owner_.clear();
+    capture_names.clear();
+    capture_names_owner_.reserve(owned_names.size());
+    capture_names.reserve(owned_names.size());
+    for (auto* name : owned_names) {
+      capture_names_owner_.emplace_back(name);
+      capture_names.push_back(capture_names_owner_.back().get());
     }
   }
 
@@ -4111,6 +4405,7 @@ public:
   NameAST* func_name = nullptr;
   bool is_unique = false;
   std::vector<ParamAST*> params;
+  std::vector<NameAST*> capture_names;
   std::variant<TypeAST*, TypeTupleAST*> ret_type;
 
   /*
@@ -4142,6 +4437,14 @@ public:
     StyioAST* body
   ) {
     return new FunctionAST(name, is_unique, params, ret_type, body);
+  }
+
+  void setCaptureNames(std::vector<NameAST*> names) {
+    adopt_capture_names(std::move(names));
+  }
+
+  const std::vector<NameAST*>& getCaptureNames() const {
+    return capture_names;
   }
 
   static FunctionAST* Create(
@@ -4224,6 +4527,7 @@ class SimpleFuncAST : public StyioASTTraits<SimpleFuncAST>
 private:
   std::unique_ptr<NameAST> func_name_owner_;
   std::vector<std::unique_ptr<ParamAST>> params_owner_;
+  std::vector<std::unique_ptr<NameAST>> capture_names_owner_;
   std::unique_ptr<TypeAST> ret_type_owner_;
   std::unique_ptr<TypeTupleAST> ret_type_tuple_owner_;
   std::unique_ptr<StyioAST> ret_expr_owner_;
@@ -4236,6 +4540,17 @@ private:
     for (auto* param : owned_params) {
       params_owner_.emplace_back(param);
       params.push_back(params_owner_.back().get());
+    }
+  }
+
+  void adopt_capture_names(std::vector<NameAST*> owned_names) {
+    capture_names_owner_.clear();
+    capture_names.clear();
+    capture_names_owner_.reserve(owned_names.size());
+    capture_names.reserve(owned_names.size());
+    for (auto* name : owned_names) {
+      capture_names_owner_.emplace_back(name);
+      capture_names.push_back(capture_names_owner_.back().get());
     }
   }
 
@@ -4384,11 +4699,20 @@ public:
   NameAST* func_name = nullptr; /* */
   bool is_unique = false;
   std::vector<ParamAST*> params;
+  std::vector<NameAST*> capture_names;
   std::variant<TypeAST*, TypeTupleAST*> ret_type; /* */
   StyioAST* ret_expr = nullptr;                   /* */
 
   static SimpleFuncAST* Create() {
     return new SimpleFuncAST();
+  }
+
+  void setCaptureNames(std::vector<NameAST*> names) {
+    adopt_capture_names(std::move(names));
+  }
+
+  const std::vector<NameAST*>& getCaptureNames() const {
+    return capture_names;
   }
 
   static SimpleFuncAST* Create(
@@ -4512,7 +4836,8 @@ public:
     return new InfiniteLoopAST(cond, body);
   }
 
-  /* Legacy empty loop (unused list/loop char parser path). */
+  // MIGRATION-NEEDED: M-SEMA-01 (docs/rollups/MIGRATION-LEDGER.md)
+  // Legacy empty loop kept for the unused list/loop char parser path.
   static InfiniteLoopAST* Create() {
     return new InfiniteLoopAST(nullptr, BlockAST::Create({}));
   }
@@ -4787,7 +5112,9 @@ public:
     return new InstantPullAST(r, std::move(result_type));
   }
 
-  /* Legacy convenience: still accepts FileResourceAST* */
+  // MIGRATION-NEEDED: M-SEMA-01 (docs/rollups/MIGRATION-LEDGER.md)
+  // Legacy convenience overload retained while the FileResourceAST* path
+  // is still in use; remove together with InfiniteAST/ReadFileAST cleanup.
   static InstantPullAST* Create(FileResourceAST* r) {
     return new InstantPullAST(static_cast<StyioAST*>(r));
   }
@@ -4802,6 +5129,10 @@ public:
 
   const StyioDataType getDataType() const {
     return result_type_;
+  }
+
+  void setResultType(StyioDataType type) {
+    result_type_ = std::move(type);
   }
 };
 

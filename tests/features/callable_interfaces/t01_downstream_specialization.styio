@@ -1,0 +1,6 @@
+@import { modules/core }
+
+>_(identity(7))
+>_(identity("module"))
+>_(double_value(2.5))
+>_(increment(41))

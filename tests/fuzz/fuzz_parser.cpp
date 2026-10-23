@@ -1,7 +1,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "StyioAST/AST.hpp"
@@ -35,20 +34,19 @@ build_line_seps(const std::string& src) {
 
 void
 fuzz_parse_with_engine_latest(
-  const std::string& src,
-  const std::vector<std::pair<size_t, size_t>>& line_seps,
+  std::string src,
   StyioParserEngine engine) {
+  std::vector<std::pair<size_t, size_t>> line_seps = build_line_seps(src);
+  StyioTokenStream stream = StyioTokenizer::tokenizeOwned(std::move(src));
   CompilationSession session;
-
-  try {
-    session.adopt_tokens(StyioTokenizer::tokenize(src));
-    session.attach_context(StyioContext::Create("<fuzz>", src, line_seps, session.tokens(), false));
-    session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
-  } catch (const StyioBaseException&) {
-    // expected on malformed inputs
-  } catch (...) {
-    // keep fuzzing on soft failures; sanitizer handles memory safety issues
-  }
+  session.adopt_tokens(stream.release());
+  session.attach_context(StyioContext::Create(
+    "<fuzz>",
+    stream.source(),
+    line_seps,
+    session.tokens(),
+    false));
+  session.attach_ast(parse_main_block_with_engine_latest(*session.context(), engine, nullptr));
 }
 
 } // namespace
@@ -60,8 +58,19 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   }
 
   std::string src(reinterpret_cast<const char*>(data), size);
-  std::vector<std::pair<size_t, size_t>> line_seps = build_line_seps(src);
-  fuzz_parse_with_engine_latest(src, line_seps, StyioParserEngine::Legacy);
-  fuzz_parse_with_engine_latest(src, line_seps, StyioParserEngine::Nightly);
+  try {
+    fuzz_parse_with_engine_latest(src, StyioParserEngine::Legacy);
+  } catch (const StyioBaseException&) {
+    // expected on malformed inputs
+  } catch (...) {
+    // keep fuzzing on soft failures; sanitizer handles memory safety issues
+  }
+  try {
+    fuzz_parse_with_engine_latest(src, StyioParserEngine::Nightly);
+  } catch (const StyioBaseException&) {
+    // expected on malformed inputs
+  } catch (...) {
+    // keep fuzzing on soft failures; sanitizer handles memory safety issues
+  }
   return 0;
 }

@@ -1,39 +1,88 @@
-# `benchmark/` - Styio Probe And Adapter Surface
+# External benchmark integration
 
-The canonical benchmark repository is `styio-benchmark`.
+Performance workloads, runners, probes, reports, and benchmark-specific tests
+are owned by `styio-benchmark`. This directory contains only the optional CMake
+integration seam used to compile benchmark probes against this Styio checkout.
 
-All performance workloads, benchmark runners, cross-runtime harnesses, native C++
-comparison code, stored reports, and baseline documents belong there. This
-directory remains only for interfaces that must live next to the Styio build:
-
-- `CMakeLists.txt`
-  - Builds Styio-owned probe binaries.
-- `styio_soak_test.cpp`
-  - In-tree long-loop and phase probe binary consumed by external routes.
-- `styio_task_scheduler_perf_test.cpp`
-  - In-tree task scheduler probe binary consumed by external async routes.
-- `parser-shadow-suite-gate.sh`
-  - Parser correctness gate wrapper used by Styio CTest feature suites.
-- `perf-route.sh`, `perf-report.py`, and `soak-minimize.sh`
-  - Compatibility adapters that locate `styio-benchmark` and forward with
-    `--styio-root` set to this checkout.
-- `regressions/` and `reports/`
-  - Local-only output locations. Do not commit generated benchmark artifacts
-    here; promote durable reports in `styio-benchmark` instead.
-
-Use the external benchmark route directly when possible:
+Standalone Styio builds register no benchmark targets. To enable the external
+integration explicitly:
 
 ```bash
-STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
-  ./benchmark/perf-route.sh --quick
+cmake -S . -B build/benchmark \
+  -DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  -DSTYIO_REQUIRE_EXTERNAL_BENCHMARK=ON
+cmake --build build/benchmark --target \
+  styio_core_bench styio_soak_test styio_task_scheduler_perf_test
 ```
 
-Equivalent direct form:
+There is no sibling, home-directory, environment, or fallback discovery. A
+required but incomplete root fails configuration with the missing asset list.
+
+## Observable static snapshot profiler handoff
+
+The full compiler may record one opt-in frontend phase named
+`observable_static_snapshot` when a compile plan requests schema-v1 snapshot
+emission. Counters are diagnostic only and are not local thresholds:
+
+- `snapshot_node_count`
+- `snapshot_edge_count`
+- `snapshot_fact_count`
+- `snapshot_anchor_count`
+- `snapshot_evidence_count`
+- `snapshot_serialized_bytes`
+
+Reproduce without enabling the external benchmark repository:
 
 ```bash
-/path/to/styio-benchmark/tools/perf-route.sh --styio-root /path/to/styio --quick
+styio --profile-frontend --profile-out snapshot-profile.json --compile-plan path/to/plan.json
 ```
 
-Do not add new benchmark implementation files under this directory. If a new
-measurement needs Styio internals, add the smallest necessary exported probe or
-ABI here, then keep the workload and runner in `styio-benchmark`.
+The external `styio-benchmark` owner decides whether to collect these fields,
+which workloads to run, and whether any threshold belongs in that repository.
+This tree must not create `build/benchmark` or edit the external benchmark
+checkout for this incubating stage.
+
+## Observable delta, lineage, and bounded query handoff
+
+`styio-benchmark` owns timing, allocation, RSS, reports, baselines, and any
+later threshold. This repository owns correctness fixtures and path-free
+counters only.
+
+Fixture families live under `tests/fixtures/observable-topology/` and are
+indexed by `manifest.json` (`parent`, `child`, `delta`, `lineage`, `query`).
+
+Service counters to collect, without treating them as pass/fail here:
+
+- `input_records`, `changed_records`, `delta_bytes`
+- `visited_records`, `reused_shards`, `rebuilt_shards`
+- `retained_snapshot_bytes`, `retained_index_bytes`, `reference_fallbacks`
+
+Comparable modes: cold full snapshot scan, cold index build, warm retained
+bounded query, small-delta invalidation with shard reuse, full fallback after
+`drop_derived_indexes`, and retention-byte pressure. Privacy rules match the
+public snapshot contract: no source text, raw values, credentials, host paths,
+or backend runtime records.
+
+## Observable runtime-events v2 budget seam
+
+This repository owns measurement and budget enforcement for correlated runtime
+events. `styio-benchmark` owns approved numeric ceilings.
+
+```bash
+cmake -S . -B build/observable-runtime-benchmark \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DSTYIO_BENCHMARK_ROOT=/path/to/styio-benchmark \
+  -DSTYIO_REQUIRE_EXTERNAL_BENCHMARK=ON
+cmake --build build/observable-runtime-benchmark --target \
+  styio_observable_runtime_perf_test styio_observable_runtime_budget_contract_test
+ctest --test-dir build/observable-runtime-benchmark \
+  -R '^styio_observable_runtime_(perf|budget_contract)$' --output-on-failure
+```
+
+`styio_observable_runtime_perf` writes a candidate result with the required
+wall, CPU, allocation, memory, size, volume, occupancy, and loss fields.
+`styio_observable_runtime_budget_contract` reads
+`STYIO_OBSERVABLE_RUNTIME_BUDGET_RESULT` or
+`build/.../benchmark/observable-runtime/approved-result.json` and fails closed
+on missing, stale, pending, incomparable, or unapproved budgets. Do not edit
+the external `styio-benchmark` checkout from this delivery.

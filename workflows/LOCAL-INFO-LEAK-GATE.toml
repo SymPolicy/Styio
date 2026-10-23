@@ -1,0 +1,37 @@
+id = "local-info-leak-gate"
+title = "Local Info Leak Gate"
+purpose = "Prevent repository-owned files from exposing developer-machine paths, server filesystem paths, private endpoints, or host-specific deployment details."
+last_updated = "2026-06-28"
+doc = "LOCAL-INFO-LEAK-GATE.md"
+
+commands = [
+  "python3 scripts/local-info-leak-gate.py --mode worktree",
+  "python3 scripts/local-info-leak-gate.py --mode tracked",
+  "python3 scripts/local-info-leak-gate.py --mode staged",
+  "python3 scripts/local-info-leak-gate.py --mode push --range <base>..<head>",
+]
+
+placeholder_examples = [
+  "<workspace-root>",
+  "<user-home>",
+  "<server-root>",
+  "<server-host>",
+  "<service-url>",
+  "<private-ip>",
+  "$STYIO_ECOSYSTEM_WORKSPACE",
+]
+
+warning_classes = [
+  "windows-absolute-path",
+  "posix-user-path",
+  "server-filesystem-path",
+  "ssh-target",
+  "ip-address",
+  "unc-server-path",
+]
+
+[failure_policy]
+skill_local_info = "blocking"
+doc_local_info = "blocking"
+script_local_fallback = "blocking"
+unclean_warning = "blocking unless the command is intentionally run with --warning-only outside delivery"

@@ -146,7 +146,7 @@ class InfiniteLoopAST;
   - End-Of-Line
   - `pass` ..........
   - `break` ^... (nearest loop)
-  - `continue` >>>>>>
+  - `continue` >>... (nearest pulse/session domain; count ignored)
   - `return` <<<<<<<<
 */
 class CondFlowAST;
@@ -245,6 +245,7 @@ class StdStreamAST;
 class HandleAcquireAST;
 class ResourceWriteAST;
 class ResourceRedirectAST;
+class ResourceEffectAST;
 class WriteFileAST;
 
 class StateDeclAST;

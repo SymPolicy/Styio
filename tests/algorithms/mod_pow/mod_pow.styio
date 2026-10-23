@@ -1,0 +1,33 @@
+/* CLRS 31.6 Modular-Exponentiation: (base^exp) mod m.
+   Input: [base, exp, mod]
+   Output: result in [0,mod); malformed m<=0 or exp<0 -> -1.
+   Tests keep mod small so intermediate products stay within i32. */
+values <- @stdin: list[i32]
+answer = -1
+
+?(values.length >= 3) => {
+    base = values[0]
+    exp = values[1]
+    mod = values[2]
+
+    ?(mod <= 0 || exp < 0) => {
+        answer = -1
+    } | {
+        result = 1 % mod
+        b = base % mod
+        ?(b < 0) => {
+            b = b + mod
+        }
+        e = exp
+        [...] >> ?(e > 0) => {
+            ?(e % 2 == 1) => {
+                result = (result * b) % mod
+            }
+            b = (b * b) % mod
+            e = e / 2
+        }
+        answer = result
+    }
+}
+
+>_(answer)

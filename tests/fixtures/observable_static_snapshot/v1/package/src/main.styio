@@ -1,0 +1,18 @@
+@window : i64|..2|
+[1, 2] >> #(n) => {
+  n -> @window
+}
+>_(@window[-1])
+
+handle <- @file("data/lines.txt")
+handle >> #(line) => {
+  >_(line)
+}
+
+base = 40
+answer: i64
+job = ||> {
+  <| base + 2
+}
+answer <- job
+answer -> @stdout

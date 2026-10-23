@@ -13,7 +13,7 @@
 #include <vector>
 
 // [Styio]
-#include "../StyioIR/IRDecl.hpp"
+#include "../StyioIR/StyioIR.hpp"
 #include "../StyioJIT/StyioJIT_ORC.hpp"
 #include "../StyioNative/NativeInterop.hpp"
 
@@ -21,21 +21,16 @@
 #include "llvm/Analysis/CGSCCPassManager.h" /* CGSCCAnalysisManager */
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h" /* FunctionPassManager */
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PassInstrumentation.h" /* PassInstrumentationCallbacks */
 #include "llvm/IR/PassManager.h"         /* LoopAnalysisManager, FunctionAnalysisManager, ModuleAnalysisManager */
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Passes/PassBuilder.h"                 /* PassBuilder */
-#include "llvm/Passes/StandardInstrumentations.h"    /* StandardInstrumentations.h */
-#include "llvm/Support/TargetSelect.h"               /* InitializeNativeTarget, InitializeNativeTargetAsmPrinter, InitializeNativeTargetAsmParser */
-#include "llvm/Transforms/InstCombine/InstCombine.h" /* InstCombinePass */
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Scalar/GVN.h"         /* GVNPass */
-#include "llvm/Transforms/Scalar/Reassociate.h" /* ReassociatePass */
-#include "llvm/Transforms/Scalar/SimplifyCFG.h" /* SimplifyCFGPass */
-#include "llvm/Transforms/Utils.h"
+#include "llvm/Passes/PassBuilder.h"   /* PassBuilder */
+#include "llvm/Support/TargetSelect.h" /* InitializeNativeTarget, InitializeNativeTargetAsmPrinter, InitializeNativeTargetAsmParser */
+
+#ifndef STYIO_CODEGEN_INTERNAL_ACCESS
+#define STYIO_CODEGEN_INTERNAL_ACCESS private
+#endif
 
 using std::string;
 using std::unordered_map;
@@ -48,128 +43,6 @@ using std::make_unique;
 using std::shared_ptr;
 using std::unique_ptr;
 
-// Generic Visitor
-template <typename... Types>
-class CodeGenVisitor;
-
-template <typename T>
-class CodeGenVisitor<T>
-{
-public:
-  /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(T* t) = 0;
-
-  /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(T* t) = 0;
-};
-
-template <typename T, typename... Types>
-class CodeGenVisitor<T, Types...> : public CodeGenVisitor<Types...>
-{
-public:
-  using CodeGenVisitor<Types...>::toLLVMType;
-  using CodeGenVisitor<Types...>::toLLVMIR;
-
-  /* Get LLVM Type */
-  virtual llvm::Type* toLLVMType(T* t) = 0;
-
-  /* LLVM IR Generator */
-  virtual llvm::Value* toLLVMIR(T* t) = 0;
-};
-
-using StyioCodeGenVisitor = CodeGenVisitor<
-  class SGResId,
-  class SGType,
-
-  class SGConstBool,
-
-  class SGConstInt,
-  class SGConstFloat,
-
-  class SGConstChar,
-  class SGConstString,
-  class SGFormatString,
-
-  class SGStruct,
-
-  class SGCast,
-
-  class SGBinOp,
-  class SGCond,
-
-  class SGVar,
-  class SGFlexBind,
-  class SGFinalBind,
-  class SGDynLoad,
-
-  class SGFuncArg,
-  class SGFunc,
-  class SGCall,
-  class SGExportDecl,
-  class SGExternBlock,
-
-  class SGReturn,
-
-  class SGLoop,
-  class SGForEach,
-  class SCListLiteral,
-  class SCDictLiteral,
-  class SCMatrixLiteral,
-  class SGRangeFor,
-  class SGIf,
-  class SGStateSnapLoad,
-  class SGStateHistLoad,
-  class SGSeriesAvgStep,
-  class SGSeriesMaxStep,
-  class SGMatch,
-  class SGBreak,
-  class SGContinue,
-
-  class SGUndef,
-  class SGFallback,
-  class SGWaveMerge,
-  class SGWaveDispatch,
-  class SGGuardSelect,
-  class SGEqProbe,
-
-  class SIOHandleAcquire,
-  class SIOHandleRelease,
-  class SIOFileLineIter,
-  class SIOStreamZip,
-  class SGSnapshotDecl,
-  class SGSnapshotShadowLoad,
-  class SIOInstantPull,
-  class SIOListReadStdin,
-  class SCListClone,
-  class SCListLen,
-  class SCListGet,
-  class SCListSet,
-  class SCListToString,
-  class SCMatrixGet,
-  class SCMatrixRow,
-  class SCMatrixToString,
-  class SCDictClone,
-  class SCDictLen,
-  class SCDictGet,
-  class SCDictSet,
-  class SCDictKeys,
-  class SCDictValues,
-  class SCDictToString,
-  class SIOResourceWriteToFile,
-  class SIOStdStreamWrite,
-  class SIOStdStreamLineIter,
-  class SIOStdStreamPull,
-  class SIOTaskCreate,
-  class SIOFlowBind,
-
-  class SGBlock,
-  class SGEntry,
-  class SGMainEntry,
-
-  class SIOPath,
-  class SIOPrint,
-  class SIORead>;
-
 class StyioToLLVM : public StyioCodeGenVisitor
 {
   unique_ptr<llvm::LLVMContext> theContext;
@@ -178,31 +51,58 @@ class StyioToLLVM : public StyioCodeGenVisitor
 
   std::unique_ptr<StyioJIT_ORC> theORCJIT;
 
-  unique_ptr<llvm::FunctionPassManager> theFPM;
   unique_ptr<llvm::LoopAnalysisManager> theLAM;
   unique_ptr<llvm::FunctionAnalysisManager> theFAM;
   unique_ptr<llvm::CGSCCAnalysisManager> theCGAM;
   unique_ptr<llvm::ModuleAnalysisManager> theMAM;
-  unique_ptr<llvm::PassInstrumentationCallbacks> thePIC;
-  unique_ptr<llvm::StandardInstrumentations> theSI;
   llvm::PassBuilder thePB;
 
   unordered_map<string, llvm::AllocaInst*> mutable_variables; /* [FlexBind] Mutable Variables */
   unordered_map<string, llvm::Value*> named_values;  /* [FinalBind] Named Values = Immutable Variables */
+  unordered_map<string, llvm::GlobalVariable*> callable_capture_globals_;
+  std::unordered_set<string> active_callable_capture_names_;
 
   /* [|n|] final-bound rings: array alloca in mutable_variables + head cursor (next write index). */
   unordered_map<string, llvm::AllocaInst*> bounded_ring_head_slot_;
   unordered_map<string, std::uint64_t> bounded_ring_capacity_;
   unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_slot_;
   unordered_map<string, llvm::AllocaInst*> bounded_ring_pending_count_slot_;
+  unordered_map<string, StyioValueFamily> bounded_ring_handle_family_;
+  std::vector<std::vector<std::string>> bounded_ring_cstr_scope_stack_;
+  struct PendingRingScope {
+    llvm::AllocaInst* parent_array = nullptr;
+    llvm::AllocaInst* parent_count = nullptr;
+    llvm::AllocaInst* array = nullptr;
+    llvm::AllocaInst* count = nullptr;
+    llvm::Instruction* initialize_at = nullptr;
+    std::size_t cleanup_depth = 0;
+  };
+  // Each block owns its pending storage. Allocate an array only if it writes;
+  // nested wraparound can never overwrite another owner's pending values.
+  std::vector<std::unordered_map<string, PendingRingScope>>
+    bounded_ring_pending_scope_stack_;
   std::unordered_set<std::string> dynamic_variable_names_;
   std::unordered_set<std::string> list_slot_names_;
+  std::uint64_t list_mutation_epoch_ = 0;
 
   struct LoopFrame {
     llvm::BasicBlock* break_dest = nullptr;
     llvm::BasicBlock* continue_dest = nullptr;
+    std::size_t resource_scope_depth = 0;
+    llvm::BasicBlock* preheader = nullptr;
+    std::uint64_t list_mutation_epoch = 0;
   };
   std::vector<LoopFrame> loop_stack_;
+
+  struct I64ListViewSlots {
+    llvm::AllocaInst* data_slot = nullptr;
+    llvm::AllocaInst* len_slot = nullptr;
+    llvm::AllocaInst* handle_slot = nullptr;
+    int dyncell_i64_field = -1;
+    llvm::Value* ssa_handle = nullptr;
+    std::unordered_set<llvm::BasicBlock*> filled_preheaders;
+  };
+  std::unordered_map<llvm::Value*, I64ListViewSlots> i64_list_view_cache_;
 
 public:
   StyioToLLVM(std::unique_ptr<StyioJIT_ORC> styio_jit) :
@@ -210,29 +110,19 @@ public:
       theModule(std::make_unique<llvm::Module>("styio", *theContext)),
       theBuilder(std::make_unique<llvm::IRBuilder<>>(*theContext)),
       theORCJIT(std::move(styio_jit)),
-      theFPM(std::make_unique<llvm::FunctionPassManager>()),
       theLAM(std::make_unique<llvm::LoopAnalysisManager>()),
       theFAM(std::make_unique<llvm::FunctionAnalysisManager>()),
       theCGAM(std::make_unique<llvm::CGSCCAnalysisManager>()),
       theMAM(std::make_unique<llvm::ModuleAnalysisManager>()),
-      thePIC(std::make_unique<llvm::PassInstrumentationCallbacks>()),
-      theSI(std::make_unique<llvm::StandardInstrumentations>(*theContext, /*DebugLogging*/ true)) {
+      thePB(&theORCJIT->getOptimizationTargetMachine()) {
     theModule->setDataLayout(theORCJIT->getDataLayout());
+    theModule->setTargetTriple(
+      theORCJIT->getOptimizationTargetMachine().getTargetTriple().str());
 
-    theSI->registerCallbacks(*thePIC, theMAM.get());
-
-    // Add transform passes.
-    // Do simple "peephole" optimizations and bit-twiddling optimizations.
-    theFPM->addPass(llvm::InstCombinePass());
-    // Reassociate expressions.
-    theFPM->addPass(llvm::ReassociatePass());
-    // Eliminate common sub-expressions.
-    theFPM->addPass(llvm::GVNPass());
-    // Simplify the control flow graph (deleting unreachable blocks, etc).
-    theFPM->addPass(llvm::SimplifyCFGPass());
-
+    thePB.registerLoopAnalyses(*theLAM);
     thePB.registerModuleAnalyses(*theMAM);
     thePB.registerFunctionAnalyses(*theFAM);
+    thePB.registerCGSCCAnalyses(*theCGAM);
     thePB.crossRegisterProxies(*theLAM, *theFAM, *theCGAM, *theMAM);
   }
 
@@ -248,13 +138,42 @@ public:
 
   void print_llvm_ir();
   void execute();
+  std::string callable_cache_stats_json() const {
+    return theORCJIT == nullptr
+      ? std::string()
+      : theORCJIT->callableCacheStatsJson();
+  }
 
   /** Module IR without ANSI or extra banners (for golden tests). */
-  std::string dump_llvm_ir() const;
+  std::string dump_llvm_ir();
+
+  struct ObservationDescriptorEmit
+  {
+    std::string snapshot_id;
+    std::string site_id;
+    std::uint8_t role = 0;
+  };
+
+  void set_runtime_observation_table(
+    std::uint32_t generation,
+    std::vector<ObservationDescriptorEmit> descriptors
+  ) {
+    observation_table_generation_ = generation == 0 ? 1 : generation;
+    observation_descriptors_ = std::move(descriptors);
+    observation_ctor_emitted_ = false;
+  }
+
+  bool runtime_observation_enabled() const {
+    return !observation_descriptors_.empty();
+  }
+
+  void ensure_runtime_observation_registration();
 
   /* CodeGen Get LLVM Type */
+  llvm::Type* toLLVMType(const StyioDataType& data_type);
   llvm::Type* toLLVMType(SGResId* node);
   llvm::Type* toLLVMType(SGType* node);
+  llvm::Type* toLLVMType(SGNoOp* node);
 
   llvm::Type* toLLVMType(SGConstBool* node);
 
@@ -266,6 +185,8 @@ public:
   llvm::Type* toLLVMType(SGFormatString* node);
 
   llvm::Type* toLLVMType(SGStruct* node);
+  llvm::Type* toLLVMType(SGTupleCreate* node);
+  llvm::Type* toLLVMType(SGTupleGet* node);
 
   llvm::Type* toLLVMType(SGCast* node);
 
@@ -316,12 +237,15 @@ public:
   llvm::Type* toLLVMType(SIOInstantPull* node);
   llvm::Type* toLLVMType(SIOListReadStdin* node);
   llvm::Type* toLLVMType(SCListClone* node);
+  llvm::Type* toLLVMType(SCMatrixClone* node);
   llvm::Type* toLLVMType(SCListLen* node);
   llvm::Type* toLLVMType(SCListGet* node);
+  llvm::Type* toLLVMType(SCListSlice* node);
   llvm::Type* toLLVMType(SCListSet* node);
   llvm::Type* toLLVMType(SCListToString* node);
   llvm::Type* toLLVMType(SCMatrixGet* node);
   llvm::Type* toLLVMType(SCMatrixRow* node);
+  llvm::Type* toLLVMType(SCMatrixRowsSlice* node);
   llvm::Type* toLLVMType(SCMatrixToString* node);
   llvm::Type* toLLVMType(SCDictClone* node);
   llvm::Type* toLLVMType(SCDictLen* node);
@@ -332,10 +256,12 @@ public:
   llvm::Type* toLLVMType(SCDictToString* node);
   llvm::Type* toLLVMType(SIOResourceWriteToFile* node);
   llvm::Type* toLLVMType(SIOStdStreamWrite* node);
+  llvm::Type* toLLVMType(SIOResourceEffect* node);
   llvm::Type* toLLVMType(SIOStdStreamLineIter* node);
   llvm::Type* toLLVMType(SIOStdStreamPull* node);
   llvm::Type* toLLVMType(SIOTaskCreate* node);
   llvm::Type* toLLVMType(SIOFlowBind* node);
+  llvm::Type* toLLVMType(SIOTaskOrder* node);
 
   // llvm::Type* toLLVMType(SGIfElse* node);
   // llvm::Type* toLLVMType(SGForLoop* node);
@@ -352,6 +278,7 @@ public:
   /* LLVM Code Generation */
   llvm::Value* toLLVMIR(SGResId* node);
   llvm::Value* toLLVMIR(SGType* node);
+  llvm::Value* toLLVMIR(SGNoOp* node);
 
   llvm::Value* toLLVMIR(SGConstBool* node);
 
@@ -363,6 +290,8 @@ public:
   llvm::Value* toLLVMIR(SGFormatString* node);
 
   llvm::Value* toLLVMIR(SGStruct* node);
+  llvm::Value* toLLVMIR(SGTupleCreate* node);
+  llvm::Value* toLLVMIR(SGTupleGet* node);
 
   llvm::Value* toLLVMIR(SGCast* node);
 
@@ -413,12 +342,15 @@ public:
   llvm::Value* toLLVMIR(SIOInstantPull* node);
   llvm::Value* toLLVMIR(SIOListReadStdin* node);
   llvm::Value* toLLVMIR(SCListClone* node);
+  llvm::Value* toLLVMIR(SCMatrixClone* node);
   llvm::Value* toLLVMIR(SCListLen* node);
   llvm::Value* toLLVMIR(SCListGet* node);
+  llvm::Value* toLLVMIR(SCListSlice* node);
   llvm::Value* toLLVMIR(SCListSet* node);
   llvm::Value* toLLVMIR(SCListToString* node);
   llvm::Value* toLLVMIR(SCMatrixGet* node);
   llvm::Value* toLLVMIR(SCMatrixRow* node);
+  llvm::Value* toLLVMIR(SCMatrixRowsSlice* node);
   llvm::Value* toLLVMIR(SCMatrixToString* node);
   llvm::Value* toLLVMIR(SCDictClone* node);
   llvm::Value* toLLVMIR(SCDictLen* node);
@@ -429,10 +361,12 @@ public:
   llvm::Value* toLLVMIR(SCDictToString* node);
   llvm::Value* toLLVMIR(SIOResourceWriteToFile* node);
   llvm::Value* toLLVMIR(SIOStdStreamWrite* node);
+  llvm::Value* toLLVMIR(SIOResourceEffect* node);
   llvm::Value* toLLVMIR(SIOStdStreamLineIter* node);
   llvm::Value* toLLVMIR(SIOStdStreamPull* node);
   llvm::Value* toLLVMIR(SIOTaskCreate* node);
   llvm::Value* toLLVMIR(SIOFlowBind* node);
+  llvm::Value* toLLVMIR(SIOTaskOrder* node);
 
   // llvm::Value* toLLVMIR(SGIfElse* node);
   // llvm::Value* toLLVMIR(SGForLoop* node);
@@ -446,7 +380,7 @@ public:
   llvm::Value* toLLVMIR(SIOPrint* node);
   llvm::Value* toLLVMIR(SIORead* node);
 
-private:
+STYIO_CODEGEN_INTERNAL_ACCESS:
   std::vector<void*> native_library_handles_;
 
   void declare_sgfunc(SGFunc* node);
@@ -458,29 +392,64 @@ private:
   llvm::Value* truncate_for_main_ret(llvm::Value* v);
   llvm::Value* default_runtime_return_value(llvm::Type* ret_ty);
   void emit_runtime_error_guard_return();
+  void emit_runtime_error_guard_return_after_cleanup();
+  llvm::FunctionCallee readonly_runtime_fn(const char* name, llvm::FunctionType* type);
+  void emit_fill_i64_list_view(llvm::IRBuilder<>& builder, I64ListViewSlots& slots);
+  void note_i64_list_mutation(llvm::Value* mutated_handle = nullptr);
+  llvm::Value* emit_i64_list_get(llvm::Value* list, llvm::Value* idx);
+  bool emit_active_file_handle_cleanup();
+  void emit_scope_cleanup_to_depth(std::size_t keep_depth);
+  void emit_file_handle_slot_close(llvm::AllocaInst* slot);
+  bool release_tracked_file_handle_binding(const std::string& var_name);
   llvm::Value* cstr_to_i64_checked(llvm::Value* v);
   llvm::Value* cstr_to_f64_checked(llvm::Value* v);
+
+  llvm::StructType* optional_i64_type();
+  bool is_optional_i64_type(llvm::Type* type) const;
+  bool is_optional_i64_value(llvm::Value* value) const;
+  llvm::Value* make_optional_i64(llvm::Value* value, llvm::Value* defined);
+  llvm::Value* optional_i64_value(llvm::Value* optional);
+  llvm::Value* optional_i64_defined(llvm::Value* optional);
 
   llvm::Value* promote_to_cstr(llvm::Value* v);
   llvm::Value* evaluate_arm_block_value(SGBlock* b, bool mixed_phi);
 
-  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix };
+  enum class TempResourceKind : std::uint8_t { List, Dict, Matrix, Tuple };
+  struct OwnedResourceTemp {
+    llvm::Value* value = nullptr;
+    TempResourceKind kind = TempResourceKind::List;
+    llvm::AllocaInst* slot = nullptr;
+  };
   std::vector<std::vector<std::string>> file_handle_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> cstr_slot_scope_stack_;
   std::vector<std::vector<llvm::AllocaInst*>> dynamic_slot_scope_stack_;
 
   std::vector<std::pair<std::string, StyioIR*>> snapshot_path_exprs_;
+  std::unordered_map<std::string, llvm::AllocaInst*> file_handle_var_slots_;
   std::unordered_map<std::string, llvm::AllocaInst*> file_singleton_path_slots_;
-  std::unordered_set<std::string> file_singleton_raii_paths_;
   std::unordered_set<llvm::Value*> owned_cstr_temps_;
-  std::unordered_map<llvm::Value*, TempResourceKind> owned_resource_temps_;
+  /* Immutable pointer bindings whose string storage the enclosing scope owns
+     through `cstr_slot_scope_stack_` cleanup (function-pointer bindings never
+     register). Task captures of these names export an independent copy so an
+     escaping task cannot read storage the parent frees at scope exit. */
+  std::unordered_set<std::string> owned_cstr_binding_names_;
+  std::unordered_map<llvm::Value*, OwnedResourceTemp> owned_resource_temps_;
+  std::vector<std::vector<OwnedResourceTemp>> owned_resource_scope_stack_;
+  std::optional<TempResourceKind> current_function_return_resource_kind_;
   std::uint64_t task_function_counter_ = 0;
+  std::uint32_t observation_table_generation_ = 1;
+  std::vector<ObservationDescriptorEmit> observation_descriptors_;
+  bool observation_ctor_emitted_ = false;
+  std::uint64_t file_handle_temp_counter_ = 0;
+  std::uint64_t owned_resource_temp_counter_ = 0;
+  int resource_effect_operation_depth_ = 0;
 
   void emit_snapshot_shadow_reload();
 
   void push_file_handle_scope();
 
   void pop_file_handle_scope();
+  void discard_file_handle_scope_metadata();
 
   void register_file_handle_for_raii(const std::string& var_name);
   void register_cstr_slot_for_raii(llvm::AllocaInst* slot);
@@ -488,6 +457,7 @@ private:
 
   llvm::StructType* dynamic_cell_type();
   llvm::AllocaInst* create_entry_alloca(llvm::Type* type, const std::string& name);
+  void optimize_module_for_jit(llvm::Module& module);
   void init_dynamic_slot_undef(llvm::AllocaInst* slot);
   void release_dynamic_slot_contents(llvm::AllocaInst* slot);
   void store_dynamic_slot(
@@ -511,10 +481,13 @@ private:
     const char* label_prefix);
 
   llvm::FunctionCallee free_cstr_fn();
+  llvm::FunctionCallee clone_cstr_fn();
   llvm::FunctionCallee list_release_fn();
   llvm::FunctionCallee dict_release_fn();
   llvm::FunctionCallee matrix_release_fn();
+  llvm::FunctionCallee tuple_release_fn();
   llvm::FunctionCallee task_release_fn();
+  llvm::Value* clone_cstr_for_runtime_owner(llvm::Value* v);
   void track_owned_cstr_temp(llvm::Value* v);
   bool take_owned_cstr_temp(llvm::Value* v);
   void forget_owned_cstr_temp(llvm::Value* v);
@@ -525,7 +498,43 @@ private:
   void forget_owned_resource_temp(llvm::Value* v);
   void free_resource_if_runtime_owned(llvm::Value* v, TempResourceKind kind);
   void free_owned_resource_temp_if_tracked(llvm::Value* v);
+  void emit_owned_resource_scope_cleanup(std::size_t scope_index);
+  void emit_owned_resource_cleanup_to_depth(std::size_t keep_depth);
+  void emit_all_owned_resource_cleanup();
+  llvm::Value* clone_resource_handle_for_runtime_owner(llvm::Value* v, StyioValueFamily family);
+  llvm::Value* prepare_owned_resource_return(
+    StyioIR* source,
+    llvm::Value* value,
+    TempResourceKind kind);
+  void free_resource_handle_if_runtime_owned(llvm::Value* v, StyioValueFamily family);
   void emit_active_scope_cleanup();
+  void store_bounded_ring_value(
+    llvm::ArrayType* array_type,
+    llvm::AllocaInst* array,
+    llvm::Value* index,
+    llvm::Value* value,
+    std::optional<StyioValueFamily> handle_family = std::nullopt);
+  void move_bounded_ring_value(
+    llvm::ArrayType* dst_type,
+    llvm::AllocaInst* dst_array,
+    llvm::Value* dst_index,
+    llvm::ArrayType* src_type,
+    llvm::AllocaInst* src_array,
+    llvm::Value* src_index,
+    std::optional<StyioValueFamily> handle_family = std::nullopt);
+  void release_bounded_ring_cstr_array(
+    llvm::ArrayType* array_type,
+    llvm::AllocaInst* array,
+    std::uint64_t capacity,
+    const std::string& label);
+  void release_bounded_ring_handle_array(
+    llvm::ArrayType* array_type,
+    llvm::AllocaInst* array,
+    std::uint64_t capacity,
+    StyioValueFamily family,
+    const std::string& label);
+  void release_bounded_ring_cstr_storage(const std::string& name);
+  void register_bounded_ring_cstr_for_raii(const std::string& name);
 
   llvm::Value* pulse_ledger_base_ = nullptr;
   llvm::Value* pulse_snap_base_ = nullptr;
@@ -538,8 +547,12 @@ private:
   void pulse_copy_ledger_to_snap(llvm::Value* ledger, llvm::Value* snap, int nbytes);
   llvm::Value* coerce_pulse_input_i64(llvm::Value* v);
   void emit_pulse_commit_all(llvm::Value* ledger, const SGPulsePlan* plan);
-  void emit_bounded_ring_pending_commit(const std::string& name);
+  void emit_bounded_ring_pending_commit(
+    const std::string& name);
   void emit_bounded_ring_pending_commits();
+  void push_bounded_ring_pending_scope();
+  void pop_bounded_ring_pending_scope();
+  void release_pending_scope_arrays(std::size_t keep_depth);
 };
 
 #endif

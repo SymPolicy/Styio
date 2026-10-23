@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <string>
 
-#include "StyioIDE/Syntax.hpp"
-#include "StyioIDE/VFS.hpp"
+#include "StyioServices/StyioIDE/Syntax.hpp"
+#include "StyioServices/StyioIDE/VFS.hpp"
 #include "fuzz_ide_common.hpp"
 
 extern "C" int

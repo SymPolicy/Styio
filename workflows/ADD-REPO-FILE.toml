@@ -1,13 +1,17 @@
 id = "add-repo-file"
 title = "Add Repo File"
 purpose = "Add a repository file with the required indexes, metadata, gates, and ownership updates."
-last_updated = "2026-04-23"
+last_updated = "2026-06-28"
 doc = "ADD-REPO-FILE.md"
 skill = "skills/styio-file-onboarding/skill.toml"
 
 steps = [
+  "search existing docs, ADRs, owner SSOTs, runbooks, workflows, plans, and rollups",
+  "prefer maintaining an existing owner file",
+  "add a new file only when it has one responsibility that no existing file owns",
   "classify the new file",
-  "apply naming and metadata rules",
+  "apply naming and metadata rules, including no version-style placeholders and feature/transformation-result names",
+  "replace developer-machine and server-machine details with placeholders",
   "update indexes, registries, catalogs, and gates",
   "add or update the smallest useful test",
   "run the narrow gate and relevant repo gate",
@@ -26,6 +30,9 @@ file_classes = [
 
 required_evidence = [
   "file path and class",
+  "existing owner files searched and why they could not carry this content",
+  "naming check proving feature or transformation result instead of version-style placeholder",
+  "local/server info placeholder check and local-info leak scan result",
   "registry or index touched, or why none is needed",
   "test or gate that would fail if incomplete",
   "git diff --check result",
@@ -34,6 +41,7 @@ required_evidence = [
 gates = [
   "python3 scripts/docs-index.py --check",
   "python3 scripts/docs-audit.py",
+  "python3 scripts/local-info-leak-gate.py --mode worktree",
   "python3 scripts/repo-hygiene-gate.py --mode tracked",
   "git diff --check",
 ]
@@ -41,6 +49,8 @@ gates = [
 [handoff]
 report = [
   "file class",
+  "naming check",
+  "local/server info placeholder check",
   "touched registries",
   "gates run",
   "deferred broader test, if any",

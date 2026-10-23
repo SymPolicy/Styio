@@ -1,5 +1,5 @@
 styio.ast.main {
-|- styio.ast.resource.write  {
+|- styio.ast.resource.redirect  {
   |- data: styio.ast.string { "Hello from Styio" }
   |- resource: styio.ast.resource.file  {
     |- auto_detect: false

@@ -8,6 +8,7 @@ class StyioIR;
 /* SG = Styio General. Default/general IR nodes. */
 class SGResId;
 class SGType;
+class SGNoOp;
 
 class SGConstBool;
 
@@ -19,6 +20,8 @@ class SGConstString;
 class SGFormatString;
 
 class SGStruct;
+class SGTupleCreate;
+class SGTupleGet;
 
 class SGCast;
 
@@ -71,10 +74,12 @@ class SIOInstantPull;
 class SIOListReadStdin;
 class SIOResourceWriteToFile;
 class SIOStdStreamWrite;
+class SIOResourceEffect;
 class SIOStdStreamLineIter;
 class SIOStdStreamPull;
 class SIOTaskCreate;
 class SIOFlowBind;
+class SIOTaskOrder;
 
 /* SC = Styio Collection. List, dictionary, and future data structures
    such as matrix. */
@@ -82,12 +87,15 @@ class SCListLiteral;
 class SCDictLiteral;
 class SCMatrixLiteral;
 class SCListClone;
+class SCMatrixClone;
 class SCListLen;
 class SCListGet;
+class SCListSlice;
 class SCListSet;
 class SCListToString;
 class SCMatrixGet;
 class SCMatrixRow;
+class SCMatrixRowsSlice;
 class SCMatrixToString;
 class SCDictClone;
 class SCDictLen;
@@ -105,7 +113,7 @@ class SGBlock;
 class SGEntry;
 class SGMainEntry;
 
-/* IOIR */
+/* IO IR (merged into GenIR/SIOIR.hpp 2026-05-22) */
 class SIOPath;
 class SIOPrint;
 class SIORead;

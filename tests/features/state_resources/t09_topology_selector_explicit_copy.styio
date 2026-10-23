@@ -1,0 +1,20 @@
+@price : i64|..4|
+[10, 20, 30, 40] >> #(v) => {
+  v -> @price
+}
+@rate : f64|..3|
+[1.5, 2.5, 3.5, 4.5] >> #(v) => {
+  v -> @rate
+}
+@flag : bool|..3|
+[true, false, true, false] >> #(v) => {
+  v -> @flag
+}
+snapshot << @price[...]
+recent << @price[-2..]
+rates << @rate[...]
+flags << @flag[-2..]
+>_(snapshot)
+>_(recent)
+>_(rates)
+>_(flags)

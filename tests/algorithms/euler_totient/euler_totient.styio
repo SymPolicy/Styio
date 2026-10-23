@@ -1,0 +1,29 @@
+/* Euler totient phi(n) (factor trial). Input: [n]. n<=0 -> -1. */
+values <- @stdin: list[i32]
+answer = 0 - 1
+
+?(values.length >= 1) => {
+    n = values[0]
+    ?(n <= 0) => {
+        answer = 0 - 1
+    } | {
+        result = n
+        x = n
+        p = 2
+        [...] >> ?(p * p <= x) => {
+            ?(x - (x / p) * p == 0) => {
+                [...] >> ?(x - (x / p) * p == 0) => {
+                    x = x / p
+                }
+                result = result - result / p
+            }
+            p = p + 1
+        }
+        ?(x > 1) => {
+            result = result - result / x
+        }
+        answer = result
+    }
+}
+
+>_(answer)

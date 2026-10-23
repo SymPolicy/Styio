@@ -1,17 +1,14 @@
 # Styio Documentation Policy
 
-**Purpose:** Define where development Markdown belongs, how SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced; language semantics still live in `../design/Styio-Language-Design.md` and related design documents.
+**Purpose:** Define where development Markdown belongs, how distributed and cross-feature SSOT references work, and how `docs/` metadata, indexes, and maintenance gates are enforced.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-10-01
 
-**Automation (verify doc links + test registration):** 从仓库根目录配置并运行语言特性测试：
-
-```bash
-cmake -S . -B build/default && cmake --build build/default
-ctest --test-dir build/default -L language_feature
-```
-
-（GoogleTest 目标 `styio_test` 需单独构建；若本机 LLVM 与 libstdc++ 头文件冲突导致 gtest 编译失败，仍以 `styio` 可执行文件与 `ctest -L language_feature` 为准。）
+**Automation:** Use `scripts/docs-index.py --check`,
+`scripts/docs-lifecycle.py validate`, and `scripts/docs-audit.py` for document
+structure. Run the focused language or tooling tests when a change affects its
+contract, and record any unavailable acceptance separately. Test registration
+and commands are owned by [TEST-CATALOG](../../workflows/TEST-CATALOG.md).
 
 ---
 
@@ -33,10 +30,27 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 - a single-line `**Last updated:** YYYY-MM-DD`; or
 - for bilingual documents, an `[EN] Last updated: YYYY-MM-DD` line followed by a translated line such as `[CN] 更新日期：YYYY-MM-DD`.
 
+### 0.1.2 Documentation Language
+
+Repository documentation is English by default. New or materially edited development docs, design docs, specs, ADRs, runbooks, workflows, plans, test catalogs, audit records, and source-level README files must be written in English.
+
+Chinese or bilingual text is allowed only when the document is explicitly a user-facing product page, marketing page, localization artifact, or translation companion, such as the root `README.md` / `README_zh.md` pair. When a document needs Chinese text, keep the English source authoritative and label the translated section or companion file clearly.
+
+When touching an existing non-English development document, do not add more non-English maintenance prose. Convert the edited section to English unless the file has an explicit localization purpose.
+
 ### 0.2 最小改动原则
 
 - 增补约定时 **优先** 修改现有章节并加交叉链接，**非必要不新增** Markdown 文件。
 - 若内容可并入现有权威文档（如下表），则不应另立平行长文。
+- 新建 Markdown 前必须先搜索生成索引、`docs/adr/`、owning SSOT、team runbook、workflow、plan 与 rollup；只有确认现有文档不能承载时，才允许创建单一职责（single responsibility）的新文档。
+- 使用 `scripts/docs-scaffold.py` 创建文档时必须传 `--reuse-reviewed`，表示已经完成上述搜索并确认不是重复文档。
+- 一个功能不允许拆成多个平行解释文档；除非各文件分别拥有不同 artifact class，例如 design SSOT、test catalog、team runbook、workflow 或 external handoff。
+- ADR 记录当前决策，不记录旧决策与新决策的并置历史。若已有 active ADR 覆盖同一决策边界，更新原 ADR 的当前 `Decision`；旧文本由 Git history 提供。
+
+Distributed syntax-feature SSOT documents are the intentional exception to
+the one-feature/one-explanation warning: each document owns one durable
+feature boundary, while shared grammar, token, and semantic invariants remain
+in cross-feature design documents.
 
 ### 0.3 「三处规则」：去重后再引用
 
@@ -50,46 +64,58 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 
 | 主题 | 权威文档 | 其它文档应 |
 |------|----------|------------|
-| 语言语义与章节结构 | `../design/Styio-Language-Design.md` | 链到章节，避免大段复述 |
-| 词法与文法 EBNF | `../design/Styio-EBNF.md` | 链接 |
-| 符号 ↔ lexer token 名 | `../design/Styio-Symbol-Reference.md` | 链接 |
+| Feature-specific syntax, semantics, lifecycle, dependencies, prerequisites, and evidence map | `../design/syntax/features/<feature-id>.md` | Update the owning feature SSOT first; consume the generated graph only as a composed view |
+| Language design requirements and capability traceability | `../design/Styio-Language-Design.md` sections 2.4–2.5 | Keep one embedded `toml design-intent` block; it links exact semantic/wire authorities and evidence, and never defines a second grammar |
+| Cross-feature semantic principles and section structure | `../design/Styio-Language-Design.md` | Link to the shared invariant; do not duplicate feature lifecycle facts |
+| Composed lexical and grammar EBNF | `../design/Styio-EBNF.md` | Link; the owning feature SSOT records why the rule applies |
+| Shared symbol ↔ lexer token names | `../design/Styio-Symbol-Reference.md` | Link; the owning feature SSOT records the feature boundary |
 | `@` 拓扑目标语法、Golden Cross **设计级**叙述与示例形态 | `../design/Styio-Resource-Topology.md`（含 §8） | 保留链接或一句摘要 |
 | 当前实现缺口与跨团队排期 | `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 链接，不另建平行 backlog |
-| 集成测试路径、`ctest` 命令 | `docs/assets/workflow/TEST-CATALOG.md` | 链接 |
+| 集成测试路径、`ctest` 命令 | `../../workflows/TEST-CATALOG.md` | 链接 |
 | **外部包 / 开源依赖清单**（LLVM、ICU、gtest、vendored） | [`THIRD-PARTY.md`](./THIRD-PARTY.md) | 与 `CMakeLists.txt`、`tests/CMakeLists.txt` 一致；新增依赖先更新该文件 |
 | **官方仓库生态、角色边界与文档归属** | [`REPOSITORY-MAP.md`](./REPOSITORY-MAP.md) | 其它文档只链接，不重复维护仓库总表 |
 | **团队日常工作入口、review 协作矩阵与维护者 runbook** | [`../teams/COORDINATION-RUNBOOK.md`](../teams/COORDINATION-RUNBOOK.md) | 团队文档只做日常入口，语言/测试/仓库边界仍链接 owning SSOT |
 | **项目级原则与目标**（规划 / 设计 / 开发 / 测试 / 审核的优先级） | [`PRINCIPLES-AND-OBJECTIVES.md`](./PRINCIPLES-AND-OBJECTIVES.md) | 其它文档引用，不平行重写项目级优先级与重写边界 |
 | **默认冷启动摘要 / 当前仓库状态** | [`../rollups/CURRENT-STATE.md`](../rollups/CURRENT-STATE.md) | 先读本文件，再跳到 owning SSOT |
-| **五层编译流水线** goldens（Lexer/IR/…） | `docs/assets/workflow/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
+| **五层编译流水线** goldens（Lexer/IR/…） | `../../workflows/FIVE-LAYER-PIPELINE.md` | 与 `TEST-CATALOG` §9 交叉链接 |
 | 开发文档目录与维护准则（含本节） | `DOCUMENTATION-POLICY.md` | 链接 |
 | Agent 实现规程、禁止项、流水线 | `AGENT-SPEC.md` | 链接 |
 | Golden Cross **守则内嵌的宪法示例代码** | `AGENT-SPEC.md` §12.3 | 设计背景链到 `../design/Styio-Resource-Topology.md` §8 |
-| Topology v2 **设计、实现状态与迁移入口** | `../design/Styio-Resource-Topology.md` + `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 不保留平行长计划 |
-| **Checkpoint 执行规则**（可中断/可恢复） | `../assets/workflow/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
-| **统一交付门禁**（common delivery floor） | `../assets/workflow/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
-| **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../assets/workflow/SYNTAX-ADDITION-WORKFLOW.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
-| **语法契约纠正工作流**（用户质疑 / parser-Sema-EBNF 不一致） | `../assets/workflow/CORRECT-SYNTAX-CONTRACT.md` | 智能体先读 workflow，再改 parser、Sema、lowering、测试或语法文档 |
-| **工作流调度与分离原则** | `../assets/workflow/WORKFLOW-ORCHESTRATION.md` | 新增 workflow / gate 前必须先查该表；工具调用顺序由 `scripts/workflow-scheduler.py` 固化 |
-| **仓库清理、提交、push 与历史重写标准** | `../assets/workflow/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
-| **文档元数据、生成索引与审计流程** | `../assets/workflow/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
-| **团队 runbook 维护交付门禁** | `../assets/workflow/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
+| resource topology **设计、实现状态与迁移入口** | `../design/Styio-Resource-Topology.md` + `../rollups/NEXT-STAGE-GAP-LEDGER.md` | 不保留平行长计划 |
+| **Checkpoint 执行规则**（可中断/可恢复） | `../../workflows/CHECKPOINT-WORKFLOW.md` | 在 `history/YYYY-MM-DD.md` 写恢复指引，不在其它文档重复流程细节 |
+| **统一交付门禁**（common delivery floor） | `../../workflows/DELIVERY-GATE.md` | 先过 common floor，再按协调 runbook 叠加域专属 cutover gate |
+| **新语法添加工作流**（含 runtime helper / ORC 注册对齐） | `../../workflows/ADD-SYNTAX-WITH-SKILLS.md` | 前端、Codegen/Runtime、测试与 docs 只保留入口规则与链接 |
+| **语法契约纠正工作流**（用户质疑 / parser-Sema-EBNF 不一致） | `../../workflows/CORRECT-SYNTAX-CONTRACT.md` | 智能体先读 workflow，再改 parser、Sema、lowering、测试或语法文档 |
+| **工作流调度与分离原则** | `../../workflows/WORKFLOW-ORCHESTRATION.md` | 新增 workflow / gate 前必须先查该表；工具调用顺序由 `scripts/workflow-scheduler.py` 固化 |
+| **仓库清理、提交、push 与历史重写标准** | `../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md` | 其它文档只保留入口规则与链接 |
+| **文档元数据、生成索引与审计流程** | `../../workflows/DOCS-MAINTENANCE-WORKFLOW.md` | 其它文档只保留入口规则与链接 |
+| **团队 runbook 维护交付门禁** | `../../workflows/TEAM-RUNBOOK-MAINTENANCE-GATE.md` | `docs-audit.py` 串联该门禁；团队文档只链接门禁说明与模板 |
 | **团队 runbook 标准格式** | `../assets/templates/TEAM-RUNBOOK-TEMPLATE.md` | 普通团队 runbook 必须使用该 H2 结构；协调者 runbook 的特殊结构由门禁说明列明 |
-| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | 活跃规则必须提升到 owning SSOT；旧 ADR 全文不保留在当前树 |
+| **架构决策 provenance（非活跃 SSOT）** | `docs/adr/IMPLEMENTED-DECISIONS.md`、Git history | `IMPLEMENTED-DECISIONS.md` 只保留当前最新代码实现对应的压缩决策；活跃规则必须提升到 owning SSOT；旧 ADR 全文和被替换实现使用 Git history |
 
-### 0.5 文档状态与 superseded 规则
+### 0.5 Active State and Historical Provenance
 
-1. 活跃维护知识默认只应留在 `docs/design/`、`docs/specs/`、`docs/teams/`、`docs/assets/workflow/`、当前 `docs/rollups/` 摘要，以及仍在推进中的短计划。
-2. `docs/plans/*.md` 是**设计/实施计划**，不是语言或验收层面的 SSOT；当计划的稳定结论已经吸收到活跃文档后，计划应从当前树删除，确需追溯时使用 Git 历史。
-3. 语言验收不再使用冻结批次目录；当前树不得保留 `docs/plans/`。验收规则必须提升到语言设计、feature test catalog、team runbook 或 active rollup。
-4. 若后续实现保留兼容层，文档必须明确区分：
-   - **canonical**：冻结示例与推荐写法；
-   - **accepted compatibility shorthand**：实现保留、测试覆盖、但不作为首选教学写法的兼容写法。
-5. 同一功能若存在较早草案和较晚活跃 SSOT，较早文档必须在文首显式写：
-   - `Status: Superseded draft`
-   - 指向新的活跃文档路径。
-6. ADR、history、archive 和 Git history 默认都是 **provenance layer**，不是第二天继续开发的前置输入。当前仍有效的设计意图、维护规则、测试门禁、团队边界和交接方式，必须提升到活跃文档。
-7. 当实现接受的兼容语法多于 canonical 示例时，SSOT 必须说明“为什么该语法仍有效”，并至少有一条自动化测试冻结该兼容行为。
+1. Current maintenance knowledge belongs in design/specs/teams, root workflows,
+   current rollups, and the owning active plan.
+2. The registered [plan workspace](../plan/README.md#state-ownership) owns semantic
+   delivery state, execution checkpoints, and generated projections. Its tracked
+   completed delivery records remain part of that registry. Remove superseded
+   standalone planning narratives after their durable content is absorbed;
+   do not delete registered records solely because a stage completed.
+3. Language acceptance belongs in feature contracts and executable tests, with
+   the test catalog indexing evidence. Plans sequence work rather than defining
+   a second language specification.
+4. Active syntax distinguishes canonical teaching forms, accepted compatibility
+   forms, reserved proposals and rejected forms. Keep compatibility rationale
+   and executable evidence with the owning feature.
+5. Resolve duplicate draft/active specifications at their source. Promote valid
+   decisions and open questions to the owner before removing absorbed copies.
+6. ADR/history/archive are provenance or recovery surfaces. Maintain a current
+   decision record while it serves active review; use Git history for replaced
+   decisions and exact old prose. The implemented-decision summary links current
+   authorities and does not become an additional feature backlog.
+7. A historical test result remains tied to its recorded revision and run. Do
+   not restate it as current acceptance without fresh verification.
 
 ### 0.6 文档目录职责
 
@@ -99,10 +125,10 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 | `docs/specs/` | agent / contributor 规范、文档策略、依赖规范 |
 | `docs/teams/` | 团队日常 runbook、review 协作矩阵、跨团队维护入口；不替代语言、测试或仓库边界 SSOT |
 | `docs/review/` | review 发现、设计冲突、待定决议；不保留已归纳的旧 dated bundle |
-| `docs/plans/` | 当前仍在执行的设计草案、实施计划、迁移方案；已吸收/已完成项从当前树删除并依赖 Git 历史追溯 |
-| `docs/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
-| `docs/assets/workflow/` | 可复用工作流、测试框架、checkpoint / hygiene 标准 |
+| `docs/plan/` | Registered semantic plans, execution checkpoints and generated delivery records; state ownership is defined by `docs/plan/README.md` |
+| `docs/external/for-ide/` | IDE 集成、LSP 调用、嵌入方式与 edit-time 语法层使用说明 |
 | `docs/assets/templates/` | 可复用模板 |
+| 根目录 `workflows/` | 可复用工作流、测试框架、checkpoint / hygiene 标准（机器可读 `*.toml` 配对，repo-local skills 在 `workflows/skills/`） |
 | `docs/rollups/` | 压缩后的 active 摘要；默认冷启动先读这里 |
 | `docs/archive/` | 最小 lifecycle metadata 壳；不保留旧语法目录、旧示例、旧 source、历史 plan/rollup 快照 |
 | `docs/history/` | 恢复入口；默认不保留 raw dated checkpoint，精确历史文本使用 Git history |
@@ -110,12 +136,14 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 
 ### 0.7 文件命名约定
 
+0. Feature, module, workflow, skill, and documentation transformations must not use version-style names such as `v2`, `version`, `new`, `old`, `legacy`, or `latest`; name the artifact by the feature or transformation result so the active tree has one current implementation and no renamed old/new residue.
+0. Repo-owned documentation and skills must not expose developer-machine paths, server-machine paths, private endpoints, account names, hostnames, or deployment roots. Use placeholders such as `<workspace-root>`, `<user-home>`, `<server-host>`, `<service-url>`, `<private-ip>`, or documented environment variables, and run `python3 scripts/local-info-leak-gate.py --mode worktree` before delivery.
 1. `docs/design/`：设计级 SSOT 使用稳定、可搜索的主题名；当前约定为 `Styio-*.md`。
 2. `docs/specs/`：规范文件使用稳定、可搜索的全大写短横线命名。
 3. `docs/teams/`：团队日常入口使用 `<TEAM>-RUNBOOK.md`；跨团队协调入口固定为 `COORDINATION-RUNBOOK.md`；集合统计固定为 `DOC-STATS.md`。
    普通团队 runbook 必须遵守 `docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md` 的 H1、`Purpose`、`Last updated`、H2 顺序；交付门禁输出必须指向模板和门禁说明，而不是只要求维护者阅读脚本源码。
-4. `docs/plans/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
-5. `docs/assets/workflow/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
+4. `docs/plan/`：计划文件必须使用描述性名称，优先 `<Topic>-Plan.md`、`<Topic>-Implementation-Plan.md`、`<Topic>-Adjustment.md`；禁止再新增 `idea.md`、`notes.md`、`misc.md` 这类泛名文件。
+5. 根 `workflows/` 与 `docs/assets/templates/`：可复用资产采用稳定、可搜索的全大写短横线命名。
 6. `docs/history/`：严格使用 `YYYY-MM-DD.md`。
 7. `docs/adr/`：严格使用 `ADR-XXXX-<slug>.md`。
 
@@ -133,6 +161,7 @@ Every `docs/**/*.md` file must expose machine-readable update metadata near the 
 2. Generated indexes must not be hand-maintained.
 3. Structural validation runs through `python3 scripts/docs-audit.py`, `ctest --test-dir build/default -L docs`, and the `checkpoint-health` workflow.
 4. A docs-tree change is not complete until the generated indexes and docs audit both pass.
+5. `docs-audit.py` validates the Language Design intent block as a closed TOML metadata schema, including required principles, scoped implementation states, owning runbooks, source/test evidence, and Markdown section links. `tests/design_intent_contract_test.py` supplies positive and negative regression evidence; semantic adequacy still requires review.
 
 ### 0.10 Repo-Wide Markdown Manifest
 
@@ -187,35 +216,39 @@ Manifest exports also include text-volume statistics for the selected document s
 3. External systems may be named only as cited references, integration targets, or measured baselines with reproducible evidence.
 4. Avoid absolute marketing superlatives and unsupported superiority language. Use neutral terms such as "reference", "baseline", "measured result", or "implementation target".
 5. Performance, safety, resource-management, and maturity statements must point to compiler tests, `styio-benchmark` reports, audit records, or primary source references.
+6. Neutral uses of `claim`, its inflected forms, and `performance claims` are allowed. These terms alone do not establish unsupported superiority; assess the actual statement and its evidence under the rules above.
 
 ---
 
-## 1. 目标
+## 1. Current Documentation
 
-- **历史（history）**：所有开发经验、排错记录、进展摘要按 **自然日** 写入 `docs/history/`，一天一篇或同日增量追加，禁止只写在聊天或未入库笔记里。
-- **测试说明（workflow assets）**：面向读者的测试说明按 **语言特性域** 维护在 `docs/assets/workflow/TEST-CATALOG.md`，与 CMake 中的 `add_test` 一一可追溯；**必须**给出可复制的自动化命令（CTest 标签或正则）。
-- **可机读元数据**：凡描述「某测试在测什么」的文档，须在文首或表格中写明 **Last updated**、**输入**、**期望输出/比对物**（golden 路径或约定临时文件），以便脚本与人工对照。
+- Keep accepted behavior, maintenance procedures and current limitations in the
+  owning active document. Revise obsolete statements instead of appending
+  contradictory updates.
+- Keep reusable test instructions in [TEST-CATALOG](../../workflows/TEST-CATALOG.md),
+  with current input/oracle paths and reproducible CTest selections.
+- Record implementation status separately from proposed behavior and dated
+  validation evidence. A previous test count or failure rate is not a current run.
+- Keep exact historical prose in Git. A completed change does not require a
+  permanent duplicate daily log after its durable content has been absorbed.
 
 ---
 
-## 2. 历史文档 `docs/history/`
+## 2. Recovery Notes
 
-| 规则 | 说明 |
-|------|------|
-| 命名 | `YYYY-MM-DD.md`，与日历日一致。 |
-| 内容 | 当日实现决策、踩坑、与 checkpoint / PR 的对应关系；可链接到具体提交或文件路径。 |
-| 索引 | `docs/history/README.md` 列出文件与一句话摘要（可手改或由 CI 校验存在性）。 |
+Use `docs/history/YYYY-MM-DD.md` only when an interrupted checkpoint needs
+recovery information that is not already represented in its owning plan or
+active handoff. Include purpose, update date, state, next action, reproducible
+commands, unverified gates and rollback reference.
 
-文首建议模板：
+After the checkpoint closes, promote current decisions and procedures to their
+owner documents and unresolved work to the gap ledger. Register the extracted
+value and targets with `docs-lifecycle.py mark`, then run `cleanup` under the
+zero-retention policy. This cleanup removes active copies; it does not rewrite
+Git history or erase an unresolved obligation.
 
-```markdown
-# 开发记录 — YYYY-MM-DD
-
-**Last updated:** YYYY-MM-DD
-
-## 摘要
-…
-```
+`docs/history/README.md` owns scope and recovery instructions. Its `INDEX.md` is
+generated by `docs-index.py`; neither file is a manually maintained daily diary.
 
 ---
 
@@ -224,18 +257,18 @@ Manifest exports also include text-volume statistics for the selected document s
 | 规则 | 说明 |
 |------|------|
 | 目录 | 所有语言验收用例按语言特性放在 `tests/features/<feature>/`。 |
-| 文档入口 | `docs/assets/workflow/TEST-CATALOG.md` 是测试目录、CTest label、特殊 gate 的唯一活跃索引。 |
+| 文档入口 | `../../workflows/TEST-CATALOG.md` 是测试目录、CTest label、特殊 gate 的唯一活跃索引。 |
 | 与实现关系 | 新增或移动 `.styio` fixture 时，必须同步更新 `tests/CMakeLists.txt`、feature catalog、受影响 team runbook。 |
 
 ---
 
-## 4. 测试目录 `docs/assets/workflow/TEST-CATALOG.md`
+## 4. 测试目录 `workflows/TEST-CATALOG.md`
 
 | 规则 | 说明 |
 |------|------|
 | 划分维度 | **按语言功能域**，而非按历史编号或内部文件名。 |
 | 每条目 | 至少包含：**CTest 名**、**输入**（`.styio` 路径）、**输出/Oracle**（`expected/*.out` 或文档约定的临时文件路径）、**自动化**（`ctest -R '…'` 或 `ctest -L …`）。 |
-| 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `../assets/workflow/TEST-CATALOG.md`。 |
+| 与构建一致 | 新增 `.styio` 验收测试时，必须同时更新 `tests/CMakeLists.txt`（或项目约定的单一注册处）与 `../../workflows/TEST-CATALOG.md`。 |
 
 单条示例（字段名固定，便于将来脚本解析）：
 
@@ -253,13 +286,20 @@ Manifest exports also include text-volume statistics for the selected document s
 
 ## 6. Automation Gates
 
-CI 或本地可逐步引入：
+1. `python3 scripts/docs-index.py --check` verifies generated collection indexes.
+2. `python3 scripts/docs-lifecycle.py validate` verifies lifecycle metadata,
+   extraction targets, retention and source/archive state.
+3. `python3 scripts/docs-audit.py` verifies metadata, naming, links, directory
+   entrypoints and embedded documentation contracts.
+4. `python3 scripts/docs-audit.py --manifest invalid --format list` identifies
+   out-of-scope worktree documents; use `--source filesystem` when intentionally
+   inspecting ignored build output.
+5. Run focused CTest selections from `workflows/TEST-CATALOG.md` when language
+   behavior or executable examples are affected. Use `--output-on-failure
+   --no-tests=error`; a tolerated, failed or unexecuted test is not a pass.
+6. Run the [documentation maintenance workflow](../../workflows/DOCS-MAINTENANCE-WORKFLOW.md)
+   and applicable delivery gate. Missing platform, external audit or consumer
+   evidence remains explicit in the handoff.
 
-1. `ctest -L language_feature` 全绿（或允许已知失败列表，但须在 `TEST-CATALOG` 标注）。
-2. `python3 scripts/docs-index.py --check` 必须通过，确保 collection-directory `INDEX.md` 未过期。
-3. `python3 scripts/docs-lifecycle.py validate` 必须通过，确保 rollup/archive manifest、ledger、keep-window 与路径映射一致。
-4. `python3 scripts/docs-audit.py` 必须通过，确保 `Purpose` / `Last updated` / 命名 / 链接 / 目录入口都符合规则，并串联 lifecycle gate。
-5. `python3 scripts/docs-audit.py --manifest invalid --format list` 是仓库级 Markdown 清理清单；需要排查本地生成物时改用 `--source filesystem`。
-6. `../assets/workflow/TEST-CATALOG.md` 中列出的每个 `tests/features/...` 路径在仓库中存在。
-
-当前仓库的 **权威自动化入口** 为：**CMake 注册的 CTest + `styio --file`**（见 `tests/CMakeLists.txt`）。
+CMake-registered CTest and `styio --file` remain the executable language
+acceptance entrypoints, as defined in `tests/CMakeLists.txt`.

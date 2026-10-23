@@ -1,0 +1,2 @@
+# make_empty := () => []
+value := make_empty()

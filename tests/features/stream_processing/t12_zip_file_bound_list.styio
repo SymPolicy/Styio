@@ -1,0 +1,6 @@
+labels = ["alpha", "beta"]
+labels >> #(label) & @file("tests/features/stream_processing/data/prices_a.txt") >> #(price) => {
+  prefix = label + " "
+  line = prefix + price
+  >_(line)
+}

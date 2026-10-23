@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from datetime import date
@@ -12,6 +13,11 @@ from docs_config import collection_index_meta
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "scripts" / "docs_config.py"
 TODAY = date.today().isoformat()
+VERSION_NAMING_TOKEN_RE = re.compile(
+    r"(^|[-_.\s])(v[0-9]+|version[0-9]*|ver[0-9]+|new|old|legacy|latest)(?=$|[-_.\s])",
+    re.I,
+)
+VERSION_NAMING_EXEMPT_NAMES = {"README", "README_zh", "INDEX", "IMPLEMENTED-DECISIONS"}
 
 
 def as_repo_path(raw: str) -> Path:
@@ -32,6 +38,20 @@ def render_markdown(title: str, purpose: str, body: str) -> str:
     else:
         text += "\n"
     return text
+
+
+def version_naming_part(path: Path) -> str:
+    for part in path.parts:
+        stem = Path(part).stem
+        if stem in VERSION_NAMING_EXEMPT_NAMES:
+            continue
+        if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", stem):
+            continue
+        if re.fullmatch(r"ADR-[0-9]{4}-[a-z0-9-]+", stem):
+            continue
+        if VERSION_NAMING_TOKEN_RE.search(stem):
+            return part
+    return ""
 
 
 def render_collection_readme(title: str, purpose: str) -> str:
@@ -95,6 +115,17 @@ def scaffold(args: argparse.Namespace) -> int:
         raise ValueError("target path must be a Markdown file")
     if not target_rel.parts or target_rel.parts[0] != "docs":
         raise ValueError("docs-scaffold only manages files under docs/")
+    bad_name = version_naming_part(target_rel)
+    if bad_name:
+        raise ValueError(
+            f"version-style document names are not allowed: {bad_name}; "
+            "name the document by the feature or transformation result instead"
+        )
+    if not args.reuse_reviewed:
+        raise ValueError(
+            "before creating docs, search existing docs/ADR/SSOT files and prefer updating them; "
+            "pass --reuse-reviewed only when a new single-purpose document is still necessary"
+        )
 
     parent_rel = target_rel.parent
     meta = collection_index_meta()
@@ -150,6 +181,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collection-index-title", help="Generated INDEX title for a new collection")
     parser.add_argument("--collection-index-purpose", help="Generated INDEX Purpose metadata for a new collection")
     parser.add_argument("--force", action="store_true", help="Replace an existing target/README file")
+    parser.add_argument(
+        "--reuse-reviewed",
+        action="store_true",
+        help="Confirm existing docs, ADRs, and owning SSOTs were searched and no existing document should own this content.",
+    )
     parser.add_argument("--no-index", action="store_true", help="Do not regenerate docs INDEX.md files")
     parser.add_argument("--run-audit", action="store_true", help="Run docs audit after scaffolding")
     return parser.parse_args()

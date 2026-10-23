@@ -11,7 +11,7 @@
 | 名称 | 类型 | 构建中角色 | 在仓库中的记录 / 落地 |
 |------|------|------------|------------------------|
 | **LLVM** | 系统安装 + CMake `find_package` | 编译器后端：IR、ORC JIT、原生目标 | `cmake/StyioLLVM.cmake`（`find_package(LLVM 18.1.0)`，`llvm_map_components_to_libnames` → `support` `core` `irreader` `orcjit` `native`） |
-| **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `cmake/StyioICU.cmake`（`find_package(ICU COMPONENTS uc i18n)`）；查找模块沿 `CMAKE_MODULE_PATH` 解析，仓库根仍保留 `FindICU.cmake` |
+| **ICU**（`uc`、`i18n`） | 系统安装 + `find_package`（**可选**） | 当 `STYIO_USE_ICU=ON` 时为 `StyioUnicode` codepoint 分类与 CLI Unicode 帮助文本提供支持 | `cmake/StyioICU.cmake`（`find_package(ICU COMPONENTS uc i18n)`）；查找模块沿 `CMAKE_MODULE_PATH` 解析，vendored 副本位于 `cmake/FindICU.cmake` |
 | **Tree-sitter runtime** | **FetchContent**（IDE 语法层） | `styio_ide_core` 的 edit-time CST、错误节点和 folding 结构 | `cmake/StyioTreeSitter.cmake`（`option(STYIO_ENABLE_TREE_SITTER ...)` + `FetchContent_Declare(tree_sitter_runtime ...)`）；Styio grammar 位于 `grammar/tree-sitter-styio/` |
 | **GoogleTest** | **FetchContent**（仅测试） | `styio_test`、五层流水线、benchmark soak tests 等单元/集成验证 | `cmake/StyioGoogleTest.cmake`（共享 `googletest` 初始化），由 `tests/CMakeLists.txt` / `benchmark/CMakeLists.txt` 消费 |
 | **cxxopts** | **随仓单头文件（vendored）** | `styio` 命令行解析 | `src/include/cxxopts.hpp`（**勿随意修改**，见 `docs/specs/AGENT-SPEC.md`） |
@@ -62,7 +62,7 @@
 
 ### 2.6 FindICU.cmake（仅 ICU 开启时）
 
-- **形式：** 仓库根目录 `FindICU.cmake`，与 CMake 自带的 **FindICU** 模块同源风格（文件头为 OSI-approved BSD 3-Clause）。
+- **形式：** vendored 副本位于 `cmake/FindICU.cmake`，与 CMake 自带的 **FindICU** 模块同源风格（文件头为 OSI-approved BSD 3-Clause）。仓库根目录的旧位置已于 2026-05-22 整理至 `cmake/`。
 - **用途：** 当 `cmake/StyioICU.cmake` 执行 `find_package(ICU ...)` 时，可作为仓库本地模块路径上的候选实现。
 
 ---

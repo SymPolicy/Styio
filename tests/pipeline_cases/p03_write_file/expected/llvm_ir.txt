@@ -10,6 +10,14 @@ main_entry:
   %0 = call i64 @styio_file_open_write(ptr @styio_str)
   call void @styio_file_write_cstr(i64 %0, ptr @styio_str.1)
   call void @styio_file_close(i64 %0)
+  %1 = call i32 @styio_runtime_has_error()
+  %2 = icmp ne i32 %1, 0
+  br i1 %2, label %runtime_fail, label %runtime_ok
+
+runtime_fail:                                     ; preds = %main_entry
+  ret i32 0
+
+runtime_ok:                                       ; preds = %main_entry
   ret i32 0
 }
 
@@ -18,3 +26,5 @@ declare i64 @styio_file_open_write(ptr)
 declare void @styio_file_write_cstr(i64, ptr)
 
 declare void @styio_file_close(i64)
+
+declare i32 @styio_runtime_has_error()

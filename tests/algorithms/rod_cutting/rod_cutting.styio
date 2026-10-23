@@ -1,0 +1,36 @@
+/* CLRS 15.1 rod-cutting (bottom-up).
+   Input: [n, p1..pn, r0..rn] with (n+1) trailing DP workspace zeros.
+   Output: maximum revenue for length n. */
+values <- @stdin: list[i32]
+answer = 0
+
+?(values.length >= 1) => {
+    n = values[0]
+    need = 1 + n + n + 1
+
+    ?(n <= 0) => {
+        answer = 0
+    } | {
+        ?(values.length >= need) => {
+            base = 1 + n
+            values[base] = 0
+
+            [1..n] >> #(j) => {
+                best = values[j]
+                ?(j > 1) => {
+                    [1..j-1] >> #(i) => {
+                        cand = values[i] + values[base + j - i]
+                        ?(cand > best) => {
+                            best = cand
+                        }
+                    }
+                }
+                values[base + j] = best
+            }
+
+            answer = values[base + n]
+        }
+    }
+}
+
+>_(answer)
