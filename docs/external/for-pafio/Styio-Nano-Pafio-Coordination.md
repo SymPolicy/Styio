@@ -226,7 +226,8 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - blob `sha256` 校验
 - HTTP 传输边界：仅 `https://`（`--proto '=https' --proto-redir '=https'`），连接超时 10s、总限时 300s、有界重试与 `--max-filesize`，本地/file:// 引用同样要求普通文件且不超过 size bound
 - 已验证 blob 按 sha256 寻址缓存（`STYIO_NANO_CACHE_DIR`，默认用户缓存目录），命中且重新校验通过后跳过下载
-- tar 成员校验：仅普通文件（`-`）、目录（`d`）与 pax 元数据（`x`/`g`）成员被允许；符号链接、硬链接、设备、FIFO、稀疏文件、GNU long-name/long-link、卷标等其余类型在解包前一律拒绝（`tar -tvf` 先于 `tar -xf` 运行）。成员名含绝对路径、Windows 盘符或 `..` 组件同样在解包前拒绝；pax `path=` 改名后的有效名仍走同一名称校验，无法绕过。解包使用 `--no-same-owner`。意图：消费方只物化普通文件树，杜绝链接穿越与元数据走私
+- tar 成员校验：仅普通文件（`-`）、目录（`d`）与 pax 元数据（`x`/`g`）成员被允许；符号链接、硬链接、设备、FIFO、GNU 稀疏（`S`）、GNU long-name/long-link、卷标等其余类型在解包前一律拒绝（`tar -tvf` 先于 `tar -xf` 运行）。成员名含绝对路径、Windows 盘符或 `..` 组件同样在解包前拒绝；pax `path=` 改名后的有效名仍走同一名称校验，无法绕过。解包使用 `--no-same-owner`。意图：消费方只物化普通文件树，杜绝链接穿越与元数据走私
+- 解包后逻辑大小上限：递归汇总解包树的文件逻辑大小并与 `size_bytes` 上限比较，超限整体拒绝——pax `GNU.sparse.*` 元数据声明的超大逻辑文件不能借稀疏编码绕过 blob 尺寸上界
 - 解包后 package root 结构校验与链接逃逸检查
 
 这是 `pafio` 后续应保持兼容的最小校验集。
