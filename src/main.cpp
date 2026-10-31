@@ -1730,6 +1730,42 @@ styio_tar_members_stay_in_root_latest(
   const std::filesystem::path& tar_path,
   std::string& error_message
 ) {
+  const std::string verbose_cmd =
+    "tar -tvf " + styio_shell_quote_latest(tar_path.string()) + " 2>/dev/null";
+  FILE* verbose_pipe = popen(verbose_cmd.c_str(), "r");
+  if (verbose_pipe == nullptr) {
+    error_message = "cannot list archive members: " + tar_path.string();
+    return false;
+  }
+  std::string bad_member;
+  char buffer[8192];
+  while (fgets(buffer, static_cast<int>(sizeof(buffer)), verbose_pipe) != nullptr) {
+    const std::string line(buffer);
+    if (line.empty()) {
+      continue;
+    }
+    // Member types: regular file, directory, sparse file and pax metadata are
+    // extractable here; links, devices and FIFOs are refused outright so a
+    // later member cannot traverse a planted link.
+    const char kind = line.front();
+    if ((kind != '-' && kind != 'd' && kind != 'x' && kind != 'g' && kind != 's'
+         && kind != 'L' && kind != 'K' && kind != 'V')
+        || line.find(" -> ") != std::string::npos
+        || line.find(" link to ") != std::string::npos) {
+      if (bad_member.empty()) {
+        bad_member = line;
+      }
+    }
+  }
+  if (pclose(verbose_pipe) != 0) {
+    error_message = "cannot list archive members: " + tar_path.string();
+    return false;
+  }
+  if (!bad_member.empty()) {
+    error_message = "archive member type is not extractable here: " + bad_member;
+    return false;
+  }
+
   const std::string cmd = "tar -tf " + styio_shell_quote_latest(tar_path.string()) + " 2>/dev/null";
   FILE* pipe = popen(cmd.c_str(), "r");
   if (pipe == nullptr) {
@@ -1737,10 +1773,9 @@ styio_tar_members_stay_in_root_latest(
     return false;
   }
 
-  std::string bad_member;
-  char buffer[8192];
-  while (fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
-    std::string name(buffer);
+  char name_buffer[8192];
+  while (fgets(name_buffer, static_cast<int>(sizeof(name_buffer)), pipe) != nullptr) {
+    std::string name(name_buffer);
     while (!name.empty() && (name.back() == '\n' || name.back() == '\r')) {
       name.pop_back();
     }
