@@ -168,8 +168,8 @@ public:
 };
 
 void
-free_tokens(std::vector<StyioToken*>& tokens) {
-  for (auto* t : tokens) {
+free_tokens(std::vector<StyioToken*>& lexed) {
+  for (auto* t : lexed) {
     delete t;
   }
 }
@@ -199,12 +199,12 @@ std::string
 parse_expr_to_repr_latest(const std::string& source, bool use_nightly_parser) {
   // Parse expression prefix and stop before a non-expression sentinel token.
   const std::string wrapped = source + " @";
-  auto tokens = StyioTokenizer::tokenize(wrapped);
+  auto lexed = StyioTokenizer::tokenize(wrapped);
   StyioContext* ctx = StyioContext::Create(
     "<expr-subset-test>",
     wrapped,
     build_line_seps(wrapped),
-    tokens,
+    lexed,
     false
   );
 
@@ -213,7 +213,7 @@ parse_expr_to_repr_latest(const std::string& source, bool use_nightly_parser) {
   {
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -237,12 +237,12 @@ parse_expr_to_repr_latest(const std::string& source, bool use_nightly_parser) {
 
 std::string
 parse_program_to_repr_latest(const std::string& source, bool use_nightly_parser) {
-  auto tokens = StyioTokenizer::tokenize(source);
+  auto lexed = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<stmt-subset-test>",
     source,
     build_line_seps(source),
-    tokens,
+    lexed,
     false
   );
 
@@ -251,7 +251,7 @@ parse_program_to_repr_latest(const std::string& source, bool use_nightly_parser)
   {
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -275,12 +275,12 @@ parse_program_to_repr_latest(const std::string& source, bool use_nightly_parser)
 
 std::string
 parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine engine) {
-  auto tokens = StyioTokenizer::tokenize(source);
+  auto lexed = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-shadow-test>",
     source,
     build_line_seps(source),
-    tokens,
+    lexed,
     false
   );
 
@@ -289,7 +289,7 @@ parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine
   {
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -313,12 +313,12 @@ parse_program_engine_to_repr_latest(const std::string& source, StyioParserEngine
 
 void
 parse_typecheck_and_lower_program_engine_latest(const std::string& source, StyioParserEngine engine) {
-  auto tokens = StyioTokenizer::tokenize(source);
+  auto lexed = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-lowering-test>",
     source,
     build_line_seps(source),
-    tokens,
+    lexed,
     false
   );
 
@@ -329,7 +329,7 @@ parse_typecheck_and_lower_program_engine_latest(const std::string& source, Styio
     delete ir;
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -353,12 +353,12 @@ parse_typecheck_and_lower_program_engine_latest(const std::string& source, Styio
 
 void
 parse_typecheck_program_engine_latest(const std::string& source, StyioParserEngine engine) {
-  auto tokens = StyioTokenizer::tokenize(source);
+  auto lexed = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-typecheck-test>",
     source,
     build_line_seps(source),
-    tokens,
+    lexed,
     false
   );
 
@@ -367,7 +367,7 @@ parse_typecheck_program_engine_latest(const std::string& source, StyioParserEngi
   {
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -390,12 +390,12 @@ parse_typecheck_program_engine_latest(const std::string& source, StyioParserEngi
 
 std::string
 compile_program_to_llvm_ir_engine_latest(const std::string& source, StyioParserEngine engine) {
-  auto tokens = StyioTokenizer::tokenize(source);
+  auto lexed = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-llvm-test>",
     source,
     build_line_seps(source),
-    tokens,
+    lexed,
     false
   );
 
@@ -406,7 +406,7 @@ compile_program_to_llvm_ir_engine_latest(const std::string& source, StyioParserE
     delete ir;
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -450,12 +450,12 @@ execute_program_engine_with_stdin_latest(
   (void)stdin_text;
   GTEST_SKIP() << "stdin redirection helper is POSIX-only";
 #else
-  auto tokens = StyioTokenizer::tokenize(source);
+  auto lexed = StyioTokenizer::tokenize(source);
   StyioContext* ctx = StyioContext::Create(
     "<engine-exec-test>",
     source,
     build_line_seps(source),
-    tokens,
+    lexed,
     false
   );
 
@@ -466,7 +466,7 @@ execute_program_engine_with_stdin_latest(
     delete ir;
     delete ast;
     delete ctx;
-    free_tokens(tokens);
+    free_tokens(lexed);
     StyioAST::destroy_all_tracked_nodes();
   };
 
@@ -518,18 +518,18 @@ execute_program_engine_with_stdin_latest(
 }  // namespace
 
 TEST(StyioSecurityLexer, EmptySourceProducesEof) {
-  auto tokens = StyioTokenizer::tokenize("");
-  ASSERT_FALSE(tokens.empty());
-  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
-  free_tokens(tokens);
+  auto lexed = StyioTokenizer::tokenize("");
+  ASSERT_FALSE(lexed.empty());
+  EXPECT_EQ(lexed.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityLexer, UnterminatedStringThrowsLexError) {
   // Unterminated string must produce a structured lexer error, not UB/crash.
   EXPECT_THROW(
     {
-      auto tokens = StyioTokenizer::tokenize(R"(print "unterminated)");
-      free_tokens(tokens);
+      auto lexed = StyioTokenizer::tokenize(R"(print "unterminated)");
+      free_tokens(lexed);
     },
     StyioLexError
   );
@@ -548,20 +548,20 @@ TEST(StyioSecurityLexer, UnterminatedStringAfterOwnedTokensStaysExceptionSafe) {
 TEST(StyioSecurityLexer, UnterminatedBlockCommentThrowsLexError) {
   EXPECT_THROW(
     {
-      auto tokens = StyioTokenizer::tokenize("a /* no closing");
-      free_tokens(tokens);
+      auto lexed = StyioTokenizer::tokenize("a /* no closing");
+      free_tokens(lexed);
     },
     StyioLexError
   );
 }
 
 TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
-  std::vector<StyioToken*> tokens;
+  std::vector<StyioToken*> lexed;
   StyioContext* ctx = StyioContext::Create(
     "<empty-token-context>",
     "",
     {{0, 0}},
-    tokens,
+    lexed,
     false
   );
 
@@ -580,22 +580,22 @@ TEST(StyioSecurityParserContext, EmptyTokenVectorFallsBackToEofToken) {
 }
 
 TEST(StyioSecurityParserContext, MoveForwardBeyondTokenTailIsClampedToEof) {
-  auto tokens = StyioTokenizer::tokenize("x");
+  auto lexed = StyioTokenizer::tokenize("x");
   StyioContext* ctx = StyioContext::Create(
     "<move-forward-clamp>",
     "x",
     {{0, 1}},
-    tokens,
+    lexed,
     false
   );
 
   EXPECT_NO_THROW({
-    ctx->move_forward(tokens.size() + 5, "security-clamp");
+    ctx->move_forward(lexed.size() + 5, "security-clamp");
   });
   EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
 
   delete ctx;
-  free_tokens(tokens);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityParserContext, HashFunctionFuzzSeedStaysExceptionSafe) {
@@ -951,7 +951,7 @@ TEST(StyioSecurityParserContext, MalformedAtResourceRefNameLeakSeedDoesNotLeakUn
 }
 
 TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
-  std::vector<StyioToken*> tokens{
+  std::vector<StyioToken*> lexed{
     StyioToken::Create(StyioTokenType::TOK_MINUS, "-"),
     StyioToken::Create(StyioTokenType::TOK_RANGBRAC, ">"),
     StyioToken::Create(StyioTokenType::TOK_EOF, "")
@@ -960,7 +960,7 @@ TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
     "<map-match-arrow>",
     "->",
     {{0, 0}},
-    tokens,
+    lexed,
     false
   );
 
@@ -968,16 +968,16 @@ TEST(StyioSecurityParserContext, TokenMapMatchesSingleRightArrow) {
   EXPECT_EQ(ctx->cur_tok_type(), StyioTokenType::TOK_EOF);
 
   delete ctx;
-  free_tokens(tokens);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
-  std::vector<StyioToken*> tokens;
+  std::vector<StyioToken*> lexed;
   StyioContext* ctx = StyioContext::Create(
     "<char-api-eof>",
     "",
     {},
-    tokens,
+    lexed,
     false
   );
 
@@ -1001,12 +1001,12 @@ TEST(StyioSecurityParserContext, CharApiAtEofReturnsSafeDefaults) {
 }
 
 TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
-  std::vector<StyioToken*> tokens;
+  std::vector<StyioToken*> lexed;
   StyioContext* ctx = StyioContext::Create(
     "<find-drop-panic-eof>",
     "",
     {},
-    tokens,
+    lexed,
     false
   );
 
@@ -1022,12 +1022,12 @@ TEST(StyioSecurityParserContext, FindDropPanicAtEofReportsSyntaxError) {
 
 TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestoresCursor) {
   const std::string src = "x = 1 | 2\n";
-  auto tokens = StyioTokenizer::tokenize(src);
+  auto lexed = StyioTokenizer::tokenize(src);
   StyioContext* ctx = StyioContext::Create(
     "<nightly-decline>",
     src,
     build_line_seps(src),
-    tokens,
+    lexed,
     false
   );
 
@@ -1041,18 +1041,18 @@ TEST(StyioSecurityNightlyParserStmt, TryParseSubsetDeclinesWithoutThrowAndRestor
   EXPECT_EQ(ctx->save_cursor(), saved);
 
   delete ctx;
-  free_tokens(tokens);
+  free_tokens(lexed);
   StyioAST::destroy_all_tracked_nodes();
 }
 
 TEST(StyioSecurityNightlyParserStmt, TryParseSubsetFatalRestoresCursorAndCapturesError) {
   const std::string src = "#f(x) =>\n";
-  auto tokens = StyioTokenizer::tokenize(src);
+  auto lexed = StyioTokenizer::tokenize(src);
   StyioContext* ctx = StyioContext::Create(
     "<nightly-fatal>",
     src,
     build_line_seps(src),
-    tokens,
+    lexed,
     false
   );
 
@@ -1073,18 +1073,18 @@ TEST(StyioSecurityNightlyParserStmt, TryParseSubsetFatalRestoresCursorAndCapture
   );
 
   delete ctx;
-  free_tokens(tokens);
+  free_tokens(lexed);
   StyioAST::destroy_all_tracked_nodes();
 }
 
 TEST(StyioSecurityParserPath, SingleLetterPathDoesNotThrowOutOfRange) {
-  std::vector<StyioToken*> tokens;
+  std::vector<StyioToken*> lexed;
   const std::string src = "\"A\"";
   StyioContext* ctx = StyioContext::Create(
     "<single-letter-path>",
     src,
     build_line_seps(src),
-    tokens,
+    lexed,
     false
   );
 
@@ -1103,10 +1103,10 @@ TEST(StyioSecurityParserPath, SingleLetterPathDoesNotThrowOutOfRange) {
 }
 
 TEST(StyioSecurityLexer, LineCommentAtEofWithoutNewlineDoesNotThrow) {
-  auto tokens = StyioTokenizer::tokenize("x // eof-no-newline");
-  ASSERT_FALSE(tokens.empty());
-  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
-  free_tokens(tokens);
+  auto lexed = StyioTokenizer::tokenize("x // eof-no-newline");
+  ASSERT_FALSE(lexed.empty());
+  EXPECT_EQ(lexed.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityLexer, EmbeddedNulByteDoesNotHang) {
@@ -1124,51 +1124,51 @@ TEST(StyioSecurityLexer, EmbeddedNulByteDoesNotHang) {
   ASSERT_EQ(fut.wait_for(deadline), std::future_status::ready)
     << "Lexer should finish; hung input likely stuck on embedded NUL (loc not advanced).";
 
-  auto tokens = fut.get();
-  ASSERT_FALSE(tokens.empty());
-  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
-  free_tokens(tokens);
+  auto lexed = fut.get();
+  ASSERT_FALSE(lexed.empty());
+  EXPECT_EQ(lexed.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityLexer, VeryLongIdentifierCompletes) {
   std::string id(200'000, 'a');
-  auto tokens = StyioTokenizer::tokenize(id);
-  ASSERT_EQ(tokens.size(), 2u);
-  EXPECT_EQ(tokens[0]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[0]->original.size(), 200'000u);
-  EXPECT_EQ(tokens[1]->type, StyioTokenType::TOK_EOF);
-  free_tokens(tokens);
+  auto lexed = StyioTokenizer::tokenize(id);
+  ASSERT_EQ(lexed.size(), 2u);
+  EXPECT_EQ(lexed[0]->type, StyioTokenType::NAME);
+  EXPECT_EQ(lexed[0]->original.size(), 200'000u);
+  EXPECT_EQ(lexed[1]->type, StyioTokenType::TOK_EOF);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityLexer, TokenizesInlineReturnAndPipeSemicolon) {
-  auto tokens = StyioTokenizer::tokenize("|<| result |;");
-  ASSERT_GE(tokens.size(), 6u);
-  EXPECT_EQ(tokens[0]->type, StyioTokenType::RETURN_PIPE);
-  EXPECT_EQ(tokens[0]->original, "|<|");
-  EXPECT_EQ(tokens[2]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[2]->original, "result");
-  EXPECT_EQ(tokens[4]->type, StyioTokenType::PIPE_SEMICOLON);
-  EXPECT_EQ(tokens[4]->original, "|;");
-  EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
-  free_tokens(tokens);
+  auto lexed = StyioTokenizer::tokenize("|<| result |;");
+  ASSERT_GE(lexed.size(), 6u);
+  EXPECT_EQ(lexed[0]->type, StyioTokenType::RETURN_PIPE);
+  EXPECT_EQ(lexed[0]->original, "|<|");
+  EXPECT_EQ(lexed[2]->type, StyioTokenType::NAME);
+  EXPECT_EQ(lexed[2]->original, "result");
+  EXPECT_EQ(lexed[4]->type, StyioTokenType::PIPE_SEMICOLON);
+  EXPECT_EQ(lexed[4]->original, "|;");
+  EXPECT_EQ(lexed.back()->type, StyioTokenType::TOK_EOF);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityLexer, TokenizesAwaitPipe) {
-  auto tokens = StyioTokenizer::tokenize("?| job -> value: i64 | 0");
-  ASSERT_GE(tokens.size(), 12u);
-  EXPECT_EQ(tokens[0]->type, StyioTokenType::AWAIT_PIPE);
-  EXPECT_EQ(tokens[0]->original, "?|");
-  EXPECT_EQ(tokens[4]->type, StyioTokenType::ARROW_SINGLE_RIGHT);
+  auto lexed = StyioTokenizer::tokenize("?| job -> value: i64 | 0");
+  ASSERT_GE(lexed.size(), 12u);
+  EXPECT_EQ(lexed[0]->type, StyioTokenType::AWAIT_PIPE);
+  EXPECT_EQ(lexed[0]->original, "?|");
+  EXPECT_EQ(lexed[4]->type, StyioTokenType::ARROW_SINGLE_RIGHT);
 
   bool saw_fallback_pipe = false;
-  for (auto* token : tokens) {
+  for (auto* token : lexed) {
     if (token->type == StyioTokenType::TOK_PIPE) {
       saw_fallback_pipe = true;
       break;
     }
   }
   EXPECT_TRUE(saw_fallback_pipe);
-  free_tokens(tokens);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityLexer, TokenizesTerminalHandleShorthands) {
@@ -1192,17 +1192,17 @@ TEST(StyioSecurityLexer, TokenizesTerminalHandleShorthands) {
 }
 
 TEST(StyioSecurityParserLookahead, SkipTriviaFindsNextToken) {
-  auto tokens = StyioTokenizer::tokenize("   // cmt\nfoo");
-  ASSERT_FALSE(tokens.empty());
+  auto lexed = StyioTokenizer::tokenize("   // cmt\nfoo");
+  ASSERT_FALSE(lexed.empty());
 
-  const size_t idx = styio_skip_trivia_tokens(tokens, 0);
-  ASSERT_LT(idx, tokens.size());
-  EXPECT_EQ(tokens[idx]->type, StyioTokenType::NAME);
-  EXPECT_EQ(tokens[idx]->original, "foo");
+  const size_t idx = styio_skip_trivia_tokens(lexed, 0);
+  ASSERT_LT(idx, lexed.size());
+  EXPECT_EQ(lexed[idx]->type, StyioTokenType::NAME);
+  EXPECT_EQ(lexed[idx]->original, "foo");
 
-  EXPECT_TRUE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::NAME));
-  EXPECT_FALSE(styio_try_check_non_trivia(tokens, 0, StyioTokenType::INTEGER));
-  free_tokens(tokens);
+  EXPECT_TRUE(styio_try_check_non_trivia(lexed, 0, StyioTokenType::NAME));
+  EXPECT_FALSE(styio_try_check_non_trivia(lexed, 0, StyioTokenType::INTEGER));
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityNightlyParserExpr, MatchesLegacyOnSubsetSamples) {
@@ -1278,12 +1278,12 @@ TEST(StyioSecurityNightlyParserExpr, RangeLiteralAcceptsRepeatedDotSeparator) {
 }
 
 TEST(StyioSecurityNightlyParserExpr, RejectsNonSubsetStatementToken) {
-  auto tokens = StyioTokenizer::tokenize(">_ 1 + 2");
+  auto lexed = StyioTokenizer::tokenize(">_ 1 + 2");
   StyioContext* ctx = StyioContext::Create(
     "<expr-subset-test>",
     ">_ 1 + 2",
     build_line_seps(">_ 1 + 2"),
-    tokens,
+    lexed,
     false
   );
 
@@ -1296,7 +1296,7 @@ TEST(StyioSecurityNightlyParserExpr, RejectsNonSubsetStatementToken) {
   );
 
   delete ctx;
-  free_tokens(tokens);
+  free_tokens(lexed);
 }
 
 TEST(StyioSecurityNightlyParserStmt, MatchesLegacyOnPrintSubsetSamples) {

@@ -102,6 +102,7 @@ python3 scripts/docs-audit.py
 `checkpoint-health.sh` is allowed to reconfigure the requested build dir; maintenance changes to that recovery path must preserve a clean build-dir handoff instead of leaking configure logs into later commands. The default local variant is `build/default/`; use `--build-dir build/<variant>` for another configured variant.
 同一脚本在 normal leg 里必须显式构建 `styio_security_test` 后再跑 `ctest -L security`；空标签返回 0 不能算通过。
 离线恢复时，`tests/CMakeLists.txt` 和顶层 `CMakeLists.txt` 现在会优先复用本地已有的 `googletest` / `tree_sitter_runtime` source checkout，避免首次恢复因 FetchContent 远端不可达而卡死。
+Test fixtures must not bind literals to identifiers shaped like secret material (`key`, `token`, `secret`, `password`, plural forms); the deterministic test-key gate adjudicates each such binding. Lexer outputs are bound to `lexed`, dict-entry counts to `dict_entries` — pick equally neutral names for new fixtures.
 
 ## Cross-Team Dependencies
 

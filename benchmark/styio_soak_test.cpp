@@ -1261,12 +1261,12 @@ TEST(StyioSoakSingleThread, TokenizerIngestionLoop) {
 
   size_t total_tokens = 0;
   for (int i = 0; i < loops; ++i) {
-    auto tokens = StyioTokenizer::tokenize(src);
-    ASSERT_FALSE(tokens.empty());
-    ASSERT_NE(tokens.back(), nullptr);
-    EXPECT_EQ(tokens.back()->type, StyioTokenType::TOK_EOF);
-    total_tokens += tokens.size();
-    for (auto* tok : tokens) {
+    auto lexed = StyioTokenizer::tokenize(src);
+    ASSERT_FALSE(lexed.empty());
+    ASSERT_NE(lexed.back(), nullptr);
+    EXPECT_EQ(lexed.back()->type, StyioTokenType::TOK_EOF);
+    total_tokens += lexed.size();
+    for (auto* tok : lexed) {
       delete tok;
     }
   }
@@ -1392,43 +1392,43 @@ TEST(StyioSoakSingleThread, InvalidHandleDiagnosticsLoop) {
 
 TEST(StyioSoakSingleThread, DictHandleLookupUpdateLoop) {
   const int loops = read_env_i32("STYIO_SOAK_DICT_ITERS", 6, 1, 10000);
-  const int keys = read_env_i32("STYIO_SOAK_DICT_KEYS", 12000, 64, 500000);
+  const int dict_entries = read_env_i32("STYIO_SOAK_DICT_KEYS", 12000, 64, 500000);
 
   std::vector<std::string> names;
-  names.reserve(static_cast<size_t>(keys));
-  for (int i = 0; i < keys; ++i) {
+  names.reserve(static_cast<size_t>(dict_entries));
+  for (int i = 0; i < dict_entries; ++i) {
     names.push_back("dict_key_" + std::to_string(i));
   }
 
   const long long expected_sum =
-    static_cast<long long>(keys - 1) * static_cast<long long>(keys) / 2LL;
+    static_cast<long long>(dict_entries - 1) * static_cast<long long>(dict_entries) / 2LL;
   const long long updated_sum =
-    expected_sum + 7LL * static_cast<long long>(keys);
+    expected_sum + 7LL * static_cast<long long>(dict_entries);
 
   for (int iter = 0; iter < loops; ++iter) {
     styio_runtime_clear_error();
     const int64_t h = styio_dict_new_i64();
     ASSERT_NE(h, 0) << "iter=" << iter;
 
-    for (int i = 0; i < keys; ++i) {
+    for (int i = 0; i < dict_entries; ++i) {
       styio_dict_set_i64(h, names[static_cast<size_t>(i)].c_str(), i);
     }
 
-    ASSERT_EQ(styio_dict_len(h), keys) << "iter=" << iter;
+    ASSERT_EQ(styio_dict_len(h), dict_entries) << "iter=" << iter;
 
     long long sum = 0;
-    for (int i = keys - 1; i >= 0; --i) {
+    for (int i = dict_entries - 1; i >= 0; --i) {
       sum += static_cast<long long>(
         styio_dict_get_i64(h, names[static_cast<size_t>(i)].c_str()));
     }
     EXPECT_EQ(sum, expected_sum) << "iter=" << iter;
 
-    for (int i = 0; i < keys; ++i) {
+    for (int i = 0; i < dict_entries; ++i) {
       styio_dict_set_i64(h, names[static_cast<size_t>(i)].c_str(), i + 7);
     }
 
     long long sum_after = 0;
-    for (int i = 0; i < keys; ++i) {
+    for (int i = 0; i < dict_entries; ++i) {
       sum_after += static_cast<long long>(
         styio_dict_get_i64(h, names[static_cast<size_t>(i)].c_str()));
     }

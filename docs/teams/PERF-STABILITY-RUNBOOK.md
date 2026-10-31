@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of benchmark routes, soak tests, performance reports, regression templates, and stability guardrails.
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-11-01
 
 ## Mission
 
@@ -108,6 +108,7 @@ STYIO_BENCHMARK_ROOT=/path/to/styio-benchmark ./benchmark/soak-minimize.sh --hel
 ```
 
 `styio_soak_test` 若需要包含 LLVM 支持库头，必须通过共享的 `styio_apply_llvm_compile_settings(...)` helper 注入 LLVM include path，使其以 `-idirafter` 形式落在标准库头之后；不要直接给 benchmark 目标加 `SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS}`，否则 Debian + libstdc++ 会命中错误的 `cxxabi.h`。
+Soak fixtures follow the same test-key naming rule as the test suite: env-var read counts bind to `dict_entries`, tokenizer outputs to `lexed`; do not reintroduce `key`/`token`-shaped bindings fed by literals.
 
 ## Cross-Team Dependencies
 
