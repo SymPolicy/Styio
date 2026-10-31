@@ -94,6 +94,7 @@ Key SSOTs:
 59. When a planning or docs migration retires a collection directory, remove its `COLLECTION_SPECS` entry, every inbound link, and the owning runbook references in the same checkpoint; `docs/plan` plan documents and the collection README carry `Purpose` and `Last updated` metadata like any other docs file.
 60. A plan directory carries its own README with `Purpose`, `Last updated`, and a `Checkpoints.json` pointer as a plan convention; `docs-index.py` itself only needs a README or INDEX exposing `Purpose` metadata to surface the directory as a Directories row. Every touched README or plan file must bump its `Last updated` in the same edit so generated indexes do not understate freshness.
 61. Metadata lives once, in the top block: do not restate `Purpose` as a prose paragraph under it. Collection READMEs and the root `docs/README.md` re-bump `Last updated` whenever their described tree changes, even when the prose itself is unchanged.
+62. `docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md` §4.4 mirrors the consume-validation seams as ordered bullets; every new consume check lands as its own bullet in the same edit so the exported contract stays the complete minimum validation set.
 
 ## Change Classes
 

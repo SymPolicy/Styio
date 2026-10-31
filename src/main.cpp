@@ -1743,9 +1743,61 @@ styio_is_hex_digest_64_latest(const std::string& text) {
   return true;
 }
 
+static std::optional<std::uint64_t>
+styio_tar_listed_member_size_latest(const std::string& line) {
+  static const char* const month_names[] = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  };
+  std::vector<std::string> tokens;
+  std::string current;
+  for (char ch : line) {
+    if (std::isspace(static_cast<unsigned char>(ch))) {
+      if (!current.empty()) {
+        tokens.push_back(std::move(current));
+        current.clear();
+      }
+    } else {
+      current.push_back(ch);
+    }
+  }
+  if (!current.empty()) {
+    tokens.push_back(std::move(current));
+  }
+  // The declared size is the token immediately before the mtime fields.
+  // bsdtar prints "mode links uid gid size Mon D YYYY name"; GNU tar prints
+  // "mode owner/group size YYYY-MM-DD HH:MM name" — anchoring on the date
+  // token covers both layouts.
+  for (size_t i = 1; i < tokens.size(); ++i) {
+    const std::string& token = tokens[i];
+    bool is_date = token.size() == 10 && token[4] == '-' && token[7] == '-';
+    if (!is_date) {
+      for (const char* month : month_names) {
+        if (token == month) {
+          is_date = true;
+          break;
+        }
+      }
+    }
+    if (!is_date) {
+      continue;
+    }
+    const std::string& candidate = tokens[i - 1];
+    if (candidate.empty()
+        || !std::all_of(candidate.begin(), candidate.end(), [](char ch) {
+             return ch >= '0' && ch <= '9';
+           })) {
+      return std::nullopt;
+    }
+    return static_cast<std::uint64_t>(std::strtoull(candidate.c_str(), nullptr, 10));
+  }
+  return std::nullopt;
+}
+
 static bool
 styio_tar_members_stay_in_root_latest(
   const std::filesystem::path& tar_path,
+  std::uint64_t max_bytes,
   std::string& error_message
 ) {
   const std::string verbose_cmd =
@@ -1756,6 +1808,8 @@ styio_tar_members_stay_in_root_latest(
     return false;
   }
   std::string bad_member;
+  std::string oversized_member;
+  std::uint64_t declared_total = 0;
   char buffer[8192];
   while (fgets(buffer, static_cast<int>(sizeof(buffer)), verbose_pipe) != nullptr) {
     const std::string line(buffer);
@@ -1775,6 +1829,21 @@ styio_tar_members_stay_in_root_latest(
         bad_member = line;
       }
     }
+    // The blob cap covers the stored archive only, so a member can still
+    // declare a far larger logical size through pax records such as
+    // `GNU.sparse.size`. `tar -tvf` reports the pax-applied size, so summing
+    // the declared sizes bounds the payload before `tar -xf` materializes
+    // it; the post-extraction check stays as defense in depth.
+    if (kind == '-') {
+      const std::optional<std::uint64_t> declared =
+        styio_tar_listed_member_size_latest(line);
+      if (declared.has_value()) {
+        declared_total += *declared;
+        if (declared_total > max_bytes && oversized_member.empty()) {
+          oversized_member = line;
+        }
+      }
+    }
   }
   if (pclose(verbose_pipe) != 0) {
     error_message = "cannot list archive members: " + tar_path.string();
@@ -1782,6 +1851,11 @@ styio_tar_members_stay_in_root_latest(
   }
   if (!bad_member.empty()) {
     error_message = "archive member type is not extractable here: " + bad_member;
+    return false;
+  }
+  if (!oversized_member.empty()) {
+    error_message = "declared archive content exceeds the "
+                    + std::to_string(max_bytes) + " byte package cap: " + oversized_member;
     return false;
   }
 
@@ -3103,7 +3177,7 @@ styio_materialize_cloud_nano_package_latest(
       cleanup_ec.clear();
     }
 
-    if (!styio_tar_members_stay_in_root_latest(blob_path, error_message)) {
+    if (!styio_tar_members_stay_in_root_latest(blob_path, package_cap, error_message)) {
       std::filesystem::remove(blob_path, cleanup_ec);
       return false;
     }
