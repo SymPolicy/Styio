@@ -1,5 +1,9 @@
 # Evidence
 
+**Purpose:** Record the source inventory and signal evidence that anchors the repository-delivery-convergence plan in real repository state.
+
+**Last updated:** 2026-11-01
+
 ## Source Inventory
 
 - `docs/plan/repository-delivery-convergence/Evidence.md`: Compiler Self-Explanation Decision Log (signal lines captured: 2)

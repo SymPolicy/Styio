@@ -2,7 +2,7 @@
 
 **Purpose:** 从 `styio` 主仓库视角，冻结 `pafio` 双通道消费 `styio` 的 handoff contract：`binary` 通道继续消费已发布的 `styio` 二进制和 compile-plan 合同，`build` 通道消费官方受控源码子图和 source-build 元数据；同时保留 `styio-nano` bootstrap/package contract 作为 binary 通道的一部分。本文件描述的是 `styio` 侧 handoff contract，不替代 `styio-pafio` 仓库内自己的 SSOT。
 
-**Last updated:** 2026-04-20
+**Last updated:** 2026-11-01
 
 **Related docs:**
 - [`Styio Handle, Capability, and Failure Type System`](../../design/Styio-Handle-Capability-Type-System.md)
@@ -226,7 +226,7 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 - blob `sha256` 校验
 - HTTP 传输边界：仅 `https://`（`--proto '=https' --proto-redir '=https'`），连接超时 10s、总限时 300s、有界重试与 `--max-filesize`，本地/file:// 引用同样要求普通文件且不超过 size bound
 - 已验证 blob 按 sha256 寻址缓存（`STYIO_NANO_CACHE_DIR`，默认用户缓存目录），命中且重新校验通过后跳过下载
-- tar 成员校验：仅接受普通文件、目录与 pax 元数据成员；符号链接、硬链接、设备、FIFO 及绝对路径/`..` 组件成员在解包前拒绝；解包使用 `--no-same-owner`
+- tar 成员校验：仅普通文件（`-`）、目录（`d`）与 pax 元数据（`x`/`g`）成员被允许；符号链接、硬链接、设备、FIFO、稀疏文件、GNU long-name/long-link、卷标等其余类型在解包前一律拒绝（`tar -tvf` 先于 `tar -xf` 运行）。成员名含绝对路径、Windows 盘符或 `..` 组件同样在解包前拒绝；pax `path=` 改名后的有效名仍走同一名称校验，无法绕过。解包使用 `--no-same-owner`。意图：消费方只物化普通文件树，杜绝链接穿越与元数据走私
 - 解包后 package root 结构校验与链接逃逸检查
 
 这是 `pafio` 后续应保持兼容的最小校验集。

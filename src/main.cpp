@@ -1762,9 +1762,11 @@ styio_tar_members_stay_in_root_latest(
     if (line.empty()) {
       continue;
     }
-    // Member types: regular file, directory, sparse file and pax metadata are
-    // extractable here; links, devices and FIFOs are refused outright so a
-    // later member cannot traverse a planted link.
+    // Member types: regular files, directories and pax 'x'/'g' metadata are
+    // permitted; links, devices, FIFOs, sparse files and any other member
+    // types are refused outright so a later member cannot traverse a
+    // planted link. The name check below still sees pax-renamed members,
+    // so a metadata-driven rename cannot bypass the traversal guard.
     const char kind = line.front();
     if ((kind != '-' && kind != 'd' && kind != 'x' && kind != 'g')
         || line.find(" -> ") != std::string::npos
@@ -4712,7 +4714,7 @@ main(
     cxxopts::value<std::string>()
   )(
     "nano-registry",
-    "styio-nano static repository root (path, file://, or https://) for cloud package materialization. Cleartext http:// is refused. Publishing to a static repository stays local-only.",
+    "styio-nano static repository root (local path, file://, or https://<endpoint>); cleartext http:// is refused and publishing stays local-only.",
     cxxopts::value<std::string>()
   )(
     "nano-package",

@@ -2221,6 +2221,9 @@ TEST(StyioNanoPackage, CloudInstallRejectsNonRegularArchiveMembers) {
     append_ustar_member_latest(out, "hard", '1', "bin/styio-nano", "");
     append_ustar_member_latest(out, "pipe", '6', "", "");
     append_ustar_member_latest(out, "../evil", '0', "", "x");
+    const std::string pax_record = "20 path=../pax-evil\n";
+    append_ustar_member_latest(out, "pax-hdr", 'x', "", pax_record);
+    append_ustar_member_latest(out, "safe", '0', "", "x");
     const char zeros[1024] = {};
     out.write(zeros, sizeof(zeros));
   }

@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of the `styio` CLI, diagnostics surface, `styio-nano` profile pruning, and nano package bootstrap contracts.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-11-01
 
 ## Mission
 
@@ -53,6 +53,7 @@ Key handoff document:
 21. Remove unused CLI debug helpers instead of leaving ad hoc public symbols or stdout probes in `src/main.cpp`; command-visible diagnostics should go through the existing CLI error and option paths.
 22. Keep clean-room nano package builds resource-bounded by default. `STYIO_NANO_BUILD_JOBS` may raise the build parallelism on larger machines, but generated helpers should not default to unbounded `--parallel`.
 23. Keep the Pafio handoff doc pointed at current contracts only. Do not reintroduce deleted bootstrap/source-build long plans after their durable rules have moved into this runbook, the repository map, or the handoff document.
+24. Nano cloud consume validation is fail-closed at three seams: registry, manifest, and artifact transport accept only local paths, `file://`, and `https://` (cleartext `http://` is refused); fetch is bounded by connect/total timeouts, bounded retries, and byte caps; archive extraction validates member names and types before `tar -xf` (only regular files, directories, and pax `x`/`g` metadata are permitted; `--no-same-owner` is used) and re-checks link containment afterward. Keep `--nano-registry` help text, handoff doc section 4.4, and the `StyioNanoPackage` guard tests aligned with this surface.
 
 ## Change Classes
 

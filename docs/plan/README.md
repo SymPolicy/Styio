@@ -1,6 +1,8 @@
 # Better Plan Workspace
 
-This workspace is the only current planning root for `SymPolicy/Styio`.
+**Purpose:** Define the scope of `docs/plan/` as the only current planning root for `SymPolicy/Styio`; the generated file inventory lives in [INDEX.md](./INDEX.md).
+
+**Last updated:** 2026-11-01
 
 - Manifest: `Manifest.json`
 - Active plan: `repository-delivery-convergence/Checkpoints.json`

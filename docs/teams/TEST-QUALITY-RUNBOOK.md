@@ -2,7 +2,7 @@
 
 **Purpose:** Provide the daily-work entrypoint for maintainers of milestone tests, golden files, five-layer pipeline cases, security tests, fuzz smoke, parser shadow gates, and test documentation.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-11-01
 
 ## Mission
 
@@ -42,7 +42,7 @@ Primary paths:
 16. When generic/container function type annotations change, cover both parser-route acceptance and a lowering/codegen case for the smallest supported runtime family, so `list[T]` or `dict[K,V]` annotations cannot parse while call lowering regresses.
 17. When a collection annotation adds contextual validation, pair the positive runtime smoke with a negative semantic test and an untyped-control case proving ordinary nested lists keep their prior behavior.
 18. When control-flow spellings change, keep milestone stdout goldens and security/codegen regressions together: `^...` must prove nearest-loop behavior, and nested `<| expr` returns must prove they exit the enclosing function.
-19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L milestone`.
+19. When a syntax revision retires old milestone syntax, delete the active `.styio` fixture and golden instead of marking it expected-red. Then remove the `TEST-CATALOG` row, add a revision note to the milestone/design docs, and rerun the affected label plus `ctest -L language_feature`.
 20. Native interop acceptance must include parser-only top-level guards and executable milestone goldens that prove C/C++ source is compiled, linked, loaded, and called through the JIT.
 21. When tests create custom AST nodes or compiler-stage visitors, use the split visitor signatures: `typeInfer(StyioSemaContext*)` and `toStyioIR(AstToStyioIRLowerer*)`.
 22. Put C++ reference equivalence cases under `tests/algorithms/<case>/`; keep the C++ oracle, Styio program, and per-case random-input test driver in that directory, with only shared runner code under `tests/algorithms/.common/`.
@@ -60,6 +60,7 @@ Primary paths:
 34. Semantic negative tests must assert a stable diagnostic fragment from `tests/milestones/<milestone>/expected/*.err`; a nonzero exit code alone is not enough evidence.
 35. Lit/FileCheck-style fixture trees belong under active `tests/` only when they are registered in CTest and have real check lines. Otherwise archive them until a live runner owns them.
 36. LibFuzzer runtime probes must compile a minimal `LLVMFuzzerTestOneInput` entrypoint. Do not probe `-fsanitize=fuzzer` with a custom `main`, because the sanitizer runtime provides `main` and the check will fail for the wrong reason.
+37. Nano package consume guards need negative coverage alongside happy paths: crafted-ustar archives must prove link, device, FIFO, traversal, and pax `path=` rename members are refused before extraction with no writes outside the root, and registry or artifact refs must prove cleartext-http, non-regular-file, and oversized-entry refusals. The `StyioNanoPackage.CloudInstall*` cases in `tests/styio_test.cpp` own this surface.
 
 ## Change Classes
 
@@ -72,7 +73,7 @@ Primary paths:
 Common commands:
 
 ```bash
-ctest --test-dir build/default -L milestone
+ctest --test-dir build/default -L language_feature
 ctest --test-dir build/default -L styio_pipeline
 ctest --test-dir build/default -L security
 ctest --test-dir build/default -L resource_topology

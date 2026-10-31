@@ -1,5 +1,9 @@
 # Requirements
 
+**Purpose:** Define the product requirements, non-goals, and final acceptance targets for consolidating `SymPolicy/Styio` planning into a single Better Plan workspace.
+
+**Last updated:** 2026-11-01
+
 ## Product Problem
 
 `SymPolicy/Styio` had planning material split across old planning directories and document names. The current requirement is a single Better Plan workspace under `docs/plan` that captures open work without preserving duplicate planning roots.
@@ -20,7 +24,7 @@
 
 ## Non-Goals
 
-- This refactor does not claim underlying product implementation tasks are finished.
+- This refactor does not establish that underlying product implementation tasks are finished.
 - This refactor does not introduce compatibility paths, historical phases, or duplicate planning formats.
 
 ## Final Acceptance Targets

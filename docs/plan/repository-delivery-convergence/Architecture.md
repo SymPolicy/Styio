@@ -1,5 +1,9 @@
 # Architecture
 
+**Purpose:** Define the structural layout of the Better Plan workspace for `SymPolicy/Styio`: the `docs/plan` root, plan directories, and `Checkpoints.json` ownership boundaries.
+
+**Last updated:** 2026-11-01
+
 ## Workspace Boundary
 
 `docs/plan` is the repository planning root. The root `Manifest.json` indexes Plan objects only. Each Plan owns a dedicated directory and a local `Checkpoints.json` execution graph.
