@@ -2282,6 +2282,97 @@ TEST(StyioNanoPackage, CloudInstallRejectsNonRegularArchiveMembers) {
   fs::remove_all(root);
 }
 
+TEST(StyioNanoPackage, CloudInstallRefusesCleartextHttpRegistry) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root = fs::temp_directory_path() / ("styio-nano-http-guard-" + std::to_string(uniq));
+  const fs::path config = root / "nano.toml";
+  ASSERT_TRUE(fs::create_directories(root));
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\nmode = \"cloud\"\noutput_dir = \"" << (root / "install").string() << "\"\n"
+        << "\n[nano.cloud]\nregistry = \"http://localhost/repo\"\n"
+        << "package = \"edge/guarded\"\nversion = \"0.0.1\"\n";
+  }
+
+  const CommandResult created =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+  EXPECT_NE(created.exit_code, 0) << created.stdout_text;
+  EXPECT_NE(created.stdout_text.find("cleartext http"), std::string::npos) << created.stdout_text;
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, CloudInstallRefusesNonRegularAndOversizedLocalRefs) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root = fs::temp_directory_path() / ("styio-nano-local-guard-" + std::to_string(uniq));
+  const fs::path repo_dir = root / "repo";
+  ASSERT_TRUE(fs::create_directories(repo_dir / "index" / "edge" / "guarded"));
+  {
+    std::ofstream out(repo_dir / "styio-nano-repository.json");
+    ASSERT_TRUE(out.is_open());
+    out << "{\n  \"kind\": \"styio-nano-static\",\n  \"schema_version\": 1\n}\n";
+  }
+  {
+    std::ofstream out(repo_dir / "index" / "edge" / "guarded" / "0.0.1.json");
+    ASSERT_TRUE(out.is_open());
+    out << "{\n  \"schema_version\": 1,\n  \"package\": \"edge/guarded\",\n"
+        << "  \"version\": \"0.0.1\",\n  \"channel\": \"nano\",\n"
+        << "  \"sha256\": \"0000000000000000000000000000000000000000000000000000000000000000\",\n"
+        << "  \"size_bytes\": 8,\n  \"blob_path\": \"blobs/sha256/00/00/x.tar\"\n}\n";
+  }
+  const fs::path blob_dir = repo_dir / "blobs" / "sha256" / "00" / "00" / "x.tar";
+  ASSERT_TRUE(fs::create_directories(blob_dir));
+
+  const fs::path config = root / "nano.toml";
+  {
+    std::ofstream out(config);
+    out << "[nano]\nmode = \"cloud\"\noutput_dir = \"" << (root / "install").string() << "\"\n"
+        << "\n[nano.cloud]\nregistry = \"" << repo_dir.string() << "\"\n"
+        << "package = \"edge/guarded\"\nversion = \"0.0.1\"\n";
+  }
+  const CommandResult non_regular =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+  EXPECT_NE(non_regular.exit_code, 0) << non_regular.stdout_text;
+  EXPECT_NE(non_regular.stdout_text.find("not a regular file"), std::string::npos)
+    << non_regular.stdout_text;
+
+  fs::remove_all(blob_dir);
+#ifdef _WIN32
+  _putenv_s("STYIO_NANO_MAX_PACKAGE_BYTES", "4");
+#else
+  setenv("STYIO_NANO_MAX_PACKAGE_BYTES", "4", 1);
+#endif
+  const CommandResult oversized =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+#ifdef _WIN32
+  _putenv_s("STYIO_NANO_MAX_PACKAGE_BYTES", "");
+#else
+  unsetenv("STYIO_NANO_MAX_PACKAGE_BYTES");
+#endif
+  EXPECT_NE(oversized.exit_code, 0) << oversized.stdout_text;
+  EXPECT_NE(oversized.stdout_text.find("package cap"), std::string::npos) << oversized.stdout_text;
+
+  fs::remove_all(root);
+}
+
 TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {

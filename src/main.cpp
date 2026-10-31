@@ -1766,8 +1766,7 @@ styio_tar_members_stay_in_root_latest(
     // extractable here; links, devices and FIFOs are refused outright so a
     // later member cannot traverse a planted link.
     const char kind = line.front();
-    if ((kind != '-' && kind != 'd' && kind != 'x' && kind != 'g' && kind != 's'
-         && kind != 'L' && kind != 'K' && kind != 'V')
+    if ((kind != '-' && kind != 'd' && kind != 'x' && kind != 'g')
         || line.find(" -> ") != std::string::npos
         || line.find(" link to ") != std::string::npos) {
       if (bad_member.empty()) {
@@ -4709,11 +4708,11 @@ main(
     cxxopts::value<std::string>()
   )(
     "nano-manifest",
-    "Legacy cloud package manifest path or URL for styio-nano package materialization.",
+    "Legacy cloud package manifest path or https URL for styio-nano package materialization.",
     cxxopts::value<std::string>()
   )(
     "nano-registry",
-    "styio-nano static repository root (path, file://, http://, or https://) for cloud package materialization.",
+    "styio-nano static repository root (path, file://, or https://) for cloud package materialization. Cleartext http:// is refused. Publishing to a static repository stays local-only.",
     cxxopts::value<std::string>()
   )(
     "nano-package",
