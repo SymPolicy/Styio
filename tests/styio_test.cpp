@@ -118,6 +118,40 @@ sha256_file_latest(const fs::path& path) {
   return "";
 }
 
+void
+append_ustar_member_latest(
+  std::ofstream& out,
+  const std::string& name,
+  char typeflag,
+  const std::string& linkname,
+  const std::string& data
+) {
+  char header[512] = {};
+  std::snprintf(header, 100, "%s", name.c_str());
+  std::snprintf(header + 100, 8, "%07o", typeflag == '5' ? 0755 : 0644);
+  std::snprintf(header + 108, 8, "%07o", 0);
+  std::snprintf(header + 116, 8, "%07o", 0);
+  std::snprintf(header + 124, 12, "%011llo", static_cast<unsigned long long>(data.size()));
+  std::snprintf(header + 136, 12, "%011llo", 0ULL);
+  std::memset(header + 148, ' ', 8);
+  header[156] = typeflag;
+  std::snprintf(header + 157, 100, "%s", linkname.c_str());
+  std::memcpy(header + 257, "ustar", 6);
+  std::memcpy(header + 263, "00", 2);
+  unsigned checksum = 0;
+  for (int i = 0; i < 512; ++i) {
+    checksum += static_cast<unsigned char>(header[i]);
+  }
+  std::snprintf(header + 148, 8, "%06o", checksum);
+  header[155] = ' ';
+  out.write(header, 512);
+  out.write(data.data(), static_cast<std::streamsize>(data.size()));
+  const std::size_t pad = (512 - (data.size() % 512)) % 512;
+  for (std::size_t i = 0; i < pad; ++i) {
+    out.put('\0');
+  }
+}
+
 }  // namespace
 
 TEST(StyioFiveLayerPipeline, P01_print_add) {
@@ -2144,6 +2178,106 @@ TEST(StyioNanoPackage, CloudRepositoryConfigMaterializesBundle) {
     run_stdout_command(std::string("\"") + (install_dir / "bin" / "styio-nano").string() + "\" --machine-info=json");
   ASSERT_EQ(packaged.exit_code, 0) << packaged.stdout_text;
   EXPECT_NE(packaged.stdout_text.find("\"variant\":\"nano\""), std::string::npos);
+
+  fs::remove_all(root);
+}
+
+TEST(StyioNanoPackage, CloudInstallRejectsNonRegularArchiveMembers) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const char* nano_runner = std::getenv("STYIO_NANO_COMPILER_EXE");
+  if (nano_runner == nullptr || nano_runner[0] == '\0') {
+    nano_runner = STYIO_NANO_COMPILER_EXE;
+  }
+  if (nano_runner == nullptr || nano_runner[0] == '\0') {
+    GTEST_SKIP() << "styio-nano target not built";
+  }
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-archive-guard-" + std::to_string(uniq));
+  const fs::path repo_dir = root / "repo";
+  const fs::path blob = root / "guarded.tar";
+  const fs::path install_dir = root / "install";
+  const fs::path cache_dir = root / "cache";
+  const std::string package_name = "edge/guarded";
+  const std::string version = "0.0.1";
+  const fs::path entry =
+    repo_dir / "index" / "edge" / "guarded" / (version + ".json");
+  const fs::path config = root / "nano.toml";
+  ASSERT_TRUE(fs::create_directories(repo_dir / "index" / "edge" / "guarded"));
+
+  {
+    std::ofstream out(blob, std::ios::binary | std::ios::trunc);
+    ASSERT_TRUE(out.is_open());
+    append_ustar_member_latest(out, "bin/", '5', "", "");
+    append_ustar_member_latest(out, "bin/styio-nano", '0', "", "placeholder");
+    append_ustar_member_latest(out, "esc", '2', "../../etc/passwd", "");
+    append_ustar_member_latest(out, "hard", '1', "bin/styio-nano", "");
+    append_ustar_member_latest(out, "pipe", '6', "", "");
+    append_ustar_member_latest(out, "../evil", '0', "", "x");
+    const char zeros[1024] = {};
+    out.write(zeros, sizeof(zeros));
+  }
+  const std::string sha256 = trim_copy_latest(sha256_file_latest(blob));
+  ASSERT_EQ(sha256.size(), 64U);
+  const fs::path blob_dest = repo_dir / "blobs" / "sha256" / sha256.substr(0, 2)
+                             / sha256.substr(2, 2) / (sha256 + ".tar");
+  ASSERT_TRUE(fs::create_directories(blob_dest.parent_path()));
+  {
+    std::error_code ec;
+    fs::copy_file(blob, blob_dest, fs::copy_options::overwrite_existing, ec);
+    ASSERT_FALSE(ec) << ec.message();
+  }
+  {
+    std::ofstream out(repo_dir / "styio-nano-repository.json");
+    ASSERT_TRUE(out.is_open());
+    out << "{\n  \"kind\": \"styio-nano-static\",\n  \"schema_version\": 1\n}\n";
+  }
+  {
+    std::ofstream out(entry);
+    ASSERT_TRUE(out.is_open());
+    out << "{\n  \"schema_version\": 1,\n  \"package\": \"" << package_name << "\",\n"
+        << "  \"version\": \"" << version << "\",\n  \"channel\": \"nano\",\n"
+        << "  \"sha256\": \"" << sha256 << "\",\n"
+        << "  \"size_bytes\": " << fs::file_size(blob_dest) << ",\n"
+        << "  \"blob_path\": \""
+        << (fs::path("blobs") / "sha256" / sha256.substr(0, 2) / sha256.substr(2, 2)
+            / (sha256 + ".tar")).generic_string()
+        << "\",\n  \"published_at\": \"2026-04-12T00:00:00Z\"\n}\n";
+  }
+  {
+    std::ofstream out(config);
+    ASSERT_TRUE(out.is_open());
+    out << "[nano]\nmode = \"cloud\"\noutput_dir = \"" << install_dir.string() << "\"\n"
+        << "\n[nano.cloud]\nregistry = \"" << repo_dir.string() << "\"\n"
+        << "package = \"" << package_name << "\"\nversion = \"" << version << "\"\n";
+  }
+
+#ifdef _WIN32
+  _putenv_s("STYIO_NANO_CACHE_DIR", cache_dir.string().c_str());
+#else
+  setenv("STYIO_NANO_CACHE_DIR", cache_dir.string().c_str(), 1);
+#endif
+  const CommandResult created =
+    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                       + config.string() + "\" 2>&1");
+#ifdef _WIN32
+  _putenv_s("STYIO_NANO_CACHE_DIR", "");
+#else
+  unsetenv("STYIO_NANO_CACHE_DIR");
+#endif
+  EXPECT_NE(created.exit_code, 0) << created.stdout_text;
+  EXPECT_TRUE(
+    created.stdout_text.find("not extractable") != std::string::npos
+    || created.stdout_text.find("escapes the extraction root") != std::string::npos
+  ) << created.stdout_text;
+  EXPECT_FALSE(fs::exists(install_dir / "bin" / "styio-nano"));
 
   fs::remove_all(root);
 }

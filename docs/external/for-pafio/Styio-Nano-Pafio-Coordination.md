@@ -145,8 +145,7 @@ materialized package 目录至少包含：
 
 - 本地目录
 - `file://`
-- `http://`
-- `https://`
+- `https://`（明文 `http://` 一律拒绝）
 
 但这条路径的定位是 bootstrap / regression / contract validation，不是长期 package UX。
 
@@ -222,9 +221,13 @@ blob 内容是一个 tar 包，解开后必须能解析出 package root，并且
 
 - marker JSON 校验
 - index entry JSON 校验
+- index entry `size_bytes` 上限校验（默认 256 MiB，`STYIO_NANO_MAX_PACKAGE_BYTES` 可配置）与 `sha256` 格式校验——超限或未带有效 sha256 的 entry 在下载前拒绝
 - blob `size_bytes` 校验
 - blob `sha256` 校验
-- 解包后 package root 结构校验
+- HTTP 传输边界：仅 `https://`（`--proto '=https' --proto-redir '=https'`），连接超时 10s、总限时 300s、有界重试与 `--max-filesize`，本地/file:// 引用同样要求普通文件且不超过 size bound
+- 已验证 blob 按 sha256 寻址缓存（`STYIO_NANO_CACHE_DIR`，默认用户缓存目录），命中且重新校验通过后跳过下载
+- tar 成员校验：仅接受普通文件、目录与 pax 元数据成员；符号链接、硬链接、设备、FIFO 及绝对路径/`..` 组件成员在解包前拒绝；解包使用 `--no-same-owner`
+- 解包后 package root 结构校验与链接逃逸检查
 
 这是 `pafio` 后续应保持兼容的最小校验集。
 

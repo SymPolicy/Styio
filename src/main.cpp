@@ -1015,6 +1015,11 @@ styio_ref_is_http_url_latest(const std::string& ref) {
 }
 
 static bool
+styio_ref_is_https_url_latest(const std::string& ref) {
+  return ref.rfind("https://", 0) == 0;
+}
+
+static bool
 styio_ref_is_file_uri_latest(const std::string& ref) {
   return ref.rfind("file://", 0) == 0;
 }
@@ -1241,10 +1246,16 @@ styio_fetch_ref_to_file_latest(
   }
 
   if (styio_ref_is_http_url_latest(ref)) {
+    if (!styio_ref_is_https_url_latest(ref)) {
+      error_message = "cleartext http artifact reference refused (use https://, file://, or a local path): "
+                      + ref;
+      return false;
+    }
     std::error_code ec;
     std::filesystem::create_directories(dest_path.parent_path(), ec);
-    const std::string cmd = "curl -fsSL --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2"
-                            + std::string(" --max-filesize ") + std::to_string(max_bytes)
+    const std::string cmd = "curl -fsSL --proto '=https' --proto-redir '=https'"
+                            + std::string(" --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2")
+                            + " --max-filesize " + std::to_string(max_bytes)
                             + " " + styio_shell_quote_latest(ref)
                             + " -o " + styio_shell_quote_latest(dest_path.string());
     const int status = std::system(cmd.c_str());
@@ -1282,8 +1293,15 @@ styio_fetch_ref_to_file_latest(
   }
 
   source_path = styio_absolute_path_latest(source_path);
-  if (!std::filesystem::exists(source_path)) {
-    error_message = "artifact not found: " + source_path.string();
+  std::error_code source_ec;
+  if (!std::filesystem::is_regular_file(source_path, source_ec)) {
+    error_message = "artifact is not a regular file: " + source_path.string();
+    return false;
+  }
+  const std::uint64_t local_size = std::filesystem::file_size(source_path, source_ec);
+  if (!source_ec && local_size > max_bytes) {
+    error_message = "local artifact exceeds the " + std::to_string(max_bytes)
+                    + "-byte bound: " + source_path.string();
     return false;
   }
   return styio_copy_file_with_exec_latest(source_path, dest_path, make_executable, error_message);
