@@ -43,8 +43,8 @@ namespace fs = std::filesystem;
 namespace {
 
 int
-read_env_i32(const char* key, int fallback, int min_v, int max_v) {
-  const char* raw = std::getenv(key);
+read_env_i32(const char* env_name, int fallback, int min_v, int max_v) {
+  const char* raw = std::getenv(env_name);
   if (raw == nullptr || raw[0] == '\0') {
     return fallback;
   }

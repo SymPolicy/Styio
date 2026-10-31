@@ -1454,7 +1454,7 @@ TEST(StyioSecurityNightlyParserStmt, RejectsParameterizedResourcePseudoDefinitio
 TEST(StyioSecurityNightlyParserStmt, ParsesGenericFunctionTypeAnnotations) {
   const std::string src =
     "# first : i64 := (xs: list[i64]) => xs[0]\n"
-    "# lookup : i64 := (table: dict[string, i64], key: string) => table[key]\n"
+    "# lookup : i64 := (table: dict[string, i64], needle: string) => table[needle]\n"
     "# identity_list : list[i64] := (xs: list[i64]) => {\n"
     "  n = xs.length\n"
     "  <| xs\n"

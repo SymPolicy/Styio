@@ -153,8 +153,8 @@ append_ustar_member_latest(
 }
 
 std::string
-make_pax_record_latest(const std::string& key, const std::string& value) {
-  const std::string body = key + "=" + value + "\n";
+make_pax_record_latest(const std::string& field_name, const std::string& value) {
+  const std::string body = field_name + "=" + value + "\n";
   std::size_t length = body.size() + 2;
   while (std::to_string(length).size() + 1 + body.size() != length) {
     ++length;
@@ -2575,10 +2575,10 @@ TEST(StyioNanoPackage, PublishConfigWritesRepositoryAndRoundTripsToCloudInstall)
   EXPECT_NE(read_text_file_latest(entry).find("\"version\": \"" + version + "\""), std::string::npos);
 
   const std::string entry_text = read_text_file_latest(entry);
-  const std::string sha_key = "\"sha256\": \"";
-  const size_t sha_pos = entry_text.find(sha_key);
+  const std::string sha_field = "\"sha256\": \"";
+  const size_t sha_pos = entry_text.find(sha_field);
   ASSERT_NE(sha_pos, std::string::npos);
-  const size_t sha_begin = sha_pos + sha_key.size();
+  const size_t sha_begin = sha_pos + sha_field.size();
   const size_t sha_end = entry_text.find('"', sha_begin);
   ASSERT_NE(sha_end, std::string::npos);
   const std::string sha256 = entry_text.substr(sha_begin, sha_end - sha_begin);
