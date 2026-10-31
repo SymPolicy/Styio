@@ -2,7 +2,7 @@
 
 **Purpose:** Define the boundary of the `docs/` tree and point readers to the generated inventory in [INDEX.md](./INDEX.md); detailed file listings live in directory-level `INDEX.md` files, not here.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-11-01
 
 ## Tree Contract
 
