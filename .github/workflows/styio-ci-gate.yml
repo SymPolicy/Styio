@@ -179,7 +179,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          ctest --test-dir build/smoke -R '^m1_t01_int_arith$|^m2_t01_simple_func$' --output-on-failure
+          ctest --test-dir build/smoke -R '^scalar_expressions_t01_int_arith$|^functions_t01_simple_func$' --no-tests=error --output-on-failure
           ctest --test-dir build/smoke -L fuzz_smoke --output-on-failure
 
   test-golden-standard:

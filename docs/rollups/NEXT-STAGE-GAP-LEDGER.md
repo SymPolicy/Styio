@@ -127,7 +127,7 @@ The next stage should not be a single monolithic rewrite. Use checkpoint-sized w
 | W4 | Harden the delivered `compile_plan` producer contract for `pafio` handoff | CLI / Nano, Docs / Ecosystem, `styio-pafio` coordination | None | `StyioDiagnostics.*` coverage, handoff doc update, docs audit |
 | W5 | Complete nano negative-path coverage and contract hardening | CLI / Nano, Test Quality | W4 not required | nano-focused unit tests plus docs audit |
 | W6 | Re-open Topology v2 only as a dedicated migration track | Frontend, Sema / IR, Docs / Ecosystem, Test Quality | W1 strongly recommended | milestone acceptance, design doc update, ADR when ownership/lifecycle semantics change |
-| W7 | Keep milestone catalog and migration diagnostics aligned with active syntax | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L milestone`, catalog/doc sync, no orphan fixtures |
+| W7 | Keep milestone catalog and migration diagnostics aligned with active syntax | Test Quality with affected module owners | Parallel with W1-W6 | `ctest -L language_feature`, catalog/doc sync, no orphan fixtures |
 
 ## 8. Rules for Scalable Team Execution
 
