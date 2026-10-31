@@ -1874,6 +1874,39 @@ styio_extracted_links_stay_in_root_latest(
   return true;
 }
 
+static bool
+styio_extracted_tree_within_cap_latest(
+  const std::filesystem::path& extract_root,
+  std::uint64_t max_bytes,
+  std::string& error_message
+) {
+  std::error_code ec;
+  std::uint64_t total = 0;
+  for (std::filesystem::recursive_directory_iterator it(extract_root, ec), end;
+       !ec && it != end;
+       it.increment(ec)) {
+    if (!it->is_regular_file()) {
+      continue;
+    }
+    const std::uint64_t size = std::filesystem::file_size(it->path(), ec);
+    if (ec) {
+      error_message = "cannot measure extracted file: " + it->path().string();
+      return false;
+    }
+    total += size;
+    if (total > max_bytes) {
+      error_message = "extracted content exceeds the " + std::to_string(max_bytes)
+                      + " byte package cap: " + it->path().string();
+      return false;
+    }
+  }
+  if (ec) {
+    error_message = "cannot inspect extracted tree: " + ec.message();
+    return false;
+  }
+  return true;
+}
+
 static std::string
 styio_nano_repository_package_leaf_latest(const std::string& package_name) {
   const size_t slash = package_name.find_last_of('/');
@@ -3087,6 +3120,14 @@ styio_materialize_cloud_nano_package_latest(
       return false;
     }
     if (!styio_extracted_links_stay_in_root_latest(extract_root, error_message)) {
+      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(extract_root, cleanup_ec);
+      return false;
+    }
+    // The blob cap covers the compressed archive only; a sparse or otherwise
+    // inflated member could declare a far larger logical size, so bound the
+    // extracted tree before it is copied into the install directory.
+    if (!styio_extracted_tree_within_cap_latest(extract_root, package_cap, error_message)) {
       std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;

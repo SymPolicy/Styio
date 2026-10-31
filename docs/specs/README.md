@@ -2,7 +2,7 @@
 
 **Purpose:** Define the scope and naming rules for `docs/specs/`; the generated file inventory lives in [INDEX.md](./INDEX.md).
 
-**Last updated:** 2026-04-24
+**Last updated:** 2026-11-01
 
 ## Scope
 

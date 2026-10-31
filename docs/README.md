@@ -32,13 +32,13 @@
 10. Design SSOT: [design/INDEX.md](./design/INDEX.md)
 11. IDE integration docs: [external/for-ide/INDEX.md](./external/for-ide/INDEX.md)
 12. Archive lifecycle metadata: [archive/INDEX.md](./archive/INDEX.md)
-13. Plans scope and status rules: [plan/repository-delivery-convergence/Evidence.md](./plan/repository-delivery-convergence/Evidence.md)
+13. Plans scope and status rules: [plan/INDEX.md](./plan/INDEX.md)
 14. Implemented decision summary: [adr/IMPLEMENTED-DECISIONS.md](./adr/IMPLEMENTED-DECISIONS.md)
 
 ## Default Read Order
 
 1. Start with [rollups/CURRENT-STATE.md](./rollups/CURRENT-STATE.md).
-2. Follow its links into the owning SSOT in `design/`, `specs/`, `assets/workflow/`, `teams/`, `plans/`, or current rollups.
+2. Follow its links into the owning SSOT in `design/`, `specs/`, `assets/workflow/`, `teams/`, `plan/`, or current rollups.
 3. Use Git history only when exact old history/review wording is required.
 4. Use `archive/` only for lifecycle metadata.
 

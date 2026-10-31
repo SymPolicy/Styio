@@ -1,5 +1,9 @@
 # Source Material
 
+**Purpose:** Preserve the full content of planning sources imported into the current Better Plan workspace; the source labels match the Evidence ledger and old planning roots are not active navigation.
+
+**Last updated:** 2026-11-01
+
 This file preserves the full content of planning sources imported into the current Better Plan workspace. The source labels match the Evidence ledger; old planning roots are not active navigation.
 
 ## source-001-compiler-self-explanation-decision-log: Compiler Self Explanation Decision Log

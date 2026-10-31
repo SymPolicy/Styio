@@ -92,6 +92,7 @@ Key SSOTs:
 57. Do not describe Styio as equivalent to another language's resource model. State the exact compiler evidence Styio has, then list external practices only as references.
 58. Historical deprecated syntax belongs in Git history, not active docs; do not recreate old syntax catalogs or copy historical syntax into active examples without checking the active SSOT.
 59. When a planning or docs migration retires a collection directory, remove its `COLLECTION_SPECS` entry, every inbound link, and the owning runbook references in the same checkpoint; `docs/plan` plan documents and the collection README carry `Purpose` and `Last updated` metadata like any other docs file.
+60. A plan directory needs its own README with `Purpose`, `Last updated`, and a `Checkpoints.json` pointer so `docs-index.py` surfaces it as a Directories row; every touched README or plan file must bump its `Last updated` in the same edit so generated indexes do not understate freshness.
 
 ## Change Classes
 
