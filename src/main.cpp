@@ -1186,12 +1186,53 @@ styio_copy_file_with_exec_latest(
   return true;
 }
 
+static constexpr std::uint64_t kStyioFetchMaxTextBytesLatest = 16ull * 1024 * 1024;
+static constexpr std::uint64_t kStyioNanoDefaultMaxPackageBytesLatest = 256ull * 1024 * 1024;
+
+static std::uint64_t
+styio_nano_max_package_bytes_latest() {
+  const char* raw = std::getenv("STYIO_NANO_MAX_PACKAGE_BYTES");
+  if (raw != nullptr && raw[0] != '\0') {
+    const std::string value(raw);
+    const bool all_digits =
+      std::all_of(value.begin(), value.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; });
+    if (all_digits) {
+      return std::strtoull(value.c_str(), nullptr, 10);
+    }
+  }
+  return kStyioNanoDefaultMaxPackageBytesLatest;
+}
+
+static std::filesystem::path
+styio_nano_blob_cache_dir_latest() {
+  if (const char* dir = std::getenv("STYIO_NANO_CACHE_DIR"); dir != nullptr && dir[0] != '\0') {
+    return std::filesystem::path(dir);
+  }
+#ifdef _WIN32
+  if (const char* base = std::getenv("LOCALAPPDATA"); base != nullptr && base[0] != '\0') {
+    return std::filesystem::path(base) / "styio" / "nano";
+  }
+  if (const char* base = std::getenv("USERPROFILE"); base != nullptr && base[0] != '\0') {
+    return std::filesystem::path(base) / "AppData" / "Local" / "styio" / "nano";
+  }
+#else
+  if (const char* base = std::getenv("XDG_CACHE_HOME"); base != nullptr && base[0] != '\0') {
+    return std::filesystem::path(base) / "styio" / "nano";
+  }
+  if (const char* base = std::getenv("HOME"); base != nullptr && base[0] != '\0') {
+    return std::filesystem::path(base) / ".cache" / "styio" / "nano";
+  }
+#endif
+  return std::filesystem::temp_directory_path() / "styio-nano-cache";
+}
+
 static bool
 styio_fetch_ref_to_file_latest(
   const std::string& ref,
   const std::filesystem::path& base_dir,
   const std::filesystem::path& dest_path,
   bool make_executable,
+  std::uint64_t max_bytes,
   std::string& error_message
 ) {
   if (ref.empty()) {
@@ -1202,11 +1243,21 @@ styio_fetch_ref_to_file_latest(
   if (styio_ref_is_http_url_latest(ref)) {
     std::error_code ec;
     std::filesystem::create_directories(dest_path.parent_path(), ec);
-    const std::string cmd = "curl -fsSL " + styio_shell_quote_latest(ref)
+    const std::string cmd = "curl -fsSL --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2"
+                            + std::string(" --max-filesize ") + std::to_string(max_bytes)
+                            + " " + styio_shell_quote_latest(ref)
                             + " -o " + styio_shell_quote_latest(dest_path.string());
     const int status = std::system(cmd.c_str());
     if (status != 0) {
+      std::filesystem::remove(dest_path, ec);
       error_message = "failed to download artifact via curl: " + ref;
+      return false;
+    }
+    const std::uint64_t actual_size = std::filesystem::file_size(dest_path, ec);
+    if (!ec && actual_size > max_bytes) {
+      std::filesystem::remove(dest_path, ec);
+      error_message = "downloaded artifact exceeds the " + std::to_string(max_bytes)
+                      + "-byte bound: " + ref;
       return false;
     }
     if (make_executable) {
@@ -1674,6 +1725,101 @@ styio_is_hex_digest_64_latest(const std::string& text) {
   return true;
 }
 
+static bool
+styio_tar_members_stay_in_root_latest(
+  const std::filesystem::path& tar_path,
+  std::string& error_message
+) {
+  const std::string cmd = "tar -tf " + styio_shell_quote_latest(tar_path.string()) + " 2>/dev/null";
+  FILE* pipe = popen(cmd.c_str(), "r");
+  if (pipe == nullptr) {
+    error_message = "cannot list archive members: " + tar_path.string();
+    return false;
+  }
+
+  std::string bad_member;
+  char buffer[8192];
+  while (fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
+    std::string name(buffer);
+    while (!name.empty() && (name.back() == '\n' || name.back() == '\r')) {
+      name.pop_back();
+    }
+    if (name.empty()) {
+      continue;
+    }
+    const std::filesystem::path member_path(name);
+    const bool escaped = name.front() == '/' || name.front() == '\\'
+                         || (name.size() >= 2 && name[1] == ':'
+                             && ((name[0] >= 'A' && name[0] <= 'Z') || (name[0] >= 'a' && name[0] <= 'z')))
+                         || std::any_of(
+                           member_path.begin(),
+                           member_path.end(),
+                           [](const std::filesystem::path& comp) { return comp == ".."; });
+    if (escaped && bad_member.empty()) {
+      bad_member = name;
+    }
+  }
+  const int status = pclose(pipe);
+  if (status != 0) {
+    error_message = "cannot list archive members: " + tar_path.string();
+    return false;
+  }
+  if (!bad_member.empty()) {
+    error_message = "archive member escapes the extraction root: " + bad_member;
+    return false;
+  }
+  return true;
+}
+
+static bool
+styio_extracted_links_stay_in_root_latest(
+  const std::filesystem::path& extract_root,
+  std::string& error_message
+) {
+  std::error_code ec;
+  const std::filesystem::path canonical_root = std::filesystem::weakly_canonical(extract_root, ec);
+  if (ec) {
+    error_message = "cannot resolve extraction root: " + extract_root.string();
+    return false;
+  }
+
+  for (std::filesystem::recursive_directory_iterator it(extract_root, ec), end;
+       !ec && it != end;
+       it.increment(ec)) {
+    if (!it->is_symlink()) {
+      continue;
+    }
+    const std::filesystem::path target = std::filesystem::read_symlink(it->path(), ec);
+    if (ec) {
+      error_message = "cannot inspect extracted link: " + it->path().string();
+      return false;
+    }
+    const std::filesystem::path resolved = std::filesystem::weakly_canonical(
+      target.is_absolute() ? target : (it->path().parent_path() / target),
+      ec);
+    if (ec) {
+      error_message = "cannot resolve extracted link target: " + it->path().string();
+      return false;
+    }
+    auto root_comp = canonical_root.begin();
+    auto link_comp = resolved.begin();
+    while (root_comp != canonical_root.end() && link_comp != resolved.end() && *root_comp == *link_comp) {
+      ++root_comp;
+      ++link_comp;
+    }
+    if (root_comp != canonical_root.end()) {
+      error_message = "extracted link escapes the extraction root: " + it->path().string()
+                      + " -> " + target.string();
+      return false;
+    }
+  }
+  if (ec) {
+    error_message = "cannot inspect extracted tree: " + ec.message();
+    return false;
+  }
+  return true;
+}
+
 static std::string
 styio_nano_repository_package_leaf_latest(const std::string& package_name) {
   const size_t slash = package_name.find_last_of('/');
@@ -1741,7 +1887,8 @@ styio_fetch_registry_text_latest(
   if (styio_ref_is_http_url_latest(full_ref)) {
     const std::filesystem::path tmp_path =
       std::filesystem::temp_directory_path() / ("styio-nano-fetch-" + styio_now_token_latest() + ".tmp");
-    if (!styio_fetch_ref_to_file_latest(full_ref, {}, tmp_path, false, error_message)) {
+    if (!styio_fetch_ref_to_file_latest(
+          full_ref, {}, tmp_path, false, kStyioFetchMaxTextBytesLatest, error_message)) {
       return false;
     }
     const bool ok = styio_read_text_file_latest(tmp_path, out_text, error_message);
@@ -2797,18 +2944,53 @@ styio_materialize_cloud_nano_package_latest(
       return false;
     }
 
+    const std::uint64_t package_cap = styio_nano_max_package_bytes_latest();
+    if (entry.size_bytes == 0 || entry.size_bytes > package_cap) {
+      error_message = "nano package " + selection.registry_package + "@" + selection.registry_version
+                      + " declares " + std::to_string(entry.size_bytes)
+                      + " bytes, outside the configured package cap of "
+                      + std::to_string(package_cap) + " bytes";
+      return false;
+    }
+    if (!styio_is_hex_digest_64_latest(entry.sha256)) {
+      error_message = "nano repository entry carries no usable sha256 for "
+                      + selection.registry_package + "@" + selection.registry_version;
+      return false;
+    }
+
     const std::filesystem::path blob_path =
       std::filesystem::temp_directory_path() / ("styio-nano-blob-" + styio_now_token_latest() + ".tar");
-    if (!styio_fetch_ref_to_file_latest(
+    const std::filesystem::path cache_blob =
+      styio_nano_blob_cache_dir_latest() / "blobs" / "sha256" / (entry.sha256 + ".tar");
+
+    std::error_code cleanup_ec;
+    bool have_blob = false;
+    if (std::filesystem::is_regular_file(cache_blob, cleanup_ec)) {
+      std::string cached_sha256;
+      if (std::filesystem::file_size(cache_blob, cleanup_ec) == entry.size_bytes
+          && styio_compute_file_sha256_latest(cache_blob, cached_sha256, error_message)
+          && cached_sha256 == entry.sha256) {
+        std::filesystem::create_directories(blob_path.parent_path(), cleanup_ec);
+        std::filesystem::copy_file(
+          cache_blob, blob_path, std::filesystem::copy_options::overwrite_existing, cleanup_ec);
+        have_blob = !cleanup_ec;
+      }
+      else {
+        std::filesystem::remove(cache_blob, cleanup_ec);
+      }
+      cleanup_ec.clear();
+    }
+    if (!have_blob
+        && !styio_fetch_ref_to_file_latest(
           styio_join_registry_ref_latest(selection.registry_root, entry.blob_path),
           {},
           blob_path,
           false,
+          std::max<std::uint64_t>(entry.size_bytes, 1),
           error_message)) {
       return false;
     }
 
-    std::error_code cleanup_ec;
     if (std::filesystem::file_size(blob_path, cleanup_ec) != entry.size_bytes) {
       std::filesystem::remove(blob_path, cleanup_ec);
       error_message = "nano repository blob size mismatch for " + selection.registry_package + "@"
@@ -2827,14 +3009,30 @@ styio_materialize_cloud_nano_package_latest(
                       + selection.registry_version;
       return false;
     }
+    if (!have_blob) {
+      std::filesystem::create_directories(cache_blob.parent_path(), cleanup_ec);
+      std::filesystem::copy_file(
+        blob_path, cache_blob, std::filesystem::copy_options::overwrite_existing, cleanup_ec);
+      cleanup_ec.clear();
+    }
+
+    if (!styio_tar_members_stay_in_root_latest(blob_path, error_message)) {
+      std::filesystem::remove(blob_path, cleanup_ec);
+      return false;
+    }
 
     const std::filesystem::path extract_root =
       std::filesystem::temp_directory_path() / ("styio-nano-extract-" + styio_now_token_latest());
     std::filesystem::create_directories(extract_root, cleanup_ec);
     const std::string extract_cmd =
-      "tar -xf " + styio_shell_quote_latest(blob_path.string())
+      "tar --no-same-owner -xf " + styio_shell_quote_latest(blob_path.string())
       + " -C " + styio_shell_quote_latest(extract_root.string());
     if (!styio_run_shell_command_latest(extract_cmd, "styio-nano blob extraction", error_message)) {
+      std::filesystem::remove(blob_path, cleanup_ec);
+      std::filesystem::remove_all(extract_root, cleanup_ec);
+      return false;
+    }
+    if (!styio_extracted_links_stay_in_root_latest(extract_root, error_message)) {
       std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
@@ -2885,7 +3083,8 @@ styio_materialize_cloud_nano_package_latest(
   const std::filesystem::path manifest_copy =
     std::filesystem::temp_directory_path() / ("styio-nano-manifest-" + styio_now_token_latest() + ".toml");
   std::filesystem::path manifest_base_dir;
-  if (!styio_fetch_ref_to_file_latest(selection.manifest_ref, {}, manifest_copy, false, error_message)) {
+  if (!styio_fetch_ref_to_file_latest(
+        selection.manifest_ref, {}, manifest_copy, false, kStyioFetchMaxTextBytesLatest, error_message)) {
     if (!styio_ref_is_http_url_latest(selection.manifest_ref) && !styio_ref_is_file_uri_latest(selection.manifest_ref)) {
       manifest_base_dir = std::filesystem::path(selection.manifest_ref).parent_path();
     }
@@ -2909,12 +3108,24 @@ styio_materialize_cloud_nano_package_latest(
     return false;
   }
 
-  if (!styio_fetch_ref_to_file_latest(manifest.binary_ref, manifest_base_dir, binary_dest, true, error_message)) {
+  if (!styio_fetch_ref_to_file_latest(
+        manifest.binary_ref,
+        manifest_base_dir,
+        binary_dest,
+        true,
+        styio_nano_max_package_bytes_latest(),
+        error_message)) {
     std::filesystem::remove(manifest_copy, ec);
     return false;
   }
   if (!manifest.profile_ref.empty()) {
-    if (!styio_fetch_ref_to_file_latest(manifest.profile_ref, manifest_base_dir, profile_dest, false, error_message)) {
+    if (!styio_fetch_ref_to_file_latest(
+          manifest.profile_ref,
+          manifest_base_dir,
+          profile_dest,
+          false,
+          kStyioFetchMaxTextBytesLatest,
+          error_message)) {
       std::filesystem::remove(manifest_copy, ec);
       return false;
     }
