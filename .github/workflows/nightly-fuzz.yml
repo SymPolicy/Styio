@@ -84,6 +84,7 @@ jobs:
           name: nightly-fuzz-artifacts
           path: fuzz-artifacts/
           if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload fuzz regression packs
         if: always()
@@ -92,6 +93,7 @@ jobs:
           name: nightly-fuzz-regressions
           path: fuzz-regressions/
           if-no-files-found: ignore
+          retention-days: 14
 
       - name: Fail job on fuzz crash
         if: always()

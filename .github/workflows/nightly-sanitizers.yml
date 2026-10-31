@@ -63,3 +63,4 @@ jobs:
         with:
           name: nightly-sanitizer-artifacts
           path: sanitizer-artifacts/
+          retention-days: 14

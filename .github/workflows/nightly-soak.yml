@@ -49,3 +49,4 @@ jobs:
         with:
           name: nightly-soak-artifacts
           path: soak-artifacts/
+          retention-days: 14

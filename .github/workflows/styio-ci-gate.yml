@@ -214,8 +214,8 @@ jobs:
       - name: Run syntax convergence gate
         run: python3 scripts/syntax-convergence-gate.py
 
-      - name: Run milestone goldens
-        run: ctest --test-dir build/golden -L milestone --output-on-failure
+      - name: Run feature goldens
+        run: ctest --test-dir build/golden -L language_feature --output-on-failure
 
       - name: Run five-layer and convergence goldens
         run: ctest --test-dir build/golden -L styio_pipeline --output-on-failure
