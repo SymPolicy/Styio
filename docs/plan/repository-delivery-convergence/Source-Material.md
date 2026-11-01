@@ -56,8 +56,8 @@
 | Path | Entry | Summary |
 |------|-------|---------|
 | `Compiler-Self-Explanation-Decision-Log.md` | [Compiler Self-Explanation Decision Log](./Compiler-Self-Explanation-Decision-Log.md) | Record compiler gaps found during the self-explanation audit that were either closed autonomously because they already matched accepted Styio design, or left for maintainer decision because closing them would define or change language semantics. |
-| `Styio-Ecosystem-CLI-Contract-Matrix.md` | [Styio Ecosystem CLI Contract Matrix](./Styio-Ecosystem-CLI-Contract-Matrix.md) | 浣滀负涓変粨鍗忚皟闀滃儚锛屽喕缁� styio-nightly銆乻tyio-pafio銆乻tyio-view 褰撳墠 active internal CLI contract 闆嗗悎锛屽苟缁欒法浠撴枃妗ｄ竴鑷存�� gate 鎻愪緵鍥哄畾瀵圭収闈�銆� |
-| `Styio-Ecosystem-Delivery-Master-Plan.md` | [Styio Ecosystem Delivery Master Plan](./Styio-Ecosystem-Delivery-Master-Plan.md) | 浣滀负 styio-nightly銆乻tyio-pafio銆乻tyio-view 鐨勭粺涓�浜や粯鎬荤翰锛屽畾涔夋潈濞侀噷绋嬬�戙�佽法浠撴枃妗ｈ惤鍦伴『搴忋�佸叡浜�闂ㄧ�佷笌瀹屾垚瀹氫箟锛岀‘淇濅笁浠撲互鍚屼竴濂楄��瑷�浜у搧鐩�鏍囨帹杩涳紝鑰屼笉鏄�鍚勮嚜婕斿寲銆傚綋鍓嶅畠浠嶇劧鏄� active ecosystem plan锛岃�屼笉鏄�宸查棴鍚堢殑鍘嗗彶璁板綍銆� |
+| `Styio-Ecosystem-CLI-Contract-Matrix.md` | [Styio Ecosystem CLI Contract Matrix](./Styio-Ecosystem-CLI-Contract-Matrix.md) | 作为三仓协调镜像，冻结 `styio-nightly`、`styio-pafio`、`styio-view` 当前 active internal CLI contract 集合，并给跨仓文档一致性 gate 提供固定对照面。 |
+| `Styio-Ecosystem-Delivery-Master-Plan.md` | [Styio Ecosystem Delivery Master Plan](./Styio-Ecosystem-Delivery-Master-Plan.md) | 作为 `styio-nightly`、`styio-pafio`、`styio-view` 的统一交付总纲，定义权威里程碑、跨仓文档落地顺序、共享门禁与完成定义，确保三仓以同一套语言产品目标推进，而不是各自演化。当前它仍然是 active ecosystem plan，而不是已闭合的历史记录。 |
 ```
 
 ## source-003-readme: README
@@ -104,11 +104,11 @@ The preserved copy of this source is the standalone [Styio-Ecosystem-CLI-Contrac
 ```text
 # Styio Ecosystem Delivery Master Plan
 
-**Purpose:** 浣滀负 `styio-nightly`銆乣styio-pafio`銆乣styio-view` 鐨勭粺涓�浜や粯鎬荤翰锛屽畾涔夋潈濞侀噷绋嬬�戙�佽法浠撴枃妗ｈ惤鍦伴『搴忋�佸叡浜�闂ㄧ�佷笌瀹屾垚瀹氫箟锛岀‘淇濅笁浠撲互鍚屼竴濂楄��瑷�浜у搧鐩�鏍囨帹杩涳紝鑰屼笉鏄�鍚勮嚜婕斿寲銆傚綋鍓嶅畠浠嶇劧鏄� active ecosystem plan锛岃�屼笉鏄�宸查棴鍚堢殑鍘嗗彶璁板綍銆�
+**Purpose:** 作为 `styio-nightly`、`styio-pafio`、`styio-view` 的统一交付总纲，定义权威里程碑、跨仓文档落地顺序、共享门禁与完成定义，确保三仓以同一套语言产品目标推进，而不是各自演化。当前它仍然是 active ecosystem plan，而不是已闭合的历史记录。
 
 **Last updated:** 2026-04-21
 
-**Plan status:** Active ecosystem master plan. `styio-nightly` 宸插畬鎴� compiler-side dual-channel/source-build baseline 鍜岀粺涓� docs gate 鍩虹嚎锛屼絾鏈�鎬荤翰瀵瑰簲鐨勮法浠撲氦浠樼洰鏍囦粛鍋滅暀鍦ㄦ湭闂�鍚堢姸鎬侊紝灏ゅ叾鏄� `M4`-`M6` 鐨� runtime/module/mobile/cloud/hosted product closure銆�
+**Plan status:** Active ecosystem master plan. `styio-nightly` 已完成 compiler-side dual-channel/source-build baseline 和统一 docs gate 基线，但本总纲对应的跨仓交付目标仍停留在未闭合状态，尤其是 `M4`-`M6` 的 runtime/module/mobile/cloud/hosted product closure。
 
 ## 0. Current Closure Snapshot
 
@@ -125,92 +125,92 @@ This file stays active because repo-local closure is no longer the only question
 
 Treat this plan as the answer to "is the ecosystem done?", not "is one repo locally green?".
 
-## 1. 浜у搧鐩�鏍囦笌瀹屾垚瀹氫箟
+## 1. 产品目标与完成定义
 
-杩欎唤鎬荤翰瀹屾垚鏃讹紝Styio 蹇呴』宸茬粡鍏峰�囦竴涓�缂栫▼璇�瑷�浜у搧鐨勫畬鏁磋兘鍔涢潰锛岃�屼笉鏄�鍙�闂�鍚堝崟涓�涓荤嚎锛�
+这份总纲完成时，Styio 必须已经具备一个编程语言产品的完整能力面，而不是只闭合单一主线：
 
-1. 璇�瑷�銆佺紪璇戝櫒銆丣IT銆乺untime銆両DE/LSP handoff 宸茬ǔ瀹氬彂甯冦��
-2. 鍖呯�＄悊銆乺esolver銆乧ache銆乿endor銆乥uild/run/test銆乸ack/publish銆乼oolchain lifecycle 宸查棴鍚堛��
-3. IDE 鍙�绋冲畾娑堣垂 project graph銆乪xecution銆乺untime銆乼oolchain銆乺egistry銆乨eploy preflight銆�
-4. AI 闈㈡澘銆佷富棰樼郴缁熴�佹ā鍧楄繍琛屾椂銆佺Щ鍔ㄧ��銆佷簯鎵ц�屽拰 hosted workspace 宸茬撼鍏ュ悓涓�浜у搧璇�涔夈��
-5. 鎵�鏈夊叧閿�澶辫触璺�寰勯兘杩斿洖 machine-readable diagnostics锛岃�屼笉鏄�鍙�闈� stderr 鏂囨湰銆�
+1. 语言、编译器、JIT、runtime、IDE/LSP handoff 已稳定发布。
+2. 包管理、resolver、cache、vendor、build/run/test、pack/publish、toolchain lifecycle 已闭合。
+3. IDE 可稳定消费 project graph、execution、runtime、toolchain、registry、deploy preflight。
+4. AI 面板、主题系统、模块运行时、移动端、云执行和 hosted workspace 已纳入同一产品语义。
+5. 所有关键失败路径都返回 machine-readable diagnostics，而不是只靠 stderr 文本。
 
-杩欎唤鎬荤翰涓嶆槸鈥滃仛瀹屾墍鏈夊巻鍙� backlog鈥濓紝鑰屾槸鎶婁笁浠撴敹鏁涘埌涓�涓�缁熶竴璇�瑷�骞冲彴鐨勫畬鎴愭�併��
+这份总纲不是“做完所有历史 backlog”，而是把三仓收敛到一个统一语言平台的完成态。
 
-## 2. 鏉冨▉銆侀暅鍍忎笌鏂囨。浼犳挱
+## 2. 权威、镜像与文档传播
 
-`styio-nightly/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md` 鏄�鍞�涓�鏉冨▉鍓�鏈�銆�
+`styio-nightly/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md` 是唯一权威副本。
 
-闀滃儚涓庡叧鑱旀枃妗ｇ殑鑱岃矗鍥哄畾濡備笅锛�
+镜像与关联文档的职责固定如下：
 
 1. `styio-pafio/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md`
-   - 鍙�淇濈暀 `pafio` 渚ч噷绋嬬�戞槧灏勩�乺epo exit 鍜屾湰浠� gate 瑙ｉ噴銆�
+   - 只保留 `pafio` 侧里程碑映射、repo exit 和本仓 gate 解释。
 2. `styio-view/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md`
-   - 鍙�淇濈暀 `view` 渚ч噷绋嬬�戞槧灏勩�乺epo exit 鍜屾湰浠� gate 瑙ｉ噴銆�
+   - 只保留 `view` 侧里程碑映射、repo exit 和本仓 gate 解释。
 3. `styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md`
-   - 缁х画浣滀负 CLI/machine contract 鐨勫敮涓�鍐荤粨鐭╅樀銆�
-4. `docs/external/for-*`銆乣docs/external/for-styio/`銆乣docs/contracts/`
-   - 鍙�鎵胯浇娑堣垂鑰� handoff 鍜屽眬閮ㄥ悎鍚岋紝涓嶅緱鍋锋敼 milestone 瀹氫箟銆�
+   - 继续作为 CLI/machine contract 的唯一冻结矩阵。
+4. `docs/external/for-*`、`docs/external/for-styio/`、`docs/contracts/`
+   - 只承载消费者 handoff 和局部合同，不得偷改 milestone 定义。
 
-浠讳綍涓�涓� checkpoint 鍙�瑕佹敼浜嗛噷绋嬬�戝畾涔夈�乻hared contract銆乺epo exit銆乭andoff 璺�寰勬垨 cutover gate锛屽繀椤绘寜杩欎釜椤哄簭鍚屾�ワ細
+任何一个 checkpoint 只要改了里程碑定义、shared contract、repo exit、handoff 路径或 cutover gate，必须按这个顺序同步：
 
-1. 鏇存柊鏈�鏂囦欢銆�
-2. 鏇存柊 `pafio/view` 鐨勯暅鍍忔�荤翰銆�
-3. 鏇存柊鍙楀奖鍝嶇殑鏈�浠撹�″垝鏄犲皠锛�
+1. 更新本文件。
+2. 更新 `pafio/view` 的镜像总纲。
+3. 更新受影响的本仓计划映射：
    - `styio-pafio/docs/plan/Pafio-Master-Plan.md`
    - `styio-view/docs/plan/Styio-View-Implementation-Plan.md`
-4. 鏇存柊娑堣垂鑰� handoff 鏂囨。涓� team runbook銆�
-5. 鏇存柊娴嬭瘯鐩�褰曘�侀獙璇佺煩闃靛拰 `docs/history/YYYY-MM-DD.md`銆�
+4. 更新消费者 handoff 文档与 team runbook。
+5. 更新测试目录、验证矩阵和 `docs/history/YYYY-MM-DD.md`。
 
-## 3. 缁熶竴娌荤悊涓庤�掕壊
+## 3. 统一治理与角色
 
 ### 3.1 Program Coordinator
 
-Program Coordinator 璐熻矗锛�
+Program Coordinator 负责：
 
-1. 閲岀▼纰戦『搴忓拰 checkpoint 鍛藉悕
-2. 涓変粨鏂囨。浼犳挱鍜岄暅鍍忎竴鑷存��
-3. 璺ㄤ粨 gate 瀹氫箟
-4. handoff 瀹℃壒
-5. 鍐茬獊鍗囩骇鍜� cutover 鍒ゅ畾
+1. 里程碑顺序和 checkpoint 命名
+2. 三仓文档传播和镜像一致性
+3. 跨仓 gate 定义
+4. handoff 审批
+5. 冲突升级和 cutover 判定
 
 ### 3.2 Repo Leads
 
-姣忎釜浠撳簱淇濇寔涓�涓� lead锛�
+每个仓库保持一个 lead：
 
 1. `styio-nightly`
-   - 璇�瑷�璇�涔夈�佺紪璇戝櫒 contract銆乺untime銆両DE/LSP銆佸彂甯冪湡鐩搞��
+   - 语言语义、编译器 contract、runtime、IDE/LSP、发布真相。
 2. `styio-pafio`
-   - project workflow銆乺esolver/cache銆乼oolchain lifecycle銆乺egistry/package銆乧ompat/security銆�
+   - project workflow、resolver/cache、toolchain lifecycle、registry/package、compat/security。
 3. `styio-view`
-   - editor shell銆乤dapter/contracts銆乺untime/agent銆乪nvironment UX銆乵odule/platform銆乼heme/UX銆�
+   - editor shell、adapter/contracts、runtime/agent、environment UX、module/platform、theme/UX。
 
 ### 3.3 Repo Sub-Agents
 
-Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point 涓嶅厑璁稿苟琛屾敼鍐欙細
+Repo lead 可以继续下拆 sub-agent，但以下 choke point 不允许并行改写：
 
-1. `machine-info` / `compile-plan` / `runtime events` 鐨� published shape
-2. `project_graph` / `toolchain_state` / `workflow_success_payloads` 鐨� published shape
+1. `machine-info` / `compile-plan` / `runtime events` 的 published shape
+2. `project_graph` / `toolchain_state` / `workflow_success_payloads` 的 published shape
 3. `ExecutionSession` / `RuntimeEventEnvelope` / environment/deploy contract
-4. 璺ㄤ粨閲岀▼纰� ID銆乺epo exit 鍜� cutover gate
+4. 跨仓里程碑 ID、repo exit 和 cutover gate
 
-## 4. 鐜版湁璁″垝鏄犲皠
+## 4. 现有计划映射
 
-| 缁熶竴閲岀▼纰� | `styio-nightly` | `styio-pafio` | `styio-view` |
+| 统一里程碑 | `styio-nightly` | `styio-pafio` | `styio-view` |
 |------------|-----------------|--------------|--------------|
-| `M0` 绋嬪簭娌荤悊閿佸畾 | ecosystem total plan + CLI matrix + docs gates | docs maintenance + verification matrix + mirror plan | documentation policy + implementation-plan mapping + mirror plan |
-| `M1` 缂栬瘧鍣ㄥ悎鍚岄棴鐜� | compiler/runtime/IDE handoff 涓荤嚎 | compat + compile-plan round-trip | language/execution contract 娑堣垂 |
-| `M2` 鍖呯�＄悊涓庣幆澧冮棴鐜� | published compiler truth 绋冲畾 | phases 2-6 涓荤嚎闂�鍚� | project graph / toolchain / registry 鐪熷疄娑堣垂 |
-| `M3` IDE 鏍稿績闂�鐜� | IDE/LSP/runtime published payload | workflow/toolchain/deploy payload 绋冲畾 | W3-W5 + execution/environment shell 闂�鍚� |
-| `M4` runtime/AI/theme/module 闂�鐜� | runtime events銆両DE runtime銆乵odule/runtime hooks | module/distribution/agent-support payload | W6-W8-W10 闂�鍚� |
-| `M5` 绉诲姩绔�/浜戞墽琛�/hosted 闂�鐜� | remote/cloud compiler contract | hosted/toolchain/distribution support | W9 闂�鍚� |
-| `M6` 涓変粨缁熶竴鍙戝竷 | hardening + release truth | split-ready + release-grade package manager | product-complete IDE + cross-platform closure |
+| `M0` 程序治理锁定 | ecosystem total plan + CLI matrix + docs gates | docs maintenance + verification matrix + mirror plan | documentation policy + implementation-plan mapping + mirror plan |
+| `M1` 编译器合同闭环 | compiler/runtime/IDE handoff 主线 | compat + compile-plan round-trip | language/execution contract 消费 |
+| `M2` 包管理与环境闭环 | published compiler truth 稳定 | phases 2-6 主线闭合 | project graph / toolchain / registry 真实消费 |
+| `M3` IDE 核心闭环 | IDE/LSP/runtime published payload | workflow/toolchain/deploy payload 稳定 | W3-W5 + execution/environment shell 闭合 |
+| `M4` runtime/AI/theme/module 闭环 | runtime events、IDE runtime、module/runtime hooks | module/distribution/agent-support payload | W6-W8-W10 闭合 |
+| `M5` 移动端/云执行/hosted 闭环 | remote/cloud compiler contract | hosted/toolchain/distribution support | W9 闭合 |
+| `M6` 三仓统一发布 | hardening + release truth | split-ready + release-grade package manager | product-complete IDE + cross-platform closure |
 
-## 5. 鍏变韩 contract 闈�
+## 5. 共享 contract 面
 
 ### 5.1 `styio-nightly`
 
-`styio-nightly` 璐熻矗鍙戝竷锛�
+`styio-nightly` 负责发布：
 
 1. `styio --machine-info=json`
 2. `styio --compile-plan <path>`
@@ -221,7 +221,7 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 
 ### 5.2 `styio-pafio`
 
-`styio-pafio` 璐熻矗鍙戝竷锛�
+`styio-pafio` 负责发布：
 
 1. manifest / lockfile schema
 2. workflow success / failure payload
@@ -233,7 +233,7 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 
 ### 5.3 `styio-view`
 
-`styio-view` 璐熻矗鍙戝竷锛�
+`styio-view` 负责发布：
 
 1. `ExecutionSession`
 2. `RuntimeEventEnvelope`
@@ -242,26 +242,26 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 5. blocked / partial / live adapter semantics
 6. AI / theme / module / platform capability surface
 
-## 6. 閲岀▼纰�
+## 6. 里程碑
 
-### M0 绋嬪簭娌荤悊閿佸畾
+### M0 程序治理锁定
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. 涓変粨閲囩敤鍚屼竴濂� milestone ID銆乧heckpoint 鍛藉悕鍜屽畬鎴愬畾涔夈��
-2. 鏉冨▉鎬荤翰銆侀暅鍍忔�荤翰銆丆LI matrix銆乺epo-local 璁″垝鏄犲皠鍏ㄩ儴鎺ョ嚎銆�
-3. team runbook銆乭istory銆乭andoff 鍜� test catalog 閮借兘鎸囧洖鍚屼竴鏉¤�″垝涓荤嚎銆�
+1. 三仓采用同一套 milestone ID、checkpoint 命名和完成定义。
+2. 权威总纲、镜像总纲、CLI matrix、repo-local 计划映射全部接线。
+3. team runbook、history、handoff 和 test catalog 都能指回同一条计划主线。
 
-鏂囨。钀界偣锛�
+文档落点：
 
-1. 鏈�鏂囦欢
+1. 本文件
 2. `styio-pafio/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md`
 3. `styio-view/docs/plan/Styio-Ecosystem-Delivery-Master-Plan.md`
-4. 涓変粨 `docs/teams/COORDINATION-RUNBOOK.md`
+4. 三仓 `docs/teams/COORDINATION-RUNBOOK.md`
 5. `styio-pafio/docs/governance/Docs-Maintenance-Model.md`
 6. `styio-view/docs/specs/DOCUMENTATION-POLICY.md`
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
 1. `python3 styio-nightly/scripts/docs-audit.py`
 2. `python3 styio-nightly/scripts/team-docs-gate.py`
@@ -270,15 +270,15 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 5. `python3 styio-pafio/scripts/submit-gate.py --profile pre-push`
 6. `python3 styio-view/scripts/check_repo_hygiene.py`
 
-### M1 缂栬瘧鍣ㄥ悎鍚岄棴鐜�
+### M1 编译器合同闭环
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. `machine-info`銆乣compile-plan`銆乨iagnostics銆乺eceipt銆乤rtifact 琛屼负瀹屽叏鍐荤粨銆�
-2. `runtime events`銆両DE/LSP handoff 鏈夋�ｅ紡鐗堟湰杈圭晫銆�
-3. `pafio` 鍜� `view` 涓嶅啀鐚滄祴 `nightly` 鏈�鍙戝竷鑳藉姏銆�
+1. `machine-info`、`compile-plan`、diagnostics、receipt、artifact 行为完全冻结。
+2. `runtime events`、IDE/LSP handoff 有正式版本边界。
+3. `pafio` 和 `view` 不再猜测 `nightly` 未发布能力。
 
-鏂囨。钀界偣锛�
+文档落点：
 
 1. `styio-nightly/docs/plan/Styio-Ecosystem-CLI-Contract-Matrix.md`
 2. `styio-nightly/docs/external/for-pafio/`
@@ -286,22 +286,22 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 4. `styio-pafio/docs/external/for-styio/Styio-External-Interface-Requirement-Spec.md`
 5. `styio-view/docs/external/for-styio/`
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
 1. `styio_contract_compat_gate`
 2. `styio_compile_plan_contract_gate`
-3. `styio-nightly` milestone / five-layer / security / IDE/LSP 鐩稿叧 gate
-4. `view` adapter fixture 涓� handoff contract tests
+3. `styio-nightly` milestone / five-layer / security / IDE/LSP 相关 gate
+4. `view` adapter fixture 与 handoff contract tests
 
-### M2 鍖呯�＄悊銆佺幆澧冧笌娉ㄥ唽琛ㄩ棴鐜�
+### M2 包管理、环境与注册表闭环
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. `pafio` 鐨� manifest/lock銆乺esolver/cache銆乫etch/vendor銆乥uild/run/test銆乸ack/publish銆乼ool install/use/pin/switch銆乺egistry client/server 鍏ㄩ儴褰㈡垚 live workflow銆�
-2. `project_graph`銆乣toolchain_state`銆乣source_state`銆乨eploy preflight 鍙樻垚姝ｅ紡 payload銆�
-3. `view` 涓嶅啀浣跨敤绉佹湁鏂囦欢鎺ㄦ柇 package/toolchain/registry 鐘舵�併��
+1. `pafio` 的 manifest/lock、resolver/cache、fetch/vendor、build/run/test、pack/publish、tool install/use/pin/switch、registry client/server 全部形成 live workflow。
+2. `project_graph`、`toolchain_state`、`source_state`、deploy preflight 变成正式 payload。
+3. `view` 不再使用私有文件推断 package/toolchain/registry 状态。
 
-鏂囨。钀界偣锛�
+文档落点：
 
 1. `styio-pafio/docs/governance/Pafio-CLI-Contract.md`
 2. `styio-pafio/docs/governance/Pafio-Entry-Argument-Index.md`
@@ -309,7 +309,7 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 4. `styio-view/docs/external/for-pafio/`
 5. `styio-view/docs/contracts/`
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
 1. `pafio_cli_gate`
 2. `pafio_manifest_lock_gate`
@@ -318,15 +318,15 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 5. `pafio_submit_gate`
 6. `styio-pafio/scripts/styio-interface-gate.py --require-compile-plan --json`
 
-### M3 IDE 鏍稿績闂�鐜�
+### M3 IDE 核心闭环
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. editor shell銆乸roject graph銆乪xecution routing銆乨iagnostics銆乪nvironment/deploy shell 褰㈡垚缁熶竴 IDE 涓荤嚎銆�
-2. scratch銆乸roject銆亀orkspace銆佸�氬寘璺�寰勭粺涓�鍒板悓涓� `ExecutionSession`銆�
-3. IDE 鍐呭彲瀹屾垚鐜�澧冨畨瑁呫�佸垏鐗堟湰銆丣IT銆乥uild/test銆乨eploy preflight銆�
+1. editor shell、project graph、execution routing、diagnostics、environment/deploy shell 形成统一 IDE 主线。
+2. scratch、project、workspace、多包路径统一到同一 `ExecutionSession`。
+3. IDE 内可完成环境安装、切版本、JIT、build/test、deploy preflight。
 
-鏂囨。钀界偣锛�
+文档落点：
 
 1. `styio-view/docs/plan/Styio-View-Implementation-Plan.md`
 2. `styio-view/docs/contracts/`
@@ -334,95 +334,95 @@ Repo lead 鍙�浠ョ户缁�涓嬫媶 sub-agent锛屼絾浠ヤ笅 choke point
 4. `styio-view/docs/external/for-pafio/`
 5. `styio-view/docs/assets/workflow/TEST-CATALOG.md`
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
 1. `cd frontend/styio_view_app && flutter analyze && flutter test`
-2. `cd prototype && npm run selftest:editor` 鍦ㄦ墜鍐� Web 涓荤嚎鍙楀奖鍝嶆椂蹇呰窇
-3. `adapter / schema / handoff` 鍚堝悓 fixtures 鍏ㄧ豢
+2. `cd prototype && npm run selftest:editor` 在手写 Web 主线受影响时必跑
+3. `adapter / schema / handoff` 合同 fixtures 全绿
 
-### M4 Runtime / AI / Theme / Module 闂�鐜�
+### M4 Runtime / AI / Theme / Module 闭环
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. `runtime_events v1` 鐪熸�ｉ┍鍔� runtime surface銆乼hread lanes銆乪xecution graph 鍜� debug console銆�
-2. AI provider adapter銆乸rompt/profile銆乤gent panel 褰㈡垚姝ｅ紡浜у搧闈�銆�
-3. 涓婚�樼郴缁熴�佹ā鍧� manifest銆乧apability matrix銆乻taged update 鍜屽嵏杞藉洖鏀堕棴鐜�銆�
+1. `runtime_events v1` 真正驱动 runtime surface、thread lanes、execution graph 和 debug console。
+2. AI provider adapter、prompt/profile、agent panel 形成正式产品面。
+3. 主题系统、模块 manifest、capability matrix、staged update 和卸载回收闭环。
 
-鏂囨。钀界偣锛�
+文档落点：
 
-1. `styio-nightly` runtime / IDE 鏂囨。涓� handoff
-2. `styio-pafio` module/distribution/agent-support 鍚堝悓
-3. `styio-view` 鐨� runtime/agent銆乼heme銆乵odule/platform 璁″垝涓庡悎鍚�
-4. 鍙楀奖鍝� ADR銆乀EST-CATALOG銆乼eams runbook
+1. `styio-nightly` runtime / IDE 文档与 handoff
+2. `styio-pafio` module/distribution/agent-support 合同
+3. `styio-view` 的 runtime/agent、theme、module/platform 计划与合同
+4. 受影响 ADR、TEST-CATALOG、teams runbook
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
-1. `nightly` runtime/IDE 鐩稿叧 gate
-2. `pafio` distribution/registry/toolchain 鐩稿叧 gate
+1. `nightly` runtime/IDE 相关 gate
+2. `pafio` distribution/registry/toolchain 相关 gate
 3. `view` runtime/agent/module/theme tests
 
-### M5 绉诲姩绔�銆佷簯鎵ц�屼笌 Hosted Workspace 闂�鐜�
+### M5 移动端、云执行与 Hosted Workspace 闭环
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. Android 鏈�鍦颁紭鍏堛�乮OS 浜戞墽琛屻�乄eb hosted workspace 鍏ㄩ儴绾冲叆姝ｅ紡 platform matrix銆�
-2. 鏈�鍦颁笉鍙�鐢ㄨ兘鍔涘繀椤� machine-readable 鍦拌繑鍥� `blocked`锛屼笉鑳界敱 UI 鐚滄祴銆�
-3. 浜戞墽琛屼笌 hosted workspace 浠嶅叡浜�鍚屼竴 project/toolchain/runtime 妯″瀷銆�
+1. Android 本地优先、iOS 云执行、Web hosted workspace 全部纳入正式 platform matrix。
+2. 本地不可用能力必须 machine-readable 地返回 `blocked`，不能由 UI 猜测。
+3. 云执行与 hosted workspace 仍共享同一 project/toolchain/runtime 模型。
 
-鏂囨。钀界偣锛�
+文档落点：
 
-1. `styio-view` 骞冲彴鎵ц�岀瓥鐣ャ�乄9 鏂囨。涓� hosted workspace 鐢熷懡鍛ㄦ湡
-2. `styio-pafio` hosted/toolchain/distribution 鏀�鎸佸悎鍚�
-3. `styio-nightly` remote/cloud compile contract 涓� machine-info 璇存槑
+1. `styio-view` 平台执行策略、W9 文档与 hosted workspace 生命周期
+2. `styio-pafio` hosted/toolchain/distribution 支持合同
+3. `styio-nightly` remote/cloud compile contract 与 machine-info 说明
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
-1. 骞冲彴鐭╅樀涓� hosted workflow tests
-2. `view` 鐨勭Щ鍔ㄧ��/浜戠�� capability tests
-3. `pafio` 鐨� hosted/distribution payload fixtures
+1. 平台矩阵与 hosted workflow tests
+2. `view` 的移动端/云端 capability tests
+3. `pafio` 的 hosted/distribution payload fixtures
 4. `python3 styio-pafio/scripts/ecosystem-product-gate.py --styio-bin /absolute/path/to/styio --pafio-bin /absolute/path/to/pafio --json`
 
-### M6 涓変粨缁熶竴鍙戝竷瀹屾垚鎬�
+### M6 三仓统一发布完成态
 
-鑳藉姏鍑哄彛锛�
+能力出口：
 
-1. CLI銆両DE銆丄I銆乺untime銆乵odule銆乵obile銆乧loud銆乭osted 璺�寰勫叏閮ㄥ舰鎴愮粺涓�璇�瑷�浜у搧銆�
-2. 涓変粨鍙�琚�鍏卞悓缁存姢锛岃�屼笉鏄�渚濊禆涓存椂浜哄伐瀵归綈銆�
-3. sample workspace matrix 鍙�浠ョǔ瀹氬�嶇幇鎵�鏈夊叧閿�鎴愬姛鍜屽け璐ヨ矾寰勩��
+1. CLI、IDE、AI、runtime、module、mobile、cloud、hosted 路径全部形成统一语言产品。
+2. 三仓可被共同维护，而不是依赖临时人工对齐。
+3. sample workspace matrix 可以稳定复现所有关键成功和失败路径。
 
-闂ㄧ�佸嚭鍙ｏ細
+门禁出口：
 
-1. 涓変粨鐜版湁 docs/quality/delivery gate 鍏ㄧ豢
-2. canonical sample workspace matrix 鍏ㄧ豢
-   褰撳墠 baseline gate 涓� `python3 styio-pafio/scripts/ecosystem-sample-workflow-gate.py --styio-bin /absolute/path/to/styio --pafio-bin /absolute/path/to/pafio --json`
-   褰撳墠 baseline 鑷冲皯瑕嗙洊 managed toolchain switch銆乿endored offline銆乺egistry-hosted source銆佷互鍙婂�氬寘 workspace 涓� `run/test/publish` 鐨勬樉寮� `--package` 閫夋嫨涓庢�т箟淇濇姢
-3. hosted product gate 鍏ㄧ豢
-   褰撳墠鏉冨▉ gate 涓� `python3 styio-pafio/scripts/ecosystem-product-gate.py --styio-bin /absolute/path/to/styio --pafio-bin /absolute/path/to/pafio --json`
-   褰撳墠宸茶�嗙洊 desktop local CLI-owned IDE workflow銆乨esktop local vendored/offline 鎭㈠�嶈矾寰勶紙`fetch -> vendor -> clear PAFIO_HOME -> fetch --offline -> reinstall/use/pin -> run`锛夈�乨esktop local 澶氬寘 workspace 璺�鐢变笌 publish 姝т箟淇濇姢銆乨esktop local filesystem registry 鍒嗗彂闂�鐜�锛堥噸寮�宸� pin 鐨� library workspace 骞跺厛瀹屾垚鐪熷疄 build锛屽啀鎵ц�屾垚鍔� publish/consume銆乺epublish conflict銆佸潖 registry consumer 鐨勭粨鏋勫寲 `fetch` 澶辫触锛夈�乨esktop local compile/dependency/deployment 澶辫触鐭╅樀銆乭osted control plane銆乣styio-view` 鐨� `install/use/pin/fetch/vendor/pack/run/test/preflight` 浜у搧 workflow銆乵anaged-toolchain switch-and-return銆佸�氬寘 workspace 涓嬬殑 package 璺�鐢变笌 publish 姝т箟淇濇姢銆乭osted filesystem registry 鍒嗗彂闂�鐜�锛堝厛 build hosted library package锛屽啀鎵ц�屾垚鍔� publish/consume銆乺epublish conflict銆佸潖 registry consumer 鐨勭粨鏋勫寲 `fetch` 澶辫触锛夛紝浠ュ強 `iOS cloud-only` / `Web hosted-only` / `Android cloud fallback`
-   褰撳墠杩樻槑纭�瑕佹眰 desktop local 鍜� hosted 涓ゆ潯璺�绾夸笂锛屾垚鍔熺殑 `pack` 涓� `publish --dry-run` 閮藉繀椤讳繚鐣欑湡瀹� `archive_path` 骞惰兘鍦� gate 涓�楠岃瘉浜х墿瀛樺湪
-   褰撳墠杩樻槑纭�瑕嗙洊鍏�鏉￠珮浠峰�煎け璐ヨ矾寰勶細desktop local 鍜� hosted 涓ゆ潯璺�绾夸笂锛岀紪璇戝け璐ラ兘蹇呴』鍥炰紶 machine-readable diagnostics 涓� `compile.failed` runtime events锛涗緷璧栬幏鍙栧け璐ラ兘蹇呴』鍥炰紶缁撴瀯鍖� dependency error payload锛沺ublish preflight 澶辫触閮藉繀椤诲洖浼犵粨鏋勫寲 deployment error payload
-4. `ecosystem-cli-doc-gate.py --require-workspace --json` 鍏ㄧ豢
-5. 浠讳竴澶辫触璺�寰勯兘鑳藉洖鍒� machine-readable diagnostics
+1. 三仓现有 docs/quality/delivery gate 全绿
+2. canonical sample workspace matrix 全绿
+   当前 baseline gate 为 `python3 styio-pafio/scripts/ecosystem-sample-workflow-gate.py --styio-bin /absolute/path/to/styio --pafio-bin /absolute/path/to/pafio --json`
+   当前 baseline 至少覆盖 managed toolchain switch、vendored offline、registry-hosted source、以及多包 workspace 下 `run/test/publish` 的显式 `--package` 选择与歧义保护
+3. hosted product gate 全绿
+   当前权威 gate 为 `python3 styio-pafio/scripts/ecosystem-product-gate.py --styio-bin /absolute/path/to/styio --pafio-bin /absolute/path/to/pafio --json`
+   当前已覆盖 desktop local CLI-owned IDE workflow、desktop local vendored/offline 恢复路径（`fetch -> vendor -> clear PAFIO_HOME -> fetch --offline -> reinstall/use/pin -> run`）、desktop local 多包 workspace 路由与 publish 歧义保护、desktop local filesystem registry 分发闭环（重开已 pin 的 library workspace 并先完成真实 build，再执行成功 publish/consume、republish conflict、坏 registry consumer 的结构化 `fetch` 失败）、desktop local compile/dependency/deployment 失败矩阵、hosted control plane、`styio-view` 的 `install/use/pin/fetch/vendor/pack/run/test/preflight` 产品 workflow、managed-toolchain switch-and-return、多包 workspace 下的 package 路由与 publish 歧义保护、hosted filesystem registry 分发闭环（先 build hosted library package，再执行成功 publish/consume、republish conflict、坏 registry consumer 的结构化 `fetch` 失败），以及 `iOS cloud-only` / `Web hosted-only` / `Android cloud fallback`
+   当前还明确要求 desktop local 和 hosted 两条路线上，成功的 `pack` 与 `publish --dry-run` 都必须保留真实 `archive_path` 并能在 gate 中验证产物存在
+   当前还明确覆盖六条高价值失败路径：desktop local 和 hosted 两条路线上，编译失败都必须回传 machine-readable diagnostics 与 `compile.failed` runtime events；依赖获取失败都必须回传结构化 dependency error payload；publish preflight 失败都必须回传结构化 deployment error payload
+4. `ecosystem-cli-doc-gate.py --require-workspace --json` 全绿
+5. 任一失败路径都能回到 machine-readable diagnostics
 
-## 7. 褰撳墠浼樺厛椤哄簭
+## 7. 当前优先顺序
 
-褰撳墠浜や粯椤哄簭浠嶄繚鎸侊細
+当前交付顺序仍保持：
 
-1. 缂栬瘧鍣ㄥ拰 machine contracts
-2. 鍖呯�＄悊 live workflow
+1. 编译器和 machine contracts
+2. 包管理 live workflow
 3. IDE execution/environment/runtime shell
-4. AI/theme/module/platform 娣卞寲
-5. 瑙嗚�夊拰浜や簰鎵撶（鏈�鍚庢敹鍙�
+4. AI/theme/module/platform 深化
+5. 视觉和交互打磨最后收口
 
-闄ら潪鏈変功闈� checkpoint 鏀瑰啓锛岃繖涓�椤哄簭涓嶅緱鍙嶈浆銆�
+除非有书面 checkpoint 改写，这个顺序不得反转。
 
-## 8. 缁熶竴 sample matrix
+## 8. 统一 sample matrix
 
-鎵�鏈� milestone 鏈�缁堥兘瑕佸湪鍚屼竴濂� canonical sample workspaces 涓婅瘉鏄庯細
+所有 milestone 最终都要在同一套 canonical sample workspaces 上证明：
 
-1. 鍗曞寘 `bin` 椤圭洰
-2. `lib + test` 椤圭洰
-3. 澶氬寘 workspace
+1. 单包 `bin` 项目
+2. `lib + test` 项目
+3. 多包 workspace
 4. fetch/vendor/offline
 5. toolchain install/use/pin/switch
 6. JIT run / build / test

@@ -5,6 +5,9 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   nightly-soak:
     runs-on: ubuntu-24.04
@@ -12,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
       - name: Install dependencies
         run: |
@@ -45,7 +48,7 @@ jobs:
 
       - name: Upload soak artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: nightly-soak-artifacts
           path: soak-artifacts/
