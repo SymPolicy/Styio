@@ -411,9 +411,18 @@ def validate_registry() -> list[str]:
         if phases != sorted(phases):
             errors.append(f"profile {profile.key} tool phases are not ordered: {profile.tools}")
 
+    reachable = {key for profile in PROFILES for key in profile.tools}
+    for tool in sorted(TOOLS, key=lambda item: item.key):
+        if tool.key not in reachable:
+            errors.append(f"tool is not reachable from any profile: {tool.key}")
+
     orchestration_doc = ROOT / "docs/assets/workflow/WORKFLOW-ORCHESTRATION.md"
-    if orchestration_doc.exists() and markdown_table() not in orchestration_doc.read_text(encoding="utf-8"):
-        errors.append("WORKFLOW-ORCHESTRATION.md audit table is not synchronized with workflow-scheduler.py")
+    if orchestration_doc.exists():
+        text = orchestration_doc.read_text(encoding="utf-8")
+        if markdown_table() not in text:
+            errors.append("WORKFLOW-ORCHESTRATION.md audit table is not synchronized with workflow-scheduler.py")
+        if markdown_profiles() not in text:
+            errors.append("WORKFLOW-ORCHESTRATION.md profiles table is not synchronized with workflow-scheduler.py")
 
     return errors
 
@@ -443,6 +452,17 @@ def markdown_table() -> str:
         lines.append(
             f"| Tool | `{tool.key}` | {tool.phase} | {tool.owner} | {tool.responsibility} | `{command}` |"
         )
+    return "\n".join(lines)
+
+
+def markdown_profiles() -> str:
+    lines = [
+        "| Profile | Scope | Ordered Call Chain |",
+        "|---------|-------|--------------------|",
+    ]
+    for profile in PROFILES:
+        chain = " -> ".join(profile.tools)
+        lines.append(f"| `{profile.key}` | {profile.purpose} | {chain} |")
     return "\n".join(lines)
 
 

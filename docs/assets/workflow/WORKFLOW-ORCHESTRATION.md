@@ -11,6 +11,7 @@
 3. Each tool owns exactly one validation responsibility. Profiles may reuse a tool, but two tools must not check the same responsibility.
 4. Profiles must run tools in ascending phase order. Earlier phases may prepare evidence; later phases must not redefine earlier checks.
 5. A delivery workflow is not complete until the scheduler registry, workflow docs, CI entrypoint, and delivery entrypoint agree.
+6. Every registered tool must be reachable from at least one profile; `check` and `test_every_tool_is_reachable_from_a_profile` both enforce it.
 
 ## Audit Table
 
@@ -59,11 +60,11 @@ Current registered table:
 
 | Profile | Scope | Ordered Call Chain |
 |---------|-------|--------------------|
-| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> stats renderer tests -> tracked hygiene -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-checkpoint` | Worktree process gates before checkpoint health. | worktree hygiene -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | staged hygiene -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
-| `delivery-push` | Branch handoff against a base ref. | push hygiene -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
-| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> stats renderer tests -> tracked hygiene -> incoming history hygiene -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
+| `delivery-checkpoint` | Common worktree process gates for checkpoint delivery before optional checkpoint-health. | repo-hygiene-worktree -> runtime-surface -> team-docs-worktree -> docs-audit -> ecosystem-cli-docs |
+| `delivery-staged` | Common staged-index process gates for commit hooks and staged handoff. | repo-hygiene-staged -> runtime-surface -> team-docs-staged -> docs-audit -> ecosystem-cli-docs |
+| `delivery-push` | Common process gates for branch handoff against a base ref and incoming revision range. | repo-hygiene-push -> runtime-surface -> team-docs-base -> docs-audit -> ecosystem-cli-docs |
+| `syntax-local` | Local syntax-change worktree verification. | workflow-scheduler-check -> workflow-scheduler-tests -> docs-stats-render-tests -> repo-hygiene-tracked -> runtime-surface -> team-docs-worktree -> docs-audit -> ecosystem-cli-docs |
+| `ci-prebuild` | GitHub Actions prebuild chain before compile, CTest, parser-shadow, and fuzz smoke. | workflow-scheduler-check -> workflow-scheduler-tests -> docs-stats-render-tests -> repo-hygiene-tracked -> repo-hygiene-push -> runtime-surface -> team-docs-base -> ecosystem-cli-docs-workspace |
 
 ## Required Commands
 
