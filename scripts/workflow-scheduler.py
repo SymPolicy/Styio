@@ -470,6 +470,9 @@ def cmd_list(args: argparse.Namespace) -> int:
     if args.format == "markdown":
         print(markdown_table())
         return 0
+    if args.format == "markdown-profiles":
+        print(markdown_profiles())
+        return 0
 
     for profile in PROFILES:
         print(f"{profile.key}: {profile.purpose}")
@@ -515,7 +518,7 @@ def parse_args() -> argparse.Namespace:
     check.set_defaults(func=cmd_check)
 
     list_cmd = sub.add_parser("list", help="List registered profiles, tools, and workflow docs.")
-    list_cmd.add_argument("--format", choices=["text", "markdown"], default="text")
+    list_cmd.add_argument("--format", choices=["text", "markdown", "markdown-profiles"], default="text")
     list_cmd.set_defaults(func=cmd_list)
 
     run = sub.add_parser("run", help="Run a registered workflow profile.")

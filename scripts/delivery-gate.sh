@@ -66,9 +66,8 @@ origin_repo_name() {
       path="${url#https://github.com/}"
       ;;
     http://github.com/*)
-      # parse-only: a cleartext origin resolves a repository name here but
-      # must never be used for transport
-      path="${url#http://github.com/}"
+      echo "origin uses cleartext http; use https or ssh" >&2
+      return 1
       ;;
     *)
       return 1

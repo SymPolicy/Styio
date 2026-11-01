@@ -91,5 +91,5 @@ python3 scripts/workflow-scheduler.py run --profile delivery-push --base origin/
 1. Search `docs/assets/workflow/` and this registry before creating a new workflow.
 2. If no existing workflow owns the responsibility, add the new document and register it in `WORKFLOW_DOCS`.
 3. Add or reuse tools in `TOOLS`, preserving one responsibility per tool.
-4. Add the tool to a profile only where the profile's scope requires it.
-5. Run `python3 scripts/workflow-scheduler.py check`, `python3 tests/workflow_scheduler_test.py`, and `python3 scripts/docs-index.py --write`.
+4. Add the tool to at least one profile whose scope requires it; a tool no profile reaches is rejected by `check`.
+5. Regenerate both tables — `python3 scripts/workflow-scheduler.py list --format markdown` for the Audit Table and `list --format markdown-profiles` for the Profiles table — then run `python3 scripts/workflow-scheduler.py check`, `python3 tests/workflow_scheduler_test.py`, and `python3 scripts/docs-index.py --write`.

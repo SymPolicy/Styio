@@ -57,6 +57,24 @@ class WorkflowSchedulerTest(unittest.TestCase):
         reachable = {key for profile in workflow_scheduler.PROFILES for key in profile.tools}
         self.assertEqual({tool.key for tool in workflow_scheduler.TOOLS}, reachable)
 
+    def test_validate_registry_refuses_unreachable_tool(self) -> None:
+        original = workflow_scheduler.PROFILES
+        workflow_scheduler.PROFILES = []
+        try:
+            errors = workflow_scheduler.validate_registry()
+        finally:
+            workflow_scheduler.PROFILES = original
+        self.assertTrue(any("not reachable from any profile" in e for e in errors), errors)
+
+    def test_validate_registry_refuses_stale_profiles_table(self) -> None:
+        original = workflow_scheduler.markdown_profiles
+        workflow_scheduler.markdown_profiles = lambda: original() + "\n| `bogus` | stale | none |"
+        try:
+            errors = workflow_scheduler.validate_registry()
+        finally:
+            workflow_scheduler.markdown_profiles = original
+        self.assertTrue(any("profiles table is not synchronized" in e for e in errors), errors)
+
 
 if __name__ == "__main__":
     unittest.main()
