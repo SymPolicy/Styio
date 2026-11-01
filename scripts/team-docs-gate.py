@@ -335,6 +335,35 @@ def validate_all_runbook_formats() -> List[str]:
     return errors
 
 
+def validate_doc_stats_total() -> List[str]:
+    absolute = ROOT / DOC_STATS
+    if not absolute.exists():
+        return [f"{DOC_STATS.as_posix()} is missing"]
+    rows_words = rows_chars = 0
+    total_words = total_chars = None
+    for line in absolute.read_text(encoding="utf-8").splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 4:
+            continue
+        numbers = [cell.strip("* ").replace(",", "") for cell in cells[2:4]]
+        if not all(num.isdigit() for num in numbers):
+            continue
+        words, chars = (int(num) for num in numbers)
+        if cells[0] == "**Total**":
+            total_words, total_chars = words, chars
+        elif "-RUNBOOK.md" in cells[1]:
+            rows_words += words
+            rows_chars += chars
+    if total_words is None:
+        return [f"{DOC_STATS.as_posix()} has no parseable **Total** row"]
+    if (rows_words, rows_chars) != (total_words, total_chars):
+        return [
+            f"{DOC_STATS.as_posix()} **Total** row ({total_words:,} / {total_chars:,}) "
+            f"differs from the sum of its runbook rows ({rows_words:,} / {rows_chars:,})"
+        ]
+    return []
+
+
 def run_gate(changed_paths: Sequence[Path], verbose: bool) -> int:
     changed_set = set(changed_paths)
     required = required_team_updates(changed_paths)
@@ -346,6 +375,13 @@ def run_gate(changed_paths: Sequence[Path], verbose: bool) -> int:
             "Runbook format validation failed. Use "
             f"{TEMPLATE_DOC.as_posix()} and {GATE_DOC.as_posix()}:\n"
             + "\n".join(f"    - {error}" for error in format_errors)
+        )
+
+    stats_errors = validate_doc_stats_total()
+    if stats_errors:
+        failures.append(
+            f"{DOC_STATS.as_posix()} total validation failed:\n"
+            + "\n".join(f"    - {error}" for error in stats_errors)
         )
 
     for rule, paths in sorted(required.items(), key=lambda item: item[0].label):
