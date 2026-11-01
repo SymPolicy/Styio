@@ -79,19 +79,11 @@ class WorkflowSchedulerTest(unittest.TestCase):
             workflow_scheduler.markdown_profiles = original
         self.assertTrue(any("profiles table is not synchronized" in e for e in errors), errors)
 
-    def test_list_markdown_profiles_emits_profiles_table(self) -> None:
-        args = argparse.Namespace(format="markdown-profiles")
-        buffer = io.StringIO()
-        with contextlib.redirect_stdout(buffer):
-            self.assertEqual(workflow_scheduler.cmd_list(args), 0)
-        self.assertEqual(buffer.getvalue().strip(), workflow_scheduler.markdown_profiles())
-
-    def test_list_markdown_emits_audit_table(self) -> None:
-        args = argparse.Namespace(format="markdown")
-        buffer = io.StringIO()
-        with contextlib.redirect_stdout(buffer):
-            self.assertEqual(workflow_scheduler.cmd_list(args), 0)
-        self.assertEqual(buffer.getvalue().strip(), workflow_scheduler.markdown_table())
+    def test_list_formats_emit_their_renderers(self) -> None:
+        for fmt, renderer in workflow_scheduler.FORMATTERS.items():
+            with self.subTest(fmt=fmt), contextlib.redirect_stdout(io.StringIO()) as buffer:
+                self.assertEqual(workflow_scheduler.cmd_list(argparse.Namespace(format=fmt)), 0)
+            self.assertEqual(buffer.getvalue().strip(), renderer())
 
     def test_list_format_choices_match_formatter_map(self) -> None:
         for fmt in workflow_scheduler.FORMATTERS:

@@ -39,6 +39,11 @@ def run_case(url: str) -> subprocess.CompletedProcess:
 
 
 class DeliveryGateOriginTest(unittest.TestCase):
+    def test_direct_execution_runs_body(self) -> None:
+        proc = subprocess.run(["bash", str(GATE), "--help"], capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Usage:", proc.stdout)
+
     def test_cleartext_http_origin_refuses(self) -> None:
         proc = run_case("http://github.com/Acme/Widget.git")
         self.assertNotEqual(proc.returncode, 0)
