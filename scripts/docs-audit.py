@@ -328,25 +328,32 @@ def render_team_stats(doc_stats_path: Path) -> str:
     rows, a runbook on disk with no row, a row link that does not resolve
     inside the stats file's directory, or no runbook rows at all.
     """
-    absolute = (ROOT / doc_stats_path).resolve()
-    if ROOT.resolve() not in absolute.parents:
+    root = ROOT.resolve()
+    absolute = (root / doc_stats_path).resolve()
+    if root not in absolute.parents:
         raise ValueError(f"{doc_stats_path.as_posix()} resolves outside the repository")
     stats_dir = absolute.parent
     lines = absolute.read_text(encoding="utf-8").splitlines(keepends=True)
     total_words = total_chars = 0
     total_rows = 0
     rendered_rows = set()
+    rendered_targets = set()
     rendered = []
     for line in lines:
         stripped = line.rstrip("\n").rstrip("\r")
         match = STATS_ROW_RE.match(stripped)
         if match:
+            if Path(match.group(3)).name != match.group(2):
+                raise ValueError(f"{doc_stats_path}: row label does not match its link target: {stripped}")
             link = (stats_dir / match.group(3)).resolve()
             if link.parent != stats_dir:
                 raise ValueError(f"{doc_stats_path}: row link escapes the stats directory: {stripped}")
             if not link.is_file():
                 raise ValueError(f"{doc_stats_path}: row link does not resolve to a file: {stripped}")
-            chars, words = measure_markdown(link.relative_to(ROOT))
+            if link in rendered_targets:
+                raise ValueError(f"{doc_stats_path}: two rows resolve to the same runbook: {stripped}")
+            rendered_targets.add(link)
+            chars, words = measure_markdown(link.relative_to(root))
             total_words += words
             total_chars += chars
             rendered_rows.add(match.group(2))

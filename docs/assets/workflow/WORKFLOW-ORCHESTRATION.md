@@ -41,6 +41,7 @@ Current registered table:
 | Workflow | `delivery-gate` | 60 | docs | Common delivery-floor entrypoint and health-gate handoff. | `docs/assets/workflow/DELIVERY-GATE.md` |
 | Workflow | `checkpoint-health` | 70 | docs | Repository build/test health entrypoint for checkpoint delivery. | `docs/assets/workflow/CHECKPOINT-HEALTH.md` |
 | Tool | `workflow-scheduler-check` | 5 | Docs / Ecosystem | Validate workflow registry, separation, ordering, and discoverability. | `python3 scripts/workflow-scheduler.py check` |
+| Tool | `docs-stats-render-tests` | 6 | Test Quality | Run unit tests for the DOC-STATS table renderer's canonical-form refusals. | `python3 tests/docs_stats_render_test.py` |
 | Tool | `workflow-scheduler-tests` | 6 | Test Quality | Run scheduler unit tests for range resolution and registry invariants. | `python3 tests/workflow_scheduler_test.py` |
 | Tool | `repo-hygiene-push` | 10 | Docs / Ecosystem | Reject forbidden artifacts introduced by the incoming revision range. | `python3 scripts/repo-hygiene-gate.py --mode push --range {range}` |
 | Tool | `repo-hygiene-staged` | 10 | Docs / Ecosystem | Reject forbidden staged artifacts before checkpoint delivery. | `python3 scripts/repo-hygiene-gate.py --mode staged` |

@@ -2,7 +2,7 @@
 
 **Purpose:** Define the delivery gate that requires team runbooks under `docs/teams/` to be updated and kept in the standard template shape when files in corresponding team-owned folders are added, modified, renamed, or deleted.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-11-01
 
 ## Goal
 
@@ -78,7 +78,7 @@ Generated `docs/**/INDEX.md` files do not themselves require runbook updates. Th
 
 ## Stats Requirement
 
-When any team runbook or `COORDINATION-RUNBOOK.md` changes, [../../teams/DOC-STATS.md](../../teams/DOC-STATS.md) must also be refreshed in the same delivery. The statistics file uses the `scripts/docs-audit.py` word-count and character-count rules. Refresh with `python3 scripts/docs-audit.py --stats ../../teams/DOC-STATS.md` — one `measure_markdown` computation rewrites the `*-RUNBOOK.md` rows and the `**Total**` (generated `INDEX.md`, collection `README.md`, `DOC-STATS.md` itself and the Support File Size row stay excluded); the gate re-renders the table through the same `--stats` path and refuses when the file differs from the rendered output or the table is not in canonical form.
+When any team runbook or `COORDINATION-RUNBOOK.md` changes, [../../teams/DOC-STATS.md](../../teams/DOC-STATS.md) must also be refreshed in the same delivery. The statistics file uses the `scripts/docs-audit.py` word-count and character-count rules. Refresh with `python3 scripts/docs-audit.py --stats docs/teams/DOC-STATS.md` — one `measure_markdown` computation rewrites the `*-RUNBOOK.md` rows and the `**Total**` (generated `INDEX.md`, collection `README.md`, `DOC-STATS.md` itself and the Support File Size row stay excluded); the gate re-renders the table through the same `--stats` path and refuses when the file differs from the rendered output or the table is not in canonical form.
 
 ## Failure Handling
 
@@ -87,7 +87,7 @@ If the gate fails:
 1. Open the required runbook named in the error.
 2. If the error is structural, align the file with [../templates/TEAM-RUNBOOK-TEMPLATE.md](../templates/TEAM-RUNBOOK-TEMPLATE.md) or the coordinator shape above.
 3. Update only what the delivery actually changed: owned surface, workflow, gates, cross-team dependencies, or handoff notes.
-4. If the runbook content changes, refresh [../../teams/DOC-STATS.md](../../teams/DOC-STATS.md) with `python3 scripts/docs-audit.py --stats ../../teams/DOC-STATS.md`, which rewrites the `*-RUNBOOK.md` rows and the `**Total**` cells the gate compares.
+4. If the runbook content changes, refresh [../../teams/DOC-STATS.md](../../teams/DOC-STATS.md) with `python3 scripts/docs-audit.py --stats docs/teams/DOC-STATS.md`, which rewrites the `*-RUNBOOK.md` rows and the `**Total**` cells the gate compares.
 5. Re-run `python3 scripts/team-docs-gate.py` and `python3 scripts/docs-audit.py`.
 
 Do not bypass the gate by editing unrelated prose. The runbook update should make the actual maintenance consequence discoverable for the next owner.
