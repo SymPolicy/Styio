@@ -78,7 +78,7 @@ Generated `docs/**/INDEX.md` files do not themselves require runbook updates. Th
 
 ## Stats Requirement
 
-When any team runbook or `COORDINATION-RUNBOOK.md` changes, [../docs/teams/DOC-STATS.md](../docs/teams/DOC-STATS.md) must also be refreshed in the same delivery. The statistics file uses the `scripts/docs-audit.py` word-count and character-count rules.
+When any team runbook or `COORDINATION-RUNBOOK.md` changes, [../docs/teams/DOC-STATS.md](../docs/teams/DOC-STATS.md) must also be refreshed in the same delivery. The statistics file uses the `scripts/docs-audit.py` word-count and character-count rules. The `**Total**` row must equal the sum of the `*-RUNBOOK.md` rows — generated `INDEX.md`, collection `README.md`, `DOC-STATS.md` itself and the Support File Size row excluded — and the gate rejects a Total that differs from that sum.
 
 ## Failure Handling
 
@@ -87,7 +87,7 @@ If the gate fails:
 1. Open the required runbook named in the error.
 2. If the error is structural, align the file with [../docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md](../docs/assets/templates/TEAM-RUNBOOK-TEMPLATE.md) or the coordinator shape above.
 3. Update only what the delivery actually changed: owned surface, workflow, gates, cross-team dependencies, or handoff notes.
-4. If the runbook content changes, refresh [../docs/teams/DOC-STATS.md](../docs/teams/DOC-STATS.md).
+4. If the runbook content changes, refresh [../docs/teams/DOC-STATS.md](../docs/teams/DOC-STATS.md), including the `**Total**` row cells, which the gate compares against the sum of the runbook rows.
 5. Re-run `python3 scripts/team-docs-gate.py` and `python3 scripts/docs-audit.py`.
 
 Do not bypass the gate by editing unrelated prose. The runbook update should make the actual maintenance consequence discoverable for the next owner.

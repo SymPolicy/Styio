@@ -339,8 +339,26 @@ def validate_doc_stats_total() -> List[str]:
     absolute = ROOT / DOC_STATS
     if not absolute.exists():
         return [f"{DOC_STATS.as_posix()} is missing"]
+    errors: List[str] = []
+    measured = {}
+    try:
+        import importlib.util
+
+        if str(ROOT / "scripts") not in sys.path:
+            sys.path.insert(0, str(ROOT / "scripts"))
+        spec = importlib.util.spec_from_file_location("docs_audit", ROOT / "scripts" / "docs-audit.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for path in TEAM_RUNBOOKS:
+            source = ROOT / path
+            if source.exists():
+                measured[path.name] = module.measure_markdown(source)
+    except Exception:
+        measured = {}
+
     rows_words = rows_chars = 0
     total_words = total_chars = None
+    row_names = set()
     for line in absolute.read_text(encoding="utf-8").splitlines():
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if len(cells) < 4:
@@ -354,14 +372,29 @@ def validate_doc_stats_total() -> List[str]:
         elif "-RUNBOOK.md" in cells[1]:
             rows_words += words
             rows_chars += chars
+            name = cells[1].split("](")[0].lstrip("[")
+            row_names.add(name)
+            if measured:
+                disk = measured.get(name)
+                if disk is None:
+                    errors.append(f"{DOC_STATS.as_posix()} row {name} has no matching team runbook file")
+                elif disk != (chars, words):
+                    errors.append(
+                        f"{DOC_STATS.as_posix()} row {name} ({words:,} / {chars:,}) "
+                        f"differs from docs-audit measurement ({disk[1]:,} / {disk[0]:,})"
+                    )
     if total_words is None:
-        return [f"{DOC_STATS.as_posix()} has no parseable **Total** row"]
-    if (rows_words, rows_chars) != (total_words, total_chars):
-        return [
+        errors.append(f"{DOC_STATS.as_posix()} has no parseable **Total** row")
+    elif (rows_words, rows_chars) != (total_words, total_chars):
+        errors.append(
             f"{DOC_STATS.as_posix()} **Total** row ({total_words:,} / {total_chars:,}) "
             f"differs from the sum of its runbook rows ({rows_words:,} / {rows_chars:,})"
-        ]
-    return []
+        )
+    if measured:
+        missing = sorted(set(measured) - row_names)
+        if missing:
+            errors.append(f"{DOC_STATS.as_posix()} is missing runbook rows: {', '.join(missing)}")
+    return errors
 
 
 def run_gate(changed_paths: Sequence[Path], verbose: bool) -> int:
