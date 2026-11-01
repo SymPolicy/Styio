@@ -348,24 +348,17 @@ def validate_doc_stats() -> List[str]:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         rendered = module.render_team_stats(DOC_STATS)
+    except ValueError as exc:
+        return [f"{DOC_STATS.as_posix()} is not in canonical form: {exc}"]
     except Exception as exc:
         return [f"{DOC_STATS.as_posix()} cannot be re-measured via scripts/docs-audit.py: {exc}"]
 
-    errors: List[str] = []
     if rendered != absolute.read_text(encoding="utf-8"):
-        errors.append(
+        return [
             f"{DOC_STATS.as_posix()} runbook rows or **Total** differ from `docs-audit.py --stats` "
             "output; refresh with `python3 scripts/docs-audit.py --stats docs/teams/DOC-STATS.md`"
-        )
-    listed = {
-        match.group(1)
-        for line in absolute.read_text(encoding="utf-8").splitlines()
-        if (match := re.search(r"\[([^\]]+-RUNBOOK\.md)\]", line))
-    }
-    missing = sorted(path.name for path in TEAM_RUNBOOKS if path.name not in listed)
-    if missing:
-        errors.append(f"{DOC_STATS.as_posix()} is missing runbook rows: {', '.join(missing)}")
-    return errors
+        ]
+    return []
 
 
 def run_gate(changed_paths: Sequence[Path], verbose: bool) -> int:

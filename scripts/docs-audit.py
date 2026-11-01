@@ -312,41 +312,72 @@ def measure_markdown(path: Path) -> tuple[int, int]:
     return len(text), count_words(text)
 
 
-STATS_ROW_RE = re.compile(r"^\| (.+) \| \[([^\]]+-RUNBOOK\.md)\]\([^)]*\) \| [\d,]+ \| [\d,]+ \|$")
+STATS_ROW_RE = re.compile(r"^\| (.+) \| \[([^\]]+-RUNBOOK\.md)\]\(([^)]*)\) \| [\d,]+ \| [\d,]+ \|$")
 STATS_TOTAL_RE = re.compile(r"^\| \*\*Total\*\* \| Team runbooks only \| \*\*[\d,]+\*\* \| \*\*[\d,]+\*\* \|$")
 
 
 def render_team_stats(doc_stats_path: Path) -> str:
-    """Rewrite the Team Runbook Size rows and Total of DOC-STATS.md in place.
+    """Return DOC-STATS.md with its Team Runbook Size rows and Total rewritten.
 
-    Row numbers come from measure_markdown over each linked runbook; the
-    Total row is the sum of the runbook rows only. Team labels, row order
-    and every other line are preserved untouched, so refreshing the table
-    and checking the gate share this one computation.
+    Row numbers come from measure_markdown over each row's link target,
+    resolved against the stats file's own directory; the Total row is the
+    sum of the runbook rows only. Team labels, row order and every other
+    line are preserved untouched, so refreshing the table and checking the
+    gate share this one computation. Raises ValueError naming the offending
+    line when the table is not in canonical form: zero or multiple Total
+    rows, a runbook on disk with no row, a row link that does not resolve
+    inside the stats file's directory, or no runbook rows at all.
     """
-    absolute = ROOT / doc_stats_path
+    absolute = (ROOT / doc_stats_path).resolve()
+    if ROOT.resolve() not in absolute.parents:
+        raise ValueError(f"{doc_stats_path.as_posix()} resolves outside the repository")
+    stats_dir = absolute.parent
     lines = absolute.read_text(encoding="utf-8").splitlines(keepends=True)
     total_words = total_chars = 0
+    total_rows = 0
+    rendered_rows = set()
     rendered = []
     for line in lines:
-        match = STATS_ROW_RE.match(line.rstrip("\n"))
+        stripped = line.rstrip("\n").rstrip("\r")
+        match = STATS_ROW_RE.match(stripped)
         if match:
-            chars, words = measure_markdown(Path("docs/teams") / match.group(2))
+            link = (stats_dir / match.group(3)).resolve()
+            if link.parent != stats_dir:
+                raise ValueError(f"{doc_stats_path}: row link escapes the stats directory: {stripped}")
+            if not link.is_file():
+                raise ValueError(f"{doc_stats_path}: row link does not resolve to a file: {stripped}")
+            chars, words = measure_markdown(link.relative_to(ROOT))
             total_words += words
             total_chars += chars
-            rendered.append(f"| {match.group(1)} | [{match.group(2)}](./{match.group(2)}) | {words:,} | {chars:,} |\n")
-        elif STATS_TOTAL_RE.match(line.rstrip("\n")):
+            rendered_rows.add(match.group(2))
+            rendered.append(f"| {match.group(1)} | [{match.group(2)}]({match.group(3)}) | {words:,} | {chars:,} |\n")
+        elif STATS_TOTAL_RE.match(stripped):
+            total_rows += 1
             rendered.append(
                 f"| **Total** | Team runbooks only | **{total_words:,}** | **{total_chars:,}** |\n"
             )
         else:
             rendered.append(line)
+    if not rendered_rows:
+        raise ValueError(f"{doc_stats_path}: no *-RUNBOOK.md table rows were rendered")
+    if total_rows != 1:
+        raise ValueError(f"{doc_stats_path}: expected exactly one **Total** row, matched {total_rows}")
+    missing = sorted(p.name for p in stats_dir.glob("*-RUNBOOK.md") if p.name not in rendered_rows)
+    if missing:
+        raise ValueError(f"{doc_stats_path}: runbooks on disk without a table row: {', '.join(missing)}")
     return "".join(rendered)
 
 
 def run_stats(doc_stats_path: Path) -> int:
     absolute = ROOT / doc_stats_path
-    updated = render_team_stats(doc_stats_path)
+    if not absolute.is_file():
+        print(f"{doc_stats_path.as_posix()} does not exist", file=sys.stderr)
+        return 1
+    try:
+        updated = render_team_stats(doc_stats_path)
+    except ValueError as exc:
+        print(f"cannot refresh team stats: {exc}", file=sys.stderr)
+        return 1
     if updated == absolute.read_text(encoding="utf-8"):
         print(f"{doc_stats_path.as_posix()} is already up to date")
     else:
