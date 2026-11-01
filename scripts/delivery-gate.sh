@@ -187,7 +187,7 @@ run_scheduler_profile() {
 }
 
 main() {
-    set -euo pipefail
+  set -euo pipefail
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   cd "$ROOT"
 
