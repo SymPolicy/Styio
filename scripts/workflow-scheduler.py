@@ -53,18 +53,18 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "tests/workflow_scheduler_test.py"),
     ),
     Tool(
-        "docs-stats-render-tests",
-        6,
-        "Test Quality",
-        "Run unit tests for the DOC-STATS table renderer's canonical-form refusals.",
-        ("python3", "tests/docs_stats_render_test.py"),
-    ),
-    Tool(
         "delivery-gate-tests",
         6,
         "Test Quality",
         "Run unit tests for delivery-gate origin resolution's cleartext refusal.",
         ("python3", "tests/delivery_gate_test.py"),
+    ),
+    Tool(
+        "docs-stats-render-tests",
+        6,
+        "Test Quality",
+        "Run unit tests for the DOC-STATS table renderer's canonical-form refusals.",
+        ("python3", "tests/docs_stats_render_test.py"),
     ),
     Tool(
         "repo-hygiene-worktree",

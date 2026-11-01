@@ -355,7 +355,7 @@ def validate_doc_stats() -> List[str]:
 
     if rendered != absolute.read_text(encoding="utf-8"):
         return [
-            f"{DOC_STATS.as_posix()} runbook rows or **Total** differ from `docs-audit.py --stats` "
+            f"{DOC_STATS.as_posix()} runbook rows or **Total** do not match `docs-audit.py --stats` "
             "output; refresh with `python3 scripts/docs-audit.py --stats docs/teams/DOC-STATS.md`"
         ]
     return []
