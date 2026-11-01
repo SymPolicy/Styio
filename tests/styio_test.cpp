@@ -2364,6 +2364,48 @@ TEST(StyioNanoPackage, CloudInstallRejectsPaxRenamedMember) {
   fs::remove_all(root);
 }
 
+TEST(StyioNanoPackage, CloudInstallRejectsOverlongMemberName) {
+  const char* runner = std::getenv("STYIO_COMPILER_EXE");
+  if (runner == nullptr || runner[0] == '\0') {
+    runner = STYIO_COMPILER_EXE;
+  }
+  ASSERT_TRUE(runner != nullptr && runner[0] != '\0');
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+  const fs::path root =
+    fs::temp_directory_path() / ("styio-nano-longname-guard-" + std::to_string(uniq));
+  const fs::path repo_dir = root / "repo";
+  const fs::path blob = root / "guarded.tar";
+  const fs::path install_dir = root / "install";
+  ASSERT_TRUE(fs::create_directories(repo_dir));
+
+  {
+    std::ofstream out(blob, std::ios::binary | std::ios::trunc);
+    ASSERT_TRUE(out.is_open());
+    append_ustar_member_latest(out, "bin/", '5', "", "");
+    append_ustar_member_latest(out, "bin/styio-nano", '0', "", "placeholder");
+    // The member listing reader uses a fixed buffer; a name that fills the
+    // buffer without a newline must refuse the archive instead of being
+    // checked as a truncated fragment.
+    const std::string long_name = "pkg/" + std::string(9000, 'a');
+    append_ustar_member_latest(
+      out, "pax-hdr", 'x', "", make_pax_record_latest("path", long_name));
+    append_ustar_member_latest(out, "safe", '0', "", "x");
+    const char zeros[1024] = {};
+    out.write(zeros, sizeof(zeros));
+  }
+
+  const CommandResult created = run_nano_repo_consume_latest(
+    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir);
+  EXPECT_NE(created.exit_code, 0) << created.stdout_text;
+  EXPECT_NE(created.stdout_text.find("exceeds the member listing limit"), std::string::npos)
+    << created.stdout_text;
+  EXPECT_FALSE(fs::exists(install_dir / "bin" / "styio-nano"));
+
+  fs::remove_all(root);
+}
+
 TEST(StyioNanoPackage, CloudInstallRejectsInflatedLogicalSize) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {

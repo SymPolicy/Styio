@@ -19,7 +19,7 @@
 - REQ-001: All current planning sources for `SymPolicy/Styio` are represented under `docs/plan`.
 - REQ-002: `docs/plan/Manifest.json` indexes only Plan objects, and every Plan points to a plan-local `Checkpoints.json`.
 - REQ-003: Open or uncertain work extracted from prior planning sources is represented as current Better Plan acceptance criteria rather than as old checklist files.
-- REQ-004: The workspace uses current project naming and does not retain separate planning roots named `docs/plan`, `docs/plan`, or `docs/plan`.
+- REQ-004: The workspace uses current project naming and does not retain the retired planning roots `docs/plans/`, `docs/audit/`, `docs/specs/audit/`, or `docs/milestones/`; `docs/plan` is the only planning root.
 - REQ-005: Validation evidence maps every requirement to concrete repository checks.
 
 ## Non-Goals

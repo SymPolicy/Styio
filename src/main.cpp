@@ -1764,6 +1764,15 @@ styio_tar_listed_member_size_latest(const std::string& line) {
   return std::nullopt;
 }
 
+// A member-listing line that fills the read buffer without a trailing
+// newline is only a name fragment; the full member name continues past the
+// buffer. Any type/size/name decision made on the fragment is unsound, so a
+// truncated read must refuse the archive rather than approve a partial name.
+static bool
+styio_tar_listing_line_is_truncated_latest(const std::string& line, size_t buffer_capacity) {
+  return line.size() == buffer_capacity - 1 && line.back() != '\n';
+}
+
 static bool
 styio_tar_members_stay_in_root_latest(
   const std::filesystem::path& tar_path,
@@ -1779,11 +1788,17 @@ styio_tar_members_stay_in_root_latest(
   }
   std::string bad_member;
   std::string oversized_member;
+  std::string overlong_member;
   std::uint64_t declared_total = 0;
   char buffer[8192];
   while (fgets(buffer, static_cast<int>(sizeof(buffer)), verbose_pipe) != nullptr) {
     const std::string line(buffer);
     if (line.empty()) {
+      continue;
+    }
+    if (styio_tar_listing_line_is_truncated_latest(line, sizeof(buffer))
+        && overlong_member.empty()) {
+      overlong_member = line;
       continue;
     }
     // Member types: regular files, directories and pax 'x'/'g' metadata are
@@ -1819,6 +1834,11 @@ styio_tar_members_stay_in_root_latest(
     error_message = "cannot list archive members: " + tar_path.string();
     return false;
   }
+  if (!overlong_member.empty()) {
+    error_message = "archive member name exceeds the member listing limit: "
+                    + overlong_member.substr(0, 120) + "...";
+    return false;
+  }
   if (!bad_member.empty()) {
     error_message = "archive member type is not extractable here: " + bad_member;
     return false;
@@ -1839,6 +1859,12 @@ styio_tar_members_stay_in_root_latest(
   char name_buffer[8192];
   while (fgets(name_buffer, static_cast<int>(sizeof(name_buffer)), pipe) != nullptr) {
     std::string name(name_buffer);
+    if (styio_tar_listing_line_is_truncated_latest(name, sizeof(name_buffer))) {
+      if (overlong_member.empty()) {
+        overlong_member = name;
+      }
+      continue;
+    }
     while (!name.empty() && (name.back() == '\n' || name.back() == '\r')) {
       name.pop_back();
     }
@@ -1860,6 +1886,11 @@ styio_tar_members_stay_in_root_latest(
   const int status = pclose(pipe);
   if (status != 0) {
     error_message = "cannot list archive members: " + tar_path.string();
+    return false;
+  }
+  if (!overlong_member.empty()) {
+    error_message = "archive member name exceeds the member listing limit: "
+                    + overlong_member.substr(0, 120) + "...";
     return false;
   }
   if (!bad_member.empty()) {

@@ -57,12 +57,13 @@ Primary paths:
 31. Native executable artifact coverage must build through `styio build <file_path> -o <artifact_name>`, assert the produced file is executable, and run the artifact against an existing golden so the test proves both artifact creation and runtime behavior.
 32. Resource method tests must cover static method resolution, consuming receiver invalidation, transitive consuming method calls, final binding override rejection, property-as-method rejection, method arity rejection, repeated consuming call rejection, non-consuming overrides that must not lower to release, task outer-resource consume rejection, explicit `=>` ordering for exclusive borrows, and lowering evidence for file `write`/`close` methods before the topology model is considered regression-covered.
 33. README showcase examples that are wired into CTest must run repository-local Styio source from the repository root and compare stdout against a checked-in golden, so public examples cannot drift away from executable compiler behavior.
-34. Semantic negative tests must assert a stable diagnostic fragment from `tests/milestones/<milestone>/expected/*.err`; a nonzero exit code alone is not enough evidence.
+34. Semantic negative tests must assert a stable diagnostic fragment from `tests/features/<feature>/expected/*.err`; a nonzero exit code alone is not enough evidence.
 35. Lit/FileCheck-style fixture trees belong under active `tests/` only when they are registered in CTest and have real check lines. Otherwise archive them until a live runner owns them.
 36. LibFuzzer runtime probes must compile a minimal `LLVMFuzzerTestOneInput` entrypoint. Do not probe `-fsanitize=fuzzer` with a custom `main`, because the sanitizer runtime provides `main` and the check will fail for the wrong reason.
 37. Nano package consume guards need negative coverage alongside happy paths: crafted-ustar archives must prove link, device, FIFO, traversal, and pax `path=` rename members are refused before extraction with no writes outside the root, and registry or artifact refs must prove remote-scheme, non-regular-file, and oversized-entry refusals. The `StyioNanoPackage.CloudInstall*` and `StyioNanoPackage.NanoConsume*` cases in `tests/styio_test.cpp` own this surface.
-38. Each adversarial archive fixture must exercise exactly one rejection path so a failing guard cannot be masked by an earlier refusal: member-type, `..`-name, pax `path=` rename, and sparse logical-size fixtures are separate cases asserting their own stable diagnostic, plus absence of writes outside the extraction root.
+38. Each adversarial archive fixture must exercise exactly one rejection path so a failing guard cannot be masked by an earlier refusal: member-type, `..`-name, pax `path=` rename, sparse logical-size, and over-long member-name fixtures are separate cases asserting their own stable diagnostic, plus absence of writes outside the extraction root.
 39. Remote acquisition belongs to pafio, not the compiler: `StyioNanoPackage.NanoConsumeRefusesRemoteArtifactRefs` (renamed from `CloudInstallRefusesCleartextHttpRegistry`) asserts `http://`, `https://`, and other non-`file://` scheme registry roots are refused with the remote-fetch refusal diagnostic; keep every non-local scheme covered when the consume contract changes.
+40. The archive member-listing reader fails closed on over-long member names: `StyioNanoPackage.CloudInstallRejectsOverlongMemberName` plants a pax `path=` name longer than the read buffer and asserts refusal before extraction, so a truncated name fragment can never satisfy the traversal guard.
 
 ## Change Classes
 
@@ -103,7 +104,7 @@ python3 scripts/docs-audit.py
 `checkpoint-health.sh` is allowed to reconfigure the requested build dir; maintenance changes to that recovery path must preserve a clean build-dir handoff instead of leaking configure logs into later commands. The default local variant is `build/default/`; use `--build-dir build/<variant>` for another configured variant.
 同一脚本在 normal leg 里必须显式构建 `styio_security_test` 后再跑 `ctest -L security`；空标签返回 0 不能算通过。
 离线恢复时，`tests/CMakeLists.txt` 和顶层 `CMakeLists.txt` 现在会优先复用本地已有的 `googletest` / `tree_sitter_runtime` source checkout，避免首次恢复因 FetchContent 远端不可达而卡死。
-Test fixtures must not bind literals to identifiers shaped like secret material (`key`, `token`, `secret`, `password`, plural forms); the deterministic test-key gate adjudicates each such binding. Lexer outputs are bound to `lexed`, dict-entry counts to `dict_entries` — pick equally neutral names for new fixtures.
+Test fixtures must not bind literals to identifiers shaped like secret material (`key`, `token`, `secret`, `password`, plural forms); the external pre-push privacy audit flags each such binding as suspected secret material. Lexer outputs are bound to `lexed`, dict-entry counts to `dict_entries` — pick equally neutral names for new fixtures.
 
 ## Cross-Team Dependencies
 

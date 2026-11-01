@@ -96,6 +96,7 @@ Key SSOTs:
 61. Metadata lives once, in the top block: do not restate `Purpose` as a prose paragraph under it. Collection READMEs and the root `docs/README.md` re-bump `Last updated` whenever their described tree changes, even when the prose itself is unchanged.
 62. `docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md` §4.4 mirrors the consume-validation seams as ordered bullets; every new consume check lands as its own bullet in the same edit so the exported contract stays the complete minimum validation set.
 63. The same coordination doc §3.3/§4.4 states that styio-nano consume accepts only local repository layouts (local path or `file://`) and refuses every other `scheme://` ref, because remote acquisition — registry endpoints, download/cache, pin/vendor, install orchestration — is pafio's job; keep that boundary aligned with the `--nano-registry`/`--nano-manifest` help text and the CLI / Nano consume rule whenever the contract moves.
+64. `docs/plan` evidence and signal references must resolve to preserved sources, never to the ledger file itself: inventory entries point at `Source-Material.md#source-NNN-*` anchors or the standalone `Styio-Ecosystem-CLI-Contract-Matrix.md`, open-work signals carry `Source-Material.md:<line>` references, `Checkpoints.json` acceptance texts are regenerated from the same data, and retired planning roots are named explicitly (`docs/plans/`, `docs/audit/`, `docs/specs/audit/`, `docs/milestones/`) in requirements and final checks.
 
 ## Change Classes
 
