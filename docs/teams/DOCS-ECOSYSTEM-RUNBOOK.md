@@ -95,6 +95,7 @@ Key SSOTs:
 60. A plan directory carries its own README with `Purpose`, `Last updated`, and a `Checkpoints.json` pointer as a plan convention; `docs-index.py` itself only needs a README or INDEX exposing `Purpose` metadata to surface the directory as a Directories row. Every touched README or plan file must bump its `Last updated` in the same edit so generated indexes do not understate freshness.
 61. Metadata lives once, in the top block: do not restate `Purpose` as a prose paragraph under it. Collection READMEs and the root `docs/README.md` re-bump `Last updated` whenever their described tree changes, even when the prose itself is unchanged.
 62. `docs/external/for-pafio/Styio-Nano-Pafio-Coordination.md` §4.4 mirrors the consume-validation seams as ordered bullets; every new consume check lands as its own bullet in the same edit so the exported contract stays the complete minimum validation set.
+63. The same coordination doc §3.3/§4.4 states that styio-nano consume accepts only local repository layouts (local path or `file://`) and refuses every other `scheme://` ref, because remote acquisition — registry endpoints, download/cache, pin/vendor, install orchestration — is pafio's job; keep that boundary aligned with the `--nano-registry`/`--nano-manifest` help text and the CLI / Nano consume rule whenever the contract moves.
 
 ## Change Classes
 

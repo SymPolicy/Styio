@@ -170,8 +170,7 @@ run_nano_repo_consume_latest(
   const fs::path& blob,
   const std::string& package_name,
   const std::string& version,
-  const fs::path& install_dir,
-  const fs::path& cache_dir
+  const fs::path& install_dir
 ) {
   {
     std::ofstream out(repo_dir / "styio-nano-repository.json");
@@ -211,19 +210,9 @@ run_nano_repo_consume_latest(
         << "\n[nano.cloud]\nregistry = \"" << repo_dir.string() << "\"\n"
         << "package = \"" << package_name << "\"\nversion = \"" << version << "\"\n";
   }
-#ifdef _WIN32
-  _putenv_s("STYIO_NANO_CACHE_DIR", cache_dir.string().c_str());
-#else
-  setenv("STYIO_NANO_CACHE_DIR", cache_dir.string().c_str(), 1);
-#endif
   const CommandResult created =
     run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
                        + config.string() + "\" 2>&1");
-#ifdef _WIN32
-  _putenv_s("STYIO_NANO_CACHE_DIR", "");
-#else
-  unsetenv("STYIO_NANO_CACHE_DIR");
-#endif
   return created;
 }
 
@@ -2288,7 +2277,7 @@ TEST(StyioNanoPackage, CloudInstallRejectsNonRegularArchiveMembers) {
   }
 
   const CommandResult created = run_nano_repo_consume_latest(
-    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir, root / "cache");
+    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir);
   EXPECT_NE(created.exit_code, 0) << created.stdout_text;
   EXPECT_NE(created.stdout_text.find("not extractable"), std::string::npos)
     << created.stdout_text;
@@ -2325,7 +2314,7 @@ TEST(StyioNanoPackage, CloudInstallRejectsEscapingMemberName) {
   }
 
   const CommandResult created = run_nano_repo_consume_latest(
-    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir, root / "cache");
+    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir);
   EXPECT_NE(created.exit_code, 0) << created.stdout_text;
   EXPECT_NE(created.stdout_text.find("escapes the extraction root"), std::string::npos)
     << created.stdout_text;
@@ -2365,7 +2354,7 @@ TEST(StyioNanoPackage, CloudInstallRejectsPaxRenamedMember) {
   }
 
   const CommandResult created = run_nano_repo_consume_latest(
-    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir, root / "cache");
+    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir);
   EXPECT_NE(created.exit_code, 0) << created.stdout_text;
   EXPECT_NE(created.stdout_text.find("escapes the extraction root"), std::string::npos)
     << created.stdout_text;
@@ -2404,7 +2393,7 @@ TEST(StyioNanoPackage, CloudInstallRejectsInflatedLogicalSize) {
   }
 
   const CommandResult created = run_nano_repo_consume_latest(
-    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir, root / "cache");
+    runner, root, repo_dir, blob, "edge/guarded", "0.0.1", install_dir);
   EXPECT_NE(created.exit_code, 0) << created.stdout_text;
   EXPECT_NE(created.stdout_text.find("exceeds"), std::string::npos) << created.stdout_text;
   EXPECT_FALSE(fs::exists(install_dir / "bin" / "styio-nano"));
@@ -2412,7 +2401,7 @@ TEST(StyioNanoPackage, CloudInstallRejectsInflatedLogicalSize) {
   fs::remove_all(root);
 }
 
-TEST(StyioNanoPackage, CloudInstallRefusesCleartextHttpRegistry) {
+TEST(StyioNanoPackage, NanoConsumeRefusesRemoteArtifactRefs) {
   const char* runner = std::getenv("STYIO_COMPILER_EXE");
   if (runner == nullptr || runner[0] == '\0') {
     runner = STYIO_COMPILER_EXE;
@@ -2421,22 +2410,34 @@ TEST(StyioNanoPackage, CloudInstallRefusesCleartextHttpRegistry) {
 
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   const long long uniq = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
-  const fs::path root = fs::temp_directory_path() / ("styio-nano-http-guard-" + std::to_string(uniq));
+  const fs::path root = fs::temp_directory_path() / ("styio-nano-remote-guard-" + std::to_string(uniq));
   const fs::path config = root / "nano.toml";
   ASSERT_TRUE(fs::create_directories(root));
-  {
-    std::ofstream out(config);
-    ASSERT_TRUE(out.is_open());
-    out << "[nano]\nmode = \"cloud\"\noutput_dir = \"" << (root / "install").string() << "\"\n"
-        << "\n[nano.cloud]\nregistry = \"http://localhost/repo\"\n"
-        << "package = \"edge/guarded\"\nversion = \"0.0.1\"\n";
-  }
 
-  const CommandResult created =
-    run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
-                       + config.string() + "\" 2>&1");
-  EXPECT_NE(created.exit_code, 0) << created.stdout_text;
-  EXPECT_NE(created.stdout_text.find("cleartext http"), std::string::npos) << created.stdout_text;
+  // Remote acquisition (registry endpoints, download, pin/vendor) belongs to
+  // pafio; the compiler consumes only local repository layouts, so every
+  // scheme:// ref other than file:// must fail closed.
+  const char* remote_roots[] = {
+    "http://localhost/repo",
+    "https://localhost/repo",
+    "ftp://localhost/repo",
+  };
+  for (const char* remote_root : remote_roots) {
+    {
+      std::ofstream out(config);
+      ASSERT_TRUE(out.is_open());
+      out << "[nano]\nmode = \"cloud\"\noutput_dir = \"" << (root / "install").string() << "\"\n"
+          << "\n[nano.cloud]\nregistry = \"" << remote_root << "\"\n"
+          << "package = \"edge/guarded\"\nversion = \"0.0.1\"\n";
+    }
+
+    const CommandResult created =
+      run_stdout_command(std::string("\"") + runner + "\" --nano-create --nano-package-config \""
+                         + config.string() + "\" 2>&1");
+    EXPECT_NE(created.exit_code, 0) << remote_root << ": " << created.stdout_text;
+    EXPECT_NE(created.stdout_text.find("remote artifact reference refused"), std::string::npos)
+      << remote_root << ": " << created.stdout_text;
+  }
 
   fs::remove_all(root);
 }

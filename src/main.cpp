@@ -1010,18 +1010,38 @@ styio_find_project_config_latest(
 }
 
 static bool
-styio_ref_is_http_url_latest(const std::string& ref) {
-  return ref.rfind("http://", 0) == 0 || ref.rfind("https://", 0) == 0;
-}
-
-static bool
-styio_ref_is_https_url_latest(const std::string& ref) {
-  return ref.rfind("https://", 0) == 0;
-}
-
-static bool
 styio_ref_is_file_uri_latest(const std::string& ref) {
   return ref.rfind("file://", 0) == 0;
+}
+
+static bool
+styio_ref_has_uri_scheme_latest(const std::string& ref) {
+  const std::size_t sep = ref.find("://");
+  if (sep == std::string::npos || sep == 0) {
+    return false;
+  }
+  for (std::size_t i = 0; i < sep; ++i) {
+    const unsigned char ch = static_cast<unsigned char>(ref[i]);
+    const bool valid_scheme_char =
+      std::isalpha(ch) != 0
+      || (i > 0 && (std::isdigit(ch) != 0 || ch == '+' || ch == '-' || ch == '.'));
+    if (!valid_scheme_char) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool
+styio_ref_is_remote_latest(const std::string& ref) {
+  return styio_ref_has_uri_scheme_latest(ref) && !styio_ref_is_file_uri_latest(ref);
+}
+
+static std::string
+styio_remote_ref_refusal_latest(const std::string& ref) {
+  return "remote artifact reference refused (styio consumes only local repository layouts; "
+         "remote fetch is pafio's job): "
+         + ref;
 }
 
 static std::string
@@ -1066,7 +1086,7 @@ styio_resolve_path_from_config_latest(
   const std::filesystem::path& config_path,
   const std::string& raw_value
 ) {
-  if (raw_value.empty() || styio_ref_is_http_url_latest(raw_value) || styio_ref_is_file_uri_latest(raw_value)) {
+  if (raw_value.empty() || styio_ref_has_uri_scheme_latest(raw_value)) {
     return raw_value;
   }
   std::filesystem::path resolved(raw_value);
@@ -1078,7 +1098,7 @@ styio_resolve_path_from_config_latest(
 
 static std::string
 styio_resolve_cli_path_latest(const std::string& raw_value) {
-  if (raw_value.empty() || styio_ref_is_http_url_latest(raw_value) || styio_ref_is_file_uri_latest(raw_value)) {
+  if (raw_value.empty() || styio_ref_has_uri_scheme_latest(raw_value)) {
     return raw_value;
   }
   return styio_absolute_path_latest(std::filesystem::path(raw_value)).string();
@@ -1208,29 +1228,6 @@ styio_nano_max_package_bytes_latest() {
   return kStyioNanoDefaultMaxPackageBytesLatest;
 }
 
-static std::filesystem::path
-styio_nano_blob_cache_dir_latest() {
-  if (const char* dir = std::getenv("STYIO_NANO_CACHE_DIR"); dir != nullptr && dir[0] != '\0') {
-    return std::filesystem::path(dir);
-  }
-#ifdef _WIN32
-  if (const char* base = std::getenv("LOCALAPPDATA"); base != nullptr && base[0] != '\0') {
-    return std::filesystem::path(base) / "styio" / "nano";
-  }
-  if (const char* base = std::getenv("USERPROFILE"); base != nullptr && base[0] != '\0') {
-    return std::filesystem::path(base) / "AppData" / "Local" / "styio" / "nano";
-  }
-#else
-  if (const char* base = std::getenv("XDG_CACHE_HOME"); base != nullptr && base[0] != '\0') {
-    return std::filesystem::path(base) / "styio" / "nano";
-  }
-  if (const char* base = std::getenv("HOME"); base != nullptr && base[0] != '\0') {
-    return std::filesystem::path(base) / ".cache" / "styio" / "nano";
-  }
-#endif
-  return std::filesystem::temp_directory_path() / "styio-nano-cache";
-}
-
 static bool
 styio_fetch_ref_to_file_latest(
   const std::string& ref,
@@ -1245,36 +1242,9 @@ styio_fetch_ref_to_file_latest(
     return false;
   }
 
-  if (styio_ref_is_http_url_latest(ref)) {
-    if (!styio_ref_is_https_url_latest(ref)) {
-      error_message = "cleartext http artifact reference refused (use https://, file://, or a local path): "
-                      + ref;
-      return false;
-    }
-    std::error_code ec;
-    std::filesystem::create_directories(dest_path.parent_path(), ec);
-    const std::string cmd = "curl -fsSL --proto '=https' --proto-redir '=https'"
-                            + std::string(" --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2")
-                            + " --max-filesize " + std::to_string(max_bytes)
-                            + " " + styio_shell_quote_latest(ref)
-                            + " -o " + styio_shell_quote_latest(dest_path.string());
-    const int status = std::system(cmd.c_str());
-    if (status != 0) {
-      std::filesystem::remove(dest_path, ec);
-      error_message = "failed to download artifact via curl: " + ref;
-      return false;
-    }
-    const std::uint64_t actual_size = std::filesystem::file_size(dest_path, ec);
-    if (!ec && actual_size > max_bytes) {
-      std::filesystem::remove(dest_path, ec);
-      error_message = "downloaded artifact exceeds the " + std::to_string(max_bytes)
-                      + "-byte bound: " + ref;
-      return false;
-    }
-    if (make_executable) {
-      styio_make_file_executable_latest(dest_path);
-    }
-    return true;
+  if (styio_ref_is_remote_latest(ref)) {
+    error_message = styio_remote_ref_refusal_latest(ref);
+    return false;
   }
 
   std::filesystem::path source_path;
@@ -1999,7 +1969,7 @@ styio_normalize_nano_registry_root_latest(const std::string& raw_root) {
   if (value.empty()) {
     return value;
   }
-  if (styio_ref_is_http_url_latest(value) || styio_ref_is_file_uri_latest(value)) {
+  if (styio_ref_has_uri_scheme_latest(value)) {
     return value;
   }
   return styio_absolute_path_latest(std::filesystem::path(value)).string();
@@ -2010,7 +1980,7 @@ styio_join_registry_ref_latest(
   const std::string& registry_root,
   const std::string& rel_path
 ) {
-  if (styio_ref_is_http_url_latest(registry_root) || styio_ref_is_file_uri_latest(registry_root)) {
+  if (styio_ref_has_uri_scheme_latest(registry_root)) {
     return registry_root + "/" + rel_path;
   }
   return (std::filesystem::path(registry_root) / rel_path).string();
@@ -2045,17 +2015,9 @@ styio_fetch_registry_text_latest(
   std::string& error_message
 ) {
   const std::string full_ref = styio_join_registry_ref_latest(registry_root, rel_path);
-  if (styio_ref_is_http_url_latest(full_ref)) {
-    const std::filesystem::path tmp_path =
-      std::filesystem::temp_directory_path() / ("styio-nano-fetch-" + styio_now_token_latest() + ".tmp");
-    if (!styio_fetch_ref_to_file_latest(
-          full_ref, {}, tmp_path, false, kStyioFetchMaxTextBytesLatest, error_message)) {
-      return false;
-    }
-    const bool ok = styio_read_text_file_latest(tmp_path, out_text, error_message);
-    std::error_code ec;
-    std::filesystem::remove(tmp_path, ec);
-    return ok;
+  if (styio_ref_is_remote_latest(full_ref)) {
+    error_message = styio_remote_ref_refusal_latest(full_ref);
+    return false;
   }
 
   std::filesystem::path local_path;
@@ -2899,7 +2861,7 @@ styio_resolve_nano_publish_selection_latest(
     return false;
   }
   out_selection.registry_root = styio_normalize_nano_registry_root_latest(out_selection.registry_root);
-  if (styio_ref_is_http_url_latest(out_selection.registry_root)) {
+  if (styio_ref_is_remote_latest(out_selection.registry_root)) {
     error_message = "styio-nano publish only supports local repository roots or file:// URIs";
     return false;
   }
@@ -3119,41 +3081,27 @@ styio_materialize_cloud_nano_package_latest(
       return false;
     }
 
-    const std::filesystem::path blob_path =
-      std::filesystem::temp_directory_path() / ("styio-nano-blob-" + styio_now_token_latest() + ".tar");
-    const std::filesystem::path cache_blob =
-      styio_nano_blob_cache_dir_latest() / "blobs" / "sha256" / (entry.sha256 + ".tar");
-
-    std::error_code cleanup_ec;
-    bool have_blob = false;
-    if (std::filesystem::is_regular_file(cache_blob, cleanup_ec)) {
-      std::string cached_sha256;
-      if (std::filesystem::file_size(cache_blob, cleanup_ec) == entry.size_bytes
-          && styio_compute_file_sha256_latest(cache_blob, cached_sha256, error_message)
-          && cached_sha256 == entry.sha256) {
-        std::filesystem::create_directories(blob_path.parent_path(), cleanup_ec);
-        std::filesystem::copy_file(
-          cache_blob, blob_path, std::filesystem::copy_options::overwrite_existing, cleanup_ec);
-        have_blob = !cleanup_ec;
-      }
-      else {
-        std::filesystem::remove(cache_blob, cleanup_ec);
-      }
-      cleanup_ec.clear();
-    }
-    if (!have_blob
-        && !styio_fetch_ref_to_file_latest(
-          styio_join_registry_ref_latest(selection.registry_root, entry.blob_path),
-          {},
-          blob_path,
-          false,
-          std::max<std::uint64_t>(entry.size_bytes, 1),
-          error_message)) {
+    // The static repository layout already content-addresses blobs, so the
+    // consume side resolves the local blob path in place and never caches or
+    // stages a copy of it; remote refs are refused by the scheme guard.
+    const std::string blob_ref =
+      styio_join_registry_ref_latest(selection.registry_root, entry.blob_path);
+    if (styio_ref_is_remote_latest(blob_ref)) {
+      error_message = styio_remote_ref_refusal_latest(blob_ref);
       return false;
     }
+    const std::filesystem::path blob_path =
+      styio_absolute_path_latest(
+        styio_ref_is_file_uri_latest(blob_ref)
+          ? std::filesystem::path(styio_file_uri_to_path_latest(blob_ref))
+          : std::filesystem::path(blob_ref));
 
+    std::error_code cleanup_ec;
+    if (!std::filesystem::is_regular_file(blob_path, cleanup_ec)) {
+      error_message = "nano repository blob is not a regular file: " + blob_path.string();
+      return false;
+    }
     if (std::filesystem::file_size(blob_path, cleanup_ec) != entry.size_bytes) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       error_message = "nano repository blob size mismatch for " + selection.registry_package + "@"
                       + selection.registry_version;
       return false;
@@ -3161,24 +3109,15 @@ styio_materialize_cloud_nano_package_latest(
 
     std::string blob_sha256;
     if (!styio_compute_file_sha256_latest(blob_path, blob_sha256, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       return false;
     }
     if (blob_sha256 != entry.sha256) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       error_message = "nano repository blob sha256 mismatch for " + selection.registry_package + "@"
                       + selection.registry_version;
       return false;
     }
-    if (!have_blob) {
-      std::filesystem::create_directories(cache_blob.parent_path(), cleanup_ec);
-      std::filesystem::copy_file(
-        blob_path, cache_blob, std::filesystem::copy_options::overwrite_existing, cleanup_ec);
-      cleanup_ec.clear();
-    }
 
     if (!styio_tar_members_stay_in_root_latest(blob_path, package_cap, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       return false;
     }
 
@@ -3189,12 +3128,10 @@ styio_materialize_cloud_nano_package_latest(
       "tar --no-same-owner -xf " + styio_shell_quote_latest(blob_path.string())
       + " -C " + styio_shell_quote_latest(extract_root.string());
     if (!styio_run_shell_command_latest(extract_cmd, "styio-nano blob extraction", error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
     }
     if (!styio_extracted_links_stay_in_root_latest(extract_root, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
     }
@@ -3202,19 +3139,16 @@ styio_materialize_cloud_nano_package_latest(
     // inflated member could declare a far larger logical size, so bound the
     // extracted tree before it is copied into the install directory.
     if (!styio_extracted_tree_within_cap_latest(extract_root, package_cap, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
     }
 
     std::filesystem::path package_root;
     if (!styio_resolve_extracted_nano_package_root_latest(extract_root, package_root, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
     }
     if (!styio_copy_directory_contents_latest(package_root, output_dir, error_message)) {
-      std::filesystem::remove(blob_path, cleanup_ec);
       std::filesystem::remove_all(extract_root, cleanup_ec);
       return false;
     }
@@ -3244,32 +3178,25 @@ styio_materialize_cloud_nano_package_latest(
            ? std::string()
            : "published_at = \"" + styio_toml_escape_string_latest(entry.published_at) + "\"\n");
     const bool wrote_receipt = styio_write_text_file_latest(receipt_dest, receipt, error_message);
-    std::filesystem::remove(blob_path, cleanup_ec);
     std::filesystem::remove_all(extract_root, cleanup_ec);
     return wrote_receipt;
   }
 
   const std::filesystem::path manifest_copy =
     std::filesystem::temp_directory_path() / ("styio-nano-manifest-" + styio_now_token_latest() + ".toml");
-  std::filesystem::path manifest_base_dir;
   if (!styio_fetch_ref_to_file_latest(
         selection.manifest_ref, {}, manifest_copy, false, kStyioFetchMaxTextBytesLatest, error_message)) {
-    if (!styio_ref_is_http_url_latest(selection.manifest_ref) && !styio_ref_is_file_uri_latest(selection.manifest_ref)) {
-      manifest_base_dir = std::filesystem::path(selection.manifest_ref).parent_path();
-    }
     return false;
   }
 
-  if (!styio_ref_is_http_url_latest(selection.manifest_ref)) {
-    std::filesystem::path manifest_source_path =
-      styio_ref_is_file_uri_latest(selection.manifest_ref)
-        ? std::filesystem::path(styio_file_uri_to_path_latest(selection.manifest_ref))
-        : std::filesystem::path(selection.manifest_ref);
-    if (manifest_source_path.is_relative()) {
-      manifest_source_path = styio_absolute_path_latest(manifest_source_path);
-    }
-    manifest_base_dir = manifest_source_path.parent_path();
+  std::filesystem::path manifest_source_path =
+    styio_ref_is_file_uri_latest(selection.manifest_ref)
+      ? std::filesystem::path(styio_file_uri_to_path_latest(selection.manifest_ref))
+      : std::filesystem::path(selection.manifest_ref);
+  if (manifest_source_path.is_relative()) {
+    manifest_source_path = styio_absolute_path_latest(manifest_source_path);
   }
+  const std::filesystem::path manifest_base_dir = manifest_source_path.parent_path();
 
   StyioNanoPackageManifestLatest manifest;
   if (!styio_parse_nano_package_manifest_latest(manifest_copy, manifest, error_message)) {
@@ -4825,11 +4752,11 @@ main(
     cxxopts::value<std::string>()
   )(
     "nano-manifest",
-    "Legacy cloud package manifest path or https URL for styio-nano package materialization.",
+    "Local styio-nano package manifest path or file:// URI for package materialization; remote references are refused (remote acquisition is pafio's job).",
     cxxopts::value<std::string>()
   )(
     "nano-registry",
-    "styio-nano static repository root (local path, file://, or https://<endpoint>); cleartext http:// is refused and publishing stays local-only.",
+    "styio-nano static repository root (local path or file://); remote references are refused because remote acquisition is pafio's job, and publishing stays local-only.",
     cxxopts::value<std::string>()
   )(
     "nano-package",
