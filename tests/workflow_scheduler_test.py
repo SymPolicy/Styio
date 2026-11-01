@@ -7,6 +7,7 @@ import importlib.util
 import io
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -84,6 +85,19 @@ class WorkflowSchedulerTest(unittest.TestCase):
         with contextlib.redirect_stdout(buffer):
             self.assertEqual(workflow_scheduler.cmd_list(args), 0)
         self.assertEqual(buffer.getvalue().strip(), workflow_scheduler.markdown_profiles())
+
+    def test_list_markdown_emits_audit_table(self) -> None:
+        args = argparse.Namespace(format="markdown")
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            self.assertEqual(workflow_scheduler.cmd_list(args), 0)
+        self.assertEqual(buffer.getvalue().strip(), workflow_scheduler.markdown_table())
+
+    def test_list_format_choices_match_formatter_map(self) -> None:
+        for fmt in workflow_scheduler.FORMATTERS:
+            with unittest.mock.patch.object(sys, "argv", ["workflow-scheduler.py", "list", "--format", fmt]):
+                args = workflow_scheduler.parse_args()
+            self.assertEqual(args.format, fmt)
 
 
 if __name__ == "__main__":

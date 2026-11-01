@@ -187,6 +187,7 @@ run_scheduler_profile() {
   esac
 }
 
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
@@ -370,3 +371,4 @@ else
 fi
 
 log "all checks passed"
+fi

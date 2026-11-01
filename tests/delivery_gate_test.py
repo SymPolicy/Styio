@@ -2,32 +2,40 @@
 """Refusal-shape tests for scripts/delivery-gate.sh origin_repo_name."""
 
 import os
+import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GATE = ROOT / "scripts/delivery-gate.sh"
 
+KEEP_ENV = ("PATH", "HOME", "TMPDIR", "LANG", "LC_ALL")
+
 
 def run_case(url: str) -> subprocess.CompletedProcess:
-    script = "\n".join(
-        [
-            "set -u",
-            f'source <(sed -n "/^origin_repo_name()/,/^}}/p" "{GATE}")',
-            "tmp=$(mktemp -d)",
-            "cd \"$tmp\" && git init -q && git remote add origin \"$ORIGIN_URL\"",
-            "origin_repo_name",
-        ]
-    )
-    env = dict(os.environ)
-    env["ORIGIN_URL"] = url
-    return subprocess.run(
-        ["bash", "-c", script],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    fixture = tempfile.mkdtemp(prefix="delivery-gate-test-")
+    try:
+        env = {k: v for k, v in os.environ.items() if k in KEEP_ENV}
+        env["ORIGIN_URL"] = url
+        env["FIXTURE_DIR"] = fixture
+        script = "\n".join(
+            [
+                "set -u",
+                f'source "{GATE}"',
+                'cd "$FIXTURE_DIR" && git init -q && git remote add origin "$ORIGIN_URL"',
+                "origin_repo_name",
+            ]
+        )
+        return subprocess.run(
+            ["bash", "-c", script],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        shutil.rmtree(fixture, ignore_errors=True)
 
 
 class DeliveryGateOriginTest(unittest.TestCase):
