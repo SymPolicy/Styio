@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refusal-shape tests for scripts/delivery-gate.sh origin_repo_name."""
+"""Entrypoint and origin-resolution tests for scripts/delivery-gate.sh: sourced refusal shapes plus the BASH_SOURCE direct-execution branch."""
 
 import os
 import shutil

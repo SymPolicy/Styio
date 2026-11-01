@@ -187,190 +187,190 @@ run_scheduler_profile() {
 }
 
 main() {
-  set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+    set -euo pipefail
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT"
 
-MODE="auto"
-BASE_REF=""
-REV_RANGE="${STYIO_DELIVERY_RANGE:-}"
-RUN_HEALTH=1
-RUN_AUDIT=1
-AUDIT_BIN=""
-RUN_ASAN=0
-RUN_FUZZ=0
-BUILD_DIR=""
-ASAN_BUILD_DIR=""
-FUZZ_BUILD_DIR=""
+  MODE="auto"
+  BASE_REF=""
+  REV_RANGE="${STYIO_DELIVERY_RANGE:-}"
+  RUN_HEALTH=1
+  RUN_AUDIT=1
+  AUDIT_BIN=""
+  RUN_ASAN=0
+  RUN_FUZZ=0
+  BUILD_DIR=""
+  ASAN_BUILD_DIR=""
+  FUZZ_BUILD_DIR=""
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --mode)
-      MODE="$2"
-      shift 2
-      ;;
-    --base)
-      BASE_REF="$2"
-      shift 2
-      ;;
-    --range)
-      REV_RANGE="$2"
-      shift 2
-      ;;
-    --skip-health)
-      RUN_HEALTH=0
-      shift
-      ;;
-    --skip-audit)
-      RUN_AUDIT=0
-      shift
-      ;;
-    --audit-bin)
-      AUDIT_BIN="$2"
-      shift 2
-      ;;
-    --with-asan)
-      RUN_ASAN=1
-      shift
-      ;;
-    --with-fuzz)
-      RUN_FUZZ=1
-      shift
-      ;;
-    --build-dir)
-      BUILD_DIR="$2"
-      shift 2
-      ;;
-    --asan-build-dir)
-      ASAN_BUILD_DIR="$2"
-      RUN_ASAN=1
-      shift 2
-      ;;
-    --fuzz-build-dir)
-      FUZZ_BUILD_DIR="$2"
-      RUN_FUZZ=1
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mode)
+        MODE="$2"
+        shift 2
+        ;;
+      --base)
+        BASE_REF="$2"
+        shift 2
+        ;;
+      --range)
+        REV_RANGE="$2"
+        shift 2
+        ;;
+      --skip-health)
+        RUN_HEALTH=0
+        shift
+        ;;
+      --skip-audit)
+        RUN_AUDIT=0
+        shift
+        ;;
+      --audit-bin)
+        AUDIT_BIN="$2"
+        shift 2
+        ;;
+      --with-asan)
+        RUN_ASAN=1
+        shift
+        ;;
+      --with-fuzz)
+        RUN_FUZZ=1
+        shift
+        ;;
+      --build-dir)
+        BUILD_DIR="$2"
+        shift 2
+        ;;
+      --asan-build-dir)
+        ASAN_BUILD_DIR="$2"
+        RUN_ASAN=1
+        shift 2
+        ;;
+      --fuzz-build-dir)
+        FUZZ_BUILD_DIR="$2"
+        RUN_FUZZ=1
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+    esac
+  done
+
+  case "$MODE" in
+    auto|checkpoint|staged|push|release)
       ;;
     *)
-      echo "Unknown option: $1" >&2
+      echo "Unsupported mode: $MODE" >&2
       usage >&2
       exit 2
       ;;
   esac
-done
 
-case "$MODE" in
-  auto|checkpoint|staged|push|release)
-    ;;
-  *)
-    echo "Unsupported mode: $MODE" >&2
-    usage >&2
-    exit 2
-    ;;
-esac
+  if [[ "$MODE" == "release" ]]; then
+    RUN_ASAN=1
+    RUN_FUZZ=1
+  fi
 
-if [[ "$MODE" == "release" ]]; then
-  RUN_ASAN=1
-  RUN_FUZZ=1
-fi
+  HEALTH_CMD=(./scripts/checkpoint-health.sh)
 
-HEALTH_CMD=(./scripts/checkpoint-health.sh)
+  if [[ -n "$BUILD_DIR" ]]; then
+    HEALTH_CMD+=(--build-dir "$BUILD_DIR")
+  fi
+  if [[ -n "$ASAN_BUILD_DIR" ]]; then
+    HEALTH_CMD+=(--asan-build-dir "$ASAN_BUILD_DIR")
+  fi
+  if [[ -n "$FUZZ_BUILD_DIR" ]]; then
+    HEALTH_CMD+=(--fuzz-build-dir "$FUZZ_BUILD_DIR")
+  fi
+  if [[ "$RUN_ASAN" -eq 0 ]]; then
+    HEALTH_CMD+=(--no-asan)
+  fi
+  if [[ "$RUN_FUZZ" -eq 0 ]]; then
+    HEALTH_CMD+=(--no-fuzz)
+  fi
 
-if [[ -n "$BUILD_DIR" ]]; then
-  HEALTH_CMD+=(--build-dir "$BUILD_DIR")
-fi
-if [[ -n "$ASAN_BUILD_DIR" ]]; then
-  HEALTH_CMD+=(--asan-build-dir "$ASAN_BUILD_DIR")
-fi
-if [[ -n "$FUZZ_BUILD_DIR" ]]; then
-  HEALTH_CMD+=(--fuzz-build-dir "$FUZZ_BUILD_DIR")
-fi
-if [[ "$RUN_ASAN" -eq 0 ]]; then
-  HEALTH_CMD+=(--no-asan)
-fi
-if [[ "$RUN_FUZZ" -eq 0 ]]; then
-  HEALTH_CMD+=(--no-fuzz)
-fi
+  log "mode: ${MODE}"
 
-log "mode: ${MODE}"
+  case "$MODE" in
+    auto)
+      if has_worktree_changes; then
+        run_scheduler_profile delivery-checkpoint
+      else
+        log "worktree: nothing to check"
+      fi
 
-case "$MODE" in
-  auto)
-    if has_worktree_changes; then
+      if [[ -z "$BASE_REF" ]]; then
+        BASE_REF="$(resolve_delivery_base || true)"
+      fi
+      if [[ -z "$BASE_REF" ]]; then
+        echo "auto mode could not infer a delivery base; set --base <ref> or STYIO_DELIVERY_BASE" >&2
+        exit 2
+      fi
+      if [[ "$(rev_count "${BASE_REF}..HEAD")" -gt 0 ]]; then
+        if [[ -z "$REV_RANGE" ]]; then
+          REV_RANGE="${BASE_REF}..HEAD"
+        fi
+        run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
+      else
+        log "push range ${BASE_REF}..HEAD: nothing to check"
+      fi
+      ;;
+    checkpoint)
+      if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
+        echo "checkpoint mode does not accept --base or --range; use --mode push for branch checks" >&2
+        exit 2
+      fi
       run_scheduler_profile delivery-checkpoint
-    else
-      log "worktree: nothing to check"
-    fi
-
-    if [[ -z "$BASE_REF" ]]; then
-      BASE_REF="$(resolve_delivery_base || true)"
-    fi
-    if [[ -z "$BASE_REF" ]]; then
-      echo "auto mode could not infer a delivery base; set --base <ref> or STYIO_DELIVERY_BASE" >&2
-      exit 2
-    fi
-    if [[ "$(rev_count "${BASE_REF}..HEAD")" -gt 0 ]]; then
+      ;;
+    staged)
+      if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
+        echo "staged mode does not accept --base or --range; use --mode push for branch checks" >&2
+        exit 2
+      fi
+      run_scheduler_profile delivery-staged
+      ;;
+    push)
+      if [[ -z "$BASE_REF" ]]; then
+        BASE_REF="$(resolve_delivery_base || true)"
+      fi
+      if [[ -z "$BASE_REF" ]]; then
+        echo "push mode requires --base <ref> or an inferable upstream/parent branch" >&2
+        exit 2
+      fi
       if [[ -z "$REV_RANGE" ]]; then
         REV_RANGE="${BASE_REF}..HEAD"
       fi
       run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
-    else
-      log "push range ${BASE_REF}..HEAD: nothing to check"
-    fi
-    ;;
-  checkpoint)
-    if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
-      echo "checkpoint mode does not accept --base or --range; use --mode push for branch checks" >&2
-      exit 2
-    fi
-    run_scheduler_profile delivery-checkpoint
-    ;;
-  staged)
-    if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
-      echo "staged mode does not accept --base or --range; use --mode push for branch checks" >&2
-      exit 2
-    fi
-    run_scheduler_profile delivery-staged
-    ;;
-  push)
-    if [[ -z "$BASE_REF" ]]; then
-      BASE_REF="$(resolve_delivery_base || true)"
-    fi
-    if [[ -z "$BASE_REF" ]]; then
-      echo "push mode requires --base <ref> or an inferable upstream/parent branch" >&2
-      exit 2
-    fi
-    if [[ -z "$REV_RANGE" ]]; then
-      REV_RANGE="${BASE_REF}..HEAD"
-    fi
-    run_scheduler_profile delivery-push --base "$BASE_REF" --range "$REV_RANGE"
-    ;;
-  release)
-    if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
-      echo "release mode does not accept --base or --range; run push mode separately for branch checks" >&2
-      exit 2
-    fi
-    run_scheduler_profile delivery-checkpoint
-    ;;
-esac
+      ;;
+    release)
+      if [[ -n "$BASE_REF" || -n "$REV_RANGE" ]]; then
+        echo "release mode does not accept --base or --range; run push mode separately for branch checks" >&2
+        exit 2
+      fi
+      run_scheduler_profile delivery-checkpoint
+      ;;
+  esac
 
-if [[ "$RUN_AUDIT" -eq 1 ]]; then
-  run_audit_gate
-else
-  log "audit skipped"
-fi
+  if [[ "$RUN_AUDIT" -eq 1 ]]; then
+    run_audit_gate
+  else
+    log "audit skipped"
+  fi
 
-if [[ "$RUN_HEALTH" -eq 1 ]]; then
-  run_cmd "${HEALTH_CMD[@]}"
-else
-  log "checkpoint-health skipped"
-fi
+  if [[ "$RUN_HEALTH" -eq 1 ]]; then
+    run_cmd "${HEALTH_CMD[@]}"
+  else
+    log "checkpoint-health skipped"
+  fi
 
-log "all checks passed"
+  log "all checks passed"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
