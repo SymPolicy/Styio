@@ -60,6 +60,13 @@ TOOLS: tuple[Tool, ...] = (
         ("python3", "tests/docs_stats_render_test.py"),
     ),
     Tool(
+        "delivery-gate-tests",
+        6,
+        "Test Quality",
+        "Run unit tests for delivery-gate origin resolution's cleartext refusal.",
+        ("python3", "tests/delivery_gate_test.py"),
+    ),
+    Tool(
         "repo-hygiene-worktree",
         10,
         "Docs / Ecosystem",
@@ -280,6 +287,7 @@ PROFILES: tuple[Profile, ...] = (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
             "docs-stats-render-tests",
+            "delivery-gate-tests",
             "repo-hygiene-tracked",
             "runtime-surface",
             "team-docs-worktree",
@@ -294,6 +302,7 @@ PROFILES: tuple[Profile, ...] = (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
             "docs-stats-render-tests",
+            "delivery-gate-tests",
             "repo-hygiene-tracked",
             "repo-hygiene-push",
             "runtime-surface",
@@ -466,12 +475,13 @@ def markdown_profiles() -> str:
     return "\n".join(lines)
 
 
+FORMATTERS = {"markdown": markdown_table, "markdown-profiles": markdown_profiles}
+
+
 def cmd_list(args: argparse.Namespace) -> int:
-    if args.format == "markdown":
-        print(markdown_table())
-        return 0
-    if args.format == "markdown-profiles":
-        print(markdown_profiles())
+    formatter = FORMATTERS.get(args.format)
+    if formatter is not None:
+        print(formatter())
         return 0
 
     for profile in PROFILES:
@@ -518,7 +528,7 @@ def parse_args() -> argparse.Namespace:
     check.set_defaults(func=cmd_check)
 
     list_cmd = sub.add_parser("list", help="List registered profiles, tools, and workflow docs.")
-    list_cmd.add_argument("--format", choices=["text", "markdown", "markdown-profiles"], default="text")
+    list_cmd.add_argument("--format", choices=["text", *FORMATTERS], default="text")
     list_cmd.set_defaults(func=cmd_list)
 
     run = sub.add_parser("run", help="Run a registered workflow profile.")

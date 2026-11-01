@@ -42,6 +42,7 @@ Current registered table:
 | Workflow | `delivery-gate` | 60 | docs | Common delivery-floor entrypoint and health-gate handoff. | `docs/assets/workflow/DELIVERY-GATE.md` |
 | Workflow | `checkpoint-health` | 70 | docs | Repository build/test health entrypoint for checkpoint delivery. | `docs/assets/workflow/CHECKPOINT-HEALTH.md` |
 | Tool | `workflow-scheduler-check` | 5 | Docs / Ecosystem | Validate workflow registry, separation, ordering, and discoverability. | `python3 scripts/workflow-scheduler.py check` |
+| Tool | `delivery-gate-tests` | 6 | Test Quality | Run unit tests for delivery-gate origin resolution's cleartext refusal. | `python3 tests/delivery_gate_test.py` |
 | Tool | `docs-stats-render-tests` | 6 | Test Quality | Run unit tests for the DOC-STATS table renderer's canonical-form refusals. | `python3 tests/docs_stats_render_test.py` |
 | Tool | `workflow-scheduler-tests` | 6 | Test Quality | Run scheduler unit tests for range resolution and registry invariants. | `python3 tests/workflow_scheduler_test.py` |
 | Tool | `repo-hygiene-push` | 10 | Docs / Ecosystem | Reject forbidden artifacts introduced by the incoming revision range. | `python3 scripts/repo-hygiene-gate.py --mode push --range {range}` |
@@ -58,15 +59,28 @@ Current registered table:
 
 ## Profiles
 
+The generated source of truth is:
+
+```bash
+python3 scripts/workflow-scheduler.py list --format markdown-profiles
+```
+
 | Profile | Scope | Ordered Call Chain |
 |---------|-------|--------------------|
 | `delivery-checkpoint` | Common worktree process gates for checkpoint delivery before optional checkpoint-health. | repo-hygiene-worktree -> runtime-surface -> team-docs-worktree -> docs-audit -> ecosystem-cli-docs |
 | `delivery-staged` | Common staged-index process gates for commit hooks and staged handoff. | repo-hygiene-staged -> runtime-surface -> team-docs-staged -> docs-audit -> ecosystem-cli-docs |
 | `delivery-push` | Common process gates for branch handoff against a base ref and incoming revision range. | repo-hygiene-push -> runtime-surface -> team-docs-base -> docs-audit -> ecosystem-cli-docs |
-| `syntax-local` | Local syntax-change worktree verification. | workflow-scheduler-check -> workflow-scheduler-tests -> docs-stats-render-tests -> repo-hygiene-tracked -> runtime-surface -> team-docs-worktree -> docs-audit -> ecosystem-cli-docs |
-| `ci-prebuild` | GitHub Actions prebuild chain before compile, CTest, parser-shadow, and fuzz smoke. | workflow-scheduler-check -> workflow-scheduler-tests -> docs-stats-render-tests -> repo-hygiene-tracked -> repo-hygiene-push -> runtime-surface -> team-docs-base -> ecosystem-cli-docs-workspace |
+| `syntax-local` | Local syntax-change worktree verification. | workflow-scheduler-check -> workflow-scheduler-tests -> docs-stats-render-tests -> delivery-gate-tests -> repo-hygiene-tracked -> runtime-surface -> team-docs-worktree -> docs-audit -> ecosystem-cli-docs |
+| `ci-prebuild` | GitHub Actions prebuild chain before compile, CTest, parser-shadow, and fuzz smoke. | workflow-scheduler-check -> workflow-scheduler-tests -> docs-stats-render-tests -> delivery-gate-tests -> repo-hygiene-tracked -> repo-hygiene-push -> runtime-surface -> team-docs-base -> ecosystem-cli-docs-workspace |
 
 ## Required Commands
+
+Regenerate the Audit Table and Profiles table:
+
+```bash
+python3 scripts/workflow-scheduler.py list --format markdown
+python3 scripts/workflow-scheduler.py list --format markdown-profiles
+```
 
 Validate registry and ordering:
 

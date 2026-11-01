@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
+import contextlib
 import importlib.util
+import io
 import sys
 import unittest
 from pathlib import Path
@@ -74,6 +77,13 @@ class WorkflowSchedulerTest(unittest.TestCase):
         finally:
             workflow_scheduler.markdown_profiles = original
         self.assertTrue(any("profiles table is not synchronized" in e for e in errors), errors)
+
+    def test_list_markdown_profiles_emits_profiles_table(self) -> None:
+        args = argparse.Namespace(format="markdown-profiles")
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            self.assertEqual(workflow_scheduler.cmd_list(args), 0)
+        self.assertEqual(buffer.getvalue().strip(), workflow_scheduler.markdown_profiles())
 
 
 if __name__ == "__main__":
