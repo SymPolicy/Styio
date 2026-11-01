@@ -312,6 +312,49 @@ def measure_markdown(path: Path) -> tuple[int, int]:
     return len(text), count_words(text)
 
 
+STATS_ROW_RE = re.compile(r"^\| (.+) \| \[([^\]]+-RUNBOOK\.md)\]\([^)]*\) \| [\d,]+ \| [\d,]+ \|$")
+STATS_TOTAL_RE = re.compile(r"^\| \*\*Total\*\* \| Team runbooks only \| \*\*[\d,]+\*\* \| \*\*[\d,]+\*\* \|$")
+
+
+def render_team_stats(doc_stats_path: Path) -> str:
+    """Rewrite the Team Runbook Size rows and Total of DOC-STATS.md in place.
+
+    Row numbers come from measure_markdown over each linked runbook; the
+    Total row is the sum of the runbook rows only. Team labels, row order
+    and every other line are preserved untouched, so refreshing the table
+    and checking the gate share this one computation.
+    """
+    absolute = ROOT / doc_stats_path
+    lines = absolute.read_text(encoding="utf-8").splitlines(keepends=True)
+    total_words = total_chars = 0
+    rendered = []
+    for line in lines:
+        match = STATS_ROW_RE.match(line.rstrip("\n"))
+        if match:
+            chars, words = measure_markdown(Path("docs/teams") / match.group(2))
+            total_words += words
+            total_chars += chars
+            rendered.append(f"| {match.group(1)} | [{match.group(2)}](./{match.group(2)}) | {words:,} | {chars:,} |\n")
+        elif STATS_TOTAL_RE.match(line.rstrip("\n")):
+            rendered.append(
+                f"| **Total** | Team runbooks only | **{total_words:,}** | **{total_chars:,}** |\n"
+            )
+        else:
+            rendered.append(line)
+    return "".join(rendered)
+
+
+def run_stats(doc_stats_path: Path) -> int:
+    absolute = ROOT / doc_stats_path
+    updated = render_team_stats(doc_stats_path)
+    if updated == absolute.read_text(encoding="utf-8"):
+        print(f"{doc_stats_path.as_posix()} is already up to date")
+    else:
+        absolute.write_text(updated, encoding="utf-8")
+        print(f"{doc_stats_path.as_posix()} team runbook stats refreshed")
+    return 0
+
+
 def collect_manifest(source: str) -> List[ManifestEntry]:
     if source == "worktree":
         paths = git_worktree_markdown_paths()
@@ -721,11 +764,18 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Optional output file for --manifest. When omitted, output goes to stdout.",
     )
+    parser.add_argument(
+        "--stats",
+        type=Path,
+        help="Rewrite the Team Runbook Size rows and **Total** row of the given DOC-STATS.md from measure_markdown, then exit.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.stats:
+        return run_stats(args.stats)
     if args.manifest:
         return run_manifest(status=args.manifest, fmt=args.format, source=args.source, output=args.output)
     return run_audit()

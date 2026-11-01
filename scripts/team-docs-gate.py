@@ -335,12 +335,10 @@ def validate_all_runbook_formats() -> List[str]:
     return errors
 
 
-def validate_doc_stats_total() -> List[str]:
+def validate_doc_stats() -> List[str]:
     absolute = ROOT / DOC_STATS
     if not absolute.exists():
         return [f"{DOC_STATS.as_posix()} is missing"]
-    errors: List[str] = []
-    measured = {}
     try:
         import importlib.util
 
@@ -349,51 +347,24 @@ def validate_doc_stats_total() -> List[str]:
         spec = importlib.util.spec_from_file_location("docs_audit", ROOT / "scripts" / "docs-audit.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        for path in TEAM_RUNBOOKS:
-            source = ROOT / path
-            if source.exists():
-                measured[path.name] = module.measure_markdown(source)
-    except Exception:
-        measured = {}
+        rendered = module.render_team_stats(DOC_STATS)
+    except Exception as exc:
+        return [f"{DOC_STATS.as_posix()} cannot be re-measured via scripts/docs-audit.py: {exc}"]
 
-    rows_words = rows_chars = 0
-    total_words = total_chars = None
-    row_names = set()
-    for line in absolute.read_text(encoding="utf-8").splitlines():
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) < 4:
-            continue
-        numbers = [cell.strip("* ").replace(",", "") for cell in cells[2:4]]
-        if not all(num.isdigit() for num in numbers):
-            continue
-        words, chars = (int(num) for num in numbers)
-        if cells[0] == "**Total**":
-            total_words, total_chars = words, chars
-        elif "-RUNBOOK.md" in cells[1]:
-            rows_words += words
-            rows_chars += chars
-            name = cells[1].split("](")[0].lstrip("[")
-            row_names.add(name)
-            if measured:
-                disk = measured.get(name)
-                if disk is None:
-                    errors.append(f"{DOC_STATS.as_posix()} row {name} has no matching team runbook file")
-                elif disk != (chars, words):
-                    errors.append(
-                        f"{DOC_STATS.as_posix()} row {name} ({words:,} / {chars:,}) "
-                        f"differs from docs-audit measurement ({disk[1]:,} / {disk[0]:,})"
-                    )
-    if total_words is None:
-        errors.append(f"{DOC_STATS.as_posix()} has no parseable **Total** row")
-    elif (rows_words, rows_chars) != (total_words, total_chars):
+    errors: List[str] = []
+    if rendered != absolute.read_text(encoding="utf-8"):
         errors.append(
-            f"{DOC_STATS.as_posix()} **Total** row ({total_words:,} / {total_chars:,}) "
-            f"differs from the sum of its runbook rows ({rows_words:,} / {rows_chars:,})"
+            f"{DOC_STATS.as_posix()} runbook rows or **Total** differ from `docs-audit.py --stats` "
+            "output; refresh with `python3 scripts/docs-audit.py --stats docs/teams/DOC-STATS.md`"
         )
-    if measured:
-        missing = sorted(set(measured) - row_names)
-        if missing:
-            errors.append(f"{DOC_STATS.as_posix()} is missing runbook rows: {', '.join(missing)}")
+    listed = {
+        match.group(1)
+        for line in absolute.read_text(encoding="utf-8").splitlines()
+        if (match := re.search(r"\[([^\]]+-RUNBOOK\.md)\]", line))
+    }
+    missing = sorted(path.name for path in TEAM_RUNBOOKS if path.name not in listed)
+    if missing:
+        errors.append(f"{DOC_STATS.as_posix()} is missing runbook rows: {', '.join(missing)}")
     return errors
 
 
@@ -410,10 +381,10 @@ def run_gate(changed_paths: Sequence[Path], verbose: bool) -> int:
             + "\n".join(f"    - {error}" for error in format_errors)
         )
 
-    stats_errors = validate_doc_stats_total()
+    stats_errors = validate_doc_stats()
     if stats_errors:
         failures.append(
-            f"{DOC_STATS.as_posix()} total validation failed:\n"
+            f"{DOC_STATS.as_posix()} stats validation failed (row values, row coverage, and Total):\n"
             + "\n".join(f"    - {error}" for error in stats_errors)
         )
 
