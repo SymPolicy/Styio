@@ -322,11 +322,14 @@ def render_team_stats(doc_stats_path: Path) -> str:
     Row numbers come from measure_markdown over each row's link target,
     resolved against the stats file's own directory; the Total row is the
     sum of the runbook rows only. Team labels, row order and every other
-    line are preserved untouched, so refreshing the table and checking the
-    gate share this one computation. Raises ValueError naming the offending
-    line when the table is not in canonical form: zero or multiple Total
-    rows, a runbook on disk with no row, a row link that does not resolve
-    inside the stats file's directory, or no runbook rows at all.
+    line are preserved untouched — though a row is only canonical when its
+    label equals its link target's filename — so refreshing the table and
+    checking the gate share this one computation. Raises ValueError naming
+    the offending line when the table is not in canonical form: zero or
+    multiple Total rows, a runbook on disk with no row, a row link that does
+    not resolve inside the stats file's directory, a row label disagreeing
+    with its link's filename, two rows resolving to the same target, a stats
+    path outside the repository, or no runbook rows at all.
     """
     root = ROOT.resolve()
     absolute = (root / doc_stats_path).resolve()

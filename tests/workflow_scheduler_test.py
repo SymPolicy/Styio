@@ -53,6 +53,10 @@ class WorkflowSchedulerTest(unittest.TestCase):
         self.assertIn("SYNTAX-ADDITION-WORKFLOW.md", table)
         self.assertIn("runtime-surface", table)
 
+    def test_every_tool_is_reachable_from_a_profile(self) -> None:
+        reachable = {key for profile in workflow_scheduler.PROFILES for key in profile.tools}
+        self.assertEqual({tool.key for tool in workflow_scheduler.TOOLS}, reachable)
+
 
 if __name__ == "__main__":
     unittest.main()

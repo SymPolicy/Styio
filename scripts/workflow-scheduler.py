@@ -279,6 +279,7 @@ PROFILES: tuple[Profile, ...] = (
         (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
+            "docs-stats-render-tests",
             "repo-hygiene-tracked",
             "runtime-surface",
             "team-docs-worktree",
@@ -292,6 +293,7 @@ PROFILES: tuple[Profile, ...] = (
         (
             "workflow-scheduler-check",
             "workflow-scheduler-tests",
+            "docs-stats-render-tests",
             "repo-hygiene-tracked",
             "repo-hygiene-push",
             "runtime-surface",

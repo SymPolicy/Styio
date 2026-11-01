@@ -2,7 +2,7 @@
 
 **Purpose:** Define the registered workflow documents, tool responsibilities, ordering rules, and scheduler entrypoints that keep Styio delivery workflows separated and executable.
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-11-01
 
 ## Separation Rules
 
@@ -59,11 +59,11 @@ Current registered table:
 
 | Profile | Scope | Ordered Call Chain |
 |---------|-------|--------------------|
-| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> tracked hygiene -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
+| `syntax-local` | Local syntax-change worktree verification. | scheduler check -> scheduler tests -> stats renderer tests -> tracked hygiene -> runtime surface -> team docs -> docs audit -> ecosystem CLI docs |
 | `delivery-checkpoint` | Worktree process gates before checkpoint health. | worktree hygiene -> runtime surface -> worktree team docs -> docs audit -> ecosystem CLI docs |
 | `delivery-staged` | Staged-index process gates for commit hooks and staged handoff. | staged hygiene -> runtime surface -> staged team docs -> docs audit -> ecosystem CLI docs |
 | `delivery-push` | Branch handoff against a base ref. | push hygiene -> runtime surface -> base team docs -> docs audit -> ecosystem CLI docs |
-| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> tracked hygiene -> incoming history hygiene -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
+| `ci-prebuild` | GitHub Actions prebuild checks before compile/test. | scheduler check -> scheduler tests -> stats renderer tests -> tracked hygiene -> incoming history hygiene -> runtime surface -> base team docs -> workspace ecosystem CLI docs |
 
 ## Required Commands
 
