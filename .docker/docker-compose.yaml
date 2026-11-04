@@ -2,6 +2,6 @@ version: '3'
 services:
   styio:
     image: debian:latest
-    container_name: Unka-Malloc
+    container_name: styio-dev
     build:
       dockerfile: ../.devcontainer/Dockerfile

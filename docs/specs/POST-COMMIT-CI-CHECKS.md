@@ -6,7 +6,7 @@
 
 ## Scope
 
-This spec applies to agent and maintainer work on `styio-nightly` branches. It covers local pre-commit verification, post-push GitHub Actions monitoring, and failure recovery for repository-local and cross-repository gates.
+This spec applies to agent and maintainer work on `Styio` branches. It covers local pre-commit verification, post-push GitHub Actions monitoring, and failure recovery for repository-local and cross-repository gates.
 
 Use the current request and existing approvals to determine authority. This workflow does not itself authorize a commit, push, merge, release, or governance change. Repository review and approval requirements remain effective; do not ask again for an action already covered by the same scope and risk boundary. Resolve discoverable facts and ordinary in-scope implementation issues directly, report material findings, and pause only work that needs a new decision.
 
@@ -99,11 +99,11 @@ If `gh` is unavailable or unauthenticated, the agent must state that GitHub Acti
 
 ## Cross-Repository Work
 
-When one delivery touches `styio-nightly`, `pafio-nightly`, and `vityo-nightly`, post-push verification applies to every pushed repository. The agent should check each repository's GitHub Actions status, not only the repository that received the last commit.
+When one delivery touches `Styio`, `Pafio`, and `Vityo`, post-push verification applies to every pushed repository. The agent should check each repository's GitHub Actions status, not only the repository that received the last commit.
 
 Cross-repository gates must use the same workspace checkout set that will be visible to CI. If a gate consumes another repository's branch, perform an already-authorized dependency push first; otherwise prepare the required handoff and report the revision mismatch. A gate dependency does not grant permission to publish another repository.
 
-`styio-nightly` GitHub Actions resolve the ecosystem lane from the pull request target branch, or from the pushed branch. Temporary pull request branches targeting `nightly` therefore consume the siblings' `nightly` branches. Publish any required sibling changes to that lane before relying on the cross-repository checks.
+`Styio` GitHub Actions resolve the ecosystem lane from the pull request target branch, or from the pushed branch. Temporary pull request branches targeting `nightly` therefore consume the siblings' `nightly` branches. Publish any required sibling changes to that lane before relying on the cross-repository checks.
 
 ## Automatic Advisory Inventory and Final Report
 
@@ -153,7 +153,7 @@ Required GitHub merge gates are maintained through GitHub Rulesets, not legacy c
 Gate audits must inspect effective branch rules, for example:
 
 ```bash
-gh api repos/Unka-Malloc/styio-nightly/rulesets
+gh api repos/SymPolicy/Styio/rulesets
 ```
 
 Do not use `branches/nightly/protection/required_status_checks` as the authority for this repository. That classic endpoint can return 404 even when the Ruleset gate is active.
