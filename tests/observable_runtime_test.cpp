@@ -1057,7 +1057,7 @@ TEST(StyioObservableRuntime, StrictPrivacyFixtureExcludesCanaries) {
   const std::string payload = sink.joined();
   EXPECT_FALSE(obs::payload_contains_privacy_canary(payload)) << payload;
   EXPECT_EQ(payload.find("/absolute/canary/path"), std::string::npos);
-  EXPECT_EQ(payload.find("CANARY_SECRET_sk-live-test"), std::string::npos);
+  EXPECT_EQ(payload.find("canary-secret-sentinel"), std::string::npos);
   EXPECT_EQ(payload.find("diagnostic canary message"), std::string::npos);
 }
 

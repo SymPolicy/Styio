@@ -1,5 +1,5 @@
 # Source canaries must never appear in runtime-events v2 payloads.
-secret = "CANARY_SECRET_sk-live-test"
+secret = "canary-secret-sentinel"
 host = "canary.example.host"
 path = "/absolute/canary/path"
 addr = "203.0.113.77"
