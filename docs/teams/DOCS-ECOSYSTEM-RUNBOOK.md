@@ -77,11 +77,7 @@ Key SSOTs:
    The resource prelude lives at `share/styio/prelude/resources.styio`; its
    ownership is defined by [library/manifest.json](../../library/manifest.json)
    and the [library guide](../../library/README.md).
-5. `docs/audit/` is the repository-local audit queue: transient defect records
-   live in ignored `docs/audit/defects/` and closed reports are not retained as
-   long-form documents. `docs/specs/audit/` owns the review checklist baseline
-   in [CODE-AUDIT-CHECKLIST.md](../specs/audit/CODE-AUDIT-CHECKLIST.md).
-6. Follow [repository hygiene](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md)
+5. Follow [repository hygiene](../../workflows/REPO-HYGIENE-COMMIT-STANDARD.md)
    for approved document roots, ignored audit output, generated files, and
    residue checks. Current examples reference executable source and test oracles.
 6. Keep public host contract pages, including [LSP Usage](../external/for-ide/LSP.md),

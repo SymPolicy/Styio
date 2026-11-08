@@ -212,3 +212,10 @@ launch site. The lowering case pins the first target's held flag, the final
 edge's launch emission and the re-created task's normal launch; the codegen
 case pins the `_spawn_held` versus plain spawn call selection at the bind
 sites.
+
+### Privacy-canary sentinel fixtures (2026-11-08)
+
+The observable-runtime privacy canaries and their runtime-correlation
+assertions now use synthetic non-key sentinel values (`canary-secret-sentinel`)
+and the canary fixture field was renamed accordingly; the literals were only
+credential-shaped fixtures and no detection behaviour changed.

@@ -183,3 +183,10 @@ settles only to the child. A parent that raised before the wait assist or the
 queue-full work-first dispatch keeps its own subcode instead of settling as
 success once the child runs inline. The guard is inactive for a top-level run,
 whose thread slot is fresh by contract.
+
+### Privacy-canary sentinel fixtures (2026-11-08)
+
+The observable-runtime privacy canaries and their runtime-correlation
+assertions now use synthetic non-key sentinel values (`canary-secret-sentinel`)
+and the canary fixture field was renamed accordingly; the literals were only
+credential-shaped fixtures and no detection behaviour changed.
