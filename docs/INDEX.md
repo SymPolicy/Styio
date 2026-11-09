@@ -13,7 +13,6 @@
 | `adr/` | [ADR Index](./adr/INDEX.md) | Define the minimal current-tree ADR policy: implemented decisions are compressed as current implementation snapshots, active rules live in owning SSOTs, and exact old decision text is recovered from Git history. |
 | `archive/` | [Archive Index](./archive/INDEX.md) | Define the remaining archive lifecycle shell under docs/archive/; historical prose and retired syntax snapshots live in Git history, while the current tree keeps active docs and minimal provenance metadata. |
 | `assets/` | [Assets Index](./assets/INDEX.md) | Define the scope of reusable documentation assets under docs/assets/; the generated inventory lives in INDEX.md. |
-| `audit/` | [Audit Index](./audit/INDEX.md) | Define the repository-local audit queue for security, correctness, and design defects discovered before they are converted into normal tracked work; closed audit reports are not retained as long-form current-tree documents. |
 | `design/` | [Design Index](./design/INDEX.md) | Define the scope and naming rules for docs/design/; the generated file inventory lives in INDEX.md. |
 | `external/` | [External Docs Index](./external/INDEX.md) | Define the scope and naming rules for external-facing service and handoff docs consumed by tools, editors, IDEs, package managers, and sibling Styio repositories. |
 | `history/` | [History Index](./history/INDEX.md) | Define the recovery usage of docs/history/; current repository state does not retain raw dated checkpoint logs by default. |

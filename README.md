@@ -3,8 +3,8 @@
 **Styio is an experimental general-purpose visual programming language with
 symbolic syntax for expressing data flow.**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Unka-Malloc/styio-nightly/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/Unka-Malloc/styio-nightly/actions/workflows/styio-ci-gate.yml)
-[![License](https://img.shields.io/github/license/Unka-Malloc/styio-nightly?style=flat-square)](https://github.com/Unka-Malloc/styio-nightly/blob/nightly/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/SymPolicy/Styio/styio-ci-gate.yml?branch=nightly&style=flat-square&logo=github&label=ci)](https://github.com/SymPolicy/Styio/actions/workflows/styio-ci-gate.yml)
+[![License](https://img.shields.io/github/license/SymPolicy/Styio?style=flat-square)](https://github.com/SymPolicy/Styio/blob/nightly/LICENSE)
 
 [Simplified Chinese](README_zh.md) | [Build guide](docs/BUILD-AND-DEV-ENV.md) | [Repository docs](docs/README.md) | [Examples](example/README.md)
 
@@ -97,9 +97,9 @@ rules are promoted into docs.
 
 ## Project Boundaries
 
-Repository homes: this checkout is the active downstream `Unka-Malloc/styio-nightly`;
-the upstream repository is `SymPolicy/Styio` (formerly `SymPolicy/Styio`). The badges
-above point at the downstream repository that runs the advertised checks.
+Repository homes: this checkout is `SymPolicy/Styio`, the upstream product
+repository for the compiler and language toolchain. The badges above point at
+the checks that run in this repository.
 
 Styio is developed alongside related repositories, but this repository owns the
 compiler, language tests, resource-topology semantics, and CLI contracts. Package

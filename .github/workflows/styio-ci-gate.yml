@@ -47,10 +47,10 @@ jobs:
           echo "target_lane=$TARGET_LANE" >> "$GITHUB_OUTPUT"
           echo "ecosystem_ref=$ECOSYSTEM_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Check out pafio-nightly sibling repository
+      - name: Check out Pafio sibling repository
         uses: actions/checkout@v5
         with:
-          repository: Unka-Malloc/pafio-nightly
+          repository: SymPolicy/Pafio
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: pafio-nightly
           persist-credentials: false
@@ -58,7 +58,7 @@ jobs:
       - name: Check out Vityo sibling repository
         uses: actions/checkout@v5
         with:
-          repository: Unka-Malloc/vityo-nightly
+          repository: SymPolicy/Vityo
           ref: ${{ steps.lane.outputs.ecosystem_ref }}
           path: vityo-nightly
           persist-credentials: false
