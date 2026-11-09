@@ -218,6 +218,6 @@ open/read error handling. The public CLI regression covers both symlink cases.
 ### Privacy-canary sentinel fixtures (2026-11-08)
 
 The observable-runtime privacy canaries and their runtime-correlation
-assertions now use synthetic non-key sentinel values (`canary-secret-sentinel`)
+assertions now use synthetic non-key sentinel values (`canary-sentinel`)
 and the canary fixture field was renamed accordingly; the literals were only
 credential-shaped fixtures and no detection behaviour changed.

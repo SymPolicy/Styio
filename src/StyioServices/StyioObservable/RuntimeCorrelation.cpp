@@ -105,7 +105,7 @@ constexpr std::string_view kCompleteness[] = {
 };
 
 constexpr std::string_view kPrivacyCanaries[] = {
-  "canary-secret-sentinel",
+  "canary-sentinel",
   "/absolute/canary/path",
   "canary.example.host",
   "203.0.113.77",
